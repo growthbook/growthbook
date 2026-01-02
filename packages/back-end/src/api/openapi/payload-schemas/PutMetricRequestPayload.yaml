@@ -2,10 +2,11 @@ type: object
 properties:
   managedBy:
     type: string
-    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.
+    description: Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. Please note that we have deprecated support for setting the managedBy property to "admin". Your existing Legacy Metrics with this value will continue to work, but we suggest migrating to Fact Metrics instead.
     enum:
       - ""
       - api
+      - admin
   owner:
     type: string
     description: Name of the person who owns this metric
@@ -17,7 +18,7 @@ properties:
     description: Description of the metric
   type:
     type: string
-    description: Type of metric. See [Metrics documentation](/app/metrics)
+    description: Type of metric. See [Metrics documentation](/app/metrics/legacy)
     enum:
       - binomial
       - count
@@ -94,24 +95,37 @@ properties:
               - "conversion"
               - "lookback"
           delayHours:
+            deprecated: true
             type: number
-            description: Wait this many hours after experiment exposure before counting conversions
+            description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+          delayValue:
+            type: number
+            description: Wait this long after experiment exposure before counting conversions.
+          delayUnit:
+            type: string
+            description: Default `hours`.
+            enum:
+              - "minutes"
+              - "hours"
+              - "days"
+              - "weeks"
           windowValue:
             type: number
           windowUnit:
             type: string
             enum:
+              - "minutes"
               - "hours"
               - "days"
               - "weeks"
       conversionWindowStart:
         type: number
         deprecated: true
-        description: "The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
+        description: "The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
       conversionWindowEnd:
         type: number
         deprecated: true
-        description: "The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
+        description: "The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
       priorSettings:
         type: object
         description: Controls the bayesian prior for the metric. If omitted, organization defaults will be used.
@@ -154,6 +168,10 @@ properties:
       minSampleSize:
         type: number
         minimum: 0
+      targetMDE:
+        type: number
+        description: The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.
+        minimum: 0
   sql:
     type: object
     description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
@@ -169,7 +187,7 @@ properties:
         description: "Custom user level aggregation for your metric (default: `SUM(value)`)"
       denominatorMetricId:
         type: string
-        description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)"
+        description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)"
   sqlBuilder:
     type: object
     description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed"

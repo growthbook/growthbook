@@ -4,7 +4,7 @@ import {
   JSONSchemaDef,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useState } from "react";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
@@ -16,18 +16,21 @@ import {
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Checkbox from "@/ui/Checkbox";
 
 export interface Props {
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
+  defaultEnable?: boolean;
+  onEnable?: () => void;
 }
 
 // TODO: enable this when we have a GUI for entering feature values based on the schema
@@ -96,13 +99,13 @@ function EditSchemaField({
       />
       {inObject && (
         <div className="form-group">
-          <Toggle
+          <Checkbox
             id={`schema_required_${i}`}
             value={value.required}
             setValue={(v) => onChange({ ...value, required: v })}
-            type="toggle"
-          />{" "}
-          <label htmlFor={`schema_required_${i}`}>Required</label>
+            description="Check if this property is required"
+            label="Required"
+          />
         </div>
       )}
       {value.type !== "boolean" && (
@@ -419,7 +422,13 @@ function EditSimpleSchema({
   );
 }
 
-export default function EditSchemaModal({ feature, close, mutate }: Props) {
+export default function EditSchemaModal({
+  feature,
+  close,
+  mutate,
+  defaultEnable,
+  onEnable,
+}: Props) {
   const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
     ? feature.jsonSchema.simple
     : inferSimpleSchemaFromValue(feature.defaultValue);
@@ -437,13 +446,14 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
       schemaType: defaultSchemaType,
       simple: defaultSimpleSchema,
       schema: defaultJSONSchema,
-      enabled: feature.jsonSchema?.enabled ?? true,
+      enabled: defaultEnable ? true : (feature.jsonSchema?.enabled ?? true),
     },
   });
   const { apiCall } = useAuth();
 
   return (
     <Modal
+      trackingEventModalType=""
       header="Edit Feature Validation"
       cta="Save"
       size="lg"
@@ -468,14 +478,14 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
             }
           } catch (e) {
             throw new Error(
-              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
 
           if (schemaString !== value.schema) {
             form.setValue("schema", schemaString);
             throw new Error(
-              "We fixed some errors in the schema. If it looks correct, save again."
+              "We fixed some errors in the schema. If it looks correct, save again.",
             );
           }
         } else if (value.enabled && value.schemaType === "simple") {
@@ -487,7 +497,7 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
             ajv.compile(parsedSchema);
           } catch (e) {
             throw new Error(
-              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
         }
@@ -497,29 +507,19 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
           body: JSON.stringify(value),
         });
         mutate();
+        onEnable && value.enabled && onEnable();
       })}
       close={close}
       open={true}
     >
-      <div className="form-group d-flex align-items-top mb-4">
-        <Toggle
-          id={"schemaEnabled"}
-          value={form.watch("enabled")}
-          setValue={(v) => form.setValue("enabled", v)}
-        />{" "}
-        <div className="ml-3">
-          <label
-            htmlFor="schemaEnabled"
-            className="mb-0 font-weight-bold text-dark"
-          >
-            Enable Validation
-          </label>
-          <div>
-            These validation rules will only apply going forward. Existing
-            feature values will not be affected.
-          </div>
-        </div>
-      </div>
+      <Switch
+        id={"schemaEnabled"}
+        label="Enable Validation"
+        description="These validation rules will only apply going forward. Existing feature values will not be affected."
+        value={form.watch("enabled")}
+        onChange={(v) => form.setValue("enabled", v)}
+        mb="4"
+      />
       {form.watch("enabled") && (
         <>
           <div className="form-group">
@@ -549,11 +549,11 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
                     if (form.watch("schema") === "{}") {
                       try {
                         const schemaString = simpleToJSONSchema(
-                          form.watch("simple")
+                          form.watch("simple"),
                         );
                         form.setValue(
                           "schema",
-                          stringify(JSON.parse(schemaString))
+                          stringify(JSON.parse(schemaString)),
                         );
                       } catch (e) {
                         // Ignore errors, we just want to set the default value

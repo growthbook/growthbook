@@ -5,11 +5,11 @@ sidebar_label: Multiple Testing Corrections
 slug: multiple-corrections
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Multiple Testing Corrections
 
-:::note
-
-Multiple testing corrections are only implemented for the Frequentist statistics engine.
+:::info Multiple testing corrections are only implemented for the Frequentist statistics engine.
 
 :::
 
@@ -29,9 +29,9 @@ In plain English, the FDR is proportion of your significant results that are fal
 
 The FWER is the probability of at least one test being a false positive. This tends to be much stricter as the number of tests grows.
 
-We can write both as follows, where $V$ is the number of tests that are statistically significant but are false positives and $R$ are the number of tests that are statistically signficant.
+We can write both as follows, where $V$ is the number of tests that are statistically significant but are false positives and $R$ are the number of tests that are statistically significant.
 
-$$\text{False Discovery Rate} = \text{FDR} = \text{E}[\frac{V}{V+R}]$$
+$$\text{False Discovery Rate} = \text{FDR} = \text{E}[\frac{V}{R}]$$
 
 $$\text{Family-wise Error Rate} = \text{FWER} = \text{Pr}(V \geq 1)$$
 
@@ -45,15 +45,13 @@ Which you choose depends on your tolerance for false positives, the number of te
 
 You can set this for your organization in the Organization → Settings page, as seen below:
 
-<img
-  src="/images/statistics/pvals-adjustment-org.png"
-  alt="Org-level Multiple Testing Correction Settings"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Org-level Multiple Testing Correction Settings](/images/statistics/pvals-adjustment-org.png)
+</MaxWidthImage>
 
 Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI or in downloadable CSVs and not exportable via the API.
 
-:::tip
+:::tip Adjusted p-values do not have directly analogous confidence intervals
 
 The corrections we implement do not have directly analogous confidence intervals. Nonetheless, we do construct confidence intervals in an ad-hoc manner after adjusting p-values. We take the adjusted p-values and we back out what the experiment effect standard deviation would need to be to produce that adjusted p-value. We then construct CIs using this adjusted standard deviation. In this way, adjusted p-values below your p-value threshold should always coincide with confidence intervals that do not cross zero.
 
@@ -77,39 +75,24 @@ Therefore, in order to provide a reasonably powered approach that controls the F
 
 ### Defining a family of tests
 
-Controlling for multiple comparisons across all of the tests one can run in GrowthBook, even within the context of one experiment, is impractical and can be prohibitively costly in terms of statistical power. Instead, GrowthBook corrects across all metrics, variations, (and dimension values, if available) in a particular result view.
+Controlling for multiple comparisons across all of the tests one can run in GrowthBook, even within the context of one experiment, is impractical and can be prohibitively costly in terms of statistical power. Instead, GrowthBook corrects across all Goal metrics, variations, (and dimension values, if available) in a particular result view.
 
-:::tip
+:::tip Adjusted p-values are corrected using all Goal metrics
 
-We correct using all p-values that you can see on one experiment results page, _excluding guardrail metrics_
+We correct using all p-values for all **Goal** metrics; this excludes Secondary and Guardrail metrics.
 
 :::
 
 #### On overall results
 
-On the _experiment results overall page_, we collect all tests across non-guardrail metrics and variations to be part of a family, and correct within those values. The following image circles the p-values that we collect and adjust for on the overall results page for an experiment.
+On the _experiment results overall page_, we collect all tests across Goal metrics and variations to be part of a family, and correct within those values. The following image circles the p-values that we collect and adjust for on the overall results page for an experiment.
 
-<img
-  src="/images/statistics/pvals-adjusted.png"
-  alt="Demonstrating Correction in Results"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Demonstrating Correction in Results](/images/statistics/pvals-adjusted.png)
+</MaxWidthImage>
 
 #### Within dimensional slices
 
-If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we collect correct within the family of tests across all dimension groups, non-guardrail metrics, and variations. The following video scrolls through a corrected set of dimension results; the ones that are adjusted are the non-guardrail metrics, and we include all adjusted p-values in this video (across dimensions and metrics) in one family for correction.
+If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we define the family of tests as all tests across all dimension groups, Goal metrics, and variations. This means for a 2-armed test, with 4 goal metrics, and a dimension with 3 levels, we correct across a total of 24 tests.
 
-<div>
-<iframe
-    src="https://www.loom.com/embed/5b2c9583c60b449b8fa6e000e2b21c68?hide_owner=true&hide_share=true&hide_share=true&hideEmbedTopBar=true"
-    frameborder="0"
-    webkitallowfullscreen mozallowfullscreen allowfullscreen
-    style={{ width: 400, height: 597 }}
-/>
-</div>
-
-:::tip
-
-We never correct across overall _and_ dimension splits at the same time.
-
-:::
+These dimension results are corrected independently from the overall results.

@@ -1,0 +1,20 @@
+.tooltip {
+  pointer-events: none;
+  position: absolute;
+  z-index: 1100;
+}
+
+// Hacky solution to make sure corners are rounded
+.tooltip,
+.tooltip > div {
+  // NB: Cannot use var(--radius-4) because .tooltip is parent of the Radix variables
+  border-radius: 8px;
+}
+
+.tooltipContent {
+  color: var(--color-text-high);
+  background-color: var(--color-panel-solid);
+  box-shadow: var(--shadow-5);
+  border-radius: var(--radius-4);
+  padding: var(--space-4);
+}

@@ -3,16 +3,16 @@ import {
   PastExperimentParams,
   PastExperimentResponseRows,
   PastExperimentResult,
-} from "../types/Integration";
+} from "shared/types/integrations";
 import {
   PastExperiment,
   PastExperimentsInterface,
-} from "../../types/past-experiments";
-import { Queries, QueryStatus } from "../../types/query";
+} from "shared/types/past-experiments";
+import { Queries, QueryStatus } from "shared/types/query";
 import {
   getPastExperimentsById,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
+} from "back-end/src/models/PastExperimentsModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class PastExperimentsQueryRunner extends QueryRunner<
@@ -22,7 +22,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
 > {
   checkPermissions(): boolean {
     return this.context.permissions.canRunPastExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -115,54 +115,39 @@ export class PastExperimentsQueryRunner extends QueryRunner<
 
     // Round the weights
     const possibleWeights = [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      12,
-      15,
-      16,
-      20,
-      25,
-      30,
-      33,
-      40,
-      45,
-      50,
-      55,
-      60,
-      67,
-      70,
-      75,
-      80,
-      85,
-      90,
-      95,
-      96,
-      97,
-      98,
-      99,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 16, 20, 25, 30, 33, 40, 45, 50, 55,
+      60, 67, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99,
     ];
     experimentMap.forEach((exp) => {
       const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
       exp.weights = exp.weights.map((w) => {
         // Map the observed percentage traffic to the closest reasonable number
         const p = Math.round((w / totalWeight) * 100);
-        return possibleWeights
+        const closestWeight = possibleWeights
           .map((x) => [x, Math.abs(x - p)])
           .sort((a, b) => a[1] - b[1])[0][0];
+        // bias towards 50/50 if the weight is 45 or 55
+        if (closestWeight === 45) {
+          if (p <= 46) {
+            return 45;
+          } else {
+            return 50;
+          }
+        }
+        if (closestWeight === 55) {
+          if (p >= 54) {
+            return 55;
+          } else {
+            return 50;
+          }
+        }
+        return closestWeight;
       });
 
       // Make sure total weight adds to 1 (if not, increase the control until it does)
       const newTotalWeight = exp.weights.reduce(
         (sum, weight) => sum + weight,
-        0
+        0,
       );
       if (newTotalWeight < 100) {
         exp.weights[0] += 100 - newTotalWeight;
@@ -175,7 +160,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   async getLatestModel(): Promise<PastExperimentsInterface> {
     const model = await getPastExperimentsById(
       this.model.organization,
-      this.model.id
+      this.model.id,
     );
     if (!model) throw new Error("Could not find past experiments model");
     return model;
@@ -211,7 +196,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   private processPastExperimentQueryResponse(
     rows: PastExperimentResponseRows,
     merge: boolean,
-    from: Date
+    from: Date,
   ): PastExperimentResult {
     const fromBuffer = new Date(from);
     fromBuffer.setDate(fromBuffer.getDate() + 2);

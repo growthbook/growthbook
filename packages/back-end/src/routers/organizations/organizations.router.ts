@@ -1,6 +1,8 @@
 import express from "express";
-import { wrapController } from "../wrapController";
-import { IS_CLOUD } from "../../util/secrets";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { putDefaultRoleValidator } from "./organizations.validators";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
@@ -16,25 +18,25 @@ router.post("/organization", organizationsController.signup);
 router.put("/organization", organizationsController.putOrganization);
 router.post(
   "/organization/config/import",
-  organizationsController.postImportConfig
+  organizationsController.postImportConfig,
 );
 router.post(
   "/organization/autoApproveMembers",
-  organizationsController.postAutoApproveMembers
+  organizationsController.postAutoApproveMembers,
 );
 router.get("/organization/namespaces", organizationsController.getNamespaces);
 router.post("/organization/namespaces", organizationsController.postNamespaces);
 router.put(
   "/organization/namespaces/:name",
-  organizationsController.putNamespaces
+  organizationsController.putNamespaces,
 );
 router.delete(
   "/organization/namespaces/:name",
-  organizationsController.deleteNamespace
+  organizationsController.deleteNamespace,
 );
 router.post(
   "/organization/auto-groups-attribute",
-  organizationsController.autoAddGroupsAttribute
+  organizationsController.autoAddGroupsAttribute,
 );
 router.get("/invite/:key", organizationsController.getInviteInfo);
 router.post("/invite/accept", organizationsController.postInviteAccept);
@@ -48,16 +50,23 @@ router.delete("/member/:id", organizationsController.deleteMember);
 router.put("/member/:id/role", organizationsController.putMemberRole);
 router.put(
   "/member/:id/admin-password-reset",
-  organizationsController.putAdminResetUserPassword
+  organizationsController.putAdminResetUserPassword,
 );
 router.put("/organization/license", organizationsController.putLicenseKey);
 router.put(
   "/organization/default-role",
-  organizationsController.putDefaultRole
+  validateRequestMiddleware({
+    body: putDefaultRoleValidator,
+  }),
+  organizationsController.putDefaultRole,
 );
 router.put(
   "/organization/get-started-checklist",
-  organizationsController.putGetStartedChecklistItem
+  organizationsController.putGetStartedChecklistItem,
+);
+router.put(
+  "/organization/setup-event-tracker",
+  organizationsController.putSetupEventTracker,
 );
 
 // API keys
@@ -70,7 +79,7 @@ router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 router.get("/legacy-sdk-webhooks", organizationsController.getLegacyWebhooks);
 router.delete(
   "/legacy-sdk-webhooks/:id",
-  organizationsController.deleteLegacyWebhook
+  organizationsController.deleteLegacyWebhook,
 );
 
 // SDK Webhooks
@@ -84,11 +93,11 @@ if (!IS_CLOUD) {
   router.get("/orphaned-users", organizationsController.getOrphanedUsers);
   router.post(
     "/orphaned-users/:id/delete",
-    organizationsController.deleteOrphanedUser
+    organizationsController.deleteOrphanedUser,
   );
   router.post(
     "/orphaned-users/:id/add",
-    organizationsController.addOrphanedUser
+    organizationsController.addOrphanedUser,
   );
 }
 
@@ -100,5 +109,8 @@ router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
 // Standard Roles
 router.post("/role/:id/deactivate", organizationsController.deactivateRole);
 router.post("/role/:id/activate", organizationsController.activateRole);
+
+// Agreements:
+router.post("/agreements/agree", organizationsController.postAgreeToAgreement);
 
 export { router as organizationsRouter };

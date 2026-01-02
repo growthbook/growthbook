@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
+import { FaAngleRight, FaBars } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -10,12 +10,20 @@ import {
   PiListChecks,
   PiMoon,
   PiSunDim,
+  PiBuildingFill,
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
-import { DropdownMenu, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import router from "next/router";
-import clsx from "clsx";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -31,12 +39,10 @@ import Avatar from "@/components/Avatar/Avatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -44,22 +50,33 @@ const TopNav: FC<{
   toggleLeftMenu?: () => void;
   pageTitle: string;
   showNotices?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
+  showLogo?: boolean;
+}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  const [enableCelebrations, setEnableCelebrations] =
+    useCelebrationLocalStorage();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email } = useUser();
+  const { updateUser, name, email, organization } = useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+
+  // The current org might not be in the organizations list if the user is a superAdmin
+  // and selected the org from the /admin page. So we add it here.
+  if (
+    organizations &&
+    organization.id &&
+    organization.name &&
+    !organizations.some((org) => org.id === organization.id)
+  ) {
+    organizations.push({ id: organization.id, name: organization.name });
+  }
+
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -117,51 +134,53 @@ const TopNav: FC<{
   }
   const renderLogoutDropDown = () => {
     return (
-      <DropdownMenu.Item
+      <DropdownMenuItem
         key="sign-out"
-        onSelect={() => {
+        onClick={() => {
           logout();
         }}
       >
         Sign Out
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderEditProfileDropDown = () => {
     return (
-      <DropdownMenu.Item
+      <DropdownMenuItem
         key="edit-profile"
-        onSelect={() => {
+        onClick={() => {
+          setDropdownOpen(false);
           setEditUserOpen(true);
         }}
       >
         Edit Profile
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderNameAndEmailDropdownLabel = () => {
     return (
       <>
-        <DropdownMenu.Group style={{ marginBottom: 4 }}>
-          <DropdownMenu.Label style={{ height: "inherit" }}>
+        <DropdownMenuGroup style={{ marginBottom: 4 }}>
+          <DropdownMenuLabel style={{ height: "inherit" }}>
             {name && (
               <Text weight="bold" className="text-main">
                 {name}
               </Text>
             )}
-          </DropdownMenu.Label>
-          <DropdownMenu.Label style={{ height: "inherit" }}>
+          </DropdownMenuLabel>
+          <DropdownMenuLabel style={{ height: "inherit" }}>
             <Text className="text-secondary">{email}</Text>
-          </DropdownMenu.Label>
-        </DropdownMenu.Group>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
       </>
     );
   };
   const renderPersonalAccessTokensDropDown = () => {
     return (
-      <DropdownMenu.Item
-        className="dropdown-text-color"
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
@@ -169,14 +188,15 @@ const TopNav: FC<{
           <PiKey size="16" className="mr-1" />
           Personal Access Tokens
         </div>
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderMyReportsDropDown = () => {
     return (
-      <DropdownMenu.Item
-        className="dropdown-text-color"
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/reports");
         }}
       >
@@ -184,14 +204,15 @@ const TopNav: FC<{
           <PiFiles size="16" className="mr-1" />
           My Reports
         </div>
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
   const renderMyActivityFeedsDropDown = () => {
     return (
-      <DropdownMenu.Item
-        className="dropdown-text-color"
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/activity");
         }}
       >
@@ -199,138 +220,126 @@ const TopNav: FC<{
           <PiListChecks size="16" className="mr-1" />
           Activity Feed
         </div>
-      </DropdownMenu.Item>
+      </DropdownMenuItem>
     );
   };
 
   const renderThemeSubDropDown = () => {
     return (
-      <DropdownMenu.Sub>
-        <DropdownMenu.SubTrigger className="dropdown-text-color">
-          {activeIcon}
-        </DropdownMenu.SubTrigger>
-        <DropdownMenu.SubContent>
-          <DropdownMenu.Item
-            className="dropdown-text-color"
-            key="system"
-            onSelect={() => {
-              setTheme("system");
-            }}
-          >
-            <span>
-              <PiCircleHalf size="16" className="mr-1" />
-              System Default
-            </span>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className="dropdown-text-color"
-            key="light"
-            onSelect={() => {
-              setTheme("light");
-            }}
-          >
-            <span>
-              <PiSunDim size="16" className="mr-1" />
-              Light
-            </span>
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className="dropdown-text-color"
-            key="dark"
-            onSelect={() => {
-              setTheme("dark");
-            }}
-          >
-            <span>
-              <PiMoon size="16" className="mr-1" />
-              Dark
-            </span>
-          </DropdownMenu.Item>
-        </DropdownMenu.SubContent>
-      </DropdownMenu.Sub>
+      <DropdownSubMenu
+        trigger={activeIcon}
+        triggerClassName={styles.dropdownItemIconColor}
+      >
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="system"
+          onClick={() => {
+            setDropdownOpen(false);
+            setTheme("system");
+          }}
+        >
+          <span>
+            <PiCircleHalf size="16" className="mr-1" />
+            System Default
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="light"
+          onClick={() => {
+            setDropdownOpen(false);
+            setTheme("light");
+          }}
+        >
+          <span>
+            <PiSunDim size="16" className="mr-1" />
+            Light
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={styles.dropdownItemIconColor}
+          key="dark"
+          onClick={() => {
+            setDropdownOpen(false);
+            setTheme("dark");
+          }}
+        >
+          <span>
+            <PiMoon size="16" className="mr-1" />
+            Dark
+          </span>
+        </DropdownMenuItem>
+      </DropdownSubMenu>
     );
   };
   const renderOrganizationDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
-        <div className="top-nav-org-menu mr-2">
-          <FaBuilding className="text-muted mr-1" />
+        <Flex direction="row" align="center" gap="1" mr="2">
+          <PiBuildingFill className="text-muted" />
           <span className="d-none d-lg-inline">{orgName}</span>
-        </div>
+        </Flex>
       );
     }
 
     if (organizations && organizations.length > 1) {
       return (
-        <div className="dropdown top-nav-org-menu">
-          <div
-            className={`nav-link dropdown-toggle`}
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgDropdownOpen(!orgDropdownOpen);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <FaBuilding className="text-muted mr-1" />
-            <span className="d-none d-lg-inline">
-              <OverflowText maxWidth={200}>{orgName}</OverflowText>
-            </span>
-          </div>
-          <div
-            className={clsx("dropdown-menu dropdown-menu-right", {
-              show: orgDropdownOpen,
-            })}
-          >
-            <div className="dropdown-header">Organization</div>
-            {organizations.map((o) => (
-              <a
-                className={clsx("dropdown-item", {
-                  active: o.id === orgId,
-                })}
-                key={o.id}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (setOrgId) {
-                    setOrgId(o.id);
-                  }
+        <DropdownMenu
+          open={orgDropdownOpen}
+          onOpenChange={(open) => {
+            setOrgDropdownOpen(open);
+          }}
+          trigger={
+            <Flex direction="row" align="center" gap="1" mr="2">
+              <PiBuildingFill className="text-muted" />
+              <span className="d-none d-lg-inline">
+                <OverflowText maxWidth={200}>{orgName}</OverflowText>
+              </span>
+              <PiCaretDownFill />
+            </Flex>
+          }
+        >
+          <DropdownMenuLabel>Organization</DropdownMenuLabel>
+          {organizations.map((o) => (
+            <DropdownMenuItem
+              key={o.id}
+              onClick={() => {
+                if (setOrgId) {
+                  setOrgId(o.id);
 
                   try {
                     localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
                   } catch (e) {
-                    console.warn("Cannot set gb-last-picked-org");
+                    // eslint-disable-next-line no-console
+                    console.warn("Unable to save last org in localStorage");
                   }
+                }
 
-                  setOrgDropdownOpen(false);
-                }}
-              >
-                <span className="status"></span>
-                {o.name}
-              </a>
-            ))}
-            {!isCloud() &&
-              isMultiOrg() &&
-              (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-                <div className={styles["add-organization"]}>
-                  <hr />
-                  <div>
-                    <div>
-                      <PiPlusBold />
-                    </div>
-                    <Link
-                      href="/settings/organizations"
-                      className="dropdown-item"
-                      onClick={() => {
-                        setOrgDropdownOpen(false);
-                      }}
-                    >
-                      Add Organization
-                    </Link>
-                  </div>
-                </div>
-              )}
-          </div>
-        </div>
+                setOrgDropdownOpen(false);
+              }}
+            >
+              {o.name}
+            </DropdownMenuItem>
+          ))}
+          {!isCloud() &&
+            isMultiOrg() &&
+            (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOrgDropdownOpen(false);
+                    router.push("/settings/organizations");
+                  }}
+                >
+                  <Flex align="center" gap="1">
+                    <PiPlusBold />
+                    Add Organization
+                  </Flex>
+                </DropdownMenuItem>
+              </>
+            )}
+        </DropdownMenu>
       );
     }
   };
@@ -363,15 +372,14 @@ const TopNav: FC<{
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenu.Item
-          className="dropdown-item"
-          onSelect={(e) => {
-            e.preventDefault();
+        <DropdownMenuItem
+          onClick={() => {
+            setDropdownOpen(false);
             setChangePasswordOpen(true);
           }}
         >
           Change Password
-        </DropdownMenu.Item>
+        </DropdownMenuItem>
       );
     }
   };
@@ -379,27 +387,21 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook &gt; {pageTitle}</title>
+        <title>{pageTitle ? `${pageTitle} | GrowthBook` : "GrowthBook"}</title>
       </Head>
       {editUserOpen && (
         <Modal
+          trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
           header="Edit Profile"
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <label className="mr-3">
-            Allow Celebrations{" "}
-            <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
-            />
-          </label>
-          <Toggle
+          <Checkbox
             id="allowCelebration"
             label="Allow celebration"
+            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -429,7 +431,7 @@ const TopNav: FC<{
               <span className="sr-only">Open main menu</span>
               <FaBars />
             </a>
-          ) : (
+          ) : showLogo ? (
             <div>
               <img
                 alt="GrowthBook"
@@ -437,7 +439,7 @@ const TopNav: FC<{
                 style={{ height: 40 }}
               />
             </div>
-          )}
+          ) : null}
           {renderTitleOrBreadCrumb()}
           {showNotices && (
             <>
@@ -450,8 +452,13 @@ const TopNav: FC<{
             </>
           )}
           {renderOrganizationDropDown()}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
+          <DropdownMenu
+            variant="solid"
+            open={dropdownOpen}
+            onOpenChange={(o) => {
+              setDropdownOpen(!!o);
+            }}
+            trigger={
               <div className="nav-link d-flex">
                 <Avatar
                   email={email || ""}
@@ -463,24 +470,23 @@ const TopNav: FC<{
                   <OverflowText maxWidth={200}>
                     <Text weight={"bold"} style={{ fontSize: 14 }}>
                       {email}
-                    </Text>{" "}
-                    <PiCaretDownFill />
-                  </OverflowText>
+                    </Text>
+                  </OverflowText>{" "}
+                  <PiCaretDownFill />
                 </span>
               </div>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="start">
-              {renderNameAndEmailDropdownLabel()}
-              {renderEditProfileDropDown()}
-              {renderThemeSubDropDown()}
-              {renderMyActivityFeedsDropDown()}
-              {renderMyReportsDropDown()}
-              {renderPersonalAccessTokensDropDown()}
-              <DropdownMenu.Separator />
-              {renderChangePassword()}
-              {renderLogoutDropDown()}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+            }
+          >
+            {renderNameAndEmailDropdownLabel()}
+            {renderEditProfileDropDown()}
+            {renderThemeSubDropDown()}
+            {renderMyActivityFeedsDropDown()}
+            {renderMyReportsDropDown()}
+            {renderPersonalAccessTokensDropDown()}
+            <DropdownMenuSeparator />
+            {renderChangePassword()}
+            {renderLogoutDropDown()}
+          </DropdownMenu>
         </div>
       </div>
     </>

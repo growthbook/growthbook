@@ -1,8 +1,8 @@
 import request from "supertest";
-import { updateOrganization } from "../../src/models/OrganizationModel";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { setupApp } from "./api.setup";
 
-jest.mock("../../src/models/OrganizationModel", () => ({
+jest.mock("back-end/src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
 
@@ -205,7 +205,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -279,7 +279,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -321,7 +321,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -335,7 +335,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [toggleOnList] Expected boolean, received string",
+      message:
+        "Request body: [toggleOnList] Invalid input: expected boolean, received string",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
@@ -366,7 +367,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => false,
+        canUpdateEnvironment: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -414,7 +415,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -498,7 +499,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -541,7 +542,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -555,7 +556,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [id] Required",
+      message:
+        "Request body: [id] Invalid input: expected string, received undefined",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
@@ -586,7 +588,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => false,
+        canCreateEnvironment: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -636,7 +638,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 

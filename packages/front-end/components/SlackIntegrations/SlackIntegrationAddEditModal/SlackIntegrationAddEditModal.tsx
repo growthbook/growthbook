@@ -1,8 +1,8 @@
 import React, { FC, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
-import z from "zod";
-import { NotificationEventName } from "back-end/src/events/base-types";
-import { TagInterface } from "back-end/types/tag";
+import { z } from "zod";
+import { NotificationEventName } from "shared/types/events/base-types";
+import { TagInterface } from "shared/types/tag";
 import {
   eventWebHookEventOptions,
   notificationEventNames,
@@ -31,7 +31,9 @@ type SlackIntegrationAddEditModalProps = {
   error: string | null;
 };
 
-export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps> = ({
+export const SlackIntegrationAddEditModal: FC<
+  SlackIntegrationAddEditModalProps
+> = ({
   projects,
   environments,
   tagOptions,
@@ -100,6 +102,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
 
   return (
     <Modal
+      trackingEventModalType=""
       header={modalTitle}
       cta={buttonText}
       close={onClose}
@@ -231,7 +234,7 @@ export const SlackIntegrationAddEditModal: FC<SlackIntegrationAddEditModalProps>
             onChange={(selected: string[]) => {
               form.setValue(
                 "tags",
-                selected.map((item) => item)
+                selected.map((item) => item),
               );
               handleFormValidation();
             }}

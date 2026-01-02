@@ -37,7 +37,7 @@ async function sleep(ms: number) {
 function mockApi(
   data: FeatureApiResponse | null,
   supportSSE: boolean = false,
-  delay: number = 50
+  delay: number = 50,
 ) {
   // eslint-disable-next-line
   const f = jest.fn((url: string, resp: any) => {
@@ -67,7 +67,7 @@ function mockApi(
                     forcedVariations,
                     forcedFeatures: new Map(forcedFeaturesArray),
                     url: evalUrl,
-                  })
+                  }),
                 )
               : Promise.reject("Fetch error");
           },
@@ -95,7 +95,7 @@ async function seedLocalStorage(
   attributeBlob = `{"ca":{"uid":"5"},"fv":{},"url":""}`,
   feature: string = "foo",
   value: string = "localstorage",
-  staleAt: number = 50
+  staleAt: number = 50,
 ) {
   await clearCache();
   localStorage.setItem(
@@ -115,7 +115,7 @@ async function seedLocalStorage(
           sse,
         },
       ],
-    ])
+    ]),
   );
 }
 
@@ -448,11 +448,11 @@ describe("remote-eval", () => {
 
     // // Cache SSE value
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual(
-      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`
+      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`,
     );
     expect(lsValue[0][1].sse).toEqual(true);
 
@@ -508,8 +508,8 @@ describe("remote-eval", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     const staleAt = new Date(
       JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
+        localStorage.getItem(localStorageCacheKey) || "[]",
+      )[0][1].staleAt,
     ).getTime();
 
     // Wait for localStorage entry to expire again
@@ -520,8 +520,8 @@ describe("remote-eval", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("api");
     const newStaleAt = new Date(
       JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
+        localStorage.getItem(localStorageCacheKey) || "[]",
+      )[0][1].staleAt,
     ).getTime();
     expect(newStaleAt).toBeGreaterThan(staleAt);
 
@@ -534,11 +534,11 @@ describe("remote-eval", () => {
     expect(growthbook.evalFeature("foo").value).toEqual("new");
 
     const lsValue = JSON.parse(
-      localStorage.getItem(localStorageCacheKey) || "[]"
+      localStorage.getItem(localStorageCacheKey) || "[]",
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual(
-      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`
+      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`,
     );
     expect(lsValue[0][1].version).toEqual(data.dateUpdated);
     expect(lsValue[0][1].data.features).toEqual({
@@ -574,10 +574,10 @@ describe("remote-eval", () => {
     await Promise.all([growthbook1.loadFeatures(), growthbook2.loadFeatures()]);
 
     const call1 = f.mock.calls.find((c) =>
-      c[0].match(/^https:\/\/fakeapi1\.sample\.io\.*/)
+      c[0].match(/^https:\/\/fakeapi1\.sample\.io\.*/),
     );
     const call2 = f.mock.calls.find((c) =>
-      c[0].match(/^https:\/\/fakeapi2\.sample\.io\.*/)
+      c[0].match(/^https:\/\/fakeapi2\.sample\.io\.*/),
     );
     const headers1 = call1?.[1]?.headers || {};
     const headers2 = call2?.[1]?.headers || {};
@@ -602,14 +602,14 @@ describe("remote-eval", () => {
           `${host}/api/features/${clientKey}`,
           {
             headers: { "x-other-property": "bar" },
-          }
+          },
         );
       };
 
     await growthbook3.loadFeatures();
 
     const call3 = f.mock.calls.find((c) =>
-      c[0].match(/^https:\/\/fakeapi3\.sample\.io\.*/)
+      c[0].match(/^https:\/\/fakeapi3\.sample\.io\.*/),
     );
     const headers3 = call3?.[1]?.headers || {};
     expect(headers3["x-custom-header"]).toEqual(undefined);

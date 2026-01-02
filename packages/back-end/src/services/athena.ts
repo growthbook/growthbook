@@ -1,9 +1,13 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
-import { Athena, ResultSet } from "@aws-sdk/client-athena";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
-import { ExternalIdCallback, QueryResponse } from "../types/Integration";
+import {
+  Athena,
+  ResultSet,
+  StartQueryExecutionCommandInput,
+} from "@aws-sdk/client-athena";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 async function assumeRole(params: AthenaConnectionParams) {
   // build sts client
@@ -53,7 +57,7 @@ async function getAthenaInstance(params: AthenaConnectionParams) {
 
 export async function cancelAthenaQuery(
   conn: AthenaConnectionParams,
-  id: string
+  id: string,
 ) {
   const athena = await getAthenaInstance(conn);
   await athena.stopQueryExecution({
@@ -64,8 +68,17 @@ export async function cancelAthenaQuery(
 export async function runAthenaQuery(
   conn: AthenaConnectionParams,
   sql: string,
-  setExternalId: ExternalIdCallback
+  setExternalId: ExternalIdCallback,
 ): Promise<QueryResponse> {
+  // AWS Athena has a hard limit of 262,144 characters for the QueryString parameter
+  // Fail early to avoid CPU and memory issues on the server
+  const MAX_QUERY_LENGTH = 262144;
+  if (sql.length > MAX_QUERY_LENGTH) {
+    throw new Error(
+      `Query string length (${sql.length} characters) exceeds Athena's maximum allowed length of ${MAX_QUERY_LENGTH} characters. Please simplify your query.`,
+    );
+  }
+
   const athena = await getAthenaInstance(conn);
 
   const { database, bucketUri, workGroup, catalog } = conn;
@@ -73,7 +86,7 @@ export async function runAthenaQuery(
   const retryWaitTime =
     (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
-  const { QueryExecutionId } = await athena.startQueryExecution({
+  const startQueryExecutionArgs: StartQueryExecutionCommandInput = {
     QueryString: sql,
     QueryExecutionContext: {
       Database: database || undefined,
@@ -86,7 +99,25 @@ export async function runAthenaQuery(
       OutputLocation: bucketUri,
     },
     WorkGroup: workGroup || "primary",
-  });
+  };
+
+  const resultReuseMaxAgeInMinutes = conn.resultReuseMaxAgeInMinutes
+    ? parseInt(conn.resultReuseMaxAgeInMinutes)
+    : undefined;
+
+  // Skipped when parsed setting is 0, NaN, or not present
+  if (resultReuseMaxAgeInMinutes) {
+    startQueryExecutionArgs.ResultReuseConfiguration = {
+      ResultReuseByAgeConfiguration: {
+        Enabled: true,
+        MaxAgeInMinutes: resultReuseMaxAgeInMinutes,
+      },
+    };
+  }
+
+  const { QueryExecutionId } = await athena.startQueryExecution(
+    startQueryExecutionArgs,
+  );
 
   if (!QueryExecutionId) {
     throw new Error("Failed to start query");
@@ -112,7 +143,7 @@ export async function runAthenaQuery(
                 logger.debug(
                   `Athena query (${QueryExecutionId}) recovered from SlowDown error in ${
                     timeWaitingForFailure + delay
-                  }ms`
+                  }ms`,
                 );
               }
               timeWaitingForFailure = 0;
@@ -123,7 +154,7 @@ export async function runAthenaQuery(
               if (StateChangeReason?.includes("SlowDown")) {
                 if (timeWaitingForFailure === 0) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`,
                   );
                 }
 
@@ -131,7 +162,7 @@ export async function runAthenaQuery(
 
                 if (timeWaitingForFailure >= retryWaitTime) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
                   reject(new Error(StateChangeReason));
                 } else {

@@ -4,3 +4,12 @@ public
 coverage
 *.py
 packages/shared/src/sdk-versioning/CAPABILITIES.md
+docs/src/partials
+docs/.docusaurus
+docs/build
+dist
+*.hbs
+packages/back-end/src/templates/javascript.js
+# Auto-generated files
+packages/shared/src/validators/openapi.ts
+packages/shared/types/openapi.d.ts

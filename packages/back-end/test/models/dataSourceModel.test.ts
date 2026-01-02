@@ -1,27 +1,25 @@
-import { Permissions } from "shared/permissions";
+import { Permissions, roleToPermissionMap } from "shared/permissions";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "shared/types/datasource";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
-} from "../../src/models/DataSourceModel";
-import {
-  DataSourceInterface,
-  DataSourceSettings,
-} from "../../types/datasource";
-import { testQueryValidity } from "../../src/services/datasource";
-import { usingFileConfig } from "../../src/init/config";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
-import { roleToPermissionMap } from "../../src/util/organization.util";
+} from "back-end/src/models/DataSourceModel";
+import { testQueryValidity } from "back-end/src/services/datasource";
+import { usingFileConfig } from "back-end/src/init/config";
+import { ReqContext } from "back-end/types/request";
 
-jest.mock("../../src/services/datasource");
-jest.mock("../../src/init/config");
+jest.mock("back-end/src/services/datasource");
+jest.mock("back-end/src/init/config");
 
-const mockedTestQueryValidity: jest.MockedFunction<
-  typeof testQueryValidity
-> = testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
-const mockedUsingFileConfig: jest.MockedFunction<
-  typeof usingFileConfig
-> = usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
+const mockedTestQueryValidity: jest.MockedFunction<typeof testQueryValidity> =
+  testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
+const mockedUsingFileConfig: jest.MockedFunction<typeof usingFileConfig> =
+  usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
 
 describe("dataSourceModel", () => {
   const datasource: DataSourceInterface = {
@@ -71,19 +69,16 @@ describe("dataSourceModel", () => {
   // We just need a few properties of the context for these tests
   const partialContext: Pick<ReqContext, "permissions" | "org"> = {
     org,
-    permissions: new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", org),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    permissions: new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", org),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    ),
+      projects: {},
+    }),
   };
-  const context = (partialContext as unknown) as ReqContext;
+  const context = partialContext as unknown as ReqContext;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -128,9 +123,9 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
-      console.log("new updates", new_updates);
+
       expect(mockedTestQueryValidity).toHaveBeenCalled();
       expect(new_updates).toEqual({
         queries: {
@@ -165,7 +160,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -194,7 +189,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -223,7 +218,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -253,7 +248,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -282,7 +277,7 @@ describe("dataSourceModel", () => {
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         context,
         datasource,
-        updates
+        updates,
       );
       expect(testQueryValidity).not.toHaveBeenCalled();
       const expected = updates;
@@ -312,7 +307,7 @@ describe("dataSourceModel", () => {
         context,
         datasource,
         updates,
-        true
+        true,
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -331,7 +326,7 @@ describe("dataSourceModel", () => {
       };
       await expect(
         //TODO: Create a helper function to create a mock datasource if we need to do this again
-        updateDataSource(context, datasource, updates)
+        updateDataSource(context, datasource, updates),
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
   });

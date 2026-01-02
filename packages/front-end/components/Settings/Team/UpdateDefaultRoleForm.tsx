@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import Button from "@/components/Button";
-import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
+import { GroupedValue } from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import RoleSelector from "./RoleSelector";
 
 export default function UpdateDefaultRoleForm() {
+  const [isDirty, setIsDirty] = useState(false);
   const { refreshOrganization, organization, roles } = useUser();
   const [defaultRoleError, setDefaultRoleError] = useState<string | null>(null);
   const deactivatedRoles = organization.deactivatedRoles || [];
@@ -42,12 +44,9 @@ export default function UpdateDefaultRoleForm() {
 
   const form = useForm({
     defaultValues: {
-      defaultRole: getDefaultRole(organization).role,
+      defaultRole: getDefaultRole(organization),
     },
   });
-
-  const disableSaveButton =
-    form.watch("defaultRole") === getDefaultRole(organization).role;
 
   const saveSettings = form.handleSubmit(async (data) => {
     setDefaultRoleError(null);
@@ -63,45 +62,27 @@ export default function UpdateDefaultRoleForm() {
     } catch (e) {
       setDefaultRoleError(e.message);
     }
+    setIsDirty(false);
   });
 
-  const formatGroupLabel = (data) => {
-    // if we don't have both Standard & Custom options, don't return anything
-    if (groupedOptions.length < 2) {
-      return;
-    }
-
-    return (
-      <div className={data.label === "Custom" ? "border-top my-1" : ""}></div>
-    );
-  };
-
   return (
-    <div className="bg-white p-3 border mt-5 mb-5">
+    <div className="appbox p-3 border mt-5 mb-5">
       <div className="row">
         <div className="col-sm-3">
-          <h4>Team Settings</h4>
+          <h3>Team Settings</h3>
         </div>
         <div className="col-sm-9">
-          <SelectField
-            label={"Default User Role"}
-            helpText="This is the default role that will be assigned to new users if you have auto-join or SCIM enabled. This will not affect any existing users."
+          <h4>Default User Role</h4>
+          <p>
+            This is the default role that will be assigned to new users if you
+            have auto-join or SCIM enabled. This will not affect any existing
+            users.
+          </p>
+          <RoleSelector
             value={form.watch("defaultRole")}
-            onChange={async (role: string) => {
-              form.setValue("defaultRole", role);
-            }}
-            options={groupedOptions}
-            sort={false}
-            formatGroupLabel={formatGroupLabel}
-            formatOptionLabel={(value) => {
-              const r = roles.find((r) => r.id === value.label);
-              if (!r) return <strong>{value.label}</strong>;
-              return (
-                <div>
-                  <strong className="pr-2">{r.id}.</strong>
-                  {r.description}
-                </div>
-              );
+            setValue={(value) => {
+              setIsDirty(true);
+              form.setValue("defaultRole", value);
             }}
           />
           {defaultRoleError ? (
@@ -109,12 +90,12 @@ export default function UpdateDefaultRoleForm() {
               <small className="text-danger">{defaultRoleError}</small>
             </div>
           ) : null}
-          <div className="d-flex justify-content-end">
+          <div className="d-flex justify-content-end pt-3">
             <Button
               color={"primary"}
-              disabled={disableSaveButton}
+              disabled={!isDirty}
               onClick={async () => {
-                if (disableSaveButton) return;
+                if (!isDirty) return;
                 await saveSettings();
               }}
             >

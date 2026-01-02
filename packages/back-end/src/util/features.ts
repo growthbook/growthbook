@@ -2,34 +2,42 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
-import { includeExperimentInPayload, isDefined } from "shared/util";
+import {
+  includeExperimentInPayload,
+  isDefined,
+  recursiveWalk,
+} from "shared/util";
+import { GroupMap } from "shared/types/groups";
+import { cloneDeep, isNil } from "lodash";
+import md5 from "md5";
+import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { HoldoutInterface } from "shared/validators";
+import { expandNestedSavedGroups } from "shared/sdk-versioning";
 import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
   SavedGroupTargeting,
-} from "../../types/feature";
-import { FeatureDefinitionWithProject } from "../../types/api";
-import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ExperimentInterface } from "../../types/experiment";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+} from "shared/types/feature";
+import { ExperimentInterface } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-// eslint-disable-next-line
-type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
-
 function getSavedGroupCondition(
-  group: GroupMapValue,
+  groupId: string,
   groupMap: GroupMap,
-  include: boolean
+  include: boolean,
 ): null | ConditionInterface {
-  if (group.type === "condition") {
+  const group = groupMap.get(groupId);
+  if (!group) return null;
+  if (group.type === "condition" && group.condition) {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
-      );
+      const cond = JSON.parse(group.condition);
       return include ? cond : { $not: cond };
     } catch (e) {
       return null;
@@ -39,21 +47,19 @@ function getSavedGroupCondition(
   if (!group.attributeKey) return null;
 
   return {
-    [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
+    [group.attributeKey]: { [include ? "$inGroup" : "$notInGroup"]: groupId },
   };
 }
 
 export function getParsedCondition(
   groupMap: GroupMap,
   condition?: string,
-  savedGroups?: SavedGroupTargeting[]
+  savedGroups?: SavedGroupTargeting[],
 ) {
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(condition, groupMap)
-      );
+      const cond = JSON.parse(condition);
       if (cond) conditions.push(cond);
     } catch (e) {
       // ignore condition parse errors here
@@ -62,32 +68,34 @@ export function getParsedCondition(
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
-      const groups = ids
-        .map((id) => groupMap.get(id))
-        // Must either have at least 1 value or be a non-empty condition
-        .filter((group) => {
-          if (!group) return false;
-          if (group.type === "condition") {
-            if (!group.condition || group.condition === "{}") return false;
-          } else {
-            if (!group.values?.length) return false;
-          }
-          return true;
-        }) as GroupMapValue[];
-      if (!groups.length) return;
+      const groupIds = ids.filter((id) => {
+        const group = groupMap.get(id);
+        if (!group) return false;
+        if (group.type === "condition") {
+          // Condition groups must be non-empty
+          if (!group.condition || group.condition === "{}") return false;
+        } else {
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !group.values?.length) return false;
+          // List groups must have defined values
+          if (typeof group.values === "undefined") return false;
+        }
+        return true;
+      });
+      if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) ors.push(cond);
         });
 
@@ -102,8 +110,8 @@ export function getParsedCondition(
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, false);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, false);
           if (cond) conditions.push(cond);
         });
       }
@@ -112,6 +120,12 @@ export function getParsedCondition(
 
   // No conditions
   if (!conditions.length) return undefined;
+
+  // Expand nested saved groups in conditions
+  conditions.forEach((cond) => {
+    recursiveWalk(cond, expandNestedSavedGroups(groupMap));
+  });
+
   // Exactly one condition, return it
   if (conditions.length === 1) {
     return conditions[0];
@@ -122,29 +136,17 @@ export function getParsedCondition(
   };
 }
 
-export function replaceSavedGroupsInCondition(
-  condition: string,
-  groupMap: GroupMap
-) {
-  const newString = condition.replace(
-    // Ex: replace { $inGroup: "sdf8sd9f87s0dfs09d8" } with { $in: ["123, 345, 678, 910"]}
-    /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
-    (match: string, operator: string, groupId: string) => {
-      const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: (string | number)[] = groupMap.get(groupId)?.values ?? [];
-      return `"${newOperator}": ${JSON.stringify(ids)}`;
-    }
-  );
-
-  return newString;
-}
-
-export function isRuleEnabled(rule: FeatureRule): boolean {
+export function isRuleEnabled(
+  rule: FeatureRule,
+  date?: Date | number,
+): boolean {
   // Manually disabled
   if (!rule.enabled) return false;
 
   // Disabled because of an automatic schedule
-  if (!getCurrentEnabledState(rule.scheduleRules || [], new Date())) {
+  // when used in filter/some array loops, the second parameter will be the index, which is not a date.
+  const enabledDate = date instanceof Date ? date : new Date();
+  if (!getCurrentEnabledState(rule.scheduleRules || [], enabledDate)) {
     return false;
   }
 
@@ -161,7 +163,7 @@ export function isRuleEnabled(rule: FeatureRule): boolean {
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
   allowedEnvs: string[],
-  ruleFilter?: (rule: FeatureRule) => boolean | unknown
+  ruleFilter?: (rule: FeatureRule) => boolean | unknown,
 ): Set<string> {
   if (!Array.isArray(features)) features = [features];
 
@@ -176,7 +178,7 @@ export function getEnabledEnvironments(
         if (!ruleFilter) return true;
         const env = settings[e];
         if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some(isRuleEnabled);
+        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -186,7 +188,7 @@ export function getEnabledEnvironments(
 
 export function getSDKPayloadKeys(
   environments: Set<string>,
-  projects: Set<string>
+  projects: Set<string>,
 ) {
   const keys: SDKPayloadKey[] = [];
 
@@ -205,7 +207,7 @@ export function getSDKPayloadKeys(
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
-  allowedEnvs: string[]
+  allowedEnvs: string[],
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
@@ -221,16 +223,17 @@ export function getSDKPayloadKeysByDiff(
     "project",
     "valueType",
     "nextScheduledUpdate",
+    "holdout",
   ];
 
   if (
     allEnvKeys.some(
-      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null)
+      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null),
     )
   ) {
     getEnabledEnvironments(
       [originalFeature, updatedFeature],
-      allowedEnvs
+      allowedEnvs,
     ).forEach((e) => environments.add(e));
   }
 
@@ -264,7 +267,7 @@ export function getSDKPayloadKeysByDiff(
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
-  ruleFilter?: (rule: FeatureRule) => boolean | unknown
+  ruleFilter?: (rule: FeatureRule) => boolean | unknown,
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
@@ -272,7 +275,7 @@ export function getAffectedSDKPayloadKeys(
     const environments = getEnabledEnvironments(
       feature,
       allowedEnvs,
-      ruleFilter
+      ruleFilter,
     );
     const projects = new Set(["", feature.project || ""]);
     keys.push(...getSDKPayloadKeys(environments, projects));
@@ -308,20 +311,31 @@ export function roundVariationWeight(num: number): number {
   return Math.round(num * 10000) / 10000;
 }
 
+export function getHoldoutFeatureDefId(holdoutId: string) {
+  return `$holdout:${holdoutId}`;
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
   groupMap,
   experimentMap,
   revision,
-  returnRuleId = false,
+  date,
+  safeRolloutMap,
+  holdoutsMap,
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
-  returnRuleId?: boolean;
+  date?: Date;
+  safeRolloutMap: Map<string, SafeRolloutInterface>;
+  holdoutsMap?: Map<
+    string,
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -331,12 +345,35 @@ export function getFeatureDefinition({
   }
 
   const defaultValue = revision
-    ? revision.defaultValue ?? feature.defaultValue
+    ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
   const rules = revision
-    ? revision.rules?.[environment] ?? settings.rules
+    ? (revision.rules?.[environment] ?? settings.rules)
     : settings.rules;
+
+  // If the feature has a holdout and it's enabled for the environment, add holdout as a
+  // pseudo force rule with a prerequisite condition. The environment being enabled is
+  // already checked in the getAllPayloadHoldouts function.
+  const holdoutRule: FeatureDefinitionRule[] =
+    feature.holdout &&
+    holdoutsMap &&
+    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
+      environment
+    ]?.enabled
+      ? [
+          {
+            id: `holdout_${md5(feature.id + feature.holdout.id)}`,
+            parentConditions: [
+              {
+                id: getHoldoutFeatureDefId(feature.holdout.id),
+                condition: { value: "holdoutcontrol" },
+              },
+            ],
+            force: getJSONValue(feature.valueType, feature.holdout.value),
+          },
+        ]
+      : [];
 
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])
@@ -356,15 +393,20 @@ export function getFeatureDefinition({
     .filter(isDefined);
 
   const isRule = (
-    rule: FeatureDefinitionRule | null
+    rule: FeatureDefinitionRule | null,
   ): rule is FeatureDefinitionRule => !!rule;
 
   const defRules = [
+    ...holdoutRule,
     ...prerequisiteRules,
     ...(rules
-      ?.filter(isRuleEnabled)
+      ?.filter((r) => {
+        return isRuleEnabled(r, date);
+      })
       ?.map((r) => {
-        const rule: FeatureDefinitionRule = {};
+        const rule: FeatureDefinitionRule = {
+          id: r.id,
+        };
 
         // Experiment reference rules inherit everything from the experiment
         if (r.type === "experiment-ref") {
@@ -383,10 +425,26 @@ export function getFeatureDefinition({
           const condition = getParsedCondition(
             groupMap,
             phase.condition,
-            phase.savedGroups
+            phase.savedGroups,
           );
           if (condition) {
             rule.condition = condition;
+          }
+
+          if (phase?.prerequisites?.length) {
+            rule.parentConditions = phase.prerequisites
+              .map((prerequisite) => {
+                try {
+                  return {
+                    id: prerequisite.id,
+                    condition: JSON.parse(prerequisite.condition),
+                  };
+                } catch (e) {
+                  // do nothing
+                }
+                return null;
+              })
+              .filter(Boolean) as ParentConditionInterface[];
           }
 
           rule.coverage = phase.coverage;
@@ -428,7 +486,7 @@ export function getFeatureDefinition({
           // Stopped experiment
           if (exp.status === "stopped") {
             const variation = r.variations.find(
-              (v) => v.variationId === exp.releasedVariationId
+              (v) => v.variationId === exp.releasedVariationId,
             );
             if (!variation) return null;
 
@@ -439,7 +497,7 @@ export function getFeatureDefinition({
           else {
             rule.variations = exp.variations.map((v) => {
               const variation = r.variations.find(
-                (ruleVariation) => v.id === ruleVariation.variationId
+                (ruleVariation) => v.id === ruleVariation.variationId,
               );
               return variation
                 ? getJSONValue(feature.valueType, variation.value)
@@ -454,14 +512,13 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             rule.name = exp.name;
           }
-          if (returnRuleId) rule.id = r.id;
           return rule;
         }
 
         const condition = getParsedCondition(
           groupMap,
           r.condition,
-          r.savedGroups
+          r.savedGroups,
         );
         if (condition) {
           rule.condition = condition;
@@ -485,7 +542,7 @@ export function getFeatureDefinition({
           rule.force = getJSONValue(feature.valueType, r.value);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
-            getJSONValue(feature.valueType, v.value)
+            getJSONValue(feature.valueType, v.value),
           );
 
           rule.coverage = r.coverage;
@@ -534,8 +591,58 @@ export function getFeatureDefinition({
           if (r.hashAttribute) {
             rule.hashAttribute = r.hashAttribute;
           }
+          if (r.seed) {
+            rule.seed = r.seed;
+          }
+        } else if (r.type === "safe-rollout") {
+          const safeRollout = safeRolloutMap.get(r.safeRolloutId);
+
+          if (r.status === "released") {
+            const variationValue = r.variationValue;
+            if (isNil(variationValue)) return null;
+
+            // If a variation has been rolled out to 100%
+            rule.force = getJSONValue(feature.valueType, variationValue);
+          } else if (r.status === "rolled-back") {
+            const controlValue = r.controlValue;
+            if (isNil(controlValue)) return null;
+
+            // Return control value if rolled back. Feature default value might not be the same as the control value.
+            rule.force = getJSONValue(feature.valueType, controlValue);
+          } else {
+            if (
+              safeRollout?.rampUpSchedule.rampUpCompleted ||
+              !safeRollout?.rampUpSchedule.enabled
+            ) {
+              rule.coverage = 1; // Always 100% right now
+            } else {
+              rule.coverage =
+                safeRollout?.rampUpSchedule?.steps[
+                  safeRollout?.rampUpSchedule.step
+                ]?.percent ?? 1;
+            }
+
+            rule.hashAttribute = r.hashAttribute;
+
+            rule.seed = r.seed;
+
+            rule.hashVersion = 2;
+
+            rule.variations = [
+              getJSONValue(feature.valueType, r.controlValue),
+              getJSONValue(feature.valueType, r.variationValue),
+            ];
+            const varWeights = 0.5;
+            rule.weights = [varWeights, varWeights];
+            rule.key = r.trackingKey;
+            rule.meta = [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Variation" },
+            ];
+            rule.phase = "0";
+            rule.name = `${feature.id} - Safe Rollout`;
+          }
         }
-        if (returnRuleId) rule.id = r.id;
         return rule;
       })
       ?.filter(isRule) ?? []),
@@ -551,4 +658,29 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+// Populates the values of `environmentRecord` for environment keys which are undefined in the record
+// and have a parent (base) environment to inherit from which is defined.
+export function applyEnvironmentInheritance<T>(
+  environments: Environment[],
+  environmentRecord: Record<string, T>,
+): Record<string, T> {
+  const environmentParents = Object.fromEntries(
+    environments.filter((env) => env.parent).map((env) => [env.id, env.parent]),
+  );
+  const mutableClone = cloneDeep(environmentRecord);
+  Object.keys(environmentParents).forEach((env) => {
+    if (mutableClone[env]) return;
+    // If no definition for the environment exists, recursively inherit from the parent environments
+    let baseEnv = environmentParents[env];
+    while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
+      baseEnv = environmentParents[baseEnv];
+    }
+    // If a valid parent was found, copy its value in the record
+    if (baseEnv) {
+      mutableClone[env] = cloneDeep(mutableClone[baseEnv]);
+    }
+  });
+  return mutableClone;
 }

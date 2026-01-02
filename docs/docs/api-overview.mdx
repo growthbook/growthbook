@@ -5,11 +5,9 @@ sidebar_label: API
 slug: /app/api
 ---
 
-import Pill from '@site/src/components/Pill';
+# API
 
-# API <Pill>beta</Pill>
-
-GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+GrowthBook offers a full REST API for interacting with the application.
 
 [View REST API Docs](/api/)
 
@@ -19,7 +17,7 @@ In addition to the REST API above, there is one additional readonly endpoint - t
 
 The SDK Connection Endpoint provides readonly access to a subset of your feature flag data, just enough for the [GrowthBook SDKs](/lib) to assign values to users. They are meant to be public and do not require authentication to view.
 
-In **GrowthBook Cloud**, the SDK Connection Endpoints are served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you can run the [GrowthBook Proxy server](/self-host/proxy), which provides built-in caching and performance optimizations.
+In **GrowthBook Cloud**, the SDK Connection Endpoints are served from our global CDN: `https://cdn.growthbook.io/api/features/...`. If you are self-hosting, you can use [your own CDN](/self-host/cdn) or run the [GrowthBook Proxy server](/self-host/proxy), which provides built-in caching and performance optimizations.
 
 SDK Connection Endpoints are scoped to a single Environment (e.g. `dev` or `production`) and can also be scoped to a single Project. Manage all of your SDK Connections on the **Features → SDKs** page.
 

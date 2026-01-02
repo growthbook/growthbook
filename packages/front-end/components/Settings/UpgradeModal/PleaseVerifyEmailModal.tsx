@@ -61,6 +61,7 @@ export default function PleaseVerifyEmailModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       cta="Close"
       includeCloseCta={false}

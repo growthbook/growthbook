@@ -1,0 +1,30 @@
+---
+title: Google BigQuery (BQ) Troubleshooting
+description: Troubleshooting Google BigQuery (BQ)
+sidebar_label: BigQuery Troubleshooting
+slug: google-big-query-bq-troubleshooting
+---
+
+# GrowthBook and Google BigQuery (BQ)
+
+Google BigQuery (BQ) is a popular data warehouse chosen by GrowthBook users because it is designed to work seamlessly with Google Analytics (GA4), and GA4 is a popular Data Source for GrowthBook integrations. This article helps troubleshoot common issues encountered when configuring BigQuery with GrowthBook and can be used in combination with our guides on [Configuring GrowthBook to Work with BigQuery](/guide/bigquery) and [A/B Testing with Google Analytics 4 (GA4) and GrowthBook](/guide/GA4-google-analytics).
+
+Please watch the [How GrowthBook Works with Your Data](https://youtu.be/hboLeUbpdus) (4 minutes) overview video to better understand the issues and solutions in this troubleshooting guide.
+
+## Why do I not see any experiment data in BigQuery?
+
+The most common issue reported by GrowthBook users in relation to BigQuery is not seeing any data being pulled into BigQuery from GA4.
+
+### Initial sync delay for new GA4 properties
+
+When you first link your GA4 property to BigQuery, there is typically a 24–48 hour delay before the first daily export starts showing up in your BigQuery dataset. This is a one-time setup delay imposed by Google, not GrowthBook, and is expected behavior.
+
+If 48 hours have passed since a new experiment was started and there is still no experiment data in BigQuery, you'll need to ensure the connection between GA4 and BigQuery was configured properly.
+
+Notably, GrowthBook does not send experiment data directly to BigQuery. GrowthBook first sends the experiment data to your Data Source (usually GA4 if you're using BigQuery) via the `trackingCallback`, and from there the data is synced to BigQuery from GA4 every 24 hours (see below).
+
+## Why is recent experiment data not yet available in BigQuery?
+
+The standard (free) tier of GA4 sends a daily export to BigQuery for the previous day's data. This means that there's always about a 24-hour delay between when data is collected in GA4 and when it becomes available in BigQuery.
+
+GA4 offers a streaming export option that sends event data to BigQuery within minutes, rather than once per day, but this is only available for GA4 properties on Google Analytics 360 which is the paid Enterprise version.

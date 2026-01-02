@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
@@ -78,8 +78,7 @@ export default function ImportSettings({
             service.
           </p>
           <Link href="/importing" className="btn btn-primary">
-            <FaUpload />
-            Import from another service
+            <FaUpload className="mr-1" /> Import from another service
           </Link>
         </div>
       )}

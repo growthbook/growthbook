@@ -2,7 +2,7 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import clsx from "clsx";
+import { Box, Separator } from "@radix-ui/themes";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -13,7 +13,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -39,14 +38,10 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     return <div className="alert alert-danger">{error.message}</div>;
   }
 
-  const manualChecks = organization.getStartedChecklistItems;
-  const environmentsReviewed = manualChecks?.includes("environments");
-  const attributesSet = manualChecks?.includes("attributes");
-
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   // Ignore the demo datasource
@@ -55,7 +50,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     : features.some((f) => f.project !== demoProjectId);
 
   return (
-    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
+    <div className="container pagecontents p-4">
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
@@ -65,8 +60,8 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">Create Feature Flags</h1>
@@ -119,122 +114,15 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Integrate the GrowthBook SDK into your app",
-                      source: "features",
+                      source: "featureFlagGuide",
                       stepKey: "sdk",
                     })
                   }
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
-                <p className="mt-2">
-                  Allow GrowthBook to communicate with your app.
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {environmentsReviewed ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="mt-1"
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/environments"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: environmentsReviewed
-                      ? "line-through"
-                      : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Review or Add Environments",
-                      source: "features",
-                      stepKey: "environments",
-                    })
-                  }
-                >
-                  Review or Add Environments
-                </Link>
-                <p className="mt-2">
-                  By default, GrowthBook comes with one
-                  environment—production—but you can add as many as you need.
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {attributesSet ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/attributes"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: attributesSet ? "line-through" : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Customize Targeting Attributes",
-                      source: "features",
-                      stepKey: "attributes",
-                    })
-                  }
-                >
-                  Customize Targeting Attributes
-                </Link>
-                <p className="mt-2">
-                  Define user attributes used to target specific feature values
-                  to subsets of users.
-                </p>
-                <hr />
+                <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
+                <Separator size="4" my="4" />
               </div>
             </div>
 
@@ -276,16 +164,16 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                       step: `Create a Test Feature Flag${
                         project && " in this Project"
                       }`,
-                      source: "features",
+                      source: "featureFlagGuide",
                       stepKey: "createFeatureFlag",
                     })
                   }
                 >
                   Create a Test Feature Flag{project && " in this Project"}
                 </Link>
-                <p className="mt-2">
+                <Box mt="2">
                   Add your first feature flag to test your setup.
-                </p>
+                </Box>
               </div>
             </div>
           </div>

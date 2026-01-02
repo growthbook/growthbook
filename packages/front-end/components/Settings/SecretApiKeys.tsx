@@ -1,9 +1,9 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
-import { FaKey } from "react-icons/fa";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -22,7 +22,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   const organizationSecretKeys = useMemo(
     () => keys.filter((k) => k.secret && !k.userId),
-    [keys]
+    [keys],
   );
 
   const onReveal = useCallback(
@@ -40,7 +40,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       }
       return res.key.key;
     },
-    [apiCall]
+    [apiCall],
   );
 
   const onDelete = useCallback(
@@ -55,7 +55,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       });
       mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (
@@ -84,16 +84,14 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           />
         )}
         {canCreateKeys && (
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
+          <Button
+            onClick={() => {
               setModalApiKeyType("admin");
               setOpen(true);
             }}
           >
-            <FaKey /> Create New Secret Key
-          </button>
+            New Secret Key
+          </Button>
         )}
       </div>
     </div>

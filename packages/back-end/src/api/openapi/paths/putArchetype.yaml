@@ -1,0 +1,29 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - archetypes
+summary: Update a single archetype
+operationId: putArchetype
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X PUT https://api.growthbook.io/api/v1/archetypes/sam_abc123 \
+        -d '{ "description": "New description" }'
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutArchetypePayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - archetype
+          properties:
+            archetype:
+              $ref: "../schemas/Archetype.yaml"

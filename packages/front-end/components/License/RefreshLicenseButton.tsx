@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
-import { LicenseInterface } from "enterprise";
+import { LicenseInterface } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
@@ -14,7 +14,7 @@ const RefreshLicenseButton: FC = () => {
       `/license`,
       {
         method: "GET",
-      }
+      },
     );
 
     if (res.status !== 200) {
@@ -25,7 +25,7 @@ const RefreshLicenseButton: FC = () => {
 
   return (
     <>
-      <Button color="outline-primary" onClick={refresh}>
+      <Button color="outline-primary" className="nowrap" onClick={refresh}>
         <BsArrowRepeat /> Refresh
       </Button>
     </>

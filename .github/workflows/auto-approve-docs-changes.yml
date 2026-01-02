@@ -1,0 +1,88 @@
+name: Auto Approve PRs with Markdown Files
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.draft == false }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Get PR Author
+        id: get_pr_author
+        run: echo "PR_AUTHOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_ENV
+
+      - name: Check if PR author is a collaborator in the repository
+        id: check_user_role
+        run: |
+          USER=${{ env.PR_AUTHOR }}
+          OWNER=${{ github.repository_owner }}
+          REPO=${{ github.event.repository.name }}
+
+          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/$OWNER/$REPO/collaborators/$USER/permission)
+          PERMISSION=$(echo $RESPONSE | jq -r .permission)
+
+          if [[ "$PERMISSION" == "admin" || "$PERMISSION" == "write" ]]; then
+            echo "role=collaborator" >> $GITHUB_ENV
+            echo "The user $USER has $PERMISSION permission on the repository."
+          else
+            echo "role=none" >> $GITHUB_ENV
+            echo "The user $USER does not have access to the repository."
+          fi
+
+      - name: Skip if the PR author is not a Contributor
+        if: env.role == 'none'
+        run: |
+          echo "The PR author (${{ env.PR_AUTHOR }}) is not a contributor in the rep. Skipping workflow."
+          exit 0
+
+      - name: Proceed if the user is a Contributor
+        if: env.role == 'collaborator'
+        run: echo "PR author (${{ env.PR_AUTHOR }}) is a contributor with repo access."
+
+      - name: Get list of changed files in the PR
+        id: get_changed_files
+        run: |
+          OWNER=${{ github.repository_owner }}
+          REPO=${{ github.event.repository.name }}
+          PR_NUMBER=${{ github.event.pull_request.number }}
+
+          CHANGED_FILES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/$OWNER/$REPO/pulls/$PR_NUMBER/files)
+
+          echo "$CHANGED_FILES" | jq -r '.[].filename' > changed_files.txt
+          echo "Changed files: $(cat changed_files.txt)"
+
+      - name: Check if all changed files are markdown or mdx
+        id: check_markdown_files
+        run: |
+          # Check if any non-markdown or non-mdx files exist
+          NON_MARKDOWN_FILES=$(grep -v -E '\.(md|mdx)$' changed_files.txt || true)
+
+          if [ -n "$NON_MARKDOWN_FILES" ]; then
+            echo "Non-markdown/mdx files detected: $NON_MARKDOWN_FILES"
+            echo "only_markdown=false" >> $GITHUB_ENV
+          else
+            echo "All files are markdown or mdx."
+            echo "only_markdown=true" >> $GITHUB_ENV
+          fi
+
+      - name: Skip if there are non-markdown or non-mdx files
+        if: env.only_markdown == 'false'
+        run: |
+          echo "The PR contains non-markdown files. Skipping workflow."
+          exit 0
+
+      - name: Approve PR if all files are markdown or mdx and the PR author is a collaborator
+        if: env.only_markdown == 'true' && env.role == 'collaborator'
+        uses: hmarr/auto-approve-action@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

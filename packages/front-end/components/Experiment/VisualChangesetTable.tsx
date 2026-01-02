@@ -1,31 +1,31 @@
-import { FC, Fragment, useCallback, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
-} from "back-end/types/visual-changeset";
-import { FaPencilAlt, FaTimesCircle } from "react-icons/fa";
-import clsx from "clsx";
+} from "shared/types/visual-changeset";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { FaAngleRight } from "react-icons/fa";
 import track from "@/services/track";
-import { GBEdit } from "@/components/Icons";
-import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
+import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/ui/Link";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
-  mutate: () => void;
+  mutate?: () => void;
   canEditVisualChangesets: boolean;
 };
 
@@ -34,20 +34,18 @@ const drawChange = ({
   vc,
   variations,
   experiment,
-  hasVisualEditorFeature,
   canEditVisualChangesets,
   setEditingVisualChangeset,
   setEditingVisualChange,
-  deleteVisualChangeset,
   simpleUrlPatterns,
-  onlySimpleRules,
   regexUrlPatterns,
+  showChangeset,
+  setShowChangeset,
 }: {
   i: number;
   vc: VisualChangesetInterface;
   variations: Variation[];
   experiment: ExperimentInterfaceStringDates;
-  hasVisualEditorFeature: boolean;
   canEditVisualChangesets: boolean;
   setEditingVisualChangeset: (vc: VisualChangesetInterface) => void;
   setEditingVisualChange: (params: {
@@ -55,175 +53,218 @@ const drawChange = ({
     visualChangeIndex: number;
     visualChangeset: VisualChangesetInterface;
   }) => void;
-  deleteVisualChangeset: (id: string) => void;
   simpleUrlPatterns: VisualChangesetURLPattern[];
-  onlySimpleRules: boolean;
   regexUrlPatterns: VisualChangesetURLPattern[];
+  showChangeset: string[];
+  setShowChangeset: (value: string[]) => void;
 }) => {
   return (
-    <div className={clsx("pb-3", { "mt-2": i !== 0 })}>
-      <div className="mt-2 px-3">
-        <div className="row mt-1 mb-3 d-flex align-items-start">
-          <div className="col">
-            <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
-              <label className="d-block mb-1 font-weight-bold">
-                URL Targeting
-                {canEditVisualChangesets && (
-                  <a
-                    className="ml-2"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditingVisualChangeset(vc);
-                      track("Open visual editor modal", {
-                        source: "visual-editor-ui",
-                        action: "edit",
-                      });
-                    }}
+    <>
+      <Flex width="100%" gap="4">
+        <Box flexBasis="50%">
+          <Flex align="center" gap="4">
+            <Heading weight="bold" as="h4" size="3" mb="0">
+              URL Targeting
+            </Heading>
+            {canEditVisualChangesets && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEditingVisualChangeset(vc);
+                  track("Open visual editor modal", {
+                    source: "visual-editor-ui",
+                    action: "edit",
+                  });
+                }}
+              >
+                Edit
+              </Button>
+            )}
+          </Flex>
+          <Flex direction="column" gap="3" mt="4">
+            {simpleUrlPatterns.length > 0 && (
+              <>
+                {simpleUrlPatterns.map((p, j) => (
+                  <Flex gap="3" key={j}>
+                    <Text weight="medium" as="p" mb="0">
+                      {p.include ? "INCLUDE" : "EXCLUDE"}
+                    </Text>
+                    <Badge label="Simple match" color="gray" />
+                    <Box>{p.pattern}</Box>
+                  </Flex>
+                ))}
+              </>
+            )}
+            {regexUrlPatterns.length > 0 && (
+              <>
+                {regexUrlPatterns.map((p, j) => (
+                  <Flex gap="3" key={j}>
+                    <Text weight="medium" as="p" mb="0">
+                      {p.include ? "INCLUDE" : "EXCLUDE"}
+                    </Text>
+                    <Badge label="Regex match" color="lime" />
+                    <Box>{p.pattern}</Box>
+                  </Flex>
+                ))}
+              </>
+            )}
+          </Flex>
+        </Box>
+        <Box width="50%">
+          <Flex align="center" gap="4" justify="between">
+            <Heading weight="bold" as="h4" size="3" mb="0">
+              Variations
+            </Heading>
+            {/*}
+            {canEditVisualChangesets && experiment.status === "draft" && (
+              <>
+                <Box flexGrow="1"></Box>
+                <DeleteButton
+                  className="btn-sm ml-4"
+                  useRadix={true}
+                  text="Delete"
+                  onClick={() => deleteVisualChangeset(vc.id)}
+                  displayName="Visual Changes"
+                />
+              </>
+            )}
+            {*/}
+          </Flex>
+          <Box>
+            {variations.map((v, j) => {
+              const key = `${i}-${j}`;
+              const changes = vc.visualChanges[j];
+              const numChanges =
+                (changes?.css ? 1 : 0) +
+                (changes?.js ? 1 : 0) +
+                (changes?.domMutations?.length || 0);
+
+              // todo: memoize/refactor?
+              let editorUrl = vc.editorUrl.trim();
+              if (!editorUrl.match(/^http(s)?:/)) {
+                editorUrl = "http://" + editorUrl;
+              }
+              editorUrl = appendQueryParamsToURL(editorUrl, {
+                [experiment.trackingKey]: j,
+              });
+              return (
+                <Box key={j}>
+                  <Flex
+                    width="100%"
+                    direction="column"
+                    gap="2"
+                    py="2"
+                    my="2"
+                    style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
-                    <GBEdit />
-                  </a>
-                )}
-              </label>
-              {simpleUrlPatterns.length > 0 && (
-                <>
-                  {!onlySimpleRules && (
-                    <div className="uppercase-title mt-1">Simple:</div>
-                  )}
-                  {simpleUrlPatterns.map((p, j) =>
-                    drawUrlPattern(p, j, vc.urlPatterns.length)
-                  )}
-                </>
-              )}
-              {regexUrlPatterns.length > 0 && (
-                <>
-                  <div className="uppercase-title mt-1">Regex:</div>
-                  {regexUrlPatterns.map((p, j) =>
-                    drawUrlPattern(p, j, vc.urlPatterns.length)
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-          <div style={{ flex: 1 }} />
-          {canEditVisualChangesets && experiment.status === "draft" && (
-            <div className="col-auto">
-              {hasVisualEditorFeature && (
-                <OpenVisualEditorLink visualChangeset={vc} />
-              )}
-              <DeleteButton
-                className="btn-sm ml-4"
-                onClick={() => deleteVisualChangeset(vc.id)}
-                displayName="Visual Changes"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div
-        className="w-100 fade-mask-1rem mb-1"
-        style={{
-          overflowX: "auto",
-        }}
-      >
-        <table
-          className="table table-bordered mx-3 mt-0 mb-2 w100-1rem"
-          style={{ tableLayout: "fixed", width: "auto" }}
-        >
-          <thead>
-            <tr>
-              {variations.map((v, i) => (
-                <th
-                  key={i}
-                  className={`py-2 variation with-variation-label variation${i} with-variation-border-bottom`}
-                  style={{ borderBottomWidth: 3 }}
-                >
-                  <span className="label">{i}</span>
-                  <span className="name">{v.name}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {variations.map((_v, j) => {
-                const changes = vc.visualChanges[j];
-                const numChanges =
-                  (changes?.css ? 1 : 0) +
-                  (changes?.js ? 1 : 0) +
-                  (changes?.domMutations?.length || 0);
-
-                // todo: memoize/refactor?
-                let editorUrl = vc.editorUrl.trim();
-                if (!editorUrl.match(/^http(s)?:/)) {
-                  editorUrl = "http://" + editorUrl;
-                }
-                editorUrl = appendQueryParamsToURL(editorUrl, {
-                  [experiment.trackingKey]: j,
-                });
-
-                return (
-                  <td
-                    key={j}
-                    className="py-1"
-                    style={{
-                      minWidth: "17.5rem",
-                      width: `${50 / Math.min(variations.length || 1, 4)}rem`,
-                    }}
-                  >
-                    <div className="d-flex justify-content-between mx-2">
-                      <div>
+                    <Flex justify="between">
+                      <Flex
+                        align="start"
+                        gap="2"
+                        flexBasis="30%"
+                        flexShrink="0"
+                        className={`variation with-variation-label border-right-0 variation${j}`}
+                      >
+                        <span
+                          className="label mt-1"
+                          style={{ width: 20, height: 20 }}
+                        >
+                          {j}
+                        </span>
+                        <Flex direction="column">
+                          <span
+                            className="d-inline-block text-ellipsis font-weight-semibold"
+                            title={v.name}
+                          >
+                            {v.name}
+                          </span>
+                          <Link
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowChangeset(
+                                showChangeset.includes(key)
+                                  ? showChangeset.filter((item) => item !== key)
+                                  : [...showChangeset, key],
+                              );
+                            }}
+                          >
+                            <Text
+                              size="1"
+                              wrap="nowrap"
+                              style={{ color: "var(--color-text-mid)" }}
+                            >
+                              {numChanges} visual change
+                              {numChanges === 1 ? "" : "s"}
+                              <FaAngleRight
+                                className="chevron"
+                                style={{
+                                  transform: `rotate(${
+                                    showChangeset.includes(key)
+                                      ? "90deg"
+                                      : "0deg"
+                                  })`,
+                                }}
+                              />
+                            </Text>
+                          </Link>
+                        </Flex>
+                      </Flex>
+                      <Flex gap="2" align="center" justify="end">
+                        <Button variant="ghost">
+                          <a target="_blank" rel="noreferrer" href={editorUrl}>
+                            Preview{" "}
+                            <PiArrowSquareOut
+                              className="ml-1"
+                              style={{ position: "relative", top: "-2px" }}
+                            />
+                          </a>
+                        </Button>
                         {canEditVisualChangesets && (
-                          <a
-                            href="#"
-                            className="mr-2"
-                            onClick={() =>
+                          <Button
+                            variant="soft"
+                            onClick={() => {
                               setEditingVisualChange({
                                 visualChange: changes,
                                 visualChangeIndex: j,
                                 visualChangeset: vc,
-                              })
-                            }
+                              });
+                            }}
                           >
-                            <FaPencilAlt />
-                          </a>
+                            Edit
+                          </Button>
                         )}
-                        {numChanges} visual change
-                        {numChanges === 1 ? "" : "s"}
-                      </div>
-                      <div>
-                        <a target="_blank" rel="noreferrer" href={editorUrl}>
-                          Preview
-                        </a>
-                      </div>
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+                      </Flex>
+                    </Flex>
+                    {showChangeset.includes(key) && (
+                      <Box>
+                        <Code
+                          language="json"
+                          code={JSON.stringify(
+                            Object.fromEntries(
+                              Object.entries(changes).filter(
+                                ([key]) =>
+                                  key !== "id" &&
+                                  key !== "variation" &&
+                                  key !== "description",
+                              ),
+                            ),
+                            null,
+                            2,
+                          )}
+                        />
+                      </Box>
+                    )}
+                  </Flex>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      </Flex>
+    </>
   );
 };
-
-const drawUrlPattern = (
-  p: VisualChangesetURLPattern,
-  j: number,
-  total: number
-) => (
-  <span key={j}>
-    <code>{p.pattern}</code>
-    {!p.include && (
-      <Tooltip body="Exclude this pattern" style={{ marginLeft: 2 }}>
-        <FaTimesCircle className="mt-1" color={"#e53"} />
-      </Tooltip>
-    )}
-    {j < total - 1 && <span className="mx-1">, </span>}
-  </span>
-);
 
 export const VisualChangesetTable: FC<Props> = ({
   experiment,
@@ -233,14 +274,10 @@ export const VisualChangesetTable: FC<Props> = ({
 }: Props) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
+  const [showChangeset, setShowChangeset] = useState<string[]>([]);
 
-  const { hasCommercialFeature } = useUser();
-  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-
-  const [
-    editingVisualChangeset,
-    setEditingVisualChangeset,
-  ] = useState<VisualChangesetInterface | null>(null);
+  const [editingVisualChangeset, setEditingVisualChangeset] =
+    useState<VisualChangesetInterface | null>(null);
 
   const [editingVisualChange, setEditingVisualChange] = useState<{
     visualChangeset: VisualChangesetInterface;
@@ -253,12 +290,12 @@ export const VisualChangesetTable: FC<Props> = ({
       await apiCall(`/visual-changesets/${id}`, {
         method: "DELETE",
       });
-      mutate();
+      mutate?.();
       track("Delete visual changeset", {
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const updateVisualChange = useCallback(
@@ -274,19 +311,19 @@ export const VisualChangesetTable: FC<Props> = ({
       const newVisualChangeset: VisualChangesetInterface = {
         ...visualChangeset,
         visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === index ? visualChange : c
+          i === index ? visualChange : c,
         ),
       };
       await apiCall(`/visual-changesets/${visualChangeset.id}`, {
         method: "PUT",
         body: JSON.stringify(newVisualChangeset),
       });
-      mutate();
+      mutate?.();
       track("Delete visual changeset", {
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   return (
@@ -299,28 +336,24 @@ export const VisualChangesetTable: FC<Props> = ({
           .filter((v) => v.type === "regex")
           .sort((v) => (!v.include ? 1 : -1));
 
-        const onlySimpleRules =
-          simpleUrlPatterns.length > 0 && regexUrlPatterns.length === 0;
-
         const change = drawChange({
           i,
           vc,
           variations,
           experiment,
-          hasVisualEditorFeature,
           canEditVisualChangesets,
           setEditingVisualChangeset,
           setEditingVisualChange,
-          deleteVisualChangeset,
           simpleUrlPatterns,
-          onlySimpleRules,
           regexUrlPatterns,
+          showChangeset,
+          setShowChangeset,
         });
 
         const visualChangeTypesSet: Set<string> = new Set();
         vc.visualChanges.forEach((c) => {
           if (c.domMutations.length > 0) {
-            visualChangeTypesSet.add("Copy");
+            visualChangeTypesSet.add("Text");
           }
           if (c.css) {
             visualChangeTypesSet.add("CSS");
@@ -330,10 +363,10 @@ export const VisualChangesetTable: FC<Props> = ({
           }
         });
 
-        const visualChangeTypesDict: string[] = ["Copy", "CSS", "Javascript"];
+        const visualChangeTypesDict: string[] = ["Text", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
-            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
+            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b),
         );
 
         return (
@@ -341,6 +374,10 @@ export const VisualChangesetTable: FC<Props> = ({
             key={i}
             changeType={"visual"}
             page={vc.editorUrl}
+            vc={vc}
+            experiment={experiment}
+            canEditVisualChangesets={canEditVisualChangesets}
+            deleteVisualChangeset={deleteVisualChangeset}
             changes={visualChangeTypes}
             open={experiment.status === "draft"}
           >
@@ -349,18 +386,19 @@ export const VisualChangesetTable: FC<Props> = ({
         );
       })}
 
-      {editingVisualChangeset ? (
+      {editingVisualChangeset && mutate ? (
         <VisualChangesetModal
           mode="edit"
           experiment={experiment}
           visualChangeset={editingVisualChangeset}
           mutate={mutate}
           close={() => setEditingVisualChangeset(null)}
+          source={"visual-changeset-table"}
         />
       ) : null}
 
       {editingVisualChange ? (
-        <EditDOMMutatonsModal
+        <EditDOMMutationsModal
           experiment={experiment}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}

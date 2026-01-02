@@ -1,10 +1,12 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   Condition,
+  ManagedBy,
   MetricInterface,
   MetricType,
   Operator,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
@@ -16,13 +18,14 @@ import {
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
+import Link from "next/link";
+import { isBinomialMetric } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { getMetricFormatter } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
-import RadioSelector from "@/components/Forms/RadioSelector";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -34,7 +37,7 @@ import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
@@ -43,15 +46,22 @@ import { GBCuped } from "@/components/Icons";
 import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
-import { MetricDelayHours } from "./MetricDelayHours";
+import { MetricDelaySettings } from "./MetricDelaySettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
+
+// ManagedBy constants to avoid type assertions
+export const MANAGED_BY_ADMIN: ManagedBy = "admin";
+const MANAGED_BY_EMPTY: ManagedBy = "";
 
 export type MetricFormProps = {
   initialStep?: number;
@@ -65,7 +75,7 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
-  allowFactMetrics?: boolean;
+  switchToFact?: () => void;
 };
 
 export function usesValueColumn(sql: string) {
@@ -83,7 +93,7 @@ function validateMetricSQL(
   templateVariables?: {
     valueColumn?: string;
     eventName?: string;
-  }
+  },
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
@@ -118,7 +128,7 @@ function validateQuerySettings(
       valueColumn?: string;
       eventName?: string;
     };
-  }
+  },
 ) {
   if (!datasourceSettingsSupport) {
     return;
@@ -128,7 +138,7 @@ function validateQuerySettings(
       value.sql,
       value.type,
       value.userIdTypes,
-      value.templateVariables
+      value.templateVariables,
     );
   } else {
     if (value.table.length < 1) {
@@ -203,7 +213,7 @@ const MetricForm: FC<MetricFormProps> = ({
   cta = "Save",
   onSuccess,
   secondaryCTA,
-  allowFactMetrics,
+  switchToFact,
 }) => {
   const {
     datasources,
@@ -212,6 +222,7 @@ const MetricForm: FC<MetricFormProps> = ({
     projects,
     project,
     factTables,
+    mutateDefinitions,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -221,8 +232,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
-
-  const [factMetric, setFactMetric] = useState(false);
 
   const currentDatasource = current?.datasource
     ? getDatasourceById(current?.datasource)
@@ -236,19 +245,17 @@ const MetricForm: FC<MetricFormProps> = ({
   // Only set the default to true for new metrics with no sql or an edited or
   // duplicated one where the sql matches the default.
   const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
-    !current || !current?.sql || current?.sql === currentDefaultSql
+    !current || !current?.sql || current?.sql === currentDefaultSql,
   );
 
   // Keeps track if the queryFormat is "builder" because it is the default, or
   // if it is "builder" because the user manually changed it to that.
   const [usingDefaultQueryFormat, setUsingDefaultQueryFormat] = useState(
-    !current?.queryFormat && !current?.sql
+    !current?.queryFormat && !current?.sql,
   );
 
-  const [
-    showSqlResetConfirmationModal,
-    setShowSqlResetConfirmationModal,
-  ] = useState(false);
+  const [showSqlResetConfirmationModal, setShowSqlResetConfirmationModal] =
+    useState(false);
 
   const displayCurrency = useCurrency();
 
@@ -256,13 +263,14 @@ const MetricForm: FC<MetricFormProps> = ({
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
     metricDefaults,
   } = useOrganizationMetricDefaults();
 
   const validDatasources = datasources.filter(
     (d) =>
       d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   useEffect(() => {
@@ -273,28 +281,25 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const metricTypeOptions = [
     {
-      key: "binomial",
-      display: "Binomial",
-      description: "Percent of users who do something",
-      sub: "click, view, download, bounce, etc.",
+      value: "binomial",
+      label: "Binomial",
+      description: "Percent of users who do something (click, view, etc.)",
     },
     {
-      key: "count",
-      display: "Count",
-      description: "Number of actions per user",
-      sub: "clicks, views, downloads, etc.",
+      value: "count",
+      label: "Count",
+      description: "Number of actions per user (clicks, views, etc.)",
     },
     {
-      key: "duration",
-      display: "Duration",
-      description: "How long something takes",
-      sub: "time on site, loading speed, etc.",
+      value: "duration",
+      label: "Duration",
+      description:
+        "How long something takes (time on site, loading speed, etc.)",
     },
     {
-      key: "revenue",
-      display: "Revenue",
-      description: `How much money a user pays (in ${displayCurrency})`,
-      sub: "revenue per visitor, average order value, etc.",
+      value: "revenue",
+      label: "Revenue",
+      description: `How much money a user pays in ${displayCurrency} (revenue per visitor, average order value, etc.)`,
     },
   ];
 
@@ -332,12 +337,13 @@ const MetricForm: FC<MetricFormProps> = ({
         source === "datasource-detail" || edit || duplicate
           ? current.projects || []
           : project
-          ? [project]
-          : [],
+            ? [project]
+            : [],
       winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
       loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
+      targetMDE: getTargetMDEForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
@@ -356,6 +362,7 @@ const MetricForm: FC<MetricFormProps> = ({
           mean: 0,
           stddev: DEFAULT_PROPER_PRIOR_STDDEV,
         }),
+      managedBy: current.managedBy || MANAGED_BY_EMPTY,
     },
   });
 
@@ -441,6 +448,10 @@ const MetricForm: FC<MetricFormProps> = ({
   const ignoreNullsSupported = capSupported;
   const conversionWindowSupported = capSupported;
 
+  const hasSQLDataSources = datasources.some(
+    (d) => d.properties?.queryLanguage === "sql",
+  );
+
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
@@ -449,18 +460,19 @@ const MetricForm: FC<MetricFormProps> = ({
   const customizeUserIds = supportsSQL;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
 
   if (form.watch("denominator")) {
     const denominator = metrics.find((m) => m.id === form.watch("denominator"));
-    if (denominator?.type === "count") {
+    if (denominator && !isBinomialMetric(denominator)) {
       regressionAdjustmentAvailableForMetric = false;
       regressionAdjustmentAvailableForMetricReason = (
         <>
-          Not available for ratio metrics with <em>count</em> denominators.
+          Not available for ratio metrics with <em>{denominator.type}</em>{" "}
+          denominators, unless you use Fact Tables.
         </>
       );
     }
@@ -507,6 +519,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
+      targetMDE,
       eventName,
       valueColumn,
       ...otherValues
@@ -519,6 +532,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
+      targetMDE: targetMDE / 100,
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -536,6 +550,8 @@ const MetricForm: FC<MetricFormProps> = ({
         body,
       });
     }
+
+    mutateDefinitions();
 
     track("Submit Metric Form", {
       type: value.type,
@@ -560,8 +576,8 @@ const MetricForm: FC<MetricFormProps> = ({
     value.regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
       : value.regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
+        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+        : "";
 
   const customAggregationWarningMsg = value.aggregation
     ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
@@ -583,7 +599,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
     // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
-    selectedDataSource
+    selectedDataSource,
   );
 
   let ctaEnabled = true;
@@ -597,24 +613,19 @@ const MetricForm: FC<MetricFormProps> = ({
     disabledMessage = "You don't have permission to create metrics.";
   }
 
-  // If creating a Fact Metric instead
-  if (allowFactMetrics && factMetric) {
-    return (
-      <FactMetricModal
-        close={onClose}
-        goBack={() => {
-          setFactMetric(false);
-        }}
-        source={source}
-      />
-    );
-  }
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateMetric({ projects: [project] }),
+    form.watch("projects") || [],
+  );
+
+  const trackingEventModalType = edit ? "edit-metric" : "new-metric";
 
   return (
     <>
       {supportsSQL && sqlOpen && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          sqlObjectInfo={{ objectType: "Metric", objectName: value.name }}
           datasourceId={value.datasource}
           placeholder={
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
@@ -636,6 +647,7 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
+        trackingEventModalType={trackingEventModalType}
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
@@ -654,6 +666,7 @@ const MetricForm: FC<MetricFormProps> = ({
       >
         <Page
           display="Basic Info"
+          enabled
           validate={async () => {
             validateBasicInfo(form.getValues());
             if (allowAutomaticSqlReset) {
@@ -662,23 +675,29 @@ const MetricForm: FC<MetricFormProps> = ({
           }}
         >
           {isExclusivelyForDemoDatasourceProject ? (
-            <div className="alert alert-warning">
+            <Callout status="warning">
               You are creating a metric under the demo datasource project.
-            </div>
-          ) : allowFactMetrics && factTables.length > 0 ? (
-            <div className="alert border badge-purple text-center">
-              Want to use Fact Tables to create your metric instead?{" "}
+            </Callout>
+          ) : switchToFact && factTables.length > 0 ? (
+            <Callout status="info" mb="3">
+              You are creating a legacy SQL metric.{" "}
               <a
                 href="#"
-                className="ml-2 btn btn-primary btn-sm"
                 onClick={(e) => {
                   e.preventDefault();
-                  setFactMetric(true);
+                  switchToFact();
                 }}
               >
-                Use Fact Tables <FaArrowRight />
+                Switch to use Fact Tables <FaArrowRight />
               </a>
-            </div>
+            </Callout>
+          ) : switchToFact && hasSQLDataSources ? (
+            <Callout status="info" mb="3">
+              Use Fact Tables for an easier and faster way to create metrics.{" "}
+              <Link href="/fact-tables">
+                Learn More <FaArrowRight />
+              </Link>
+            </Callout>
           ) : null}
           <div className="form-group">
             <label>Metric Name</label>
@@ -714,10 +733,19 @@ const MetricForm: FC<MetricFormProps> = ({
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                label="Projects"
+                label={
+                  <>
+                    Projects{" "}
+                    <Tooltip
+                      body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                        edit ? "update" : "create"
+                      } Metrics.`}
+                    />
+                  </>
+                }
                 placeholder="All projects"
                 value={value.projects || []}
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"
@@ -749,17 +777,16 @@ const MetricForm: FC<MetricFormProps> = ({
             })}
             className="portal-overflow-ellipsis"
             name="datasource"
-            initialOption="Manual"
+            required={!edit}
             disabled={
               isExclusivelyForDemoDatasourceProject ||
               edit ||
               source === "datasource-detail"
             }
           />
-          <div className="form-group">
+          <div>
             <label>Metric Type</label>
-            <RadioSelector
-              name="type"
+            <RadioGroup
               value={value.type}
               setValue={(val: MetricType) => {
                 form.setValue("type", val);
@@ -781,11 +808,12 @@ const MetricForm: FC<MetricFormProps> = ({
         </Page>
         <Page
           display="Query Settings"
+          enabled
           validate={async () => {
             validateQuerySettings(
               datasourceSettingsSupport,
               supportsSQL && value.queryFormat === "sql",
-              value
+              value,
             );
           }}
         >
@@ -802,7 +830,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(e) =>
                     form.setValue(
                       "queryFormat",
-                      e.target.checked ? "sql" : "builder"
+                      e.target.checked ? "sql" : "builder",
                     )
                   }
                 />
@@ -821,7 +849,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(e) =>
                     form.setValue(
                       "queryFormat",
-                      e.target.checked ? "builder" : "sql"
+                      e.target.checked ? "builder" : "sql",
                     )
                   }
                 />
@@ -1020,7 +1048,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               onChange={(v) =>
                                 form.setValue(
                                   `conditions.${i}.operator`,
-                                  v as Operator
+                                  v as Operator,
                                 )
                               }
                               options={(() => {
@@ -1203,7 +1231,7 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
 
           {conversionWindowSupported && (
-            <MetricWindowSettingsForm form={form} />
+            <MetricWindowSettingsForm form={form} type={""} />
           )}
 
           {!showAdvanced ? (
@@ -1219,7 +1247,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
-              <MetricDelayHours form={form} />
+              <MetricDelaySettings form={form} />
 
               <MetricPriorSettingsForm
                 priorSettings={form.watch("priorSettings")}
@@ -1266,7 +1294,7 @@ const MetricForm: FC<MetricFormProps> = ({
               />
 
               <div className="form-group">
-                <label>Minimum Sample Size</label>
+                <label>Minimum Metric Total</label>
                 <input
                   type="number"
                   className="form-control"
@@ -1282,7 +1310,10 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
                     : getMetricFormatter(value.type)(
-                        metricDefaults.minimumSampleSize
+                        metricDefaults.minimumSampleSize,
+                        {
+                          currency: displayCurrency,
+                        },
                       )}
                   )
                 </small>
@@ -1296,7 +1327,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
-            })`}
+            }%)`}
               />
               <Field
                 label="Min Percent Change"
@@ -1307,7 +1338,17 @@ const MetricForm: FC<MetricFormProps> = ({
                 helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
-            })`}
+            }%)`}
+              />
+              <Field
+                label="Target MDE"
+                type="number"
+                step="any"
+                append="%"
+                {...form.register("targetMDE", { valueAsNumber: true })}
+                helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                  metricDefaults.targetMDE * 100
+                }%)`}
               />
 
               <PremiumTooltip commercialFeature="regression-adjustment">
@@ -1343,17 +1384,15 @@ const MetricForm: FC<MetricFormProps> = ({
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-regressionAdjustmentEnabled"
-                        >
-                          Apply regression adjustment for this metric
-                        </label>
-                        <Toggle
+                      <Flex
+                        direction="column"
+                        className="form-group mt-3 mb-0 mr-2"
+                      >
+                        <Switch
                           id={"toggle-regressionAdjustmentEnabled"}
+                          label="Apply regression adjustment for this metric"
                           value={!!form.watch("regressionAdjustmentEnabled")}
-                          setValue={(value) => {
+                          onChange={(value) => {
                             form.setValue("regressionAdjustmentEnabled", value);
                           }}
                           disabled={!hasRegressionAdjustmentFeature}
@@ -1362,7 +1401,8 @@ const MetricForm: FC<MetricFormProps> = ({
                           (organization default:{" "}
                           {settings.regressionAdjustmentEnabled ? "On" : "Off"})
                         </small>
-                      </div>
+                      </Flex>
+
                       <div
                         className="form-group mt-3 mb-1 mr-2"
                         style={{
@@ -1376,9 +1416,10 @@ const MetricForm: FC<MetricFormProps> = ({
                           type="number"
                           style={{
                             borderColor: regressionAdjustmentDaysHighlightColor,
-                            backgroundColor: regressionAdjustmentDaysHighlightColor
-                              ? regressionAdjustmentDaysHighlightColor + "15"
-                              : "",
+                            backgroundColor:
+                              regressionAdjustmentDaysHighlightColor
+                                ? regressionAdjustmentDaysHighlightColor + "15"
+                                : "",
                           }}
                           className="ml-2"
                           containerClassName="mb-0 form-inline"

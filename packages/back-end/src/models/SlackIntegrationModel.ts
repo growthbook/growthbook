@@ -4,14 +4,12 @@ import omit from "lodash/omit";
 import pick from "lodash/pick";
 import intersection from "lodash/intersection";
 import { z } from "zod";
-import { SlackIntegrationInterface } from "../../types/slack-integration";
-import {
-  NotificationEventName,
-  zodNotificationEventNamesEnum,
-} from "../events/base-types";
-import { logger } from "../util/logger";
-import { errorStringFromZodResult } from "../util/validation";
-import { OrganizationInterface } from "../../types/organization";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import { NotificationEventName } from "shared/types/events/base-types";
+import { zodNotificationEventNamesEnum } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
+import { logger } from "back-end/src/util/logger";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {
@@ -58,7 +56,7 @@ const slackIntegrationSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Event name");
+          logger.error({ error: errorString }, "Invalid Event name");
         }
 
         return result.success;
@@ -97,13 +95,13 @@ type SlackIntegrationDocument = mongoose.Document & SlackIntegrationInterface;
  * @returns
  */
 const toInterface = (
-  doc: SlackIntegrationDocument
+  doc: SlackIntegrationDocument,
 ): SlackIntegrationInterface =>
   omit(doc.toJSON<SlackIntegrationDocument>(), ["__v", "_id"]);
 
 const SlackIntegrationModel = mongoose.model<SlackIntegrationInterface>(
   "SlackIntegration",
-  slackIntegrationSchema
+  slackIntegrationSchema,
 );
 
 // region Create
@@ -162,7 +160,7 @@ export const createSlackIntegration = async ({
 // region Read
 
 export const getSlackIntegrations = async (
-  organizationId: string
+  organizationId: string,
 ): Promise<SlackIntegrationInterface[]> => {
   const docs = await SlackIntegrationModel.find({
     organizationId,
@@ -285,7 +283,7 @@ type UpdateAttributes = {
  */
 export const updateSlackIntegration = async (
   { slackIntegrationId, organizationId }: UpdateOptions,
-  updates: UpdateAttributes
+  updates: UpdateAttributes,
 ): Promise<boolean> => {
   const result = await SlackIntegrationModel.updateOne(
     { id: slackIntegrationId, organizationId },
@@ -304,7 +302,7 @@ export const updateSlackIntegration = async (
         ]),
         dateUpdated: new Date(),
       },
-    }
+    },
   );
 
   return result.modifiedCount === 1;
@@ -372,7 +370,7 @@ export const removeTagFromSlackIntegration = async ({
     { organizationId, tags: tag },
     {
       $pull: { tags: tag },
-    }
+    },
   );
 };
 
@@ -389,7 +387,7 @@ export const removeProjectFromSlackIntegration = async ({
     { organizationId, projects: projectId },
     {
       $pull: { projects: projectId },
-    }
+    },
   );
 };
 
@@ -406,7 +404,7 @@ export const removeEnvironmentFromSlackIntegration = async ({
     { organizationId, environments: envId },
     {
       $pull: { environments: envId },
-    }
+    },
   );
 };
 

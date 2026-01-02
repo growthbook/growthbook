@@ -1,5 +1,16 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
+  - in: query
+    name: withRevisions
+    schema:
+      type: string
+      enum:
+        - all
+        - drafts
+        - published
+        - none
+    required: false
+    description: Also return feature revisions (all, draft, or published statuses)
 summary: Get a single feature
 tags:
   - features
@@ -19,4 +30,4 @@ responses:
             - feature
           properties:
             feature:
-              $ref: "../schemas/Feature.yaml"
+              $ref: "../schemas/FeatureWithRevisions.yaml"

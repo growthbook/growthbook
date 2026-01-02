@@ -1,13 +1,12 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import { ExpandedMember } from "back-end/types/organization";
+import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import { GBAddCircle } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { usingSSO } from "@/services/env";
 import { useEnvironments } from "@/services/features";
@@ -19,6 +18,7 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -26,23 +26,19 @@ const MemberList: FC<{
   canEditRoles?: boolean;
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
-  maxHeight?: number | null;
 }> = ({
   mutate,
   project,
   canEditRoles = true,
   canDeleteMembers = true,
   canInviteMembers = true,
-  maxHeight = null,
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
-  const [
-    passwordResetModal,
-    setPasswordResetModal,
-  ] = useState<ExpandedMember | null>(null);
+  const [passwordResetModal, setPasswordResetModal] =
+    useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -59,7 +55,7 @@ const MemberList: FC<{
   const roleModalUser = users.get(roleModal);
 
   const members = Array.from(users).sort((a, b) =>
-    a[1].name.localeCompare(b[1].name)
+    a[1].name.localeCompare(b[1].name),
   );
 
   const membersList: ExpandedMember[] =
@@ -70,12 +66,17 @@ const MemberList: FC<{
       } as ExpandedMember;
     }) || [];
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: membersList || [],
-    localStorageKey: "members",
-    defaultSortField: "name",
-    searchFields: ["name", "email"],
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: membersList || [],
+      localStorageKey: "members",
+      defaultSortField: "name",
+      searchFields: ["name", "email"],
+      pageSize: 20,
+      defaultMappings: {
+        lastLoginDate: new Date(0).toISOString(),
+      },
+    });
   return (
     <>
       {canInviteMembers && inviting && (
@@ -123,19 +124,13 @@ const MemberList: FC<{
           <div className="flex-1" />
           <div>
             {canInviteMembers && (
-              <button className="btn btn-primary mb-1" onClick={onInvite}>
-                <GBAddCircle className="mr-2" />
+              <Button mb="1" onClick={onInvite}>
                 Invite Member
-              </button>
+              </Button>
             )}
           </div>
         </div>
-        <div
-          style={{
-            overflowY: "auto",
-            ...(maxHeight ? { maxHeight } : {}),
-          }}
-        >
+        <div style={{ overflowX: "auto" }}>
           <table className="table appbox gbtable">
             <thead>
               <tr>
@@ -191,7 +186,6 @@ const MemberList: FC<{
                                 <ProjectBadges
                                   resourceType="member"
                                   projectIds={[p.id]}
-                                  className="badge-ellipsis short align-middle font-weight-normal"
                                 />{" "}
                                 — {pr.role}
                               </div>
@@ -205,7 +199,7 @@ const MemberList: FC<{
                       const access = roleHasAccessToEnv(
                         roleInfo,
                         env.id,
-                        organization
+                        organization,
                       );
                       return (
                         <td key={env.id}>
@@ -278,6 +272,7 @@ const MemberList: FC<{
             </tbody>
           </table>
         </div>
+        {pagination}
       </div>
     </>
   );

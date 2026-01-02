@@ -1,14 +1,18 @@
-import { ToggleFeatureResponse } from "../../../types/openapi";
-import { getExperimentMapForFeature } from "../../models/ExperimentModel";
+import { ToggleFeatureResponse } from "shared/types/openapi";
+import { toggleFeatureValidator } from "shared/validators";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   getFeature,
   toggleMultipleEnvironments,
-} from "../../models/FeatureModel";
-import { auditDetailsUpdate } from "../../services/audit";
-import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { getEnvironmentIdsFromOrg } from "../../services/organizations";
-import { createApiRequestHandler } from "../../util/handler";
-import { toggleFeatureValidator } from "../../validators/openapi";
+} from "back-end/src/models/FeatureModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  getApiFeatureObj,
+  getSavedGroupMap,
+} from "back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {
@@ -23,7 +27,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       !req.context.permissions.canUpdateFeature(feature, {}) ||
       !req.context.permissions.canPublishFeature(
         feature,
-        Object.keys(req.body.environments)
+        Object.keys(req.body.environments),
       )
     ) {
       req.context.permissions.throwPermissionError();
@@ -42,7 +46,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     const updatedFeature = await toggleMultipleEnvironments(
       req.context,
       feature,
-      toggles
+      toggles,
     );
 
     if (updatedFeature !== feature) {
@@ -60,15 +64,25 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      updatedFeature.id
+      updatedFeature.id,
     );
+    const revision = await getRevision({
+      context: req.context,
+      organization: updatedFeature.organization,
+      featureId: updatedFeature.id,
+      version: updatedFeature.version,
+    });
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
+        safeRolloutMap,
       }),
     };
-  }
+  },
 );

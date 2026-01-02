@@ -1,5 +1,5 @@
 import { Router } from "express";
-import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
+import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import usersRouter from "./users/users.router";
 import groupsRouter from "./groups/groups.router";
 import scimMiddleware from "./middleware/scimMiddleware";

@@ -5,58 +5,57 @@ import type {
   AutoExperiment,
   AutoExperimentVariation,
   ClientKey,
-  Context,
+  Options,
   Experiment,
   FeatureApiResponse,
   FeatureDefinition,
   FeatureResult,
-  FeatureResultSource,
-  Filter,
   LoadFeaturesOptions,
-  RealtimeUsageData,
   RefreshFeaturesOptions,
   RenderFunction,
   Result,
-  StickyAssignments,
-  StickyAssignmentsDocument,
-  StickyAttributeKey,
-  StickyExperimentKey,
   SubscriptionFunction,
   TrackingCallback,
   TrackingData,
-  VariationMeta,
-  VariationRange,
   WidenPrimitives,
-  FeatureEvalContext,
+  EvalContext,
   InitOptions,
   InitResponse,
   InitSyncOptions,
   PrefetchOptions,
+  GlobalContext,
+  UserContext,
+  StickyAssignmentsDocument,
+  EventLogger,
+  LogUnion,
+  DestroyOptions,
 } from "./types/growthbook";
-import type { ConditionInterface } from "./types/mongrule";
 import {
-  chooseVariation,
   decrypt,
   getAutoExperimentChangeType,
-  getBucketRanges,
-  getQueryStringOverride,
-  getUrlRegExp,
-  hash,
-  inNamespace,
-  inRange,
-  isIncluded,
   isURLTargeted,
   loadSDKVersion,
   mergeQueryStrings,
-  toString,
+  promiseTimeout,
 } from "./util";
-import { evalCondition } from "./mongrule";
 import {
+  clearAutoRefresh,
+  configureCache,
   refreshFeatures,
-  startAutoRefresh,
-  subscribe,
+  startStreaming,
   unsubscribe,
 } from "./feature-repository";
+import {
+  runExperiment,
+  evalFeature as _evalFeature,
+  getExperimentResult,
+  getAllStickyBucketAssignmentDocs,
+  decryptPayload,
+  getApiHosts,
+  getExperimentDedupeKey,
+  getStickyBucketAttributes,
+} from "./core";
+import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -65,25 +64,23 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
-  // _ctx below is a clone of this property that we use internally
-  private context: Context;
+  private context: Options;
   public debug: boolean;
   public ready: boolean;
   public version: string;
+  public logs: Array<LogUnion>;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
-  private _ctx: Context;
+  private _options: Options;
   private _renderer: null | RenderFunction;
   private _redirectedUrl: string;
   private _trackedExperiments: Set<string>;
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
-  private _rtQueue: RealtimeUsageData[];
-  private _rtTimer: number;
   private _assigned: Map<
     string,
     {
@@ -93,9 +90,6 @@ export class GrowthBook<
       result: Result<any>;
     }
   >;
-  // eslint-disable-next-line
-  private _forcedFeatureValues: Map<string, any>;
-  private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     AutoExperiment,
     { valueHash: string; undo: () => void }
@@ -103,48 +97,57 @@ export class GrowthBook<
   private _triggeredExpKeys: Set<string>;
   private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
+  private _saveStickyBucketAssignmentDoc:
+    | undefined
+    | ((doc: StickyAssignmentsDocument) => Promise<unknown>);
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
+  private _destroyCallbacks: (() => void)[];
 
   private _autoExperimentsAllowed: boolean;
+  private _destroyed?: boolean;
 
-  constructor(context?: Context) {
-    context = context || {};
+  constructor(options?: Options) {
+    options = options || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
     this.version = SDK_VERSION;
-    this._ctx = this.context = context;
-    this._renderer = context.renderer || null;
+    this._options = this.context = options;
+    this._renderer = options.renderer || null;
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
-    this.debug = !!context.debug;
+    this.debug = !!options.debug;
     this._subscriptions = new Set();
-    this._rtQueue = [];
-    this._rtTimer = 0;
     this.ready = false;
     this._assigned = new Map();
-    this._forcedFeatureValues = new Map();
-    this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._initialized = false;
     this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
-    this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
+    this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
+    this._destroyCallbacks = [];
+    this.logs = [];
 
-    if (context.remoteEval) {
-      if (context.decryptionKey) {
+    this.log = this.log.bind(this);
+    this._saveDeferredTrack = this._saveDeferredTrack.bind(this);
+    this._onExperimentEval = this._onExperimentEval.bind(this);
+    this._fireSubscriptions = this._fireSubscriptions.bind(this);
+    this._recordChangedId = this._recordChangedId.bind(this);
+
+    if (options.remoteEval) {
+      if (options.decryptionKey) {
         throw new Error("Encryption is not available for remoteEval");
       }
-      if (!context.clientKey) {
+      if (!options.clientKey) {
         throw new Error("Missing clientKey");
       }
       let isGbHost = false;
       try {
-        isGbHost = !!new URL(context.apiHost || "").hostname.match(
-          /growthbook\.io$/i
+        isGbHost = !!new URL(options.apiHost || "").hostname.match(
+          /growthbook\.io$/i,
         );
       } catch (e) {
         // ignore invalid URLs
@@ -153,33 +156,47 @@ export class GrowthBook<
         throw new Error("Cannot use remoteEval on GrowthBook Cloud");
       }
     } else {
-      if (context.cacheKeyAttributes) {
+      if (options.cacheKeyAttributes) {
         throw new Error("cacheKeyAttributes are only used for remoteEval");
       }
     }
 
-    if (context.features) {
+    if (options.stickyBucketService) {
+      const s = options.stickyBucketService;
+      this._saveStickyBucketAssignmentDoc = (doc) => {
+        return s.saveAssignments(doc);
+      };
+    }
+
+    if (options.plugins) {
+      for (const plugin of options.plugins) {
+        plugin(this);
+      }
+    }
+
+    if (options.features) {
       this.ready = true;
     }
 
-    if (isBrowser && context.enableDevMode) {
+    if (isBrowser && options.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
     }
 
-    if (context.experiments) {
+    if (options.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
-    } else if (context.antiFlicker) {
-      this._setAntiFlicker();
     }
 
     // Hydrate sticky bucket service
-    if (this._ctx.stickyBucketService && this._ctx.stickyBucketAssignmentDocs) {
-      for (const key in this._ctx.stickyBucketAssignmentDocs) {
-        const doc = this._ctx.stickyBucketAssignmentDocs[key];
+    if (
+      this._options.stickyBucketService &&
+      this._options.stickyBucketAssignmentDocs
+    ) {
+      for (const key in this._options.stickyBucketAssignmentDocs) {
+        const doc = this._options.stickyBucketAssignmentDocs[key];
         if (doc) {
-          this._ctx.stickyBucketService.saveAssignments(doc).catch(() => {
+          this._options.stickyBucketService.saveAssignments(doc).catch(() => {
             // Ignore hydration errors
           });
         }
@@ -194,17 +211,17 @@ export class GrowthBook<
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
     this._payload = payload;
-    const data = await this.decryptPayload(payload);
+    const data = await decryptPayload(payload, this._options.decryptionKey);
     this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
-      this._ctx.features = data.features;
+      this._options.features = data.features;
     }
     if (data.savedGroups) {
-      this._ctx.savedGroups = data.savedGroups;
+      this._options.savedGroups = data.savedGroups;
     }
     if (data.experiments) {
-      this._ctx.experiments = data.experiments;
+      this._options.experiments = data.experiments;
       this._updateAllAutoExperiments();
     }
     this.ready = true;
@@ -221,51 +238,44 @@ export class GrowthBook<
     }
 
     if (
-      this._ctx.stickyBucketService &&
-      !this._ctx.stickyBucketAssignmentDocs
+      this._options.stickyBucketService &&
+      !this._options.stickyBucketAssignmentDocs
     ) {
-      throw new Error(
-        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
-      );
+      this._options.stickyBucketAssignmentDocs =
+        this.generateStickyBucketAssignmentDocsSync(
+          this._options.stickyBucketService as StickyBucketServiceSync,
+          payload,
+        );
     }
 
     this._payload = payload;
     this._decryptedPayload = payload;
     if (payload.features) {
-      this._ctx.features = payload.features;
+      this._options.features = payload.features;
     }
     if (payload.experiments) {
-      this._ctx.experiments = payload.experiments;
+      this._options.experiments = payload.experiments;
       this._updateAllAutoExperiments();
     }
 
     this.ready = true;
 
-    if (options.streaming) {
-      if (!this._ctx.clientKey) {
-        throw new Error("Must specify clientKey to enable streaming");
-      }
-      startAutoRefresh(this, true);
-      subscribe(this);
-    }
+    startStreaming(this, options);
 
     return this;
   }
 
   public async init(options?: InitOptions): Promise<InitResponse> {
     this._initialized = true;
-
     options = options || {};
+
+    if (options.cacheSettings) {
+      configureCache(options.cacheSettings);
+    }
+
     if (options.payload) {
       await this.setPayload(options.payload);
-      if (options.streaming) {
-        if (!this._ctx.clientKey) {
-          throw new Error("Must specify clientKey to enable streaming");
-        }
-        startAutoRefresh(this, true);
-        subscribe(this);
-      }
-
+      startStreaming(this, options);
       return {
         success: true,
         source: "init",
@@ -275,10 +285,7 @@ export class GrowthBook<
         ...options,
         allowStale: true,
       });
-      if (options.streaming) {
-        subscribe(this);
-      }
-
+      startStreaming(this, options);
       await this.setPayload(data || {});
       return res;
     }
@@ -286,26 +293,18 @@ export class GrowthBook<
 
   /** @deprecated Use {@link init} */
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
-    this._initialized = true;
-
     options = options || {};
-    if (options.autoRefresh) {
-      // interpret deprecated autoRefresh option as subscribeToChanges
-      this._ctx.subscribeToChanges = true;
-    }
-    const { data } = await this._refresh({
-      ...options,
-      allowStale: true,
+    await this.init({
+      skipCache: options.skipCache,
+      timeout: options.timeout,
+      streaming:
+        (this._options.backgroundSync ?? true) &&
+        (options.autoRefresh || this._options.subscribeToChanges),
     });
-    await this.setPayload(data || {});
-
-    if (this._canSubscribe()) {
-      subscribe(this);
-    }
   }
 
   public async refreshFeatures(
-    options?: RefreshFeaturesOptions
+    options?: RefreshFeaturesOptions,
   ): Promise<void> {
     const res = await this._refresh({
       ...(options || {}),
@@ -319,25 +318,11 @@ export class GrowthBook<
   public getApiInfo(): [ApiHost, ClientKey] {
     return [this.getApiHosts().apiHost, this.getClientKey()];
   }
-  public getApiHosts(): {
-    apiHost: string;
-    streamingHost: string;
-    apiRequestHeaders?: Record<string, string>;
-    streamingHostRequestHeaders?: Record<string, string>;
-  } {
-    const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
-    return {
-      apiHost: defaultHost.replace(/\/*$/, ""),
-      streamingHost: (this._ctx.streamingHost || defaultHost).replace(
-        /\/*$/,
-        ""
-      ),
-      apiRequestHeaders: this._ctx.apiHostRequestHeaders,
-      streamingHostRequestHeaders: this._ctx.streamingHostRequestHeaders,
-    };
+  public getApiHosts() {
+    return getApiHosts(this._options);
   }
   public getClientKey(): string {
-    return this._ctx.clientKey || "";
+    return this._options.clientKey || "";
   }
   public getPayload(): FeatureApiResponse {
     return (
@@ -352,11 +337,11 @@ export class GrowthBook<
   }
 
   public isRemoteEval(): boolean {
-    return this._ctx.remoteEval || false;
+    return this._options.remoteEval || false;
   }
 
   public getCacheKeyAttributes(): (keyof Attributes)[] | undefined {
-    return this._ctx.cacheKeyAttributes;
+    return this._options.cacheKeyAttributes;
   }
 
   private async _refresh({
@@ -368,16 +353,16 @@ export class GrowthBook<
     allowStale?: boolean;
     streaming?: boolean;
   }) {
-    if (!this._ctx.clientKey) {
+    if (!this._options.clientKey) {
       throw new Error("Missing clientKey");
     }
     // Trigger refresh in feature repository
     return refreshFeatures({
       instance: this,
       timeout,
-      skipCache: skipCache || this._ctx.disableCache,
+      skipCache: skipCache || this._options.disableCache,
       allowStale,
-      backgroundSync: streaming ?? this._ctx.backgroundSync ?? true,
+      backgroundSync: streaming ?? this._options.backgroundSync ?? true,
     });
   }
 
@@ -393,7 +378,7 @@ export class GrowthBook<
 
   /** @deprecated Use {@link setPayload} */
   public setFeatures(features: Record<string, FeatureDefinition>) {
-    this._ctx.features = features;
+    this._options.features = features;
     this.ready = true;
     this._render();
   }
@@ -402,21 +387,21 @@ export class GrowthBook<
   public async setEncryptedFeatures(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const featuresJSON = await decrypt(
       encryptedString,
-      decryptionKey || this._ctx.decryptionKey,
-      subtle
+      decryptionKey || this._options.decryptionKey,
+      subtle,
     );
     this.setFeatures(
-      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>,
     );
   }
 
   /** @deprecated Use {@link setPayload} */
   public setExperiments(experiments: AutoExperiment[]): void {
-    this._ctx.experiments = experiments;
+    this._options.experiments = experiments;
     this.ready = true;
     this._updateAllAutoExperiments();
   }
@@ -425,73 +410,22 @@ export class GrowthBook<
   public async setEncryptedExperiments(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const experimentsJSON = await decrypt(
       encryptedString,
-      decryptionKey || this._ctx.decryptionKey,
-      subtle
+      decryptionKey || this._options.decryptionKey,
+      subtle,
     );
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public async decryptPayload(
-    data: FeatureApiResponse,
-    decryptionKey?: string,
-    subtle?: SubtleCrypto
-  ): Promise<FeatureApiResponse> {
-    data = { ...data };
-    if (data.encryptedFeatures) {
-      try {
-        data.features = JSON.parse(
-          await decrypt(
-            data.encryptedFeatures,
-            decryptionKey || this._ctx.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedFeatures;
-    }
-    if (data.encryptedExperiments) {
-      try {
-        data.experiments = JSON.parse(
-          await decrypt(
-            data.encryptedExperiments,
-            decryptionKey || this._ctx.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedExperiments;
-    }
-    if (data.encryptedSavedGroups) {
-      try {
-        data.savedGroups = JSON.parse(
-          await decrypt(
-            data.encryptedSavedGroups,
-            decryptionKey || this._ctx.decryptionKey,
-            subtle
-          )
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      delete data.encryptedSavedGroups;
-    }
-    return data;
-  }
-
   public async setAttributes(attributes: Attributes) {
-    this._ctx.attributes = attributes;
-    if (this._ctx.stickyBucketService) {
+    this._options.attributes = attributes;
+    if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
-    if (this._ctx.remoteEval) {
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
     }
@@ -500,15 +434,15 @@ export class GrowthBook<
   }
 
   public async updateAttributes(attributes: Attributes) {
-    return this.setAttributes({ ...this._ctx.attributes, ...attributes });
+    return this.setAttributes({ ...this._options.attributes, ...attributes });
   }
 
   public async setAttributeOverrides(overrides: Attributes) {
-    this._attributeOverrides = overrides;
-    if (this._ctx.stickyBucketService) {
+    this._options.attributeOverrides = overrides;
+    if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
-    if (this._ctx.remoteEval) {
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
     }
@@ -517,8 +451,8 @@ export class GrowthBook<
   }
 
   public async setForcedVariations(vars: Record<string, number>) {
-    this._ctx.forcedVariations = vars || {};
-    if (this._ctx.remoteEval) {
+    this._options.forcedVariations = vars || {};
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       return;
     }
@@ -528,14 +462,15 @@ export class GrowthBook<
 
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
-    this._forcedFeatureValues = map;
+    this._options.forcedFeatureValues = map;
     this._render();
   }
 
   public async setURL(url: string) {
-    this._ctx.url = url;
+    if (url === this._options.url) return;
+    this._options.url = url;
     this._redirectedUrl = "";
-    if (this._ctx.remoteEval) {
+    if (this._options.remoteEval) {
       await this._refreshForRemoteEval();
       this._updateAllAutoExperiments(true);
       return;
@@ -544,32 +479,32 @@ export class GrowthBook<
   }
 
   public getAttributes() {
-    return { ...this._ctx.attributes, ...this._attributeOverrides };
+    return { ...this._options.attributes, ...this._options.attributeOverrides };
   }
 
   public getForcedVariations() {
-    return this._ctx.forcedVariations || {};
+    return this._options.forcedVariations || {};
   }
 
   public getForcedFeatures() {
     // eslint-disable-next-line
-    return this._forcedFeatureValues || new Map<string, any>();
+    return this._options.forcedFeatureValues || new Map<string, any>();
   }
 
   public getStickyBucketAssignmentDocs() {
-    return this._ctx.stickyBucketAssignmentDocs || {};
+    return this._options.stickyBucketAssignmentDocs || {};
   }
 
   public getUrl() {
-    return this._ctx.url || "";
+    return this._options.url || "";
   }
 
   public getFeatures() {
-    return this._ctx.features || {};
+    return this._options.features || {};
   }
 
   public getExperiments() {
-    return this._ctx.experiments || [];
+    return this._options.experiments || [];
   }
 
   public getCompletedChangeIds(): string[] {
@@ -583,12 +518,8 @@ export class GrowthBook<
     };
   }
 
-  private _canSubscribe() {
-    return (this._ctx.backgroundSync ?? true) && this._ctx.subscribeToChanges;
-  }
-
   private async _refreshForRemoteEval() {
-    if (!this._ctx.remoteEval) return;
+    if (!this._options.remoteEval) return;
     if (!this._initialized) return;
     const res = await this._refresh({
       allowStale: false,
@@ -602,7 +533,28 @@ export class GrowthBook<
     return new Map(this._assigned);
   }
 
-  public destroy() {
+  public onDestroy(cb: () => void) {
+    this._destroyCallbacks.push(cb);
+  }
+
+  public isDestroyed() {
+    return !!this._destroyed;
+  }
+
+  public destroy(options?: DestroyOptions) {
+    options = options || {};
+    this._destroyed = true;
+
+    // Custom callbacks
+    // Do this first in case it needs access to the below data that is cleared
+    this._destroyCallbacks.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
     // Release references to save memory
     this._subscriptions.clear();
     this._assigned.clear();
@@ -610,12 +562,14 @@ export class GrowthBook<
     this._completedChangeIds.clear();
     this._deferredTrackingCalls.clear();
     this._trackedFeatures = {};
-    this._rtQueue = [];
+    this._destroyCallbacks = [];
     this._payload = undefined;
-    if (this._rtTimer) {
-      clearTimeout(this._rtTimer);
-    }
+    this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
+    if (options.destroyAllStreams) {
+      clearAutoRefresh();
+    }
+    this.logs = [];
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
@@ -634,9 +588,9 @@ export class GrowthBook<
   }
 
   public forceVariation(key: string, variation: number) {
-    this._ctx.forcedVariations = this._ctx.forcedVariations || {};
-    this._ctx.forcedVariations[key] = variation;
-    if (this._ctx.remoteEval) {
+    this._options.forcedVariations = this._options.forcedVariations || {};
+    this._options.forcedVariations[key] = variation;
+    if (this._options.remoteEval) {
       this._refreshForRemoteEval();
       return;
     }
@@ -645,15 +599,17 @@ export class GrowthBook<
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
-    const result = this._run(experiment, null);
-    this._fireSubscriptions(experiment, result);
+    const { result } = runExperiment(experiment, null, this._getEvalContext());
+    this._onExperimentEval(experiment, result);
     return result;
   }
 
   public triggerExperiment(key: string) {
     this._triggeredExpKeys.add(key);
-    if (!this._ctx.experiments) return null;
-    const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
+    if (!this._options.experiments) return null;
+    const experiments = this._options.experiments.filter(
+      (exp) => exp.key === key,
+    );
     return experiments
       .map((exp) => {
         return this._runAutoExperiment(exp);
@@ -664,6 +620,56 @@ export class GrowthBook<
   public triggerAutoExperiments() {
     this._autoExperimentsAllowed = true;
     this._updateAllAutoExperiments(true);
+  }
+
+  private _getEvalContext(): EvalContext {
+    return {
+      user: this._getUserContext(),
+      global: this._getGlobalContext(),
+      stack: {
+        evaluatedFeatures: new Set(),
+      },
+    };
+  }
+
+  private _getUserContext(): UserContext {
+    return {
+      attributes: this._options.user
+        ? {
+            ...this._options.user,
+            ...this._options.attributes,
+          }
+        : this._options.attributes,
+      enableDevMode: this._options.enableDevMode,
+      blockedChangeIds: this._options.blockedChangeIds,
+      stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
+      url: this._getContextUrl(),
+      forcedVariations: this._options.forcedVariations,
+      forcedFeatureValues: this._options.forcedFeatureValues,
+      attributeOverrides: this._options.attributeOverrides,
+      saveStickyBucketAssignmentDoc: this._saveStickyBucketAssignmentDoc,
+      trackingCallback: this._options.trackingCallback,
+      onFeatureUsage: this._options.onFeatureUsage,
+      devLogs: this.logs,
+      trackedExperiments: this._trackedExperiments,
+      trackedFeatureUsage: this._trackedFeatures,
+    };
+  }
+  private _getGlobalContext(): GlobalContext {
+    return {
+      features: this._options.features,
+      experiments: this._options.experiments,
+      log: this.log,
+      enabled: this._options.enabled,
+      qaMode: this._options.qaMode,
+      savedGroups: this._options.savedGroups,
+      groups: this._options.groups,
+      overrides: this._options.overrides,
+      onExperimentEval: this._onExperimentEval,
+      recordChangeId: this._recordChangedId,
+      saveDeferredTrack: this._saveDeferredTrack,
+      eventLogger: this._options.eventLogger,
+    };
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
@@ -677,7 +683,7 @@ export class GrowthBook<
     )
       return null;
 
-    // Check if this particular experiment is blocked by context settings
+    // Check if this particular experiment is blocked by options settings
     // For example, if all visualEditor experiments are disabled
     const isBlocked = this._isAutoExperimentBlockedByContext(experiment);
     if (isBlocked) {
@@ -685,10 +691,25 @@ export class GrowthBook<
         this.log("Auto experiment blocked", { id: experiment.key });
     }
 
+    let result: Result<AutoExperimentVariation> | undefined;
+    let trackingCall: Promise<void> | undefined;
     // Run the experiment (if blocked exclude)
-    const result = isBlocked
-      ? this._getResult(experiment, -1, false, "")
-      : this.run(experiment);
+    if (isBlocked) {
+      result = getExperimentResult(
+        this._getEvalContext(),
+        experiment,
+        -1,
+        false,
+        "",
+      );
+    } else {
+      ({ result, trackingCall } = runExperiment(
+        experiment,
+        null,
+        this._getEvalContext(),
+      ));
+      this._onExperimentEval(experiment, result);
+    }
 
     // A hash to quickly tell if the assigned value changed
     const valueHash = JSON.stringify(result.value);
@@ -724,22 +745,37 @@ export class GrowthBook<
             "Skipping redirect because original URL matches redirect URL",
             {
               id: experiment.key,
-            }
+            },
           );
           return result;
         }
         this._redirectedUrl = url;
-        const navigate = this._getNavigateFunction();
+        const { navigate, delay } = this._getNavigateFunction();
         if (navigate) {
           if (isBrowser) {
-            this._setAntiFlicker();
-            window.setTimeout(() => {
+            // Wait for the possibly-async tracking callback, bound by min and max delays
+            Promise.all([
+              ...(trackingCall
+                ? [
+                    promiseTimeout(
+                      trackingCall,
+                      this._options.maxNavigateDelay ?? 1000,
+                    ),
+                  ]
+                : []),
+              new Promise((resolve) =>
+                window.setTimeout(
+                  resolve,
+                  this._options.navigateDelay ?? delay,
+                ),
+              ),
+            ]).then(() => {
               try {
                 navigate(url);
               } catch (e) {
                 console.error(e);
               }
-            }, this._ctx.navigateDelay ?? 100);
+            });
           } else {
             try {
               navigate(url);
@@ -749,8 +785,8 @@ export class GrowthBook<
           }
         }
       } else if (changeType === "visual") {
-        const undo = this._ctx.applyDomChangesCallback
-          ? this._ctx.applyDomChangesCallback(result.value)
+        const undo = this._options.applyDomChangesCallback
+          ? this._options.applyDomChangesCallback(result.value)
           : this._applyDOMChanges(result.value);
         if (undo) {
           this._activeAutoExperiments.set(experiment, {
@@ -775,7 +811,7 @@ export class GrowthBook<
   private _updateAllAutoExperiments(forceRerun?: boolean) {
     if (!this._autoExperimentsAllowed) return;
 
-    const experiments = this._ctx.experiments || [];
+    const experiments = this._options.experiments || [];
 
     // Stop any experiments that are no longer defined
     const keys = new Set(experiments);
@@ -792,7 +828,8 @@ export class GrowthBook<
 
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
       if (
-        result?.inExperiment &&
+        result &&
+        result.inExperiment &&
         getAutoExperimentChangeType(exp) === "redirect"
       ) {
         break;
@@ -800,18 +837,27 @@ export class GrowthBook<
     }
   }
 
-  private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
-    const key = experiment.key;
+  private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
+    const prev = this._assigned.get(experiment.key);
+    this._assigned.set(experiment.key, { experiment, result });
+    if (this._subscriptions.size > 0) {
+      this._fireSubscriptions<T>(experiment, result, prev);
+    }
+  }
 
+  private _fireSubscriptions<T>(
+    experiment: Experiment<T>,
+    result: Result<T>,
+    // eslint-disable-next-line
+    prev?: { experiment: Experiment<any>; result: Result<any> },
+  ) {
     // If assigned variation has changed, fire subscriptions
-    const prev = this._assigned.get(key);
     // TODO: what if the experiment definition has changed?
     if (
       !prev ||
       prev.result.inExperiment !== result.inExperiment ||
       prev.result.variationId !== result.variationId
     ) {
-      this._assigned.set(key, { experiment, result });
       this._subscriptions.forEach((cb) => {
         try {
           cb(experiment, result);
@@ -822,80 +868,8 @@ export class GrowthBook<
     }
   }
 
-  private _trackFeatureUsage(key: string, res: FeatureResult): void {
-    // Don't track feature usage that was forced via an override
-    if (res.source === "override") return;
-
-    // Only track a feature once, unless the assigned value changed
-    const stringifiedValue = JSON.stringify(res.value);
-    if (this._trackedFeatures[key] === stringifiedValue) return;
-    this._trackedFeatures[key] = stringifiedValue;
-
-    // Fire user-supplied callback
-    if (this._ctx.onFeatureUsage) {
-      try {
-        this._ctx.onFeatureUsage(key, res);
-      } catch (e) {
-        // Ignore feature usage callback errors
-      }
-    }
-
-    // In browser environments, queue up feature usage to be tracked in batches
-    if (!isBrowser || !window.fetch) return;
-    this._rtQueue.push({
-      key,
-      on: res.on,
-    });
-    if (!this._rtTimer) {
-      this._rtTimer = window.setTimeout(() => {
-        // Reset the queue
-        this._rtTimer = 0;
-        const q = [...this._rtQueue];
-        this._rtQueue = [];
-
-        // Skip logging if a real-time usage key is not configured
-        if (!this._ctx.realtimeKey) return;
-
-        window
-          .fetch(
-            `https://rt.growthbook.io/?key=${
-              this._ctx.realtimeKey
-            }&events=${encodeURIComponent(JSON.stringify(q))}`,
-
-            {
-              cache: "no-cache",
-              mode: "no-cors",
-            }
-          )
-          .catch(() => {
-            // TODO: retry in case of network errors?
-          });
-      }, this._ctx.realtimeInterval || 2000);
-    }
-  }
-
-  private _getFeatureResult<T>(
-    key: string,
-    value: T,
-    source: FeatureResultSource,
-    ruleId?: string,
-    experiment?: Experiment<T>,
-    result?: Result<T>
-  ): FeatureResult<T> {
-    const ret: FeatureResult = {
-      value,
-      on: !!value,
-      off: !value,
-      source,
-      ruleId: ruleId || "",
-    };
-    if (experiment) ret.experiment = experiment;
-    if (result) ret.experimentResult = result;
-
-    // Track the usage of this feature in real-time
-    this._trackFeatureUsage(key, ret);
-
-    return ret;
+  private _recordChangedId(id: string) {
+    this._completedChangeIds.add(id);
   }
 
   public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
@@ -908,7 +882,7 @@ export class GrowthBook<
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
@@ -921,587 +895,21 @@ export class GrowthBook<
   // eslint-disable-next-line
   public feature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
-    return this._evalFeature(id);
-  }
-
-  private _evalFeature<
-    V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
-  >(id: K, evalCtx?: FeatureEvalContext): FeatureResult<V | null> {
-    evalCtx = evalCtx || { evaluatedFeatures: new Set() };
-
-    if (evalCtx.evaluatedFeatures.has(id)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log(
-          `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`,
-          { from: evalCtx.id, to: id }
-        );
-      return this._getFeatureResult(id, null, "cyclicPrerequisite");
-    }
-    evalCtx.evaluatedFeatures.add(id);
-    evalCtx.id = id;
-
-    // Global override
-    if (this._forcedFeatureValues.has(id)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Global override", {
-          id,
-          value: this._forcedFeatureValues.get(id),
-        });
-      return this._getFeatureResult(
-        id,
-        this._forcedFeatureValues.get(id),
-        "override"
-      );
-    }
-
-    // Unknown feature id
-    if (!this._ctx.features || !this._ctx.features[id]) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Unknown feature", { id });
-      return this._getFeatureResult(id, null, "unknownFeature");
-    }
-
-    // Get the feature
-    const feature: FeatureDefinition<V> = this._ctx.features[id];
-
-    // Loop through the rules
-    if (feature.rules) {
-      rules: for (const rule of feature.rules) {
-        // If there are prerequisite flag(s), evaluate them
-        if (rule.parentConditions) {
-          for (const parentCondition of rule.parentConditions) {
-            const parentResult = this._evalFeature(parentCondition.id, evalCtx);
-            // break out for cyclic prerequisites
-            if (parentResult.source === "cyclicPrerequisite") {
-              return this._getFeatureResult(id, null, "cyclicPrerequisite");
-            }
-
-            const evalObj = { value: parentResult.value };
-            const evaled = evalCondition(
-              evalObj,
-              parentCondition.condition || {}
-            );
-            if (!evaled) {
-              // blocking prerequisite eval failed: feature evaluation fails
-              if (parentCondition.gate) {
-                process.env.NODE_ENV !== "production" &&
-                  this.log("Feature blocked by prerequisite", { id, rule });
-                return this._getFeatureResult(id, null, "prerequisite");
-              }
-              // non-blocking prerequisite eval failed: break out of parentConditions loop, jump to the next rule
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because prerequisite evaluation fails", {
-                  id,
-                  rule,
-                });
-              continue rules;
-            }
-          }
-        }
-
-        // If there are filters for who is included (e.g. namespaces)
-        if (rule.filters && this._isFilteredOut(rule.filters)) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip rule because of filters", {
-              id,
-              rule,
-            });
-          continue;
-        }
-
-        // Feature value is being forced
-        if ("force" in rule) {
-          // If it's a conditional rule, skip if the condition doesn't pass
-          if (rule.condition && !this._conditionPasses(rule.condition)) {
-            process.env.NODE_ENV !== "production" &&
-              this.log("Skip rule because of condition ff", {
-                id,
-                rule,
-              });
-            continue;
-          }
-
-          // If this is a percentage rollout, skip if not included
-          if (
-            !this._isIncludedInRollout(
-              rule.seed || id,
-              rule.hashAttribute,
-              this._ctx.stickyBucketService && !rule.disableStickyBucketing
-                ? rule.fallbackAttribute
-                : undefined,
-              rule.range,
-              rule.coverage,
-              rule.hashVersion
-            )
-          ) {
-            process.env.NODE_ENV !== "production" &&
-              this.log("Skip rule because user not included in rollout", {
-                id,
-                rule,
-              });
-            continue;
-          }
-
-          process.env.NODE_ENV !== "production" &&
-            this.log("Force value from rule", {
-              id,
-              rule,
-            });
-
-          // If this was a remotely evaluated experiment, fire the tracking callbacks
-          if (rule.tracks) {
-            rule.tracks.forEach((t) => {
-              this._track(t.experiment, t.result);
-            });
-          }
-
-          return this._getFeatureResult(id, rule.force as V, "force", rule.id);
-        }
-        if (!rule.variations) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip invalid rule", {
-              id,
-              rule,
-            });
-
-          continue;
-        }
-
-        // For experiment rules, run an experiment
-        const exp: Experiment<V> = {
-          variations: rule.variations as [V, V, ...V[]],
-          key: rule.key || id,
-        };
-        if ("coverage" in rule) exp.coverage = rule.coverage;
-        if (rule.weights) exp.weights = rule.weights;
-        if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
-        if (rule.fallbackAttribute)
-          exp.fallbackAttribute = rule.fallbackAttribute;
-        if (rule.disableStickyBucketing)
-          exp.disableStickyBucketing = rule.disableStickyBucketing;
-        if (rule.bucketVersion !== undefined)
-          exp.bucketVersion = rule.bucketVersion;
-        if (rule.minBucketVersion !== undefined)
-          exp.minBucketVersion = rule.minBucketVersion;
-        if (rule.namespace) exp.namespace = rule.namespace;
-        if (rule.meta) exp.meta = rule.meta;
-        if (rule.ranges) exp.ranges = rule.ranges;
-        if (rule.name) exp.name = rule.name;
-        if (rule.phase) exp.phase = rule.phase;
-        if (rule.seed) exp.seed = rule.seed;
-        if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
-        if (rule.filters) exp.filters = rule.filters;
-        if (rule.condition) exp.condition = rule.condition;
-
-        // Only return a value if the user is part of the experiment
-        const res = this._run(exp, id);
-        this._fireSubscriptions(exp, res);
-        if (res.inExperiment && !res.passthrough) {
-          return this._getFeatureResult(
-            id,
-            res.value,
-            "experiment",
-            rule.id,
-            exp,
-            res
-          );
-        }
-      }
-    }
-
-    process.env.NODE_ENV !== "production" &&
-      this.log("Use default value", {
-        id,
-        value: feature.defaultValue,
-      });
-
-    // Fall back to using the default value
-    return this._getFeatureResult(
-      id,
-      feature.defaultValue === undefined ? null : feature.defaultValue,
-      "defaultValue"
-    );
-  }
-
-  private _isIncludedInRollout(
-    seed: string,
-    hashAttribute: string | undefined,
-    fallbackAttribute: string | undefined,
-    range: VariationRange | undefined,
-    coverage: number | undefined,
-    hashVersion: number | undefined
-  ): boolean {
-    if (!range && coverage === undefined) return true;
-
-    if (!range && coverage === 0) return false;
-
-    const { hashValue } = this._getHashAttribute(
-      hashAttribute,
-      fallbackAttribute
-    );
-    if (!hashValue) {
-      return false;
-    }
-
-    const n = hash(seed, hashValue, hashVersion || 1);
-    if (n === null) return false;
-
-    return range
-      ? inRange(n, range)
-      : coverage !== undefined
-      ? n <= coverage
-      : true;
-  }
-
-  private _conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(
-      this.getAttributes(),
-      condition,
-      this._ctx.savedGroups || {}
-    );
-  }
-
-  private _isFilteredOut(filters: Filter[]): boolean {
-    return filters.some((filter) => {
-      const { hashValue } = this._getHashAttribute(filter.attribute);
-      if (!hashValue) return true;
-      const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
-      if (n === null) return true;
-      return !filter.ranges.some((r) => inRange(n, r));
-    });
-  }
-
-  private _run<T>(
-    experiment: Experiment<T>,
-    featureId: string | null
-  ): Result<T> {
-    const key = experiment.key;
-    const numVariations = experiment.variations.length;
-
-    // 1. If experiment has less than 2 variations, return immediately
-    if (numVariations < 2) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Invalid experiment", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 2. If the context is disabled, return immediately
-    if (this._ctx.enabled === false) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Context disabled", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 2.5. Merge in experiment overrides from the context
-    experiment = this._mergeOverrides(experiment);
-
-    // 2.6 New, more powerful URL targeting
-    if (
-      experiment.urlPatterns &&
-      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of url targeting", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 3. If a variation is forced from a querystring, return the forced variation
-    const qsOverride = getQueryStringOverride(
-      key,
-      this._getContextUrl(),
-      numVariations
-    );
-    if (qsOverride !== null) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Force via querystring", {
-          id: key,
-          variation: qsOverride,
-        });
-      return this._getResult(experiment, qsOverride, false, featureId);
-    }
-
-    // 4. If a variation is forced in the context, return the forced variation
-    if (this._ctx.forcedVariations && key in this._ctx.forcedVariations) {
-      const variation = this._ctx.forcedVariations[key];
-      process.env.NODE_ENV !== "production" &&
-        this.log("Force via dev tools", {
-          id: key,
-          variation,
-        });
-      return this._getResult(experiment, variation, false, featureId);
-    }
-
-    // 5. Exclude if a draft experiment or not active
-    if (experiment.status === "draft" || experiment.active === false) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because inactive", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 6. Get the hash attribute and return if empty
-    const { hashAttribute, hashValue } = this._getHashAttribute(
-      experiment.hashAttribute,
-      this._ctx.stickyBucketService && !experiment.disableStickyBucketing
-        ? experiment.fallbackAttribute
-        : undefined
-    );
-    if (!hashValue) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because missing hashAttribute", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    let assigned = -1;
-
-    let foundStickyBucket = false;
-    let stickyBucketVersionIsBlocked = false;
-    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
-      const { variation, versionIsBlocked } = this._getStickyBucketVariation({
-        expKey: experiment.key,
-        expBucketVersion: experiment.bucketVersion,
-        expHashAttribute: experiment.hashAttribute,
-        expFallbackAttribute: experiment.fallbackAttribute,
-        expMinBucketVersion: experiment.minBucketVersion,
-        expMeta: experiment.meta,
-      });
-      foundStickyBucket = variation >= 0;
-      assigned = variation;
-      stickyBucketVersionIsBlocked = !!versionIsBlocked;
-    }
-
-    // Some checks are not needed if we already have a sticky bucket
-    if (!foundStickyBucket) {
-      // 7. Exclude if user is filtered out (used to be called "namespace")
-      if (experiment.filters) {
-        if (this._isFilteredOut(experiment.filters)) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip because of filters", {
-              id: key,
-            });
-          return this._getResult(experiment, -1, false, featureId);
-        }
-      } else if (
-        experiment.namespace &&
-        !inNamespace(hashValue, experiment.namespace)
-      ) {
-        process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of namespace", {
-            id: key,
-          });
-        return this._getResult(experiment, -1, false, featureId);
-      }
-
-      // 7.5. Exclude if experiment.include returns false or throws
-      if (experiment.include && !isIncluded(experiment.include)) {
-        process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of include function", {
-            id: key,
-          });
-        return this._getResult(experiment, -1, false, featureId);
-      }
-
-      // 8. Exclude if condition is false
-      if (
-        experiment.condition &&
-        !this._conditionPasses(experiment.condition)
-      ) {
-        process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of condition exp", {
-            id: key,
-          });
-        return this._getResult(experiment, -1, false, featureId);
-      }
-
-      // 8.05. Exclude if prerequisites are not met
-      if (experiment.parentConditions) {
-        for (const parentCondition of experiment.parentConditions) {
-          const parentResult = this._evalFeature(parentCondition.id);
-          // break out for cyclic prerequisites
-          if (parentResult.source === "cyclicPrerequisite") {
-            return this._getResult(experiment, -1, false, featureId);
-          }
-
-          const evalObj = { value: parentResult.value };
-          if (!evalCondition(evalObj, parentCondition.condition || {})) {
-            process.env.NODE_ENV !== "production" &&
-              this.log("Skip because prerequisite evaluation fails", {
-                id: key,
-              });
-            return this._getResult(experiment, -1, false, featureId);
-          }
-        }
-      }
-
-      // 8.1. Exclude if user is not in a required group
-      if (
-        experiment.groups &&
-        !this._hasGroupOverlap(experiment.groups as string[])
-      ) {
-        process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of groups", {
-            id: key,
-          });
-        return this._getResult(experiment, -1, false, featureId);
-      }
-    }
-
-    // 8.2. Old style URL targeting
-    if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of url", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
-    const n = hash(
-      experiment.seed || key,
-      hashValue,
-      experiment.hashVersion || 1
-    );
-    if (n === null) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of invalid hash version", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    if (!foundStickyBucket) {
-      const ranges =
-        experiment.ranges ||
-        getBucketRanges(
-          numVariations,
-          experiment.coverage === undefined ? 1 : experiment.coverage,
-          experiment.weights
-        );
-      assigned = chooseVariation(n, ranges);
-    }
-
-    // 9.5 Unenroll if any prior sticky buckets are blocked by version
-    if (stickyBucketVersionIsBlocked) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because sticky bucket version is blocked", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId, undefined, true);
-    }
-
-    // 10. Return if not in experiment
-    if (assigned < 0) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of coverage", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 11. Experiment has a forced variation
-    if ("force" in experiment) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Force variation", {
-          id: key,
-          variation: experiment.force,
-        });
-      return this._getResult(
-        experiment,
-        experiment.force === undefined ? -1 : experiment.force,
-        false,
-        featureId
-      );
-    }
-
-    // 12. Exclude if in QA mode
-    if (this._ctx.qaMode) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because QA mode", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 12.5. Exclude if experiment is stopped
-    if (experiment.status === "stopped") {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because stopped", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 13. Build the result object
-    const result = this._getResult(
-      experiment,
-      assigned,
-      true,
-      featureId,
-      n,
-      foundStickyBucket
-    );
-
-    // 13.5. Persist sticky bucket
-    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
-      const {
-        changed,
-        key: attrKey,
-        doc,
-      } = this._generateStickyBucketAssignmentDoc(
-        hashAttribute,
-        toString(hashValue),
-        {
-          [this._getStickyBucketExperimentKey(
-            experiment.key,
-            experiment.bucketVersion
-          )]: result.key,
-        }
-      );
-      if (changed) {
-        // update local docs
-        this._ctx.stickyBucketAssignmentDocs =
-          this._ctx.stickyBucketAssignmentDocs || {};
-        this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
-        // save doc
-        this._ctx.stickyBucketService.saveAssignments(doc);
-      }
-    }
-
-    // 14. Fire the tracking callback
-    this._track(experiment, result);
-
-    // 14.1 Keep track of completed changeIds
-    "changeId" in experiment &&
-      experiment.changeId &&
-      this._completedChangeIds.add(experiment.changeId as string);
-
-    // 15. Return the result
-    process.env.NODE_ENV !== "production" &&
-      this.log("In experiment", {
-        id: key,
-        variation: result.variationId,
-      });
-    return result;
+    return _evalFeature(id, this._getEvalContext());
   }
 
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
-    if (this._ctx.log) this._ctx.log(msg, ctx);
+    if (this._options.log) this._options.log(msg, ctx);
     else console.log(msg, ctx);
   }
 
@@ -1514,192 +922,96 @@ export class GrowthBook<
       calls
         .filter((c) => c && c.experiment && c.result)
         .map((c) => {
-          return [this._getTrackKey(c.experiment, c.result), c];
-        })
+          return [getExperimentDedupeKey(c.experiment, c.result), c];
+        }),
     );
   }
 
-  public fireDeferredTrackingCalls() {
-    if (!this._ctx.trackingCallback) return;
+  public async fireDeferredTrackingCalls() {
+    if (!this._options.trackingCallback) return;
 
+    const promises: ReturnType<TrackingCallback>[] = [];
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
       } else {
-        this._track(call.experiment, call.result);
+        promises.push(
+          (this._options.trackingCallback as TrackingCallback)(
+            call.experiment,
+            call.result,
+          ),
+        );
       }
     });
-
     this._deferredTrackingCalls.clear();
+    await Promise.all(promises);
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
-    this._ctx.trackingCallback = callback;
+    this._options.trackingCallback = callback;
     this.fireDeferredTrackingCalls();
   }
 
-  private _getTrackKey(
-    experiment: Experiment<unknown>,
-    result: Result<unknown>
-  ) {
-    return (
-      result.hashAttribute +
-      result.hashValue +
-      experiment.key +
-      result.variationId
-    );
+  public setEventLogger(logger: EventLogger) {
+    this._options.eventLogger = logger;
   }
 
-  private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    const k = this._getTrackKey(experiment, result);
-
-    if (!this._ctx.trackingCallback) {
-      // Add to deferred tracking if it hasn't already been added
-      if (!this._deferredTrackingCalls.has(k)) {
-        this._deferredTrackingCalls.set(k, { experiment, result });
-      }
+  public async logEvent(
+    eventName: string,
+    properties?: Record<string, unknown>,
+  ) {
+    if (this._destroyed) {
+      console.error("Cannot log event to destroyed GrowthBook instance");
       return;
     }
-
-    // Make sure a tracking callback is only fired once per unique experiment
-    if (this._trackedExperiments.has(k)) return;
-    this._trackedExperiments.add(k);
-
-    try {
-      this._ctx.trackingCallback(experiment, result);
-    } catch (e) {
-      console.error(e);
+    if (this._options.enableDevMode) {
+      this.logs.push({
+        eventName,
+        properties,
+        timestamp: Date.now().toString(),
+        logType: "event",
+      });
     }
-  }
-
-  private _mergeOverrides<T>(experiment: Experiment<T>): Experiment<T> {
-    const key = experiment.key;
-    const o = this._ctx.overrides;
-    if (o && o[key]) {
-      experiment = Object.assign({}, experiment, o[key]);
-      if (typeof experiment.url === "string") {
-        experiment.url = getUrlRegExp(
-          // eslint-disable-next-line
-          experiment.url as any
+    if (this._options.eventLogger) {
+      try {
+        await this._options.eventLogger(
+          eventName,
+          properties || {},
+          this._getUserContext(),
         );
+      } catch (e) {
+        console.error(e);
       }
+    } else {
+      console.error("No event logger configured");
     }
-
-    return experiment;
   }
 
-  private _getHashAttribute(attr?: string, fallback?: string) {
-    let hashAttribute = attr || "id";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let hashValue: any = "";
-
-    if (this._attributeOverrides[hashAttribute]) {
-      hashValue = this._attributeOverrides[hashAttribute];
-    } else if (this._ctx.attributes) {
-      hashValue = this._ctx.attributes[hashAttribute] || "";
-    } else if (this._ctx.user) {
-      hashValue = this._ctx.user[hashAttribute] || "";
-    }
-
-    // if no match, try fallback
-    if (!hashValue && fallback) {
-      if (this._attributeOverrides[fallback]) {
-        hashValue = this._attributeOverrides[fallback];
-      } else if (this._ctx.attributes) {
-        hashValue = this._ctx.attributes[fallback] || "";
-      } else if (this._ctx.user) {
-        hashValue = this._ctx.user[fallback] || "";
-      }
-      if (hashValue) {
-        hashAttribute = fallback;
-      }
-    }
-
-    return { hashAttribute, hashValue };
-  }
-
-  private _getResult<T>(
-    experiment: Experiment<T>,
-    variationIndex: number,
-    hashUsed: boolean,
-    featureId: string | null,
-    bucket?: number,
-    stickyBucketUsed?: boolean
-  ): Result<T> {
-    let inExperiment = true;
-    // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
-    if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
-      variationIndex = 0;
-      inExperiment = false;
-    }
-
-    const { hashAttribute, hashValue } = this._getHashAttribute(
-      experiment.hashAttribute,
-      this._ctx.stickyBucketService && !experiment.disableStickyBucketing
-        ? experiment.fallbackAttribute
-        : undefined
+  private _saveDeferredTrack(data: TrackingData) {
+    this._deferredTrackingCalls.set(
+      getExperimentDedupeKey(data.experiment, data.result),
+      data,
     );
-
-    const meta: Partial<VariationMeta> = experiment.meta
-      ? experiment.meta[variationIndex]
-      : {};
-
-    const res: Result<T> = {
-      key: meta.key || "" + variationIndex,
-      featureId,
-      inExperiment,
-      hashUsed,
-      variationId: variationIndex,
-      value: experiment.variations[variationIndex],
-      hashAttribute,
-      hashValue,
-      stickyBucketUsed: !!stickyBucketUsed,
-    };
-
-    if (meta.name) res.name = meta.name;
-    if (bucket !== undefined) res.bucket = bucket;
-    if (meta.passthrough) res.passthrough = meta.passthrough;
-
-    return res;
   }
 
   private _getContextUrl() {
-    return this._ctx.url || (isBrowser ? window.location.href : "");
-  }
-
-  private _urlIsValid(urlRegex: RegExp): boolean {
-    const url = this._getContextUrl();
-    if (!url) return false;
-
-    const pathOnly = url.replace(/^https?:\/\//, "").replace(/^[^/]*\//, "/");
-
-    if (urlRegex.test(url)) return true;
-    if (urlRegex.test(pathOnly)) return true;
-    return false;
-  }
-
-  private _hasGroupOverlap(expGroups: string[]): boolean {
-    const groups = this._ctx.groups || {};
-    for (let i = 0; i < expGroups.length; i++) {
-      if (groups[expGroups[i]]) return true;
-    }
-    return false;
+    return this._options.url || (isBrowser ? window.location.href : "");
   }
 
   private _isAutoExperimentBlockedByContext(
-    experiment: AutoExperiment
+    experiment: AutoExperiment,
   ): boolean {
     const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
-      if (this._ctx.disableVisualExperiments) return true;
+      if (this._options.disableVisualExperiments) return true;
 
-      if (this._ctx.disableJsInjection) {
+      if (this._options.disableJsInjection) {
         if (experiment.variations.some((v) => v.js)) {
           return true;
         }
       }
     } else if (changeType === "redirect") {
-      if (this._ctx.disableUrlRedirectExperiments) return true;
+      if (this._options.disableUrlRedirectExperiments) return true;
 
       // Validate URLs
       try {
@@ -1709,7 +1021,7 @@ export class GrowthBook<
           const url = new URL(v.urlRedirect);
 
           // If we're blocking cross origin redirects, block if the protocol or host is different
-          if (this._ctx.disableCrossOriginUrlRedirectExperiments) {
+          if (this._options.disableCrossOriginUrlRedirectExperiments) {
             if (url.protocol !== current.protocol) return true;
             if (url.host !== current.host) return true;
           }
@@ -1729,7 +1041,7 @@ export class GrowthBook<
 
     if (
       experiment.changeId &&
-      (this._ctx.blockedChangeIds || []).includes(experiment.changeId)
+      (this._options.blockedChangeIds || []).includes(experiment.changeId)
     ) {
       return true;
     }
@@ -1741,35 +1053,27 @@ export class GrowthBook<
     return this._redirectedUrl;
   }
 
-  private _getNavigateFunction():
-    | null
-    | ((url: string) => void | Promise<void>) {
-    if (this._ctx.navigate) {
-      return this._ctx.navigate;
+  private _getNavigateFunction(): {
+    navigate: null | ((url: string) => void | Promise<void>);
+    delay: number;
+  } {
+    if (this._options.navigate) {
+      return {
+        navigate: this._options.navigate,
+        delay: 0,
+      };
     } else if (isBrowser) {
-      return (url: string) => {
-        window.location.replace(url);
+      return {
+        navigate: (url: string) => {
+          window.location.replace(url);
+        },
+        delay: 100,
       };
     }
-    return null;
-  }
-
-  private _setAntiFlicker() {
-    if (!this._ctx.antiFlicker || !isBrowser) return;
-    try {
-      const styleTag = document.createElement("style");
-      styleTag.innerHTML =
-        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
-      document.head.appendChild(styleTag);
-      document.documentElement.classList.add("gb-anti-flicker");
-
-      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds
-      setTimeout(() => {
-        document.documentElement.classList.remove("gb-anti-flicker");
-      }, this._ctx.antiFlickerTimeout ?? 3500);
-    } catch (e) {
-      console.error(e);
-    }
+    return {
+      navigate: null,
+      delay: 0,
+    };
   }
 
   private _applyDOMChanges(changes: AutoExperimentVariation) {
@@ -1784,8 +1088,8 @@ export class GrowthBook<
     if (changes.js) {
       const script = document.createElement("script");
       script.innerHTML = changes.js;
-      if (this._ctx.jsInjectionNonce) {
-        script.nonce = this._ctx.jsInjectionNonce;
+      if (this._options.jsInjectionNonce) {
+        script.nonce = this._options.jsInjectionNonce;
       }
       document.head.appendChild(script);
       undo.push(() => script.remove());
@@ -1800,179 +1104,35 @@ export class GrowthBook<
     };
   }
 
-  private _deriveStickyBucketIdentifierAttributes(data?: FeatureApiResponse) {
-    const attributes = new Set<string>();
-    const features = data && data.features ? data.features : this.getFeatures();
-    const experiments =
-      data && data.experiments ? data.experiments : this.getExperiments();
-    Object.keys(features).forEach((id) => {
-      const feature = features[id];
-      if (feature.rules) {
-        for (const rule of feature.rules) {
-          if (rule.variations) {
-            attributes.add(rule.hashAttribute || "id");
-            if (rule.fallbackAttribute) {
-              attributes.add(rule.fallbackAttribute);
-            }
-          }
-        }
-      }
-    });
-    experiments.map((experiment) => {
-      attributes.add(experiment.hashAttribute || "id");
-      if (experiment.fallbackAttribute) {
-        attributes.add(experiment.fallbackAttribute);
-      }
-    });
-    return Array.from(attributes);
-  }
-
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
-    if (this._ctx.stickyBucketService) {
-      const attributes = this._getStickyBucketAttributes(data);
-      this._ctx.stickyBucketAssignmentDocs = await this._ctx.stickyBucketService.getAllAssignments(
-        attributes
+    if (this._options.stickyBucketService) {
+      const ctx = this._getEvalContext();
+      const docs = await getAllStickyBucketAssignmentDocs(
+        ctx,
+        this._options.stickyBucketService,
+        data,
       );
+      this._options.stickyBucketAssignmentDocs = docs;
     }
   }
 
-  private _getStickyBucketAssignments(
-    expHashAttribute: string,
-    expFallbackAttribute?: string
-  ): StickyAssignments {
-    if (!this._ctx.stickyBucketAssignmentDocs) return {};
-    const { hashAttribute, hashValue } = this._getHashAttribute(
-      expHashAttribute
-    );
-    const hashKey = `${hashAttribute}||${toString(hashValue)}`;
-
-    const {
-      hashAttribute: fallbackAttribute,
-      hashValue: fallbackValue,
-    } = this._getHashAttribute(expFallbackAttribute);
-    const fallbackKey = fallbackValue
-      ? `${fallbackAttribute}||${toString(fallbackValue)}`
-      : null;
-
-    const assignments: StickyAssignments = {};
-    if (fallbackKey && this._ctx.stickyBucketAssignmentDocs[fallbackKey]) {
-      Object.assign(
-        assignments,
-        this._ctx.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
+  public generateStickyBucketAssignmentDocsSync(
+    stickyBucketService: StickyBucketServiceSync,
+    payload: FeatureApiResponse,
+  ) {
+    if (!("getAllAssignmentsSync" in stickyBucketService)) {
+      console.error(
+        "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync",
       );
+      return;
     }
-    if (this._ctx.stickyBucketAssignmentDocs[hashKey]) {
-      Object.assign(
-        assignments,
-        this._ctx.stickyBucketAssignmentDocs[hashKey].assignments || {}
-      );
-    }
-    return assignments;
+    const ctx = this._getEvalContext();
+    const attributes = getStickyBucketAttributes(ctx, payload);
+    return stickyBucketService.getAllAssignmentsSync(attributes);
   }
 
-  private _getStickyBucketVariation({
-    expKey,
-    expBucketVersion,
-    expHashAttribute,
-    expFallbackAttribute,
-    expMinBucketVersion,
-    expMeta,
-  }: {
-    expKey: string;
-    expBucketVersion?: number;
-    expHashAttribute?: string;
-    expFallbackAttribute?: string;
-    expMinBucketVersion?: number;
-    expMeta?: VariationMeta[];
-  }): {
-    variation: number;
-    versionIsBlocked?: boolean;
-  } {
-    expBucketVersion = expBucketVersion || 0;
-    expMinBucketVersion = expMinBucketVersion || 0;
-    expHashAttribute = expHashAttribute || "id";
-    expMeta = expMeta || [];
-    const id = this._getStickyBucketExperimentKey(expKey, expBucketVersion);
-    const assignments = this._getStickyBucketAssignments(
-      expHashAttribute,
-      expFallbackAttribute
-    );
-
-    // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
-    if (expMinBucketVersion > 0) {
-      for (let i = 0; i <= expMinBucketVersion; i++) {
-        const blockedKey = this._getStickyBucketExperimentKey(expKey, i);
-        if (assignments[blockedKey] !== undefined) {
-          return {
-            variation: -1,
-            versionIsBlocked: true,
-          };
-        }
-      }
-    }
-    const variationKey = assignments[id];
-    if (variationKey === undefined)
-      // no assignment found
-      return { variation: -1 };
-    const variation = expMeta.findIndex((m) => m.key === variationKey);
-    if (variation < 0)
-      // invalid assignment, treat as "no assignment found"
-      return { variation: -1 };
-
-    return { variation };
-  }
-
-  private _getStickyBucketExperimentKey(
-    experimentKey: string,
-    experimentBucketVersion?: number
-  ): StickyExperimentKey {
-    experimentBucketVersion = experimentBucketVersion || 0;
-    return `${experimentKey}__${experimentBucketVersion}`;
-  }
-
-  private _getStickyBucketAttributes(
-    data?: FeatureApiResponse
-  ): Record<string, string> {
-    const attributes: Record<string, string> = {};
-    this._ctx.stickyBucketIdentifierAttributes = !this._ctx
-      .stickyBucketIdentifierAttributes
-      ? this._deriveStickyBucketIdentifierAttributes(data)
-      : this._ctx.stickyBucketIdentifierAttributes;
-    this._ctx.stickyBucketIdentifierAttributes.forEach((attr) => {
-      const { hashValue } = this._getHashAttribute(attr);
-      attributes[attr] = toString(hashValue);
-    });
-    return attributes;
-  }
-
-  private _generateStickyBucketAssignmentDoc(
-    attributeName: string,
-    attributeValue: string,
-    assignments: StickyAssignments
-  ): {
-    key: StickyAttributeKey;
-    doc: StickyAssignmentsDocument;
-    changed: boolean;
-  } {
-    const key = `${attributeName}||${attributeValue}`;
-    const existingAssignments =
-      this._ctx.stickyBucketAssignmentDocs &&
-      this._ctx.stickyBucketAssignmentDocs[key]
-        ? this._ctx.stickyBucketAssignmentDocs[key].assignments || {}
-        : {};
-    const newAssignments = { ...existingAssignments, ...assignments };
-    const changed =
-      JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments);
-
-    return {
-      key,
-      doc: {
-        attributeName,
-        attributeValue,
-        assignments: newAssignments,
-      },
-      changed,
-    };
+  public inDevMode(): boolean {
+    return !!this._options.enableDevMode;
   }
 }
 

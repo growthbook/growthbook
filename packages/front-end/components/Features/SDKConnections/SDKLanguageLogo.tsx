@@ -1,7 +1,7 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
-import { FaHashtag, FaApple, FaJava, FaCode } from "react-icons/fa";
+import { FaHashtag, FaApple, FaJava, FaCode, FaRust } from "react-icons/fa";
 import {
   SiAwslambda,
   SiCloudflare,
@@ -15,6 +15,7 @@ import {
   SiWordpress,
   SiElixir,
   SiFastly,
+  SiNextdotjs,
 } from "react-icons/si";
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
@@ -48,6 +49,8 @@ export type LanguageLogo = {
   filters: LanguageFilter[];
   hideVersion?: boolean;
   extra?: ReactElement | string;
+  packageName?: string;
+  packageUrl?: string;
 };
 export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
   "nocode-other": {
@@ -67,6 +70,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "javascript",
     type: "frontend",
     filters: ["browser", "popular"],
+    packageName: "@growthbook/growthbook",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/growthbook",
   },
   react: {
     Icon: DiReact,
@@ -75,6 +80,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "tsx",
     type: "frontend",
     filters: ["browser", "mobile", "popular"],
+    packageName: "@growthbook/growthbook-react",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/growthbook-react",
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -83,6 +90,18 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "javascript",
     type: "backend",
     filters: ["server", "popular"],
+    packageName: "@growthbook/growthbook",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/growthbook",
+  },
+  nextjs: {
+    Icon: SiNextdotjs,
+    color: "#000000",
+    label: "Next.js",
+    docs: "nextjs",
+    type: "backend",
+    filters: ["browser", "server", "popular"],
+    packageName: "@flags-sdk/growthbook",
+    packageUrl: "https://www.npmjs.com/package/@flags-sdk/growthbook",
   },
   php: {
     Icon: SiPhp,
@@ -91,6 +110,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "php",
     type: "backend",
     filters: ["server", "popular"],
+    packageName: "growthbook/growthbook",
+    packageUrl: "https://packagist.org/packages/growthbook/growthbook",
   },
   ruby: {
     Icon: DiRuby,
@@ -98,7 +119,9 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     label: "Ruby",
     docs: "ruby",
     type: "backend",
-    filters: ["server", "popular"],
+    filters: ["server"],
+    packageName: "growthbook",
+    packageUrl: "https://rubygems.org/gems/growthbook",
   },
   python: {
     Icon: DiPython,
@@ -107,6 +130,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "python",
     type: "backend",
     filters: ["server", "popular"],
+    packageName: "growthbook",
+    packageUrl: "https://pypi.org/project/growthbook/",
   },
   java: {
     Icon: FaJava,
@@ -114,7 +139,9 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     label: "Java",
     docs: "java",
     type: "backend",
-    filters: ["server", "popular"],
+    filters: ["server"],
+    packageName: "growthbook-sdk-java",
+    packageUrl: "https://jitpack.io/#growthbook/growthbook-sdk-java",
   },
   csharp: {
     Icon: FaHashtag,
@@ -123,6 +150,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "csharp",
     type: "backend",
     filters: ["server"],
+    packageName: "growthbook-c-sharp",
+    packageUrl: "https://www.nuget.org/packages/growthbook-c-sharp",
   },
   go: {
     Icon: SiGo,
@@ -131,6 +160,18 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "go",
     type: "backend",
     filters: ["server"],
+    packageName: "github.com/growthbook/growthbook-golang",
+    packageUrl: "https://pkg.go.dev/github.com/growthbook/growthbook-golang",
+  },
+  rust: {
+    Icon: FaRust,
+    color: "#D34516",
+    label: "Rust",
+    docs: "rust",
+    type: "backend",
+    filters: ["server"],
+    packageName: "growthbook-rust",
+    packageUrl: "https://crates.io/crates/growthbook-rust",
   },
   elixir: {
     Icon: SiElixir,
@@ -139,6 +180,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "elixir",
     type: "backend",
     filters: ["server"],
+    packageName: "growthbook",
+    packageUrl: "https://www.hex.pm/packages/growthbook",
   },
   ios: {
     Icon: FaApple,
@@ -147,6 +190,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "swift",
     type: "mobile",
     filters: ["mobile", "popular"],
+    packageName: "growthbook-swift",
+    packageUrl: "https://swiftpackageindex.com/growthbook/growthbook-swift",
   },
   android: {
     Icon: DiAndroid,
@@ -155,6 +200,9 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "kotlin",
     type: "mobile",
     filters: ["mobile", "popular"],
+    packageName: "io.growthbook.sdk:GrowthBook",
+    packageUrl:
+      "https://mvnrepository.com/artifact/io.growthbook.sdk/GrowthBook",
   },
   flutter: {
     Icon: SiFlutter,
@@ -163,6 +211,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "flutter",
     type: "mobile",
     filters: ["mobile"],
+    packageName: "growthbook_sdk_flutter",
+    packageUrl: "https://pub.dev/packages/growthbook_sdk_flutter",
   },
   "edge-cloudflare": {
     Icon: SiCloudflare,
@@ -172,14 +222,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "cloudflare",
     type: "edge",
     filters: ["edge", "popular"],
-    extra: (
-      <span
-        className="badge badge-purple text-uppercase position-absolute"
-        style={{ top: -16, right: -12 }}
-      >
-        Beta
-      </span>
-    ),
+    packageName: "@growthbook/edge-cloudflare",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/edge-cloudflare",
   },
   "edge-fastly": {
     Icon: SiFastly,
@@ -189,14 +233,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "edge",
     type: "edge",
     filters: ["edge", "popular"],
-    extra: (
-      <span
-        className="badge badge-purple text-uppercase position-absolute"
-        style={{ top: -16, right: -12 }}
-      >
-        Beta
-      </span>
-    ),
+    packageName: "@growthbook/edge-fastly",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/edge-fastly",
   },
   "edge-lambda": {
     Icon: SiAwslambda,
@@ -205,12 +243,14 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "lambda",
     type: "edge",
     filters: ["edge"],
+    packageName: "@growthbook/edge-lambda",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/edge-lambda",
     extra: (
       <span
-        className="badge badge-yellow text-uppercase position-absolute"
-        style={{ top: -16, right: -16 }}
+        className="badge badge-purple text-uppercase position-absolute"
+        style={{ top: -16, right: -12 }}
       >
-        Alpha
+        Beta
       </span>
     ),
   },
@@ -221,12 +261,14 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docs: "edge",
     type: "edge",
     filters: ["edge"],
+    packageName: "@growthbook/edge-utils",
+    packageUrl: "https://www.npmjs.com/package/@growthbook/edge-utils",
     extra: (
       <span
-        className="badge badge-yellow text-uppercase position-absolute"
+        className="badge badge-purple text-uppercase position-absolute"
         style={{ top: -16, right: -12 }}
       >
-        Alpha
+        Beta
       </span>
     ),
   },
@@ -291,17 +333,17 @@ export default function SDKLanguageLogo({
   let versionText: ReactElement | null = null;
   if (version !== undefined && !hideVersion) {
     versionText = (
-      <>
+      <span className="nowrap">
         <span className="text-info small ml-2">ver. {version || "0"}</span>
         {versionOutdated && (
-          <Tooltip body={<>A new SDK version may be available</>}>
+          <Tooltip body="A new SDK version may be available">
             <HiOutlineExclamationCircle
               className="text-warning-orange position-relative"
-              style={{ top: -2, left: 2 }}
+              style={showLabel ? { top: -2, left: 2 } : { left: 4 }}
             />
           </Tooltip>
         )}
-      </>
+      </span>
     );
   }
 
@@ -312,19 +354,17 @@ export default function SDKLanguageLogo({
         className="m-0"
         title={titlePrefix + label}
       />
-      {showLabel && (
-        <span className="ml-1">
-          {label}
-          {versionText}
-        </span>
-      )}
+      <span className="ml-1">
+        {showLabel && label}
+        {versionText}
+      </span>
       {!hideExtra ? extra : null}
     </span>
   );
 }
 
 export function getLanguagesByFilter(
-  languageFilter: LanguageFilter = "all"
+  languageFilter: LanguageFilter = "all",
 ): SDKLanguage[] {
   return Object.entries(languageMapping)
     .filter(([_, language]) => {
@@ -335,7 +375,7 @@ export function getLanguagesByFilter(
 }
 
 export function getConnectionLanguageFilter(
-  languages: SDKLanguage[]
+  languages: SDKLanguage[],
 ): LanguageFilter {
   const languageFilters = new Set<LanguageFilter>();
   languages.forEach((language) => {
@@ -347,7 +387,7 @@ export function getConnectionLanguageFilter(
           .replace("frontend", "browser")
           .replace("nocode", "browser")
           .replace("backend", "server")
-          .replace("other", "all") as LanguageFilter
+          .replace("other", "all") as LanguageFilter,
       );
     }
   });
@@ -358,4 +398,25 @@ export function getConnectionLanguageFilter(
     return [...languageFilters][0];
   }
   return "all";
+}
+
+export function getPackageRepositoryName(url: string): string {
+  const repositoryMap: Record<string, string> = {
+    "npmjs.com": "NPM",
+    "pypi.org": "PyPI",
+    "rubygems.org": "RubyGems",
+    "packagist.org": "Packagist",
+    "jitpack.io": "JitPack",
+    "nuget.org": "NuGet",
+    "pkg.go.dev": "Go Modules",
+    "hex.pm": "Hex",
+    "swiftpackageindex.com": "Swift Package Index",
+    "mvnrepository.com": "Maven",
+    "pub.dev": "pub.dev",
+  };
+
+  for (const [domain, name] of Object.entries(repositoryMap)) {
+    if (url.includes(domain)) return name;
+  }
+  return "Package Repository";
 }

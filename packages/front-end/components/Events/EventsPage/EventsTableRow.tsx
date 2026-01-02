@@ -1,18 +1,38 @@
-import React, { FC, useState } from "react";
-import { EventInterface } from "back-end/types/event";
-import { NotificationEvent } from "back-end/src/events/notification-events";
+import React, { FC, useMemo, useState } from "react";
+import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import Link from "next/link";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { getEventText } from "@/components/Events/EventsPage/utils";
 import Code from "@/components/SyntaxHighlighting/Code";
+import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type EventsTableRowProps = {
-  event: EventInterface<NotificationEvent>;
+  event: EventInterface;
 };
 
 export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const permissionsUtils = usePermissionsUtil();
+
+  const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
+    shouldRun: () => permissionsUtils.canCreateApiKey(),
+  });
+
+  const apiKeyDescriptions = useMemo(() => {
+    if (!data) return undefined;
+    return Object.fromEntries<string | undefined>(
+      data.keys
+        .filter((key) => (key.id ?? "").length > 0)
+        .map((key) => {
+          return [key.id!, key.description];
+        }),
+    );
+  }, [data]);
+
+  const user = event.data?.user;
   return (
     <>
       <tr>
@@ -26,9 +46,16 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
         </td>
         <td>
           <span className="py-1 d-block nowrap">
-            {/* eslint-disable-next-line no-unsafe-optional-chaining */}
-            {event.data?.user && "name" in event.data?.user ? (
-              <span title={event.data.user.email}>{event.data.user.name}</span>
+            {user?.type === "dashboard" ? (
+              <span title={user.email}>{user.name}</span>
+            ) : user?.type === "api_key" ? (
+              <span title={apiKeyDescriptions?.[user.apiKey] ?? user.apiKey}>
+                API Key
+              </span>
+            ) : user?.type === "system" ? (
+              <span title="An automatic process or background job not associated with a user">
+                System
+              </span>
             ) : (
               ""
             )}

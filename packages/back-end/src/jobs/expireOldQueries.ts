@@ -1,22 +1,25 @@
 import Agenda from "agenda";
-import { Queries } from "../../types/query";
+import { Queries } from "shared/types/query";
 import {
   findRunningSnapshotsByQueryId,
   updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
+} from "back-end/src/models/ExperimentSnapshotModel";
 import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
-} from "../models/MetricModel";
+} from "back-end/src/models/MetricModel";
 import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
-} from "../models/PastExperimentsModel";
-import { getStaleQueries } from "../models/QueryModel";
-import { findReportsByQueryId, updateReport } from "../models/ReportModel";
-import { trackJob } from "../services/otel";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
-import { logger } from "../util/logger";
+} from "back-end/src/models/PastExperimentsModel";
+import { getStaleQueries } from "back-end/src/models/QueryModel";
+import {
+  findReportsByQueryId,
+  updateReport,
+} from "back-end/src/models/ReportModel";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { logger } from "back-end/src/util/logger";
+import { MetricAnalysisModel } from "../models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
@@ -27,7 +30,7 @@ function updateQueryStatus(queries: Queries, ids: Set<string>) {
   });
 }
 
-const expireOldQueries = trackJob(JOB_NAME, async () => {
+const expireOldQueries = async () => {
   const queries = await getStaleQueries();
   const queryIds = new Set(queries.map((q) => q.id));
   const orgIds = new Set(queries.map((q) => q.organization));
@@ -60,6 +63,7 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   const reports = await findReportsByQueryId([...queryIds]);
   for (let i = 0; i < reports.length; i++) {
     const report = reports[i];
+    if (report.type !== "experiment") continue;
     logger.info("Updating status of report " + report.id);
     updateQueryStatus(report.queries, queryIds);
     await updateReport(report.organization, report.id, {
@@ -84,7 +88,7 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   // Look for matching pastExperiments and update the status
   const pastExperiments = await findRunningPastExperimentsByQueryId(
     [...orgIds],
-    [...queryIds]
+    [...queryIds],
   );
   for (let i = 0; i < pastExperiments.length; i++) {
     const pastExperiment = pastExperiments[i];
@@ -95,7 +99,23 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
       error: "Queries were interupted. Please try refreshing the list.",
     });
   }
-});
+
+  const metricAnalyses = await MetricAnalysisModel.findByQueryIds(
+    [...orgIds],
+    [...queryIds],
+  );
+  for (const metricAnalysis of metricAnalyses) {
+    logger.info("Updating status of metricAnalysis " + metricAnalysis.id);
+    const context = await getContextForAgendaJobByOrgId(
+      metricAnalysis.organization,
+    );
+    updateQueryStatus(metricAnalysis.queries, queryIds);
+    await context.models.metricAnalysis.update(metricAnalysis, {
+      queries: metricAnalysis.queries,
+      error: "Queries were interupted. Please try refreshing the results.",
+    });
+  }
+};
 
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, expireOldQueries);

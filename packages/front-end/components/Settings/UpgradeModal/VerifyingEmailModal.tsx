@@ -11,11 +11,11 @@ export default function VerifyingEmailModal() {
   const { refreshOrganization, license } = useUser();
 
   const emailVerificationToken = String(
-    router.query["email-verification-token"] || ""
+    router.query["email-verification-token"] || "",
   );
 
   const [verifyingEmail, setVerifyingEmail] = useState(
-    !!emailVerificationToken
+    !!emailVerificationToken,
   );
 
   const [verifyEmailSuccess, setVerifyEmailSuccess] = useState(false);
@@ -61,14 +61,15 @@ export default function VerifyingEmailModal() {
     return (
       <UpgradeModal
         close={() => setShowUpgradeModal(false)}
-        reason="To fix an error verifying email."
         source="verify email"
+        commercialFeature={null}
       />
     );
   }
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       cta="Invite Members"
       error={verifyEmailError}

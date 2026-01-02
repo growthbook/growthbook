@@ -9,6 +9,8 @@ slug: proxy
 
 The GrowthBook Proxy server sits between your application and GrowthBook (both Cloud or Self-hosted instances). It turbocharges your GrowthBook implementation by providing **speed**, **scalability**, **security**, and **real-time** feature rollouts.
 
+The GrowthBook Proxy does require spinning up infrastructure and all of the maintenance/devops costs associated with that. If you are looking for a simpler hands-off alternative, you can use a [CDN](/self-host/cdn) instead.
+
 ## Features
 
 - **Caching** - Significantly faster feature lookups!
@@ -21,14 +23,14 @@ The GrowthBook Proxy server sits between your application and GrowthBook (both C
 
 ## Installation
 
-### Using docker-compose
+### Using docker compose
 
-If you are already using `docker-compose` to run GrowthBook, we have a pre-configured setup that includes a GrowthBook Proxy instance.
+If you are already using `docker compose` to run GrowthBook, we have a pre-configured setup that includes a GrowthBook Proxy instance.
 
 Just run
 
 ```bash
-docker-compose -f docker-compose.proxy.yml up -d
+docker compose -f docker-compose.proxy.yml up -d
 ```
 
 This will start the proxy server on port 3300. Check `http://localhost:3300/healthcheck` to ensure it's working correctly.

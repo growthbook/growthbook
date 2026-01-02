@@ -5,7 +5,57 @@ sidebar_label: Prestodb or Trino
 slug: prestodb-or-trino
 ---
 
-import MissingDatasourceDocs from './missing-datasource-docs.mdx'
-export const { title, description, sidebar_label, slug } = frontMatter
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-<MissingDatasourceDocs datasource="Prestodb or Trino" slug={slug} />
+When you create a connection from GrowthBook to Prestodb or Trino, you there are a few connection options.
+
+<MaxWidthImage maxWidth={500}>
+![Connecting to Prestodb or Trino in GrowthBook](/images/integrations/presto/presto-trino-connection-settings.png)
+</MaxWidthImage>
+
+:::note GrowthBook uses the presto-client-node library to connect to Prestodb or Trino.
+
+Find more information about the library [here](https://www.npmjs.com/package/presto-client).
+
+:::
+
+## Engine
+
+This option lets you tell the client that your data source is `presto` or `trino`. For `trino` data sources, the connection
+library adds additional compatibility information to work correctly with `trino` data sources. The default is `presto`.
+
+## Authentication Options
+
+### Basic Auth
+
+If your Prestodb or Trino instance is configured with basic auth, you can provide the username and password in the connection
+settings.
+
+### Custom Auth
+
+For custom authentication, GrowthBook will connect to your Prestodb or Trino instance using the provided HTTP Authorization
+header with the provided string.
+
+### None
+
+If your Prestodb or Trino instance does not require authentication, or you are doing authentication based on IP or other
+methods, you can select "None" in the connection settings. This is not recommended for Cloud instances of GrowthBook. In
+these cases, the 'user' will be set to 'growthbook'.
+
+## Host
+
+The url to access your Prestodb or Trino instance. This should include the protocol (http or https).
+
+## Port
+
+Presto coordinator port. The default is 8080.
+
+## Default Catalog and Schema
+
+GrowthBook will create default queries using the catalog you provide here. If you update this value later, you
+may have to update existing queries to use the new catalog.
+
+## source
+
+The source field is used to help identify where the connection to presto is coming from. By default, this is set to
+'GrowthBook'.

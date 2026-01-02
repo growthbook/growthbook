@@ -1,0 +1,8 @@
+type: object
+properties:
+  triggeredBy:
+    type: string
+    description: Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.
+    enum:
+      - manual
+      - schedule

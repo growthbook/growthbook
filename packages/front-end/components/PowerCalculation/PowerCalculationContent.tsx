@@ -1,16 +1,35 @@
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import clsx from "clsx";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ensureAndReturn } from "@/types/utils";
-import { GBHeadingArrowLeft } from "@/components/Icons";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
-  StatsEngineSettings,
-} from "./types";
-import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
+} from "shared/power";
+import { Box } from "@radix-ui/themes";
+import { LinePath } from "@visx/shape";
+import { scaleLinear } from "@visx/scale";
+import { AxisBottom, AxisLeft } from "@visx/axis";
+import { Group } from "@visx/group";
+import { curveMonotoneX } from "@visx/curve";
+import { localPoint } from "@visx/event";
+import { GridRows } from "@visx/grid";
+import {
+  Tooltip as VisxTooltip,
+  useTooltip,
+  defaultStyles,
+} from "@visx/tooltip";
+import { ParentSize } from "@visx/responsive";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import { ensureAndReturn } from "@/types/utils";
+import { GBHeadingArrowLeft } from "@/components/Icons";
+import Frame from "@/ui/Frame";
+import PowerCalculationStatsEngineSettingsModal, {
+  alphaToChanceToWin,
+  StatsEngineSettingsWithAlpha,
+} from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
   frequentist: "Frequentist",
@@ -19,14 +38,13 @@ const engineType = {
 
 const percentFormatter = (
   v: number,
-  { digits }: { digits: number } = { digits: 0 }
+  { digits }: { digits: number } = { digits: 0 },
 ) =>
   isNaN(v)
     ? "N/A"
     : new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: digits,
-        // @ts-expect-error TS is outdated: https://caniuse.com/mdn-javascript_builtins_intl_numberformat_numberformat_options_parameter_options_roundingmode_parameter
         roundingMode: "floor",
       }).format(v);
 
@@ -47,21 +65,19 @@ const AnalysisSettings = ({
   params,
   results,
   updateVariations,
-  updateStatsEngineSettings,
+  updateStatsEngineSettingsWithAlpha,
 }: {
   params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
-  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
+  updateStatsEngineSettingsWithAlpha: (_: StatsEngineSettingsWithAlpha) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState<
     number | undefined
   >(params.nVariations);
 
-  const [
-    showStatsEngineSettingsModal,
-    setShowStatsEngineSettingsModal,
-  ] = useState(false);
+  const [showStatsEngineSettingsModal, setShowStatsEngineSettingsModal] =
+    useState(false);
 
   const isValidCurrentVariations =
     currentVariations &&
@@ -73,24 +89,33 @@ const AnalysisSettings = ({
       {showStatsEngineSettingsModal && (
         <PowerCalculationStatsEngineSettingsModal
           close={() => setShowStatsEngineSettingsModal(false)}
-          params={params.statsEngineSettings}
+          params={{
+            ...params.statsEngineSettings,
+            alpha: params.alpha,
+          }}
           onSubmit={(v) => {
-            updateStatsEngineSettings(v);
+            updateStatsEngineSettingsWithAlpha(v);
             setShowStatsEngineSettingsModal(false);
           }}
         />
       )}
-      <div className="row card gsbox mb-3 border">
-        <div className="row pt-4 pl-4 pr-4 pb-1">
+      <Frame>
+        <div className="row">
           <div className="col-7">
             <h2>Analysis Settings</h2>
             <p>
-              {params.nVariations} Variations ·{" "}
-              {engineType[params.statsEngineSettings.type]} (Sequential Testing{" "}
-              {params.statsEngineSettings.sequentialTesting
-                ? "enabled"
-                : "disabled"}
-              ) ·{" "}
+              {engineType[params.statsEngineSettings.type]}
+              {params.statsEngineSettings.type === "frequentist"
+                ? ` (Sequential Testing 
+              ${
+                params.statsEngineSettings.sequentialTesting
+                  ? "enabled"
+                  : "disabled"
+              }; ${params.alpha} p-value threshold)
+              `
+                : ` (${alphaToChanceToWin(params.alpha)}% chance to win threshold)
+              `}{" "}
+              ·{" "}
               <Link
                 href="#"
                 onClick={() => setShowStatsEngineSettingsModal(true)}
@@ -98,58 +123,32 @@ const AnalysisSettings = ({
                 Edit
               </Link>
             </p>
-            {results.type === "error" ? (
-              <div className="alert alert-warning">
-                Computation failed: {results.description}
-              </div>
-            ) : (
-              <div className="alert alert-info w-75">
-                <span className="font-weight-bold">
-                  Run experiment for{" "}
-                  {formatWeeks({
-                    weeks: results.weekThreshold,
-                    nWeeks: params.nWeeks,
-                  })}
-                </span>{" "}
-                to achieve {percentFormatter(params.targetPower)} power for all
-                metrics.
-              </div>
-            )}
           </div>
           <div className="vr"></div>
-          <div className="col-4 align-self-end mb-4">
+          <div className="col-4 align-self-end">
             <div className="font-weight-bold mb-2"># of Variations</div>
             <div className="form-group d-flex mb-0 flex-row">
               <input
                 type="number"
                 className={clsx(
                   "form-control w-50 mr-2",
-                  !isValidCurrentVariations && "border border-danger"
+                  !isValidCurrentVariations && "border border-danger",
                 )}
                 value={currentVariations}
-                onChange={(e) =>
-                  setCurrentVariations(
-                    e.target.value !== "" ? Number(e.target.value) : undefined
-                  )
-                }
+                min={2}
+                max={12}
+                onChange={(e) => {
+                  const varNum =
+                    e.target.value !== "" ? Number(e.target.value) : undefined;
+                  setCurrentVariations(varNum);
+                  updateVariations(varNum ?? 0);
+                }}
               />
-              <button
-                disabled={
-                  currentVariations === params.nVariations ||
-                  !isValidCurrentVariations
-                }
-                onClick={() =>
-                  updateVariations(ensureAndReturn(currentVariations))
-                }
-                className="btn border border-primary text-primary"
-              >
-                Update
-              </button>
             </div>
             <small
               className={clsx(
                 "form-text text-muted",
-                isValidCurrentVariations && "invisible"
+                isValidCurrentVariations && "invisible",
               )}
             >
               <div className="text-danger">
@@ -158,7 +157,15 @@ const AnalysisSettings = ({
             </small>
           </div>
         </div>
-      </div>
+
+        {results.type === "error" ? (
+          <div className="row p-4">
+            <Callout status="error">
+              Computation failed: {results.description}
+            </Callout>
+          </div>
+        ) : null}
+      </Frame>
     </>
   );
 };
@@ -173,20 +180,21 @@ const MetricLabel = ({
   <>
     <div className="font-weight-bold">{name}</div>
     <div className="small">
-      Effect Size {percentFormatter(effectSize, { digits: 1 })}
+      Effect Size {percentFormatter(effectSize, { digits: 4 })}
     </div>
   </>
 );
 
 const SampleSizeAndRuntime = ({
   params,
-  sampleSizeAndRuntime,
+  results,
 }: {
   params: PowerCalculationParams;
-  sampleSizeAndRuntime: PowerCalculationSuccessResults["sampleSizeAndRuntime"];
+  results: PowerCalculationSuccessResults;
 }) => {
+  const sampleSizeAndRuntime = results.sampleSizeAndRuntime;
   const [selectedRow, setSelectedRow] = useState(
-    Object.keys(sampleSizeAndRuntime)[0]
+    Object.keys(sampleSizeAndRuntime)[0],
   );
 
   const selectedTarget = sampleSizeAndRuntime[selectedRow];
@@ -199,101 +207,96 @@ const SampleSizeAndRuntime = ({
   }, [params.metrics, selectedRow, sampleSizeAndRuntime, setSelectedRow]);
 
   return (
-    <div className="row card gsbox mb-3 border">
-      <div className="row pt-4 pl-4 pr-4 pb-1">
-        <div>
-          <h2>Calculated Sample Size & Runtime</h2>
-          <p>
-            Needed sample sizes are based on total number of users across all
-            variations.
-          </p>
-        </div>
+    <Frame>
+      <div>
+        <h2>Calculated Sample Size & Runtime</h2>
+        <p>
+          Needed sample sizes are based on total number of users across all
+          variations.
+        </p>
+      </div>
 
-        <div className="container">
-          <div className="row">
-            <div className="col-7">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Metric</th>
-                    <th>Effect Size</th>
-                    <th>Needed Sample</th>
+      <div className="row">
+        <div className="col-7">
+          <table className="table appbox">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Effect Size</th>
+                <th>Needed Sample</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(sampleSizeAndRuntime).map((id) => {
+                const target = sampleSizeAndRuntime[id];
+
+                const { name, type, effectSize } = ensureAndReturn(
+                  params.metrics[id],
+                );
+
+                return (
+                  <tr
+                    key={id}
+                    className={clsx(
+                      "power-analysis-row",
+                      selectedRow === id && "selected",
+                    )}
+                    onClick={() => setSelectedRow(id)}
+                  >
+                    <td>
+                      <div className="font-weight-bold">{name}</div>
+                      <div className="small">
+                        {type === "binomial" ? "Proportion" : "Mean"}
+                      </div>
+                    </td>
+                    <td>{percentFormatter(effectSize, { digits: 4 })}</td>
+                    <td>
+                      {target
+                        ? `${formatWeeks({
+                            weeks: target.weeks,
+                            nWeeks: params.nWeeks,
+                          })}; ${numberFormatter(target.users)} users`
+                        : formatWeeks({ nWeeks: params.nWeeks })}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(sampleSizeAndRuntime).map((id) => {
-                    const target = sampleSizeAndRuntime[id];
-
-                    const { name, type, effectSize } = ensureAndReturn(
-                      params.metrics[id]
-                    );
-
-                    return (
-                      <tr
-                        key={id}
-                        className={clsx(
-                          "power-analysis-row",
-                          selectedRow === id && "selected"
-                        )}
-                        onClick={() => setSelectedRow(id)}
-                      >
-                        <td>
-                          <div className="font-weight-bold">{name}</div>
-                          <div className="small">
-                            {type === "binomial" ? "Proportion" : "Mean"}
-                          </div>
-                        </td>
-                        <td>{percentFormatter(effectSize, { digits: 1 })}</td>
-                        <td>
-                          {target
-                            ? `${formatWeeks({
-                                weeks: target.weeks,
-                                nWeeks: params.nWeeks,
-                              })}; ${numberFormatter(target.users)} users`
-                            : formatWeeks({ nWeeks: params.nWeeks })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="col-4">
-              <div className="card alert alert-info">
-                <div className="card-title uppercase-title mb-0">Summary</div>
-                <h4>{selectedName}</h4>
-                <p>
-                  Reliably detecting a lift of{" "}
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="col-5">
+          <div className="card alert alert-info">
+            <h4>{selectedName}</h4>
+            <p>
+              Reliably detecting a lift of{" "}
+              <span className="font-weight-bold">
+                {percentFormatter(selectedEffectSize, { digits: 1 })}
+              </span>{" "}
+              requires running your experiment for{" "}
+              {selectedTarget ? (
+                <>
                   <span className="font-weight-bold">
-                    {percentFormatter(selectedEffectSize, { digits: 1 })}
+                    {formatWeeks({
+                      weeks: selectedTarget.weeks,
+                      nWeeks: params.nWeeks,
+                    })}
                   </span>{" "}
-                  requires running your experiment for{" "}
-                  {selectedTarget ? (
-                    <>
-                      <span className="font-weight-bold">
-                        {formatWeeks({
-                          weeks: selectedTarget.weeks,
-                          nWeeks: params.nWeeks,
-                        })}
-                      </span>{" "}
-                      (collecting roughly{" "}
-                      <span className="font-weight-bold">
-                        {numberFormatter(selectedTarget.users)} users
-                      </span>
-                      )
-                    </>
-                  ) : (
-                    <span className="font-weight-bold">
-                      {formatWeeks({ nWeeks: params.nWeeks })}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
+                  (collecting roughly{" "}
+                  <span className="font-weight-bold">
+                    {numberFormatter(selectedTarget.users)} users
+                  </span>
+                  )
+                </>
+              ) : (
+                <span className="font-weight-bold">
+                  {formatWeeks({ nWeeks: params.nWeeks })}
+                </span>
+              )}
+            </p>
           </div>
         </div>
       </div>
-    </div>
+    </Frame>
   );
 };
 
@@ -329,9 +332,9 @@ const MinimumDetectableEffect = ({
 }: {
   results: PowerCalculationSuccessResults;
   params: PowerCalculationParams;
-}) => (
-  <div className="row card gsbox mb-3 border">
-    <div className="row pt-4 pl-4 pr-4 pb-1">
+}) => {
+  return (
+    <Frame>
       <div className="w-100">
         <h2>Minimum Detectable Effect Over Time</h2>
       </div>
@@ -341,7 +344,7 @@ const MinimumDetectableEffect = ({
         targetPower={params.targetPower}
       />
 
-      <table className="table">
+      <table className="table appbox">
         <thead>
           <tr>
             <th>Metric</th>
@@ -350,7 +353,7 @@ const MinimumDetectableEffect = ({
                 key={idx}
                 className={clsx(
                   results.weekThreshold === idx + 1 &&
-                    "power-analysis-cell-threshold power-analysis-overall-header-threshold"
+                    "power-analysis-cell-threshold power-analysis-overall-header-threshold",
                 )}
               >
                 {(() => {
@@ -401,7 +404,7 @@ const MinimumDetectableEffect = ({
                       "power-analysis-overall-cell-threshold",
                     Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
                       results.weekThreshold === idx + 1 &&
-                      "power-analysis-overall-bottom-threshold"
+                      "power-analysis-overall-bottom-threshold",
                   )}
                 >
                   {(() => {
@@ -409,12 +412,12 @@ const MinimumDetectableEffect = ({
                       ensureAndReturn(metrics[id]).effectSize,
                       {
                         digits: 1,
-                      }
+                      },
                     );
 
                     if (ensureAndReturn(metrics[id]).isThreshold) {
                       const { effectSize, name } = ensureAndReturn(
-                        params.metrics[id]
+                        params.metrics[id],
                       );
                       return (
                         <Tooltip
@@ -423,7 +426,7 @@ const MinimumDetectableEffect = ({
                             idx + 1
                           } is the first week where the minimum detectable effect over time dropped below your target effect size of ${percentFormatter(
                             effectSize,
-                            { digits: 1 }
+                            { digits: 1 },
                           )} for ${name}.`}
                           tipPosition="top"
                         >
@@ -440,9 +443,18 @@ const MinimumDetectableEffect = ({
           ))}
         </tbody>
       </table>
-    </div>
-  </div>
-);
+      <Box className="appbox p-3">
+        <PowerLineGraph
+          weeks={results.weeks}
+          metrics={params.metrics}
+          target={params.metrics[Object.keys(params.metrics)[0]].effectSize}
+          targetLabel={"Target Effect Size"}
+          dataType="effectSize"
+        />
+      </Box>
+    </Frame>
+  );
+};
 
 const PowerOverTime = ({
   params,
@@ -451,132 +463,139 @@ const PowerOverTime = ({
   params: PowerCalculationParams;
   results: PowerCalculationSuccessResults;
 }) => (
-  <div className="row card gsbox mb-3 border">
-    <div className="row pt-4 pl-4 pr-4 pb-1">
-      <div className="w-100">
-        <h2>Power Over Time</h2>
-      </div>
-      <WeeksThreshold
-        nWeeks={params.nWeeks}
-        weekThreshold={results.weekThreshold}
-        targetPower={params.targetPower}
-      />
+  <Frame>
+    <div className="w-100">
+      <h2>Power Over Time</h2>
+    </div>
+    <WeeksThreshold
+      nWeeks={params.nWeeks}
+      weekThreshold={results.weekThreshold}
+      targetPower={params.targetPower}
+    />
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Metric</th>
-            {results.weeks.map(({ users }, idx) => (
-              <th
-                key={idx}
+    <table className="table appbox">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          {results.weeks.map(({ users }, idx) => (
+            <th
+              key={idx}
+              className={clsx(
+                results.weekThreshold === idx + 1 &&
+                  "power-analysis-cell-threshold power-analysis-overall-header-threshold",
+              )}
+            >
+              {(() => {
+                const content = (
+                  <>
+                    <div className="font-weight-bold">
+                      Week{` `}
+                      {idx + 1}
+                    </div>
+                    <span className="small">
+                      {numberFormatter(users)} Users
+                    </span>
+                  </>
+                );
+
+                if (results.weekThreshold === idx + 1)
+                  return (
+                    <Tooltip
+                      popperClassName="text-top"
+                      body={`Week ${
+                        idx + 1
+                      } is the first week when all your metrics meet their expected effect size.`}
+                      tipPosition="top"
+                    >
+                      {content}
+                    </Tooltip>
+                  );
+
+                return content;
+              })()}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {Object.keys(results.weeks[0]?.metrics).map((id, pos) => (
+          <tr key={id}>
+            <td>
+              <MetricLabel {...ensureAndReturn(params.metrics[id])} />
+            </td>
+            {results.weeks.map(({ metrics }, idx) => (
+              <td
+                key={`${id}-${idx}`}
                 className={clsx(
+                  ensureAndReturn(metrics[id]).isThreshold &&
+                    "power-analysis-cell-threshold",
                   results.weekThreshold === idx + 1 &&
-                    "power-analysis-cell-threshold power-analysis-overall-header-threshold"
+                    "power-analysis-overall-cell-threshold",
+                  Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
+                    results.weekThreshold === idx + 1 &&
+                    "power-analysis-overall-bottom-threshold",
                 )}
               >
                 {(() => {
-                  const content = (
-                    <>
-                      <div className="font-weight-bold">
-                        Week{` `}
-                        {idx + 1}
-                      </div>
-                      <span className="small">
-                        {numberFormatter(users)} Users
-                      </span>
-                    </>
+                  const content = percentFormatter(
+                    ensureAndReturn(metrics[id]).power,
                   );
 
-                  if (results.weekThreshold === idx + 1)
+                  if (ensureAndReturn(metrics[id]).isThreshold) {
+                    const { targetPower } = params;
+                    const { effectSize, name } = ensureAndReturn(
+                      params.metrics[id],
+                    );
                     return (
                       <Tooltip
                         popperClassName="text-top"
                         body={`Week ${
                           idx + 1
-                        } is the first week when all your metrics meet their expected effect size.`}
+                        } is the first week with at least ${percentFormatter(
+                          targetPower,
+                        )} power to detect an effect size of ${percentFormatter(
+                          effectSize,
+                          { digits: 1 },
+                        )} for ${name}.`}
                         tipPosition="top"
                       >
                         {content}
                       </Tooltip>
                     );
+                  }
 
                   return content;
                 })()}
-              </th>
+              </td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {Object.keys(results.weeks[0]?.metrics).map((id, pos) => (
-            <tr key={id}>
-              <td>
-                <MetricLabel {...ensureAndReturn(params.metrics[id])} />
-              </td>
-              {results.weeks.map(({ metrics }, idx) => (
-                <td
-                  key={`${id}-${idx}`}
-                  className={clsx(
-                    ensureAndReturn(metrics[id]).isThreshold &&
-                      "power-analysis-cell-threshold",
-                    results.weekThreshold === idx + 1 &&
-                      "power-analysis-overall-cell-threshold",
-                    Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
-                      results.weekThreshold === idx + 1 &&
-                      "power-analysis-overall-bottom-threshold"
-                  )}
-                >
-                  {(() => {
-                    const content = percentFormatter(
-                      ensureAndReturn(metrics[id]).power
-                    );
-
-                    if (ensureAndReturn(metrics[id]).isThreshold) {
-                      const { targetPower } = params;
-                      const { effectSize, name } = ensureAndReturn(
-                        params.metrics[id]
-                      );
-                      return (
-                        <Tooltip
-                          popperClassName="text-top"
-                          body={`Week ${
-                            idx + 1
-                          } is the first week with at least ${percentFormatter(
-                            targetPower
-                          )} power to detect an effect size of ${percentFormatter(
-                            effectSize,
-                            { digits: 1 }
-                          )} for ${name}.`}
-                          tipPosition="top"
-                        >
-                          {content}
-                        </Tooltip>
-                      );
-                    }
-
-                    return content;
-                  })()}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
+        ))}
+      </tbody>
+    </table>
+    <Box className="appbox p-3">
+      <PowerLineGraph
+        weeks={results.weeks}
+        metrics={params.metrics}
+        target={params.targetPower}
+        targetLabel={"Target Power"}
+        dataType="power"
+      />
+    </Box>
+  </Frame>
 );
 
 export default function PowerCalculationContent({
   results,
   params,
   updateVariations,
-  updateStatsEngineSettings,
+  updateStatsEngineSettingsWithAlpha,
   edit,
   newCalculation,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
-  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
+  updateStatsEngineSettingsWithAlpha: (_: StatsEngineSettingsWithAlpha) => void;
   edit: () => void;
   newCalculation: () => void;
 }) {
@@ -585,9 +604,6 @@ export default function PowerCalculationContent({
       <div className="row mb-4">
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">
-            <span className="badge badge-purple text-uppercase mr-2">
-              Alpha
-            </span>
             <h1>Power Calculator</h1>
           </div>
         </div>
@@ -598,43 +614,363 @@ export default function PowerCalculationContent({
           experiment duration.
         </div>
         <div className="col-auto pr-0">
-          <button
-            className="btn btn-outline-primary float-right"
-            onClick={edit}
-            type="button"
-          >
+          <Button variant={"outline"} onClick={edit}>
             Edit
-          </button>
+          </Button>
         </div>
-        <div className="col-auto pl-1">
-          <button
-            className="btn btn-primary float-right"
+        <div className="col-auto">
+          <Button
             onClick={() => newCalculation()}
-            type="button"
+            icon={<GBHeadingArrowLeft />}
+            ml={"1"}
           >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBHeadingArrowLeft />
-            </span>
             New Calculation
-          </button>
+          </Button>
         </div>
       </div>
       <AnalysisSettings
         params={params}
         results={results}
         updateVariations={updateVariations}
-        updateStatsEngineSettings={updateStatsEngineSettings}
+        updateStatsEngineSettingsWithAlpha={updateStatsEngineSettingsWithAlpha}
       />
-      {results.type !== "error" && (
+      {results.type !== "error" ? (
         <>
-          <SampleSizeAndRuntime
-            params={params}
-            sampleSizeAndRuntime={results.sampleSizeAndRuntime}
-          />
+          <SampleSizeAndRuntime params={params} results={results} />
           <PowerOverTime params={params} results={results} />
           <MinimumDetectableEffect params={params} results={results} />
         </>
-      )}
+      ) : null}
     </div>
   );
 }
+const PowerLineGraph = ({
+  weeks,
+  metrics,
+  target,
+  targetLabel,
+  dataType,
+}: {
+  weeks: PowerCalculationSuccessResults["weeks"];
+  metrics: PowerCalculationParams["metrics"];
+  target: number;
+  targetLabel: string;
+  dataType: "power" | "effectSize";
+}) => (
+  <Box className="position-relative">
+    <ParentSize>
+      {({ width }) => (
+        <ResponsivePowerLineGraph
+          width={width}
+          height={300}
+          weeks={weeks}
+          metrics={metrics}
+          target={target}
+          targetLabel={targetLabel}
+          dataType={dataType}
+        />
+      )}
+    </ParentSize>
+  </Box>
+);
+
+const ResponsivePowerLineGraph = ({
+  width,
+  height,
+  weeks,
+  metrics,
+  target,
+  targetLabel,
+  dataType,
+}: {
+  width: number;
+  height: number;
+  weeks: PowerCalculationSuccessResults["weeks"];
+  metrics: PowerCalculationParams["metrics"];
+  target: number;
+  targetLabel: string;
+  dataType: "power" | "effectSize";
+}) => {
+  const margin = { top: 20, right: 160, bottom: 40, left: 60 };
+  const legendWidth = 140;
+  const legendItemHeight = 20;
+  const maxLegendTextWidth = 80;
+
+  const xMax = width - margin.left - margin.right;
+  const yMax = height - margin.top - margin.bottom;
+
+  const metricIds = Object.keys(weeks[0]?.metrics ?? {});
+  const data = metricIds.map((id) => ({
+    id,
+    name: metrics[id].name,
+    values: weeks.map((week, idx) => ({
+      week: idx + 1,
+      value:
+        dataType === "power"
+          ? week.metrics[id].power * 100
+          : week.metrics[id].effectSize * 100,
+    })),
+  }));
+
+  const xScale = useMemo(
+    () =>
+      scaleLinear<number>({
+        domain: [0, weeks.length],
+        range: [0, xMax],
+      }),
+    [xMax, weeks],
+  );
+
+  const yScale = useMemo(
+    () =>
+      scaleLinear<number>({
+        domain: [
+          0,
+          Math.max(
+            target * 100,
+            Math.max(
+              ...weeks.flatMap((week) =>
+                Object.values(week.metrics).map((m) =>
+                  dataType === "power" ? m.power * 100 : m.effectSize * 100,
+                ),
+              ),
+            ),
+          ),
+        ],
+        range: [yMax, 0],
+        nice: true,
+      }),
+    [yMax, weeks, target, dataType],
+  );
+
+  const numYTicks = 5;
+  const colors = useMemo(
+    () => [
+      "var(--blue-9)",
+      "var(--jade-9)",
+      "var(--orange-9)",
+      "var(--plum-9)",
+      "var(--red-9)",
+      "var(--yellow-9)",
+      "var(--cyan-9)",
+      "var(--amber-9)",
+    ],
+    [],
+  );
+
+  const {
+    showTooltip,
+    hideTooltip,
+    tooltipData,
+    tooltipLeft = 0,
+    tooltipTop = 0,
+  } = useTooltip<{
+    week: number;
+    values: { name: string; value: number; color: string }[];
+  }>();
+
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      const point = localPoint(event.currentTarget, event);
+      if (!point) return;
+
+      const x = point.x - margin.left;
+      const weekX = Math.round(xScale.invert(x));
+      if (weekX < 1 || weekX > weeks.length) return;
+
+      const tooltipValues = data.map((metric, i) => ({
+        name: metric.name,
+        value: metric.values[weekX - 1].value,
+        color: colors[i % colors.length],
+      }));
+
+      showTooltip({
+        tooltipData: {
+          week: weekX,
+          values: tooltipValues,
+        },
+        tooltipLeft: point.x,
+        tooltipTop: point.y,
+      });
+    },
+    [margin.left, xScale, data, showTooltip, colors, weeks.length],
+  );
+
+  return (
+    <>
+      <svg
+        width={width}
+        height={height}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={hideTooltip}
+      >
+        <Group left={margin.left} top={margin.top}>
+          <GridRows
+            scale={yScale}
+            width={xMax}
+            strokeDasharray="2,2"
+            stroke="var(--slate-6)"
+            strokeOpacity={0.3}
+            numTicks={numYTicks}
+          />
+          <line
+            x1={0}
+            x2={xMax}
+            y1={yScale(target * 100)}
+            y2={yScale(target * 100)}
+            stroke="var(--slate-11)"
+            strokeWidth={1}
+            strokeDasharray="4,4"
+          />
+          <AxisBottom
+            top={yMax}
+            scale={xScale}
+            tickFormat={(week) => `${week}`}
+            label="Week"
+            labelProps={{
+              fill: "var(--slate-12)",
+              fontSize: 12,
+              textAnchor: "middle",
+            }}
+            tickLabelProps={() => ({
+              fill: "var(--slate-11)",
+              fontSize: 11,
+              textAnchor: "middle",
+              dy: "0.25em",
+            })}
+            stroke="var(--slate-11)"
+            tickStroke="var(--slate-11)"
+          />
+          <AxisLeft
+            scale={yScale}
+            numTicks={numYTicks}
+            tickFormat={(value) => `${value}%`}
+            label={dataType === "power" ? "Power" : "Minimum Detectable Effect"}
+            labelProps={{
+              fill: "var(--slate-12)",
+              fontSize: 12,
+              textAnchor: "middle",
+            }}
+            tickLabelProps={() => ({
+              fill: "var(--slate-11)",
+              fontSize: 11,
+              textAnchor: "end",
+              dx: "-0.25em",
+              dy: "0.25em",
+            })}
+            stroke="var(--slate-11)"
+            tickStroke="var(--slate-11)"
+          />
+          {data.map((metric, i) => (
+            <LinePath
+              key={metric.id}
+              data={metric.values}
+              x={(d) => xScale(d.week) ?? 0}
+              y={(d) => yScale(d.value)}
+              stroke={colors[i % colors.length]}
+              strokeWidth={2}
+              curve={curveMonotoneX}
+            />
+          ))}
+
+          <rect
+            x={xMax + 20}
+            y={-2}
+            width={legendWidth}
+            height={data
+              .map(
+                (m) =>
+                  (Math.max(Math.ceil(m.name.length / 15), 1) + 1) *
+                  legendItemHeight,
+              )
+              .reduce((ps, a) => ps + a, 0)}
+            fill="var(--slate-a2)"
+            stroke="var(--slate-a6)"
+            strokeWidth={1}
+            rx={4}
+          />
+
+          <g transform={`translate(0, ${legendItemHeight / 2})`}>
+            <line
+              x1={xMax + 30}
+              x2={xMax + 50}
+              y1={0}
+              y2={0}
+              stroke="var(--slate-11)"
+              strokeWidth={1}
+              strokeDasharray="4,4"
+            />
+            <text
+              x={xMax + 60}
+              y={0}
+              fill="var(--slate-11)"
+              fontSize={11}
+              dy=".3em"
+            >
+              {targetLabel}
+            </text>
+          </g>
+
+          {data.map((metric, i) => (
+            <g
+              key={metric.id}
+              transform={`translate(0, ${(i + 1) * legendItemHeight + 5})`}
+            >
+              <line
+                x1={xMax + 30}
+                x2={xMax + 50}
+                y1={legendItemHeight / 3}
+                y2={legendItemHeight / 3}
+                stroke={colors[i % colors.length]}
+                strokeWidth={2}
+              />
+              <foreignObject
+                x={xMax + 60}
+                y={0}
+                width={maxLegendTextWidth}
+                height={
+                  Math.max(Math.ceil(metric.name.length / 15), 1) *
+                  legendItemHeight
+                }
+              >
+                <div
+                  style={{
+                    color: colors[i % colors.length],
+                    fontSize: "11px",
+                    lineHeight: "1.2",
+                    wordWrap: "break-word",
+                  }}
+                >
+                  {metric.name}
+                </div>
+              </foreignObject>
+            </g>
+          ))}
+        </Group>
+      </svg>
+
+      {tooltipData && (
+        <VisxTooltip
+          left={tooltipLeft + 10}
+          top={tooltipTop + 10}
+          style={{
+            ...defaultStyles,
+            backgroundColor: "var(--slate-3)",
+            border: "1px solid var(--slate-6)",
+            color: "var(--slate-12)",
+            position: "absolute",
+          }}
+        >
+          <div className="text-sm">
+            <strong>Week {tooltipData.week}</strong>
+            {tooltipData.values.map((v, i) => (
+              <div key={i} style={{ color: v.color }}>
+                {v.name}: {v.value.toFixed(1)}%
+              </div>
+            ))}
+          </div>
+        </VisxTooltip>
+      )}
+    </>
+  );
+};

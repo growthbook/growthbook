@@ -1,0 +1,32 @@
+type: object
+required:
+  - member
+properties:
+  member:
+    type: object
+    properties:
+      role:
+        type: string
+      environments:
+        type: array
+        items:
+          type: string
+      projectRoles:
+        type: array
+        items:
+          type: object
+          required:
+            - project
+            - role
+            - environments
+          properties:
+            project:
+              type: string
+            role:
+              type: string
+            environments:
+              type: array
+              items:
+                type: string
+            limitAccessByEnvironment:
+              type: boolean

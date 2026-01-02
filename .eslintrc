@@ -9,18 +9,13 @@
       "version": "detect"
     },
     "import/parsers": {
-      "@typescript-eslint/parser": [
-        ".ts",
-        ".tsx"
-      ]
+      "@typescript-eslint/parser": [".ts", ".tsx"]
     },
     "import/resolver": {
       "node": true,
       "typescript": {
         "alwaysTryTypes": true,
-        "project": [
-          "packages/*/tsconfig.json"
-        ]
+        "project": ["packages/*/tsconfig.json"]
       }
     }
   },
@@ -55,16 +50,16 @@
     "SharedArrayBuffer": "readonly"
   },
   "rules": {
-    "no-unused-expressions": ["error", {
-      "allowShortCircuit": true,
-      "enforceForJSX": true,
-      "allowTernary": true
-    }],
-    "no-async-foreach/no-async-foreach": 2,
-    "@next/next/no-html-link-for-pages": [
-      "warn",
-      "./packages/front-end/pages"
+    "no-unused-expressions": [
+      "error",
+      {
+        "allowShortCircuit": true,
+        "enforceForJSX": true,
+        "allowTernary": true
+      }
     ],
+    "no-async-foreach/no-async-foreach": 2,
+    "@next/next/no-html-link-for-pages": ["warn", "./packages/front-end/pages"],
     "@next/next/no-img-element": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
@@ -78,12 +73,11 @@
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
-        "argsIgnorePattern": "^_"
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
       }
     ],
-    "no-console": [
-      "warn"
-    ],
+    "no-console": ["warn"],
     "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
@@ -92,7 +86,15 @@
     "import/order": [
       "error",
       {
-        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "unknown"]
+        "groups": [
+          "builtin",
+          "external",
+          "internal",
+          "parent",
+          "sibling",
+          "index",
+          "unknown"
+        ]
       }
     ],
     "@typescript-eslint/prefer-ts-expect-error": "error"
@@ -109,10 +111,45 @@
     },
     {
       "files": [
+        "./packages/back-end/src/**/*.ts*",
+        "./packages/back-end/types/**/*.ts*",
         "./packages/front-end/**/*.ts*"
       ],
       "rules": {
-        "no-restricted-imports": ["error", {"patterns": ["..*"]}]
+        "no-restricted-imports": ["error", { "patterns": ["..*"] }]
+      }
+    },
+    {
+      "files": ["./packages/front-end/**/*.ts*"],
+      "excludedFiles": ["./packages/front-end/ui/**/*.ts*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@radix-ui/themes",
+                "message": "Don't import Radix directly. Use our design system wrappers from @/ui/ instead.",
+                "importNames": [
+                  "Avatar",
+                  "Badge",
+                  "Button",
+                  "Callout",
+                  "Checkbox",
+                  "DataList",
+                  "DropdownMenu",
+                  "Link",
+                  "RadioCards",
+                  "RadioGroup",
+                  "Select",
+                  "Switch",
+                  "Table",
+                  "Tabs"
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -138,7 +175,6 @@
         "./packages/front-end/components/Share/ShareModal.tsx",
         "./packages/front-end/components/Tabs/ControlledTabs.tsx",
         "./packages/front-end/components/TempMessage.tsx",
-        "./packages/front-end/hooks/useStripeSubscription.ts",
         "./packages/front-end/pages/experiments/index.tsx",
         "./packages/front-end/pages/idea/*iid*.tsx",
         "./packages/front-end/pages/index.tsx",
@@ -171,6 +207,93 @@
         "./packages/back-end/src/scripts/**/*",
         "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
       ]
+    },
+    {
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node-fetch",
+                "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
+                "importNames": ["default"]
+              }
+            ]
+          }
+        ]
+      },
+      "files": ["./packages/back-end/**/*"],
+      "excludedFiles": [
+        "./packages/back-end/src/util/http.util.ts",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ]
+    },
+    // #region Ensure packages import from shared mostly
+    {
+      "files": ["./packages/front-end/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "**/sdk-{js,react}*"],
+                "message": "front-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/back-end/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*front-end*", "**/sdk-{js,react}*"],
+                "message": "back-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/shared/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*"],
+                "message": "shared cannot import from back-end or front-end."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/sdk-{js,react}/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*", "**/shared*"],
+                "message": "SDK packages cannot import from internal packages."
+              }
+            ]
+          }
+        ]
+      }
     }
+    // #endregion
   ]
 }

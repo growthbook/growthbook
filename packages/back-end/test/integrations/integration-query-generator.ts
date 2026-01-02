@@ -5,33 +5,33 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterface, DataSourceType } from "../../types/datasource";
+import { SegmentInterface } from "shared/types/segment";
+import {
+  Dimension,
+  ExperimentFactMetricsQueryParams,
+  ExperimentMetricQueryParams,
+  ExperimentUnitsQueryParams,
+} from "shared/types/integrations";
+import { DataSourceInterface, DataSourceType } from "shared/types/datasource";
 import {
   AttributionModel,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
   Variation,
-} from "../../types/experiment";
-import { SegmentInterface } from "../../types/segment";
-import {
-  Dimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
-  ExperimentUnitsQueryParams,
-} from "../../src/types/Integration";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { getFactMetricGroup } from "../../src/queryRunners/ExperimentResultsQueryRunner";
-import { getSourceIntegrationObject } from "../../src/services/datasource";
-import { getSnapshotSettings } from "../../src/services/experiments";
-import { expandDenominatorMetrics } from "../../src/util/sql";
+} from "shared/types/experiment";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   FactFilterInterface,
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
   MetricCappingSettings,
-} from "../../types/fact-table";
+} from "shared/types/fact-table";
+import { getFactMetricGroup } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getSnapshotSettings } from "back-end/src/services/experiments";
+import { expandDenominatorMetrics } from "back-end/src/util/sql";
 
 const currentDate = new Date();
 const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter
@@ -70,7 +70,7 @@ function buildInterface(engine: string): DataSourceInterface {
             name: "",
             userIdType: USER_ID_TYPE,
             query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${getTableString(
-              engine
+              engine,
             )}experiment_viewed`,
             dimensions: ["browser"],
           },
@@ -79,7 +79,7 @@ function buildInterface(engine: string): DataSourceInterface {
           {
             ids: ["user_id", "anonymous_id"],
             query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${getTableString(
-              engine
+              engine,
             )}orders`,
           },
         ],
@@ -92,7 +92,7 @@ function buildInterface(engine: string): DataSourceInterface {
 
 function buildDimension(
   exp: TestExperimentConfig,
-  engine: string
+  engine: string,
 ): Dimension | null {
   if (!exp.dimensionType) {
     return null;
@@ -131,7 +131,7 @@ function buildDimension(
 
 function buildSegment(
   exp: TestExperimentConfig,
-  engine: string
+  engine: string,
 ): SegmentInterface | null {
   if (exp.segment) {
     return {
@@ -142,7 +142,7 @@ function buildSegment(
       userIdType: USER_ID_TYPE,
       name: exp.segment,
       sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${getTableString(
-        engine
+        engine,
       )}experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
       dateUpdated: currentDate,
@@ -154,7 +154,7 @@ function buildSegment(
 
 function addDatabaseToMetric(
   metric: MetricInterface,
-  engine: string
+  engine: string,
 ): MetricInterface {
   const tableString = getTableString(engine);
   if (!tableString) {
@@ -180,44 +180,42 @@ import metricConfigData from "./json/metrics.json";
 const metricConfigs = metricConfigData as TestMetricConfig[];
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
-const baseMetric: Omit<
-  MetricInterface,
-  "id" | "type" | "ignoreNulls" | "sql"
-> = {
-  organization: "",
-  owner: "",
-  datasource: "",
-  name: "",
-  windowSettings: {
-    type: "conversion",
-    delayHours: 0,
-    windowValue: 72,
-    windowUnit: "hours",
-  },
-  cappingSettings: {
-    type: "",
-    value: 0,
-  },
-  priorSettings: {
-    override: false,
-    proper: false,
-    mean: 0,
-    stddev: 0,
-  },
-  description: "",
-  inverse: false,
-  dateCreated: null,
-  dateUpdated: null,
-  runStarted: null,
-  userIdColumns: { user_id: "user_id", anonymous_id: "anonymous_id" },
-  queries: [],
-  aggregation: "",
-  table: "",
-  column: "",
-  timestampColumn: "",
-  conditions: [],
-  queryFormat: "sql" as const,
-};
+const baseMetric: Omit<MetricInterface, "id" | "type" | "ignoreNulls" | "sql"> =
+  {
+    organization: "",
+    owner: "",
+    datasource: "",
+    name: "",
+    windowSettings: {
+      type: "conversion",
+      delayHours: 0,
+      windowValue: 72,
+      windowUnit: "hours",
+    },
+    cappingSettings: {
+      type: "",
+      value: 0,
+    },
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    description: "",
+    inverse: false,
+    dateCreated: null,
+    dateUpdated: null,
+    runStarted: null,
+    userIdColumns: { user_id: "user_id", anonymous_id: "anonymous_id" },
+    queries: [],
+    aggregation: "",
+    table: "",
+    column: "",
+    timestampColumn: "",
+    conditions: [],
+    queryFormat: "sql" as const,
+  };
 
 const allActivationMetrics: MetricInterface[] = [
   {
@@ -225,8 +223,7 @@ const allActivationMetrics: MetricInterface[] = [
     id: "cart_loaded",
     type: "binomial",
     ignoreNulls: false,
-    sql:
-      "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
+    sql: "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
   {
     ...baseMetric,
@@ -234,14 +231,13 @@ const allActivationMetrics: MetricInterface[] = [
     userIdTypes: ["anonymous_id"],
     type: "binomial",
     ignoreNulls: false,
-    sql:
-      "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
+    sql: "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
 ];
 
 // Build full metric objects
 const analysisMetrics: MetricInterface[] = metricConfigs.map(
-  (metricConfig) => ({ ...baseMetric, ...metricConfig })
+  (metricConfig) => ({ ...baseMetric, ...metricConfig }),
 );
 
 // fact metrics
@@ -260,7 +256,7 @@ const columns: ColumnInterface[] = (columnConfigData as ColumnConfig[]).map(
     filters: [],
     deleted: false,
     ...f,
-  })
+  }),
 );
 
 import filterConfigData from "./json/filters.json";
@@ -271,7 +267,7 @@ const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
     description: "",
     name: f.id,
     ...f,
-  })
+  }),
 );
 
 import factMetricConfigData from "./json/fact-metrics.json";
@@ -333,29 +329,29 @@ const baseFactMetric: Omit<
 };
 
 const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
-  (factMetricConfig) => ({ ...baseFactMetric, ...factMetricConfig })
+  (factMetricConfig) => ({ ...baseFactMetric, ...factMetricConfig }),
 );
 
 type FactTableConfig = Pick<FactTableInterface, "id" | "sql">;
 import factTableConfigData from "./json/fact-tables.json";
-const factTables: FactTableInterface[] = (factTableConfigData as FactTableConfig[]).map(
-  (partialFactTable) => ({
-    organization: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    name: partialFactTable.id,
-    description: "",
-    owner: "",
-    projects: [],
-    tags: [],
-    datasource: "",
-    eventName: "",
-    userIdTypes: ["user_id", "anonymous_id"],
-    columns: columns.filter((f) => f.name.startsWith(partialFactTable.id)),
-    filters: filters.filter((f) => f.id.startsWith(partialFactTable.id)),
-    ...partialFactTable,
-  })
-);
+const factTables: FactTableInterface[] = (
+  factTableConfigData as FactTableConfig[]
+).map((partialFactTable) => ({
+  organization: "",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  name: partialFactTable.id,
+  description: "",
+  owner: "",
+  projects: [],
+  tags: [],
+  datasource: "",
+  eventName: "",
+  userIdTypes: ["user_id", "anonymous_id"],
+  columns: columns.filter((f) => f.name.startsWith(partialFactTable.id)),
+  filters: filters.filter((f) => f.id.startsWith(partialFactTable.id)),
+  ...partialFactTable,
+}));
 
 // BUILD METRIC MAPS
 const baseMetricMap = new Map<string, MetricInterface>();
@@ -363,11 +359,9 @@ analysisMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 allActivationMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 
 const allMetricMap: Map<string, ExperimentMetricInterface> = new Map(
-  [
-    ...analysisMetrics,
-    ...allActivationMetrics,
-    ...analysisFactMetrics,
-  ].map((m) => [m.id, m])
+  [...analysisMetrics, ...allActivationMetrics, ...analysisFactMetrics].map(
+    (m) => [m.id, m],
+  ),
 );
 
 const metricRegressionAdjustmentStatuses = [
@@ -469,13 +463,13 @@ const testCases: { name: string; engine: string; sql: string }[] = [];
 engines.forEach((engine) => {
   const engineInterface = buildInterface(engine);
   const integration = getSourceIntegrationObject(engineInterface);
-  const pipelineEnabled = integration.getSourceProperties()
-    .supportsWritingTables;
+  const pipelineEnabled =
+    integration.getSourceProperties().supportsWritingTables;
 
   const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
   factTablesCopy.forEach(
     (ft) =>
-      (ft.sql = ft.sql?.replace("FROM ", `FROM ${getTableString(engine)}`))
+      (ft.sql = ft.sql?.replace("FROM ", `FROM ${getTableString(engine)}`)),
   );
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
@@ -507,7 +501,7 @@ engines.forEach((engine) => {
     if (experiment.activationMetric) {
       activationMetric =
         allActivationMetrics.find(
-          (m) => m.id === experiment.activationMetric
+          (m) => m.id === experiment.activationMetric,
         ) ?? null;
       if (activationMetric) {
         activationMetric = addDatabaseToMetric(activationMetric, engine);
@@ -516,11 +510,11 @@ engines.forEach((engine) => {
 
     const dimension: Dimension | null = buildDimension(
       experimentConfig,
-      engine
+      engine,
     );
     const segment: SegmentInterface | null = buildSegment(
       experimentConfig,
-      engine
+      engine,
     );
 
     let dimensionId = "";
@@ -573,6 +567,7 @@ engines.forEach((engine) => {
       },
       metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses,
       metricMap: allMetricMap,
+      metricGroups: [], // todo?
     });
 
     const unitsQueryParams: ExperimentUnitsQueryParams = {
@@ -585,8 +580,8 @@ engines.forEach((engine) => {
         engine === "bigquery"
           ? "sample."
           : engine === "snowflake"
-          ? `"SAMPLE".GROWTHBOOK.`
-          : ""
+            ? `"SAMPLE".GROWTHBOOK.`
+            : ""
       }growthbook_tmp_units_${experiment.id}`,
       includeIdJoins: true,
     };
@@ -649,14 +644,14 @@ engines.forEach((engine) => {
         denominatorMetrics.push(
           ...expandDenominatorMetrics(metric.denominator, baseMetricMap)
             .map((m) => baseMetricMap.get(m) as MetricInterface)
-            .filter(Boolean)
+            .filter(Boolean),
         );
       }
 
       if (!isFactMetric(metric)) {
         metric = addDatabaseToMetric(metric, engine);
         denominatorMetrics = denominatorMetrics.map((d) =>
-          addDatabaseToMetric(d, engine)
+          addDatabaseToMetric(d, engine),
         );
       }
 

@@ -1,9 +1,13 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import cloneDeep from "lodash/cloneDeep";
+import { OrganizationInterface } from "shared/types/organization";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
   scrubFeatures,
+  scrubSavedGroups,
 } from "../src/sdk-versioning";
+import { getSavedGroupsValuesFromInterfaces } from "../util";
+import { SavedGroupInterface } from "../types/groups";
 
 const baseConnection: SDKConnectionInterface = {
   id: "sdk-123",
@@ -12,7 +16,7 @@ const baseConnection: SDKConnectionInterface = {
   dateCreated: new Date(2020, 1, 5, 10, 0, 0),
   dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
   languages: ["javascript"],
-  sdkVersion: "0.27.0",
+  sdkVersion: "1.1.0",
   environment: "production",
   projects: [],
   encryptPayload: false,
@@ -27,6 +31,28 @@ const baseConnection: SDKConnectionInterface = {
     version: "1.0.0",
     error: "",
     lastError: null,
+  },
+};
+
+const baseOrg: OrganizationInterface = {
+  dateCreated: new Date(),
+  id: "",
+  invites: [],
+  members: [],
+  name: "",
+  ownerEmail: "",
+  url: "",
+  settings: {
+    attributeSchema: [
+      {
+        datatype: "string",
+        property: "id",
+      },
+      {
+        datatype: "number",
+        property: "num",
+      },
+    ],
   },
 };
 
@@ -68,6 +94,40 @@ describe("getConnectionSDKCapabilities", () => {
 });
 
 describe("payload scrubbing", () => {
+  const savedGroups: SavedGroupInterface[] = [
+    {
+      id: "legacy_group_id",
+      organization: baseConnection.organization,
+      groupName: "legacy group name",
+      owner: "test user",
+      dateCreated: new Date(2020, 1, 5, 10, 0, 0),
+      dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
+      type: "list",
+      values: ["1", "2", "3"],
+      attributeKey: "id",
+    },
+    {
+      id: "large_group_id",
+      organization: baseConnection.organization,
+      groupName: "large group name",
+      owner: "test user",
+      dateCreated: new Date(2020, 1, 5, 10, 0, 0),
+      dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
+      type: "list",
+      values: ["4", "5", "6"],
+    },
+    {
+      id: "legacy_numeric_group_id",
+      organization: baseConnection.organization,
+      groupName: "legacy numeric group name",
+      owner: "test user",
+      dateCreated: new Date(2020, 1, 5, 10, 0, 0),
+      dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
+      type: "list",
+      values: ["1", "2", "3"],
+      attributeKey: "num",
+    },
+  ];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sdkPayload: any = {
     features: {
@@ -86,6 +146,35 @@ describe("payload scrubbing", () => {
             coverage: 1,
             weights: [0.3334, 0.3333, 0.3333],
             phase: "0",
+          },
+        ],
+      },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $inGroup: "legacy_group_id",
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $inGroup: "large_group_id",
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              num: {
+                $inGroup: "legacy_numeric_group_id",
+              },
+            },
+            force: "variant",
           },
         ],
       },
@@ -127,6 +216,98 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
+    savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups, baseOrg),
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const savedGroupScrubbedPayload: any = {
+    features: {
+      exp1: {
+        defaultValue: "control",
+        rules: [
+          {
+            key: "feature-exp",
+            seed: "feature-exp",
+            hashAttribute: "id",
+            fallbackAttribute: "deviceId",
+            hashVersion: 2,
+            bucketVersion: 1,
+            condition: { country: "USA" },
+            variations: ["control", "red", "blue"],
+            coverage: 1,
+            weights: [0.3334, 0.3333, 0.3333],
+            phase: "0",
+          },
+        ],
+      },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $in: ["4", "5", "6"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              num: {
+                $in: [1, 2, 3],
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
+    },
+    experiments: [
+      {
+        key: "my-experiment",
+        seed: "s1",
+        hashAttribute: "id",
+        fallbackAttribute: "anonymousId",
+        hashVersion: 2,
+        bucketVersion: 1,
+        stickyBucketing: true,
+        manual: true,
+        variations: [
+          {},
+          {
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "red",
+              },
+            ],
+          },
+          {
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "blue",
+              },
+            ],
+          },
+        ],
+        weights: [0.3334, 0.3333, 0.3333],
+        coverage: 1,
+      },
+    ],
+    savedGroups: undefined,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +331,35 @@ describe("payload scrubbing", () => {
           },
         ],
       },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $in: ["4", "5", "6"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              num: {
+                $in: [1, 2, 3],
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
     },
     experiments: [
       {
@@ -188,6 +398,7 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
+    savedGroups: undefined,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -211,6 +422,35 @@ describe("payload scrubbing", () => {
           },
         ],
       },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $in: ["4", "5", "6"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              num: {
+                $in: [1, 2, 3],
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
     },
     experiments: [
       {
@@ -249,23 +489,60 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
+    savedGroups: undefined,
   };
 
-  it("does not scrub the payload for a safe language version", () => {
+  it("scrubs the payload when savedGroupReferencesEnabled is false", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,
     };
     const capabilities = getConnectionSDKCapabilities(connection);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      savedGroups,
+      false,
+      baseOrg,
+    );
     scrubbed.features = scrubbedFeatures;
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      false,
+    );
+
+    // only payload change for default connection (javascript, 0.27.0) is saved groups being inline
+    expect(scrubbed).toStrictEqual(savedGroupScrubbedPayload);
+  });
+
+  it("does not scrub the payload when savedGroupReferencesEnabled is true", () => {
+    const connection: SDKConnectionInterface = {
+      ...baseConnection,
+    };
+    const capabilities = getConnectionSDKCapabilities(connection);
+
+    const scrubbed = cloneDeep(sdkPayload);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      savedGroups,
+      true,
+      baseOrg,
+    );
+    scrubbed.features = scrubbedFeatures;
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true,
+    );
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(sdkPayload);
   });
 
-  it("scrubs the payload for a risky language version", () => {
+  it("scrubs the payload for a risky language version, even if savedGroupReferencesEnabled is true", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,
       languages: ["python"],
@@ -275,10 +552,21 @@ describe("payload scrubbing", () => {
     expect(capabilities).toStrictEqual([]);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      savedGroups,
+      true,
+      baseOrg,
+    );
     scrubbed.features = scrubbedFeatures;
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true,
+    );
 
-    // no change to payload for default connection (javascript, 0.27.0)
+    // fully scrubs payload for risky connection (python, 0.0.0)
     expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
   });
 
@@ -292,7 +580,18 @@ describe("payload scrubbing", () => {
     expect(capabilities).toStrictEqual(["bucketingV2", "encryption"]);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      savedGroups,
+      true,
+      baseOrg,
+    );
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true,
+    );
     scrubbed.features = scrubbedFeatures;
 
     // no change to payload for default connection (javascript, 0.27.0)
@@ -310,7 +609,18 @@ describe("payload scrubbing", () => {
     expect(capabilities).toStrictEqual(["bucketingV2"]);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      savedGroups,
+      true,
+      baseOrg,
+    );
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true,
+    );
     scrubbed.features = scrubbedFeatures;
 
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);

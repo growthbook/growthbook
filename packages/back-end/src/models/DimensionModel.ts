@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
-import { ApiDimension } from "../../types/openapi";
-import { DimensionInterface } from "../../types/dimension";
-import { getConfigDimensions, usingFileConfig } from "../init/config";
+import { ApiDimension } from "shared/types/openapi";
+import { DimensionInterface } from "shared/types/dimension";
+import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
+import { ALLOW_CREATE_DIMENSIONS } from "../util/secrets";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,
@@ -10,6 +13,7 @@ const dimensionSchema = new mongoose.Schema({
     index: true,
   },
   owner: String,
+  managedBy: String,
   datasource: String,
   userIdType: String,
   description: String,
@@ -22,7 +26,7 @@ dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
 const DimensionModel = mongoose.model<DimensionInterface>(
   "Dimension",
-  dimensionSchema
+  dimensionSchema,
 );
 
 function toInterface(doc: DimensionDocument): DimensionInterface {
@@ -30,22 +34,47 @@ function toInterface(doc: DimensionDocument): DimensionInterface {
 }
 
 export async function createDimension(dimension: Partial<DimensionInterface>) {
+  if (usingFileConfig() && !ALLOW_CREATE_DIMENSIONS) {
+    throw new Error(
+      "Cannot add new dimensions. Dimensions managed by config.yml",
+    );
+  }
   return toInterface(await DimensionModel.create(dimension));
 }
 
 export async function findDimensionsByOrganization(organization: string) {
-  // If using config.yml, immediately return the list from there
+  const dimensions: DimensionInterface[] = [];
+  // If using config.yml, fetch from there
   if (usingFileConfig()) {
-    return getConfigDimensions(organization);
+    getConfigDimensions(organization).forEach((d) => {
+      dimensions.push(d);
+    });
+
+    // If dimensions are locked down to just a config file, return immediately
+    if (!ALLOW_CREATE_DIMENSIONS) {
+      return dimensions;
+    }
   }
 
-  return (await DimensionModel.find({ organization })).map(toInterface);
+  const docs = await DimensionModel.find({ organization });
+  docs.forEach((d) => {
+    dimensions.push(toInterface(d));
+  });
+  return dimensions;
 }
 
 export async function findDimensionById(id: string, organization: string) {
-  // If using config.yml, immediately return the list from there
+  // If using config.yml, check there first
   if (usingFileConfig()) {
-    return getConfigDimensions(organization).filter((d) => d.id === id)[0];
+    const doc = getConfigDimensions(organization).filter((d) => d.id === id)[0];
+    if (doc) {
+      return doc;
+    }
+
+    // If dimensions are locked down to just a config file & the dimension is not found, return null
+    if (!ALLOW_CREATE_DIMENSIONS) {
+      return null;
+    }
   }
 
   const doc = await DimensionModel.findOne({ id, organization });
@@ -55,60 +84,75 @@ export async function findDimensionById(id: string, organization: string) {
 
 export async function findDimensionsByDataSource(
   datasource: string,
-  organization: string
+  organization: string,
 ) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigDimensions(organization).filter(
-      (d) => d.datasource === datasource
+      (d) => d.datasource === datasource,
     );
   }
 
   return (await DimensionModel.find({ datasource, organization })).map(
-    toInterface
+    toInterface,
   );
 }
 
 export async function updateDimension(
-  id: string,
-  organization: string,
-  updates: Partial<DimensionInterface>
+  context: ReqContext | ApiReqContext,
+  existing: DimensionInterface,
+  updates: Partial<DimensionInterface>,
 ) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
+  // If the dimension is managed by the config.yml, don't allow updates
+  if (existing.managedBy === "config") {
+    throw new Error("Cannot update. Dimenision managed by config.yml");
+  }
+  // If the dimension is managed by the API, only allow updates via the API
+  if (existing.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    throw new Error("Cannot update. Dimenision managed by the API");
+  }
+
+  await DimensionModel.updateOne(
+    { id: existing.id, organization: context.org.id },
+    { $set: updates },
+  );
+}
+
+export async function deleteDimensionById(
+  context: ReqContext | ApiReqContext,
+  dimension: DimensionInterface,
+) {
+  if (dimension?.managedBy === "config") {
     throw new Error(
-      "Cannot update. Dimensions are being managed by config.yml"
+      "Cannot delete. This Dimension is being managed by config.yml",
     );
   }
 
-  await DimensionModel.updateOne({ id, organization }, { $set: updates });
-}
-
-export async function deleteDimensionById(id: string, organization: string) {
-  // If using config.yml, immediately throw error
-  if (usingFileConfig()) {
+  if (dimension?.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error(
-      "Cannot delete. Dimensions are being managed by config.yml"
+      "Cannot delete. This Dimension is being managed by the API",
     );
   }
 
   await DimensionModel.deleteOne({
-    id,
-    organization,
+    id: dimension.id,
+    organization: context.org.id,
   });
 }
 
 export function toDimensionApiInterface(
-  dimension: DimensionInterface
+  dimension: DimensionInterface,
 ): ApiDimension {
   return {
     id: dimension.id,
     name: dimension.name,
+    description: dimension.description || "",
     owner: dimension.owner || "",
     identifierType: dimension.userIdType || "user_id",
     query: dimension.sql,
     datasourceId: dimension.datasource || "",
     dateCreated: dimension.dateCreated?.toISOString() || "",
     dateUpdated: dimension.dateUpdated?.toISOString() || "",
+    managedBy: dimension.managedBy || "",
   };
 }

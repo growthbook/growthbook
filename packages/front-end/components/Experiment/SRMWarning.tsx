@@ -1,12 +1,13 @@
 import { FC, useState } from "react";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { MdInfoOutline } from "react-icons/md";
+import { ExperimentReportVariation } from "shared/types/report";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { pValueFormatter } from "@/services/experiments";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBInfo } from "@/components/Icons";
+import Callout from "@/ui/Callout";
 import { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
@@ -40,7 +41,7 @@ const LearnMore = ({
       <span>
         <Tooltip body={body}>
           <span className="a">
-            Learn More <MdInfoOutline style={{ color: "#029dd1" }} />
+            Learn More <GBInfo />
           </span>
         </Tooltip>
       </span>
@@ -50,12 +51,13 @@ const LearnMore = ({
 
 const SRMWarning: FC<{
   srm: number;
-  variations: ExperimentReportVariation[];
+  variations?: ExperimentReportVariation[];
   users: number[];
   linkToHealthTab?: boolean;
   showWhenHealthy?: boolean;
   type?: "simple" | "with_modal";
   setTab?: (tab: ExperimentTab) => void;
+  isBandit?: boolean;
 }> = ({
   srm,
   linkToHealthTab,
@@ -64,6 +66,7 @@ const SRMWarning: FC<{
   users,
   showWhenHealthy = false,
   type = "with_modal",
+  isBandit,
 }) => {
   const [open, setOpen] = useState(false);
   const { settings } = useUser();
@@ -91,6 +94,7 @@ const SRMWarning: FC<{
     <>
       {type === "with_modal" && (
         <Modal
+          trackingEventModalType="srm-warning"
           close={() => setOpen(false)}
           open={open}
           header={
@@ -108,23 +112,25 @@ const SRMWarning: FC<{
           <div className="mx-2">
             {srm >= srmThreshold ? (
               <>
-                <div className="alert alert-secondary">
-                  {NOT_ENOUGH_EVIDENCE_MESSAGE}
-                </div>
-                <VariationUsersTable
-                  variations={variations}
-                  users={users}
-                  srm={srm}
-                />
+                <Callout status="info">{NOT_ENOUGH_EVIDENCE_MESSAGE}</Callout>
+                {variations ? (
+                  <VariationUsersTable
+                    variations={variations}
+                    users={users}
+                    srm={srm}
+                  />
+                ) : null}
               </>
             ) : (
               <>
-                <div className="alert alert-secondary">{srmWarningMessage}</div>
-                <VariationUsersTable
-                  variations={variations}
-                  users={users}
-                  srm={srm}
-                />
+                <Callout status="warning">{srmWarningMessage}</Callout>
+                {variations ? (
+                  <VariationUsersTable
+                    variations={variations}
+                    users={users}
+                    srm={srm}
+                  />
+                ) : null}
                 <p>Most common causes:</p>
                 <ul>
                   <li>
@@ -169,19 +175,21 @@ const SRMWarning: FC<{
       )}
 
       {srm >= srmThreshold ? (
-        <div className="alert alert-info">
+        <Callout status="info" contentsAs="div">
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}.{" "}
-            <LearnMore
-              type={type}
-              setOpen={setOpen}
-              body={NOT_ENOUGH_EVIDENCE_MESSAGE}
-            />
+            {!isBandit && (
+              <LearnMore
+                type={type}
+                setOpen={setOpen}
+                body={NOT_ENOUGH_EVIDENCE_MESSAGE}
+              />
+            )}
           </b>
-        </div>
+        </Callout>
       ) : (
-        <div className="alert alert-warning">
+        <Callout status="warning" contentsAs="div">
           <strong>
             Sample Ratio Mismatch (SRM) detected. P-value below{" "}
             {pValueFormatter(srmThreshold)}
@@ -216,7 +224,7 @@ const SRMWarning: FC<{
               />
             </p>
           )}
-        </div>
+        </Callout>
       )}
     </>
   );

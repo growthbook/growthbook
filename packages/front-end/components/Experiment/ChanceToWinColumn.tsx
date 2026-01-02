@@ -1,10 +1,11 @@
 import clsx from "clsx";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { GBSuspicious } from "@/components/Icons";
+import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -25,6 +26,7 @@ interface Props
   showTimeRemaining?: boolean;
   showGuardrailWarning?: boolean;
   className?: string;
+  hideScaledImpact?: boolean;
 }
 export default function ChanceToWinColumn({
   stats,
@@ -36,6 +38,7 @@ export default function ChanceToWinColumn({
   showTimeRemaining = true,
   showGuardrailWarning = false,
   className,
+  hideScaledImpact = false,
   ...otherProps
 }: Props) {
   const shouldRenderRisk =
@@ -47,6 +50,8 @@ export default function ChanceToWinColumn({
     <td className={clsx("chance align-middle", className)} {...otherProps}>
       {!baseline?.value || !stats?.value ? (
         <em className="text-muted font-weight-normal">no data</em>
+      ) : hideScaledImpact ? (
+        <NoScaledImpact />
       ) : !rowResults.enoughData ? (
         <NotEnoughData
           rowResults={rowResults}

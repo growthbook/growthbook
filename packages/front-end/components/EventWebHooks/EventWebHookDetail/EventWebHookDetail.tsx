@@ -1,4 +1,4 @@
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import React, { FC, useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
 import { FaPencilAlt } from "react-icons/fa";
@@ -12,7 +12,7 @@ import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import {
   EventWebHookEditParams,
   useIconForState,
-  webhookIcon,
+  WebhookIcon,
   displayedEvents,
 } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
@@ -125,7 +125,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     try {
       const response = await apiCall<{
         error?: string;
-        eventId?: string;
       }>("/event-webhooks/test", {
         method: "POST",
         body: JSON.stringify({ webhookId }),
@@ -168,8 +167,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         <div className="d-flex align-items-center">
           {/* Title */}
           <div className="m-2 p-2 border rounded">
-            <img
-              src={webhookIcon[payloadType]}
+            <WebhookIcon
+              type={payloadType}
               style={{ height: "2rem", width: "2rem" }}
             />
           </div>
@@ -229,7 +228,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
         </div>
 
-        {payloadType === "raw" && (
+        {["raw", "json"].includes(payloadType) && (
           <div className="ml-2 d-flex align-items-center">
             <div className="text-main">
               <b>Secret:</b>
@@ -325,11 +324,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           mode={{
             mode: "edit",
             data: {
-              tags: [],
-              environments: [],
-              projects: [],
-              payloadType: "raw",
-              method: "POST",
               ...eventWebHook,
               headers: eventWebHook.headers
                 ? JSON.stringify(eventWebHook.headers)
@@ -384,22 +378,23 @@ export const EventWebHookDetailContainer = ({
                 "environments",
                 "method",
                 "headers",
-              ])
+              ]),
             ),
-          }
+          },
         );
 
         if (response.error) {
           handleUpdateError(response.error || "Unknown error");
         } else {
           mutateEventWebHook();
+          setIsEditModalOpen(false);
           setEditError(null);
         }
       } catch (e) {
         handleUpdateError("Unknown error");
       }
     },
-    [mutateEventWebHook, apiCall, eventWebHookId]
+    [mutateEventWebHook, apiCall, eventWebHookId],
   );
 
   const handleDelete = useCallback(async () => {

@@ -9,7 +9,9 @@ slug: faq
 
 Below are some frequently asked questions about GrowthBook.
 
-## Do users always get assigned the same experiment variation?
+## Experiment Assignment
+
+### Do users always get assigned the same experiment variation?
 
 GrowthBook SDKs use deterministic hashing to ensure the same user always gets assigned the same variation in an experiment.
 
@@ -21,7 +23,7 @@ GrowthBook will detect issues like this and will remove users who see both varia
 
 It's important to note that the above only applies when changing the traffic split between variations. If you keep the split the same, but increase the percent of traffic included, users will not switch variations. For example, if you are running a 50/50 experiment on 20% of traffic, the variation ranges will be `0 to 0.1` and `0.5 to 0.6`. Users outside those ranges will be excluded from the experiment. If you increase the percent of traffic to 40%, but keep the 50/50 split, the ranges will become: `0 to 0.2` and `0.5 to 0.7`. As you can see, no users switch variations. Instead, some users who were previously excluded are now part of the experiment.
 
-## What do I use for an "id" attribute in the SDK if my users aren't logged in?
+### What do I use for an "id" attribute in the SDK if my users aren't logged in?
 
 If your application has both logged-in and anonymous users, we recommend using two identifier attributes:
 
@@ -30,26 +32,9 @@ If your application has both logged-in and anonymous users, we recommend using t
 
 If your application only has anonymous users (e.g. a static marketing site), then we recommend a single `id` attribute which, similar to `deviceId` or `sessionId` above, is a random hash persisted in a cookie or local storage.
 
-## Why is the trackingCallback not firing in the SDK?
+## Running Experiments
 
-The `trackingCallback` only fires when a user is included in an experiment. If you're expecting to be included and you're still not seeing the callback fire, it's likely for one of the following reasons:
-
-- You are missing the `hashAttribute` for the experiment. For example, when you are splitting users by "company", but the company attribute is empty.
-- The feature is disabled for the environment you are in (dev/prod)
-- The experiment has reduced coverage. For example, if it's only running for 10% of users and you are in the 90% that are excluded.
-- There is another feature rule that is taking precedence over the experiment.
-
-If you are using the Javascript or React SDK in a browser environment, you can install the [GrowthBook DevTools Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to help you debug.
-
-**Note**: To use the plugin, you will need to pass `enableDevMode: true` when creating your GrowthBook instance.
-
-```ts
-const growthbook = new GrowthBook({
-  enableDevMode: true,
-})
-```
-
-## How do I run an A/B test in GrowthBook?
+### How do I run an A/B test in GrowthBook?
 
 The recommended way to run an A/B test is by using Feature Flags and our SDKs.
 
@@ -63,35 +48,57 @@ The recommended way to run an A/B test is by using Feature Flags and our SDKs.
    }
    ```
 
-## What is the best way to redirect users to a URL based on their experiment variation?
+### What is the best way to redirect users to a URL based on their experiment variation?
 
 You can now easily set up URL Redirect experiments within GrowthBook and customize navigation depending on your application. Read more about running a URL Redirect experiment [here](/app/url-redirects).
 
-## How much traffic do I need to run A/B tests?
+### How much traffic do I need to run A/B tests?
 
 What matters most for A/B testing is not traffic, but conversions. The general rule of thumb is to have at least 100-200 conversions per variation before you might start reaching significance.
 
 So that means if you do 50 orders per week and that's the metric you are trying to optimize, you'll need to run a simple 2-way A/B test for at least 4-8 weeks. If you run a 3-way test, it will take 6-12 weeks.
 
-## Can I run multiple A/B tests at a time?
+### Can I run multiple A/B tests at a time?
 
 Yes! In fact, we recommend running many experiments in parallel in your application. Most A/B tests fail, so the more shots-on-goal you take, the more likely you are to get a winner. Running tests in parallel is a great way to increase your velocity.
 
-Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might see end up seeing black text on a black background, which is obviously not ideal. For these rare cases, you can use [Namespaces](/features/rules#namespaces) to run mutually exclusive experiments.
+Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might end up seeing black text on a black background, which is obviously not ideal. For these rare cases, you can use [Namespaces](/features/rules#namespaces) to run mutually exclusive experiments. Make sure all experiments within the same Namespace are using the same hash attribute (assignment attribute).
 
 As long as you apply a little common sense to avoid situations like the above, running multiple experiments has low risk and really high reward.
 
-## What is the difference between a Dimension and a Segment?
+### How does GrowthBook handle event data?
 
-A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
+Check out the video below for a quick overview of how GrowthBook handles event data and how to fix common issues.
 
-A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
+<iframe style={{aspectRatio: "16/9", width: "100%", height: "auto"}} width="560" height="315" src="https://www.youtube-nocookie.com/embed/hboLeUbpdus?si=LJtW1fJsmBc4sYZg" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
 
-Dimensions are used to explore experiment results. For example, you can use a `country` dimension to see which countries had the highest conversion rates. Or an `account_type` dimension to see if there was a significant difference in how free vs paid users behaved. Or a `browser` dimension to detect any browser-specific bugs in your implementation.
+## GrowthBook Cloud
 
-Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
+### What are the GrowthBook Cloud CDN usage limits?
 
-## Which docker image tag should I use when self-hosting?
+GrowthBook Cloud CDN has limits that depend on your plan. New free accounts can make up to 1 million CDN requests per month and consume up to 5GB of bandwidth. New Pro accounts include 2 million CDN requests and 20GB of bandwidth, and can pay for additional usage above this. Enterprise accounts have custom limits and volume discounts.
+
+For early adopters that joined GrowthBook Cloud before these new limits were introduced (March 2025), you will be grandfathered into the old limits of 10 million CDN requests and unlimited bandwidth per month. Thank you for being an early supporter!
+
+You can view your current usage at any time in the GrowthBook Cloud dashboard under [**Settings** > **Usage**](https://app.growthbook.io/settings/usage).
+
+### How can I reduce my GrowthBook Cloud CDN usage?
+
+There are a few ways to reduce your GrowthBook Cloud CDN usage:
+
+- **SDK Caching** - Most of our [SDKs](/lib) support caching CDN responses. For back-end SDKs, this can drastically reduce the number of CDN requests since the response can be shared between many users. For front-end SDKs, caching has a smaller benefit, but can still help by eliminating duplicate requests from the same user.
+- **Nested CDNs** - You can add [your own custom CDN](/self-host/cdn) in front of our GrowthBook Cloud CDN. This will heavily decrease the number of requests that reach our CDN, but you will have to maintain this new infrastructure and pay for it outside of GrowthBook, so it might not end up reducing costs.
+- **GrowthBook Proxy** - You can [run self-hosted GrowthBook Proxy servers](/self-host/proxy) that cache CDN responses in your infrastructure. Like with nested CDNs, you will be responsible for maintaining and paying for this infrastructure.
+
+### What happens if I exceed the limits on GrowthBook Cloud?
+
+We reserve the right to throttle or block CDN requests for accounts that exceed their free usage limits. We will always try to reach out to you before taking any action, but we reserve the right to take immediate action if we believe your usage is causing harm to other customers or our infrastructure.
+
+For Pro and Enterprise customers, we will work with you to find a solution that meets your needs. This could include increasing your limits, optimizing your usage, or moving to a custom plan.
+
+## Self-Hosting
+
+### Which docker image tag should I use when self-hosting?
 
 We recommend using the `latest` tag for both dev and production self-hosted deployments. This tag represents the latest stable build of GrowthBook and is what the Cloud app uses.
 
@@ -99,25 +106,46 @@ Specific version tags (e.g. `v1.1.0`) are only released periodically (about once
 
 We also recommend updating the image regularly. You can do that by downloading the latest image (`docker pull growthbook/growthbook:latest`) and restarting the container.
 
-## What are the hardware requirements for self-hosting GrowthBook?
+### What are the hardware requirements for self-hosting GrowthBook?
 
 The GrowthBook application is very lightweight and efficient. For most usecases, 2GB of memory is sufficient even for large production deployments.
 
 GrowthBook only deals with aggregate data and the bulk of the processing is offloaded to your data source. Because of this, you can easily analyze terrabytes of data from your laptop or a small container in the cloud.
 
-If you are using feature flags, **we strongly recommend** adding a caching layer between the GrowthBook API and your application in production. This will also help you stay within the limits of our [Fair Use Policy](https://www.growthbook.io/fair-use). Some of our [code examples](https://github.com/growthbook/examples) implement caching. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup your own custom system using a CDN or distributed cache like Redis.
+If you are using feature flags, **we strongly recommend** adding a caching layer between the GrowthBook API and your application in production. This will also help you stay within the limits of our [Fair Use Policy](https://www.growthbook.io/fair-use). Some of our [code examples](https://github.com/growthbook/examples) implement caching. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup [your own CDN](/self-host/cdn) or distributed cache like Redis.
 
-## I can't upload to S3/getting 400 error when uploading to S3?
+### I can't upload to S3/getting 400 error when uploading to S3?
 
 - Make sure you've correctly set the `S3_BUCKET` and `S3_REGION` environment variables
 - Enable bucket ACL and set ownership to Bucket owner preferred: [read more here](https://stackoverflow.com/questions/70333681/for-an-amazon-s3-bucket-deplolyent-from-guithub-how-do-i-fix-the-error-accesscon).
 - Make sure the S3 bucket is publically accessible
 - Make sure CORS settings are correct. Add your URLs to the AllowedOrigins array or set to "\*"
 
-## How do I use the Chrome DevTools Extension?
+## Debugging the SDKs
 
-- Make sure you are using the React or Javascript SDK
-- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
+### Why is the trackingCallback not firing in the SDK?
+
+The `trackingCallback` only fires when a user is included in an experiment. If you're expecting to be included and you're still not seeing the callback fire, it's likely for one of the following reasons:
+
+- You are missing the `hashAttribute` for the experiment. For example, when you are splitting users by "company", but the company attribute is empty.
+- The feature is disabled for the environment you are in (dev/prod)
+- The experiment has reduced coverage. For example, if it's only running for 10% of users and you are in the 90% that are excluded.
+- There is another feature rule that is taking precedence over the experiment.
+
+If you are using the JavaScript or React SDK in a browser environment, you can install the GrowthBook DevTools Browser Extension for [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) to help you debug.
+
+**Note**: To use the plugin, you will need to pass `enableDevMode: true` when creating your GrowthBook instance.
+
+```ts
+const growthbook = new GrowthBook({
+  enableDevMode: true,
+})
+```
+
+### How do I use the DevTools browser extension?
+
+- Make sure you are using the React or JavaScript SDK
+- Install the [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) DevTools Browser Extension
 - Pass the `enableDevMode: true` option into the GrowthBook constructor
 
 ```ts
@@ -126,35 +154,19 @@ const growthbook = new GrowthBook({
 })
 ```
 
-## My old exported notebook stopped working. How can I fix it?
+### My features aren't refreshing as expected. What can I do?
 
-There's a good chance that the SQL we are exporting and your version of our Python stats library, `gbstats`, are out of sync.
-In February of 2023 we updated our SQL engines and `gbstats` library to only use sums and sums of squares, rather than averages and standard deviations.
-
-If the queries in your notebook return averages and standard deviations (using `AVG` and `VAR` SQL operators as part of the `__stats` CTE), then you need to run that notebook with `gbstats` version 0.3.1.
-You can download this from PyPI [here](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
-Ideally in this case you can redownload the notebook and use the new `gbstats` library (0.4.0 or newer). You can download a new notebook by navigating to your experiment in GrowthBook and clicking `Download Notebook` again. This should now use the updated SQL and `gbstats` syntax. Then, if you install `gbstats` 0.4.0 or later, everything should work as expected.
-
-If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
-You can download this from PyPI [here](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
-
-## My features aren't refreshing as expected. What can I do?
-
-Our SDK's implement a stale-while-revalidate approach to cacheing with a configurable time-to-live (TTL) value.
+Our SDK's implement a stale-while-revalidate approach to caching with a configurable time-to-live (TTL) value.
 
 This means that if the feature payload is considered stale (i.e. more than the TTL amount of time has passed since it's been updated), **the next request will return the stale features** and refetch an update asynchronously so that on the next request, the features will be up to date. You can learn more about how our SDK's implement this in detail [here](/lib/build-your-own#fetching-and-caching-features).
 
-If you would like something more real-time than this stale-while-revalidate approach, you may want to consider implementing the [GrowthBook Proxy](https://docs.growthbook.io/self-host/proxy) on your self-hosted instance.
+If you would like something more real-time than this stale-while-revalidate approach, you may want to consider implementing the [GrowthBook Proxy](/self-host/proxy) on your self-hosted instance.
 
-## How do I configure environments in the SDK?
+### How do I configure environments in the SDK?
 
-When you create an SDK connection, it is linked to a specific environment. You can learn more about environments [here](/features/environments).
+When you create an SDK connection, it is linked to a specific environment. [Learn more about environments](/features/environments).
 
-## How do I disable the on-screen celebrations?
-
-Throughout the GrowthBook application, we randomly celebrate key milestones like launching experiments with on-screen confetti. If you'd like to disable this, you can click on your avatar in the top right corner and select "Edit Profile". From there, you can disable the toggle for "Allow Celebrations". Please note this is persisted in your browser's local storage, so if you clear your browser's local storage, you will need to disable this again.
-
-## How do I make my own identifier?
+### How do I make my own identifier?
 
 There are cases when using feature flags client side where the 3rd party identifiers used for assignment will be slow to
 load, and may cause flickering as some of the DOM rerenders. In these cases, generating your
@@ -210,11 +222,72 @@ Below is the same code, minified:
 const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000*400),document.cookie=a+"="+b+";path=/;expires="+c.toGMTString()};let b=(b=>{let c=`; ${document.cookie}`,d=c.split(`; ${b}=`);if(2===d.length){let c=d.pop().split(";").shift();return a(b,c),c}})("gbuuid");if(b)return b;const c=(()=>window?.crypto?.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,a=>(a^crypto.getRandomValues(new Uint8Array(1))[0]&15>>a/4).toString(16)))();return a("gbuuid",c),c};
 ```
 
-## How do I update the refresh rate for experiment data?
+## Experiment Analysis
+
+### What is the difference between a Dimension and a Segment?
+
+:::info Dimensions recommended over Segments
+
+We recommend using Dimensions instead of Segments for new implementations. While Segments remain fully supported, we plan to deprecate them in a future release.
+
+:::
+
+A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
+
+A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
+
+Dimensions are used to explore experiment results. For example, you can use a `country` dimension to see which countries had the highest conversion rates. Or an `account_type` dimension to see if there was a significant difference in how free vs paid users behaved. Or a `browser` dimension to detect any browser-specific bugs in your implementation.
+
+Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
+
+### My old exported notebook stopped working. How can I fix it?
+
+There's a good chance that the SQL we are exporting and your version of our Python stats library, `gbstats`, are out of sync.
+In February of 2023 we updated our SQL engines and `gbstats` library to only use sums and sums of squares, rather than averages and standard deviations.
+
+If the queries in your notebook return averages and standard deviations (using `AVG` and `VAR` SQL operators as part of the `__stats` CTE), then you need to run that notebook with `gbstats` version 0.3.1.
+You can [download this from PyPI](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
+Ideally in this case you can redownload the notebook and use the new `gbstats` library (0.4.0 or newer). You can download a new notebook by navigating to your experiment in GrowthBook and clicking `Download Notebook` again. This should now use the updated SQL and `gbstats` syntax. Then, if you install `gbstats` 0.4.0 or later, everything should work as expected.
+
+If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
+You can [download this from PyPI](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
+
+### How do I update the refresh rate for experiment data?
 
 Go to **Settings** → **General** → **Experiment Settings**. Change the **Experiment Auto-Update Frequency** field to the desired values. Save your changes.
 
 ![Setting to update experiment data refresh](/images/experiment-refresh.png)
+
+### Are users counted multiple times in the experiment results?
+
+Deduplication ensures that each user is included only once in an experiment, even if they meet the eligibility criteria multiple times. This helps maintain accurate results and preserves data integrity.
+
+GrowthBook achieves deduplication by assigning a unique identifier (such as a `userID` or `sessionID`) to each user. When analyzing experiment data, it records only the first instance of a user’s exposure, preventing duplicate attributions.
+
+If a user participates in an experiment more than once (e.g., revisits the site multiple times), GrowthBook will count only their first recorded exposure.
+
+## Other
+
+### What types of SQL queries can users run in GrowthBook?
+
+Users can only run read SELECT queries in GrowthBook. For security reasons, all user-provided SQL is validated to be a read-only query before being executed. This applies to all places where you can write raw SQL, including:
+
+- SQL Explorer for ad-hoc queries
+- Metric and Fact Table definitions
+- Dimension queries
+- Data Source configuration (experiment assignment queries, identifier joins, etc.)
+
+Write operations such as INSERT, UPDATE, DELETE, etc, are not permitted from any user-entered SQL.
+
+:::note Pipeline Mode writes to your data warehouse
+
+Some GrowthBook features, such as [Pipeline Mode](/app/data-pipeline), may write temporary tables to your data warehouse to improve query performance. However, these write operations are managed by GrowthBook itself.
+
+:::
+
+### How do I disable the on-screen celebrations?
+
+Throughout the GrowthBook application, we randomly celebrate key milestones like launching experiments with on-screen confetti. If you'd like to disable this, you can click on your avatar in the top right corner and select "Edit Profile". From there, you can disable the toggle for "Allow Celebrations". Please note this is persisted in your browser's local storage, so if you clear your browser's local storage, you will need to disable this again.
 
 ---
 

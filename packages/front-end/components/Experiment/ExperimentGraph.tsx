@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { BarRounded, BarStack } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
@@ -9,10 +9,12 @@ import format from "date-fns/format";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { getValidDate } from "shared/dates";
+import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -90,6 +92,119 @@ export default function ExperimentGraph({
     };
   }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
+  const projectMap = useMemo(() => {
+    const pMap = new Map();
+    projects.forEach((p) => {
+      pMap.set(p.id, p.name);
+    });
+    pMap.set("all", "All projects");
+    return pMap;
+  }, [projects]);
+
+  const parseDataForCSV = useCallback(
+    (type) => {
+      if (type === "all") {
+        const monthData: { date: string; experiments: number }[] = [];
+        if (data && "all" in data) {
+          data.all.forEach((a) => {
+            monthData.push({ date: a.date, experiments: a.numExp });
+          });
+        }
+        return monthData;
+      } else if (type === "projects") {
+        const projectData = data?.byProject || null;
+        if (!projectData) return [];
+        const allDates = projectData.all.map((p) => p.date);
+        const allProjects = Object.keys(projectData).filter(
+          (pid) => !pid.includes("_demo-datasource-project"),
+        );
+        // pretty sure the results won't have any holes in it, but just in case, this zeros out the values, which will be updated later.
+        const projectsZerodRow = {};
+        allProjects.forEach((p) => {
+          projectsZerodRow[projectMap.get(p) || p] = 0;
+        });
+        const dateRows = {};
+        allDates.forEach((d) => {
+          dateRows[d] = { date: d, ...projectsZerodRow };
+        });
+        // now loop and append the actual values
+        allProjects.forEach((p) => {
+          if (projectData[p]) {
+            projectData[p].forEach((pd) => {
+              dateRows[pd.date][projectMap.get(p)] = pd.numExp;
+            });
+          }
+        });
+        return Object.values(dateRows);
+      } else if (type === "status") {
+        const statusData = data?.byStatus || null;
+        if (!statusData) return [];
+        const monthData: {
+          date: string;
+          draft: number;
+          running: number;
+          stopped: number;
+        }[] = [];
+        statusData.draft.forEach((sd, i) => {
+          const row = {
+            date: sd.date,
+            draft: sd.numExp,
+            running: statusData.running[i].numExp,
+            stopped: statusData.stopped[i].numExp,
+          };
+          monthData.push(row);
+        });
+        return monthData;
+      } else if (type === "results") {
+        const resultsData = data?.byResults || null;
+        if (!resultsData) return [];
+        const monthData: {
+          date: string;
+          dnf: number;
+          won: number;
+          lost: number;
+          inconclusive: number;
+        }[] = [];
+        resultsData.won.forEach((rd, i) => {
+          const row = {
+            date: rd.date,
+            dnf: resultsData.dnf[i].numExp,
+            won: rd.numExp,
+            lost: resultsData.lost[i].numExp,
+            inconclusive: resultsData.inconclusive[i].numExp,
+          };
+          monthData.push(row);
+        });
+        return monthData;
+      }
+    },
+    [data, projectMap],
+  );
+
+  const downloadCSV = useCallback(
+    (type) => {
+      try {
+        const formatedData = parseDataForCSV(type);
+        const json2csvParser = new Parser();
+        const csv = json2csvParser.parse(formatedData);
+
+        const blob = new Blob([csv], { type: "text/csv" });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = type + "_experiments_by_month.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+      } catch (e) {
+        console.error(e);
+        return "";
+      }
+    },
+    [parseDataForCSV],
+  );
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -102,13 +217,7 @@ export default function ExperimentGraph({
   }
 
   const graphData = data.all;
-
   const statuses = Object.keys(data.byStatus).filter((s) => s !== "all");
-  const projectMap = new Map();
-  projects.forEach((p) => {
-    projectMap.set(p.id, p.name);
-  });
-  projectMap.set("all", "All projects");
 
   if (showBy === "status") {
     stackedKeys = statuses;
@@ -138,7 +247,7 @@ export default function ExperimentGraph({
     data.byProject.all.forEach((d, i) => {
       projects.forEach((p) => {
         const projectData = data.byProject[p.id].find(
-          (pd) => pd.date === d.date
+          (pd) => pd.date === d.date,
         );
         if (projectData) {
           graphData[i][p.id] = projectData.numExp;
@@ -193,6 +302,51 @@ export default function ExperimentGraph({
             }}
           />
         </div>
+        <div className="pt-2">
+          <MoreMenu>
+            <div className="p-2 px-3">Download data as CSV...</div>
+            <a
+              href="#"
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                downloadCSV("all");
+              }}
+            >
+              Totals
+            </a>
+            <a
+              href="#"
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                downloadCSV("projects");
+              }}
+            >
+              By Projects
+            </a>
+            <a
+              href="#"
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                downloadCSV("status");
+              }}
+            >
+              By Status
+            </a>
+            <a
+              href="#"
+              className="dropdown-item"
+              onClick={(e) => {
+                e.preventDefault();
+                downloadCSV("results");
+              }}
+            >
+              By Results
+            </a>
+          </MoreMenu>
+        </div>
       </div>
 
       <ParentSizeModern>
@@ -201,7 +355,7 @@ export default function ExperimentGraph({
           const yMax = height - margin[0] - margin[2];
           const xMax = width - margin[1] - margin[3];
           const maxYValue = Math.ceil(
-            Math.max(...graphData.map((d) => d.numExp), 1)
+            Math.max(...graphData.map((d) => d.numExp), 1),
           );
 
           const barWidth = 35;
@@ -237,7 +391,7 @@ export default function ExperimentGraph({
               Math.abs((curr?.xcord ?? 0) - xCoord) <
               Math.abs((prev?.xcord ?? 0) - xCoord)
                 ? curr
-                : prev
+                : prev,
             );
 
             let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
@@ -282,8 +436,8 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                  ? "All projects"
-                                  : k}
+                                    ? "All projects"
+                                    : k}
                               </div>
                               <div className={styles.tooltipValue}>
                                 {tooltipData?.[k] ?? 0}
@@ -308,7 +462,7 @@ export default function ExperimentGraph({
                       ) : (
                         <>
                           {tooltipData?.numExp} experiment
-                          {tooltipData?.numExp === 0 ? "s" : ""}
+                          {tooltipData?.numExp !== 1 ? "s" : ""}
                         </>
                       )}
                     </>
@@ -461,8 +615,8 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                            ? "All projects"
-                            : k}
+                              ? "All projects"
+                              : k}
                         </div>
                       </div>
                     ))}

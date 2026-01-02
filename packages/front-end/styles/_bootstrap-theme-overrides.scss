@@ -4,10 +4,12 @@
 
 a,
 .btn-link {
-  color: var(--text-link-color);
+  color: var(--accent-a11);
+  text-decoration-color: var(--accent-a5);
 
   &:hover {
-    color: var(--text-link-hover-color);
+    color: var(--accent-a10);
+    text-decoration: underline;
   }
 }
 
@@ -25,13 +27,17 @@ pre {
   color: var(--text-color-muted) !important;
 }
 
+.text-decoration-line-through {
+  text-decoration: line-through;
+}
+
 // endregion Typography
 
 // region Forms
 
 .form-control,
 .form-control:focus {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-surface);
   color: var(--text-color-main);
 }
 
@@ -69,7 +75,7 @@ pre {
 }
 
 .table-hover tbody tr:hover {
-  background-color: var(--table-row-hover-background-color);
+  background-color: var(--slate-a2);
 }
 
 .table tbody + tbody {
@@ -84,33 +90,44 @@ pre {
   background-color: var(--surface-background-color);
   border-color: var(--border-color-200);
 }
+.dark-theme {
+  .card {
+    .card-header {
+      background-color: var(--surface-background-color-alt);
+      border-color: var(--border-color-200);
+    }
+  }
+}
 
 .bg-white {
   background-color: var(--surface-background-color) !important;
 }
 
 .bg-light {
-  background-color: var(--surface-background-color-alt) !important;
+  background-color: var(
+    --slate-a2
+  ) !important; //--surface-background-color-alt) !important;
 }
 
+/* Importants here are necessary to override Bootstrap's default (which also have !important) */
 .border {
-  border-color: var(--border-color-200);
+  border-color: var(--border-color-200) !important;
 }
 
 .border-bottom {
-  border-bottom-color: var(--border-color-200);
+  border-bottom-color: var(--border-color-200) !important;
 }
 
 .border-top {
-  border-top-color: var(--border-color-200);
+  border-top-color: var(--border-color-200) !important;
 }
 
 .border-left {
-  border-left-color: var(--border-color-200);
+  border-left-color: var(--border-color-200) !important;
 }
 
 .border-right {
-  border-right-color: var(--border-color-200);
+  border-right-color: var(--border-color-200) !important;
 }
 
 // region Alerts
@@ -119,6 +136,16 @@ pre {
   background-color: var(--alert-info-background);
   border-color: var(--alert-info-border-color);
   color: var(--alert-info-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
+.alert-info-gb-purple {
+  background-color: var(--alert-info-purple-background);
+  border-color: var(--alert-info-purple-border-color);
+  color: var(--alert-info-purple-color);
 
   .alert-link {
     color: var(--text-color-main);
@@ -183,8 +210,12 @@ pre {
 
 // region Drop down
 
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+}
 .dropdown-menu {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   color: var(--text-color-main);
   border-color: var(--border-color-300);
 }
@@ -194,9 +225,10 @@ pre {
 
   &:hover {
     color: var(--text-color-main);
-    background-color: var(--surface-background-color-alt);
+    background-color: var(--slate-a3); //var(--surface-background-color-alt);
   }
-  > svg {
+  > svg,
+  > span > svg {
     min-width: 20px;
   }
 }
@@ -216,17 +248,25 @@ pre {
 }
 
 .modal-header {
-  border-color: var(--border-color-300);
+  border-color: var(--slate-a3);
+
+  .modal-borderless-header & {
+    border-color: transparent;
+  }
 }
 
 .modal-content {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   color: var(--text-color-main);
-  border-color: var(--border-color-300);
+  border-color: var(--slate-a4);
 }
 
 .modal-footer {
-  border-color: var(--border-color-300);
+  border-color: var(--slate-a3);
+
+  .modal-borderless-footer & {
+    border-color: transparent;
+  }
 }
 
 // endregion Modals
@@ -235,11 +275,11 @@ pre {
 
 .pagination {
   .page-link {
-    background-color: var(--surface-background-color);
+    background-color: var(--slate-a3);
   }
 }
 .page-item.disabled .page-link {
-  background-color: var(--surface-background-color);
+  background-color: var(--slate-a3);
 }
 
 // endregion Pagination
@@ -247,20 +287,19 @@ pre {
 // region Tabs
 
 .nav-tabs {
-  border-color: var(--border-color-300);
+  border-color: var(--border-color-200);
 }
-
 .nav-tabs .nav-link.active,
 .nav-tabs .nav-item.show .nav-link {
   color: var(--text-color-muted);
   background-color: var(--surface-background-color);
-  border-color: var(--border-color-300) var(--border-color-300)
+  border-color: var(--border-color-200) var(--border-color-200)
     var(--surface-background-color);
 }
 
 .nav-tabs .nav-link:hover,
 .nav-tabs .nav-link:focus {
-  border-color: var(--border-color-300) var(--border-color-300)
+  border-color: var(--border-color-200) var(--border-color-200)
     var(--surface-background-color);
 }
 

@@ -1,7 +1,8 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
-import { AITokenUsageInterface } from "../../types/ai";
-import { OrganizationInterface } from "../../types/organization";
+import { AITokenUsageInterface } from "shared/ai";
+import { OrganizationInterface } from "shared/types/organization";
+import { IS_CLOUD } from "../util/secrets";
 
 type AITokenUsageDocument = mongoose.Document & AITokenUsageInterface;
 
@@ -20,7 +21,7 @@ aiTokenUsageSchema.index({ organization: 1 }, { unique: true });
 
 const AITokenUsageModel = mongoose.model<AITokenUsageDocument>(
   "AITokenUsage",
-  aiTokenUsageSchema
+  aiTokenUsageSchema,
 );
 
 const toInterface = (doc: AITokenUsageDocument): AITokenUsageInterface =>
@@ -33,6 +34,13 @@ export const updateTokenUsage = async ({
   organization: OrganizationInterface;
   numTokensUsed: number;
 }) => {
+  if (!IS_CLOUD) {
+    return {
+      numTokensUsed: 0,
+      dailyLimit: Infinity,
+      lastResetAt: new Date().getTime(),
+    };
+  }
   let tokenUsage = await AITokenUsageModel.findOne({
     organization: organization.id,
   });
@@ -45,10 +53,10 @@ export const updateTokenUsage = async ({
     });
   }
 
-  let lastResetAt = tokenUsage.lastResetAt;
+  const lastResetAt = tokenUsage.lastResetAt;
   const now = new Date().getTime();
   if (now - lastResetAt > RESET_INTERVAL) {
-    lastResetAt = now;
+    tokenUsage.lastResetAt = now;
     tokenUsage.numTokensUsed = 0;
   }
 
@@ -60,11 +68,23 @@ export const updateTokenUsage = async ({
 };
 
 export const getTokensUsedByOrganization = async (
-  organization: OrganizationInterface
-): Promise<Pick<AITokenUsageInterface, "numTokensUsed" | "dailyLimit">> => {
-  const { numTokensUsed, dailyLimit } = await updateTokenUsage({
+  organization: OrganizationInterface,
+): Promise<{
+  numTokensUsed: number;
+  dailyLimit: number;
+  nextResetAt: number;
+}> => {
+  if (!IS_CLOUD) {
+    return {
+      numTokensUsed: 0,
+      dailyLimit: Infinity,
+      nextResetAt: new Date().getTime(),
+    };
+  }
+  const { numTokensUsed, dailyLimit, lastResetAt } = await updateTokenUsage({
     organization,
     numTokensUsed: 0,
   });
-  return { numTokensUsed, dailyLimit };
+  const nextResetAt = lastResetAt + RESET_INTERVAL;
+  return { numTokensUsed, dailyLimit, nextResetAt };
 };

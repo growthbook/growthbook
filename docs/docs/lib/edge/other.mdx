@@ -8,17 +8,21 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink';
 import Pill from '@site/src/components/Pill';
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
-# GrowthBook Edge App for other providers <Pill>alpha</Pill>
+# GrowthBook Edge App for other providers <Pill title="beta" pillType="beta" />
+
+<SdkResources sdk="edgeUtils" />
 
 ## Overview
 
 GrowthBook currently supports two levels of integration with most edge workers:
 
 1. Our turnkey Edge App
-
    - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
    - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
+   - Perform custom feature flagging and experimentation logic.
    - Optionally inject the JavaScript SDK with hydrated payload, allowing the front-end to pick up where the edge left off without any extra network requests. We use an enhanced version of our [HTML Script Tag](/lib/script-tag) for this purpose.
 
 2. Support for edge apps using our JavaScript SDK
@@ -30,13 +34,17 @@ GrowthBook currently supports two levels of integration with most edge workers:
 
 ## Turnkey Edge App
 
-Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
+Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments. Additionally, by using lifecycle hooks you can perform custom logic such as feature flagging as well as proxying and early returns.
 
 :::note URL Redirects on edge
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` to "edge" or "everywhere".
+
+Additionally if your redirect is cross-domain (e.g. redirection from "public.mysite.io" to "newsite.io"), you must also set `RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS`.
+
+See [environment variables](#environment-variables) for more information.
 
 :::
 
@@ -243,9 +251,7 @@ As shown in the [runtime configuration](#runtime-configuration) section above, y
 
 ### Routing
 
-By default, the Edge App will process all `GET` requests (other HTTP verbs are proxied through without running through our app logic).
-
-It is generally preferable to configure your routing rules outside of our Edge App. For instance, you may only want to invoke the Edge App at `https://yourdomain.io/landing-page`.
+By default, the Edge App will process all `GET` requests with `Content-Type: text/html` encoding (other HTTP verbs and content types are proxied through without running through our app logic).
 
 There may be situations when you will need to provide finer-grained routing / URL targeting rules within our Edge App. You will need to include a JSON encoded string of route rules in your `ROUTES` environment variable.
 
@@ -286,7 +292,7 @@ You have the option to manually persist this cookie at any time, for example whe
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
-:::note
+:::note Sticky Bucketing and consent
 
 If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
 
@@ -347,16 +353,21 @@ We are unable to offer specific guidance about how to configure or connect to yo
 For key-val stored payloads (1), we eliminate network requests from edge to GrowthBook by using a GrowthBook SDK Webhook to push the SDK payload to the key-val store on change.
 
 1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration.
-2. Set the **Endpoint URL** to your key-val provider's REST API endpoint. However, not all edge vendors will have a public REST endpoint for setting the key-val cache. You may need to build your own endpoint to handle the webhook, in which case webhook verification may be important.
-3. Change the **Method** to `PUT` (or whichever verb is required by your vendor or endpoint).
-4. Add any vendor-specific authorization headers. This may not be required depending on your specific vendor:
+2. Select **HTTP Endpoint** as the Webhook Type.
+3. Set the **Endpoint URL** to your key-val provider's REST API endpoint. However, not all edge vendors will have a public REST endpoint for setting the key-val cache. You may need to build your own endpoint to handle the webhook, in which case webhook verification may be important.
+4. Change the **Method** to `PUT` (or whichever verb is required by your vendor or endpoint).
+5. Add any vendor-specific authorization headers. This may not be required depending on your specific vendor:
 
-```json
-{
-  "Authorization": "Bearer YOUR_REST_API_TOKEN"
-}
-```
+   ```json
+   {
+     "Authorization": "Bearer YOUR_REST_API_TOKEN"
+   }
+   ```
 
-5. Set the **Payload format** to "SDK Payload only".
+6. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="edgeUtils" />

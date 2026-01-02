@@ -1,3 +1,5 @@
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Experimenting in GrowthBook
 
 The Experiments section in GrowthBook is all about analyzing raw experiment results in a data source.
@@ -31,16 +33,14 @@ exposure can be ramped up (or down) without having any users potentially switch 
 
 ## Metric selection
 
-GrowthBook lets you choose goal metrics and guardrail metrics. Goal metrics are the metrics you’re
-trying to improve or measure the impact of the change of your experiment. Guardrail metrics are
-metrics you’re not necessarily trying to improve, but you don’t want to hurt. With goal metrics we
-show full statistical changes on the metrics. Guardrail metrics we only show the chance of that metric
-being worse- if there is a significant chance that the guard rail metric is worse, it will be shown in red,
-otherwise it will be green.
+GrowthBook lets you choose goal metrics, secondary metrics, and guardrail metrics. Goal metrics are the metrics you’re
+trying to improve or measure the impact of the change of your experiment.
+Secondary metrics are used to learn about experiment impacts, but are not primary objectives. Guardrail metrics are
+metrics you’re trying not to hurt.
 
-<div style={{textAlign: 'center'}}>
-<img loading="lazy" alt="GrowthBook Metric Selector" src="/images/using/metrics-modal.png" width="600" />
-</div>
+<MaxWidthImage maxWidth={600}>
+  ![GrowthBook Metric Selector](/images/using/metrics-modal.png)
+</MaxWidthImage>
 
 It is best to pick metrics for your experiment that are as close to your treatment as possible, and, if possible, the event itself. For
 example, if you’re trying to improve a signup rate, you can add product review metrics that are close to
@@ -49,7 +49,7 @@ like to your experiment, but we suggest each experiment have only a few primary 
 making the shipping decision. Adding all your metrics is not recommended, as this can lead to false
 positives caused by random variations (see [Multiple testing problem](/using/experimentation-problems#multiple-testing-problem))
 
-Before you being a test, you should have selected a primary metric or set of metrics that you are
+Before running a test, select a primary metric or set of metrics that you're
 trying to improve. These metrics are often called the OEC for Overall Evaluation Criterion. It is
 important to have this decided ahead of time so when you look at your experiment results you're not just shopping for metrics that confirm
 your bias (see [confirmation bias](/using/experimentation-problems#confirmation-bias)).
@@ -68,11 +68,11 @@ page with the experiment variations, but you’re not sure if each user will act
 activation metrics you can specify a metric that needs to be present to filter the list of exposed users to
 just those with that event.
 
-## Sample sizes
+## Sample sizes and metric totals
 
 When running an experiment you select your goal metrics. Getting enough samples depends on the
 size of the effect you’re trying to detect. If you think the experiment will have a large effect, the smaller
-total number of events you need to collect. GrowthBook allows users to set a minimum sample size for
+total number of events you need to collect. GrowthBook allows users to set a minimum metric total for
 each metric where we will hide results before that threshold is reached to avoid premature peeking.
 
 ## Test Duration
@@ -115,8 +115,10 @@ see the full data, including 'risk', mouse over any of the results.
 
 ![GrowthBook Results](/images/using/experiment-results-bayesian-details2.png)
 
-Risk tells you how much you are predicted to lose if you choose the selected variation as the winner
-and you are wrong. You can specify upper risk thresholds (designed to flag high-risk outcomes) and lower risk thresholds (designed to flag low-risk outcomes) in Behavior on the Metrics tab. Red indicates that the treatment variation has risk above the high-risk threshold.
+**Risk** tells you how much you are predicted to lose if you choose the selected variation as the winner and you are wrong.
+You can specify upper risk thresholds (designed to flag high-risk outcomes) and lower risk thresholds (designed to flag low-risk outcomes) for each Metric in the Metric's Advanced Settings.
+There are defaults used for new metrics in the general settings page under General > Settings > Metrics & Data.
+Red indicates that the treatment variation has risk above the high-risk threshold.
 Yellow indicates that your risk is between the two thresholds. You can use the dropdown to see the risk of choosing a different winner if you have multiple variations.
 
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
@@ -157,18 +159,22 @@ Everything is the same as above except for three key changes:
 ## Data quality checks
 
 GrowthBook performs automatic data quality checks to ensure the statistical inferences are valid and
-ready for interpretation. You can see all check and monitor the health of your experiments on the
+ready for interpretation. You can check and monitor the health of your experiments on the
 experiment **health page**.
 
 ### Health Page
 
-GrowthBook automatically does data quality checks on all experiments and shows the results on the our _Health Page_.
+GrowthBook automatically does data quality checks on all experiments and shows the results on the **Health Page**.
 
-<div style={{textAlign: 'center'}}>
-  <img loading="lazy" alt="Experiment Health Page" src="/images/using/health-page.png" width="800" />
-</div>
+<MaxWidthImage maxWidth={600}>
+  ![Experiment Health Page](/images/using/health-page.png)
+</MaxWidthImage>
 
 This page shows experiment exposure over time, and also all the other health checks we do.
+
+### Little traffic in experiment
+
+Experiment Traffic Over Time shows how many users are in the experiment at a given timepoint. If traffic is too low, please see our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-1-no-or-little-traffic-flowing-into-the-experiment).
 
 ### Sample Ratio Mismatch (SRM)
 
@@ -178,19 +184,19 @@ different (e.g. 46/54). We only show this warning if the p-value is less than 0.
 extremely unlikely to occur by chance. We will show this warning on the results page, and also on our
 experiment health page.
 
-<div style={{textAlign: 'center'}}>
-  <img loading="lazy" alt="Sample Ratio Mismatch" src="/images/using/srm-check-health-page.png" width="800" />
-</div>
+<MaxWidthImage maxWidth={600}>
+  ![Sample Ratio Mismatch](/images/using/srm-check-health-page.png)
+</MaxWidthImage>
 
 Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and
 fix the source of the bug and restart the experiment. You can find more information about potential sources
-of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments).
+of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-2-srm-errors-traffic-imbalance-in-the-experiment).
 
 ### Multiple Exposures
 
 We also automatically check each experiment to make sure that too many users have not been
 exposed to multiple variations of a single experiment. This can happen if the hashing attribute is
-different from the assignment id used in the report, or for implementation problems.
+different from the assignment id used in the report, or for implementation problems. Please see our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-3-multiple-exposures).
 
 ### Minimum Data Thresholds
 
@@ -211,11 +217,11 @@ GrowthBook will show an alert. Large uplifts may indicate a bug - see [Twymans L
 
 ### Guardrails
 
-metrics are ones that you want to keep an eye on, but aren't trying to specifically improve with your
+Guardrail metrics are ones that you want to keep an eye on, but aren't trying to specifically improve with your
 experiment. For example, if you are trying to improve page load times, you may add revenue as a
 guardrail since you don't want to inadvertently harm it.
 
-Guardrail results show up beneath the main table of goal metrics. The full statistics are shown like
+Guardrail results show up beneath the main table of goal and secondary metrics. The full statistics are shown like
 goal metrics, and similarly they are colored based on "Chance to Beat Control". If guardrail metrics
 become significant, you may want to consider ending the experiment.
 
@@ -241,9 +247,9 @@ can be created with SQL from the "Data and Metrics → Segments" page.
 
 ![Segments](/images/using/segments-page.png)
 
-There are two ways you can use segments in your experiment results. The first is to use edit the
+There are two ways you can use segments in your experiment results. The first is to use the
 experiment's 'analytics settings' and add one of the segments. The other way is to create a custom
-ad-hoc reports, and then click on 'customize' and select a segment to apply to the results.
+report, and then click on 'customize' and select a segment to apply to the results.
 
 ### Dimensions
 
@@ -260,19 +266,24 @@ the rest, and this may indicate a bug, or something to investigate further.
 The more metrics and dimensions you look at, the more likely you are to see a false positive. If you find
 something that looks surprising, it's often worth a dedicated follow-up experiment to verify that it's real.
 
-### Ad-hoc reports
+### Custom reports
 
-Experiment reports have a lot of configuration, and sometimes it can be useful to want to adjust these
-configurations without changing the original report. GrowthBook supports Ad-hoc reports, which are
-essentially copies of the original report, where you can adjust any of the configuration parameters,
-such as segments, dates, metrics, even custom SQL to remove outliers.
+Custom reports create snapshots of experiment results, allowing you to capture and share specific analyses or points in time.
 
-![Ad-hoc Reports Menu](/images/using/ad-hoc-menu.png)
+Common use cases for custom reports include:
 
-All ad hoc reports created can
-be shared publicly and live at the bottom of the report, to make sure you capture any derived results.
+- Capturing milestone results at specific points in the experiment
+- Analyzing specific date ranges or segments
+- Adding or removing metrics for focused analysis
+- Applying custom SQL filters to handle outliers
+- Creating targeted views for different stakeholders
+- Documenting key findings for future reference
 
-![Ad-hoc Reports and Publishing](/images/using/ad-hoc-report-saving.png)
+<MaxWidthImage caption="Example Custom Report">
+  ![Example Custom Reports](/images/reports-share-report.webp)
+</MaxWidthImage>
+
+For step-by-step instructions on creating and managing custom reports, see our [Sharing Experiment Insights](/app/experiment-results#sharing-experiment-insights) documentation.
 
 ## Deciding A/B test results
 
@@ -281,7 +292,7 @@ to stop, and how to interpret results may not be straight forward.
 
 ### When to stop an experiment
 
-When using the Bayesian statistic engine, there are a few methods you can use when stopping a test.
+When using the Bayesian statistics engine, there are a few methods you can use when stopping a test.
 
 - significance reached on your primary metrics
 - metric risk drop below your risk thresholds

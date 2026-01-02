@@ -1,11 +1,11 @@
-import { toSegmentApiInterface } from "../../services/segments";
-import { ListSegmentsResponse } from "../../../types/openapi";
+import { ListSegmentsResponse } from "shared/types/openapi";
+import { listSegmentsValidator } from "shared/validators";
+import { toSegmentApiInterface } from "back-end/src/services/segments";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listSegmentsValidator } from "../../validators/openapi";
+} from "back-end/src/util/handler";
 
 export const listSegments = createApiRequestHandler(listSegmentsValidator)(
   async (req): Promise<ListSegmentsResponse> => {
@@ -15,15 +15,15 @@ export const listSegments = createApiRequestHandler(listSegmentsValidator)(
     const { filtered, returnFields } = applyPagination(
       segments
         .filter((segment) =>
-          applyFilter(req.query.datasourceId, segment.datasource)
+          applyFilter(req.query.datasourceId, segment.datasource),
         )
         .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
       segments: filtered.map((segment) => toSegmentApiInterface(segment)),
       ...returnFields,
     };
-  }
+  },
 );

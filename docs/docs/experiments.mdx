@@ -54,7 +54,7 @@ available until your tracking software has loaded, and you may need to use a cus
 
 GrowthBook's feature flags can work just as well from the client/browser as it does server side. The feature flag's
 conditional logic ([rules](/features/rules)) controls how a feature should be shown, and if a feature should be shown as part
-of an experiment. The same targeting and override rules apply exactly the same to client-side experimentation.
+of an experiment. The same targeting and feature rules apply in exactly the same way to client-side experimentation.
 
 ### Inline Experiments
 
@@ -82,16 +82,13 @@ within your data warehouse, you can use GrowthBook to analyse the results of you
 
 ## How GrowthBook Assigns Users to Experiments
 
-GrowthBook uses a consistent hashing algorithm to assign users to experiments. This means that the same user will always
-get the same variation given the same experiment settings (experiment key, and user hashing id). This is useful
-because it means that you can run experiments across multiple pages, or even multiple applications, and the user will
-always get the same variation. It also means that GrowthBook stores no state, and requires no additional cookies.
-It's important to note that none of these implies that GrowthBook exposes a mechanism known as sticky-bucketing. It's all
-about the consistent evaluation of variations based on the particular experiment settings.
+GrowthBook uses a consistent hashing algorithm to assign users to experiments, ensuring that the same user will always receive the same variation as long as the experiment settings (experiment key and user hashing ID) remain unchanged. This makes it possible to run experiments across multiple pages or applications while maintaining consistent user experiences without storing any state or using additional cookies.
+
+In cases where experiment settings do change but consistent assignment is still required, GrowthBook offers a feature called [sticky bucketing](/app/sticky-bucketing), which requires additional configuration.
 
 ## Best Practices
 
-:::tip Info
+:::tip Get our official guide to A/B Testing
 
 <a href="/open-guide-to-ab-testing.v1.0.pdf" target="_blank" class="btn btn-primary" style={{margin: "-20px 0 -5px 20px", float: "right"}}>
   <img src="/images/guides/open-guide-to-ab-testing.png" alt="open guide book" style={{width:"200px"}} />
@@ -164,7 +161,7 @@ two tests will meaningfully interact, and many will run the tests in serial in a
 However, meaningful interactions are actually quite rare, and keeping a higher rate of experimentation
 is usually more beneficial. You can run analysis after the experiments to see if there were any
 interaction effects which would change your conclusions. If you need to run mutually exclusive tests,
-you can use GrowthBook’s namespace feature.
+you can use GrowthBook’s namespace feature. Ensure all experiments within the namespace use the same hash attribute (assignment attribute).
 
 ### Experimentation Frequency
 

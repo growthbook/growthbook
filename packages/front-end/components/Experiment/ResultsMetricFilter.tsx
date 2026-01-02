@@ -2,10 +2,11 @@ import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import React, { useEffect, useState } from "react";
 import { BsXCircle } from "react-icons/bs";
 import { FaX } from "react-icons/fa6";
-import Toggle from "@/components/Forms/Toggle";
+import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import Checkbox from "@/ui/Checkbox";
 
 export default function ResultsMetricFilter({
   metricTags = [],
@@ -71,6 +72,7 @@ export default function ResultsMetricFilter({
         style={{ position: "absolute" }}
         popperStyle={{ marginLeft: 17, marginTop: -2 }}
         state={showMetricFilter}
+        flipTheme={false}
         body={
           <div style={{ width: 280 }}>
             <a
@@ -79,7 +81,7 @@ export default function ResultsMetricFilter({
                 top: 3,
                 right: 5,
               }}
-              className="position-absolute text-gray cursor-pointer"
+              className="position-absolute cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setShowMetricFilter(false);
@@ -109,21 +111,19 @@ export default function ResultsMetricFilter({
               <small>Drag &amp; drop tags to change display order</small>
             </div>
 
-            <label className="mt-3 mb-2">
-              <h5 className="mb-0">Filter metrics</h5>
-            </label>
-            <div>
-              <Toggle
-                id="filterByTag"
+            <Flex mt="3" align="center" gap="3">
+              <Checkbox
+                label="Filter metrics"
+                mb="0"
                 value={
                   _metricFilter?.tagOrder?.length
                     ? !!_metricFilter.filterByTag
                     : false
                 }
-                setValue={(v) => {
+                setValue={(value) => {
                   _setMetricFilter({
                     ..._metricFilter,
-                    filterByTag: v,
+                    filterByTag: value,
                   });
                 }}
                 disabled={!_metricFilter?.tagOrder?.length}
@@ -131,8 +131,7 @@ export default function ResultsMetricFilter({
               {!_metricFilter?.tagOrder?.length ? (
                 <small className="text-muted ml-2">No tags selected</small>
               ) : null}
-            </div>
-
+            </Flex>
             <div className="d-flex mt-3">
               {_filteringApplied ? (
                 <button
@@ -148,7 +147,7 @@ export default function ResultsMetricFilter({
               ) : null}
               <div className="flex-1" />
               <button
-                className={"btn btn-sm btn-primary"}
+                className="btn btn-sm btn-primary"
                 onClick={(e) => {
                   e.preventDefault();
                   setMetricFilter(_metricFilter);

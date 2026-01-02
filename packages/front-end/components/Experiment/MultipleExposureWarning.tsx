@@ -1,6 +1,10 @@
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+} from "shared/constants";
+import { getMultipleExposureHealthData } from "shared/health";
 import useOrgSettings from "@/hooks/useOrgSettings";
-
-export const MINIMUM_MULTIPLE_EXPOSURES = 10;
+import Callout from "@/ui/Callout";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -9,30 +13,34 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 const numberFormatter = new Intl.NumberFormat();
 
 export default function MultipleExposureWarning({
-  users,
   multipleExposures,
+  totalUsers,
 }: {
-  users: number[];
   multipleExposures: number;
+  totalUsers: number;
 }) {
   const settings = useOrgSettings();
-  const MIN_PERCENT = settings?.multipleExposureMinPercent ?? 0.01;
 
-  if (multipleExposures < MINIMUM_MULTIPLE_EXPOSURES) return null;
-  const totalUsers = users.reduce((sum, n) => sum + n, 0);
-  const percent = multipleExposures / (multipleExposures + totalUsers);
+  const multipleExposureHealth = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+    minPercentThreshold:
+      settings?.multipleExposureMinPercent ??
+      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  });
 
-  if (percent < MIN_PERCENT) {
+  if (multipleExposureHealth.status !== "unhealthy") {
     return null;
   }
 
   return (
-    <div className="alert alert-warning">
+    <Callout status="warning">
       <strong>Multiple Exposures Warning</strong>.{" "}
       {numberFormatter.format(multipleExposures)} users (
-      {percentFormatter.format(percent)}) saw multiple variations and were
-      automatically removed from results. Check for bugs in your implementation,
-      event tracking, or data pipeline.
-    </div>
+      {percentFormatter.format(multipleExposureHealth.rawDecimal)}) saw multiple
+      variations and were automatically removed from results. Check for bugs in
+      your implementation, event tracking, or data pipeline.
+    </Callout>
   );
 }

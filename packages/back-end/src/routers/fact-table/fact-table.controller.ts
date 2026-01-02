@@ -1,7 +1,7 @@
 import type { Response } from "express";
-import { ReqContext } from "../../../types/organization";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
+import { canInlineFilterColumn } from "shared/experiments";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import { cloneDeep } from "lodash";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -12,7 +12,11 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "../../../types/fact-table";
+} from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ReqContext } from "back-end/types/request";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -23,16 +27,22 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
-} from "../../models/FactTableModel";
-import { addTags, addTagsDiff } from "../../models/TagModel";
-import { getSourceIntegrationObject } from "../../services/datasource";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { DataSourceInterface } from "../../../types/datasource";
-import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
+  cleanupMetricAutoSlices,
+  detectRemovedColumns,
+} from "back-end/src/models/FactTableModel";
+import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  runRefreshColumnsQuery,
+  runColumnTopValuesQuery,
+} from "back-end/src/jobs/refreshFactTableColumns";
+import { logger } from "back-end/src/util/logger";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
 export const getFactTables = async (
   req: AuthRequest,
-  res: Response<{ status: 200; factTables: FactTableInterface[] }>
+  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -48,7 +58,7 @@ async function testFilterQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
-  filter: string
+  filter: string,
 ): Promise<FactFilterTestResults> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -87,14 +97,10 @@ async function testFilterQuery(
 
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
-  res: Response<{ status: 200; factTable: FactTableInterface }>
+  res: Response<{ status: 200; factTable: FactTableInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
-
-  if (!context.permissions.canCreateFactTable(data)) {
-    context.permissions.throwPermissionError();
-  }
 
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
@@ -104,13 +110,16 @@ export const postFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  data.columns = await runRefreshColumnsQuery(
-    context,
-    datasource,
-    data as FactTableInterface
-  );
-  if (!data.columns.length) {
-    throw new Error("SQL did not return any rows");
+  if (!data.columns?.length) {
+    data.columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      data as FactTableInterface,
+    );
+
+    if (!data.columns.length) {
+      throw new Error("SQL did not return any rows");
+    }
   }
 
   const factTable = await createFactTable(context, data);
@@ -125,8 +134,12 @@ export const postFactTable = async (
 };
 
 export const putFactTable = async (
-  req: AuthRequest<UpdateFactTableProps, { id: string }>,
-  res: Response<{ status: 200 }>
+  req: AuthRequest<
+    UpdateFactTableProps,
+    { id: string },
+    { forceColumnRefresh?: string; dim?: string }
+  >,
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -136,24 +149,73 @@ export const putFactTable = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, data)) {
-    context.permissions.throwPermissionError();
-  }
-
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
 
   // Update the columns
-  data.columns = await runRefreshColumnsQuery(context, datasource, {
-    ...factTable,
-    ...data,
-  } as FactTableInterface);
-  data.columnsError = null;
+  if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
+    const originalColumns = cloneDeep(factTable.columns || []);
+    data.columns = await runRefreshColumnsQuery(context, datasource, {
+      ...factTable,
+      ...data,
+    } as FactTableInterface);
+    data.columnsError = null;
 
-  if (!data.columns.some((col) => !col.deleted)) {
-    throw new Error("SQL did not return any rows");
+    if (!data.columns.some((col) => !col.deleted)) {
+      throw new Error("SQL did not return any rows");
+    }
+
+    // Check for removed columns and trigger cleanup
+    const removedColumns = detectRemovedColumns(originalColumns, data.columns);
+
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
+  }
+
+  // If dim parameter is provided, refresh top values for that specific column
+  if (req.query?.dim) {
+    const columnName = req.query.dim;
+    const column = factTable.columns.find((col) => col.column === columnName);
+
+    if (
+      column &&
+      canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string"
+    ) {
+      try {
+        const topValues = await runColumnTopValuesQuery(
+          context,
+          datasource,
+          factTable,
+          column,
+        );
+
+        const maxSliceLevels =
+          context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS;
+        const constrainedTopValues = topValues.slice(0, maxSliceLevels);
+
+        // Update the column with new top values
+        await updateColumn({
+          factTable,
+          column: column.column,
+          changes: {
+            topValues: constrainedTopValues,
+          },
+        });
+      } catch (e) {
+        logger.error(e, "Error running top values query for specific column", {
+          column: columnName,
+        });
+      }
+    }
   }
 
   await updateFactTable(context, factTable, data);
@@ -165,9 +227,9 @@ export const putFactTable = async (
   });
 };
 
-export const deleteFactTable = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+export const archiveFactTable = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -175,8 +237,60 @@ export const deleteFactTable = async (
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
-  if (!context.permissions.canDeleteFactTable(factTable)) {
+
+  if (!context.permissions.canUpdateFactTable(factTable, { archived: true })) {
     context.permissions.throwPermissionError();
+  }
+
+  await updateFactTable(context, factTable, { archived: true });
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const unarchiveFactTable = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { archived: false })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await updateFactTable(context, factTable, { archived: false });
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const deleteFactTable = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  // check if for fact segments using this before deleting
+  const segments = await context.models.segments.getByFactTableId(factTable.id);
+
+  if (segments.length) {
+    throw new Error(
+      `The following segments are defined via this fact table: ${segments.map(
+        (segment) => `\n - ${segment.name}`,
+      )}`,
+    );
   }
 
   await deleteFactTableInDb(context, factTable);
@@ -188,7 +302,7 @@ export const deleteFactTable = async (
 
 export const putColumn = async (
   req: AuthRequest<UpdateColumnProps, { id: string; column: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -198,11 +312,64 @@ export const putColumn = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
     context.permissions.throwPermissionError();
   }
 
-  await updateColumn(factTable, req.params.column, data);
+  const col = factTable.columns.find((c) => c.column === req.params.column);
+  if (!col) {
+    throw new Error("Could not find column");
+  }
+
+  if (!data.name) {
+    data.name = col.column;
+  }
+
+  // Check enterprise feature access for dimension properties
+  if (data.isAutoSliceColumn) {
+    if (!context.hasPremiumFeature("metric-slices")) {
+      throw new Error("Metric slices require an enterprise license");
+    }
+  }
+
+  const updatedCol = { ...col, ...data };
+
+  // If we're just toggling prompting on, populate values
+  if (
+    !col.alwaysInlineFilter &&
+    data.alwaysInlineFilter &&
+    canInlineFilterColumn(factTable, updatedCol.column) &&
+    updatedCol.datatype === "string"
+  ) {
+    const datasource = await getDataSourceById(context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+
+    if (context.permissions.canRunFactQueries(datasource)) {
+      runColumnTopValuesQuery(context, datasource, factTable, col)
+        .then(async (values) => {
+          if (!values.length) return;
+          await updateColumn({
+            factTable,
+            column: col.column,
+            changes: {
+              topValues: values,
+            },
+          });
+        })
+        .catch((e) => {
+          logger.warn("Failed to get top values for column", e);
+        });
+    }
+  }
+
+  await updateColumn({
+    context,
+    factTable,
+    column: req.params.column,
+    changes: data,
+  });
 
   res.status(200).json({
     status: 200,
@@ -214,7 +381,7 @@ export const postFactFilterTest = async (
   res: Response<{
     status: 200;
     result: FactFilterTestResults;
-  }>
+  }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -237,7 +404,7 @@ export const postFactFilterTest = async (
     context,
     datasource,
     factTable,
-    data.value
+    data.value,
   );
 
   res.status(200).json({
@@ -248,7 +415,7 @@ export const postFactFilterTest = async (
 
 export const postFactFilter = async (
   req: AuthRequest<CreateFactFilterProps, { id: string }>,
-  res: Response<{ status: 200; filterId: string }>
+  res: Response<{ status: 200; filterId: string }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -277,7 +444,7 @@ export const postFactFilter = async (
 
 export const putFactFilter = async (
   req: AuthRequest<UpdateFactFilterProps, { id: string; filterId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -300,7 +467,7 @@ export const putFactFilter = async (
 
 export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -312,6 +479,19 @@ export const deleteFactFilter = async (
     context.permissions.throwPermissionError();
   }
 
+  //Before deleting a fact filter, check if it's used by a fact segment
+  const segments = (
+    await context.models.segments.getByFactTableId(factTable.id)
+  ).filter((segment) => segment.filters?.includes(req.params.filterId));
+
+  if (segments.length) {
+    throw new Error(
+      `The following segments are using this filter: ${segments.map(
+        (segment) => `\n - ${segment.name}`,
+      )}`,
+    );
+  }
+
   await deleteFactFilterInDb(context, factTable, req.params.filterId);
 
   res.status(200).json({
@@ -321,7 +501,7 @@ export const deleteFactFilter = async (
 
 export const getFactMetrics = async (
   req: AuthRequest,
-  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
+  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -335,7 +515,7 @@ export const getFactMetrics = async (
 
 export const postFactMetric = async (
   req: AuthRequest<unknown>,
-  res: Response<{ status: 200; factMetric: FactMetricInterface }>
+  res: Response<{ status: 200; factMetric: FactMetricInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const data = context.models.factMetrics.createValidator.parse(req.body);
@@ -350,7 +530,7 @@ export const postFactMetric = async (
 
 export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
   const data = context.models.factMetrics.updateValidator.parse(req.body);
@@ -364,7 +544,7 @@ export const putFactMetric = async (
 
 export const deleteFactMetric = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 

@@ -1,0 +1,88 @@
+type: object
+required:
+  - condition
+  - type
+properties:
+  description:
+    type: string
+  condition:
+    type: string
+  id:
+    type: string
+  enabled:
+    type: boolean
+    description: Enabled by default
+  type:
+    type: string
+    enum:
+      - "experiment"
+  trackingKey:
+    type: string
+  hashAttribute:
+    type: string
+  fallbackAttribute:
+    type: string
+  disableStickyBucketing:
+    type: boolean
+  bucketVersion:
+    type: number
+  minBucketVersion:
+    type: number
+  namespace:
+    type: object
+    required:
+      - enabled
+      - name
+      - range
+    properties:
+      enabled:
+        type: boolean
+      name:
+        type: string
+      range:
+        type: array
+        items:
+          type: number
+        minItems: 2
+        maxItems: 2
+  coverage:
+    type: number
+  scheduleRules:
+    type: array
+    items:
+      $ref: "../../schemas/ScheduleRule.yaml"
+    example:
+      - enabled: true
+        timestamp: null
+      - enabled: false
+        timestamp: "2025-06-23T16:09:37.769Z"
+  values:
+    type: array
+    items:
+      type: object
+      required:
+        - value
+        - weight
+      properties:
+        value:
+          type: string
+        weight:
+          type: number
+        name:
+          type: string
+  value:
+    deprecated: true
+    description: Support passing values under the value key as that was the original spec for FeatureExperimentRules
+    type: array
+    items:
+      type: object
+      required:
+        - value
+        - weight
+      properties:
+        value:
+          type: string
+        weight:
+          type: number
+        name:
+          type: string

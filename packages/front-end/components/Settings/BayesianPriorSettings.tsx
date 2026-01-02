@@ -1,9 +1,10 @@
 import { useFormContext } from "react-hook-form";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { MetricDefaults } from "@back-end/types/organization";
+import { MetricDefaults } from "shared/types/organization";
+import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Checkbox from "@/ui/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -34,19 +35,18 @@ export default function BayesianPriorSettings({
       </label>
       <div className="appbox py-2 px-3">
         <div className="w-100 mt-2">
-          <div className="d-flex">
+          <Flex gap="3">
+            <Checkbox
+              disabled={hasFileConfig()}
+              value={form.watch("metricDefaults.priorSettings.proper")}
+              setValue={(v) =>
+                form.setValue("metricDefaults.priorSettings.proper", v)
+              }
+            />
             <label className="mr-2" htmlFor="toggle-properPrior">
               Use proper priors
             </label>
-            <Toggle
-              id={"toggle-properPrior"}
-              value={form.watch("metricDefaults.priorSettings.proper")}
-              setValue={(value) => {
-                form.setValue("metricDefaults.priorSettings.proper", value);
-              }}
-              disabled={hasFileConfig()}
-            />
-          </div>
+          </Flex>
           {form.watch("metricDefaults.priorSettings.proper") ? (
             <>
               <div className="row">
@@ -86,17 +86,17 @@ export default function BayesianPriorSettings({
                 </div>
               </div>
               <div>
-                <small className="text-muted mt-1">
+                <Box className="text-muted" mt="3">
                   {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
-                    form.watch("metricDefaults.priorSettings.mean")
+                    form.watch("metricDefaults.priorSettings.mean"),
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
                     -1 * form.watch("metricDefaults.priorSettings.stddev") +
-                      form.watch("metricDefaults.priorSettings.mean")
+                      form.watch("metricDefaults.priorSettings.mean"),
                   )} and ${percentFormatter.format(
                     form.watch("metricDefaults.priorSettings.stddev") +
-                      form.watch("metricDefaults.priorSettings.mean")
+                      form.watch("metricDefaults.priorSettings.mean"),
                   )}`}
-                </small>
+                </Box>
               </div>
             </>
           ) : null}

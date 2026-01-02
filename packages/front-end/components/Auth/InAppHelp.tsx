@@ -11,7 +11,13 @@ export default function InAppHelp() {
   const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { name, email, hasCommercialFeature, commercialFeatures } = useUser();
+  const {
+    name,
+    email,
+    pylonHmacHash,
+    hasCommercialFeature,
+    commercialFeatures,
+  } = useUser();
   const showUpgradeModal = !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
@@ -25,6 +31,7 @@ export default function InAppHelp() {
       window["pylon"] = {
         chat_settings: {
           app_id: config.app_id,
+          email_hash: pylonHmacHash,
           email,
           name,
         },
@@ -40,8 +47,8 @@ export default function InAppHelp() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to live chat support,"
           source="in-app-help"
+          commercialFeature="livechat"
         />
       )}
 
@@ -102,7 +109,7 @@ export default function InAppHelp() {
                   className="btn btn-premium font-weight-normal my-2 w-100"
                   onClick={() => setUpgradeModal(true)}
                 >
-                  Start Free Trial <GBPremiumBadge />
+                  Upgrade Now <GBPremiumBadge />
                 </button>
               </div>
             )}

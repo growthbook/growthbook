@@ -1,5 +1,5 @@
-import { testQueryValidity } from "../../src/services/datasource";
-import { SourceIntegrationInterface } from "../../src/types/Integration";
+import { testQueryValidity } from "back-end/src/services/datasource";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 // @ts-expect-error - we are not testing all the properties of the integration
 const mockDataSourceIntegration: SourceIntegrationInterface = {
@@ -49,10 +49,11 @@ describe("testQueryValidity", () => {
 
     expect(result).toBe("No rows returned");
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
-      query.query
+      query.query,
+      undefined,
     );
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
-      "SELECT * FROM experiments"
+      "SELECT * FROM experiments",
     );
   });
 
@@ -82,13 +83,14 @@ describe("testQueryValidity", () => {
     const result = await testQueryValidity(mockDataSourceIntegration, query);
 
     expect(result).toBe(
-      "Missing required columns in response: user_id, country, experiment_name, variation_name"
+      "Missing required columns in response: user_id, country, experiment_name, variation_name",
     );
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
-      query.query
+      query.query,
+      undefined,
     );
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
-      "SELECT * FROM experiments"
+      "SELECT * FROM experiments",
     );
   });
 
@@ -123,10 +125,11 @@ describe("testQueryValidity", () => {
 
     expect(result).toBeUndefined();
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
-      query.query
+      query.query,
+      undefined,
     );
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
-      "SELECT * FROM experiments"
+      "SELECT * FROM experiments",
     );
   });
 
@@ -151,10 +154,11 @@ describe("testQueryValidity", () => {
 
     expect(result).toBe("Test query failed");
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
-      query.query
+      query.query,
+      undefined,
     );
     expect(mockDataSourceIntegration.runTestQuery).toHaveBeenCalledWith(
-      "SELECT * FROM experiments"
+      "SELECT * FROM experiments",
     );
   });
 });

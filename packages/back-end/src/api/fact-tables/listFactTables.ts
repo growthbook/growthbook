@@ -1,11 +1,14 @@
 import { isProjectListValidForProject } from "shared/util";
-import { ListFactTablesResponse } from "../../../types/openapi";
+import { ListFactTablesResponse } from "shared/types/openapi";
+import { listFactTablesValidator } from "shared/validators";
 import {
   getAllFactTablesForOrganization,
   toFactTableApiInterface,
-} from "../../models/FactTableModel";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
-import { listFactTablesValidator } from "../../validators/openapi";
+} from "back-end/src/models/FactTableModel";
+import {
+  applyPagination,
+  createApiRequestHandler,
+} from "back-end/src/util/handler";
 
 export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
   async (req): Promise<ListFactTablesResponse> => {
@@ -14,26 +17,26 @@ export const listFactTables = createApiRequestHandler(listFactTablesValidator)(
     let matches = factTables;
     if (req.query.projectId) {
       matches = matches.filter((factTable) =>
-        isProjectListValidForProject(factTable.projects, req.query.projectId)
+        isProjectListValidForProject(factTable.projects, req.query.projectId),
       );
     }
     if (req.query.datasourceId) {
       matches = matches.filter(
-        (factTable) => factTable.datasource === req.query.datasourceId
+        (factTable) => factTable.datasource === req.query.datasourceId,
       );
     }
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       matches.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
       factTables: filtered.map((factTable) =>
-        toFactTableApiInterface(factTable)
+        toFactTableApiInterface(factTable),
       ),
       ...returnFields,
     };
-  }
+  },
 );

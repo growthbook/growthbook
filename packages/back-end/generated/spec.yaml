@@ -3,7 +3,7 @@ info:
   version: 1.0.0
   title: GrowthBook REST API
   description: |
-    GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+    GrowthBook offers a full REST API for interacting with the application.
 
     Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
 
@@ -69,12 +69,21 @@ tags:
   - name: data-sources
     x-displayName: Data Sources
     description: How GrowthBook connects and queries your data
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: metrics
-    x-displayName: Metrics
+    x-displayName: Metrics (legacy)
     description: Metrics used as goals and guardrails for experiments
   - name: experiments
     x-displayName: Experiments
     description: Experiments (A/B Tests)
+  - name: snapshots
+    x-displayName: Experiment Snapshots
+    description: Experiment Snapshots (the individual updates of an experiment)
   - name: dimensions
     x-displayName: Dimensions
     description: Dimensions used during experiment analysis
@@ -93,15 +102,39 @@ tags:
   - name: organizations
     x-displayName: Organizations
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
-  - name: fact-tables
-    x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables
-  - name: fact-metrics
-    x-displayName: Fact Metrics
-    description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: members
+    x-displayName: Members
+    description: Members are users who have been invited to an organization.
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
+  - name: archetypes
+    x-displayName: Archetypes
+    description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: queries
+    x-displayName: Queries
+    description: Retrieve queries used in experiments to calculate results.
+  - name: settings
+    x-displayName: Settings
+    description: Get the organization settings.
+  - name: custom-fields
+    x-displayName: Custom Fields
+    description: Custom fields for the organization.
+  - name: attributes
+    x-displayName: Attributes
+    description: Used when targeting feature flags and experiments.
+  - name: Archetype_model
+    x-displayName: Archetype
+    description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
+  - name: Attribute_model
+    x-displayName: Attribute
+    description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: CodeRef_model
+    x-displayName: CodeRef
+    description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: CustomField_model
+    x-displayName: CustomField
+    description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -123,12 +156,21 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: ExperimentSnapshot_model
+    x-displayName: ExperimentSnapshot
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
+  - name: ExperimentWithEnhancedStatus_model
+    x-displayName: ExperimentWithEnhancedStatus
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentWithEnhancedStatus" />
   - name: FactMetric_model
     x-displayName: FactMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
   - name: FactTable_model
     x-displayName: FactTable
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
+  - name: FactTableColumn_model
+    x-displayName: FactTableColumn
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumn" />
   - name: FactTableFilter_model
     x-displayName: FactTableFilter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
@@ -150,15 +192,30 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: FeatureForceRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRevision_model
+    x-displayName: FeatureRevision
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevision" />
   - name: FeatureRolloutRule_model
     x-displayName: FeatureRolloutRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
   - name: FeatureRule_model
     x-displayName: FeatureRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: FeatureSafeRolloutRule_model
+    x-displayName: FeatureSafeRolloutRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureSafeRolloutRule" />
+  - name: FeatureWithRevisions_model
+    x-displayName: FeatureWithRevisions
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: Member_model
+    x-displayName: Member
+    description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: MetricAnalysis_model
+    x-displayName: MetricAnalysis
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -168,15 +225,24 @@ tags:
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: Query_model
+    x-displayName: Query
+    description: <SchemaDefinition schemaRef="#/components/schemas/Query" />
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: ScheduleRule_model
+    x-displayName: ScheduleRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
   - name: SdkConnection_model
     x-displayName: SdkConnection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
+  - name: Settings_model
+    x-displayName: Settings
+    description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
   - name: VisualChange_model
     x-displayName: VisualChange
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
@@ -193,6 +259,7 @@ paths:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/clientKey'
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -284,7 +351,8 @@ paths:
                         type: array
                         items:
                           anyOf:
-                            - type: object
+                            - title: Force Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -312,6 +380,15 @@ paths:
                                         type: array
                                         items:
                                           type: string
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -323,7 +400,8 @@ paths:
                                     - force
                                 value:
                                   type: string
-                            - type: object
+                            - title: Rollout Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -353,6 +431,28 @@ paths:
                                         type: array
                                         items:
                                           type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -369,7 +469,8 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
-                            - type: object
+                            - title: Experiment Rule
+                              type: object
                               required:
                                 - type
                                 - variations
@@ -388,6 +489,46 @@ paths:
                                     - experiment-ref
                                 condition:
                                   type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 variations:
                                   type: array
                                   items:
@@ -402,6 +543,96 @@ paths:
                                         type: string
                                 experimentId:
                                   type: string
+                            - deprecated: true
+                              title: Experiment (legacy)
+                              type: object
+                              required:
+                                - condition
+                                - type
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - experiment
+                                trackingKey:
+                                  type: string
+                                hashAttribute:
+                                  type: string
+                                fallbackAttribute:
+                                  type: string
+                                disableStickyBucketing:
+                                  type: boolean
+                                bucketVersion:
+                                  type: number
+                                minBucketVersion:
+                                  type: number
+                                namespace:
+                                  type: object
+                                  required:
+                                    - enabled
+                                    - name
+                                    - range
+                                  properties:
+                                    enabled:
+                                      type: boolean
+                                    name:
+                                      type: string
+                                    range:
+                                      type: array
+                                      items:
+                                        type: number
+                                      minItems: 2
+                                      maxItems: 2
+                                coverage:
+                                  type: number
+                                scheduleRules:
+                                  type: array
+                                  items:
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
+                                values:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - weight
+                                    properties:
+                                      value:
+                                        type: string
+                                      weight:
+                                        type: number
+                                      name:
+                                        type: string
+                                value:
+                                  deprecated: true
+                                  description: Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - weight
+                                    properties:
+                                      value:
+                                        type: string
+                                      weight:
+                                        type: number
+                                      name:
+                                        type: string
                       definition:
                         type: string
                         description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
@@ -420,9 +651,18 @@ paths:
                           definition:
                             type: string
                             description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -438,6 +678,17 @@ paths:
     get:
       parameters:
         - $ref: '#/components/parameters/id'
+        - in: query
+          name: withRevisions
+          schema:
+            type: string
+            enum:
+              - all
+              - drafts
+              - published
+              - none
+          required: false
+          description: 'Also return feature revisions (all, draft, or published statuses)'
       summary: Get a single feature
       tags:
         - features
@@ -457,7 +708,7 @@ paths:
                   - feature
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureWithRevisions'
     post:
       summary: Partially update a feature
       parameters:
@@ -499,9 +750,18 @@ paths:
                   type: object
                   additionalProperties:
                     $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -513,6 +773,31 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - features
+      summary: Deletes a single feature
+      operationId: deleteFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/features/feature-123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deleatedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted feature
+                    example: feature-123
   '/features/{id}/toggle':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -562,6 +847,74 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  '/features/{id}/revert':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Revert a feature to a specific revision
+      tags:
+        - features
+      operationId: revertFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revert \
+              -d '{ "revision": 3, "comment": "Bug found" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - revision
+              properties:
+                revision:
+                  type: number
+                comment:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+  '/features/{id}/revisions':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      summary: Get all revisions for a feature
+      tags:
+        - features
+      operationId: getFeatureRevisions
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&offset=0 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - revisions
+                    properties:
+                      revisions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FeatureRevision'
+                  - $ref: '#/components/schemas/PaginationFields'
   /feature-keys:
     get:
       summary: Get list of feature keys
@@ -778,10 +1131,69 @@ paths:
                         items:
                           $ref: '#/components/schemas/Dimension'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - dimensions
+      summary: Create a single dimension
+      operationId: postDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dimensions \
+              -d '{"name":"User Country", "datasourceId":"ds_123abc", "identifierType":"user", "query":"SELECT country FROM users"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasourceId
+                - identifierType
+                - name
+                - query
+              properties:
+                name:
+                  type: string
+                  description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
+                owner:
+                  type: string
+                  description: Owner of the dimension
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this dimension belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                query:
+                  type: string
+                  description: SQL query or equivalent for the dimension
+                managedBy:
+                  type: string
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
   '/dimensions/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single dimension
       tags:
         - dimensions
@@ -802,6 +1214,86 @@ paths:
                 properties:
                   dimension:
                     $ref: '#/components/schemas/Dimension'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Update a single dimension
+      operationId: updateDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -d '{"name":"User Region"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
+                owner:
+                  type: string
+                  description: Owner of the dimension
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this dimension belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                query:
+                  type: string
+                  description: SQL query or equivalent for the dimension
+                managedBy:
+                  type: string
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Deletes a single dimension
+      operationId: deleteDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted dimension
+                    example: dim_123abc
   /segments:
     get:
       summary: Get all segments
@@ -832,10 +1324,88 @@ paths:
                         items:
                           $ref: '#/components/schemas/Segment'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - segments
+      summary: Create a single segment
+      operationId: postSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/segments \
+              -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "identifierType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - datasourceId
+                - identifierType
+                - type
+              properties:
+                name:
+                  type: string
+                  description: Name of the segment
+                owner:
+                  type: string
+                  description: Owner of the segment
+                description:
+                  type: string
+                  description: Description of the segment
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this segment belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this segment
+                  items:
+                    type: string
+                managedBy:
+                  type: string
+                  description: 'Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+                type:
+                  type: string
+                  description: 'GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters.'
+                  enum:
+                    - SQL
+                    - FACT
+                query:
+                  type: string
+                  description: SQL query that defines the Segment. This is required for SQL segments.
+                factTableId:
+                  type: string
+                  description: ID of the fact table this segment belongs to. This is required for FACT segments.
+                filters:
+                  type: array
+                  description: Optional array of fact table filter ids that can further define the Fact Table based Segment.
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - segment
+                properties:
+                  segment:
+                    $ref: '#/components/schemas/Segment'
   '/segments/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single segment
       tags:
         - segments
@@ -856,6 +1426,105 @@ paths:
                 properties:
                   segment:
                     $ref: '#/components/schemas/Segment'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - segments
+      summary: Update a single segment
+      operationId: updateSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/segment/seg_123abc \
+              -d '{"name":"User Region"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the segment
+                description:
+                  type: string
+                  description: Description of the segment
+                owner:
+                  type: string
+                  description: Owner of the segment
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this segment belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this segment
+                  items:
+                    type: string
+                managedBy:
+                  type: string
+                  description: 'Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+                type:
+                  type: string
+                  description: 'GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters.'
+                  enum:
+                    - SQL
+                    - FACT
+                query:
+                  type: string
+                  description: SQL query that defines the Segment. This is required for SQL segments.
+                factTableId:
+                  type: string
+                  description: ID of the fact table this segment belongs to. This is required for FACT segments.
+                filters:
+                  type: array
+                  description: Optional array of fact table filter ids that can further define the Fact Table based Segment.
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - segment
+                properties:
+                  segment:
+                    $ref: '#/components/schemas/Segment'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - segments
+      summary: Deletes a single segment
+      operationId: deleteSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/segment/seg_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted segment
+                    example: seg_123abc
   /sdk-connections:
     get:
       summary: Get all sdk connections
@@ -938,6 +1607,8 @@ paths:
                   type: boolean
                 includeRedirectExperiments:
                   type: boolean
+                includeRuleIds:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -945,6 +1616,8 @@ paths:
                 hashSecureAttributes:
                   type: boolean
                 remoteEvalEnabled:
+                  type: boolean
+                savedGroupReferencesEnabled:
                   type: boolean
       responses:
         '200':
@@ -1023,6 +1696,8 @@ paths:
                   type: boolean
                 includeRedirectExperiments:
                   type: boolean
+                includeRuleIds:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1030,6 +1705,8 @@ paths:
                 hashSecureAttributes:
                   type: boolean
                 remoteEvalEnabled:
+                  type: boolean
+                savedGroupReferencesEnabled:
                   type: boolean
       responses:
         '200':
@@ -1065,6 +1742,35 @@ paths:
                 properties:
                   deletedId:
                     type: string
+  '/sdk-connections/lookup/{key}':
+    get:
+      parameters:
+        - in: path
+          name: key
+          required: true
+          description: The key of the requested sdkConnection
+          schema:
+            type: string
+      summary: Find a single sdk connection by its key
+      tags:
+        - sdk-connections
+      operationId: lookupSdkConnectionByKey
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/sdk-connections/lookup/sdk-123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sdkConnection
+                properties:
+                  sdkConnection:
+                    $ref: '#/components/schemas/SdkConnection'
   /data-sources:
     get:
       summary: Get all data sources
@@ -1176,7 +1882,6 @@ paths:
               required:
                 - name
                 - variations
-                - datasourceId
                 - trackingKey
                 - assignmentQueryId
               properties:
@@ -1191,6 +1896,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1208,10 +1918,23 @@ paths:
                   type: array
                   items:
                     type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
                 guardrailMetrics:
                   type: array
                   items:
                     type: string
+                activationMetric:
+                  type: string
+                  description: Users must convert on this metric before being included
+                segmentId:
+                  type: string
+                  description: Only users in this segment will be included
+                queryFilter:
+                  type: string
+                  description: WHERE clause to add to the default experiment query
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -1235,7 +1958,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1254,6 +1977,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1343,6 +2067,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1369,6 +2106,64 @@ paths:
                         type: array
                         items:
                           type: number
+                regressionAdjustmentEnabled:
+                  type: boolean
+                  description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                sequentialTestingEnabled:
+                  type: boolean
+                  description: Only applicable to frequentist analyses
+                sequentialTestingTuningParameter:
+                  type: number
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                pinnedMetricSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                    required:
+                      - slices
+                  description: Custom slices that apply to ALL applicable metrics in the experiment
       responses:
         '200':
           content:
@@ -1380,6 +2175,40 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  /experiment-names:
+    get:
+      summary: Get a list of experiments with names and ids
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getExperimentNames
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiment-names?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiments
+                properties:
+                  experiments:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
   '/experiments/{id}':
     get:
       parameters:
@@ -1403,7 +2232,7 @@ paths:
                   - experiment
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
     post:
       parameters:
         - $ref: '#/components/parameters/id'
@@ -1424,6 +2253,9 @@ paths:
             schema:
               type: object
               properties:
+                datasourceId:
+                  type: string
+                  description: Can only be set if existing experiment does not have a datasource
                 assignmentQueryId:
                   type: string
                 trackingKey:
@@ -1431,6 +2263,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1448,10 +2285,23 @@ paths:
                   type: array
                   items:
                     type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
                 guardrailMetrics:
                   type: array
                   items:
                     type: string
+                activationMetric:
+                  type: string
+                  description: Users must convert on this metric before being included
+                segmentId:
+                  type: string
+                  description: Only users in this segment will be included
+                queryFilter:
+                  type: string
+                  description: WHERE clause to add to the default experiment query
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -1475,7 +2325,7 @@ paths:
                     - 1
                     - 2
                 disableStickyBucketing:
-                  type: boolean;
+                  type: boolean
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1494,6 +2344,7 @@ paths:
                   enum:
                     - firstExposure
                     - experimentDuration
+                  description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
                 statsEngine:
                   type: string
                   enum:
@@ -1583,6 +2434,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1609,6 +2473,64 @@ paths:
                         type: array
                         items:
                           type: number
+                regressionAdjustmentEnabled:
+                  type: boolean
+                  description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                sequentialTestingEnabled:
+                  type: boolean
+                  description: Only applicable to frequentist analyses
+                sequentialTestingTuningParameter:
+                  type: number
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                pinnedMetricSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                    required:
+                      - slices
+                  description: Custom slices that apply to ALL applicable metrics in the experiment
       responses:
         '200':
           content:
@@ -1620,6 +2542,50 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  '/experiments/{id}/snapshot':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The experiment id of the experiment to update
+        schema:
+          type: string
+    post:
+      tags:
+        - experiments
+        - snapshots
+      summary: Create Experiment Snapshot
+      operationId: postExperimentSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234/snapshot \
+              -d '{"triggeredBy":"schedule"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                triggeredBy:
+                  type: string
+                  description: Set to "schedule" if you want this request to trigger notifications and other events as it if were a scheduled update. Defaults to manual.
+                  enum:
+                    - manual
+                    - schedule
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - snapshot
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   '/experiments/{id}/results':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -1653,6 +2619,68 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
+  '/experiments/{id}/visual-changesets':
+    get:
+      summary: Get all visual changesets
+      tags:
+        - visual-changesets
+      parameters:
+        - id: null
+          name: id
+          in: path
+          required: true
+          description: The experiment id the visual changesets belong to
+          schema:
+            type: string
+      operationId: listVisualChangesets
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - visualChangesets
+                    properties:
+                      visualChangesets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualChangeset'
+  '/snapshots/{id}':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 'The id of the requested resource (a snapshot ID, not experiment ID)'
+        schema:
+          type: string
+    get:
+      tags:
+        - snapshots
+      summary: Get an experiment snapshot status
+      operationId: getExperimentSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - snapshot
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/ExperimentSnapshot'
   /metrics:
     get:
       summary: Get all metrics
@@ -1712,7 +2740,7 @@ paths:
                   description: 'ID for the [DataSource](#tag/DataSource_model)'
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only.'
                   enum:
                     - ''
                     - api
@@ -1727,7 +2755,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics/legacy)'
                   enum:
                     - binomial
                     - count
@@ -1804,24 +2832,37 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           type: number
-                          description: Wait this many hours after experiment exposure before counting conversions
+                          description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                        delayValue:
+                          type: number
+                          description: Wait this long after experiment exposure before counting conversions.
+                        delayUnit:
+                          type: string
+                          description: Default `hours`.
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
                         windowValue:
                           type: number
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
                     conversionWindowStart:
                       type: number
                       deprecated: true
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
                       deprecated: true
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     priorSettings:
                       type: object
                       description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
@@ -1864,6 +2905,10 @@ paths:
                     minSampleSize:
                       type: number
                       minimum: 0
+                    targetMDE:
+                      type: number
+                      description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                      minimum: 0
                 sql:
                   type: object
                   description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
@@ -1882,7 +2927,7 @@ paths:
                       description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
                   description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
@@ -2009,10 +3054,11 @@ paths:
               properties:
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "api", it can be managed via the API only. Please note that we have deprecated support for setting the managedBy property to "admin". Your existing Legacy Metrics with this value will continue to work, but we suggest migrating to Fact Metrics instead.'
                   enum:
                     - ''
                     - api
+                    - admin
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -2024,7 +3070,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics/legacy)'
                   enum:
                     - binomial
                     - count
@@ -2101,24 +3147,37 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           type: number
-                          description: Wait this many hours after experiment exposure before counting conversions
+                          description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                        delayValue:
+                          type: number
+                          description: Wait this long after experiment exposure before counting conversions.
+                        delayUnit:
+                          type: string
+                          description: Default `hours`.
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
                         windowValue:
                           type: number
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
                     conversionWindowStart:
                       type: number
                       deprecated: true
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
                       deprecated: true
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: 'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     priorSettings:
                       type: object
                       description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
@@ -2161,6 +3220,10 @@ paths:
                     minSampleSize:
                       type: number
                       minimum: 0
+                    targetMDE:
+                      type: number
+                      description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                      minimum: 0
                 sql:
                   type: object
                   description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
@@ -2176,7 +3239,7 @@ paths:
                       description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics/legacy/#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
                   description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
@@ -2273,39 +3336,6 @@ paths:
                 properties:
                   deletedId:
                     type: string
-  '/experiments/{id}/visual-changesets':
-    get:
-      summary: Get all visual changesets
-      tags:
-        - visual-changesets
-      parameters:
-        - id: null
-          name: id
-          in: path
-          required: true
-          description: The experiment id the visual changesets belong to
-          schema:
-            type: string
-      operationId: listVisualChangesets
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - type: object
-                    required:
-                      - visualChangesets
-                    properties:
-                      visualChangesets:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/VisualChangeset'
   '/visual-changesets/{id}':
     get:
       parameters:
@@ -2488,6 +3518,10 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2558,6 +3592,10 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2702,6 +3740,519 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /attributes:
+    get:
+      summary: Get the organization's attributes
+      tags:
+        - attributes
+      operationId: listAttributes
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/attributes \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - attributes
+                    properties:
+                      attributes:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Attribute'
+    post:
+      tags:
+        - attributes
+      summary: Create a new attribute
+      operationId: postAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/attributes \
+              -d '{"property": "foo", "datatype": "boolean", "description": "My new attribute" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - property
+                - datatype
+              properties:
+                property:
+                  type: string
+                  description: The attribute property
+                datatype:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - secureString
+                    - enum
+                    - 'string[]'
+                    - 'number[]'
+                    - 'secureString[]'
+                  description: The attribute datatype
+                description:
+                  type: string
+                  description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
+                hashAttribute:
+                  type: boolean
+                  description: Shall the attribute be hashed
+                enum:
+                  type: string
+                format:
+                  type: string
+                  enum:
+                    - ''
+                    - version
+                    - date
+                    - isoCountryCode
+                  description: The attribute's format
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - attribute
+                properties:
+                  attribute:
+                    $ref: '#/components/schemas/Attribute'
+  '/attributes/${property}':
+    put:
+      parameters:
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
+      tags:
+        - attributes
+      summary: Update an attribute
+      operationId: putAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/attributes/property \
+               -d '{ "description": "My updated attribute" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                datatype:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - secureString
+                    - enum
+                    - 'string[]'
+                    - 'number[]'
+                    - 'secureString[]'
+                  description: The attribute datatype
+                description:
+                  type: string
+                  description: The description of the new attribute
+                archived:
+                  type: boolean
+                  description: The attribute is archived
+                hashAttribute:
+                  type: boolean
+                  description: Shall the attribute be hashed
+                enum:
+                  type: string
+                format:
+                  type: string
+                  enum:
+                    - ''
+                    - version
+                    - date
+                    - isoCountryCode
+                  description: The attribute's format
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - attribute
+                properties:
+                  attribute:
+                    $ref: '#/components/schemas/Attribute'
+    delete:
+      summary: Deletes a single attribute
+      parameters:
+        - name: property
+          in: path
+          required: true
+          description: The attribute property
+          schema:
+            type: string
+      tags:
+        - attributes
+      operationId: deleteAttribute
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedProperty
+                properties:
+                  deletedProperty:
+                    type: string
+  /archetypes:
+    get:
+      summary: Get the organization's archetypes
+      tags:
+        - archetypes
+      operationId: listArchetypes
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/archetypes \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - archetypes
+                    properties:
+                      archetypes:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Archetype'
+    post:
+      parameters: []
+      tags:
+        - archetypes
+      summary: Create a single archetype
+      operationId: postArchetype
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/archetypes \
+              -d '{ "name": "Mobile user", attributes: "{\"deviceType\": \"mobile\"}", isPublic: true, ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - isPublic
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublic:
+                  type: boolean
+                  description: Whether to make this Archetype available to other team members
+                attributes:
+                  type: object
+                  description: The attributes to set when using this Archetype
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - archetype
+                properties:
+                  archetype:
+                    $ref: '#/components/schemas/Archetype'
+  '/archetypes/${id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single archetype
+      tags:
+        - archetypes
+      operationId: getArchetype
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/archetypes/sam_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - archetype
+                properties:
+                  archetype:
+                    $ref: '#/components/schemas/Archetype'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - archetypes
+      summary: Update a single archetype
+      operationId: putArchetype
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/archetypes/sam_abc123 \
+              -d '{ "description": "New description" }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublic:
+                  type: boolean
+                  description: Whether to make this Archetype available to other team members
+                attributes:
+                  type: object
+                  description: The attributes to set when using this Archetype
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - archetype
+                properties:
+                  archetype:
+                    $ref: '#/components/schemas/Archetype'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - archetypes
+      summary: Deletes a single archetype
+      operationId: deleteArchetype
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/archetypes/sam_abc123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+  /members:
+    get:
+      summary: Get all organization members
+      tags:
+        - members
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/userName'
+        - $ref: '#/components/parameters/userEmail'
+        - $ref: '#/components/parameters/globalRole'
+      operationId: listMembers
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/members \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - members
+                    properties:
+                      members:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Member'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/members/{id}':
+    delete:
+      summary: Removes a single user from an organization
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - members
+      operationId: deleteMember
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/members/member_id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+  '/members/{id}/role':
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - members
+      summary: 'Update a member''s global role (including any enviroment restrictions, if applicable). Can also update a member''s project roles if your plan supports it.'
+      operationId: updateMemberRole
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/members/user_abc123/role \
+              -d '{"member" : {"role": "experimenter", "environments": ["staging"], ... }}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - member
+              properties:
+                member:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                    projectRoles:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - project
+                          - role
+                          - environments
+                        properties:
+                          project:
+                            type: string
+                          role:
+                            type: string
+                          environments:
+                            type: array
+                            items:
+                              type: string
+                          limitAccessByEnvironment:
+                            type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updatedMember
+                properties:
+                  updatedMember:
+                    type: object
+                    required:
+                      - id
+                      - role
+                      - environments
+                      - limitAccessByEnvironment
+                    properties:
+                      id:
+                        type: string
+                      role:
+                        type: string
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      projectRoles:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - project
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          properties:
+                            project:
+                              type: string
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
   /environments:
     get:
       summary: Get the organization's environments
@@ -2763,6 +4314,9 @@ paths:
                   type: array
                   items:
                     type: string
+                parent:
+                  type: string
+                  description: An environment that the new environment should inherit feature rules from. Requires an enterprise license
       responses:
         '200':
           content:
@@ -2926,12 +4480,16 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   enum:
                     - ''
                     - api
+                    - admin
       responses:
         '200':
           content:
@@ -3013,12 +4571,27 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
+                columns:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FactTableColumn'
+                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license.
+                columnsError:
+                  type: string
+                  nullable: true
+                  description: Error message if there was an issue parsing the SQL schema
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   enum:
                     - ''
                     - api
+                    - admin
+                archived:
+                  type: boolean
       responses:
         '200':
           content:
@@ -3278,7 +4851,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
-              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+              -d '{"name":"Purchased", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -3309,9 +4882,11 @@ paths:
                   type: string
                   enum:
                     - proportion
+                    - retention
                     - mean
                     - quantile
                     - ratio
+                    - dailyParticipation
                 numerator:
                   type: object
                   required:
@@ -3321,12 +4896,71 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
+                    aggregateFilterColumn:
+                      type: string
+                      description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+                    aggregateFilter:
+                      type: string
+                      description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
                 denominator:
                   description: Only when metricType is 'ratio'
                   type: object
@@ -3338,12 +4972,65 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -3401,13 +5088,27 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       type: number
-                      description: Wait this many hours after experiment exposure before counting conversions
+                      description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                    delayValue:
+                      type: number
+                      description: Wait this long after experiment exposure before counting conversions.
+                    delayUnit:
+                      type: string
+                      description: Default `hours`.
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
                     windowValue:
                       type: number
                     windowUnit:
                       type: string
+                      description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -3457,6 +5158,9 @@ paths:
                   type: number
                   description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
+                displayAsPercentage:
+                  type: boolean
+                  description: 'If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -3468,12 +5172,22 @@ paths:
                 minSampleSize:
                   type: number
                   minimum: 0
+                targetMDE:
+                  type: number
+                  description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   enum:
                     - ''
                     - api
+                    - admin
+                metricAutoSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -3547,9 +5261,11 @@ paths:
                   type: string
                   enum:
                     - proportion
+                    - retention
                     - mean
                     - quantile
                     - ratio
+                    - dailyParticipation
                 numerator:
                   type: object
                   required:
@@ -3559,12 +5275,71 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
+                    aggregateFilterColumn:
+                      type: string
+                      description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+                    aggregateFilter:
+                      type: string
+                      description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
                 denominator:
                   description: Only when metricType is 'ratio'
                   type: object
@@ -3576,12 +5351,65 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'' (or ''$$distinctDates'' if metricType is ''mean'' or ''ratio'' or ''quantile'' and quantileSettings.type is ''unit'')'
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
-                      description: Array of Fact Table Filter Ids
+                      description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+                      deprecated: true
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+                      deprecated: true
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
+                    rowFilters:
+                      type: array
+                      description: Filters to apply to the rows of the fact table before aggregation.
+                      items:
+                        type: object
+                        required:
+                          - operator
+                        properties:
+                          operator:
+                            type: string
+                            enum:
+                              - '='
+                              - '!='
+                              - '>'
+                              - <
+                              - '>='
+                              - <=
+                              - in
+                              - not_in
+                              - is_null
+                              - not_null
+                              - is_true
+                              - is_false
+                              - contains
+                              - not_contains
+                              - starts_with
+                              - ends_with
+                              - sql_expr
+                              - saved_filter
+                          values:
+                            type: array
+                            description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                            items:
+                              type: string
+                          column:
+                            type: string
+                            description: Required for all operators except sql_expr and saved_filter.
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -3639,13 +5467,27 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       type: number
-                      description: Wait this many hours after experiment exposure before counting conversions
+                      description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                    delayValue:
+                      type: number
+                      description: Wait this long after experiment exposure before counting conversions.
+                    delayUnit:
+                      type: string
+                      description: Default `hours`.
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
                     windowValue:
                       type: number
                     windowUnit:
                       type: string
+                      description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -3695,6 +5537,9 @@ paths:
                   type: number
                   description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
+                displayAsPercentage:
+                  type: boolean
+                  description: 'If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.'
                 minPercentChange:
                   type: number
                   description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
@@ -3706,12 +5551,23 @@ paths:
                 minSampleSize:
                   type: number
                   minimum: 0
+                targetMDE:
+                  type: number
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
                   enum:
                     - ''
                     - api
+                    - admin
+                archived:
+                  type: boolean
+                metricAutoSlices:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -3748,6 +5604,74 @@ paths:
                     type: string
                     description: The ID of the deleted fact metric
                     example: fact__123abc
+  '/fact-metrics/{id}/analysis':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The fact metric id to analyze
+        schema:
+          type: string
+    post:
+      tags:
+        - fact-metrics
+      summary: Create a fact metric analysis
+      operationId: postFactMetricAnalysis
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact_1234/analysis \
+              -d '{"lookbackDays":90}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIdType:
+                  type: string
+                  description: 'The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table.'
+                lookbackDays:
+                  type: number
+                  description: Number of days to look back for the analysis. Defaults to 30.
+                  minimum: 1
+                  maximum: 999999
+                populationType:
+                  type: string
+                  enum:
+                    - factTable
+                    - segment
+                  description: 'The type of population to analyze. Defaults to ''factTable'', meaning the analysis will return the metric value for all units found in the fact table.'
+                populationId:
+                  type: string
+                  nullable: true
+                  description: 'The ID of the population (e.g., segment ID) when populationType is not ''factTable''. Defaults to null.'
+                additionalNumeratorFilters:
+                  type: array
+                  items:
+                    type: string
+                  description: 'We support passing in adhoc filters for an analysis that don''t live on the metric itself. These are in addition to the metric''s filters. To use this, you can pass in an array of Fact Table Filter Ids.'
+                additionalDenominatorFilters:
+                  type: array
+                  items:
+                    type: string
+                  description: 'We support passing in adhoc filters for an analysis that don''t live on the metric itself. These are in addition to the metric''s filters. To use this, you can pass in an array of Fact Table Filter Ids.'
+                useCache:
+                  type: boolean
+                  description: Whether to use a cached query if one exists. Defaults to true.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricAnalysis
+                properties:
+                  metricAnalysis:
+                    $ref: '#/components/schemas/MetricAnalysis'
   /bulk-import/facts:
     post:
       parameters: []
@@ -3842,6 +5766,17 @@ paths:
         - code-references
       summary: Submit list of code references
       operationId: postCodeRefs
+      parameters:
+        - name: deleteMissing
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
+          default: 'false'
+          description: Whether to delete code references that are no longer present in the submitted data
       x-codeSamples:
         - lang: cURL
           source: |
@@ -3895,6 +5830,127 @@ paths:
                     type: array
                     items:
                       type: string
+    get:
+      summary: Get list of all code references for the current organization
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      tags:
+        - code-references
+      operationId: listCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/code-refs/ \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - codeRefs
+                    properties:
+                      codeRefs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CodeRef'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/code-refs/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get list of code references for a single feature id
+      tags:
+        - code-references
+      operationId: getCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/code-refs/my_feature \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - codeRefs
+                properties:
+                  codeRefs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CodeRef'
+  '/queries/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single query
+      tags:
+        - queries
+      operationId: getQuery
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/queries/qry_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - query
+                properties:
+                  query:
+                    $ref: '#/components/schemas/Query'
+  /settings:
+    get:
+      summary: Get organization settings
+      tags:
+        - settings
+      operationId: getSettings
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/settings \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - settings
+                properties:
+                  settings:
+                    $ref: '#/components/schemas/Settings'
+  /custom-fields:
+    get:
+      summary: Get list of custom fields
+      tags:
+        - custom-fields
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getCustomFields
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/custom-fields?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomField'
 components:
   parameters:
     id:
@@ -3964,13 +6020,37 @@ components:
     platform:
       name: platform
       in: query
-      description: Name of versino control platform like GitHub or Gitlab.
+      description: Name of version control platform like GitHub or Gitlab.
       schema:
         type: string
         enum:
           - github
           - gitlab
           - bitbucket
+    userName:
+      name: userName
+      in: query
+      description: Name of the user.
+      schema:
+        type: string
+    userEmail:
+      name: userEmail
+      in: query
+      description: Email address of the user.
+      schema:
+        type: string
+    globalRole:
+      name: globalRole
+      in: query
+      description: Name of the global role
+      schema:
+        type: string
+    clientKey:
+      name: clientKey
+      in: query
+      description: Filter by a SDK connection's client key
+      schema:
+        type: string
   schemas:
     PaginationFields:
       type: object
@@ -4022,8 +6102,17 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
         query:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+            - config
     Metric:
       type: object
       required:
@@ -4050,6 +6139,7 @@ components:
             - ''
             - api
             - config
+            - admin
         dateCreated:
           type: string
         dateUpdated:
@@ -4089,6 +6179,7 @@ components:
             - minPercentChange
             - maxPercentChange
             - minSampleSize
+            - targetMDE
           properties:
             goal:
               type: string
@@ -4138,14 +6229,22 @@ components:
                     - none
                     - conversion
                     - lookback
-                delayHours:
+                delayValue:
                   type: number
-                  description: Wait this many hours after experiment exposure before counting conversions
+                  description: Wait this long after experiment exposure before counting conversions
+                delayUnit:
+                  type: string
+                  enum:
+                    - minutes
+                    - hours
+                    - days
+                    - weeks
                 windowValue:
                   type: number
                 windowUnit:
                   type: string
                   enum:
+                    - minutes
                     - hours
                     - days
                     - weeks
@@ -4185,6 +6284,8 @@ components:
             maxPercentChange:
               type: number
             minSampleSize:
+              type: number
+            targetMDE:
               type: number
         sql:
           type: object
@@ -4321,6 +6422,46 @@ components:
           type: array
           items:
             type: string
+        parent:
+          type: string
+    Attribute:
+      type: object
+      required:
+        - property
+        - datatype
+      properties:
+        property:
+          type: string
+        datatype:
+          type: string
+          enum:
+            - boolean
+            - string
+            - number
+            - secureString
+            - enum
+            - 'string[]'
+            - 'number[]'
+            - 'secureString[]'
+        description:
+          type: string
+        hashAttribute:
+          type: boolean
+        archived:
+          type: boolean
+        enum:
+          type: string
+        format:
+          type: string
+          enum:
+            - ''
+            - version
+            - date
+            - isoCountryCode
+        projects:
+          type: array
+          items:
+            type: string
     Segment:
       type: object
       required:
@@ -4329,7 +6470,6 @@ components:
         - datasourceId
         - identifierType
         - name
-        - query
         - dateCreated
         - dateUpdated
       properties:
@@ -4343,12 +6483,58 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
         query:
           type: string
         dateCreated:
           type: string
         dateUpdated:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+            - config
+        type:
+          enum:
+            - SQL
+            - FACT
+        factTableId:
+          type: string
+        filters:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+    ScheduleRule:
+      type: object
+      description: An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule.
+      minItems: 2
+      maxItems: 2
+      required:
+        - enabled
+        - timestamp
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the rule should be enabled or disabled at the specified timestamp.
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO timestamp when the rule should activate.
+          example: '2025-06-23T16:09:37.769Z'
+      example:
+        - enabled: true
+          timestamp: null
+        - enabled: false
+          timestamp: '2025-06-23T16:09:37.769Z'
     Feature:
       type: object
       required:
@@ -4400,16 +6586,9 @@ components:
             $ref: '#/components/schemas/FeatureEnvironment'
         prerequisites:
           type: array
+          description: Feature IDs. Each feature must evaluate to `true`
           items:
-            type: object
-            required:
-              - parentId
-              - parentCondition
-            properties:
-              parentId:
-                type: string
-              parentCondition:
-                type: string
+            type: string
         revision:
           type: object
           required:
@@ -4427,6 +6606,18 @@ components:
               format: date-time
             publishedBy:
               type: string
+        customFields:
+          type: object
+          additionalProperties: true
+    FeatureWithRevisions:
+      allOf:
+        - $ref: '#/components/schemas/Feature'
+        - type: object
+          properties:
+            revisions:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeatureRevision'
     FeatureEnvironment:
       type: object
       required:
@@ -4469,6 +6660,7 @@ components:
         - $ref: '#/components/schemas/FeatureRolloutRule'
         - $ref: '#/components/schemas/FeatureExperimentRule'
         - $ref: '#/components/schemas/FeatureExperimentRefRule'
+        - $ref: '#/components/schemas/FeatureSafeRolloutRule'
       discriminator:
         propertyName: type
         mapping:
@@ -4476,6 +6668,7 @@ components:
           rollout: '#/components/schemas/FeatureRolloutRule'
           experiment: '#/components/schemas/FeatureExperimentRule'
           experiment-ref: '#/components/schemas/FeatureExperimentRefRule'
+          safe-rollout: '#/components/schemas/FeatureSafeRolloutRule'
     FeatureDefinition:
       type: object
       required:
@@ -4502,7 +6695,8 @@ components:
                   - 'null'
               weights:
                 type: array
-                items: number
+                items:
+                  type: number
               variations:
                 type: array
                 items:
@@ -4561,6 +6755,28 @@ components:
                 type: array
                 items:
                   type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -4605,6 +6821,15 @@ components:
                 type: array
                 items:
                   type: string
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -4619,6 +6844,85 @@ components:
           type: number
         hashAttribute:
           type: string
+    FeatureSafeRolloutRule:
+      type: object
+      required:
+        - condition
+        - id
+        - enabled
+        - type
+        - controlValue
+        - variationValue
+      properties:
+        condition:
+          type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
+        id:
+          type: string
+        trackingKey:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+          enum:
+            - safe-rollout
+        controlValue:
+          type: string
+        variationValue:
+          type: string
+        seed:
+          type: string
+        hashAttribute:
+          type: string
+        safeRolloutId:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - released
+            - rolled-back
+            - stopped
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
     FeatureExperimentRule:
       type: object
       required:
@@ -4647,13 +6951,13 @@ components:
         fallbackAttribute:
           type: string
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
           type: number
         namespace:
-          type: obect
+          type: object
           required:
             - enabled
             - name
@@ -4671,6 +6975,15 @@ components:
               maxItems: 2
         coverage:
           type: number
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         value:
           type: array
           items:
@@ -4707,6 +7020,15 @@ components:
             - experiment-ref
         condition:
           type: string
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         variations:
           type: array
           items:
@@ -4721,6 +7043,40 @@ components:
                 type: string
         experimentId:
           type: string
+    FeatureRevision:
+      type: object
+      required:
+        - baseVersion
+        - version
+        - comment
+        - date
+        - status
+        - rules
+      properties:
+        baseVersion:
+          type: integer
+        version:
+          type: integer
+        comment:
+          type: string
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+        publishedBy:
+          type: string
+        rules:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/FeatureRule'
+        definitions:
+          type: object
+          additionalProperties:
+            type: string
+            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     SdkConnection:
       type: object
       required:
@@ -4778,6 +7134,8 @@ components:
           type: boolean
         includeRedirectExperiments:
           type: boolean
+        includeRuleIds:
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -4792,13 +7150,17 @@ components:
           type: boolean
         remoteEvalEnabled:
           type: boolean
+        savedGroupReferencesEnabled:
+          type: boolean
     Experiment:
       type: object
       required:
         - id
+        - trackingKey
         - dateCreated
         - dateUpdated
         - name
+        - type
         - project
         - hypothesis
         - description
@@ -4815,6 +7177,8 @@ components:
       properties:
         id:
           type: string
+        trackingKey:
+          type: string
         dateCreated:
           type: string
           format: date-time
@@ -4823,6 +7187,11 @@ components:
           format: date-time
         name:
           type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - multi-armed-bandit
         project:
           type: string
         hypothesis:
@@ -4851,7 +7220,7 @@ components:
             - 1
             - 2
         disableStickyBucketing:
-          type: boolean;
+          type: boolean
         bucketVersion:
           type: number
         minBucketVersion:
@@ -4932,6 +7301,18 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              prerequisites:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - condition
+                  properties:
+                    id:
+                      type: string
+                    condition:
+                      type: string
               savedGroupTargeting:
                 type: array
                 items:
@@ -4971,6 +7352,78 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+        shareLevel:
+          type: string
+          enum:
+            - public
+            - organization
+        publicUrl:
+          type: string
+        banditScheduleValue:
+          type: number
+        banditScheduleUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        banditBurnInValue:
+          type: number
+        banditBurnInUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        linkedFeatures:
+          type: array
+          items:
+            type: string
+        hasVisualChangesets:
+          type: boolean
+        hasURLRedirects:
+          type: boolean
+        customFields:
+          type: object
+          additionalProperties: true
+        pinnedMetricSlices:
+          type: array
+          items:
+            type: string
+          description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+        customMetricSlices:
+          type: array
+          items:
+            type: object
+            properties:
+              slices:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    column:
+                      type: string
+                    levels:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - column
+                    - levels
+            required:
+              - slices
+          description: Custom slices that apply to ALL applicable metrics in the experiment
+    ExperimentSnapshot:
+      type: object
+      required:
+        - id
+        - experiment
+        - status
+      properties:
+        id:
+          type: string
+        experiment:
+          type: string
+        status:
+          type: string
     ExperimentMetric:
       type: object
       required:
@@ -5008,6 +7461,7 @@ components:
         - attributionModel
         - statsEngine
         - goals
+        - secondaryMetrics
         - guardrails
       properties:
         datasourceId:
@@ -5028,11 +7482,22 @@ components:
           enum:
             - firstExposure
             - experimentDuration
+          description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
         statsEngine:
           enum:
             - bayesian
             - frequentist
+        regressionAdjustmentEnabled:
+          type: boolean
+        sequentialTestingEnabled:
+          type: boolean
+        sequentialTestingTuningParameter:
+          type: number
         goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentMetric'
+        secondaryMetrics:
           type: array
           items:
             $ref: '#/components/schemas/ExperimentMetric'
@@ -5164,6 +7629,25 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+    ExperimentWithEnhancedStatus:
+      allOf:
+        - $ref: '#/components/schemas/Experiment'
+        - type: object
+          properties:
+            enhancedStatus:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - Running
+                    - Stopped
+                    - Draft
+                    - Archived
+                detailedStatus:
+                  type: string
     DataSource:
       type: object
       required:
@@ -5295,7 +7779,8 @@ components:
                 enum:
                   - simple
                   - regex
-              pattern: string
+              pattern:
+                type: string
         editorUrl:
           type: string
         experiment:
@@ -5416,6 +7901,12 @@ components:
           type: array
           items:
             type: string
+        description:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
     Organization:
       type: object
       properties:
@@ -5475,18 +7966,106 @@ components:
             type: string
         sql:
           type: string
+        eventName:
+          type: string
+          description: The event name used in SQL template variables
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactTableColumn'
+          description: Array of column definitions for this fact table
+        columnsError:
+          type: string
+          nullable: true
+          description: Error message if there was an issue parsing the SQL schema
+        archived:
+          type: boolean
         managedBy:
           type: string
           description: 'Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.'
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time
         dateUpdated:
           type: string
           format: date-time
+    FactTableColumn:
+      type: object
+      required:
+        - column
+        - datatype
+        - deleted
+      properties:
+        column:
+          type: string
+          description: The actual column name in the database/SQL query
+        datatype:
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - other
+            - ''
+        numberFormat:
+          type: string
+          enum:
+            - ''
+            - currency
+            - 'time:seconds'
+            - 'memory:bytes'
+            - 'memory:kilobytes'
+        jsonFields:
+          type: object
+          description: 'For JSON columns, defines the structure of nested fields'
+          additionalProperties:
+            type: object
+            properties:
+              datatype:
+                type: string
+                enum:
+                  - number
+                  - string
+                  - date
+                  - boolean
+                  - json
+                  - other
+                  - ''
+        name:
+          type: string
+          description: Display name for the column (can be different from the actual column name)
+        description:
+          type: string
+        alwaysInlineFilter:
+          type: boolean
+          description: Whether this column should always be included as an inline filter in queries
+          default: false
+        deleted:
+          type: boolean
+          default: false
+        isAutoSliceColumn:
+          type: boolean
+          description: Whether this column can be used for auto slice analysis. This is an enterprise feature.
+          default: false
+        autoSlices:
+          type: array
+          items:
+            type: string
+          description: Specific slices to automatically analyze for this column.
+        dateCreated:
+          type: string
+          format: date-time
+          readOnly: true
+        dateUpdated:
+          type: string
+          format: date-time
+          readOnly: true
     FactTableFilter:
       type: object
       required:
@@ -5540,6 +8119,7 @@ components:
         - minPercentChange
         - maxPercentChange
         - minSampleSize
+        - targetMDE
         - managedBy
         - dateCreated
         - dateUpdated
@@ -5566,31 +8146,89 @@ components:
           type: string
           enum:
             - proportion
+            - retention
             - mean
             - quantile
             - ratio
+            - dailyParticipation
         numerator:
           type: object
           required:
             - factTableId
             - column
-            - filters
           properties:
             factTableId:
               type: string
             column:
               type: string
+            aggregation:
+              type: string
+              enum:
+                - sum
+                - max
+                - count distinct
             filters:
               type: array
-              description: Array of Fact Table Filter Ids
+              description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+              deprecated: true
               items:
                 type: string
+            inlineFilters:
+              type: object
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+              deprecated: true
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+            rowFilters:
+              type: array
+              description: Filters to apply to the rows of the fact table before aggregation.
+              items:
+                type: object
+                required:
+                  - operator
+                properties:
+                  operator:
+                    type: string
+                    enum:
+                      - '='
+                      - '!='
+                      - '>'
+                      - <
+                      - '>='
+                      - <=
+                      - in
+                      - not_in
+                      - is_null
+                      - not_null
+                      - is_true
+                      - is_false
+                      - contains
+                      - not_contains
+                      - starts_with
+                      - ends_with
+                      - sql_expr
+                      - saved_filter
+                  values:
+                    type: array
+                    description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                    items:
+                      type: string
+                  column:
+                    type: string
+                    description: Required for all operators except sql_expr and saved_filter.
+            aggregateFilterColumn:
+              type: string
+              description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+            aggregateFilter:
+              type: string
+              description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
         denominator:
           type: object
           required:
             - factTableId
             - column
-            - filters
           properties:
             factTableId:
               type: string
@@ -5598,9 +8236,55 @@ components:
               type: string
             filters:
               type: array
-              description: Array of Fact Table Filter Ids
+              description: 'Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.'
+              deprecated: true
               items:
                 type: string
+            inlineFilters:
+              type: object
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.'
+              deprecated: true
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+            rowFilters:
+              type: array
+              description: Filters to apply to the rows of the fact table before aggregation.
+              items:
+                type: object
+                required:
+                  - operator
+                properties:
+                  operator:
+                    type: string
+                    enum:
+                      - '='
+                      - '!='
+                      - '>'
+                      - <
+                      - '>='
+                      - <=
+                      - in
+                      - not_in
+                      - is_null
+                      - not_null
+                      - is_true
+                      - is_false
+                      - contains
+                      - not_contains
+                      - starts_with
+                      - ends_with
+                      - sql_expr
+                      - saved_filter
+                  values:
+                    type: array
+                    description: 'Not required for is_null, not_null, is_true, is_false operators.'
+                    items:
+                      type: string
+                  column:
+                    type: string
+                    description: Required for all operators except sql_expr and saved_filter.
         inverse:
           type: boolean
           description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -5657,14 +8341,22 @@ components:
                 - none
                 - conversion
                 - lookback
-            delayHours:
+            delayValue:
               type: number
-              description: Wait this many hours after experiment exposure before counting conversions
+              description: Wait this long after experiment exposure before counting conversions.
+            delayUnit:
+              type: string
+              enum:
+                - minutes
+                - hours
+                - days
+                - weeks
             windowValue:
               type: number
             windowUnit:
               type: string
               enum:
+                - minutes
                 - hours
                 - days
                 - weeks
@@ -5708,11 +8400,16 @@ components:
           type: number
         riskThresholdDanger:
           type: number
+        displayAsPercentage:
+          type: boolean
+          description: 'If true and the metric is a ratio metric, variation means will be displayed as a percentage'
         minPercentChange:
           type: number
         maxPercentChange:
           type: number
         minSampleSize:
+          type: number
+        targetMDE:
           type: number
         managedBy:
           type: string
@@ -5720,12 +8417,446 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time
         dateUpdated:
           type: string
           format: date-time
+        archived:
+          type: boolean
+        metricAutoSlices:
+          type: array
+          items:
+            type: string
+          description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
+    MetricAnalysis:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: The ID of the created metric analysis
+        status:
+          type: string
+          description: 'The status of the analysis (e.g., "running", "completed", "error")'
+        settings:
+          type: object
+    Member:
+      type: object
+      required:
+        - id
+        - email
+        - globalRole
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        globalRole:
+          type: string
+        environments:
+          type: array
+          items:
+            type: string
+        limitAccessByEnvironment:
+          type: boolean
+        managedbyIdp:
+          type: boolean
+        teams:
+          type: array
+          items:
+            type: string
+        projectRoles:
+          type: array
+          items:
+            type: object
+            required:
+              - project
+              - role
+              - limitAccessByEnvironment
+              - environments
+            properties:
+              project:
+                type: string
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+        lastLoginDate:
+          type: string
+          format: date-time
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    Archetype:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - owner
+        - isPublic
+        - attributes
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner:
+          type: string
+        isPublic:
+          type: boolean
+        attributes:
+          type: object
+          description: The attributes to set when using this Archetype
+        projects:
+          type: array
+          items:
+            type: string
+    Query:
+      type: object
+      required:
+        - id
+        - organization
+        - datasource
+        - language
+        - query
+        - queryType
+        - createdAt
+        - startedAt
+        - status
+        - externalId
+        - dependencies
+        - runAtEnd
+      properties:
+        id:
+          type: string
+        organization:
+          type: string
+        datasource:
+          type: string
+        language:
+          type: string
+        query:
+          type: string
+        queryType:
+          type: string
+        createdAt:
+          type: string
+        startedAt:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - queued
+            - failed
+            - partially-succeeded
+            - succeeded
+        externalId:
+          type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+        runAtEnd:
+          type: boolean
+    Settings:
+      type: object
+      required:
+        - confidenceLevel
+        - northStar
+        - metricDefaults
+        - pastExperimentsMinLength
+        - metricAnalysisDays
+        - updateSchedule
+        - multipleExposureMinPercent
+        - defaultRole
+        - statsEngine
+        - pValueThreshold
+        - regressionAdjustmentEnabled
+        - regressionAdjustmentDays
+        - sequentialTestingEnabled
+        - sequentialTestingTuningParameter
+        - attributionModel
+        - targetMDE
+        - delayHours
+        - windowType
+        - windowHours
+        - winRisk
+        - loseRisk
+        - secureAttributeSalt
+        - killswitchConfirmation
+        - requireReviews
+        - featureKeyExample
+        - featureRegexValidator
+        - banditScheduleValue
+        - banditScheduleUnit
+        - banditBurnInValue
+        - banditBurnInUnit
+        - experimentMinLengthDays
+      properties:
+        confidenceLevel:
+          type: number
+        northStar:
+          type: object
+          nullable: true
+          properties:
+            title:
+              type: string
+            metricIds:
+              type: array
+              items:
+                type: string
+        metricDefaults:
+          type: object
+          properties:
+            priorSettings:
+              type: object
+              required:
+                - override
+                - proper
+                - mean
+                - stddev
+              properties:
+                override:
+                  type: boolean
+                proper:
+                  type: boolean
+                mean:
+                  type: number
+                stddev:
+                  type: number
+            minimumSampleSize:
+              type: number
+            maxPercentageChange:
+              type: number
+            minPercentageChange:
+              type: number
+            targetMDE:
+              type: number
+        pastExperimentsMinLength:
+          type: number
+        metricAnalysisDays:
+          type: number
+        updateSchedule:
+          type: object
+          nullable: true
+          properties:
+            type:
+              type: string
+              enum:
+                - cron
+                - never
+                - stale
+            cron:
+              type: string
+              nullable: true
+            hours:
+              type: number
+              nullable: true
+        multipleExposureMinPercent:
+          type: number
+        defaultRole:
+          type: object
+          properties:
+            role:
+              type: string
+            limitAccessByEnvironment:
+              type: boolean
+            environments:
+              type: array
+              items:
+                type: string
+        statsEngine:
+          type: string
+        pValueThreshold:
+          type: number
+        regressionAdjustmentEnabled:
+          type: boolean
+        regressionAdjustmentDays:
+          type: number
+        sequentialTestingEnabled:
+          type: boolean
+        sequentialTestingTuningParameter:
+          type: number
+        attributionModel:
+          type: string
+          enum:
+            - firstExposure
+            - experimentDuration
+        targetMDE:
+          type: number
+        delayHours:
+          type: number
+        windowType:
+          type: string
+        windowHours:
+          type: number
+        winRisk:
+          type: number
+        loseRisk:
+          type: number
+        secureAttributeSalt:
+          type: string
+        killswitchConfirmation:
+          type: boolean
+        requireReviews:
+          type: array
+          items:
+            type: object
+            properties:
+              requireReviewOn:
+                type: boolean
+              resetReviewOnChange:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+              projects:
+                type: array
+                items:
+                  type: string
+        featureKeyExample:
+          type: string
+        featureRegexValidator:
+          type: string
+        banditScheduleValue:
+          type: number
+        banditScheduleUnit:
+          type: string
+          enum:
+            - hours
+            - days
+        banditBurnInValue:
+          type: number
+        banditBurnInUnit:
+          type: string
+          enum:
+            - hours
+            - days
+        experimentMinLengthDays:
+          type: number
+        experimentMaxLengthDays:
+          type: number
+          nullable: true
+        preferredEnvironment:
+          type: string
+          nullable: true
+        maxMetricSliceLevels:
+          type: number
+    CodeRef:
+      type: object
+      required:
+        - organization
+        - dateUpdated
+        - feature
+        - repo
+        - branch
+        - refs
+      properties:
+        organization:
+          type: string
+          description: The organization name
+        dateUpdated:
+          type: string
+          format: date-time
+          description: When the code references were last updated
+        feature:
+          type: string
+          description: Feature identifier
+        repo:
+          type: string
+          description: Repository name
+        branch:
+          type: string
+          description: Branch name
+        platform:
+          type: string
+          enum:
+            - github
+            - gitlab
+            - bitbucket
+          description: Source control platform
+        refs:
+          type: array
+          items:
+            type: object
+            required:
+              - filePath
+              - startingLineNumber
+              - lines
+              - flagKey
+            properties:
+              filePath:
+                type: string
+                description: Path to the file containing the reference
+              startingLineNumber:
+                type: integer
+                description: Line number where the reference starts
+              lines:
+                type: string
+                description: The code lines containing the reference
+              flagKey:
+                type: string
+                description: The feature flag key referenced
+    CustomField:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - section
+        - dateCreated
+        - dateUpdated
+        - active
+        - required
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        section:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        values:
+          type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -5766,19 +8897,30 @@ x-tagGroups:
       - environments
       - features
       - data-sources
+      - fact-tables
+      - fact-metrics
       - metrics
       - experiments
+      - snapshots
       - dimensions
       - segments
       - sdk-connections
       - visual-changesets
       - saved-groups
       - organizations
-      - fact-tables
-      - fact-metrics
+      - members
       - code-references
+      - archetypes
+      - queries
+      - settings
+      - custom-fields
+      - attributes
   - name: Models
     tags:
+      - Archetype_model
+      - Attribute_model
+      - CodeRef_model
+      - CustomField_model
       - DataSource_model
       - Dimension_model
       - Environment_model
@@ -5786,8 +8928,11 @@ x-tagGroups:
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - ExperimentSnapshot_model
+      - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
+      - FactTableColumn_model
       - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model
@@ -5795,14 +8940,22 @@ x-tagGroups:
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
+      - FeatureRevision_model
       - FeatureRolloutRule_model
       - FeatureRule_model
+      - FeatureSafeRolloutRule_model
+      - FeatureWithRevisions_model
+      - Member_model
       - Metric_model
+      - MetricAnalysis_model
       - Organization_model
       - PaginationFields_model
       - Project_model
+      - Query_model
       - SavedGroup_model
+      - ScheduleRule_model
       - SdkConnection_model
       - Segment_model
+      - Settings_model
       - VisualChange_model
       - VisualChangeset_model

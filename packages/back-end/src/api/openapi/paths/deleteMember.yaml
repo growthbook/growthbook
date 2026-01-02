@@ -1,0 +1,22 @@
+summary: Removes a single user from an organization
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - members
+operationId: deleteMember
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X DELETE https://api.growthbook.io/api/v1/members/member_id \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - deletedId
+          properties:
+            deletedId:
+              type: string

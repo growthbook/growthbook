@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { PresentationInterface } from "../../types/presentation";
+import { PresentationInterface } from "shared/types/presentation";
 
 const presentationSchema = new mongoose.Schema({
   id: String,
@@ -45,5 +45,5 @@ export type PresentationDocument = mongoose.Document & PresentationInterface;
 
 export const PresentationModel = mongoose.model<PresentationInterface>(
   "Presentation",
-  presentationSchema
+  presentationSchema,
 );

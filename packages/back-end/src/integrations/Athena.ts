@@ -1,17 +1,19 @@
-import { decryptDataSourceParams } from "../services/datasource";
-import { cancelAthenaQuery, runAthenaQuery } from "../services/athena";
-import { ExternalIdCallback, QueryResponse } from "../types/Integration";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
-import { FormatDialect } from "../util/sql";
+import { FormatDialect } from "shared/types/sql";
+import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import {
+  cancelAthenaQuery,
+  runAthenaQuery,
+} from "back-end/src/services/athena";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
   params!: AthenaConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<AthenaConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";
@@ -24,7 +26,7 @@ export default class Athena extends SqlIntegration {
   }
   runQuery(
     sql: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql, setExternalId);
   }
@@ -35,7 +37,7 @@ export default class Athena extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }
@@ -49,7 +51,19 @@ export default class Athena extends SqlIntegration {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
   ensureFloat(col: string): string {
-    return `CAST(${col} as double)`;
+    return `CAST(${col} AS double)`;
+  }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `APPROX_SET(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `MERGE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `CARDINALITY(${col})`;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

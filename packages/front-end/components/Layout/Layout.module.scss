@@ -1,12 +1,9 @@
+@use "../../styles/variables";
 @import "../../styles/colors.scss";
-$sidebarwidth: 240px;
-$expandedwidth: 240px;
-$collapsedSidebarwidth: 70px;
-$topbarheight: 60px;
 
 .sidebar {
-  background-color: $dark-blue;
-  width: $sidebarwidth;
+  background-color: var(--color-landmark);
+  width: variables.$sidebarwidth;
   flex-direction: column;
   display: flex;
   height: 100%;
@@ -19,7 +16,7 @@ $topbarheight: 60px;
 }
 .sidebarlogo {
   padding: 8px 20px 8px;
-  width: $sidebarwidth;
+  width: variables.$sidebarwidth;
   height: 56px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
 }
@@ -60,8 +57,8 @@ $topbarheight: 60px;
 
 @media (max-width: 1180px) {
   .sidebar {
-    width: $expandedwidth;
-    left: -$expandedwidth;
+    width: variables.$expandedwidth;
+    left: -(variables.$expandedwidth);
     padding-top: 60px;
     z-index: 1000;
   }
@@ -70,7 +67,7 @@ $topbarheight: 60px;
   }
   .closebutton {
     position: absolute;
-    top: $topbarheight;
+    top: variables.$topbarheight;
     right: 0;
     width: 40px !important;
     height: 40px !important;

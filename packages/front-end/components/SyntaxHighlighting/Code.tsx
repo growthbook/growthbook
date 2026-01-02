@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, { ReactElement, Suspense, useState } from "react";
+import React, { CSSProperties, ReactElement, Suspense, useState } from "react";
 import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import dynamic from "next/dynamic";
@@ -52,22 +52,28 @@ export default function Code({
   code,
   language,
   className = "",
+  style: _style,
   expandable = false,
   containerClassName,
   filename,
   errorLine,
   highlightLine,
   startingLineNumber,
+  showLineNumbers = true,
+  maxHeight,
 }: {
   code: string;
   language: Language;
   className?: string;
+  style?: CSSProperties;
   expandable?: boolean;
   containerClassName?: string;
   filename?: string | ReactElement;
   errorLine?: number;
   highlightLine?: number;
   startingLineNumber?: number;
+  showLineNumbers?: boolean;
+  maxHeight?: string;
 }) {
   language = language || "none";
   if (language === "sh") language = "bash";
@@ -84,11 +90,15 @@ export default function Code({
   style['code[class*="language-"]'].fontWeight = 600;
 
   const codeBackgrounds = {
-    dark: "#212529",
+    dark: "transparent",
     light: "#fff",
   };
   style['pre[class*="language-"]'].backgroundColor = codeBackgrounds[theme];
-  style['pre[class*="language-"]'].border = "1px solid var(--border-color-200)";
+  style['pre[class*="language-"]'].border = "1px solid var(--slate-a4)";
+
+  if (maxHeight) {
+    style['pre[class*="language-"]'].maxHeight = maxHeight;
+  }
 
   const display =
     filename ||
@@ -108,9 +118,13 @@ export default function Code({
       })}
       style={{
         maxWidth: "100%",
+        ..._style,
       }}
     >
-      <div className="action-buttons bg-light border border-bottom-0 d-flex align-items-center rounded-top">
+      <div
+        className="action-buttons bg-light d-flex align-items-center rounded-top"
+        style={{ border: "1px solid var(--slate-a4)", borderBottom: "none" }}
+      >
         <div>
           <small className="text-muted px-2">{display}</small>
         </div>
@@ -165,13 +179,13 @@ export default function Code({
           language={language}
           style={style}
           className={clsx("rounded-bottom", className)}
-          showLineNumbers={true}
+          showLineNumbers={showLineNumbers}
           startingLineNumber={startingLineNumber ?? 1}
           {...(errorLine
             ? {
                 wrapLines: true,
                 lineProps: (
-                  lineNumber: number
+                  lineNumber: number,
                 ): React.HTMLProps<HTMLElement> => {
                   const style: React.CSSProperties = {};
                   if (errorLine && lineNumber === errorLine) {
@@ -186,7 +200,7 @@ export default function Code({
             ? {
                 wrapLines: true,
                 lineProps: (
-                  lineNumber: number
+                  lineNumber: number,
                 ): React.HTMLProps<HTMLElement> => {
                   const style: React.CSSProperties = {};
                   if (highlightLine && lineNumber === highlightLine) {

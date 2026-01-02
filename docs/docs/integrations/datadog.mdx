@@ -1,100 +1,67 @@
-# Integrate DataDog with GrowthBook Feature Flag Data
+# DataDog Integration
 
-By harnessing the power of DataDog's monitoring and alerting capabilities, along with GrowthBook&apos;s powerful REST API, you can create a dynamic system that automatically toggles GrowthBook Feature Flags when error thresholds surpass predefined thresholds.
+## DataDog RUM with Feature Flag Data
 
-## Setup Instructions
+Integrating DataDog's Real User Monitoring (RUM) with GrowthBook's feature flag data lets you quickly identify which experience your users were exposed to and if the changes introduced affect the user experience.
 
-### 1. Instrument DataDog with Feature Flag Data
+This guide will cover the initial setup and an advanced example of how to leverage DataDog and GrowthBook's powerful APIs to create a dynamic system that automatically toggles GrowthBook feature flags based on error thresholds.
 
-DataDog has a number of products that can be used to monitor applications. For this example, we'll focus on how to integrate
-GrowthBook with [DataDog RUM](https://www.datadoghq.com/product/real-user-monitoring/).
+### Setup
 
-To get started, you'll first need to instrument DataDog's RUM with their beta [Feature Flag Tracking](https://docs.datadoghq.com/real_user_monitoring/feature_flag_tracking/) feature.
+:::info Older DataDog RUM browser SDK versions
 
-When initializing `datadogRum` you can add `enableExperimentalFeatures` and pass in `feature_flags` to get access to the beta feature.
-
-```ts
-datadogRum.init({
-  applicationId: "sample-application-id",
-  clientToken: "sample-client-token",
-  site: "datadoghq.com",
-  service: "demo-app",
-  env: "dev",
-  version: "1.0.0",
-  sessionSampleRate: 100,
-  sessionReplaySampleRate: 100,
-  trackUserInteractions: true,
-  trackResources: true,
-  trackLongTasks: true,
-  defaultPrivacyLevel: "mask-user-input",
-// This enables the beta feature flag tracking
-  enableExperimentalFeatures: ["feature_flags"],
-});
-
-datadogRum.startSessionReplayRecording();
-```
-
-Then, you can use the `addFeatureFlagEvaluation` method built in to the `datadogRum` package when evaluating GrowthBook Feature Flags.
-
-```ts
-import { datadogRum } from "@datadog/browser-rum";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-
-const welcomeMessage = useFeatureIsOn("welcome-message");
-
-datadogRum.addFeatureFlagEvaluation("welcome-message", welcomeMessage);
-```
-
-:::info Note
-
-If you are using [DataDog APM](https://www.datadoghq.com/product/apm/), you can do something similar by adding Feature Flag data to your traces. DataDog then
-has a helpful guide on how to [Connect Rum & Traces](https://docs.datadoghq.com/real_user_monitoring/connect_rum_and_traces/?tab=browserrum).
-This route will enable you do have alerts built around both front-end and back-end errors.
+If your DataDog RUM browser SDK version is below v5.17.0, [enable feature flags during RUM SDK initialization](https://docs.datadoghq.com/real_user_monitoring/guide/setup-feature-flag-data-collection/?tab=browser#setup).
 
 :::
 
-### 2. Build a DataDog Dashboard & Monitor
+We can report all feature flag evaluations to DataDog using GrowthBook’s SDK `onFeatureUsage` callback, as shown in the snippet below.
 
-Now that you&apos;re passing Feature Flag data to DataDog, you can build monitors and alerts when the error rate between Feature Flags variations cross a specific threshold within a pre-defined time period.
+```javascript
+const gb = new GrowthBookClient({
+  onFeatureUsage: (featureKey, result) => {
+    datadogRum.addFeatureFlagEvaluation(featureKey, result.value);
+  }
+});
+```
 
-![](../../static/images/integrations/datadog/add-feature-flags-to-dashboard-data-dog.png)
+### Advanced example
+
+Now that you're passing Feature Flag data to DataDog, you can build monitors and alerts when the error rate between Feature Flags variations cross a specific threshold within a pre-defined time period.
+
+#### 1. Create a DataDog monitor
 
 The beta Feature Flag Tracking feature allows you to see error rates between the various feature flag states.
 
-![](../../static/images/integrations/datadog/view-feature-flags-error-rates-in-data-dog.png)
+![Screenshot showing error rates between feature flag variations in DataDog RUM interface](../../static/images/integrations/datadog/1-view-feature-flags-error-rates-in-data-dog.png)
 
-You can then save the view to a Dashboard.
+You can then save the Error rate view to a Dashboard.
 
-![](../../static/images/integrations/datadog/add-feature-flags-to-dashboard-data-dog.png)
+![Screenshot adding feature flags errors per view to a DataDog dashboard](../../static/images/integrations/datadog/2-add-feature-flags-to-dashboard-data-dog.png)
 
-From the Dashboard, there is a handy “Create Monitor” option that can seed much of the monitor&apos;s search query for you.
+And from the Dashboard, there is a handy “Create Monitor” option that can seed much of the monitor's search query for you.
 
-![](../../static/images/integrations/datadog/create-data-dog-monitor-from-dashboard.png)
+![Screenshot showing the "Create Monitor" option in a DataDog dashboard](../../static/images/integrations/datadog/3-create-data-dog-monitor-from-dashboard.png)
 
 This is the out-of-the-box search query created from the Create Monitor link above. You could take it a step further and calculate the difference in error rates between the Feature Flag variations (e.g. error rate when the Feature Flag is enabled vs disabled) and use that value as your alert threshold.
 
-![](../../static/images/integrations/datadog/customize-monitor-query-in-data-dog.png)
+![Screenshot customizing a monitor query in DataDog](../../static/images/integrations/datadog/4-customize-monitor-query-in-data-dog.png)
 
-### 3. Build DataDog Webhook
+#### 2. Create a DataDog webhook
 
-Once you&apos;ve defined a monitor&apos;s search query, you can then build an alert that uses DataDog&apos;s Webhooks to invokes a serverless function (e.g. AWS Lambda).
+Once you've defined a monitor's search query, you can then build an alert that uses DataDog's Webhooks to make a request to the GrowthBook API.
 
-Before you can call a [Webhook](https://docs.datadoghq.com/integrations/webhooks/) via a monitor alert, you&apos;ll need to build the Webhook within DataDog.
+Before you can call a [Webhook](https://docs.datadoghq.com/integrations/webhooks/) via a monitor alert, you'll need to build the Webhook within DataDog.
 
 You can do that via the Integrations tab.
 
-![](../../static/images/integrations/datadog/create-datadog-webhook.png)
+![Screenshot showing a DataDog tile integration to create a webhook](../../static/images/integrations/datadog/5-create-datadog-webhook.png)
 
-Once installed, you can build the Webhook that will invoke the serverless function. In this case, it&apos;s an AWS Lambda function that is invoked via a [Function URL](https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html).
+Once installed, you can build the Webhook that will turn the feature flag off for the desired environments.
 
-![](../../static/images/integrations/datadog/customize-webhook-to-hit-aws-url.png)
+Remember to update the Webhook URL with your feature flag ID [as described here](/api#tag/features/operation/toggleFeature).
 
-Now that you&apos;ve built the Webhook, you can go back to the monitor alert and instead of emailing a team member, you can configure the alert to call the Webhook.
+![Screenshot customizing a webhook in DataDog to make a request to GrowthBook feature toggle endpoint](../../static/images/integrations/datadog/6-customize-webhook-to-hit-api-url.png)
 
-![](../../static/images/integrations/datadog/update-datadog-alert-to-post-to-webhook.png)
+#### 3. Update the monitor to trigger the webhook
 
-### 4. Update Feature Flag via GrowthBook REST API.
-
-The final step is to build a serverless function that hits the GrowthBook REST API endpoint to toggle status of a feature flag.
-
-The [GrowthBook REST API](https://docs.growthbook.io/api/#tag/features/operation/toggleFeature) endpoint takes a simple POST request with basic HTTP auth and only requires the feature flag ID (the human-readable string), along with the environments you want to update and the new status of the Feature Flag for each environment.
+Now that you've built the Webhook, you can go back to the monitor alert and instead of emailing a team member, you can configure the alert to call the Webhook.

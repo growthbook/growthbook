@@ -1,11 +1,12 @@
 import { FC, useEffect, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/ui/Callout";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -24,12 +25,10 @@ const ImportExperimentModal: FC<{
 }) => {
   const settings = useOrgSettings();
   const { datasources, project } = useDefinitions();
-  const [
-    selected,
-    setSelected,
-  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
-    initialValue ?? null
-  );
+  const [selected, setSelected] =
+    useState<null | Partial<ExperimentInterfaceStringDates>>(
+      initialValue ?? null,
+    );
   const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
@@ -41,7 +40,7 @@ const ImportExperimentModal: FC<{
 
     if (settings?.defaultDataSource) {
       const ds = validDatasources.find(
-        (d) => d.id === settings.defaultDataSource
+        (d) => d.id === settings.defaultDataSource,
       );
       if (ds) {
         return ds.id;
@@ -69,7 +68,7 @@ const ImportExperimentModal: FC<{
         }
       } catch (e) {
         setError(
-          e.message ?? "An error occurred. Please refresh and try again."
+          e.message ?? "An error occurred. Please refresh and try again.",
         );
         console.error(e);
       }
@@ -93,16 +92,17 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
-      header="Add Experiment"
+      trackingEventModalType="import-experiment"
+      header="Import Experiment"
       open={true}
       size="max"
       close={() => onClose()}
     >
-      <div className="alert alert-info">
+      <Callout status="info" mb="3">
         Don&apos;t see your experiment listed below?{" "}
         <a
-          href="#"
-          className="alert-link"
+          role="button"
+          className="link"
           onClick={(e) => {
             e.preventDefault();
             setImportModal(false);
@@ -110,7 +110,7 @@ const ImportExperimentModal: FC<{
         >
           Create From Scratch
         </a>
-      </div>
+      </Callout>
       <h2>Import from Data source</h2>
       {importId && (
         <ImportExperimentList
@@ -123,7 +123,9 @@ const ImportExperimentModal: FC<{
       )}
       {error ? (
         <>
-          <div className="alert alert-danger">{error}</div>
+          <Callout status="error" mb="3">
+            {error}
+          </Callout>
           <SelectField
             label="Choose a Data Source"
             value={datasourceId}

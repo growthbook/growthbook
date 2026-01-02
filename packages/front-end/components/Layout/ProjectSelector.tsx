@@ -50,6 +50,7 @@ function ProjectName({
   className,
   bold = false,
   caret = false,
+  size = "small",
   badge,
 }: {
   display: string;
@@ -57,15 +58,16 @@ function ProjectName({
   className?: string;
   bold?: boolean;
   caret?: boolean;
+  size?: "small" | "large";
   badge: ProjectDropdownBadgeProps | null;
 }) {
   return (
     <div
       className={clsx(className, "d-flex align-items-center")}
-      style={{ padding: "10px" }}
+      style={{ padding: "5px 10px" }}
     >
       <div className="position-relative">
-        <LetterAvatar name={avatarName} defaultInitials="ALL" />
+        <LetterAvatar name={avatarName} defaultInitials="ALL" size={size} />
         {badge ? <ProjectDropdownBadge {...badge} /> : null}
       </div>
       <div
@@ -76,7 +78,11 @@ function ProjectName({
           wordBreak: "break-word",
         }}
       >
-        {bold ? <strong>{display}</strong> : display}
+        {bold ? (
+          <strong style={{ fontWeight: 600 }}>{display}</strong>
+        ) : (
+          display
+        )}
       </div>
       {caret && <FaCaretDown />}
     </div>
@@ -151,13 +157,15 @@ export default function ProjectSelector() {
         caret={false}
         right={false}
         width={220}
-        className={"p-0"}
+        className={"p-0 pb-2"}
         toggle={
           <ProjectName
             caret
             avatarName={current?.name || ""}
             display={current?.name || "All Projects"}
+            bold={true}
             badge={currentProjectIsDemoProject ? demoBadge : null}
+            size="large"
           />
         }
       >
@@ -168,7 +176,7 @@ export default function ProjectSelector() {
           onClick={() => {
             setProject("");
           }}
-          className="p-0"
+          className="p-0 px-1"
         >
           <ProjectName
             badge={null}
@@ -181,7 +189,7 @@ export default function ProjectSelector() {
         {items.map((p) => {
           return (
             <DropdownLink
-              className="p-0"
+              className="p-0 px-1"
               key={p.id}
               onClick={() => {
                 setProject(p.id);

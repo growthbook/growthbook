@@ -22,9 +22,11 @@ hide_table_of_contents: true
 
 [Audit Logs](/account/audit-logs): Audit logs in GrowthBook are records of all actions taken on the platform, useful for auditing user activities and troubleshooting issues. These logs can be accessed from the Settings → Log in the left navigation.
 
+[Audit Logs Export](/account/audit-logs): Audit logs with the ability to search and export.
+
 **B**
 
-[Binomial Metric](/app/metrics#binomial-metrics): A binomial metric in GrowthBook is a type of metric that represents a binary outcome (yes/no or success/failure), such as whether a user converted or not, and is used to compute the proportion of users in an experiment variation who converted.
+[Binomial Metric](/app/metrics/legacy#binomial-metrics): A binomial metric in GrowthBook is a type of legacy metric that represents a binary outcome (yes/no or success/failure), such as whether a user converted or not, and is used to compute the proportion of users in an experiment variation who converted. The new name for this metric type is a Proportion Metric.
 
 **C**
 
@@ -38,9 +40,23 @@ hide_table_of_contents: true
 
 [Control](/using/fundamentals#control-or-baseline): The control in GrowthBook refers to the baseline or original version in an A/B test against which other variations are compared to determine their effectiveness.
 
-[Count Metric](/app/metrics#conversion-types): A count metric in GrowthBook is a type of metric that represents the number or magnitude of conversions (like pages per visit or points earned), where the value of each conversion event is summed together at the user level before taking an average per variation.
+[Count Metric](/app/metrics/legacy#conversion-types): A count metric in GrowthBook is a type of legacy metric that represents the number or magnitude of conversions (like pages per visit or points earned), where the value of each conversion event is summed together at the user level before taking an average per variation. The new name for this metric type is a Mean Metric.
+
+[CUPED](/statistics/cuped): Enable CUPED to reduce variance in experiments and get results up to 2x faster.
+
+[Custom CDN Usage Limits](https://www.growthbook.io/pricing): Pro and Enterprise organizations can pay for additional CDN usage above the included amount (varies by plan, starts at 1M requests / 5GB bandwidth) on GrowthBook Cloud.
+
+[Custom Fields](/using/growthbook-best-practices#custom-fields): Allows enterprise organizations to create custom fields that can be added to features and experiments.
+
+[Custom Page Markdown](/using/growthbook-best-practices#custom-markdown): Inject custom content onto specific pages to help enforce company standards and processes. For example, add a link to internal best practices at the top of all feature flag pages.
+
+[Custom Pre-Launch Experiment Checklist](/app/pre-launch-checklist): Create custom checklists that have to be completed before starting an experiment. For example, require users to add a hypothesis.
+
+[Custom Roles](/account/user-permissions#custom-roles): Define your own user roles with custom sets of permissions
 
 **D**
+
+[Data Pipeline Mode](/app/data-pipeline): Write intermediate experiment results to temp tables in your data warehouse for more efficient and faster data refreshes
 
 [Data Source](/app/datasources): A Data Source in GrowthBook is how the platform connects to your data warehouse to pull aggregated statistics in order to compute metrics and experiment results, supporting various SQL versions and event tracker software.
 
@@ -48,13 +64,23 @@ hide_table_of_contents: true
 
 [Dimension](/app/dimensions): A Dimension in GrowthBook is a way to slice and dice your data, allowing you to drill down into your results by different user attributes or experiment characteristics for deeper analysis.
 
+[Discover Metrics / Auto Generate Metrics](/app/metrics/legacy#auto-generate-metrics): Allows organizations using GA4, Segment, Rudderstack, or Amplitude for event tracking to automatically generate count and binomial metrics for each unique tracked event.
+
 [Duration Metric](/using/experimenting#test-duration): A duration metric in GrowthBook is a type of metric that measures the time it takes to do something (like page load time or time on site), where the value of each event is summed together at the user level before taking an average per variation.
 
 **E**
 
 [Edge SDK](/lib/edge/cloudflare): The Edge SDK in GrowthBook is a set of libraries designed to run on edge workers, enabling server-side or hybrid experimentation with features like visual and URL redirect experiments without flicker or delay.
 
+[Encrypted SDK Payload](/app/api#encryption): Provide an extra level of obfuscation to avoid leaking sensitive feature flag and experiment configs in client-side integrations.
+
+[Enterprise Support](https://www.growthbook.io/pricing): Shared channel in Slack or Teams with a dedicated Account Manager and Support SLAs.
+
 [Environment](/features/environments): An Environment in GrowthBook is a specific context (like production, staging, or development) where you can enable or disable feature flags, allowing you to control and segment feature delivery across different stages of your application lifecycle.
+
+[Environment Inheritance](/features/environments#environment-inheritance): Create environments based on a parent environment to inherit all of its feature rules at the time of creation. Can be used for setting up new persistent environments (e.g. staging) or temporary ones for troubleshooting without affecting the parent.
+
+[Environment-Scoped Permissions](/account/user-permissions#environment-specific-limits): Allow a user to publish feature flag changes only to selected environments (e.g. dev, but not production).
 
 [Event Webhooks](/app/webhooks/event-webhooks): Event Webhooks in GrowthBook are outbound notifications that trigger when the state of GrowthBook changes, such as when a feature is modified or a new experiment is created, enabling real-time communication from GrowthBook to your applications.
 
@@ -64,7 +90,9 @@ hide_table_of_contents: true
 
 **F**
 
-[Fact Table](/app/fact-tables): A Fact Table in GrowthBook is a feature that allows you to write SQL once for an event and from that, you can create multiple related metrics, simplifying the process of defining metrics and enabling advanced performance and cost optimizations.
+[Fact Table](/app/metrics): A Fact Table in GrowthBook is a feature that allows you to write SQL once for an event and from that, you can create multiple related metrics, simplifying the process of defining metrics and enabling advanced performance and cost optimizations.
+
+[Fact Table Optimization](/kb/metrics/fact-metric-optimization): Combine multiple metrics from the same Fact Table into a single query, drastically cutting down on data warehouse compute and execution time.
 
 [Feature](/features/basics): Features in GrowthBook are configurable elements of your product that can be controlled via the GrowthBook UI, allowing you to change your application's behavior, run experiments, and gradually roll out new functionality to your users.
 
@@ -72,13 +100,13 @@ hide_table_of_contents: true
 
 [Feature Key](/features/basics#feature-keys): A Feature Key in GrowthBook is a unique identifier that you reference in your application to control a specific feature flag, and it cannot be changed later once it's created.
 
-[Forced Value](/features/rules#forced-value): A Forced Value in GrowthBook is a type of override rule that assigns a specific value to a feature for a subset of users based on targeting attributes, useful for testing or targeting specific user groups.
+[Forced Value](/features/rules#forced-value): A Forced Value in GrowthBook is a type of feature rule that assigns a specific value to a feature for a subset of users based on targeting attributes, useful for testing or targeting specific user groups.
 
 **G**
 
 [Global SDK Webhooks](/app/webhooks/global-sdk-webhooks): Global SDK Webhooks in GrowthBook are notifications that fire for all SDK Connection changes, not limited to a single SDK Connection, and are particularly useful for larger organizations with multi-org installations of GrowthBook.
 
-[GrowthBook Chrome Extension](/tools/chrome-extension): The GrowthBook Chrome Extension integrates with the JavaScript SDKs, allowing you to QA and debug feature flags and experiments from GrowthBook's JavaScript SDKs directly in your browser.
+[GrowthBook DevTools Browser Extension](/tools/chrome-extension): The GrowthBook DevTools Browser Extension (Chrome and Firefox) integrates with the JavaScript SDKs, allowing you to QA and debug feature flags and experiments from GrowthBook's JavaScript SDKs directly in your browser. The extension also includes the Visual Editor, our no-code experiment designer.
 
 [GrowthBook Proxy](/self-host/proxy): The GrowthBook Proxy is a server that sits between your application and GrowthBook, providing speed, scalability, security, and real-time feature rollouts by caching feature lookups and streaming updates in real-time.
 
@@ -88,21 +116,45 @@ hide_table_of_contents: true
 
 [Holdout Experiments](/kb/experiments/holdouts): Holdout Experiments in GrowthBook are a method of measuring the long-term impact of one or more features by keeping a set of users (the holdout group) from seeing new features and comparing their behavior to another set of users who do see the new features.
 
+**J**
+
+[JSON Schema Validation](/features/basics#json-flags): Apply validation to JSON feature flags to enforce a specific data structure and avoid typos.
+
+**L**
+
+[Live Chat Support](https://www.growthbook.io/pricing): An in-app messaging tool for providing instant customer support and assistance. GrowthBook Cloud only.
+
 **M**
 
-[Metric](/app/metrics): A Metric in GrowthBook is a key performance indicator that your experiments are trying to improve, defined via SQL or a simple query builder, and can be of various types like binomial, count, duration, and revenue.
+[Mean Metric](/app/metrics#mean-metrics): A Mean Metric in GrowthBook is a type of metric that measures an average value among all experiment users. For example, the average revenue per user.
 
-[Metric Query](/app/metrics#query-settings): A Metric Query in GrowthBook is a SQL or simple query that defines how to fetch data for a specific metric from your data source, returning one row per "conversion event" and supporting various types of identifiers.
+[Metric](/app/metrics): A Metric in GrowthBook is a key performance indicator that your experiments are trying to improve, defined via SQL or a simple query builder, and can be of various types like proportion, mean, quantile, or ratio.
+
+[Metric Groups](/app/metrics#metric-groups): Group related metrics together and easily add them in bulk to experiments. Great for company-wide guardrail metrics.
+
+[Metric Overrides](/app/metrics#bayesian-priors):
+
+[Metric Query](/app/metrics/legacy#query-settings): A Metric Query in GrowthBook is a SQL or simple query that defines how to fetch data for a specific metric from your data source, returning one row per "conversion event" and supporting various types of identifiers.
+
+[Multi-Arm Bandits](/bandits/overview): Optimize experimentation by dynamically adjusting traffic to the best-performing variations in real-time.
+
+[Multi-Org Deployments](/self-host/env#multi-org): For self-hosted deployments, configure multiple top-level organizations with complete data isolation. Users can be centrally managed and assigned to multiple orgs.
 
 [Multiple Exposures](/using/experimenting#multiple-exposures): Multiple Exposures in GrowthBook refers to a situation where a substantial number of users in an experiment have been exposed to multiple variations, indicating a potential issue with the experiment assignment or tracking implementation.
+
+[Multiple SDK Webhooks](/app/webhooks/global-sdk-webhooks): The ability to fire multiple webhooks when an SDK payload changes. This enables complex integrations and workflows.
 
 **N**
 
 [Namespace](/feature-flag-experiments#namespaces): A Namespace in GrowthBook is a feature that allows you to make multiple experiments mutually exclusive, ensuring that users are only part of one experiment within the same namespace at a time, useful for avoiding conflicts between experiments.
 
+[No Access Role](/account/user-permissions#how-does-the-no-access-role-work): A base role with zero permissions (not even read access). Combine with project-scoped roles for fine-grained access control.
+
 **O**
 
-[Override Rule](/features/basics#override-rules): An Override Rule in GrowthBook is a rule that allows you to change the default value of a feature for specific users or groups, supporting different types like Forced Value, Percentage Rollout, and A/B Experiment, and providing fine-grained control over feature assignment.
+[Onboarding and Training](https://www.growthbook.io/pricing): Help your team be successful with onboarding presentations and team training customized to your needs. Our team of experimentation experts can help elevate your team to understand A/B testing best practices and pitfalls, and run better experiments. For Enterprise plan customers.
+
+[Overall Experiment Impact](/insights#experiment-impact): Quantify ROI of your experimentation program by rolling up the impact of all experiments within a time period.
 
 **P**
 
@@ -112,11 +164,29 @@ hide_table_of_contents: true
 
 [Prerequisite Feature](/features/prerequisites): A Prerequisite Feature in GrowthBook is a feature that controls the state of other features, rules, and experiments based on its own state, allowing for grouping of related features, creating a hierarchy of features, and enabling features based on user bucketing.
 
+[Prerequisite Targeting](/features/prerequisites#inline-prerequisite-targeting): Target individual experiments or feature flag rules based on the value of a different feature flag.
+
 [Project](/using/growthbook-best-practices#projects): A Project in GrowthBook is a way to organizationally separate features, metrics, experiments, and data sources by team or product feature within an organization, allowing for focused views and management of specific sections of GrowthBook.
+
+[Project-Scoped Roles](/account/user-permissions#project-specific-permissions): Assign a user different roles based on project. For example, read-only access globally, but full write access to specific projects.
+
+[Proportion Metric](/app/metrics#proportion-metrics): A Proportion Metric in GrowthBook is a type of metric that measures the percent of experiment users who match a specific criteria (like the percent of users who purchased something).
+
+**Q**
+
+[Quantile Metric](/app/metrics#quantile-metrics): A Quantile Metric in GrowthBook is a type of metric that measures a specific quantile (Median, P90, etc.) of a value. For example, P99 Latency or Median Revenue per User.
 
 **R**
 
-[Revenue Metric](/app/metrics#conversion-types): A Revenue Metric in GrowthBook is a type of metric that measures the amount of revenue earned (like revenue per user or average order value), where the value of each event is summed together at the user level before taking an average per variation.
+[Ratio Metric](/app/metrics#ratio-metrics): A Ratio Metric in GrowthBook is a type of metric that measures the ratio between two values. For example, Average Order Value (sum of revenue divided by number of orders).
+
+[Remote Evaluation](/lib/js#remote-evaluation): Allows experiments and feature flags to be evaluated on the server-side, ensuring consistent results across all client environments. This approach improves security and reduces the risk of manipulation or misconfiguration on the client-side.
+
+[Revenue Metric](/app/metrics/legacy#conversion-types): A Revenue Metric in GrowthBook is a type of legacy metric that measures the amount of revenue earned (like revenue per user or average order value), where the value of each event is summed together at the user level before taking an average per variation. The new name for this is a Mean Metric.
+
+[Roadmap Acceleration/Custom Features](https://www.growthbook.io/pricing): Get custom features built or ask us to accelerate feature development from our roadmap. For Enterprise plan customers.
+
+[Rule](/features/basics#rules): A Feature Rule in GrowthBook is a tool to change the default value of a feature for specific users or groups, supporting different types like Forced Value, Percentage Rollout, and A/B Experiment, and providing fine-grained control over feature assignment.
 
 **S**
 
@@ -124,19 +194,31 @@ hide_table_of_contents: true
 
 [Saved Groups](/features/targeting#saved-groups): Saved Groups in GrowthBook are reusable lists of users, based on specific attributes, that can be targeted across multiple features or experiments, supporting two types: ID Lists and Condition Groups, and allowing for efficient and consistent user targeting.
 
+[Saved Group Performance](/features/targeting#id-lists): Improved SDK performance when using saved groups to target large lists of user ids.
+
+[Scheduled Changes](/features/scheduling): Launch or end experiments and feature flags at pre-set times.
+
+[Schema Browser](/app/datasources#schema-browser): Allows a user to view the databases, schemas, and tables of their connected data source without having to leave GrowthBook. It also outlines what rows are available on a particular table, and the data type of each row.
+
 [SCIM](/integrations/scim): SCIM (System for Cross-domain Identity Management) in GrowthBook is a standard for managing users and groups across multiple applications, enabling automation of user provisioning and deprovisioning through your identity provider, currently supporting Okta as the identity provider.
 
 [SDK](/lib/): The SDK (Software Development Kit) in GrowthBook is a set of libraries for different programming languages that allows you to integrate GrowthBook into your application, enabling feature flagging, running experiments, and sending data back to GrowthBook for analysis.
 
-[SDK Connection](/features/environments#environments-and-sdks): An SDK Connection in GrowthBook is a unique link between your application and GrowthBook, generating a clientKey for read-only access to feature flags in a specific environment, and used by the SDKs to fetch feature flag states and override rules from the GrowthBook API.
+[SDK Connection](/features/environments#environments-and-sdks): An SDK Connection in GrowthBook is a unique link between your application and GrowthBook, generating a clientKey for read-only access to feature flags in a specific environment, and used by the SDKs to fetch feature flag states and rules from the GrowthBook API.
 
 [SDK Connection Endpoint](/app/api#sdk-connection-endpoints): The SDK Connection Endpoint in GrowthBook is a readonly API endpoint that provides access to a subset of your feature flag data, just enough for the GrowthBook SDKs to assign values to users, and does not require authentication to view.
 
 [SDK Webhooks](/app/webhooks/sdk-webhooks): SDK Webhooks in GrowthBook are notifications that trigger a script on your server whenever something changes within GrowthBook that will affect that SDK, allowing for real-time updates and synchronization of feature flag states.
 
+[Secure Attributes](/lib/js#secure-attributes): Mark specific targeting attributes (e.g. email address) as "secure" and they will be hashed before being sent to client-side SDKs
+
 [Segment](/using/experimenting#digging-deeper): A Segment in GrowthBook is a subset of users that match a particular attribute, allowing you to filter experiment results to only show users that match the segment, and can be created with SQL from the "Data and Metrics → Segments" page.
 
 [Self-Hosted](/self-host): Self-Hosted in GrowthBook refers to the option of hosting the GrowthBook platform on your own infrastructure, giving you full control over your data and allowing you to customize the platform to suit your specific needs.
+
+[Sequential Testing](/statistics/sequential): Allows for continuous monitoring and analysis of experiments, allowing early decisions without compromising statistical validity.
+
+[Simulate Feature Flags](/features/rules#testing-rules):For any set of user attributes, see how feature flags would be evaluated for that user. Save common sets of attributes as "archetypes" for easier debugging.
 
 [SSO](/sso): Single Sign-On (SSO) in GrowthBook is an enterprise feature that allows users to authenticate with a single set of credentials across multiple applications, available on GrowthBook Cloud or Self-hosted via OpenID Connect, and configurable with various identity providers.
 
@@ -148,11 +230,17 @@ hide_table_of_contents: true
 
 [Targeting Condition](/features/targeting#targeting-conditions): A Targeting Condition in GrowthBook is a rule that determines which users are included in an experiment or receive a specific feature value, based on user attributes, and can be defined using a simple UI or advanced JSON syntax inspired by MongoDB query syntax.
 
+[Team Permissions](/account/user-permissions#teams): Create teams of users and manage permissions and access on a team level
+
+[Top-Level Prerequisites](/features/prerequisites#top-level-prerequisites): Define a parent/child relationship between feature flags. When the parent is toggled off, all children flags will also be off.
+
 [TrackingCallback()](/lib/build-your-own#trackingcallback): The `trackingCallback()` in GrowthBook is a function that is called every time an experiment is run, allowing you to record the assigned value in your event tracking or analytics system, and is used across various SDKs for tracking experiment results.
 
 [Traffic Split](/lib/node#customizing-the-traffic-split): A Traffic Split in GrowthBook is a configuration that determines how users are divided among different variations in an experiment, allowing you to control both the percentage of users included in the experiment and the distribution of users among the variations.
 
 **U**
+
+[Uptime SLA (99.99%)](https://www.growthbook.io/pricing): For cloud customers, we offer uptime guarantees at four 9s.
 
 [URL Redirect](/app/url-redirects): A URL Redirect in GrowthBook is a type of experiment that redirects users to different URLs based on their assigned variation, ideal for testing big changes or complete page redesigns, and requires integration with GrowthBook's SDKs.
 

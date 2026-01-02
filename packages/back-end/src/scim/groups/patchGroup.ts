@@ -1,24 +1,27 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import { isRoleValid } from "shared/permissions";
+import { Member } from "shared/types/organization";
 import {
   BasicScimGroup,
   ScimError,
   ScimGroup,
   ScimGroupMember,
   ScimGroupPatchRequest,
-} from "../../../types/scim";
-import { findTeamById, updateTeamMetadata } from "../../models/TeamModel";
+} from "back-end/types/scim";
+import {
+  findTeamById,
+  updateTeamMetadata,
+} from "back-end/src/models/TeamModel";
 import {
   addMembersToTeam,
   expandOrgMembers,
   removeMembersFromTeam,
-} from "../../services/organizations";
-import { Member } from "../../../types/organization";
+} from "back-end/src/services/organizations";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
-  res: Response<ScimGroup | ScimError>
+  res: Response<ScimGroup | ScimError>,
 ) {
   const { Operations } = req.body;
   const { id } = req.params;
@@ -38,10 +41,13 @@ export async function patchGroup(
   for (const operation of Operations) {
     const { op, value, path } = operation;
 
+    const normalizedOp = op.toLowerCase();
+    const normalizedPath = path?.toLowerCase();
+
     try {
-      if (op === "remove") {
+      if (normalizedOp === "remove") {
         // Remove requested members
-        if (!path) {
+        if (!normalizedPath) {
           return res.status(400).json({
             schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
             status: "400",
@@ -59,7 +65,7 @@ export async function patchGroup(
             return { members: { value: member.id, display: member.email } };
           });
 
-        const f = filter(parse(path));
+        const f = filter(parse(normalizedPath));
         const filtered = members.filter(f);
 
         await removeMembersFromTeam({
@@ -67,18 +73,18 @@ export async function patchGroup(
           userIds: filtered.map((m) => m.members.value),
           teamId: team.id,
         });
-      } else if (op === "add" && path === "members") {
+      } else if (normalizedOp === "add" && normalizedPath === "members") {
         // Add requested members
         await addMembersToTeam({
           organization: org,
           userIds: (value as ScimGroupMember[]).map((m) => m.value),
           teamId: team.id,
         });
-      } else if (op === "replace" && path === "members") {
+      } else if (normalizedOp === "replace" && normalizedPath === "members") {
         // Replace all team members with requested members
         if (value) {
           const prevMembers: Member[] = org.members.filter((member) =>
-            member.teams?.includes(id)
+            member.teams?.includes(id),
           );
           await removeMembersFromTeam({
             organization: org,
@@ -92,7 +98,7 @@ export async function patchGroup(
             teamId: id,
           });
         }
-      } else if (op === "replace" && !path) {
+      } else if (normalizedOp === "replace" && !normalizedPath) {
         const role = (value as BasicScimGroup).growthbookRole;
 
         if (role && role !== team.role) {

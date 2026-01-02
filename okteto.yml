@@ -1,2 +1,0 @@
-deploy:
-  compose: .docker-compose-okteto.yml

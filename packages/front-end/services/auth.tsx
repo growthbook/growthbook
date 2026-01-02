@@ -10,32 +10,41 @@ import { useRouter } from "next/router";
 import {
   MemberRoleInfo,
   OrganizationInterface,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   IdTokenResponse,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
-import * as Sentry from "@sentry/react";
+} from "shared/types/sso-connection";
+import * as Sentry from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
-import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
-
-export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
+// eslint-disable-next-line
+type ErrorHandler = (responseData: any) => void;
+export type ApiCallType<T> = (
+  url: string,
+  options?: RequestInit,
+  errorHandler?: ErrorHandler,
+) => Promise<T>;
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
   logout: () => Promise<void>;
-  apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit,
+    errorHandler?: ErrorHandler,
+  ) => Promise<T>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
-  setOrganizations?: (orgs: UserOrganizations) => void;
+  setOrganizations?: (orgs: UserOrganizations, superAdmin: boolean) => void;
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
@@ -127,7 +136,7 @@ const isUnregisteredCloudUser = () => {
 
   try {
     const currentProject = window.localStorage.getItem(
-      LOCALSTORAGE_PROJECT_KEY
+      LOCALSTORAGE_PROJECT_KEY,
     );
     return currentProject === null;
   } catch (_) {
@@ -189,22 +198,23 @@ export async function redirectWithTimeout(url: string, timeout: number = 5000) {
   await new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{
+  exitOnNoAuth?: boolean;
+  children: ReactNode;
+}> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
+
+  const [, setProject] = useProject();
 
   async function init() {
     const resp = await refreshToken();
@@ -212,10 +222,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setInitError("");
       setToken(resp.token);
       setLoading(false);
+    } else if (!exitOnNoAuth) {
+      setInitError("");
+      setLoading(false);
     } else if ("redirectURI" in resp) {
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            trackingEventModalType=""
             open={true}
             submit={async () => {
               await redirectWithTimeout(resp.redirectURI);
@@ -230,7 +244,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             <p>
               You must sign in with your Enterprise SSO provider to continue.
             </p>
-          </Modal>
+          </Modal>,
         );
       } else {
         try {
@@ -238,7 +252,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             window.location.pathname + (window.location.search || "");
           window.sessionStorage.setItem(
             "postAuthRedirectPath",
-            redirectAddress
+            redirectAddress,
           );
         } catch (e) {
           // ignore
@@ -256,11 +270,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setAuthComponent(
         <Welcome
           firstTime={resp.newInstallation}
-          onSuccess={(t) => {
+          onSuccess={(t, pid) => {
             setToken(t);
+            if (pid) {
+              setProject(pid);
+            }
             setAuthComponent(null);
           }}
-        />
+        />,
       );
     } else {
       console.log(resp);
@@ -274,6 +291,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setInitError(e.message);
       console.error(e);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const orgList = [...organizations];
@@ -316,11 +334,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       return responseData;
     },
-    [orgId]
+    [orgId],
   );
 
   const apiCall = useCallback(
-    async (url: string | null, options: RequestInit = {}) => {
+    async (
+      url: string | null,
+      options: RequestInit = {},
+      errorHandler: ErrorHandler | null = null,
+    ) => {
       if (typeof url !== "string") return;
 
       let responseData = await _makeApiCall(url, token, options);
@@ -343,7 +365,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
                 window.location.pathname + (window.location.search || "");
               window.sessionStorage.setItem(
                 "postAuthRedirectPath",
-                redirectAddress
+                redirectAddress,
               );
             } catch (e) {
               // ignore
@@ -353,20 +375,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           }
           setSessionError(true);
           throw new Error(
-            "Your session has expired. Refresh the page to continue."
+            "Your session has expired. Refresh the page to continue.",
           );
         }
 
+        if (errorHandler) {
+          errorHandler(responseData);
+        }
         throw new Error(responseData.message || "There was an error");
       }
 
       return responseData;
     },
-    [token, _makeApiCall]
+    [token, _makeApiCall],
   );
 
   const wrappedSetOrganizations = useCallback(
-    (orgs: UserOrganizations) => {
+    (orgs: UserOrganizations, superAdmin: boolean) => {
       setOrganizations(orgs);
       if (orgId && orgs.map((o) => o.id).includes(orgId)) {
         return;
@@ -387,7 +412,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           if (
             pickedOrg &&
             !router.query.org &&
-            orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
+            (superAdmin ||
+              orgs.map((o) => o.id).includes(JSON.parse(pickedOrg)))
           ) {
             setOrgId(JSON.parse(pickedOrg));
           } else {
@@ -398,12 +424,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         }
       }
     },
-    [initialOrgId, orgId, router.query.org, specialOrg?.id]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id],
   );
 
   if (initError) {
     return (
       <Modal
+        trackingEventModalType=""
         header="logo"
         open={true}
         cta="Try Again"
@@ -429,6 +456,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (sessionError) {
     return (
       <Modal
+        trackingEventModalType=""
         open={true}
         cta="OK"
         submit={async () => {
@@ -493,7 +521,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string,
-  org: Partial<OrganizationInterface>
+  org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
   if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 

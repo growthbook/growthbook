@@ -5,10 +5,9 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { FaPlug } from "react-icons/fa";
 import pick from "lodash/pick";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
-import { TagInterface } from "back-end/types/tag";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import { TagInterface } from "shared/types/tag";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
@@ -19,6 +18,7 @@ import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
@@ -102,10 +102,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       {/* Empty state */}
       {slackIntegrations.length === 0 ? (
         <SlackIntegrationsEmptyState>
-          <button className="btn btn-primary" onClick={onCreateModalOpen}>
-            <FaPlug className="mr-2" />
-            Create a Slack integration
-          </button>
+          <Button onClick={onCreateModalOpen}>New Slack integration</Button>
         </SlackIntegrationsEmptyState>
       ) : (
         <div>
@@ -123,14 +120,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
             </div>
           ))}
 
-          <div className="mt-4">
-            <button
-              className="btn btn-primary mb-5"
-              onClick={onCreateModalOpen}
-            >
-              <FaPlug className="mr-2" />
-              Create a Slack integration
-            </button>
+          <div className="mt-4 mb-5">
+            <Button onClick={onCreateModalOpen}>New Slack integration</Button>
           </div>
         </div>
       )}
@@ -140,8 +131,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
 
 const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
   <div className="row">
-    <div className="col-xs-12 col-md-6 offset-md-3">
-      <div className="card text-center p-3">
+    <div className="col-12 ">
+      <div className="appbox text-center p-3">
         When Slack integrations are created, they will show up here.
         <div className="mt-4">{children}</div>
       </div>
@@ -152,10 +143,8 @@ const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
 export const SlackIntegrationsListViewContainer = () => {
   const { apiCall } = useAuth();
 
-  const [
-    modalMode,
-    setModalMode,
-  ] = useState<SlackIntegrationModalMode | null>();
+  const [modalMode, setModalMode] =
+    useState<SlackIntegrationModalMode | null>();
 
   const handleOnEditModalOpen = useCallback(
     (id: string, data: SlackIntegrationEditParams) => {
@@ -165,7 +154,7 @@ export const SlackIntegrationsListViewContainer = () => {
         id,
       });
     },
-    []
+    [],
   );
 
   const handleOnCreateModalOpen = useCallback(() => {
@@ -176,7 +165,11 @@ export const SlackIntegrationsListViewContainer = () => {
 
   const [addEditError, setAddEditError] = useState<null | string>(null);
 
-  const { data, mutate, error: loadError } = useApi<{
+  const {
+    data,
+    mutate,
+    error: loadError,
+  } = useApi<{
     slackIntegrations: SlackIntegrationInterface[];
   }>("/integrations/slack");
 
@@ -195,7 +188,7 @@ export const SlackIntegrationsListViewContainer = () => {
 
       await mutate();
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleCreate = useCallback(
@@ -215,7 +208,7 @@ export const SlackIntegrationsListViewContainer = () => {
           setAddEditError(
             `Failed to create Slack integration: ${
               response.error || "Unknown error"
-            }`
+            }`,
           );
         } else {
           setAddEditError(null);
@@ -226,7 +219,7 @@ export const SlackIntegrationsListViewContainer = () => {
         setAddEditError(`Failed to create Slack integration: ${e.message}`);
       }
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const handleUpdate = useCallback(
@@ -250,7 +243,7 @@ export const SlackIntegrationsListViewContainer = () => {
               "slackAppId",
               "slackSigningKey",
               "slackIncomingWebHook",
-            ])
+            ]),
           ),
         });
 
@@ -258,7 +251,7 @@ export const SlackIntegrationsListViewContainer = () => {
           setAddEditError(
             `Failed to update Slack integration: ${
               response.error || "Unknown error"
-            }`
+            }`,
           );
         } else {
           setAddEditError(null);
@@ -269,7 +262,7 @@ export const SlackIntegrationsListViewContainer = () => {
         setAddEditError(`Failed to update Slack integration: ${e.message}`);
       }
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const environmentSettings = useEnvironments();

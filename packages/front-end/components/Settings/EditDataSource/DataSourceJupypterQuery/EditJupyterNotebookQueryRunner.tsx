@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
@@ -9,11 +9,9 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 
 type EditJupyterNotebookQueryRunnerProps = DataSourceQueryEditingModalBaseProps;
 
-export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-}) => {
+export const EditJupyterNotebookQueryRunner: FC<
+  EditJupyterNotebookQueryRunnerProps
+> = ({ dataSource, onSave, onCancel }) => {
   if (!dataSource) {
     throw new Error("ImplementationError: dataSource cannot be null");
   }
@@ -32,6 +30,7 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       submit={handleSubmit}
       close={onCancel}

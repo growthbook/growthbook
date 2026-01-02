@@ -1,10 +1,23 @@
 .attributeBox {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   max-height: 520px;
   overflow-y: auto;
+  border: 1px solid var(--slate-a3);
+  border-radius: 0 7px 7px 7px;
 
   .attrHeader {
-    background-color: var(--surface-background-color);
+    background-color: var(--color-panel-solid);
+    z-index: 100;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--slate-a2);
+    }
   }
   .disabled {
     opacity: 0.4;

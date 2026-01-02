@@ -3,7 +3,7 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "target": "es6",
+    "target": "es2020",
     "noImplicitAny": true,
     "moduleResolution": "node",
     "sourceMap": true,
@@ -12,11 +12,17 @@
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    "rootDir": "src",
+    "baseUrl": "./",
     "paths": {
-      "@back-end/*": ["./*"]
+      "back-end/*": ["./*"]
     },
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "plugins": [{ "transform": "typescript-transform-paths" }],
+    "inlineSources": true,
+    // Set `sourceRoot` to  "/" to strip the build path prefix
+    // from generated source code references.
+    // This improves issue grouping in Sentry.
+    "sourceRoot": "/"
   },
   "include": ["src/**/*", "types/**/*.d.ts", "typings/**/*.d.ts"]
 }

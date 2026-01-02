@@ -1,18 +1,15 @@
 import React, { FC, Fragment, useState } from "react";
-import { ArchetypeInterface } from "back-end/types/archetype";
-import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
-import { FaPlusCircle } from "react-icons/fa";
+import { ArchetypeInterface } from "shared/types/archetype";
+import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { useAuth } from "@/services/auth";
+import Link from "next/link";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
-import ValueDisplay from "@/components/Features/ValueDisplay";
+import { ArchetypeValueDisplay } from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { parseFeatureResult } from "@/hooks/useArchetype";
 
 const ArchetypeResults: FC<{
   feature: FeatureInterface;
@@ -20,28 +17,20 @@ const ArchetypeResults: FC<{
   featureResults: Record<string, FeatureTestResult[]>;
   onChange: () => void;
 }> = ({ feature, archetype, featureResults, onChange }) => {
-  const { apiCall } = useAuth();
   const enableAdvDebug = false;
-  const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
-    false
-  );
+  const [showExpandedResults, setShowExpandedResults] =
+    useState<boolean>(false);
   const [showExpandedResultsId, setShowExpandedResultsId] = useState<
     string | null
   >(null);
   const [showExpandedResultsEnv, setShowExpandedResultsEnv] = useState<
     string | null
   >(null);
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-
-  const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canUpdateArchetype();
-  const canDelete = permissionsUtil.canDeleteArchetype();
 
   if (archetype.length === 0) {
     return null;
@@ -51,55 +40,8 @@ const ArchetypeResults: FC<{
   Object.keys(featureResults).map((id) => {
     const res = featureResults[id];
     res.map((tr: FeatureTestResult) => {
-      let matchedRule;
-      const debugLog: string[] = [];
-      if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
-        matchedRule = tr.featureDefinition.rules.find(
-          (r) => r.id === tr?.result?.ruleId
-        );
-      }
-      let matchedRuleName = "";
-      let brief = "";
-      if (tr?.result?.source === "experiment") {
-        const expName =
-          tr.result?.experimentResult?.name ||
-          tr?.result?.experiment?.key ||
-          null;
-        matchedRuleName = "Experiment" + (expName ? " (" + expName + ")" : "");
-        brief = "In experiment";
-      } else if (tr?.result?.source === "force") {
-        matchedRuleName = "Forced";
-        brief = "Force";
-        if (matchedRule && matchedRule?.coverage) {
-          matchedRuleName = "Rollout (" + matchedRule?.coverage * 100 + "%)";
-          brief = "Rollout";
-        }
-      } else if (tr?.result?.source === "defaultValue") {
-        matchedRuleName = "None - Returned Default Value";
-        brief = "Default";
-      }
-      if (tr?.log) {
-        tr.log.forEach((log) => {
-          const reason = log[0];
-          if (reason === "Skip rule because of condition") {
-            debugLog.push(
-              `Skipped because user did not match the rule conditions`
-            );
-          } else if (
-            reason === "Skip rule because user not included in rollout"
-          ) {
-            debugLog.push(
-              `Skipped rule because the user is not included in rollout`
-            );
-          } else if (reason === "In experiment") {
-            debugLog.push(`Included user in experiment rule`);
-          } else if (reason === "Use default value") {
-            debugLog.push(`No rules matched, using default value`);
-          } else {
-            debugLog.push(`${log[0]}`);
-          }
-        });
-      }
+      const { matchedRule, matchedRuleName, brief, debugLog } =
+        parseFeatureResult(tr);
       detailsMap.set(id + tr.env, {
         matchedRuleName,
         matchedRule,
@@ -200,7 +142,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     JSON.parse(details.archetype.attributes),
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -212,7 +154,7 @@ const ArchetypeResults: FC<{
                     code={JSON.stringify(
                       details.results.result.experimentResult,
                       null,
-                      2
+                      2,
                     )}
                   />
                 </div>
@@ -233,7 +175,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     details.results?.featureDefinition,
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -245,233 +187,114 @@ const ArchetypeResults: FC<{
   };
 
   return (
-    <div className={`mb-3`}>
-      <table className="table gbtable appbox ">
+    <div className={`mb-3`} style={{ overflowX: "auto" }}>
+      <table className="table gbtable appbox">
         <thead>
           <tr>
-            <th>Archetype</th>
+            <th>
+              <Link href="/archetypes">Archetype</Link>
+            </th>
             {environments.map((env) => (
               <th key={env.id} title={env.description}>
                 {env.id}
               </th>
             ))}
-            <th style={{ width: "40px" }}>
-              <FaPlusCircle
-                title="Create new archetype"
-                className="mr-1 cursor-pointer"
-                onClick={() => {
-                  setEditArchetype({});
-                }}
-              />
-            </th>
           </tr>
         </thead>
         <tbody>
-          {archetype.map((archetype: ArchetypeInterface) => (
-            <Fragment key={archetype.id}>
-              <tr
-                key={archetype.id}
-                className={`${
-                  showExpandedResultsId === archetype.id
-                    ? styles.rowExpanded
-                    : ""
-                }`}
-              >
-                <td>
-                  <Tooltip
-                    body={
-                      <>
-                        <Code
-                          code={JSON.stringify(
-                            JSON.parse(archetype.attributes),
-                            null,
-                            2
-                          )}
-                          language="json"
-                        />
-                      </>
-                    }
-                  >
-                    {archetype.name}
-                    {archetype.description && (
-                      <>
-                        <br />
-                        <span className="small text-muted">
-                          {archetype.description}
-                        </span>
-                      </>
-                    )}
-                  </Tooltip>
-                </td>
-                {featureResults[archetype.id].map(
-                  (result: FeatureTestResult) => (
-                    <td
-                      key={result.env}
-                      className={`${styles.valueCell} cursor-pointer ${
-                        showExpandedResultsId === archetype.id &&
-                        showExpandedResultsEnv === result.env
-                          ? styles.cellExpanded
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (enableAdvDebug) {
-                          if (
-                            showExpandedResults &&
+          {archetype.map((archetype: ArchetypeInterface) => {
+            if (!archetype.attributes) {
+              archetype.attributes = "{}";
+            }
+            let attrDisplay = "";
+            try {
+              const attrsObj = JSON.parse(archetype.attributes);
+              attrDisplay = JSON.stringify(attrsObj, null, 2);
+            } catch (e) {
+              console.error("Error parsing archetype attributes", e);
+            }
+            return (
+              <Fragment key={archetype.id}>
+                <tr
+                  key={archetype.id}
+                  className={`${
+                    showExpandedResultsId === archetype.id
+                      ? styles.rowExpanded
+                      : ""
+                  }`}
+                >
+                  <td>
+                    <Tooltip
+                      body={
+                        <>
+                          <Code code={attrDisplay} language="json" />
+                        </>
+                      }
+                      flipTheme={false}
+                    >
+                      {archetype.name}
+                      {archetype.description && (
+                        <>
+                          <br />
+                          <span className="small text-muted">
+                            {archetype.description}
+                          </span>
+                        </>
+                      )}
+                    </Tooltip>
+                  </td>
+                  {featureResults[archetype.id] &&
+                    featureResults[archetype.id].map(
+                      (result: FeatureTestResult) => (
+                        <td
+                          key={result.env}
+                          className={`${styles.valueCell} cursor-pointer ${
                             showExpandedResultsId === archetype.id &&
                             showExpandedResultsEnv === result.env
-                          ) {
-                            // the current details are already open, so close them:
-                            setShowExpandedResults(false);
-                            setShowExpandedResultsId(null);
-                            setShowExpandedResultsEnv(null);
-                          } else {
-                            setShowExpandedResults(true);
-                            setShowExpandedResultsId(archetype.id);
-                            setShowExpandedResultsEnv(result.env);
-                          }
-                        }
-                      }}
-                    >
-                      {result.enabled ? (
-                        <>
-                          <Tooltip
-                            className="d-inline-block"
-                            body={
-                              <>
-                                {!detailsMap.get(archetype.id + result.env)
-                                  .results.enabled ? (
-                                  <div className="text-center p-2 text-muted">
-                                    Feature disabled for this environment
-                                  </div>
-                                ) : (
-                                  <div className="">
-                                    <span className="text-muted">
-                                      Matched rule:
-                                    </span>{" "}
-                                    <strong>
-                                      {
-                                        detailsMap.get(
-                                          archetype.id + result.env
-                                        ).matchedRuleName
-                                      }
-                                    </strong>
-                                  </div>
-                                )}
-                                <h5 className="mt-3">Debug Log</h5>
-                                <div
-                                  className={`border bg-light border-light rounded px-3 py-1 ${styles.tooltiplog}`}
-                                >
-                                  {detailsMap
-                                    .get(archetype.id + result.env)
-                                    .debugLog.map((log: string, i) => (
-                                      <div
-                                        className="row align-items-center my-3"
-                                        key={i}
-                                      >
-                                        <div className="col-2">
-                                          {detailsMap.get(
-                                            archetype.id + result.env
-                                          )?.results?.result?.source ===
-                                            "defaultValue" &&
-                                          i ===
-                                            detailsMap.get(
-                                              archetype.id + result.env
-                                            ).debugLog.length -
-                                              1 ? (
-                                            <></>
-                                          ) : (
-                                            <div
-                                              key={i}
-                                              className={`text-light border rounded-circle bg-purple ${styles.ruleCircle}`}
-                                              style={{
-                                                width: 28,
-                                                height: 28,
-                                                lineHeight: "26px",
-                                                textAlign: "center",
-                                                fontWeight: "bold",
-                                              }}
-                                            >
-                                              {i + 1}
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="col">{log}</div>
-                                      </div>
-                                    ))}
-                                </div>
-                              </>
+                              ? styles.cellExpanded
+                              : ""
+                          }`}
+                          onClick={() => {
+                            if (enableAdvDebug) {
+                              if (
+                                showExpandedResults &&
+                                showExpandedResultsId === archetype.id &&
+                                showExpandedResultsEnv === result.env
+                              ) {
+                                // the current details are already open, so close them:
+                                setShowExpandedResults(false);
+                                setShowExpandedResultsId(null);
+                                setShowExpandedResultsEnv(null);
+                              } else {
+                                setShowExpandedResults(true);
+                                setShowExpandedResultsId(archetype.id);
+                                setShowExpandedResultsEnv(result.env);
+                              }
                             }
-                          >
-                            <>
-                              <div>
-                                <ValueDisplay
-                                  value={
-                                    typeof result.result?.value === "string"
-                                      ? result.result.value
-                                      : JSON.stringify(
-                                          result.result?.value ?? null
-                                        )
-                                  }
-                                  type={feature.valueType}
-                                  full={true}
-                                />
-                              </div>
-                              <span className="text-muted small">
-                                {
-                                  detailsMap.get(archetype.id + result.env)
-                                    ?.brief
-                                }
-                              </span>
-                            </>
-                          </Tooltip>
-                        </>
-                      ) : (
-                        <span className="text-muted">disabled</span>
-                      )}
-                    </td>
-                  )
-                )}
-                <td className={styles.showOnHover}>
-                  <MoreMenu>
-                    {canEdit ? (
-                      <button
-                        className="dropdown-item"
-                        onClick={() => {
-                          setEditArchetype(archetype);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    ) : null}
-                    {canDelete ? (
-                      <DeleteButton
-                        className="dropdown-item"
-                        displayName="Archetype"
-                        text="Delete"
-                        useIcon={false}
-                        onClick={async () => {
-                          await apiCall(`/archetype/${archetype.id}`, {
-                            method: "DELETE",
-                          });
-                          onChange();
-                        }}
-                      />
-                    ) : null}
-                  </MoreMenu>
-                </td>
-              </tr>
-              {showExpandedResults &&
-                showExpandedResultsId === archetype.id && (
-                  <>
-                    {expandedResults(
-                      detailsMap.get(
-                        showExpandedResultsId + showExpandedResultsEnv
-                      )
+                          }}
+                        >
+                          {result.enabled ? (
+                            <>{ArchetypeValueDisplay({ result, feature })}</>
+                          ) : (
+                            <span className="text-muted">disabled</span>
+                          )}
+                        </td>
+                      ),
                     )}
-                  </>
-                )}
-            </Fragment>
-          ))}
+                </tr>
+                {showExpandedResults &&
+                  showExpandedResultsId === archetype.id && (
+                    <>
+                      {expandedResults(
+                        detailsMap.get(
+                          showExpandedResultsId + showExpandedResultsEnv,
+                        ),
+                      )}
+                    </>
+                  )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
       {editArchetype && (

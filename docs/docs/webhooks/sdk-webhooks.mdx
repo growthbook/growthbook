@@ -11,11 +11,13 @@ GrowthBook has SDK-based webhooks that trigger a script on your server whenever 
 
 ## Adding a Webhook
 
-When logged into GrowthBook as an admin, navigate to **SDK Connections** .
+When logged into GrowthBook as an admin, navigate to **SDK Connections** and select an existing SDK Connection.
 
-Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST, PUT, GET, DELETE, PURGE`.
+Under the SDK Webhooks section you can add a webhook.
 
-Once a SDK webhook is created you will be able to view the secret and when the last time it was fired as well as if there was an error.
+There are built-in webhook types for syncing to **Cloudflare KV**, **Fastly KV**, and **Vercel Edge Config**. For everything else, you can configure a generic **HTTP Endpoint** to be hit.
+
+Once a SDK webhook is created you will be able to view the status and fire a test event.
 
 ### VPCs and Firewalls
 
@@ -82,12 +84,10 @@ app.post(
     const signature = rawSignature.split(",")[1];
 
     if (id && timestamp && signature) {
-      // Base64 encode the secret
-      const base64_secret = btoa(GROWTHBOOK_WEBHOOK_SECRET);
 
       // Compute the signature
       const computed = crypto
-        .createHmac("sha256", base64_secret)
+        .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
         .update(`${id}.${timestamp}.${body}`)
         .digest("base64");
 
@@ -127,6 +127,7 @@ You can view the status of your webhooks in the GrowthBook app under **SDK Conne
 - **PUT**
 - **DELETE**
 - **PURGE**
+- **PATCH**
 
 ## Payload Format
 
@@ -182,3 +183,34 @@ Example payload:
 ```json
 {"features":{"my-feature":{"defaultValue":true}}}
 ```
+
+### Vercel Edge Config
+
+Formats the body to work directly with Vercel's Edge Config API.
+
+Example payload:
+
+```json
+{
+  "items": [
+    {
+      "operation": "upsert",
+      "key": "gb_payload",
+      "value": {"features":{"my-feature":{"defaultValue":true}}}
+    }
+  ]
+}
+```
+
+In order for this to work properly, you must specify the following options as well, replacing the `your_*` placeholders with actual values.
+
+- Endpoint URL = `https://api.vercel.com/v1/edge-config/your_edge_config_id_here/items`
+- HTTP Method = `PATCH`
+- Headers = `{ "Authorization": "Bearer your_vercel_api_token_here" }`
+- Payload Key = `your_value_key_here` (defaults to `gb_payload` if left blank)
+
+:::tip Updating Edge Config items owned by a team
+
+If you are updating an Edge Config item owned by a team, add `?teamId=your_team_id_here` to the end of your Endpoint URL.
+
+:::

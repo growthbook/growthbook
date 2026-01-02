@@ -1,0 +1,8 @@
+allOf:
+  - $ref: "./Feature.yaml"
+  - type: object
+    properties:
+      revisions:
+        type: array
+        items:
+          $ref: "./FeatureRevision.yaml"

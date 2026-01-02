@@ -1,27 +1,28 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isURLTargeted } from "@growthbook/growthbook";
-import {
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
+import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
-import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import { DocLink } from "@/components/DocLink";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
-function validateUrl(
-  urlString: string
-): { isValid: boolean; message?: string } {
+function validateUrl(urlString: string): {
+  isValid: boolean;
+  message?: string;
+} {
   try {
     const url = new URL(urlString);
     if (url.pathname.includes("*")) {
@@ -46,59 +47,14 @@ function validateUrl(
   }
 }
 
-const UrlRedirectSdkAlert = ({
-  hasSDKWithRedirects,
-}: {
-  hasSDKWithRedirects: boolean;
-}) => {
-  return (
-    <div
-      className={`mb-3 mt-2 alert ${
-        hasSDKWithRedirects ? "alert-warning" : "alert-danger"
-      }`}
-    >
-      <div>
-        <FaExclamationTriangle className="mr-1" />
-        {hasSDKWithRedirects ? (
-          <>
-            Some of your{" "}
-            <a href="/sdks" target="_blank">
-              SDK Connections <FaExternalLinkAlt />
-            </a>{" "}
-            in this project may not support URL redirects.
-          </>
-        ) : (
-          <>
-            None of your{" "}
-            <a href="/sdks" className="text-normal" target="_blank">
-              SDK Connections <FaExternalLinkAlt />
-            </a>{" "}
-            in this project support URL redirects. Either upgrade your SDKs or
-            add a supported SDK.
-          </>
-        )}{" "}
-        <Tooltip
-          body={
-            <>
-              URL Redirects are only supported in the following SDKs and
-              versions:
-              <MinSDKVersionsList capability="redirects" />
-            </>
-          }
-        />
-      </div>
-    </div>
-  );
-};
-
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
   experiment: ExperimentInterfaceStringDates;
   urlRedirect?: URLRedirectInterface;
   mutate: () => void;
   close: () => void;
-  cta?: string;
-}> = ({ mode, experiment, urlRedirect, mutate, close, cta }) => {
+  source?: string;
+}> = ({ mode, experiment, urlRedirect, mutate, close, source }) => {
   const { apiCall } = useAuth();
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -106,12 +62,18 @@ const UrlRedirectModal: FC<{
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
   }).includes("redirects");
+  const hasSDKWithNoRedirects = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: experiment.project ?? "",
+    mustMatchAllConnections: true,
+  }).includes("redirects");
 
   const form = useForm({
     defaultValues: {
       originUrl: urlRedirect?.urlPattern ?? "",
       destinationUrls: urlRedirect?.destinationURLs?.map((r) => r.url) ?? [""],
-      persistQueryString: urlRedirect?.persistQueryString || true,
+      persistQueryString:
+        mode === "add" ? true : !!urlRedirect?.persistQueryString,
       circularDependencyCheck: true,
     },
   });
@@ -126,7 +88,7 @@ const UrlRedirectModal: FC<{
           const initialArray = Array(experiment.variations.length).fill(true);
           initialArray[0] = false;
           return initialArray;
-        }
+        },
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -146,7 +108,7 @@ const UrlRedirectModal: FC<{
         {
           method: "POST",
           body: JSON.stringify({ ...payload, experiment: experiment.id }),
-        }
+        },
       );
       mutate();
     } else {
@@ -155,7 +117,7 @@ const UrlRedirectModal: FC<{
         {
           method: "PUT",
           body: JSON.stringify(payload),
-        }
+        },
       );
       mutate();
     }
@@ -173,6 +135,8 @@ const UrlRedirectModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType="url-redirect-modal"
+      trackingEventModalSource={source}
       autoCloseOnSubmit={false}
       open
       disabledMessage={
@@ -182,20 +146,32 @@ const UrlRedirectModal: FC<{
       }
       close={close}
       size="lg"
-      header={
-        <div className="mx-3">
-          <h3>{mode === "add" ? "Add" : "Modify"} URL Redirects</h3>
-          <p className="mb-0" style={{ fontWeight: 400 }}>
-            Send visitors to any URL when landing on another URL.
-          </p>
-        </div>
-      }
+      header={`
+       ${mode === "add" ? "Add" : "Edit"} URL Redirects`}
       submit={onSubmit}
-      cta={cta}
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
-        <UrlRedirectSdkAlert hasSDKWithRedirects={hasSDKWithRedirects} />
+        {hasSDKWithNoRedirects ? (
+          <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
+            <Box as="span" pr="1">
+              {hasSDKWithRedirects
+                ? "Some of your SDK Connections in this Project may not support URL Redirects."
+                : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
+              <Link
+                href={"/sdks"}
+                weight="bold"
+                className="pl-2"
+                rel="noreferrer"
+                target="_blank"
+              >
+                View SDKs
+                <PiArrowSquareOutFill className="ml-1" />
+              </Link>
+            </Box>
+          </Callout>
+        ) : null}
+
         <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>
           <Tooltip
@@ -231,15 +207,15 @@ const UrlRedirectModal: FC<{
         <div className="mt-3">
           <h4>Destination URLs</h4>
           {experiment.variations.map((v, i) => {
-            let warning: string | undefined;
+            let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&
               form.watch(`destinationUrls.${i}`) &&
-              (isURLTargeted(form.watch("originUrl"), [
+              (isURLTargeted(form.watch(`destinationUrls.${i}`), [
                 {
                   include: true,
                   type: "simple",
-                  pattern: form.watch(`destinationUrls.${i}`),
+                  pattern: form.watch("originUrl"),
                 },
               ]) ||
                 form.watch("originUrl") === form.watch(`destinationUrls.${i}`));
@@ -247,10 +223,26 @@ const UrlRedirectModal: FC<{
               const originUrl = new URL(form.watch("originUrl"));
               const variantUrl = new URL(form.watch(`destinationUrls.${i}`));
               if (originUrl.protocol !== variantUrl.protocol) {
-                warning = `Destination URL is using "${variantUrl.protocol}" and the origin URL is using "${originUrl.protocol}"`;
+                warning = `Destination URL is using "${variantUrl.protocol}" and the original URL is using "${originUrl.protocol}"`;
               }
               if (originUrl.host !== variantUrl.host) {
-                warning = `Destination URL is "${variantUrl.host}" and the origin URL is "${originUrl.host}"`;
+                warning = `Destination URL is "${variantUrl.host}" and the original URL is "${originUrl.host}"`;
+              }
+              // Check for query parameters in destination that are not in origin when base URLs match
+              if (
+                destinationMatchesOrigin &&
+                Array.from(variantUrl.searchParams.keys()).some(
+                  (k) => !originUrl.searchParams.has(k),
+                )
+              ) {
+                warning = (
+                  <>
+                    Destination URL has query parameters the original URL does
+                    not have. See{" "}
+                    <DocLink docSection="url_redirects">our docs</DocLink> for
+                    more info on how to handle this kind of redirect.
+                  </>
+                );
               }
             } catch (e) {
               //ts-ignore
@@ -272,23 +264,18 @@ const UrlRedirectModal: FC<{
                     {i}
                   </span>{" "}
                   <h5>{v.name}</h5>
-                  <div className="ml-auto">
-                    <Toggle
-                      id={`${v.name}_toggle_create`}
-                      label={"Redirect"}
-                      className="mr-3"
+                  <div className="ml-auto d-flex align-items-center">
+                    <Checkbox
+                      label="Redirect"
+                      disabled={i === 0}
+                      disabledMessage={
+                        i === 0 ? "You can not edit the control" : ""
+                      }
                       value={redirectToggle[i]}
-                      setValue={(enabled) => handleRedirectToggle(i, enabled)}
-                      type="toggle"
+                      setValue={() =>
+                        handleRedirectToggle(i, !redirectToggle[i])
+                      }
                     />
-                    <label
-                      htmlFor={`${v.name}_toggle_redirect`}
-                      className={clsx("mr-2", {
-                        "text-dark": redirectToggle[i],
-                      })}
-                    >
-                      Redirect
-                    </label>
                   </div>
                 </div>
 
@@ -344,38 +331,24 @@ const UrlRedirectModal: FC<{
           })}
         </div>
         <hr className="mt-4" />
-        <div className="d-flex align-items-baseline my-1">
-          <input
-            type="checkbox"
-            {...form.register("persistQueryString")}
-            id={"toggle-persistQueryString"}
+        <Flex align="baseline" my="1">
+          <Checkbox
+            label="Persist Query String"
+            description="Allow user's queries, such as search terms, to carry over
+                  when redirecting"
+            value={form.watch("persistQueryString")}
+            setValue={(v) => form.setValue("persistQueryString", v === true)}
           />
-          <label
-            htmlFor="toggle-persistQueryString"
-            className="text-muted ml-2"
-          >
-            <b>Persist Query String</b>
-            <p>
-              Keep this enabled to allow users’ queries, such as search terms,
-              to carry over when redirecting.
-            </p>
-          </label>
-          <input
-            type="checkbox"
-            {...form.register("circularDependencyCheck")}
-            id={"toggle-circularDependencyCheck"}
+          <Checkbox
+            label="Circular Dependency Check"
+            description="Make sure redirects don't conflict with any existing
+                  redirects"
+            value={form.watch("circularDependencyCheck")}
+            setValue={(v) =>
+              form.setValue("circularDependencyCheck", v === true)
+            }
           />
-          <label
-            htmlFor="toggle-circularDependencyCheck"
-            className="text-muted ml-2"
-          >
-            <b>Circular Dependency Check</b>
-            <p>
-              Keep this enabled to make sure your redirect does not conflict
-              with any existing redirects
-            </p>
-          </label>
-        </div>
+        </Flex>
       </div>
     </Modal>
   );

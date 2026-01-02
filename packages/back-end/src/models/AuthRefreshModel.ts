@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Request } from "express";
 import mongoose from "mongoose";
-import { UserInterface } from "../../types/user";
+import { UserInterface } from "shared/types/user";
 
 export interface AuthRefreshInterface {
   token: string;
@@ -32,7 +32,7 @@ export type AuthRefreshDocument = mongoose.Document & AuthRefreshInterface;
 
 export const AuthRefreshModel = mongoose.model<AuthRefreshInterface>(
   "AuthRefresh",
-  authRefreshSchema
+  authRefreshSchema,
 );
 
 export async function createRefreshToken(req: Request, user: UserInterface) {
@@ -52,7 +52,7 @@ export async function createRefreshToken(req: Request, user: UserInterface) {
 }
 
 export async function getUserIdFromAuthRefreshToken(
-  token: string
+  token: string,
 ): Promise<string> {
   const doc = await AuthRefreshModel.findOne({
     token,
@@ -67,7 +67,7 @@ export async function getUserIdFromAuthRefreshToken(
         $set: {
           lastLogin: new Date(),
         },
-      }
+      },
     );
   }
 

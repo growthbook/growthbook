@@ -10,7 +10,7 @@ export default function Welcome({
   onSuccess,
   firstTime = false,
 }: {
-  onSuccess: (token: string) => void;
+  onSuccess: (token: string, projectId?: string) => void;
   firstTime?: boolean;
 }): ReactElement {
   const [state, setState] = useState<
@@ -45,12 +45,12 @@ export default function Welcome({
     state === "login"
       ? "Log in"
       : state === "register"
-      ? "Create Account"
-      : state === "forgot"
-      ? "Look up"
-      : state === "firsttime"
-      ? "Sign up"
-      : "Submit";
+        ? "Create Account"
+        : state === "forgot"
+          ? "Look up"
+          : state === "firsttime"
+            ? "Sign up"
+            : "Submit";
 
   const submit =
     state === "forgotSuccess"
@@ -68,10 +68,11 @@ export default function Welcome({
             status: number;
             token: string;
             message?: string;
+            projectId?: string;
           } = await res.json();
           if (json.status > 200) {
             throw new Error(
-              json.message || "An error occurred. Please try again."
+              json.message || "An error occurred. Please try again.",
             );
           }
 
@@ -84,7 +85,7 @@ export default function Welcome({
           if (state === "forgot") {
             setState("forgotSuccess");
           } else {
-            onSuccess(json.token);
+            onSuccess(json.token, json.projectId);
           }
         });
 
@@ -119,7 +120,11 @@ export default function Welcome({
 
   return (
     <>
-      <WelcomeFrame leftside={leftside} loading={loading}>
+      <WelcomeFrame
+        leftside={leftside}
+        loading={loading}
+        pathName={`/${state}`}
+      >
         <form
           onSubmit={async (e) => {
             e.preventDefault();

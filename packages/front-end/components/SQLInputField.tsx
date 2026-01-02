@@ -1,8 +1,8 @@
-import { UserIdType } from "back-end/types/datasource";
+import { UserIdType } from "shared/types/datasource";
 import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
-import type { TestQueryRow } from "back-end/src/types/Integration";
+import type { TestQueryRow } from "shared/types/integrations";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -54,10 +54,8 @@ export default function SQLInputField({
   showTestButton = true,
   showHeadline = true,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
 
   // These will only be defined in Experiment Assignment Queries
@@ -134,7 +132,7 @@ export default function SQLInputField({
               setValue={(sql) =>
                 form.setValue(
                   queryType === "experiment-assignment" ? "query" : "sql",
-                  sql
+                  sql,
                 )
               }
               placeholder={placeholder}

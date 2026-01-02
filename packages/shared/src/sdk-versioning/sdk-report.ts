@@ -1,7 +1,7 @@
 import fs from "fs";
 import uniq from "lodash/uniq";
 
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import {
   SDKCapability,
   getDefaultSDKVersion,
@@ -60,15 +60,15 @@ function updateInfo(lang: string, { versions, capabilities }: Info) {
 
 function captable(languages: string[]) {
   const defaultVersions = languages.map((lang) =>
-    getDefaultSDKVersion(lang as SDKLanguage)
+    getDefaultSDKVersion(lang as SDKLanguage),
   );
   const latestVersions = languages.map((lang) =>
-    getLatestSDKVersion(lang as SDKLanguage)
+    getLatestSDKVersion(lang as SDKLanguage),
   );
   const info = getInfo(languages);
   const capsRows = info.capabilities.map((capability) => {
     const langVersions = languages.map(
-      (lang) => info.versions[versionKey(lang, capability)] || ""
+      (lang) => info.versions[versionKey(lang, capability)] || "",
     );
     return [capability, ...langVersions];
   });

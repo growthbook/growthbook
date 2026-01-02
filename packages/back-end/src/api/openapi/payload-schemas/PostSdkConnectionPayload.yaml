@@ -26,6 +26,8 @@ properties:
     type: boolean
   includeRedirectExperiments:
     type: boolean
+  includeRuleIds:
+    type: boolean
   proxyEnabled:
     type: boolean
   proxyHost:
@@ -33,4 +35,6 @@ properties:
   hashSecureAttributes:
     type: boolean
   remoteEvalEnabled:
+    type: boolean
+  savedGroupReferencesEnabled:
     type: boolean

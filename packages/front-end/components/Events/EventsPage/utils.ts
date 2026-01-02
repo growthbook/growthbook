@@ -1,52 +1,76 @@
-import {
-  EventInterface,
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-  UserLoginNotificationEvent,
-} from "back-end/types/event";
-import { NotificationEvent } from "back-end/src/events/notification-events";
+import { EventInterface } from "shared/types/events/event";
 
-export const getEventText = (
-  event: EventInterface<NotificationEvent>
-): string => {
+// region Feature
+
+const getTitleForFeatureCreated = ({ id }: { id: string }) =>
+  `The feature ${id} was created`;
+
+const getTitleForFeatureUpdated = ({ id }: { id: string }) =>
+  `The feature ${id} was updated`;
+
+const getTitleForFeatureDeleted = ({ id }: { id: string }) =>
+  `The feature ${id}  was deleted`;
+
+// endregion Feature
+
+// region Experiment
+
+const getTitleForExperimentCreated = ({ name }: { name: string }) =>
+  `The experiment ${name} was created`;
+
+const getTitleForExperimentUpdated = ({ name }: { name: string }) =>
+  `The experiment ${name} was updated`;
+
+const getTitleForExperimentDeleted = ({ name }: { name: string }) =>
+  `The experiment ${name} was deleted`;
+
+// endregion Experiment
+
+// region User
+
+const getTitleForUserLogin = ({
+  name,
+  email,
+}: {
+  name: string;
+  email: string;
+}) => `The user ${name} (${email}) has logged in`;
+
+export const getEventText = (event: EventInterface): string => {
   switch (event.data.event) {
     case "user.login":
       return getTitleForUserLogin(
-        (event.data as unknown) as UserLoginNotificationEvent
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "experiment.created":
       return getTitleForExperimentCreated(
-        (event.data as unknown) as ExperimentCreatedNotificationEvent
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "experiment.updated":
       return getTitleForExperimentUpdated(
-        (event.data as unknown) as ExperimentUpdatedNotificationEvent
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "experiment.deleted":
       return getTitleForExperimentDeleted(
-        (event.data as unknown) as ExperimentDeletedNotificationEvent
+        event.version ? event.data.data.object : event.data.data.previous,
       );
 
     case "feature.created":
       return getTitleForFeatureCreated(
-        (event.data as unknown) as FeatureCreatedNotificationEvent
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "feature.updated":
       return getTitleForFeatureUpdated(
-        (event.data as unknown) as FeatureUpdatedNotificationEvent
+        event.version ? event.data.data.object : event.data.data.current,
       );
 
     case "feature.deleted":
       return getTitleForFeatureDeleted(
-        (event.data as unknown) as FeatureDeletedNotificationEvent
+        event.version ? event.data.data.object : event.data.data.previous,
       );
 
     default:
@@ -55,61 +79,3 @@ export const getEventText = (
       return event.data.event;
   }
 };
-
-// region Feature
-
-const getTitleForFeatureCreated = ({
-  data,
-}: FeatureCreatedNotificationEvent): string => {
-  return `The feature ${data?.current?.id || "(unknown)"} was created`;
-};
-
-const getTitleForFeatureUpdated = ({
-  data,
-}: FeatureUpdatedNotificationEvent): string => {
-  return `The feature ${data?.current?.id || "(unknown)"} was updated`;
-};
-
-const getTitleForFeatureDeleted = ({
-  data,
-}: FeatureDeletedNotificationEvent): string => {
-  return `The feature ${data?.previous?.id || "(unknown)"} was deleted`;
-};
-
-// endregion Feature
-
-// region Experiment
-
-const getTitleForExperimentCreated = ({
-  data,
-}: ExperimentCreatedNotificationEvent): string => {
-  return `The experiment ${
-    data?.current?.name || data?.current?.id || "(unknown)"
-  } was created`;
-};
-
-const getTitleForExperimentUpdated = ({
-  data,
-}: ExperimentUpdatedNotificationEvent): string => {
-  return `The experiment ${
-    data?.previous?.name || data?.previous?.id || "(unknown)"
-  } was updated`;
-};
-
-const getTitleForExperimentDeleted = ({
-  data,
-}: ExperimentDeletedNotificationEvent): string => {
-  return `The experiment ${
-    data?.previous?.name || data?.previous?.id || "(unknown)"
-  } was deleted`;
-};
-
-// endregion Experiment
-
-// region User
-
-const getTitleForUserLogin = ({ data }: UserLoginNotificationEvent): string => {
-  return `The user ${data.current.name} (${data.current.email}) has logged in`;
-};
-
-// endregion User

@@ -5,11 +5,11 @@ sidebar_label: Sequential Testing
 slug: sequential
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Sequential Testing
 
-:::note
-
-Sequential Testing is only implemented for the Frequentist statistics engine, and is a premium feature.
+:::info Sequential Testing is only implemented for the Frequentist statistics engine, and is a premium feature.
 
 :::
 
@@ -38,7 +38,7 @@ Sequential testing provides estimators for the second option; it allows peeking 
 
 You can enable or disable sequential testing, as well as select your tuning parameter, both in your organization settings (as a default for all future experiments) or on an individual experiment's page.
 
-You can also play with the settings in an ad-hoc report.
+You can also play with the settings in a custom report.
 
 ### Setting the tuning parameter
 
@@ -46,11 +46,9 @@ The tuning parameter (written as $N^*$ in the [implementation notes below](#grow
 
 The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $N^*$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when $N^*$ is as close to sample size used in the analysis.
 
-<img
-  src="/images/statistics/sequential-tuning.png"
-  alt="Effect of Tuning Sequential Statistics on CI Width"
-  style={{ width: 450, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600}>
+![Effect of Tuning Sequential Statistics on CI Width](/images/statistics/sequential-tuning.png)
+</MaxWidthImage>
 
 We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. Note, this number reflects the total sample size across the two variations you are comparing. If you have an experiment with 3 variations, and you want the smallest confidence intervals after 3,000 users in each variation, you should set the tuning parameter to 6,000 following the above logic. This is because while the total number of users will be 9,000, there will be 6,000 total in each comparison of arms (e.g. A vs B, B vs C, and A vs C).
 
@@ -60,21 +58,17 @@ Note that the tuning parameter should remain fixed for an experiment.
 
 To set the default usage of sequential testing and the tuning parameter for new experiments, navigate to the Organization Settings page and select your preferred defaults.
 
-<img
-  src="/images/statistics/sequential-settings.png"
-  alt="Sequential Statistics Organization Settings"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600}>
+![Sequential Statistics Organization Settings](/images/statistics/sequential-settings.png)
+</MaxWidthImage>
 
 ### Experiment settings
 
 You can also turn sequential testing on and off for an individual experiment, as well as set a specific tuning parameter for that experiment. Navigate to the Experiment page, click Edit Experiment Settings, and choose your preferred settings.
 
-<img
-  src="/images/statistics/sequential-exp-settings.png"
-  alt="Sequential Statistics Experiment Settings"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600} border>
+![Sequential Statistics Experiment Settings](/images/statistics/sequential-exp-settings.png)
+</MaxWidthImage>
 
 ## GrowthBook's implementation
 

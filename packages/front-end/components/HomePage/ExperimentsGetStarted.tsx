@@ -1,10 +1,15 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
+import {
+  envAllowsCreatingMetrics,
+  hasFileConfig,
+  isCloud,
+} from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -36,36 +41,41 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const { organization } = useUser();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const hasDataSource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
   const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
+
+  const gb = useGrowthBook();
 
   const openSampleExperiment = async () => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
+      }>(
+        isCloud() && gb.isOn("new-sample-data")
+          ? "/demo-datasource-project/new"
+          : "/demo-datasource-project",
+        {
+          method: "POST",
+        },
+      );
+      track("Create Sample Project", {
+        source: "experiments-get-started",
       });
       await mutateDefinitions();
       if (res.experimentId) {
@@ -81,11 +91,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       <div>
         {dataSourceOpen && (
           <NewDataSourceForm
-            data={{
-              name: "My Datasource",
-              settings: {},
-            }}
-            existing={false}
             source="get-started"
             onCancel={() => setDataSourceOpen(false)}
             onSuccess={async () => {
@@ -103,9 +108,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             source="get-started"
             onClose={() => {
               setMetricsOpen(false);
-            }}
-            onSuccess={() => {
-              mutateDefinitions();
             }}
           />
         )}
@@ -191,8 +193,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !(hasDataSource
                         ? datasources.some((datasource) =>
                             permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                              datasource,
+                            ),
                           )
                         : permissionsUtil.canViewCreateDataSourceModal(project))
                     }
@@ -290,10 +292,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
             <div className="row mb-3">
               <div className="col">
-                <div
-                  className={`card gsbox mb-3`}
-                  style={{ overflow: "hidden" }}
-                >
+                <div className="appbox p-4" style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}
@@ -319,7 +318,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                   />
                 </div>
                 <div
-                  className={`card gsbox mb-3`}
+                  className={`appbox p-4 mb-3`}
                   style={{ overflow: "hidden" }}
                 >
                   <GetStartedStep
@@ -350,7 +349,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     }}
                   />
                 </div>
-                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
+                <div className={`appbox p-4`} style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}

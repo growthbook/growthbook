@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 
@@ -22,26 +22,26 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   onCancel,
 }) => {
   const existingIds = (dataSource.settings?.userIdTypes || []).map(
-    (item) => item.userIdType
+    (item) => item.userIdType,
   );
 
   const form = useForm({
     defaultValues: {
-      userIdType: userIdType,
+      idType: userIdType,
       description: description,
     },
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(value.userIdType, value.description);
+    await onSave(value.idType, value.description);
 
     form.reset({
-      userIdType: "",
+      idType: "",
       description: "",
     });
   });
 
-  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredUserIdType = form.watch("idType");
 
   const isDuplicate = useMemo(() => {
     return mode === "add" && existingIds.includes(userEnteredUserIdType);
@@ -63,6 +63,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       submit={handleSubmit}
       close={onCancel}
@@ -81,7 +82,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
         <Field
           label="Identifier Type"
-          {...form.register("userIdType")}
+          {...form.register("idType")}
           pattern="^[a-z_]+$"
           title="Only lowercase letters and underscores allowed"
           readOnly={mode === "edit"}

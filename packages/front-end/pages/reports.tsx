@@ -1,24 +1,27 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ReportInterface } from "back-end/types/report";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ReportInterface } from "shared/types/report";
+import { ExperimentInterface } from "shared/types/experiment";
 import { datetime, ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
+  const { project } = useDefinitions();
 
   const { data, error } = useApi<{
     reports: ReportInterface[];
     experiments: ExperimentInterface[];
-  }>(`/reports`);
+  }>(`/reports?project=${project || ""}`);
   const [onlyMyReports, setOnlyMyReports] = useState(true);
 
   const { userId, getUserDisplay } = useUser();
@@ -37,9 +40,17 @@ const ReportsPage = (): React.ReactElement => {
     (r) => ({
       userName: r.userId ? getUserDisplay(r.userId) : "",
       experimentName: r.experimentId ? experimentNames.get(r.experimentId) : "",
-      status: r.status === "private" ? "private" : "published",
+      shareLevel: (r.type === "experiment"
+        ? r.status === "private"
+          ? "private"
+          : "organization"
+        : r.shareLevel === "public"
+          ? "public"
+          : r.shareLevel === "private"
+            ? "private"
+            : "organization") as "public" | "organization" | "private",
     }),
-    [experimentNames]
+    [experimentNames],
   );
 
   const filterResults = useCallback(
@@ -53,22 +64,24 @@ const ReportsPage = (): React.ReactElement => {
         }
       });
     },
-    [onlyMyReports, userId]
+    [onlyMyReports, userId],
   );
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: reports,
-    localStorageKey: "reports",
-    defaultSortField: "dateUpdated",
-    defaultSortDir: -1,
-    searchFields: [
-      "title",
-      "description",
-      "experimentName",
-      "userName",
-      "dateUpdated",
-    ],
-    filterResults,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: reports,
+      localStorageKey: "reports",
+      defaultSortField: "dateUpdated",
+      defaultSortDir: -1,
+      searchFields: [
+        "title",
+        "description",
+        "experimentName",
+        "userName",
+        "dateUpdated",
+      ],
+      filterResults,
+      pageSize: 20,
+    });
 
   if (error) {
     return (
@@ -86,8 +99,8 @@ const ReportsPage = (): React.ReactElement => {
       <div className="container p-4">
         <h1>Reports</h1>
         <p>
-          A report is an ad-hoc analysis of an experiment. Use them to explore
-          results in an isolated environment without affecting the main
+          A report is a standalone ad-hoc analysis of an experiment. Use them to
+          explore results in an isolated environment without affecting the main
           experiment.
         </p>
 
@@ -96,7 +109,7 @@ const ReportsPage = (): React.ReactElement => {
           <li>Go to an experiment</li>
           <li>Click on the Results tab</li>
           <li>Open the more menu (3 dots next to the Update button)</li>
-          <li>Select &quot;ad-hoc report&quot;</li>
+          <li>Select &quot;New Custom Report&quot;</li>
         </ol>
 
         <Link href="/experiments" className="btn btn-primary mb-2">
@@ -104,9 +117,9 @@ const ReportsPage = (): React.ReactElement => {
         </Link>
 
         <p>
-          <em>Note:</em> you will not see the &quot;ad-hoc report&quot; option
-          if your experiment does not have results yet or is not hooked up to a
-          valid data source.
+          <em>Note:</em> you will not see the &quot;New Custom Report&quot;
+          option if your experiment does not have results yet or is not hooked
+          up to a valid data source.
         </p>
       </div>
     );
@@ -126,15 +139,12 @@ const ReportsPage = (): React.ReactElement => {
         <div className="col-lg-3 col-md-4 col-6">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
-        <div className="col-auto">
-          <Toggle
-            id={"onlymine"}
-            value={onlyMyReports}
-            label={"onlymine"}
-            setValue={setOnlyMyReports}
-          />
-          Show only my reports
-        </div>
+        <Switch
+          id={"onlymine"}
+          value={onlyMyReports}
+          label="Show only my reports"
+          onChange={setOnlyMyReports}
+        />
         <div style={{ flex: 1 }} />
       </div>
       <table className="table appbox gbtable table-hover">
@@ -177,7 +187,16 @@ const ReportsPage = (): React.ReactElement => {
               >
                 {report.description}
               </td>
-              <td>{report.status}</td>
+              <td>
+                <ShareStatusBadge
+                  shareLevel={report.shareLevel}
+                  editLevel={
+                    report.type === "experiment-snapshot"
+                      ? report.editLevel
+                      : "organization"
+                  }
+                />
+              </td>
               <td>{report.experimentName}</td>
               <td>{report.userName}</td>
               <td
@@ -195,13 +214,14 @@ const ReportsPage = (): React.ReactElement => {
                 {isFiltered
                   ? "No matching reports"
                   : onlyMyReports
-                  ? "You have no reports"
-                  : "No reports"}
+                    ? "You have no reports"
+                    : "No reports"}
               </td>
             </tr>
           )}
         </tbody>
       </table>
+      {pagination}
     </div>
   );
 };

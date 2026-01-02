@@ -2,36 +2,39 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
-import { APP_ORIGIN } from "../util/secrets";
-import { findSnapshotById } from "../models/ExperimentSnapshotModel";
-import { getExperimentById } from "../models/ExperimentModel";
-import { getMetricMap } from "../models/MetricModel";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { ExperimentReportArgs } from "../../types/report";
-import { getReportById } from "../models/ReportModel";
-import { Queries } from "../../types/query";
-import { QueryMap } from "../queryRunners/QueryRunner";
-import { getQueriesByIds } from "../models/QueryModel";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
+import { Queries } from "shared/types/query";
 import {
-  getSnapshotSettingsFromReportArgs,
-  reportArgsFromSnapshot,
-} from "./reports";
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "shared/types/experiment-snapshot";
+import { ExperimentInterface } from "shared/types/experiment";
+import type { DataForStatsEngine } from "shared/types/stats";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getReportById } from "back-end/src/models/ReportModel";
+import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { getQueriesByIds } from "back-end/src/models/QueryModel";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
-  DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
 } from "./stats";
 
 async function getQueryData(
+  context: ReqContext,
   queries: Queries,
-  organization: string,
-  map?: QueryMap
+  map?: QueryMap,
 ): Promise<QueryMap> {
   const docs = await getQueriesByIds(
-    organization,
-    queries.map((q) => q.query)
+    context,
+    queries.map((q) => q.query),
   );
 
   const res: QueryMap = map || new Map();
@@ -46,26 +49,45 @@ async function getQueryData(
 
 export async function generateReportNotebook(
   context: ReqContext | ApiReqContext,
-  reportId: string
+  reportId: string,
 ): Promise<string> {
   const report = await getReportById(context.org.id, reportId);
   if (!report) {
     throw new Error("Could not find report");
   }
 
-  return generateNotebook(
-    context,
-    report.queries,
-    report.args,
-    `/report/${report.id}`,
-    report.title,
-    ""
-  );
+  if (report.type === "experiment") {
+    // Get metrics
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
+    const metricGroups = await context.models.metricGroups.getAll();
+
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromReportArgs(
+        report.args,
+        metricMap,
+        factTableMap,
+        undefined,
+        metricGroups,
+      );
+    return generateNotebook({
+      context,
+      queryPointers: report.queries,
+      snapshotSettings,
+      analysisSettings,
+      variationNames: report.args.variations.map((v) => v.name),
+      url: `/report/${report.id}`,
+      name: report.title,
+      description: "",
+    });
+  } else {
+    return generateExperimentNotebook(context, report.snapshot);
+  }
 }
 
 export async function generateExperimentNotebook(
   context: ReqContext,
-  snapshotId: string
+  snapshotId: string,
 ): Promise<string> {
   // Get snapshot
   const snapshot = await findSnapshotById(context.org.id, snapshotId);
@@ -90,40 +112,77 @@ export async function generateExperimentNotebook(
     throw new Error("Experiment must use a datasource");
   }
 
-  return generateNotebook(
+  return generateNotebook({
     context,
-    snapshot.queries,
-    reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
-    `/experiment/${experiment.id}`,
-    experiment.name,
-    experiment.hypothesis || ""
-  );
+    queryPointers: snapshot.queries,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysis.settings,
+    variationNames: experiment.variations.map((v) => v.name),
+    url: `/experiment/${experiment.id}`,
+    name: experiment.name,
+    description: experiment.hypothesis || "",
+  });
 }
 
-export async function generateNotebook(
-  context: ReqContext | ApiReqContext,
-  queryPointers: Queries,
-  args: ExperimentReportArgs,
-  url: string,
-  name: string,
-  description: string
-) {
+export async function generateNotebook({
+  context,
+  queryPointers,
+  snapshotSettings,
+  analysisSettings,
+  variationNames,
+  url,
+  name,
+  description,
+}: {
+  context: ReqContext | ApiReqContext;
+  queryPointers: Queries;
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  variationNames: string[];
+  url: string;
+  name: string;
+  description: string;
+}) {
   // Get datasource
-  const datasource = await getDataSourceById(context, args.datasource);
+  const datasource = await getDataSourceById(
+    context,
+    snapshotSettings.datasourceId,
+  );
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
   if (!datasource.settings?.notebookRunQuery) {
     throw new Error(
-      "Must define a runQuery function for this data source before exporting as a notebook."
+      "Must define a runQuery function for this data source before exporting as a notebook.",
     );
   }
 
   // Get metrics
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  // Get experiment data to expand slice metrics
+  let experiment: ExperimentInterface | null = null;
+  if (snapshotSettings.experimentId) {
+    experiment = await getExperimentById(
+      context,
+      snapshotSettings.experimentId,
+    );
+  }
+
+  // Expand slice metrics if we have experiment data
+  if (experiment) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
   // Get queries
-  const queries = await getQueryData(queryPointers, context.org.id);
+  const queries = await getQueryData(context, queryPointers);
 
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();
@@ -132,28 +191,32 @@ export async function generateNotebook(
       createdAt = q.createdAt;
     }
   });
-  args.endDate = args.endDate || createdAt;
 
   const phaseLengthDays =
-    Math.max(hoursBetween(args.startDate, args.endDate), 1) / 24;
+    Math.max(
+      hoursBetween(
+        snapshotSettings.startDate,
+        snapshotSettings.endDate || createdAt,
+      ),
+      1,
+    ) / 24;
 
-  const {
-    snapshotSettings,
-    analysisSettings,
-  } = getSnapshotSettingsFromReportArgs(args, metricMap);
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
-    snapshotSettings
+    snapshotSettings,
   );
 
   const data: DataForStatsEngine = {
     analyses: [
       getAnalysisSettingsForStatsEngine(
         analysisSettings,
-        args.variations,
-        args.coverage ?? 1,
-        phaseLengthDays
+        snapshotSettings.variations.map((v, i) => ({
+          ...v,
+          name: variationNames[i] || v.id,
+        })),
+        snapshotSettings.coverage ?? 1,
+        phaseLengthDays,
       ),
     ],
     metrics: metricSettings,
@@ -183,7 +246,7 @@ print(create_notebook(
       run_query=data['run_query'],
     ),
 ))`,
-    {}
+    {},
   );
 
   if (!result) {

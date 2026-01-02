@@ -21,28 +21,75 @@ You then specify "Destination URLs" for each of your variations. You can also tu
 
 When a user visits the Original URL and is included in the experiment, they will be assigned a variation. Then, an "Experiment Viewed" event will be sent to your data warehouse. After a short delay (default `100ms`) to allow for the tracking event to finish, the user will be redirected to the destination URL.
 
+### Redirecting when only query params change
+
+Setting up tests where the redirect URL only varies from the original by the query parameters requires special consideration. You'll need to include the query params you plan to use in the original URL with no value entered in order for our URL targeting to work correctly (i.e. if you want to redirect a user to `http://www.growthbook.io/test?abc=123` from `http://www.growthbook.io/test`, your original URL will need to be `http://www.growthbook.io/test?abc`).
+
 ## Implementation
 
-URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [Javascript](/lib/js), and [ReactJS](/lib/js) SDKs. Support for other SDKs is coming soon. Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Connections**, select your SDK connection, click **Edit**, and ensure that "Enable URL Redirect experiments" is toggled on.
+URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [Javascript](/lib/js), and [ReactJS](/lib/js) SDKs—as well as natively supported in all [Edge SDKs](/lib/edge/cloudflare).
 
-### HTML Script Tag
+Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Connections**, select your SDK connection, click **Edit**, and ensure that "Enable URL Redirect experiments" is toggled on.
+
+### HTML Script Tag SDK
 
 The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. This option fully works out-of-the-box with no configuration required.
 
-### Client-Side JavaScript and React
+Like the JavaScript and React SDKs, the HTML Script tag supports setting a custom `navigate` function, `navigateDelay`, and `maxNavigateDelay`. See the [JavaScript and React section](#front-end-javascript-and-react-sdks) below for more information.
+
+#### Anti-flicker
+
+The Script Tag is the only front-end SDK that natively provides an anti-flicker mechanism (off by default).
+
+- `antiFlicker`: When the SDK loads, it displays a blank screen that persists until either a URL redirect finishes _or_ no redirect is triggered. This helps to minimize any "flicker" a user might see while the page navigates. Defaults to `false`.
+- `antiFlickerTimeout`: The maximum number of milliseconds that the anti-flicker blank screen will be shown. Defaults to `3500` (3.5 seconds).
+
+**Strategies for Improving Anti-flicker**
+
+A small flicker will remain between page and SDK load (which usually happens asynchronously). To completely eliminate all flicker between initial page load and redirection, follow these steps:
+
+1. Add this code to the page `<head>`:
+
+```html
+<style id="gb-anti-flicker-style">
+  .gb-anti-flicker { opacity: 0 !important; pointer-events: none; }
+</style>
+```
+
+2. Add the `gb-anti-flicker` class to the page `<html>`:
+
+```html
+<html class="gb-anti-flicker">
+```
+
+3. Optionally, add a script to the `<head>` to remove your anti-flicker screen after 3 seconds in case the SDK never successfully loads:
+
+```html
+<script language="text/javascript">
+  window.setTimeout(() => {
+    document.documentElement.classList.remove("gb-anti-flicker");
+  }, 3000);
+</script>
+```
+
+### Front-End JavaScript and React SDKs
 
 A more advanced integration involves using our [Javascript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
 
-Besides the standard implementation described in the SDK docs, there are 4 additional settings that control the redirect behavior.
+Besides the standard implementation described in the SDK docs, there are additional settings to control redirect behavior.
 
-- `navigate` - a callback function to perform the redirect. Defaults to `(url) => window.location.replace(url)`.
-- `navigateDelay` - the number of milliseconds to wait before redirecting. Use this to give time for your analytics tracking callback to finish. Defaults to `100`
-- `antiFlicker` - If `true`, a white screen will be shown while the redirect is happening to avoid the user seeing a "flicker". Defaults to `false`.
-- `antiFlickerTimeout` - the maximum number of milliseconds that the anti-flicker white screen will be shown. Defaults to `3500` (3.5 seconds).
+- `navigate`: A callback function to perform the redirect. Defaults to `(url) => window.location.replace(url)`.
+- `navigateDelay`: The number of milliseconds to wait before redirecting. Use this delay to give time for your analytics tracking callback to finish. If your tracking callback is properly implemented as async, then you should set this value as low as possible. Defaults to `100` (0.1 seconds).
+- `maxNavigateDelay`: The maximum number of milliseconds that navigation will be delayed while any async tracking callback is still in flight. If the tracking callback exceeds this value, `navigate` will be fired. Missed tracking calls are generally the largest contributor to [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm). Defaults to `1000` (1 second).
+
+_Deprecated:_
+
+- `antiFlicker`: Only available in the Script Tag.
+- `antiFlickerTimeout`: Only available in the Script Tag.
 
 #### Single Page Apps (SPAs)
 
-If you have a Single Page App (SPA), it's recommended to use your own `navigate` function to avoid doing full-page redirects. In this case, you also want to set `navigateDelay` to 0. Here's an example in Next.js
+If you have a SPA, it's recommended to use your own `navigate` function to avoid full-page redirects. In this case, also set `navigateDelay` to `0`. Here is an example in Next.js:
 
 ```jsx
 import router from "next/router";
@@ -50,11 +97,13 @@ import router from "next/router";
 const gb = new GrowthBook({
     navigate: (url) => router.replace(url),
     navigateDelay: 0,
+    maxNavigateDelay: 0 // only needed if your tracking callback is async
+
     // ... other settings
 });
 ```
 
-It's also super important to update the URL in the GrowthBook instance on every client-side navigation. For example:
+It's also necessary to update the URL in the GrowthBook instance on every client-side navigation. For example:
 
 ```jsx
 router.events.on("routeChangeComplete", (url) => {
@@ -62,8 +111,41 @@ router.events.on("routeChangeComplete", (url) => {
 })
 ```
 
-### Node.js / Edge Workers <Pill>beta</Pill>
+### Edge SDKs
 
-It's possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end as well, in either a Node.js application or in an edge worker.
+The best practice for running URL redirect tests is to implement them on the backend or edge server (CDN).
 
-Reach out to us on Slack or at hello@growthbook.io if you're interested in helping us beta test this and we can help you get set up.
+In a front-end environment, failing to complete the tracking callback before the navigation triggers can lead to substantial [Sample Ratio Mismatch (SRM)](/using/experimenting#sample-ratio-mismatch-srm) errors and could invalidate your experiment results. Similarly, flickering can cause a degraded user experience, which may end up skewing the experiment results in favor of the control (no redirect).
+
+We provide native support for edge redirect tests without screen flickering or tracking delays. Learn more about our [Edge SDKs](/lib/edge/cloudflare#turnkey-edge-app).
+
+### Node.js <Pill>beta</Pill>
+
+It is possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end. You must implement your own `navigate` function.
+
+## Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests
+
+[Sample Ratio Mismatch (SRM) warnings](/using/experimenting#sample-ratio-mismatch-srm) happen when the actual traffic split in an experiment is significantly different from the traffic split configured for the experiment. For instance, if a 50/50 traffic split was configured for an experiment but a significantly different traffic split is observed, like a 46/54 split, an SRM warning will be triggered.
+
+GrowthBook only shows SRM warnings if the p-value is less than 0.001, which means it's extremely unlikely to occur by chance. This p-value threshold is customizable in **Settings** → **General** → **Experiment
+Settings** → **Experiment Health Settings**.
+
+### Why am I seeing SRM warnings on my URL Redirect test?
+
+SRM warnings are a common problem when running front-end URL redirect tests, regardless of what experimentation platform is used. When using GrowthBook's [JavaScript](/lib/js), [React](/lib/react), [Vue.js](/lib/vue), or [Script Tag](/lib/script-tag) SDKs to run URL Redirect tests, SRM warnings may occur. The issue is especially pronounced while also using [Google Tag Manager (GTM)](/guide/google-tag-manager-and-growthbook).
+
+The inherent latency of the [trackingCallback](/lib/js#experimentation-ab-testing) sometimes causes the URL Redirect to take place before the `trackingCallback` can complete, which means a disproportionately larger number of exposures are tracked for the control URL versus the redirect URL. This triggers an SRM warning.
+
+### What can I do to reduce or eliminate SRM warnings?
+
+1. The best way to eliminate a Sample Ratio Mismatch with URL Redirect tests is to use one of our **Edge Worker SDKs** instead of a front-end SDK. See our Edge SDK documentation for [Cloudflare Workers](/lib/edge/cloudflare), [Fastly Compute](/lib/edge/fastly), and [AWS Lambda@Edge](/lib/edge/lambda).
+
+2. If you opt to use a front-end SDK (JS, React, or Vue), you can still greatly reduce or nearly eliminate SRM by implementing an **async tracking callback**. If your event tracking vendor supports async callbacks, then simply ensure that the `trackingCallback` that you pass into the GrowthBook SDK constructor awaits a successful network request for the tracked event. If you are using our HTML Script Tag, this is automatically handled for _GA4_ and _GTM_ tracking calls.
+
+:::note Async tracking callbacks
+
+GrowthBook JavaScript and React SDKs introduced **async tracking callbacks** in version `1.2.0`.
+
+:::
+
+3. If you are unable to use an async tracking callback, you can try increasing the `navigateDelay` timeout passed into the GrowthBook SDK constructor. This defers the URL redirection until after a minimum time, increasing the likelihood that your tracking callback is successfully dispatched before page redirection. The default delay is 1000 ms (1 second), however some network conditions or SDK implementations do better with a navigate delay of 2 to 3 seconds. _Segment_ recommends a 300 ms delay; if you are using our HTML Script Tag with _Segment_, this is automatically set to 300 ms.

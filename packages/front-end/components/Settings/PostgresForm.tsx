@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -12,7 +12,6 @@ const PostgresForm: FC<{
   return (
     <>
       <HostWarning
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         host={params.host}
         setHost={(host) => {
           setParams({

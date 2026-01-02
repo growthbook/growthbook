@@ -3,7 +3,7 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "target": "es6",
+    "target": "es2020",
     "noImplicitAny": true,
     "moduleResolution": "node",
     "sourceMap": true,
@@ -13,10 +13,7 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "paths": {
-      "@back-end/*": ["../back-end/*"]
-    },
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "typings.d.ts"]
+  "include": ["src/**/*", "typings.d.ts", "types", "types.js"]
 }

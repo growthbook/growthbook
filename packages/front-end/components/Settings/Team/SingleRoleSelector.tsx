@@ -1,12 +1,16 @@
 import { ReactNode, useMemo } from "react";
-import { MemberRoleInfo } from "back-end/types/organization";
+import { Flex } from "@radix-ui/themes";
+import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
 import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
-import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
+import Switch from "@/ui/Switch";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({
@@ -67,7 +71,34 @@ export default function SingleRoleSelector({
     groupedOptions.push({ label: "Custom", options: customOptions });
   }
 
-  const availableEnvs = useEnvironments();
+  const activeEnvs = useEnvironments();
+
+  // Create a list of envs that combines current active envs, and any deleted envs that are still in the value.environments
+  const envOptions: SingleValue[] = useMemo(() => {
+    const activeEnvIds = new Set(activeEnvs.map((env) => env.id));
+    const envOptions: SingleValue[] = [...activeEnvs].map((env) => {
+      return {
+        label: env.id,
+        value: env.id,
+        tooltip: env.description,
+      };
+    });
+
+    // Add any environments from the current value that are not in activeEnvs
+    // These are likely deleted environments
+    const deletedEnvIds = value.environments.filter(
+      (envId) => !activeEnvIds.has(envId),
+    );
+
+    deletedEnvIds.forEach((envId) => {
+      envOptions.push({
+        label: `(Deleted) - ${envId}`,
+        value: envId,
+        tooltip: `Deleted environment`,
+      });
+    });
+    return envOptions;
+  }, [activeEnvs, value.environments]);
 
   const id = useMemo(() => uniqid(), []);
 
@@ -98,11 +129,11 @@ export default function SingleRoleSelector({
         formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
-          if (!r) return <strong>{value.label}</strong>;
+          if (!r) return <span>{value.label}</span>;
           return (
-            <div>
-              <strong className="pr-2">{r.id}.</strong>
-              {r.description}
+            <div className="d-flex">
+              <span className="pr-2">{r.id}</span>
+              <span className="ml-auto text-muted">{r.description}</span>
             </div>
           );
         }}
@@ -110,27 +141,27 @@ export default function SingleRoleSelector({
       />
 
       {roleSupportsEnvLimit(value.role, organization) &&
-        availableEnvs.length > 1 && (
+        envOptions.length > 1 && (
           <div>
             <div className="form-group">
-              <label htmlFor={`role-modal--${id}`}>
-                <PremiumTooltip commercialFeature="advanced-permissions">
-                  Restrict Access to Specific Environments
-                </PremiumTooltip>
-              </label>
-              <div>
-                <Toggle
+              <Flex align="center" gap="2">
+                <Switch
                   disabled={!hasFeature}
                   id={`role-modal--${id}`}
                   value={value.limitAccessByEnvironment}
-                  setValue={(limitAccessByEnvironment) => {
+                  onChange={(limitAccessByEnvironment) => {
                     setValue({
                       ...value,
                       limitAccessByEnvironment,
                     });
                   }}
                 />
-              </div>
+                <label htmlFor={`role-modal--${id}`} className="mb-0">
+                  <PremiumTooltip commercialFeature="advanced-permissions">
+                    Restrict Access to Specific Environments
+                  </PremiumTooltip>
+                </label>
+              </Flex>
             </div>
             {value.limitAccessByEnvironment && (
               <MultiSelectField
@@ -144,11 +175,7 @@ export default function SingleRoleSelector({
                     environments,
                   });
                 }}
-                options={availableEnvs.map((env) => ({
-                  label: env.id,
-                  value: env.id,
-                  tooltip: env.description,
-                }))}
+                options={envOptions}
               />
             )}
           </div>

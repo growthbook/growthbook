@@ -3,11 +3,11 @@ import {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
   InformationSchemaInterface,
-} from "@back-end/src/types/Integration";
+} from "shared/types/integrations";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-} from "@back-end/types/datasource";
+} from "shared/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { FaRedo } from "react-icons/fa";
@@ -77,8 +77,8 @@ export default function AutoGenerateMetricsModal({
     selectedDatasource?.type === "bigquery"
       ? "Dataset"
       : selectedDatasource?.type === "athena"
-      ? "Catalog"
-      : "Schema";
+        ? "Catalog"
+        : "Schema";
 
   const submit = form.handleSubmit(async (data) => {
     const autoMetricsToCreate: AutoMetricToCreate[] = [];
@@ -95,7 +95,7 @@ export default function AutoGenerateMetricsModal({
         countMetrics: autoMetricsToCreate.filter((m) => m.type === "count")
           .length,
         binomialMetrics: autoMetricsToCreate.filter(
-          (m) => m.type === "binomial"
+          (m) => m.type === "binomial",
         ).length,
       },
       source,
@@ -133,7 +133,7 @@ export default function AutoGenerateMetricsModal({
         !datasourceObj.settings?.schemaOptions?.projectId
       ) {
         setAutoMetricError(
-          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id."
+          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id.",
         );
         return;
       }
@@ -179,7 +179,7 @@ export default function AutoGenerateMetricsModal({
         setAutoMetricError(e.message);
       }
     },
-    [apiCall, form, selectedSchema, source]
+    [apiCall, form, selectedSchema, source],
   );
 
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function AutoGenerateMetricsModal({
       } else if (retryCount > 8) {
         setRefreshingSchema(false);
         setRefreshingSchemaError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
+          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes.",
         );
         setRetryCount(1);
       } else {
@@ -275,6 +275,7 @@ export default function AutoGenerateMetricsModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       size="lg"
       open={true}
       header="Discover Metrics"
@@ -379,9 +380,8 @@ export default function AutoGenerateMetricsModal({
               <Button
                 color="link"
                 onClick={async () => {
-                  const updates: AutoMetricTrackedEvent[] = cloneDeep(
-                    trackedEvents
-                  );
+                  const updates: AutoMetricTrackedEvent[] =
+                    cloneDeep(trackedEvents);
                   updates.forEach((event) => {
                     event.metricsToCreate.forEach((metric) => {
                       if (!metric.shouldCreate && !metric.alreadyExists) {
@@ -397,9 +397,8 @@ export default function AutoGenerateMetricsModal({
               <Button
                 color="link"
                 onClick={async () => {
-                  const updates: AutoMetricTrackedEvent[] = cloneDeep(
-                    trackedEvents
-                  );
+                  const updates: AutoMetricTrackedEvent[] =
+                    cloneDeep(trackedEvents);
                   updates.forEach((event) => {
                     event.metricsToCreate.forEach((metric) => {
                       if (metric.shouldCreate && !metric.alreadyExists) {

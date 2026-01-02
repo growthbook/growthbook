@@ -19,6 +19,7 @@ config.yml
 !.vscode/launch.json
 packages/stats/notebooks
 buildinfo/
+back-end-dist/
 *.tsbuildinfo
 
 # Python compiled files
@@ -42,3 +43,5 @@ packages/back-end/src/api/openapi/openapi.tmp.yaml
 
 # package lock files
 package-lock.json
+
+charts/**/*.tgz

@@ -1,0 +1,109 @@
+---
+title: Microsoft Clarity (Heatmaps)
+description: Learn about integrating Microsoft Clarity heatmaps with GrowthBook
+---
+
+# Microsoft Clarity Heatmaps
+
+This guide walks through how to integrate GrowthBook A/B tests with Microsoft Clarity for getting heatmaps of your experiment pages. This will work with GrowthBook client side SDKs (HTML or Javascript).
+
+## Passing Data to Microsoft Clarity
+
+To make the heat maps aware of your A/B tests, you should send the experiment id and variation id to Clarity. This can
+be done through the "trackingCallback" in the GrowthBook client, by setting a custom tag in Clarity.
+
+You can use either one event for both experiment name and variation id, or two separate custom events. eg:
+
+```javascript
+// two separate events
+window.clarity('set', 'experiment', experiment.key);
+window.clarity('set', 'variation', result.key);
+
+// one event with both, with the name stored as the 'name' and variation as the 'value'
+window.clarity('set', experiment.key, result.key);
+```
+
+This callback may be different depending on your
+implementation. Here are some full examples:
+
+### Javascript
+
+If you are using a recent version (> 1.4.1) you can use the third party tracking plugin:
+
+```javascript
+import { thirdPartyTrackingPlugin } from "@growthbook/growthbook/plugins";
+
+// Optional settings for the plugin
+const pluginOptions = {
+  // By default, it will attempt to send to all 3 of these
+  trackers: ["segment", "ga4", "gtm"],
+  // Additional custom tracking callback
+  additionalCallback: (experiment, result) => {
+    if (window?.clarity) {
+      window.clarity('set', 'experiment', experiment.key);
+      window.clarity('set', 'variation', result.key);
+    }
+  }
+}
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [
+    thirdPartyTrackingPlugin(pluginOptions),
+  ],
+});
+```
+
+If you have an older SDK, you can manually send the data to Clarity in the trackingCallback:
+
+```javascript
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result) => {
+    // existing tracking callback here.
+    if (window?.clarity) {
+      window.clarity('set', 'experiment', experiment.key);
+      window.clarity('set', 'variation', result.key);
+    }
+  }
+});
+```
+
+### HTML SDK
+
+This example assumes you're using Google Analytics/GTM. Place this before you load the GrowthBook HTML SDK:
+
+```html
+<script>
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.trackingCallback = (experiment, result) => {
+  if (window.gtag) {
+    window.gtag("event", "experiment_viewed", {
+      experiment_id: experiment.key,
+      variation_id: result.key,
+    });
+  } else {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "experiment_viewed",
+      experiment_id: experiment.key,
+      variation_id: result.key,
+    });
+  }
+  if (window?.clarity) {
+    window.clarity('set', 'experiment', experiment.key);
+    window.clarity('set', 'variation', result.key);
+  }
+};
+</script>
+```
+
+If you are using another tracker, you can replace the `gtag` and `dataLayer` calls with the appropriate tracking code.
+
+## Using Custom Events in Clarity
+
+You can apply custom filters to the heatmap filters in Clarity to only show data for specific experiments or variations.
+This can be done by creating a custom event in Clarity and filtering by that event. You can read more about
+this [from the microsoft site](https://learn.microsoft.com/en-us/clarity/filters/clarity-filters#filtering-with-custom-filters).

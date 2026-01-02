@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import Field from "@/components/Forms/Field";
 import HostWarning from "./HostWarning";
 
@@ -13,7 +13,6 @@ const DatabricksForm: FC<{
     <div className="row">
       <div className="col-md-12">
         <HostWarning
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           host={params.host}
           setHost={(host) => {
             setParams({

@@ -1,7 +1,9 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ArchetypeInterface } from "../../types/archetype";
+import { ArchetypeInterface } from "shared/types/archetype";
+import { ApiArchetype } from "shared/types/openapi";
+import { logger } from "back-end/src/util/logger";
 
 const archetypeSchema = new mongoose.Schema({
   id: {
@@ -16,6 +18,7 @@ const archetypeSchema = new mongoose.Schema({
   description: String,
   owner: String,
   isPublic: Boolean,
+  projects: [String],
   dateCreated: Date,
   dateUpdated: Date,
   attributes: String,
@@ -25,7 +28,7 @@ type ArchetypeDocument = mongoose.Document & ArchetypeInterface;
 
 const ArchetypeModel = mongoose.model<ArchetypeInterface>(
   "archetype",
-  archetypeSchema
+  archetypeSchema,
 );
 
 type CreateArchetypeProps = Omit<
@@ -39,10 +42,7 @@ type UpdateArchetypeProps = Omit<
 >;
 
 const toInterface = (doc: ArchetypeDocument): ArchetypeInterface =>
-  omit(
-    doc.toJSON<ArchetypeDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON<ArchetypeDocument>({ flattenMaps: true }), ["__v", "_id"]);
 
 export function parseArchetypeString(list: string) {
   const values = list
@@ -54,24 +54,40 @@ export function parseArchetypeString(list: string) {
 }
 
 export async function createArchetype(
-  user: CreateArchetypeProps
+  arch: CreateArchetypeProps,
 ): Promise<ArchetypeInterface> {
-  const newUser = await ArchetypeModel.create({
-    ...user,
+  const newArch = await ArchetypeModel.create({
+    ...arch,
     id: uniqid("sam_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-  return toInterface(newUser);
+  return toInterface(newArch);
 }
 
 export async function getAllArchetypes(
   organization: string,
-  owner: string
+  owner: string,
+  project?: string,
 ): Promise<ArchetypeInterface[]> {
-  const archetype: ArchetypeDocument[] = await ArchetypeModel.find({
-    organization,
-  });
+  const query: FilterQuery<ArchetypeDocument> = {
+    organization: organization,
+  };
+  // if project is set, return archetypes that are either all projects
+  // or are associated with the specified project.
+  if (project || project === "") {
+    const projectOrQuery = [
+      { projects: { $exists: false } }, // legacy archetypes don't have projects
+      { projects: { $eq: [] } }, // archetypes that are not associated with a project (ie, all projects)
+      { projects: { $eq: project } }, // archetypes that are associated with the specified project
+    ];
+    if (!query["$or"]) {
+      query["$or"] = projectOrQuery;
+    } else {
+      query["$or"].push(...projectOrQuery);
+    }
+  }
+  const archetype: ArchetypeDocument[] = await ArchetypeModel.find(query);
   return (
     archetype
       .filter((su) => su.owner === owner || su.isPublic)
@@ -81,7 +97,7 @@ export async function getAllArchetypes(
 
 export async function getArchetypeById(
   archetypeId: string,
-  organization: string
+  organization: string,
 ): Promise<ArchetypeInterface | null> {
   const archetype = await ArchetypeModel.findOne({
     id: archetypeId,
@@ -94,10 +110,10 @@ export async function getArchetypeById(
 export async function updateArchetypeById(
   archetypeId: string,
   organization: string,
-  user: UpdateArchetypeProps
+  archProps: UpdateArchetypeProps,
 ): Promise<UpdateArchetypeProps> {
   const changes = {
-    ...user,
+    ...archProps,
     dateUpdated: new Date(),
   };
 
@@ -106,7 +122,7 @@ export async function updateArchetypeById(
       id: archetypeId,
       organization: organization,
     },
-    changes
+    changes,
   );
 
   return changes;
@@ -117,4 +133,31 @@ export async function deleteArchetypeById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export function toArchetypeApiInterface(
+  archetype: ArchetypeInterface,
+): ApiArchetype {
+  let parsedAttributes = {};
+  try {
+    parsedAttributes = JSON.parse(archetype.attributes);
+  } catch {
+    logger.error(
+      {
+        archetypeId: archetype.id,
+      },
+      "Failed to parse archetype attributes json",
+    );
+  }
+  return {
+    id: archetype.id,
+    dateCreated: archetype.dateCreated?.toISOString() || "",
+    dateUpdated: archetype.dateUpdated?.toISOString() || "",
+    name: archetype.name,
+    description: archetype.description,
+    owner: archetype.owner || "",
+    isPublic: archetype.isPublic,
+    attributes: parsedAttributes,
+    projects: archetype.projects || [],
+  };
 }

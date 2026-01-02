@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import { PrerequisiteStateResult } from "shared/util";
 import { condToJson, jsonToConds } from "@/services/features";
@@ -40,12 +40,12 @@ export default function PrerequisiteInput(props: Props) {
   }, [parentFeatureValueType]);
 
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, parentValueMap) === null
+    () => jsonToConds(props.defaultValue, parentValueMap) === null,
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
   const [conds, setConds] = useState(
-    () => jsonToConds(props.defaultValue, parentValueMap) || []
+    () => jsonToConds(props.defaultValue, parentValueMap) || [],
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
@@ -141,7 +141,7 @@ export default function PrerequisiteInput(props: Props) {
         };
 
         const handleFieldChange = (
-          e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
+          e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>,
         ) => {
           const name = e.target.name;
           const value: string | number = e.target.value;
@@ -164,39 +164,39 @@ export default function PrerequisiteInput(props: Props) {
                 { label: "is not live", value: "$notExists" },
               ]
             : attribute.datatype === "string"
-            ? [
-                { label: "is live", value: "$exists" },
-                { label: "is not live", value: "$notExists" },
-                { label: "is equal to", value: "$eq" },
-                { label: "is not equal to", value: "$ne" },
-                { label: "matches regex", value: "$regex" },
-                { label: "does not match regex", value: "$notRegex" },
-                { label: "is greater than", value: "$gt" },
-                { label: "is greater than or equal to", value: "$gte" },
-                { label: "is less than", value: "$lt" },
-                { label: "is less than or equal to", value: "$lte" },
-                { label: "is in the list", value: "$in" },
-                { label: "is not in the list", value: "$nin" },
-              ]
-            : attribute.datatype === "number"
-            ? [
-                { label: "is live", value: "$exists" },
-                { label: "is not live", value: "$notExists" },
-                { label: "is equal to", value: "$eq" },
-                { label: "is not equal to", value: "$ne" },
-                { label: "is greater than", value: "$gt" },
-                { label: "is greater than or equal to", value: "$gte" },
-                { label: "is less than", value: "$lt" },
-                { label: "is less than or equal to", value: "$lte" },
-                { label: "is in the list", value: "$in" },
-                { label: "is not in the list", value: "$nin" },
-              ]
-            : attribute.datatype === "json"
-            ? [
-                { label: "is live", value: "$exists" },
-                { label: "is not live", value: "$notExists" },
-              ]
-            : [];
+              ? [
+                  { label: "is live", value: "$exists" },
+                  { label: "is not live", value: "$notExists" },
+                  { label: "is equal to", value: "$eq" },
+                  { label: "is not equal to", value: "$ne" },
+                  { label: "matches regex", value: "$regex" },
+                  { label: "does not match regex", value: "$notRegex" },
+                  { label: "is greater than", value: "$gt" },
+                  { label: "is greater than or equal to", value: "$gte" },
+                  { label: "is less than", value: "$lt" },
+                  { label: "is less than or equal to", value: "$lte" },
+                  { label: "is in the list", value: "$in" },
+                  { label: "is not in the list", value: "$nin" },
+                ]
+              : attribute.datatype === "number"
+                ? [
+                    { label: "is live", value: "$exists" },
+                    { label: "is not live", value: "$notExists" },
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "is greater than", value: "$gt" },
+                    { label: "is greater than or equal to", value: "$gte" },
+                    { label: "is less than", value: "$lt" },
+                    { label: "is less than or equal to", value: "$lte" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                  ]
+                : attribute.datatype === "json"
+                  ? [
+                      { label: "is live", value: "$exists" },
+                      { label: "is not live", value: "$notExists" },
+                    ]
+                  : [];
 
         return (
           <div key={i}>

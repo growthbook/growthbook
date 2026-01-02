@@ -1,4 +1,4 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
   ExperimentMetricInterface,
@@ -8,6 +8,7 @@ import {
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props
@@ -20,6 +21,7 @@ interface Props
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant";
   significant?: boolean;
+  disabled?: boolean;
   graphWidth?: number;
   height?: number;
   className?: string;
@@ -29,6 +31,7 @@ interface Props
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
   rowStatus?: string;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function PercentGraph({
@@ -40,6 +43,7 @@ export default function PercentGraph({
   barType: _barType,
   barFillType = "gradient",
   significant,
+  disabled,
   graphWidth,
   height,
   className,
@@ -49,15 +53,25 @@ export default function PercentGraph({
   onMouseLeave,
   onClick,
   rowStatus,
+  ssrPolyfills,
 }: Props) {
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+
+  const metricDefaults =
+    ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
+    _metricDefaults;
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
 
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
-  const showGraph = metric && enoughData;
+  const showGraph = !disabled && metric && enoughData;
 
   if (significant === undefined) {
     if (barType === "pill") {
@@ -75,7 +89,7 @@ export default function PercentGraph({
 
   return (
     <AlignedGraph
-      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
+      ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
       id={id}
       domain={domain}
       uplift={showGraph ? stats.uplift : undefined}

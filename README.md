@@ -11,7 +11,7 @@ Get up and running in 1 minute with:
 ```sh
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
-docker-compose up -d
+docker compose up -d
 ```
 
 Then visit http://localhost:3000
@@ -49,7 +49,7 @@ The included [docker-compose.yml](https://github.com/growthbook/growthbook/blob/
 ```sh
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
-docker-compose up -d
+docker compose up -d
 ```
 
 Then visit http://localhost:3000 to view the app.
@@ -76,7 +76,7 @@ If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=re
 
 ## License
 
-GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license, and the `packages/enterprise` directory has its own separate commercial license.
+GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license. There are several directories that are governed under a separate commercial license, the GrowthBook Enterprise License.
 
 View the `LICENSE` file in this repository for the full text and details.
 

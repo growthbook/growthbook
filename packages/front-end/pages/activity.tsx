@@ -1,14 +1,17 @@
 import { FC, useState } from "react";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { HistoryTableRow } from "@/components/HistoryTable";
+import track from "@/services/track";
 
 const Activity: FC = () => {
   const { data, error } = useApi<{
     events: AuditInterface[];
     experiments: { id: string; name: string }[];
   }>("/activity");
+
+  track("Viewed Activity Page");
 
   const [open, setOpen] = useState("");
 

@@ -1,29 +1,31 @@
 import type { Response } from "express";
-import { PrivateApiErrorResponse } from "../../../types/api";
+import {
+  CreateWebhookSecretProps,
+  UpdateWebhookSecretProps,
+} from "shared/validators";
 import {
   EventWebHookInterface,
   EventWebHookPayloadType,
   EventWebHookMethod,
-} from "../../../types/event-webhook";
-import * as EventWebHook from "../../models/EventWebhookModel";
+} from "shared/types/event-webhook";
+import {
+  EventWebHookLegacyLogInterface,
+  EventWebHookLogInterface,
+} from "shared/types/event-webhook-log";
+import { NotificationEventName } from "shared/types/events/base-types";
+import { PrivateApiErrorResponse } from "back-end/types/api";
+import * as EventWebHook from "back-end/src/models/EventWebhookModel";
 import {
   deleteEventWebHookById,
   getEventWebHookById,
   updateEventWebHook,
+  sendEventWebhookTestEvent,
   UpdateEventWebHookAttributes,
-} from "../../models/EventWebhookModel";
-import { createEvent } from "../../models/EventModel";
-import * as EventWebHookLog from "../../models/EventWebHookLogModel";
+} from "back-end/src/models/EventWebhookModel";
+import * as EventWebHookLog from "back-end/src/models/EventWebHookLogModel";
 
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import {
-  EventWebHookLegacyLogInterface,
-  EventWebHookLogInterface,
-} from "../../../types/event-webhook-log";
-import { WebhookTestEvent } from "../../events/notification-events";
-import { NotificationEventName } from "../../events/base-types";
-import { EventNotifier } from "../../events/notifiers/EventNotifier";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region GET /event-webhooks
 
@@ -35,7 +37,7 @@ type GetEventWebHooks = {
 
 export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
-  res: Response<GetEventWebHooks>
+  res: Response<GetEventWebHooks>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -60,7 +62,7 @@ type GetEventWebHookByIdResponse = {
 
 export const getEventWebHook = async (
   req: GetEventWebHookByIdRequest,
-  res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>
+  res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -72,7 +74,7 @@ export const getEventWebHook = async (
 
   const eventWebHook = await getEventWebHookById(
     eventWebHookId,
-    context.org.id
+    context.org.id,
   );
 
   if (!eventWebHook) {
@@ -109,7 +111,7 @@ type PostEventWebHooksResponse = {
 
 export const createEventWebHook = async (
   req: PostEventWebHooksRequest,
-  res: Response<PostEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<PostEventWebHooksResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -124,7 +126,7 @@ export const createEventWebHook = async (
     tags = [],
     projects = [],
     environments = [],
-    payloadType = "raw",
+    payloadType,
     method = "POST",
     headers = {},
   } = req.body;
@@ -164,7 +166,7 @@ type GetEventWebHookLogsResponse = {
 
 export const getEventWebHookLogs = async (
   req: GetEventWebHookLogsRequest,
-  res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>
+  res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -175,7 +177,7 @@ export const getEventWebHookLogs = async (
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
     context.org.id,
     req.params.eventWebHookId,
-    50
+    50,
   );
 
   return res.json({ eventWebHookLogs });
@@ -193,7 +195,7 @@ type DeleteEventWebhookResponse = {
 
 export const deleteEventWebHook = async (
   req: DeleteEventWebhookRequest,
-  res: Response<DeleteEventWebhookResponse | PrivateApiErrorResponse>
+  res: Response<DeleteEventWebhookResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -228,7 +230,7 @@ type UpdateEventWebHookResponse = {
 
 export const putEventWebHook = async (
   req: UpdateEventWebHookRequest,
-  res: Response<UpdateEventWebHookResponse>
+  res: Response<UpdateEventWebHookResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -241,7 +243,7 @@ export const putEventWebHook = async (
       eventWebHookId: req.params.eventWebHookId,
       organizationId: context.org.id,
     },
-    req.body
+    req.body,
   );
 
   const status = successful ? 200 : 404;
@@ -267,7 +269,7 @@ type PostToggleEventWebHooksResponse = {
 
 export const toggleEventWebHook = async (
   req: PostToggleEventWebHooksRequest,
-  res: Response<PostToggleEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<PostToggleEventWebHooksResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -282,7 +284,7 @@ export const toggleEventWebHook = async (
 
   const webhook = await EventWebHook.getEventWebHookById(
     webhookId,
-    organizationId
+    organizationId,
   );
 
   const enabled = !webhook?.enabled;
@@ -292,7 +294,7 @@ export const toggleEventWebHook = async (
       eventWebHookId: webhookId,
       organizationId,
     },
-    { enabled }
+    { enabled },
   );
 
   const status = successful ? 200 : 404;
@@ -304,6 +306,55 @@ export const toggleEventWebHook = async (
 
 // endregion /event-webhooks/toggle
 
+// region POST /event-webhooks/test-params
+
+const testParamsPayload = (name: string) => ({
+  text: `Hi there! This is a test event from GrowthBook to see if the params for webhook ${name} are correct.`,
+  blocks: [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Hi there! 👋*\nThis is a *test event* from GrowthBook to see if the params for webhook ${name} are correct.`,
+      },
+    },
+  ],
+});
+
+type PostTestWebHooksParamsRequest = AuthRequest & {
+  body: {
+    name: string;
+    method: EventWebHookMethod;
+    url: string;
+  };
+};
+
+export const testWebHookParams = async (
+  req: PostTestWebHooksParamsRequest,
+  res: Response<{ success: boolean } | PrivateApiErrorResponse>,
+) => {
+  try {
+    const response = await fetch(req.body.url, {
+      method: req.body.method,
+      body: JSON.stringify(testParamsPayload(req.body.name)),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.ok) return res.json({ success: true });
+
+    return res.status(403).json({
+      status: 403,
+      message: `Request failed: ${response.status} - ${response.statusText}`,
+    });
+  } catch (e) {
+    return res
+      .status(403)
+      .json({ status: 403, message: `Request failed: ${e}` });
+  }
+};
+
+// endregion /event-webhooks/test-params
+
 // region POST /event-webhooks/test
 
 type PostTestEventWebHooksRequest = AuthRequest & {
@@ -312,56 +363,53 @@ type PostTestEventWebHooksRequest = AuthRequest & {
   };
 };
 
-type PostTestEventWebHooksResponse = {
-  eventId: string;
-};
-
 export const createTestEventWebHook = async (
   req: PostTestEventWebHooksRequest,
-  res: Response<PostTestEventWebHooksResponse | PrivateApiErrorResponse>
+  res: Response<unknown | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const {
-    org: { id: organizationId },
-  } = context;
   const { webhookId } = req.body;
 
-  const webhook = await EventWebHook.getEventWebHookById(
-    webhookId,
-    organizationId
-  );
+  await sendEventWebhookTestEvent(context, webhookId);
 
-  if (!webhook) throw new Error(`Cannot find webhook with id ${webhookId}`);
-
-  const payload: WebhookTestEvent = {
-    event: "webhook.test",
-    object: "webhook",
-    data: { webhookId },
-    user: req.userId
-      ? {
-          type: "dashboard",
-          id: req.userId,
-          email: req.email,
-          name: req.name || "",
-        }
-      : null,
-    projects: [],
-    tags: [],
-    environments: [],
-    containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(organizationId, payload);
-
-  if (!emittedEvent) throw new Error("Error while creating event!");
-
-  new EventNotifier(emittedEvent.id).perform();
-
-  return res.json({ eventId: emittedEvent.id });
+  return res.status(200);
 };
 
 // endregion POST /event-webhooks/test
+
+export const createWebhookSecret = async (
+  req: AuthRequest<CreateWebhookSecretProps>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  await context.models.webhookSecrets.create(req.body);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+export const deleteWebhookSecret = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  await context.models.webhookSecrets.deleteById(req.params.id);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+export const updateWebhookSecret = async (
+  req: AuthRequest<UpdateWebhookSecretProps, { id: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  await context.models.webhookSecrets.updateById(req.params.id, req.body);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};

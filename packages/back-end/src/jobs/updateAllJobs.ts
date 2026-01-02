@@ -1,16 +1,16 @@
-import { ApiReqContext } from "../../types/api";
-import { ReqContext } from "../../types/organization";
 import {
   ProxyConnection,
   SDKConnectionInterface,
-} from "../../types/sdk-connection";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+} from "shared/types/sdk-connection";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   getSurrogateKeysFromEnvironments,
   purgeCDNCache,
-} from "../util/cdn.util";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/src/util/cdn.util";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 import {
   fireGlobalSdkWebhooks,
@@ -25,7 +25,7 @@ export const triggerWebhookJobs = async (
   payloadKeys: SDKPayloadKey[],
   environments: string[],
   isProxyEnabled: boolean,
-  isFeature = true
+  isFeature = true,
 ) => {
   queueWebhooksBySdkPayloadKeys(context, payloadKeys).catch((e) => {
     logger.error(e, "Error queueing webhooks");
@@ -52,7 +52,7 @@ export const triggerSingleSDKWebhookJobs = async (
   connection: SDKConnectionInterface,
   otherChanges: Partial<SDKConnectionInterface>,
   newProxy: ProxyConnection,
-  isUsingProxy: boolean
+  isUsingProxy: boolean,
 ) => {
   queueWebhooksForSdkConnection(context, connection).catch((e) => {
     logger.error(e, "Error queueing webhooks");
@@ -68,7 +68,7 @@ export const triggerSingleSDKWebhookJobs = async (
       queueSingleProxyUpdate(context.org.id, newConnection, IS_CLOUD).catch(
         (e) => {
           logger.error(e, "Error queueing single proxy update");
-        }
+        },
       );
     }
   }

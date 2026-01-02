@@ -7,8 +7,16 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # GrowthBook Go SDK
+
+<SdkResources sdk="go" />
+
+## Requirements
+
+- Go version 1.21 or higher (tested with 1.21, 1.22, and 1.23)
 
 ## Installation
 
@@ -18,183 +26,298 @@ go get github.com/growthbook/growthbook-golang
 
 ## Quick Usage
 
-The main public API for the SDK is provided through the `Context` and
-`GrowthBook` types. The `Context` type provides a means to pass
-settings to the main `GrowthBook` type, while the `GrowthBook` type
-provides a `Feature` method for accessing feature values, and a `Run`
-method for running inline experiments.
-
 ```go
-// GBFeaturesResponse
-// GrowthBook features response
-type GBFeaturesResponse struct {
-	Status            int             `json:"status"`
-	Features          json.RawMessage `json:"features"`
-	EncryptedFeatures string          `json:"encryptedFeatures,omitempty"` // Not yet supported in the Go SDK
-	DateUpdated       time.Time       `json:"dateUpdated"`
-}
+import (
+    "context"
+    "log"
+    gb "github.com/growthbook/growthbook-golang"
+)
 
-// Get JSON from GrowthBook and deserialize it into GBFeaturesResponse struct
-res, err := http.Get("https://cdn.growthbook.io/api/features/<environment_key>")
+// Create a new client instance with a client key and a data source that loads features
+// in the background using an SSE stream. Pass the client's options to the NewClient function.
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithSseDataSource(),
+)
+defer client.Close()
+
 if err != nil {
-	fmt.Printf("Error fetching features from GrowthBook: %s \n", err)
-	os.Exit(1)
+    log.Fatal("Client initialization failed: ", err)
 }
 
-var featuresResponse GBFeaturesResponse
-err = json.NewDecoder(res.Body).Decode(&featuresResponse)
+// The data source starts asynchronously. Use EnsureLoaded to wait until the client data
+// is initialized for the first time.
+if err := client.EnsureLoaded(context.Background()); err != nil {
+    log.Fatal("Data loading failed: ", err)
+}
+
+// Create a child client with specific attributes.
+attrs := gb.Attributes{"id": 100, "user": "user1"}
+child, err := client.WithAttributes(attrs)
 if err != nil {
-	fmt.Printf("Error decoding JSON: %s \n", err)
-	os.Exit(1)
+    log.Fatal("Child client creation failed: ", err)
 }
 
-features := growthbook.ParseFeatureMap(featuresResponse.Features)
-
-// Optional tracking callback
-// This will get called when the font_colour experiment below is evaluated
-// See "Tracking and subscriptions" section below
-trackingCallback := func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
-	fmt.Printf("Experiment Viewed: %s - Variation index: %d - Value: %s \n", experiment.Key, result.VariationID, result.Value)
+// Evaluate a text feature.
+buttonColor := child.EvalFeature(context.Background(), "buy-button-color")
+if buttonColor.Value == "blue" {
+    // Perform actions for blue button.
 }
 
-// Set up user attributes - See Attributes below for more info
-userAttributes := growthbook.Attributes{
-	"id": "user-abc123",
-	"country": "canada",
+// Evaluate a boolean feature.
+darkMode := child.EvalFeature(context.Background(), "dark-mode")
+if darkMode.On {
+    // Enable dark mode.
 }
-
-// Create a growthbook.Context instance with the features and attributes
-context := growthbook.NewContext().
-	WithFeatures(features).
-	WithAttributes(userAttributes).
-	WithTrackingCallback(trackingCallback)
-
-// Create a growthbook.GrowthBook instance
-gb := growthbook.New(context)
-
-// Get a string value
-bannerText := gb.Feature("banner_text").GetValueWithDefault("(unknown banner text)")
-
-// Perform feature test.
-if gb.Feature("dark_mode").On {
-	// ...
-}
-
-// Evaluate an inline experiment and cast the result to a string (or the known type)
-experiment := growthbook.
-	NewExperiment("font_colour").
-	WithVariations("red", "orange", "yellow", "green", "blue", "purple")
-result := gb.Run(experiment)
-var fontColour = result.Value.(string)
-
-fmt.Println(fontColour)
-
-experiment2 :=
-  growthbook.NewExperiment("complex-experiment").
-    WithVariations(
-      map[string]string{"color": "blue", "size": "small"},
-      map[string]string{"color": "green", "size": "large"},
-    ).
-    WithWeights(0.8, 0.2).
-    WithCoverage(0.5)
-
-result2 := gb.Run(experiment2)
-fmt.Println(result2.Value.(map[string]string)["color"],
-  result2.Value.(map[string]string)["size"])
 ```
 
-## The GrowthBook Context
+### Client
 
-A new `Context` is created using the `NewContext` function and its
-fields can be set using the `WithEnabled`, `WithAttributes`,
-`WithURL`, `WithFeatures`, `WithForcedVariations`, `WithQAMode` and
-`WithTrackingCallback` methods. These `With...` methods return a
-`Context` pointer to enable call chaining. Context details can
-alternatively be parsed from JSON data (see [JSON data
-representations](#json-data-representations)). The fields in a
-`Context` include information about the user for whom feature results
-will be evaluated (the `Attributes`), the features that are defined,
-plus some additional values to control forcing of feature results
-under some circumstances.
+The client is the core component of the GrowthBook SDK. After installing and importing the SDK, create a single shared instance of `growthbook.Client` using the `growthbook.NewClient` function with a list of options. You can customize the client with options such as a custom logger, client key, decryption key, default attributes, or a feature list loaded from JSON. The client is thread-safe and can be safely used from multiple goroutines.
 
-Given a `Context` value, a new `GrowthBook` value can be created using
-the `New` function. The `GrowthBook` type has some getter and setter
-methods (setters are methods with names of the form `With...`) for
-fields of the associated `Context`. As well as providing access to the
-underlying Context and exposing the main `Feature` and `Run` methods,
-the `GrowthBook` type also keeps track of the results of experiments
-that are performed, in order to implement tracking and experiment
-subscription callbacks.
-
-For example, assuming that the `growthbook` package is imported with
-name "`growthbook`", the following code will create a `Context` and
-`GrowthBook` value using features parsed from JSON data and some fixed
-attributes:
+While you can evaluate features directly using the main client instance, it's recommended to create child client instances that include session- or query-specific data. To create a child client with local attributes, call `client.WithAttributes`:
 
 ```go
-// Parse feature map from JSON.
-features := growthbook.ParseFeatureMap(featureJSON)
-
-// Create context and main GrowthBook object.
-context := growthbook.NewContext().
-  WithFeatures(features).
-  WithAttributes(growthbook.Attributes{
-    "country": "US",
-    "browser": "firefox",
-  })
-gb := growthbook.New(context)
+attrs := gb.Attributes{"id": 100, "user": "Bob"}
+child, err := client.WithAttributes(attrs)
 ```
 
-### Features
-
-The `WithFeatures` method of `Context` takes a `FeatureMap` value,
-which is defined as `map[string]*Feature`, and which can be created
-from JSON data using the `ParseFeatureMap` function (see [JSON data
-representations](#json-data-representations)). You can pass a feature
-map generated this way to the `WithFeatures` method of `Context` or
-`GrowthBook`:
+You can then evaluate features using the child client:
 
 ```go
-featureMap := ParseFeatureMap([]byte(
-  `{ "feature-1": {...},
-     "feature-2": {...},
-     "another-feature": {...}
-   }`))
-
-gb := NewContext().WithFeatures(featureMap)
+res := child.EvalFeature(context.Background(), "main-button-color")
 ```
 
-If you need to load feature definitions from a remote source like an
-API or database, you can update the context at any time with
-`WithFeatures`.
+Additional options, such as `WithLogger`, `WithUrl`, and `WithAttributesOverrides`, can also be used to customize child clients. Since child clients share data with the main client instance, they will automatically receive feature updates.
 
-If you use the GrowthBook App to manage your features, you don't need
-to build this JSON file yourself -- it will auto-generate one for you
-and make it available via an API endpoint.
+To stop background updates, call `client.Close()` on the main client instance when it is no longer needed.
 
-If you prefer to build this file by hand or you want to know how it
-works under the hood, check out the detailed [Feature
-Definitions](#feature-definitions) section below.
+#### Additional options for sticky bucketing:
 
-### Attributes
-
-You can specify attributes about the current user and request. These
-are used for two things:
-
-- Feature targeting (e.g. paid users get one value, free users get
-  another);
-- Assigning persistent variations in A/B tests (e.g. user id "123"
-  always gets variation B).
-
-Attributes can be any JSON data type -- boolean, integer, string,
-array, or object and are represented by the `Attributes` type, which
-is an alias for the generic `map[string]interface{}` type that Go uses
-for JSON objects. If you know them up front, you can pass them into
-`Context` or `GrowthBook` using `WithAttributes`:
+- `WithStickyBucketService`: Provides a service implementation for storing and retrieving sticky bucket assignments
+- `WithStickyBucketAttributes`: Sets specific attributes to use for sticky bucketing (if different from regular attributes)
 
 ```go
-gb := growthbook.New(context).
-  WithAttributes(Attributes{
+// Configure a client with sticky bucketing
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithStickyBucketService(NewInMemoryStickyBucketService()),
+)
+```
+
+---
+
+## Using Features
+
+The primary method, `client.EvalFeature(ctx, key)`, accepts a feature key and uses the stored feature definitions and attributes to evaluate the feature value. It returns a `FeatureResult` value that includes detailed information about why the value was assigned to the user:
+
+- `Value`: The JSON value of the feature (or `nil` if not defined), represented as a `FeatureValue` (an alias for `interface{}`, using Go's default behavior for JSON).
+- `On` and `Off`: The JSON value cast as booleans (to make your code easier to read).
+- `Source`: A value of type `FeatureResultSource` that explains why the value was assigned to the user. Possible values include `UnknownFeatureResultSource`, `DefaultValueResultSource`, `ForceResultSource`, or `ExperimentResultSource`.
+- `Experiment`: Information about the experiment (if any) used to assign the value.
+- `ExperimentResult`: The result of the experiment (if any) that determined the value.
+
+Here's an example that uses all of these fields:
+
+```go
+result, err := client.EvalFeature(context.TODO(), "my-feature")
+if err != nil {
+    // Handle the error
+}
+
+// The JSON value (which may be null, a string, boolean, number, array, or object).
+fmt.Println(result.Value)
+
+if result.On {
+    // The feature value is truthy (in a JavaScript sense).
+}
+if result.Off {
+    // The feature value is falsy.
+}
+
+// If the feature value was assigned as part of an experiment:
+if result.Source == gb.ExperimentResultSource {
+    // Get all the possible variations that could have been assigned.
+    fmt.Println(result.Experiment.Variations)
+}
+```
+
+## Loading Features and Experiments
+
+For the GrowthBook SDK to function, it requires feature and experiment definitions from the GrowthBook API. There are several ways to provide this data to the SDK.
+
+### Automatic Features Refresh
+
+The Go SDK provides multiple mechanisms for automatically keeping your feature definitions up to date.
+
+#### Server-Sent Events (SSE)
+
+SSE provides real-time feature updates with minimal overhead. When you use `WithSseDataSource()`, the SDK establishes a persistent connection to receive live updates whenever features change.
+
+```go
+// Create a client with SSE for real-time updates
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithSseDataSource(), // Enable SSE streaming
+)
+if err != nil {
+    log.Fatal("Failed to create client:", err)
+}
+defer client.Close()
+
+// Wait for initial feature load
+if err := client.EnsureLoaded(context.Background()); err != nil {
+    log.Fatal("Failed to load features:", err)
+}
+
+// Features will now update automatically via SSE
+```
+
+**Benefits of SSE:**
+
+- Real-time updates without polling overhead
+- Lower latency for feature changes
+- Reduced server load
+- Automatic reconnection on connection loss
+
+#### Polling Data Source
+
+For environments where SSE isn't supported, use polling to periodically fetch feature updates:
+
+```go
+import "time"
+
+// Poll for updates every 30 seconds
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithPollDatasource(30 * time.Second), // Poll every 30 seconds
+)
+if err != nil {
+    log.Fatal("Failed to create client:", err)
+}
+defer client.Close()
+
+// Wait for initial feature load
+if err := client.EnsureLoaded(context.Background()); err != nil {
+    log.Fatal("Failed to load features:", err)
+}
+```
+
+**When to Use Polling:**
+
+- SSE is blocked by firewalls or proxies
+- Running in restricted network environments
+- Need predictable update intervals
+- Simpler infrastructure requirements
+
+#### Choosing Between SSE and Polling
+
+| Feature                  | SSE                              | Polling                             |
+| ------------------------ | -------------------------------- | ----------------------------------- |
+| **Latency**              | Real-time (milliseconds)         | Based on interval (seconds/minutes) |
+| **Server Load**          | Low (one connection)             | Higher (periodic requests)          |
+| **Network Requirements** | Persistent connection            | Intermittent requests               |
+| **Use Case**             | Production apps, real-time needs | Restricted networks, batch updates  |
+
+### Built-in Fetching and Caching
+
+The loading of features is an asynchronous process so that your app is not blocked while waiting, and it can continue its initialization. If you need to ensure that the definitions are loaded, use the `client.EnsureLoaded` call. This will block until the loading process finishes and will return an error if any failures occur.
+
+```go
+// Create client with automatic updates
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithSseDataSource(),
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+// EnsureLoaded blocks until features are ready
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+if err := client.EnsureLoaded(ctx); err != nil {
+    log.Fatal("Features not loaded in time:", err)
+}
+
+// Features are now loaded and will update automatically
+fmt.Println("Features loaded successfully")
+```
+
+**Key Points:**
+
+- `EnsureLoaded` is thread-safe and can be called from multiple goroutines simultaneously
+- Both `NewClient` and `EnsureLoaded` respect the contexts passed to them
+- The features cache is shared among all child client instances created via `client.WithXXX` calls
+- Use context timeouts to prevent indefinite blocking
+
+### Custom Integration
+
+Feature definitions are stored in the client's shared data. Normally, the data source will download them from the GrowthBook site, but you can provide an initial set during the `NewClient` call using the `WithFeatures`, `WithJsonFeatures`, or `WithEncryptedJsonFeature` options.
+
+```go
+// Load features from a local JSON file
+featuresJSON, err := os.ReadFile("features.json")
+if err != nil {
+    log.Fatal(err)
+}
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithJsonFeatures(featuresJSON),
+)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+It is also possible to update the shared feature definitions using the `SetXXXFeatures` client methods:
+
+```go
+// Update features dynamically
+newFeaturesJSON := []byte(`{"features": {...}}`)
+if err := client.UpdateFromApiResponseJSON(newFeaturesJSON); err != nil {
+    log.Error("Failed to update features:", err)
+}
+```
+
+### Manual Feature Updates
+
+You can manually trigger feature updates when needed:
+
+```go
+// Force a feature refresh
+client.RefreshFeatures(context.Background())
+
+// Or update from a JSON response
+apiResponse, err := fetchFeaturesFromAPI()
+if err != nil {
+    log.Error("Failed to fetch features:", err)
+    return
+}
+
+if err := client.UpdateFromApiResponseJSON(apiResponse); err != nil {
+    log.Error("Failed to update features:", err)
+}
+```
+
+## Attributes
+
+You can specify attributes about the current user and request. These attributes are used for the following purposes:
+
+- Feature targeting (for example, paid users receive one value, while free users receive another).
+- Assigning persistent variations in A/B tests (for example, a user with id "123" always gets variation B).
+
+Attributes can be any JSON data type—boolean, float, string, array, or object—and are represented by the `Attributes` type, which is an alias for Go's generic `map[string]interface{}` type used for JSON objects. If you know the attributes upfront, you can pass them into `NewClient` using the `WithAttributes` option:
+
+```go
+attrs := gb.Attributes{
     "id":       "123",
     "loggedIn": true,
     "deviceId": "abc123def456",
@@ -204,287 +327,701 @@ gb := growthbook.New(context).
     "browser":  "chrome",
     "mobile":   false,
     "country":  "US",
-  })
-```
+}
 
-You can also set or update attributes asynchronously at any time with
-the `WithAttributes` method. This will completely overwrite the
-attributes object with whatever you pass in. If you want to merge
-attributes instead, you can get the existing ones with `Attributes`:
-
-```go
-attrs := gb.Attributes()
-attrs["url"] = "/checkout"
-gb.WithAttributes(attrs)
-```
-
-Be aware that changing attributes may change the assigned feature
-values. This can be disorienting to users if not handled carefully. A
-common approach is to only refresh attributes on navigation, when the
-window is focused, and/or after a user performs a major action like
-logging in.
-
-### Tracking Callback
-
-Any time an experiment is run to determine the value of a feature, we
-can run a callback function so you can record the assigned value in
-your event tracking or analytics system of choice.
-
-```go
-context.WithTrackingCallback(func(experiment *growthbook.Experiment,
-  result *growthbook.ExperimentResult) {
-    // Example using Segment.io
-    client.Enqueue(analytics.Track{
-      UserId: context.Attributes()["id"],
-      Event: "Experiment Viewed",
-      Properties: analytics.NewProperties().
-        Set("experimentId", experiment.Key).
-        Set("variationId", result.VariationID)
-    })
-  }
+client, err := gb.NewClient(context.Background(),
+    gb.WithAttributes(attrs),
 )
 ```
 
-## Error handling
-
-The GrowthBook public API does not return errors under any normal
-circumstances. The intention is for developers to be able to use the
-SDK in both development and production smoothly. To this end, error
-reporting is provided by a configurable logging interface.
-
-For development use, the `DevLogger` type provides a suitable
-implementation of the logging interface: it prints all logged messages
-to standard output, and exits on errors.
-
-For production use, a logger that directs log messages to a suitable
-centralised logging facility and ignores all errors would be suitable.
-The logger can of course also signal error and warning conditions to
-other parts of the program in which it is used.
-
-To be specific about this:
-
-- None of the functions that create or update `Context`, `GrowthBook`
-  or `Experiment` values return errors.
-
-- The main `GrowthBook.Feature` and `GrowthBook.Run` methods never
-  return errors.
-
-- None of the functions that create values from JSON data return
-  errors.
-
-For most common use cases, this means that the GrowthBook SDK can be
-used transparently, without needing to care about error handling. Your
-server code will never crash because of problems in the GrowthBook
-SDK. The only effect of error conditions in the inputs to the SDK may
-be that feature values and results of experiments are not what you
-expect.
-
-## Using Features
-
-The main method, `GrowthBook.Feature(key)`, takes a feature key and
-uses the stored feature definitions and attributes to evaluate the
-feature value. It returns a `FeatureResult` value with the following
-fields:
-
-- `Value`: the JSON value of the feature (or null if not defined), as
-  a `FeatureValue` value (which is just an alias for `interface{}`,
-  using Go's default behavior for handling JSON values);
-- `On` and `Off`: the JSON value cast to booleans (to make your code
-  easier to read);
-- `Source`: a value of type `FeatureResultSource`, telling why the
-  value was assigned to the user. One of
-  `UnknownFeatureResultSource`, `DefaultValueResultSource`,
-  `ForceResultSource`, or `ExperimentResultSource`.
-- `Experiment`: information about the experiment (if any) which was
-  used to assign the value to the user.
-- `ExperimentResult`: the result of the experiment (if any) which was
-  used to assign the value to the user.
-
-Here's an example that uses all of them:
+You can also create a child client instance with updated attributes using the `WithAttributes` method:
 
 ```go
-result := gb.Feature("my-feature")
-
-// The JSON value (might be null, string, boolean, number, array, or
-// object).
-fmt.Println(result.Value)
-
-if result.On {
-  // Feature value is truthy (in a Javascript sense)
-}
-if result.Off {
-  // Feature value is falsy
+attrs := gb.Attributes{
+  "id": "100",
+  "mobile": true,
 }
 
-// If the feature value was assigned as part of an experiment
-if result.Source == growthbook.ExperimentResultSource {
-  // Get all the possible variations that could have been assigned
-  fmt.Println(result.Experiment.Variations)
+client, err := client.WithAttributes(attrs)
+```
+
+This will completely overwrite the existing attributes object with the values you provide. If you want to merge the new attributes with the existing ones instead, you can use the `WithAttributeOverrides` method:
+
+```go
+client, err := client.WithAttributeOverrides(attrs)
+```
+
+This method updates only the fields provided in `attrs`, keeping the other fields from the original client instance.
+
+Be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully. A common approach is to refresh attributes only on navigation, when the window is focused, or after a user performs a major action such as logging in.
+
+### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use Go's `crypto/sha256` package to compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```go
+import (
+    "crypto/sha256"
+    "encoding/hex"
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+// Your secure attribute salt (set in Organization Settings)
+salt := "f09jq3fij"
+
+// Hashing a secureString attribute
+userEmail := user.Email
+hasher := sha256.New()
+hasher.Write([]byte(salt + userEmail))
+hashedEmail := hex.EncodeToString(hasher.Sum(nil))
+
+// Hashing a secureString[] attribute
+userTags := user.Tags
+hashedTags := make([]string, len(userTags))
+for i, tag := range userTags {
+    hasher := sha256.New()
+    hasher.Write([]byte(salt + tag))
+    hashedTags[i] = hex.EncodeToString(hasher.Sum(nil))
+}
+
+// Create attributes with hashed values
+attrs := gb.Attributes{
+    "id":       user.ID,
+    "loggedIn": true,
+    "email":    hashedEmail,
+    "tags":     hashedTags,
+}
+
+// Create a client with the hashed attributes
+client, err := client.WithAttributes(attrs)
+if err != nil {
+    // Handle error
 }
 ```
 
-Defaulting of the values of feature results is assisted by the
-`GetValueWithDefault` method on the `FeatureResult` type. For example,
-this code evaluates the result of a feature and returns the feature
-value, defaulting to "blue" if the feature has no value:
+### Custom Attributes
+
+You can define custom attributes for advanced targeting scenarios beyond standard user properties:
 
 ```go
-color := gb.Feature("signup-button-color").GetValueWithDefault("blue")
+// Standard and custom business attributes
+attrs := gb.Attributes{
+    // Standard attributes
+    "id":       user.ID,
+    "email":    user.Email,
+    "country":  user.Country,
+
+    // Custom business attributes
+    "lifetimeValue":      user.LifetimeValue,
+    "subscriptionTier":   user.Tier,
+    "accountAge":         user.AccountAge,
+    "lastPurchaseDate":   user.LastPurchase.Unix(),
+
+    // Computed attributes
+    "isHighValueCustomer": user.LifetimeValue > 1000,
+    "isPremium":          user.Tier == "premium" || user.Tier == "enterprise",
+
+    // Array attributes for complex targeting
+    "purchasedCategories": user.Categories,
+    "enabledFeatures":    user.Features,
+
+    // Request-specific attributes
+    "requestPath":  req.URL.Path,
+    "userAgent":    req.UserAgent(),
+    "clientIP":     req.RemoteAddr,
+}
+
+client, err := client.WithAttributes(attrs)
+if err != nil {
+    log.Error("Failed to set attributes:", err)
+}
 ```
 
-## Feature Definitions
+**Best Practices for Custom Attributes:**
 
-For details of the JSON format used for feature definitions, consult
-the documentation for the [GrowthBook Javascript
-SDK](https://docs.growthbook.io/lib/js). The Go SDK uses exactly the
-same logic for processing features, and can ingest the same JSON
-feature definitions as are used by the Javascript SDK (see [JSON data
-representations](#json-data-representations)).
+- Use consistent naming conventions across your application
+- Keep attribute values serializable (avoid complex nested structures)
+- Consider attribute cardinality for targeting rules
+- Document custom attributes in your team's documentation
 
-It is possible to create `Feature` values in the Go SDK by hand,
-simply by creating Go values of the appropriate types (`Feature`,
-`FeatureValue`, `FeatureRule`), but the most common use case is
-likely to be ingesting feature definitions from JSON data using the
-`ParseFeatureMap` function.
+## Encrypted Features
+
+The Go SDK supports encrypted feature payloads to protect sensitive feature configurations from being exposed in transit or at rest.
+
+#### Setup Encrypted Features
+
+1. **Enable encryption** in your GrowthBook SDK Connection settings
+2. **Copy the encryption key** from the SDK Connection
+3. **Configure the SDK** with the decryption key:
+
+```go
+import (
+    "context"
+    "log"
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+// Create a client with encryption support
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithDecryptionKey("your_encryption_key_here"), // Add decryption key
+    gb.WithSseDataSource(),
+)
+if err != nil {
+    log.Fatal("Failed to create client:", err)
+}
+defer client.Close()
+
+// Features are automatically decrypted when loaded
+if err := client.EnsureLoaded(context.Background()); err != nil {
+    log.Fatal("Failed to load features:", err)
+}
+
+// Evaluate encrypted features normally
+result := client.EvalFeature(context.Background(), "sensitive-feature")
+fmt.Println("Feature value:", result.Value)
+```
+
+### Loading Encrypted Features from JSON
+
+You can also load encrypted features directly from JSON:
+
+```go
+// Encrypted features JSON from your API
+encryptedJSON := []byte(`{
+    "encryptedFeatures": "encrypted_payload_here...",
+    "status": 200
+}`)
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithDecryptionKey("your_encryption_key_here"),
+    gb.WithEncryptedJsonFeature(encryptedJSON),
+)
+if err != nil {
+    log.Fatal("Failed to create client:", err)
+}
+
+// Features are decrypted and ready to use
+result := client.EvalFeature(context.Background(), "my-feature")
+```
+
+### Security Best Practices
+
+```go
+import (
+    "os"
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+// Use environment variables for sensitive keys
+decryptionKey := os.Getenv("GROWTHBOOK_DECRYPTION_KEY")
+if decryptionKey == "" {
+    log.Fatal("GROWTHBOOK_DECRYPTION_KEY environment variable not set")
+}
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey(os.Getenv("GROWTHBOOK_CLIENT_KEY")),
+    gb.WithDecryptionKey(decryptionKey),
+    gb.WithSseDataSource(),
+)
+```
+
+**Security Recommendations:**
+
+- **Never hardcode** encryption keys in source code
+- **Use environment variables** or secret management systems (HashiCorp Vault, AWS Secrets Manager)
+- **Rotate keys regularly** and update across all environments
+- **Use different keys** for different environments (dev, staging, production)
+
+### Handling Decryption Errors
+
+```go
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithDecryptionKey("invalid-key"),
+    gb.WithSseDataSource(),
+)
+if err != nil {
+    log.Fatal("Client initialization failed:", err)
+}
+
+// EnsureLoaded will fail if decryption fails
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+if err := client.EnsureLoaded(ctx); err != nil {
+    // Log error and potentially fall back to default values
+    log.Error("Failed to load encrypted features:", err)
+    // Use fallback logic or default feature values
+}
+```
+
+:::warning Encryption Key Management
+If the decryption key is incorrect or missing, the SDK will fail to load features. Ensure proper error handling and monitoring to detect decryption issues in production.
+:::
+
+## Sticky Bucketing
+
+Sticky Bucketing ensures users see consistent experiment variations across sessions and devices. This is particularly useful when:
+
+- You need to slow down experiment enrollment without affecting existing users
+- You want to fix bugs in an experiment without including users who saw the buggy version
+- You need consistent experiences across different devices or sessions
+
+### Implementation
+
+The SDK provides a built-in thread-safe in-memory implementation that you can use right away:
+
+```go
+// Create an in-memory sticky bucket service
+service := gb.NewInMemoryStickyBucketService()
+
+// Create a client with sticky bucketing
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithStickyBucketService(service),
+)
+```
+
+To use sticky bucketing in an experiment, set the `BucketVersion` and optionally `MinBucketVersion` properties:
+
+```go
+exp := &gb.Experiment{
+    Key:             "my-experiment",
+    Variations:      []gb.FeatureValue{"control", "treatment"},
+    Meta: []gb.VariationMeta{
+        {Key: "0"}, // Use numeric keys to match variation IDs
+        {Key: "1"},
+    },
+    BucketVersion:    1,       // Current version of the experiment
+    MinBucketVersion: 0,       // Minimum version users must have seen
+    HashAttribute:    "userId", // Primary attribute for bucketing
+    FallbackAttribute: "deviceId", // Used when primary is missing
+}
+
+result := client.RunExperiment(context.Background(), exp)
+```
+
+### Custom Storage Implementation
+
+Implement your own persistent storage by implementing the `StickyBucketService` interface:
+
+```go
+type StickyBucketService interface {
+    GetAssignments(attributeName string, attributeValue string) (*StickyBucketAssignmentDoc, error)
+    SaveAssignments(doc *StickyBucketAssignmentDoc) error
+    GetAllAssignments(attributes map[string]string) (StickyBucketAssignments, error)
+}
+```
+
+### Key Features
+
+1. **Version Control**:
+   - `BucketVersion`: Controls which version of the experiment a user is assigned to
+   - `MinBucketVersion`: Blocks users from versions below this number
+
+2. **Attribute-Based Bucketing**:
+   - `HashAttribute`: Primary attribute for bucketing (usually userId)
+   - `FallbackAttribute`: Secondary attribute when primary is missing
+
+3. **Thread Safety**:
+   - The in-memory implementation uses `sync.RWMutex` for concurrent access
+   - Caching reduces database/service calls in high-traffic environments
+
+### Experiment Result Changes
+
+The `ExperimentResult` returned by `RunExperiment` now includes a `StickyBucketUsed` boolean field that indicates if the variation was assigned from a sticky bucket:
+
+```go
+result := client.RunExperiment(context.Background(), experiment)
+if result.StickyBucketUsed {
+    // The user was assigned based on a previously stored assignment
+}
+```
 
 ## Inline Experiments
 
-Experiments can be defined and run using the `Experiment` type and the
-`Run` method of the `GrowthBook` type. Experiment definitions can be
-created directly as values of the `Experiment` type, or parsed from
-JSON definitions using the `ParseExperiment` function. Passing an
-`Experiment` value to the `Run` method of the `GrowthBook` type will
-run the experiment, returing an `ExperimentResult` value that contains
-the resulting feature value. This allows users to run arbitrary
-experiments without providing feature definitions up-front.
+Experiments can be defined and run using the `Experiment` type and the `RunExperiment` method of the client. Experiment definitions can be created directly as values of the `Experiment` type, or parsed from JSON using Go's `json.Unmarshal` function. Passing an `Experiment` value to the `RunExperiment` method will run the experiment and return an `ExperimentResult` that contains the resulting feature value. This approach allows users to run arbitrary experiments without providing feature definitions upfront.
 
 ```go
-experiment :=
-  growthbook.NewExperiment("my-experiment").
-    WithVariations("red", "blue", "green")
+experiment := &gb.Experiment{
+    Key: "my-experiment",
+    Variations: []gb.FeatureValue{"red", "blue", "green"},
+}
 
-result := gb.Run(experiment)
+result := client.RunExperiment(context.TODO(), experiment)
 ```
 
-All other experiment settings (weights, hash attribute, coverage,
-namespace, condition) are supported when using inline experiments: the
-`Experiment` type has `With...` methods that allow these fields to be
-set easily (i.e. `WithWeights`, `WithHashAttribute`, `WithCoverage`,
-`WithNamespace`, `WithCondition`).
+A full list of experiment fields can be found in the [documentation <ExternalLink/>](https://pkg.go.dev/github.com/growthbook/growthbook-golang#Experiment).
 
-In addition, there are a few other settings that only really make
-sense for inline experiments:
+When defining experiments, you can now use additional parameters for sticky bucketing:
 
-- `Force` can be set to one of the variation array indexes. Everyone
-  will be immediately assigned the specified value.
-- `Active` can be set to `false` to disable the experiment and return
-  the control for everyone.
+```go
+experiment := &gb.Experiment{
+    Key: "my-experiment",
+    Variations: []gb.FeatureValue{"red", "blue", "green"},
+    // Sticky bucket parameters
+    BucketVersion: 1,
+    MinBucketVersion: 0,
+    HashAttribute: "userId",
+    FallbackAttribute: "deviceId",
+}
+```
 
 ### Inline Experiment Return Value
 
-A call to `GrowthBook.Run(experiment)` returns a value of type
-`*ExperimentResult`:
+A call to `RunExperiment` returns a value of type `*ExperimentResult`:
 
 ```go
-experiment := growthbook.NewExperiment("my-experiment").
-  WithVariations("A", "B")
-result := gb.Run(experiment)
+result := client.RunExperiment(context.TODO(), experiment)
 
-// If user is part of the experiment
+// Whether the user is part of the experiment.
 fmt.Println(result.InExperiment) // true or false
 
-// The index of the assigned variation
-fmt.Println(result.VariationID) // 0 or 1
+// The index of the assigned variation.
+fmt.Println(result.VariationId) // 0 or 1
 
-// The value of the assigned variation
+// The value of the assigned variation.
 fmt.Println(result.Value) // "A" or "B"
 
-// The user attribute used to assign a variation
+// The user attribute used to assign a variation.
 fmt.Println(result.HashAttribute) // "id"
 
-// The value of that attribute
-fmt.Println(result.HashValue) // e.g. "123"
+// The value of that attribute.
+fmt.Println(result.HashValue) // e.g., "123"
+
+// Whether a sticky bucket assignment was used
+fmt.Println(result.StickyBucketUsed) // true or false
 ```
 
-The `InExperiment` flag is only set to true if the user was randomly
-assigned a variation. If the user failed any targeting rules or was
-forced into a specific variation, this flag will be false.
+The `InExperiment` flag is set to true only if the user was randomly assigned a variation. If the user fails any targeting rules or is forced into a specific variation, this flag will be false.
 
-## JSON data representations
+## Experiment Tracking and Feature Usage Callbacks
 
-For interoperability of the GrowthBook Go SDK with versions of the SDK
-in other languages, the core "input" values of the SDK (in particular,
-`Context` and `Experiment` values and maps of feature definitions) can
-be created by parsing JSON data.
+The Go SDK provides comprehensive tracking capabilities for monitoring experiment exposures and feature evaluations.
 
-A common use case is to download the feature definition from the GrowthBook SDK endpoints, and parse them into a feature map that can be passed into the GrowthBook `Context`.
+### Experiment Tracking Callback
 
-The shape of the GrowthBook response can use the following struct:
+The experiment callback is triggered when a user is included in an experiment. This is essential for analytics and experiment analysis.
 
 ```go
-// GBFeaturesResponse
-// GrowthBook features response
-type GBFeaturesResponse struct {
-	Status            int             `json:"status"`
-	Features          json.RawMessage `json:"features"`
-	EncryptedFeatures string          `json:"encryptedFeatures,omitempty"` // Not yet supported in the Go SDK
-	DateUpdated       time.Time       `json:"dateUpdated"`
+import (
+    "context"
+    "log"
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+// Define your user context
+type UserContext struct {
+    UserID    string
+    SessionID string
 }
+
+// Create experiment tracking callback
+experimentCallback := func(ctx context.Context, exp *gb.Experiment, result *gb.ExperimentResult, extra any) {
+    userCtx, ok := extra.(UserContext)
+    if !ok {
+        log.Warn("Invalid extra data in experiment callback")
+        return
+    }
+
+    // Track experiment view in your analytics system
+    analytics.Track(analytics.Event{
+        UserID: userCtx.UserID,
+        Event:  "Experiment Viewed",
+        Properties: map[string]interface{}{
+            "experiment_id":   exp.Key,
+            "variation_id":    result.VariationID,
+            "variation_value": result.Value,
+            "in_experiment":   result.InExperiment,
+            "hash_used":       result.HashUsed,
+            "session_id":      userCtx.SessionID,
+        },
+    })
+
+    log.Printf("User %s entered experiment %s with variation %d",
+        userCtx.UserID, exp.Key, result.VariationID)
+}
+
+// Create client with tracking
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithSseDataSource(),
+    gb.WithExperimentCallback(experimentCallback),
+)
+if err != nil {
+    log.Fatal(err)
+}
+defer client.Close()
 ```
 
-Next, get JSON from GrowthBook and deserialize it into GBFeaturesResponse struct.
+:::info Tracking Timing
+The experiment callback is **only called when the user is actually included in the experiment**. If they're excluded from the experiment due to targeting rules or sampling, this callback won't be triggered.
+:::
+
+### Feature Usage Callback
+
+The feature usage callback is called every time a feature is evaluated, regardless of whether it's part of an experiment or not.
 
 ```go
-res, err := http.Get("https://cdn.growthbook.io/api/features/<environment_key>")
-if err != nil {
-	fmt.Printf("Error fetching features from GrowthBook: %s \n", err)
-	os.Exit(1)
+// Create feature usage callback
+featureUsageCallback := func(ctx context.Context, featureKey string, result *gb.FeatureResult, extra any) {
+    userCtx, ok := extra.(UserContext)
+    if !ok {
+        log.Warn("Invalid extra data in feature usage callback")
+        return
+    }
+
+    // Track feature usage for monitoring and debugging
+    log.Printf("Feature %s evaluated for user %s: %v",
+        featureKey, userCtx.UserID, result.Value)
+
+    // Send to monitoring systems (e.g., DataDog, New Relic)
+    monitoring.RecordFeatureUsage(monitoring.FeatureUsageEvent{
+        FeatureKey: featureKey,
+        Value:      result.Value,
+        Source:     string(result.Source),
+        UserID:     userCtx.UserID,
+        On:         result.On,
+    })
+
+    // Track in analytics
+    analytics.Track(analytics.Event{
+        UserID: userCtx.UserID,
+        Event:  "Feature Evaluated",
+        Properties: map[string]interface{}{
+            "feature_key":   featureKey,
+            "feature_value": result.Value,
+            "source":        result.Source,
+            "is_on":         result.On,
+        },
+    })
 }
 
-var featuresResponse GBFeaturesResponse
-err = json.NewDecoder(res.Body).Decode(&featuresResponse)
-if err != nil {
-	fmt.Printf("Error decoding JSON: %s \n", err)
-	os.Exit(1)
-}
-
-features := growthbook.ParseFeatureMap(featuresResponse.Features)
-
-// Create a growthbook.Context instance with the features and attributes
-context := growthbook.NewContext().
-	WithFeatures(features).
-	WithAttributes(userAttributes)
-
-// Create a growthbook.GrowthBook instance
-gb := growthbook.New(context)
+// Create client with feature usage tracking
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithSseDataSource(),
+    gb.WithFeatureUsageCallback(featureUsageCallback),
+)
 ```
 
-The functions that implement this JSON processing functionality have
-names like `ParseContext`, `BuildContext`, and so on. Each `Parse...`
-function process raw JSON data (as a `[]byte` value), while the
-`Build...` functions process JSON objects unmarshalled to Go values of
-type `map[string]interface{}`. This provides flexibility in ingestion
-of JSON data.
+### Combining Both Callbacks
 
-## Tracking and subscriptions
+You can use both callbacks together for comprehensive tracking:
 
-The `Context` value supports a "tracking callback", which is a
-function that is called any time an experiment is run to determine the
-value of a feature, so that users can record the assigned value in an
-external event tracking or analytics system.
+```go
+type TrackingManager struct {
+    analytics Analytics
+    monitoring Monitoring
+}
 
-In addition to the tracking callback, the `GrowthBook` type also
-supports more general "subscriptions", which are callback functions
-that are called any time `Run` is called, irrespective of whether or
-not a user is included in an experiment. The subscription system
-ensures that subscription callbacks are only called when the result of
-an experiment changes, or a new experiment is run.
+func (tm *TrackingManager) ExperimentCallback(
+    ctx context.Context,
+    exp *gb.Experiment,
+    result *gb.ExperimentResult,
+    extra any,
+) {
+    userCtx := extra.(UserContext)
 
-## Code Examples
+    // Track in multiple systems
+    tm.analytics.Track(analytics.Event{
+        UserID: userCtx.UserID,
+        Event:  "Experiment Viewed",
+        Properties: map[string]interface{}{
+            "experiment_id": exp.Key,
+            "variation_id":  result.VariationID,
+        },
+    })
 
-- [Go server example that fetches from the GrowthBook API <ExternalLink/>](https://github.com/growthbook/examples/tree/main/go-example)
-- [Go CLI app that ingests features from file <ExternalLink/>](https://github.com/ian-ross/growthbook-golang-example)
+    tm.monitoring.RecordExperiment(exp.Key, result.VariationID)
+}
+
+func (tm *TrackingManager) FeatureUsageCallback(
+    ctx context.Context,
+    featureKey string,
+    result *gb.FeatureResult,
+    extra any,
+) {
+    userCtx := extra.(UserContext)
+
+    tm.monitoring.RecordFeatureUsage(featureKey, result.Value)
+
+    // Only track experiment-backed features in analytics
+    if result.Source == gb.ExperimentResultSource {
+        tm.analytics.Track(analytics.Event{
+            UserID: userCtx.UserID,
+            Event:  "Feature Used (Experiment)",
+            Properties: map[string]interface{}{
+                "feature_key":   featureKey,
+                "experiment_id": result.Experiment.Key,
+            },
+        })
+    }
+}
+
+// Initialize client with both callbacks
+func NewGrowthBookClient(tm *TrackingManager) (*gb.Client, error) {
+    return gb.NewClient(
+        context.Background(),
+        gb.WithClientKey("sdk-abc123"),
+        gb.WithSseDataSource(),
+        gb.WithExperimentCallback(tm.ExperimentCallback),
+        gb.WithFeatureUsageCallback(tm.FeatureUsageCallback),
+    )
+}
+```
+
+### Using Extra Data
+
+You can attach custom data that will be passed to each callback:
+
+```go
+// Create a child client with user-specific extra data
+userContext := UserContext{
+    UserID:    "user-123",
+    SessionID: "session-abc",
+}
+
+childClient, err := client.WithAttributes(gb.Attributes{
+    "id": "user-123",
+}).WithExtraData(userContext)
+
+if err != nil {
+    log.Error("Failed to create child client:", err)
+}
+
+// Now when features are evaluated, the callbacks will receive userContext
+result := childClient.EvalFeature(context.Background(), "new-checkout-flow")
+```
+
+### Local vs Global Callbacks
+
+Callbacks can be set globally on the main client or locally on child clients:
+
+```go
+// Global callback (applies to all child clients)
+globalClient, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithExperimentCallback(globalExperimentCallback),
+)
+
+// Local callback (overrides global for this child client)
+childClient, err := globalClient.
+    WithAttributes(gb.Attributes{"id": "user-123"}).
+    WithExperimentCallback(specificExperimentCallback)
+
+// This child uses the specific callback, not the global one
+result := childClient.EvalFeature(context.Background(), "my-feature")
+```
+
+### Integration Examples
+
+#### Segment.io Integration
+
+```go
+import "github.com/segmentio/analytics-go"
+
+func createSegmentCallback(segmentClient analytics.Client) gb.ExperimentCallbackFunc {
+    return func(ctx context.Context, exp *gb.Experiment, result *gb.ExperimentResult, extra any) {
+        userID := extra.(string)
+
+        segmentClient.Enqueue(analytics.Track{
+            UserId: userID,
+            Event:  "Experiment Viewed",
+            Properties: analytics.NewProperties().
+                Set("experimentId", exp.Key).
+                Set("variationId", result.VariationID).
+                Set("variationValue", result.Value),
+        })
+    }
+}
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithExperimentCallback(createSegmentCallback(segmentClient)),
+)
+```
+
+#### DataDog Integration
+
+```go
+import "github.com/DataDog/datadog-go/statsd"
+
+func createDataDogFeatureCallback(statsd *statsd.Client) gb.FeatureUsageCallbackFunc {
+    return func(ctx context.Context, featureKey string, result *gb.FeatureResult, extra any) {
+        tags := []string{
+            fmt.Sprintf("feature:%s", featureKey),
+            fmt.Sprintf("source:%s", result.Source),
+            fmt.Sprintf("on:%t", result.On),
+        }
+
+        statsd.Incr("growthbook.feature.evaluated", tags, 1)
+
+        if result.On {
+            statsd.Incr("growthbook.feature.enabled", tags, 1)
+        }
+    }
+}
+
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-abc123"),
+    gb.WithFeatureUsageCallback(createDataDogFeatureCallback(datadogClient)),
+)
+```
+
+## Logging
+
+The SDK uses the `slog` logger instance. You can set up your own logger using the `WithLogger` option when calling the `NewClient` function. It is also possible to create a child GrowthBook client with its own logger, parameterized with additional data, as shown below:
+
+```go
+func main() {
+    client, err := gb.NewClient(/* options */)
+    if err != nil {
+        log.Fatal(err)
+    }
+    // ...
+}
+
+func handleRequest(ctx context.Context, client *gb.Client, r request) {
+    traceId := ctx.Value("traceId")
+    logger := slog.Default().With("traceId", traceId)
+    client, err := client.WithLogger(logger)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    client, err = client.WithAttributes(gb.Attributes{"user_id": r.user_id})
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Now, all calls to the client will use the local logger and attributes.
+}
+```
 
 ## Further Reading
 
-- [godoc <ExternalLink/>](https://growthbook.github.io/growthbook-golang)
+- [godoc <ExternalLink/>](https://pkg.go.dev/github.com/growthbook/growthbook-golang)
+
+---
+
+This version addresses grammatical issues and clarifies the text while maintaining the original content and code examples.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="go" />

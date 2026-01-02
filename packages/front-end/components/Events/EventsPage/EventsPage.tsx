@@ -1,6 +1,8 @@
 import React, { FC, useState } from "react";
-import { EventInterface, NotificationEventName } from "back-end/types/event";
-import { NotificationEvent } from "back-end/src/events/notification-events";
+import {
+  EventInterface,
+  NotificationEventName,
+} from "shared/types/events/event";
 import { FaDownload, FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
@@ -13,7 +15,9 @@ import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
+import DatePicker from "@/components/DatePicker";
+import Link from "@/ui/Link";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -39,7 +43,7 @@ export const EventsPage: FC<EventsPageProps> = ({
   isDownloading,
 }) => {
   const { data, error } = useApi<{
-    events: EventInterface<NotificationEvent>[];
+    events: EventInterface[];
   }>("/events?" + filterURLParams);
   const permissionsUtil = usePermissionsUtil();
 
@@ -61,31 +65,31 @@ export const EventsPage: FC<EventsPageProps> = ({
   return (
     <div className="container py-4">
       <div className="row">
-        <div className="col-6">
+        <div className="col">
           <h1>Events</h1>
         </div>
 
-        <div className="col-6 text-right">
-          <PremiumTooltip commercialFeature="audit-logging">
-            {shouldShowExportButton
-              ? ""
-              : "Exporting events is available to Enterprise customers"}
-          </PremiumTooltip>
-
-          <button
-            onClick={performDownload}
-            disabled={isDownloading || !shouldShowExportButton}
-            className="btn btn-primary ml-3"
+        <div className="col-auto text-right align-items-end">
+          <PremiumTooltip
+            commercialFeature="audit-logging"
+            premiumText="Exporting events is available to Enterprise customers"
           >
-            <span className="mr-1">
-              <FaDownload />
-            </span>{" "}
-            Export All
-          </button>
+            <Button
+              onClick={performDownload}
+              disabled={isDownloading || !shouldShowExportButton}
+              ml="3"
+              icon={<FaDownload />}
+            >
+              Export All
+            </Button>
+          </PremiumTooltip>
         </div>
       </div>
 
-      <div className="d-flex justify-content-between flex-row mt-2">
+      <div
+        className="d-flex justify-content-between flex-row mt-2 align-items-end"
+        style={{ gap: "1.5rem" }}
+      >
         {filters}
       </div>
       {error && (
@@ -172,8 +176,8 @@ export const EventsPageContainer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(30);
   const [eventType, setEventType] = useState<NotificationEventName[]>([]);
-  const [fromDate, setFromDate] = useState<Date | null>(null);
-  const [toDate, setToDate] = useState<Date | null>(null);
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
   const [sort, setSort] = useState<{ field: string; dir: number }>({
     field: "dateCreated",
     dir: -1,
@@ -193,7 +197,7 @@ export const EventsPageContainer = () => {
     "/events/count?type=" +
       JSON.stringify(eventType) +
       (fromDate ? "&from=" + fromDate?.toISOString() : "") +
-      (toDate ? "&to=" + toDate?.toISOString() : "")
+      (toDate ? "&to=" + toDate?.toISOString() : ""),
   );
   const {
     isDownloading,
@@ -225,45 +229,39 @@ export const EventsPageContainer = () => {
           }}
         />
       </div>
-      <div>
-        <Field
-          type="date"
-          label="From"
-          className="text-muted"
-          labelClassName="mr-2 mb-0"
-          containerClassName="ml-2 d-flex align-items-center mb-0"
-          value={fromDate ? fromDate.toISOString().split("T")[0] : ""}
-          onChange={(d) => {
-            setFromDate(d.target.value ? new Date(d.target.value) : null);
-          }}
+      <div className="d-inline-flex align-items-center">
+        <label className="mb-0 mr-2">From</label>
+        <DatePicker
+          date={fromDate}
+          setDate={setFromDate}
+          scheduleEndDate={toDate}
+          precision="date"
+          containerClassName=""
         />
       </div>
-      <div>
-        <Field
-          type="date"
-          label="To"
-          className="text-muted"
-          labelClassName="mr-2 mb-0"
-          containerClassName="ml-2 d-flex align-items-center mb-0"
-          value={toDate ? toDate.toISOString().split("T")[0] : ""}
-          onChange={(d) => {
-            setToDate(d.target.value ? new Date(d.target.value) : null);
-          }}
+      <div className="d-inline-flex align-items-center">
+        <label className="mb-0 mr-2">To</label>
+        <DatePicker
+          date={toDate}
+          setDate={setToDate}
+          scheduleStartDate={fromDate}
+          precision="date"
+          containerClassName=""
         />
       </div>
       {hasFilters && (
         <div>
-          <button
-            className="btn btn-outline-info ml-2"
-            onClick={(e) => {
-              e.preventDefault();
+          <Link
+            color="red"
+            mb="2"
+            onClick={() => {
               setEventType([]);
-              setFromDate(null);
-              setToDate(null);
+              setFromDate(undefined);
+              setToDate(undefined);
             }}
           >
-            Clear
-          </button>
+            Clear filters
+          </Link>
         </div>
       )}
       <div className="flex-grow-1"></div>

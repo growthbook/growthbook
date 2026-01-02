@@ -42,7 +42,7 @@ export const useCopyToClipboard = ({
         setSuccess(false);
       }
     },
-    [supported]
+    [supported],
   );
 
   useEffect(
@@ -59,7 +59,7 @@ export const useCopyToClipboard = ({
         };
       }
     },
-    [success, timeout]
+    [success, timeout],
   );
 
   return {

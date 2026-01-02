@@ -1,5 +1,6 @@
 # Generated files for OpenAPI
 packages/back-end/generated/spec.yaml linguist-generated=true
-packages/back-end/types/openapi.d.ts linguist-generated=true
-packages/back-end/src/validators/openapi.ts linguist-generated=true
+packages/shared/types/openapi.d.ts linguist-generated=true
+packages/shared/src/validators/openapi.ts linguist-generated=true
 packages/shared/src/sdk-versioning/CAPABILITIES.md linguist-generated=true
+docs/src/partials/event-webhook/_event-webhook-list.md linguist-generated=true

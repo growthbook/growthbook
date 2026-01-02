@@ -1,10 +1,12 @@
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ReqContext } from "shared/types/organization";
 import {
   VisualChangesetModel,
   updateVisualChangeset,
-} from "../../src/models/VisualChangesetModel";
-import { ExperimentModel } from "../../src/models/ExperimentModel";
-import { ReqContext } from "../../types/organization";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+} from "back-end/src/models/VisualChangesetModel";
+import { getCollection } from "back-end/src/util/mongo.util";
+
+jest.mock("back-end/src/util/mongo.util");
 
 describe("updateVisualChangeset", () => {
   const context: ReqContext = {
@@ -22,6 +24,10 @@ describe("updateVisualChangeset", () => {
       variations: [],
     }),
   };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe("when a visual changeset has existing visual changes", () => {
     const visualChangeset: VisualChangesetInterface = {
@@ -73,7 +79,7 @@ describe("updateVisualChangeset", () => {
               ...updates,
               visualChanges: visualChangeset.visualChanges,
             },
-          }
+          },
         );
       });
     });
@@ -107,8 +113,12 @@ describe("updateVisualChangeset", () => {
           upsertedCount: 0,
           upsertedId: null,
         });
-      jest.spyOn(ExperimentModel, "findOne").mockResolvedValue(null);
+
       it("should overwrite the existing visual changes with new changes", async () => {
+        (getCollection as jest.Mock).mockReturnValue({
+          findOne: jest.fn().mockResolvedValue(null),
+        });
+
         await updateVisualChangeset({
           visualChangeset,
           // @ts-expect-error TODO
@@ -125,7 +135,7 @@ describe("updateVisualChangeset", () => {
             $set: {
               ...updates,
             },
-          }
+          },
         );
       });
     });

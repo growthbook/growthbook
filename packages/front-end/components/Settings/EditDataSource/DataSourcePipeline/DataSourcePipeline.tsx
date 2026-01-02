@@ -1,15 +1,18 @@
 import { useCallback, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
+import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
-export function dataSourcePathNames(
-  dataSourceType: DataSourceType
-): { databaseName: string; schemaName: string } {
+export function dataSourcePathNames(dataSourceType: DataSourceType): {
+  databaseName: string;
+  schemaName: string;
+} {
   let databaseName = "database";
   let schemaName = "schema";
   if (dataSourceType === "bigquery") {
@@ -37,66 +40,97 @@ export default function DataSourcePipeline({
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
+  function getTitle() {
+    if (pipelineSettings?.allowWriting) {
+      if (pipelineSettings?.mode === "incremental") {
+        return "Enabled (Incremental)";
+      }
+      if (pipelineSettings?.mode === "ephemeral") {
+        return "Enabled (Ephemeral)";
+      }
+      const _exhaustiveCheck: never = pipelineSettings?.mode;
+      return "Enabled";
+    }
+    return "Disabled";
+  }
+
+  function getDescription() {
+    if (pipelineSettings?.allowWriting) {
+      if (pipelineSettings?.mode === "incremental") {
+        return "Maintain incremental tables with new data to reduce re-scans of data.";
+      }
+      if (pipelineSettings?.mode === "ephemeral") {
+        return "Create temporary tables per-experiment refresh.";
+      }
+      const _exhaustiveCheck: never = pipelineSettings?.mode;
+      return "Create intermediate tables to improve query performance.";
+    }
+    return "Run read queries only, no intermediate tables written.";
+  }
+
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <div className="d-flex justify-space-between align-items-center">
-          <h3>Data Pipeline Settings</h3>
-          <span className="badge badge-purple text-uppercase mx-2">Beta</span>
-        </div>
+    <Box>
+      <Flex align="center" justify="between" gap="3" mb="2">
+        <Flex align="center" justify="start" gap="2">
+          <Heading as="h3" size="4" mb="0">
+            Data Pipeline Settings
+          </Heading>
+          <Badge label="BETA" color="gray" variant="solid" />
+        </Flex>
         {canEdit && (
-          <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold"
-              onClick={() => {
-                setUiMode("edit");
+          <Link
+            weight="medium"
+            underline="none"
+            onClick={() => {
+              setUiMode("edit");
+            }}
+          >
+            Edit
+          </Link>
+        )}
+      </Flex>
+      <p>
+        Improve the performance of experiment queries by writing intermediate
+        tables to your Data Source.
+      </p>
+
+      <Card>
+        <Flex direction="column" gap="3" p="2">
+          <Flex direction="column" gap="1">
+            <Text
+              size="3"
+              weight="medium"
+              style={{
+                color: pipelineSettings?.allowWriting
+                  ? "var(--color-text-high)"
+                  : "var(--color-text-low)",
               }}
             >
-              <FaPencilAlt className="mr-1" /> Edit
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="alert alert-info">
-        In this section, you can configure how GrowthBook can use write
-        permissions to your Data Source to improve the performance of experiment
-        queries.
-      </div>
-      <div>
-        <div className={`mb-2 ma-5 font-weight-bold`}>
-          {"Pipeline Mode: "}
-          {pipelineSettings?.allowWriting ? "Enabled" : "Disabled"}
-        </div>
-        {pipelineSettings?.allowWriting && (
-          <>
-            <div className={`mb-2 ma-5`}>
-              {`Destination ${
-                dataSourcePathNames(dataSource.type).schemaName
-              }: `}
-              {pipelineSettings?.writeDataset ? (
-                <code>{`${
-                  pipelineSettings?.writeDatabase
-                    ? pipelineSettings?.writeDatabase + "."
-                    : ""
-                }${pipelineSettings.writeDataset}`}</code>
-              ) : (
-                <em className="text-muted">not specified</em>
-              )}
-            </div>
-            {dataSource.type === "databricks" ? (
-              <div className={`mb-2 ma-5`}>
-                {"Drop units table when analysis finishes (recommended): "}
-                {pipelineSettings?.unitsTableDeletion ? "Enabled" : "Disabled"}
-              </div>
-            ) : (
-              <div className={`mb-2 ma-5`}>
-                {"Retention of temporary units table (hours): "}
-                {pipelineSettings?.unitsTableRetentionHours ?? 24}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              {getTitle()}
+            </Text>
+            <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+              {getDescription()}
+            </Text>
+          </Flex>
+          {pipelineSettings?.allowWriting && (
+            <Flex direction="row" gap="4" align="center" wrap="wrap">
+              <Box>
+                <Text weight="medium">
+                  Destination {dataSourcePathNames(dataSource.type).schemaName}
+                  :{" "}
+                </Text>
+                <code>
+                  {`${
+                    pipelineSettings?.writeDatabase
+                      ? pipelineSettings?.writeDatabase + "."
+                      : "(default)."
+                  }${pipelineSettings.writeDataset}`}
+                </code>
+              </Box>
+            </Flex>
+          )}
+        </Flex>
+      </Card>
 
       {uiMode === "edit" ? (
         <EditDataSourcePipeline
@@ -105,6 +139,6 @@ export default function DataSourcePipeline({
           dataSource={dataSource}
         />
       ) : null}
-    </div>
+    </Box>
   );
 }

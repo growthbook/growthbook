@@ -1,18 +1,22 @@
 ---
-title: Feature Flag Override Rules
-description: Learn about feature flag override rules
+title: Feature Flag Rules
+description: Learn about feature flag rules
 sidebar_label: Rules (Force, Rollout, Experimentation)
 slug: /features/rules
 ---
 
-# Rules (Force, Rollout, Experimentation)
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-Every feature has a default value that is served to all users. The real power comes when you define **override rules**
+# Rules (Force, Percentage Rollout, Experimentation)
+
+Every feature has a default value that is served to all users. The real power comes when you define **Rules**
 that let you run experiments and/or change the value for specific users.
 
-<img src="/images/features/feature-override-rules.png" alt="Feature override rules UI" width="700" />
+<MaxWidthImage maxWidth={700}>
+    ![Feature rules interface](/images/features/feature-override-rules.png)
+</MaxWidthImage>
 
-Override rules are defined separately for each environment (e.g. dev and production). This way you can, for example, test
+Rules are defined separately for each environment (e.g. dev and production). This way you can, for example, test
 an experiment rule in dev first before deploying it to production.
 
 The first matching rule for a user will be applied, so order matters. If there are no matching rules, the default value
@@ -28,15 +32,19 @@ Learn more about [targeting here](/features/targeting).
 
 ## Forced Value
 
-The simplest type of override rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
+The simplest type of Rule is a "Forced Value" rule. This forces everyone who matches the targeting condition to get a specific value. For example, you could have a feature default to OFF and use force rules to turn it ON for a specific list of countries.
 
-<img src="/images/features/feature-force-rule.png" alt="Force rule UI" width="500" />
+<MaxWidthImage maxWidth={600}>
+    ![Force rule UI](/images/features/feature-force-rule.png)
+</MaxWidthImage>
 
 ## Percentage Rollout
 
 Percentage Rollout rules let you gradually release a feature value to a random sample of your users.
 
-<img src="/images/features/feature-rollout-rule.png" alt="Rollout rule UI" width="500" />
+<MaxWidthImage maxWidth={600}>
+    ![Rollout rule UI](/images/features/feature-rollout-rule.png)
+</MaxWidthImage>
 
 Rollouts are most useful when you want to make sure a new feature doesn't break your app or site. You start by releasing to maybe 10% of users. Then after a while if your metrics look ok, you increase to 30% and so on.
 
@@ -57,7 +65,9 @@ Experiments are most useful when you aren't sure which value to assign yet.
 
 Here's what an Experiment rule looks like in the GrowthBook UI:
 
-<img src="/images/features/feature-experiment-rules.png" alt="Experiment rule UI" width="500" />
+<MaxWidthImage maxWidth={600}>
+    ![Experiment rule UI](/images/features/feature-experiment-rules.png)
+</MaxWidthImage>
 
 In the vast majority of cases, you want to split traffic based on either a logged-in user id or some sort of anonymous
 identifier like a device id or session cookie. As long as the user has the same value for this attribute, they will
@@ -66,7 +76,7 @@ instead, which ensures all users in a company will see the same thing.
 
 You can control both the percent of users included and the traffic split between the variations. For example, if you include 50% of users and do a 40/60 split, then 20% will see the first variation, 30% will see the 2nd variation, and the remaining 50% will skip the rule entirely and move onto the next rule (or the default value if there are no more matching rules).
 
-When a user is placed in an experiment via the experiment override rule, the SDK will track the experiment assignment
+When a user is placed in an experiment via the experiment rule, the SDK will track the experiment assignment
 in your data warehouse or analytics tool, via the `trackingCallback` method.
 
 You can analyze the result of a Feature Experiment rule the same way you would any experiment in GrowthBook.
@@ -80,9 +90,11 @@ Users are randomly assigned a value from 0 to 1 for each namespace. Each experim
 that it includes. Users are only part of an experiment if their value falls within the experiment's range. So as long
 as two experiment ranges do not overlap, users will only ever be in at most one of them.
 
-![Namespaces](/images/namespaces.png)
+<MaxWidthImage border>
+    ![Namespaces](/images/namespaces.png)
+</MaxWidthImage>
 
-In order to use namespaces, simply create a new namespace or modify an existing one in _SDK Configuration → Namespaces_ in the GrowthBook UI's left navigation bar.
+In order to use namespaces, simply create a new namespace or modify an existing one in _SDK Configuration → Namespaces_ in the GrowthBook UI's left navigation bar. It's essential to ensure that all experiments within the namespace use the same hash attribute (assignment attribute).
 
 ## Testing Rules
 
@@ -91,15 +103,28 @@ form that will allow you to adjust user attributes and see in real time how the 
 they'll get. User attributes can also added as JSON objects, by clicking on the JSON tab. You can also expand the
 results to see more debug information about why each rule was or wasn't applied.
 
-![Test Feature Rules](/images/features/feature-test-rules.gif)
+<MaxWidthImage border maxWidth={1000}>
+    ![Test Feature Rules](/images/features/feature-test-rules.gif)
+</MaxWidthImage>
 
 ### Archetype
 
 Archetypes are a way you can save preset user attributes to see how your if the rules will apply to them. This is useful
 if you have specific sets of users who you frequently want to target features to. They are automatically shown along with
 the feature values at the top of the test rules form. Mouse over any value to see more debug information about why that
-value was returned. Archetypes are part of the GrowthBook Enterprise plan.
+value was returned.
 
 ![Archetypes](/images/features/feature-archetypes.png)
 
-From the testing form, you can click on the _Save Archetype_ button to open the _Create Archetype_ modal to create new archetypes.
+You can create and manage archetypes in the _Archetypes_ page under the SDK Configuration. You will need a paid plan to
+use Archetypes.
+
+:::note
+**Archetypes** are a GrowthBook Pro and Enterprise feature.
+:::
+
+### Simulation
+
+To see which features and experiments a user would be exposed to, you can use the simulation feature. This will show you
+all the features and experiments that a user would or was exposed to based on their attributes. Each feature and experiment
+will show debug information about why that particular value was returned. Feature simulation also works with Archetypes.

@@ -4,9 +4,9 @@ import mongoose from "mongoose";
 import {
   EventWebHookLegacyLogInterface,
   EventWebHookLogInterface,
-} from "../../types/event-webhook-log";
-import { EventWebHookMethod } from "../../types/event-webhook";
-import { NotificationEventName } from "../../types/event";
+} from "shared/types/event-webhook-log";
+import { EventWebHookMethod } from "shared/types/event-webhook";
+import { NotificationEventName } from "shared/types/events/event";
 
 const eventWebHookLogSchema = new mongoose.Schema({
   id: {
@@ -56,21 +56,22 @@ type EventWebHookLegacyLogDocument = mongoose.Document &
   EventWebHookLegacyLogInterface;
 
 const toLegacyInterface = (
-  doc: EventWebHookLegacyLogDocument
+  doc: EventWebHookLegacyLogDocument,
 ): EventWebHookLegacyLogDocument =>
   omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLegacyLogDocument;
 
 const toInterface = (doc: EventWebHookLogDocument): EventWebHookLogDocument =>
   omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLogDocument;
 
-const EventWebHookLegacyLogModel = mongoose.model<EventWebHookLegacyLogInterface>(
-  "EventWebHookLog",
-  eventWebHookLogSchema
-);
+const EventWebHookLegacyLogModel =
+  mongoose.model<EventWebHookLegacyLogInterface>(
+    "EventWebHookLog",
+    eventWebHookLogSchema,
+  );
 
 const EventWebHookLogModel = mongoose.model<EventWebHookLogInterface>(
   "EventWebHookLog",
-  eventWebHookLogSchema
+  eventWebHookLogSchema,
 );
 
 type CreateEventWebHookLogOptions = {
@@ -136,7 +137,7 @@ export const createEventWebHookLog = async ({
 export const getLatestRunsForWebHook = async (
   organizationId: string,
   eventWebHookId: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<EventWebHookLegacyLogInterface[]> => {
   const docs = await EventWebHookLegacyLogModel.find({
     eventWebHookId,

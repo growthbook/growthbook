@@ -1,13 +1,13 @@
 import { NextFunction, Response } from "express";
 import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
-import { getContextFromReq } from "../../services/organizations";
-import { AuthRequest } from "../../types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getGithubIntegrationByOrg,
   createGithubIntegration,
   toggleWatchingForRepo,
-} from "../../models/GithubIntegration";
-import { createGithubUserToken } from "../../models/GithubUserTokenModel";
+} from "back-end/src/models/GithubIntegration";
+import { createGithubUserToken } from "back-end/src/models/GithubUserTokenModel";
 
 const hasGithubEnvVars = () => {
   return (
@@ -42,7 +42,7 @@ export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
 export const postGithubIntegration = async (
   req: AuthRequest<{ code: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const context = getContextFromReq(req);
 
@@ -99,7 +99,7 @@ export const postGithubIntegration = async (
 
 export const postRepoWatch = async (
   req: AuthRequest<{ repoId: string }>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
 

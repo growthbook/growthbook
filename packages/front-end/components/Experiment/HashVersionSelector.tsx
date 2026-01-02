@@ -1,11 +1,11 @@
-import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
 import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
   return (
@@ -37,50 +37,44 @@ export default function HashVersionSelector({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   return (
     <>
-      <SelectField
-        label="Hashing Algorithm"
+      <label>Hashing Algorithm</label>
+      <RadioGroup
         options={[
+          {
+            label: "V2 (Preferred)",
+            value: "2",
+            description:
+              "Fixes potential bias issues when using similarly named tracking keys",
+            renderOnSelect: hasSDKWithNoBucketingV2 ? (
+              <Callout status="warning" size="sm">
+                Some of your SDK Connections may not support V2 hashing. Make
+                sure you are only using it with{" "}
+                <HashVersionTooltip>
+                  <span className="underline">compatible SDKs</span>
+                </HashVersionTooltip>
+                .
+              </Callout>
+            ) : undefined,
+          },
           { label: "V1 (Legacy)", value: "1" },
-          { label: "V2", value: "2" },
         ]}
         value={value + ""}
-        onChange={(v) => {
+        setValue={(v) => {
           onChange((parseInt(v) || 2) as 1 | 2);
         }}
-        helpText={
-          <>
-            V2 fixes potential bias issues when using similarly named tracking
-            keys, but is only supported in{" "}
-            <HashVersionTooltip>
-              <span className="text-primary">
-                some SDK versions <FaQuestionCircle />
-              </span>
-            </HashVersionTooltip>
-            .
-          </>
-        }
       />
-
-      {hasSDKWithNoBucketingV2 && (
-        <div className="mt-2 alert alert-warning">
-          <FaExclamationTriangle className="mr-1" />
-          Some of your SDK Connections may not support V2 hashing. While V2
-          hashing is preferred, please ensure you are only using it with
-          compatible SDKs.
-        </div>
-      )}
     </>
   );
 }
 
 export function allConnectionsSupportBucketingV2(
   connections?: SDKConnectionInterface[],
-  project?: string
+  project?: string,
 ) {
   if (!connections?.length) {
     // Don't warn if they haven't set up their SDK Connections yet

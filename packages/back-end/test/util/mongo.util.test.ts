@@ -1,4 +1,4 @@
-import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "../../src/util/mongo.util";
+import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "back-end/src/util/mongo.util";
 
 describe("mongo utils", () => {
   describe("getConnectionStringWithDeprecatedKeysMigratedForV3to4", () => {
@@ -8,12 +8,8 @@ describe("mongo utils", () => {
       const expected =
         "mongodb://root:password@localhost:27017/growthbook?authSource=admin";
 
-      const {
-        url,
-        success,
-        remapped,
-        unsupported,
-      } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+      const { url, success, remapped, unsupported } =
+        getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
       expect(success).toBe(true);
@@ -26,12 +22,8 @@ describe("mongo utils", () => {
         const input = "mongodb://root:password@localhost:27017/growthbook";
         const expected = "mongodb://root:password@localhost:27017/growthbook";
 
-        const {
-          url,
-          success,
-          remapped,
-          unsupported,
-        } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+        const { url, success, remapped, unsupported } =
+          getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
         expect(url).toEqual(expected);
         expect(success).toBe(true);
@@ -46,12 +38,8 @@ describe("mongo utils", () => {
       const expected =
         "mongodb://root:password@localhost:27017/growthbook?maxPoolSize=50";
 
-      const {
-        url,
-        success,
-        remapped,
-        unsupported,
-      } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+      const { url, success, remapped, unsupported } =
+        getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
       expect(success).toBe(true);
@@ -65,12 +53,8 @@ describe("mongo utils", () => {
       const expected =
         "mongodb://root:password@localhost:27017/growthbook?authSource=admin&maxPoolSize=50&tlsInsecure=true&wtimeoutMS=123456&appName=foobar";
 
-      const {
-        url,
-        success,
-        remapped,
-        unsupported,
-      } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+      const { url, success, remapped, unsupported } =
+        getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
       expect(success).toBe(true);
@@ -90,12 +74,8 @@ describe("mongo utils", () => {
       const expected =
         "mongodb://root:password@localhost:27017/growthbook?authSource=admin&autoReconnect=true&reconnectRetries=3&reconnectInterval=300&ha=true&haInterval=300&secondaryAcceptableLatencyMS=1000&acceptableLatencyMS=1000&connectWithNoPrimary=true&domainsEnabled=false&bufferMaxEntries=10&foo=1&bar=2&baz=3&maxPoolSize=50&tlsInsecure=true&wtimeoutMS=123456&journal=true&appName=foobar";
 
-      const {
-        url,
-        success,
-        remapped,
-        unsupported,
-      } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+      const { url, success, remapped, unsupported } =
+        getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
       expect(success).toBe(true);
@@ -126,12 +106,8 @@ describe("mongo utils", () => {
         const expected =
           "mongodb://mongodb0.example.com:27017,mongodb1.example.com:27017,mongodb2.example.com:27017/?replicaSet=myReplicaSet&autoReconnect=false&nope=0&maxPoolSize=50&tlsInsecure=true&wtimeoutMS=123456&appName=foobar";
 
-        const {
-          url,
-          success,
-          remapped,
-          unsupported,
-        } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+        const { url, success, remapped, unsupported } =
+          getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
         expect(url).toEqual(expected);
         expect(success).toBe(true);

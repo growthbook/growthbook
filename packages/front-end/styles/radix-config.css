@@ -1,0 +1,40 @@
+/* Shared styles for light & dark themes */
+.radix-themes {
+  font-size: 14px !important; /* radix should start at 16px as standard but that messes with all our em and rem */
+  --font-weight-light: 200;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+}
+
+.light-theme :root,
+.light-theme .radix-themes {
+  --color-background: var(--accent-2);
+  --color-panel-solid: #ffffff;
+  --color-panel-translucent: rgba(255, 255, 255, 0.7);
+  --color-surface-solid: #ffffff;
+  --color-surface: rgba(255, 255, 255, 0.85);
+  --color-overlay: var(--black-a6);
+  --color-landmark: var(--indigo-12);
+  --color-text-high: var(--indigo-12);
+  --color-text-mid: rgba(31, 45, 92, 0.85);
+  --color-text-low: rgba(31, 45, 92, 0.65);
+  --color-text-disabled: rgba(31, 45, 92, 0.45);
+  --color-popup: var(--slate-12);
+}
+
+.dark-theme :root,
+.dark-theme .radix-themes {
+  --color-background: #10172e;
+  --color-panel-solid: #1c2339;
+  --color-panel-translucent: var(--slate-a2);
+  --color-surface-solid: #0c1122;
+  --color-surface: rgba(0, 0, 0, 0.25);
+  --color-overlay: var(--black-a8);
+  --color-landmark: #0c1225;
+  --color-text-high: #ffffff;
+  --color-text-mid: rgba(255, 255, 255, 0.85);
+  --color-text-low: rgba(255, 255, 255, 0.65);
+  --color-text-disabled: rgba(255, 255, 255, 0.45);
+  --color-popup: var(--slate-12);
+}

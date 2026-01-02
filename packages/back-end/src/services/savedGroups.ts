@@ -1,13 +1,14 @@
 import { includeExperimentInPayload } from "shared/util";
-import { ReqContext } from "../../types/organization";
+import { SavedGroupInterface } from "shared/types/groups";
+import { ReqContext } from "back-end/types/request";
 import {
   getAllPayloadExperiments,
   getPayloadKeysForAllEnvs,
-} from "../models/ExperimentModel";
-import { getAllFeatures } from "../models/FeatureModel";
-import { getAffectedSDKPayloadKeys } from "../util/features";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/src/models/ExperimentModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { ApiReqContext } from "back-end/types/api";
 import { refreshSDKPayloadCache } from "./features";
 import {
   getContextForAgendaJobByOrgObject,
@@ -16,16 +17,28 @@ import {
 
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
-  id: string
+  savedGroup: SavedGroupInterface,
 ) {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
+  // Condition groups can be nested recursively, so to be safe, refresh all environments
+  // TODO: Optimize this later if performance becomes an issue
+  if (savedGroup.type === "condition") {
+    await refreshSDKPayloadCache(
+      context,
+      getPayloadKeysForAllEnvs(context, [""]),
+    );
+    return;
+  }
+
+  const id = savedGroup.id;
 
   // Use a map to build a list of unique SDK payload keys
   const payloadKeys: Map<string, SDKPayloadKey> = new Map();
   const addKeys = (keys: SDKPayloadKey[]) =>
     keys.forEach((key) =>
-      payloadKeys.set(key.environment + "<>" + key.project, key)
+      payloadKeys.set(key.environment + "<>" + key.project, key),
     );
 
   // Get all experiments using this saved group
@@ -39,7 +52,7 @@ export async function savedGroupUpdated(
       if (phase.savedGroups?.some((g) => g.ids.includes(id))) return true;
 
       return false;
-    }
+    },
   );
   const expIds = new Set(savedGroupExperiments.map((exp) => exp.id));
 
@@ -51,10 +64,10 @@ export async function savedGroupUpdated(
         .filter(
           (exp) =>
             includeExperimentInPayload(exp) &&
-            (exp.hasVisualChangesets || exp.hasURLRedirects)
+            (exp.hasVisualChangesets || exp.hasURLRedirects),
         )
-        .map((exp) => exp.project || "")
-    )
+        .map((exp) => exp.project || ""),
+    ),
   );
 
   // Then, add in any feature flags using this saved group
@@ -66,14 +79,14 @@ export async function savedGroupUpdated(
       (rule) =>
         (rule.type === "experiment-ref" && expIds.has(rule.experimentId)) ||
         (rule.condition && rule.condition.includes(id)) ||
-        rule.savedGroups?.some((g) => g.ids.includes(id))
-    )
+        rule.savedGroups?.some((g) => g.ids.includes(id)),
+    ),
   );
 
   await refreshSDKPayloadCache(
     context,
     Array.from(payloadKeys.values()),
     allFeatures,
-    experiments
+    experiments,
   );
 }

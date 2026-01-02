@@ -21,8 +21,8 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
       (result === "lost"
         ? experiment.variations[0]?.name
         : result === "won"
-        ? experiment.variations[experiment.winner || 1]?.name
-        : "") || "";
+          ? experiment.variations[experiment.winner || 1]?.name
+          : "") || "";
 
     const releasedVariation =
       experiment.variations.find((v) => v.id === experiment.releasedVariationId)
@@ -108,7 +108,8 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
               editResult();
             }}
           >
-            Stop Experiment
+            Stop{" "}
+            {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}
           </a>
         )}
         <strong>This experiment is currently running.</strong>

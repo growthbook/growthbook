@@ -1,5 +1,67 @@
 # Changelog
 
+## **1.6.2** - Oct 30, 2025
+
+- Fix bug where `getAllResults` always returned an empty map
+- Add options to `destroy()` method to optionally destroy all open SSE streams
+- Fix bug with sticky bucketing not blocking old experiment versions properly
+- Update to latest Babel and Rollup versions. Slightly different output in bundled files, but no functional changes.
+
+## **1.6.1** - Aug 6, 2025
+
+- Fix incorrect `version` property on GrowthBook instances (was still set to 1.5.1)
+
+## **1.6.0** - Jun 16, 2025
+
+- Fix plugin importing when using Typescript moduleResolution `node`
+
+## **1.5.1** - May 1, 2025
+
+- Fix broken minification in the bundled file `auto.min.js` caused by a Babel update
+
+## **1.5.0** - Apr 30, 2025
+
+- New `StickyBucketServiceSync` class for synchronous sticky bucketing implementations
+- New `devtools` plugin to integrate back-end code with the GrowthBook Dev Tools browser extension
+- Ability to pass user-specific plugins into `createScopedInstance()`
+- In user-scoped instances (returned from `createScopedInstance()`), de-dupe all tracking calls and feature usage callbacks. Technically this is a breaking change, but it should not affect the vast majority of users.
+
+## **1.4.1** - Feb 20, 2025
+
+- In `auto.min.js`, enable dev mode by default. Without this, the GrowthBook DevTools Chrome extension will only partially work.
+
+## **1.4.0** - Feb 19, 2025
+
+- Fixed edge case with pre-requisites that caused some feature rules to be skipped
+- New methods for dealing with destroyed GrowthBook instances - `isDestroyed()` and `onDestroy(callback)`
+- New `plugins` option to extend GrowthBook functionality, plus several built-in plugins
+- New `eventLogger` option and `logEvent` method to track arbitrary analytics events
+- Fix bug in targeting condition when checking if non-existent attribute is equal to `false`
+
+## **1.3.1** - Dec 3, 2024
+
+- Renamed `GrowthBookMultiUser` to `GrowthBookClient`
+- New `GrowthBookClient.createScopedInstance()` method to make it easier to use in express-like back-end frameworks and client-side environments.
+
+## **1.3.0** - Nov 20, 2024
+
+- New `GrowthBookMultiUser` class for 2x performance boost in Node.js
+- Remove undocumented and deprecated `GrowthBook` constructor options: `realtimeKey`, `realtimeInterval`, and `stickyBucketIdentifierAttributes`.
+
+## **1.2.1** - Oct 8, 2024
+
+- Set default cookie expiry (180 days) in cookie-related Sticky Bucket Services.
+- Provide `getKey` method in Sticky Bucket Services.
+
+## **1.2.0** - Aug 20, 2024
+
+- Make `trackingCallback` optionally async; await it when navigating in a URL redirect test
+- Fix bug related to `stickyBucketAssignmentDocs` not being read when attributes change
+- Remove native anti-flicker code from JS SDK; add improved anti-flicker support to the HTML script tag
+- Prevent some URL redirect navigate stampedes
+- Change default `maxAge` cache setting to 4 hours to reduce multiple exposures when starting a new experiment phase
+- Now `cacheSettings` can optionally be set from the SDK context
+
 ## **1.1.0** - July 1, 2024
 
 - Fix package.json ESM exports. Can now load the SDK in Astro and Node (with `type="module"`) without errors.

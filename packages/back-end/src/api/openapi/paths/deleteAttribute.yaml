@@ -1,0 +1,27 @@
+summary: Deletes a single attribute
+parameters:
+  - name: property
+    in: path
+    required: true
+    description: The attribute property
+    schema:
+      type: string
+tags:
+  - attributes
+operationId: deleteAttribute
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/property \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - deletedProperty
+          properties:
+            deletedProperty:
+              type: string

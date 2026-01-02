@@ -1,23 +1,28 @@
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { ConnectSettingsForm } from "@/pages/settings";
+import Frame from "@/ui/Frame";
 
 export default function NorthStarMetricSettings() {
   return (
     <ConnectSettingsForm>
       {({ watch, setValue }) => (
-        <div className="my-3 bg-white p-3 border">
-          <div className="row">
-            <div className="col-sm-3">
-              <h4>North Star Metrics</h4>
-            </div>
-            <div className="col-sm-9">
+        <Frame>
+          <Flex gap="4">
+            <Box width="220px" flexShrink="0">
+              <Heading size="4" as="h4">
+                North Star Metrics
+              </Heading>
+            </Box>
+
+            <Flex align="start" direction="column" flexGrow="1" pt="6">
               <p>
                 North stars are metrics your team is focused on improving. These
                 metrics are shown on the home page with the experiments that
                 have the metric as a goal.
               </p>
-              <div className={"form-group"}>
+              <Box className={"form-group"} width="100%">
                 <div className="my-3">
                   <div className="form-group">
                     <label>Metric(s)</label>
@@ -26,6 +31,10 @@ export default function NorthStarMetricSettings() {
                       onChange={(metricIds) =>
                         setValue("northStar.metricIds", metricIds)
                       }
+                      includeFacts={true}
+                      includeGroups={false}
+                      excludeQuantiles={true}
+                      noManual={true}
                     />
                   </div>
                   <Field
@@ -36,10 +45,10 @@ export default function NorthStarMetricSettings() {
                     }}
                   />
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              </Box>
+            </Flex>
+          </Flex>
+        </Frame>
       )}
     </ConnectSettingsForm>
   );

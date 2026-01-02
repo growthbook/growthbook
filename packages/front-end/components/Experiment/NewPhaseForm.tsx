@@ -2,12 +2,13 @@ import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
+import { getEqualWeights } from "shared/experiments";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
-import { getEqualWeights } from "@/services/utils";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -17,12 +18,14 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
+import DatePicker from "@/components/DatePicker";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
   const { refreshWatching } = useWatching();
 
   const firstPhase = !experiment.phases.length;
@@ -57,7 +60,7 @@ const NewPhaseForm: FC<{
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
     (total: number, weight: number) => total + weight,
-    0
+    0,
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
@@ -78,7 +81,7 @@ const NewPhaseForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(value),
-      }
+      },
     );
     mutate();
     refreshWatching();
@@ -89,6 +92,8 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType="new-phase-form"
+      trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
       close={close}
       open={true}
@@ -120,10 +125,12 @@ const NewPhaseForm: FC<{
         />
       )}
       {!hasLinkedChanges && (
-        <Field
+        <DatePicker
           label="Start Time (UTC)"
-          type="datetime-local"
-          {...form.register("dateStarted")}
+          date={form.watch("dateStarted")}
+          setDate={(v) => {
+            form.setValue("dateStarted", v ? datetime(v) : "");
+          }}
         />
       )}
 
@@ -131,6 +138,7 @@ const NewPhaseForm: FC<{
         <SavedGroupTargetingField
           value={form.watch("savedGroups") || []}
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+          project={experiment.project || ""}
         />
       )}
 

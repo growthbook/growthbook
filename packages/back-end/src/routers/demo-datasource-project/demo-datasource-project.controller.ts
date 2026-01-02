@@ -7,27 +7,30 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { AuthRequest } from "../../types/AuthRequest";
-import { getContextFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { PostgresConnectionParams } from "../../../types/integrations/postgres";
-import { createDataSource } from "../../models/DataSourceModel";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { DataSourceSettings } from "shared/types/datasource";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentRefRule, FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
+import { ProjectInterface } from "shared/types/project";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import { MetricWindowSettings } from "shared/types/fact-table";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { createDataSource } from "back-end/src/models/DataSourceModel";
 import {
   createExperiment,
   getAllExperiments,
-} from "../../models/ExperimentModel";
-import { createMetric, createSnapshot } from "../../services/experiments";
-import { PrivateApiErrorResponse } from "../../../types/api";
-import { DataSourceSettings } from "../../../types/datasource";
-import { ExperimentInterface } from "../../../types/experiment";
-import { ExperimentRefRule, FeatureInterface } from "../../../types/feature";
-import { MetricInterface } from "../../../types/metric";
-import { ProjectInterface } from "../../../types/project";
-import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
-import { getMetricMap } from "../../models/MetricModel";
-import { createFeature } from "../../models/FeatureModel";
-import { getFactTableMap } from "../../models/FactTableModel";
-import { MetricWindowSettings } from "../../../types/fact-table";
+} from "back-end/src/models/ExperimentModel";
+import {
+  createMetric,
+  createSnapshot,
+} from "back-end/src/services/experiments";
+import { PrivateApiErrorResponse } from "back-end/types/api";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { createFeature } from "back-end/src/models/FeatureModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // region Constants for Demo Datasource
 
@@ -67,7 +70,8 @@ const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
   type: "conversion",
   windowUnit: "hours",
   windowValue: 72,
-  delayHours: 0,
+  delayUnit: "hours",
+  delayValue: 0,
 };
 const DENOMINATOR_METRIC_NAME = "Purchases - Number of Orders (72 hour window)";
 const DEMO_METRICS: Pick<
@@ -78,8 +82,7 @@ const DEMO_METRICS: Pick<
     name: "Purchases - Total Revenue (72 hour window)",
     description: "The total amount of USD spent aggregated at the user level",
     type: "revenue",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
     windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
@@ -93,8 +96,7 @@ const DEMO_METRICS: Pick<
     name: DENOMINATOR_METRIC_NAME,
     description: "Total number of discrete orders placed by a user",
     type: "count",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
     windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
@@ -104,12 +106,12 @@ const DEMO_METRICS: Pick<
     type: "binomial",
     windowSettings: {
       type: "conversion",
-      delayHours: 24,
+      delayValue: 24,
+      delayUnit: "hours",
       windowUnit: "days",
       windowValue: 13,
     },
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
   {
     name: "Days Active in Next 7 Days",
@@ -118,13 +120,13 @@ const DEMO_METRICS: Pick<
     type: "count",
     windowSettings: {
       type: "conversion",
-      delayHours: 0,
+      delayValue: 0,
+      delayUnit: "hours",
       windowUnit: "days",
       windowValue: 7,
     },
     aggregation: "COUNT(DISTINCT value)",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
   },
 ];
 
@@ -136,8 +138,7 @@ const DEMO_RATIO_METRIC: Pick<
   description:
     "The average value of purchases made in the 72 hours after exposure divided by the total number of purchases",
   type: "revenue",
-  sql:
-    "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+  sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
 };
 
 // endregion Constants for Demo Datasource
@@ -162,8 +163,8 @@ export const postDemoDatasourceProject = async (
   req: CreateDemoDatasourceProjectRequest,
   res: Response<
     CreateDemoDatasourceProjectResponse | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
-  >
+    EventUserForResponseLocals
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -178,14 +179,16 @@ export const postDemoDatasourceProject = async (
 
   if (
     !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
-    !context.permissions.canCreateDataSource({ projects: [demoProjId] })
+    !context.permissions.canCreateDataSource({
+      projects: [demoProjId],
+      type: "postgres",
+    })
   ) {
     context.permissions.throwPermissionError();
   }
 
-  const existingDemoProject: ProjectInterface | null = await context.models.projects.getById(
-    demoProjId
-  );
+  const existingDemoProject: ProjectInterface | null =
+    await context.models.projects.getById(demoProjId);
 
   if (existingDemoProject) {
     const existingExperiments = await getAllExperiments(context, {
@@ -214,13 +217,13 @@ export const postDemoDatasourceProject = async (
       DEMO_DATASOURCE_SETTINGS,
       undefined,
       "",
-      [project.id]
+      [project.id],
     );
 
     // Create metrics
     const metrics = await Promise.all(
       DEMO_METRICS.map(async (m) => {
-        return createMetric({
+        return createMetric(context, {
           ...m,
           organization: org.id,
           owner: ASSET_OWNER,
@@ -230,14 +233,14 @@ export const postDemoDatasourceProject = async (
           projects: [project.id],
           tags: DEMO_TAGS,
         });
-      })
+      }),
     );
 
     const denominatorMetricId = metrics.find(
-      (m) => m.name === DENOMINATOR_METRIC_NAME
+      (m) => m.name === DENOMINATOR_METRIC_NAME,
     )?.id;
     const ratioMetric = denominatorMetricId
-      ? await createMetric({
+      ? await createMetric(context, {
           ...DEMO_RATIO_METRIC,
           denominator: denominatorMetricId,
           organization: org.id,
@@ -250,6 +253,13 @@ export const postDemoDatasourceProject = async (
         })
       : undefined;
 
+    const goalMetrics = metrics.slice(0, 1).map((m) => m.id);
+
+    const secondaryMetrics = metrics
+      .slice(1, undefined)
+      .map((m) => m.id)
+      .concat(ratioMetric ? ratioMetric?.id : []);
+
     // Create experiment
     const experimentStartDate = new Date();
     experimentStartDate.setDate(experimentStartDate.getDate() - 30);
@@ -259,7 +269,8 @@ export const postDemoDatasourceProject = async (
       | "owner"
       | "description"
       | "datasource"
-      | "metrics"
+      | "goalMetrics"
+      | "secondaryMetrics"
       | "project"
       | "hypothesis"
       | "exposureQueryId"
@@ -280,9 +291,8 @@ spacing and headings.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
-      metrics: metrics
-        .map((m) => m.id)
-        .concat(ratioMetric ? ratioMetric?.id : []),
+      goalMetrics,
+      secondaryMetrics,
       exposureQueryId: "user_id",
       status: "running",
       tags: DEMO_TAGS,
@@ -404,6 +414,7 @@ spacing and headings.`,
       dimensions: [],
       pValueThreshold:
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      numGoalMetrics: goalMetrics.length,
     };
 
     const metricMap = await getMetricMap(context);
@@ -419,6 +430,8 @@ spacing and headings.`,
       metricMap: metricMap,
       factTableMap,
       useCache: true,
+      type: "standard",
+      triggeredBy: "manual",
     });
 
     res.status(200).json({

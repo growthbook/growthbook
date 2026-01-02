@@ -7,24 +7,20 @@ import React, {
   ReactNode,
   ReactElement,
 } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import {
-  FaArchive,
-  FaChevronRight,
-  FaQuestionCircle,
-  FaTimes,
-} from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
+import { FaQuestionCircle, FaTimes } from "react-icons/fa";
+import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { Box, Flex } from "@radix-ui/themes";
+import { isBinomialMetric } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -34,9 +30,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
-import StatusIndicator from "@/components/Experiment/StatusIndicator";
+import { TabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
 import RunQueriesButton, {
@@ -45,8 +39,6 @@ import RunQueriesButton, {
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
-import InlineForm from "@/components/Forms/InlineForm";
-import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
@@ -59,7 +51,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -68,7 +60,10 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
+import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
+import { MetricModal } from "@/components/FactTables/NewMetricModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -85,8 +80,10 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
+  const { organization } = useUser();
+
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
-  const [editing, setEditing] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
   const [editTags, setEditTags] = useState(false);
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -95,11 +92,11 @@ const MetricPage: FC = () => {
   const storageKeySum = `metric_smoothBy_sum`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
-    "day"
+    "day",
   );
   const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
-    "day"
+    "day",
   );
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
@@ -107,11 +104,8 @@ const MetricPage: FC = () => {
     setHoverDate(ret.d);
   };
 
-  const { organization } = useUser();
-
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
-    experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
   const {
@@ -119,6 +113,7 @@ const MetricPage: FC = () => {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
   } = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
@@ -138,16 +133,23 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canEditMetric =
-    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
-  const canDeleteMetric =
-    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+  const canDuplicateMetric = permissionsUtil.canCreateMetric({
+    // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+    projects: metric.projects,
+  });
+  let canEditMetric = permissionsUtil.canUpdateMetric(metric, {});
+  let canDeleteMetric = permissionsUtil.canDeleteMetric(metric);
+
+  // Additional check if managed by api or config
+  if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    canEditMetric = false;
+    canDeleteMetric = false;
+  }
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
   const canRunMetricQuery =
     datasource && permissionsUtil.canRunMetricQueries(datasource);
-  const experiments = data.experiments;
 
   let analysis = data.metric.analysis || null;
   if (!analysis || !("average" in analysis)) {
@@ -168,11 +170,12 @@ const MetricPage: FC = () => {
   const denominator = metric.denominator
     ? metrics.find((m) => m.id === metric.denominator)
     : undefined;
-  if (denominator && denominator.type === "count") {
+  if (denominator && !isBinomialMetric(denominator)) {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>
-        Not available for ratio metrics with <em>count</em> denominators.
+        Not available for non-fact ratio metrics with{" "}
+        <em>{denominator.type}</em> denominators.
       </>
     );
   }
@@ -182,6 +185,13 @@ const MetricPage: FC = () => {
       <>Not available for metrics with custom aggregations.</>
     );
   }
+
+  const variables = {
+    metricName: metric.name,
+    tags: metric.tags || [],
+    metricType: metric.type,
+    metricDatasource: datasource?.name || "",
+  };
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async (): Promise<ReactElement | null> => {
@@ -204,17 +214,17 @@ const MetricPage: FC = () => {
             refs.push(
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " experiments"
+                : res.experiments.length + " experiments",
             );
             res.experiments.forEach((e) => {
               experimentLinks.push(
-                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>,
               );
             });
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas",
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -298,9 +308,21 @@ const MetricPage: FC = () => {
             setEditModalOpen(false);
           }}
           onSuccess={() => {
-            mutateDefinitions();
             mutate();
           }}
+        />
+      )}
+      {duplicateModalOpen && (
+        <MetricModal
+          mode="duplicate"
+          currentMetric={{
+            ...metric,
+            name: metric.name + " (copy)",
+            // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+            managedBy: "",
+          }}
+          close={() => setDuplicateModalOpen(false)}
+          source="metrics-detail"
         />
       )}
       {editTags && (
@@ -316,13 +338,28 @@ const MetricPage: FC = () => {
               }),
             });
           }}
+          source="mid"
         />
       )}
       {editProjects && (
         <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                }
+              />
+            </>
+          }
           cancel={() => setEditProjects(false)}
+          entityName="Metric"
           mutate={mutate}
-          projects={metric.projects || []}
+          value={metric.projects || []}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateMetric({ projects: [project] }, {})
+          }
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -330,11 +367,13 @@ const MetricPage: FC = () => {
                 projects,
               }),
             });
+            mutateDefinitions({});
           }}
         />
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="metric"
           cancel={() => setEditOwnerModal(false)}
           owner={metric.owner}
           save={async (owner) => {
@@ -385,7 +424,7 @@ const MetricPage: FC = () => {
       )}
 
       {metric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id)
+        getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
         <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
           <div className="flex-1">
@@ -408,6 +447,24 @@ const MetricPage: FC = () => {
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <MoreMenu>
+            {canEditMetric ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setEditModalOpen(true)}
+              >
+                Edit metric
+              </Button>
+            ) : null}
+            {canDuplicateMetric ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setDuplicateModalOpen(true)}
+              >
+                Duplicate metric
+              </Button>
+            ) : null}
             {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
@@ -421,7 +478,7 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
-                useIcon={true}
+                useIcon={false}
                 displayName={"Metric '" + metric.name + "'"}
               />
             ) : null}
@@ -442,7 +499,6 @@ const MetricPage: FC = () => {
                   mutate();
                 }}
               >
-                <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
             ) : null}
@@ -453,16 +509,9 @@ const MetricPage: FC = () => {
         <div className="col">
           Projects:{" "}
           {metric?.projects?.length ? (
-            <ProjectBadges
-              resourceType="metric"
-              projectIds={metric.projects}
-              className="badge-ellipsis align-middle"
-            />
+            <ProjectBadges resourceType="metric" projectIds={metric.projects} />
           ) : (
-            <ProjectBadges
-              resourceType="metric"
-              className="badge-ellipsis align-middle"
-            />
+            <ProjectBadges resourceType="metric" />
           )}
           {canEditMetric && (
             <a
@@ -479,257 +528,268 @@ const MetricPage: FC = () => {
         </div>
       </div>
 
+      <div className="mt-3">
+        <CustomMarkdown page={"metric"} variables={variables} />
+      </div>
+
       <div className="row">
         <div className="col-12 col-md-8">
-          <Tabs newStyle={true}>
-            <Tab display="Info" anchor="info" lazy={true}>
-              <div className="row">
-                <div className="col-12">
-                  <InlineForm
-                    editing={editing}
-                    setEdit={setEditing}
-                    canEdit={canEditMetric}
-                    onSave={form.handleSubmit(async (value) => {
-                      await apiCall(`/metric/${metric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify(value),
-                      });
-                      await mutate();
-                      mutateDefinitions({});
-                      setEditing(false);
-                    })}
-                    onStartEdit={() => {
-                      form.setValue("name", metric.name || "");
-                      form.setValue("description", metric.description || "");
-                    }}
-                  >
-                    {({ cancel, save }) => (
-                      <div className="mb-4">
-                        <div className="row mb-3">
-                          <div className="col">
-                            <EditableH1
-                              value={form.watch("name")}
-                              onChange={(e) =>
-                                form.setValue("name", e.target.value)
+          <Tabs defaultValue="info" persistInURL={true}>
+            <TabsList>
+              <TabsTrigger value="info">Info</TabsTrigger>
+              <TabsTrigger value="experiments">Experiments</TabsTrigger>
+              <TabsTrigger value="discussion">Discussion</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+            <Box pt="4">
+              <TabsContent value="info">
+                <Box className="appbox px-4 py-3 mb-5">
+                  <div className="row">
+                    <div className="col-12">
+                      <MarkdownInlineEdit
+                        header="Description"
+                        save={async (description) => {
+                          await apiCall(`/metric/${metric.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              description,
+                            }),
+                          });
+                          await mutate();
+                          mutateDefinitions({});
+                        }}
+                        aiSuggestFunction={async () => {
+                          const res = await apiCall<{
+                            status: number;
+                            data: {
+                              description: string;
+                            };
+                          }>(
+                            `/metrics/${metric.id}/gen-description`,
+                            {
+                              method: "GET",
+                            },
+                            (responseData) => {
+                              if (responseData.status === 429) {
+                                const retryAfter = parseInt(
+                                  responseData.retryAfter,
+                                );
+                                const hours = Math.floor(retryAfter / 3600);
+                                const minutes = Math.floor(
+                                  (retryAfter % 3600) / 60,
+                                );
+                                throw new Error(
+                                  `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                                );
+                              } else if (responseData.message) {
+                                throw new Error(responseData.message);
+                              } else {
+                                throw new Error("Error getting AI suggestion");
                               }
-                              editing={canEditMetric && editing}
-                              save={save}
-                              cancel={cancel}
-                            />
-                          </div>
-                          {canEditMetric && !editing && (
-                            <div className="col-auto">
-                              <button
-                                className="btn btn-outline-primary"
+                            },
+                          );
+                          if (res?.status !== 200) {
+                            throw new Error("Could not load AI suggestions");
+                          }
+                          return res.data.description;
+                        }}
+                        aiButtonText="Suggest Description"
+                        aiSuggestionHeader="Suggested Description"
+                        emptyHelperText="Add a description to keep your team informed about how to apply this metric."
+                        value={metric.description}
+                        canCreate={canEditMetric}
+                        canEdit={canEditMetric}
+                        label="Description"
+                      />
+                    </div>
+                  </div>
+                </Box>
+                {!!datasource && (
+                  <div className="appbox px-4 py-3 mb-5">
+                    <div className="row mb-1 align-items-center">
+                      <div className="col-auto">
+                        <h3 className="d-inline-block mb-0">Data Preview</h3>
+                      </div>
+                      <div className="small col-auto">
+                        {segments.length > 0 && (
+                          <>
+                            {segment?.name ? (
+                              <>
+                                Segment applied:{" "}
+                                <span className="badge badge-primary mr-1">
+                                  {segment?.name || "Everyone"}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="mr-1">Apply a segment</span>
+                            )}
+                            {canEditMetric && canRunMetricQuery && (
+                              <a
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  setEditing(true);
+                                  setSegmentOpen(true);
                                 }}
-                              >
-                                Edit
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </InlineForm>
-                  <MarkdownInlineEdit
-                    save={async (description) => {
-                      await apiCall(`/metric/${metric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          description,
-                        }),
-                      });
-                      await mutate();
-                      mutateDefinitions({});
-                    }}
-                    value={metric.description}
-                    canCreate={canEditMetric}
-                    canEdit={canEditMetric}
-                    label="Description"
-                  />
-                  <hr />
-                  {!!datasource && (
-                    <div>
-                      <div className="row mb-1 align-items-center">
-                        <div className="col-auto">
-                          <h3 className="d-inline-block mb-0">Data Preview</h3>
-                        </div>
-                        <div className="small col-auto">
-                          {segments.length > 0 && (
-                            <>
-                              {segment?.name ? (
-                                <>
-                                  Segment applied:{" "}
-                                  <span className="badge badge-primary mr-1">
-                                    {segment?.name || "Everyone"}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="mr-1">Apply a segment</span>
-                              )}
-                              {canEditMetric && canRunMetricQuery && (
-                                <a
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setSegmentOpen(true);
-                                  }}
-                                  href="#"
-                                >
-                                  <BsGear />
-                                </a>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        <div style={{ flex: 1 }} />
-                        <div className="col-auto">
-                          {canRunMetricQuery && (
-                            <form
-                              onSubmit={async (e) => {
-                                e.preventDefault();
-                                try {
-                                  await apiCall(
-                                    `/metric/${metric.id}/analysis`,
-                                    {
-                                      method: "POST",
-                                    }
-                                  );
-                                  mutate();
-                                } catch (e) {
-                                  console.error(e);
-                                }
-                              }}
-                            >
-                              <RunQueriesButton
-                                icon="refresh"
-                                cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                mutate={mutate}
-                                model={metric}
-                                cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                                color="outline-primary"
-                              />
-                            </form>
-                          )}
-                        </div>
-                      </div>
-                      <div className="row flex justify-content-between">
-                        <div className="small text-muted col">
-                          {denominator && (
-                            <>
-                              The data below only aggregates the numerator. The
-                              denominator ({denominator.name}) is only used in
-                              experiment analyses.
-                            </>
-                          )}
-                        </div>
-                        {analysis && (
-                          <div className="small text-muted col-auto">
-                            Last updated on {date(analysis?.createdAt)}
-                          </div>
-                        )}
-                      </div>
-                      {hasQueries && status === "failed" && (
-                        <div className="alert alert-danger my-3">
-                          Error running the analysis.{" "}
-                          <ViewAsyncQueriesButton
-                            queries={metric.queries.map((q) => q.query)}
-                            error={metric.analysisError}
-                            ctaCommponent={(onClick) => (
-                              <a
-                                className="alert-link"
                                 href="#"
-                                onClick={onClick}
                               >
-                                View Queries
+                                <BsGear />
                               </a>
                             )}
-                          />{" "}
-                          for more info
+                          </>
+                        )}
+                      </div>
+                      <div style={{ flex: 1 }} />
+                      <div className="col-auto">
+                        {canRunMetricQuery && (
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              try {
+                                await apiCall(`/metric/${metric.id}/analysis`, {
+                                  method: "POST",
+                                });
+                                mutate();
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            <RunQueriesButton
+                              icon="refresh"
+                              cta={analysis ? "Refresh Data" : "Run Analysis"}
+                              mutate={mutate}
+                              model={metric}
+                              cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                              color="outline-primary"
+                            />
+                          </form>
+                        )}
+                      </div>
+                    </div>
+                    <div className="row flex justify-content-between">
+                      <div className="small text-muted col">
+                        {denominator && (
+                          <>
+                            The data below only aggregates the numerator. The
+                            denominator ({denominator.name}) is only used in
+                            experiment analyses.
+                          </>
+                        )}
+                      </div>
+                      {analysis && (
+                        <div className="small text-muted col-auto">
+                          Last updated on {date(analysis?.createdAt)}
                         </div>
                       )}
-                      {hasQueries && status === "running" && (
+                    </div>
+                    {hasQueries && status === "failed" && (
+                      <div className="alert alert-danger my-3">
+                        Error running the analysis.{" "}
+                        <ViewAsyncQueriesButton
+                          queries={metric.queries.map((q) => q.query)}
+                          error={metric.analysisError}
+                          ctaComponent={(onClick) => (
+                            <a
+                              className="alert-link"
+                              href="#"
+                              onClick={onClick}
+                            >
+                              View Queries
+                            </a>
+                          )}
+                        />{" "}
+                        for more info
+                      </div>
+                    )}
+                    {hasQueries && status === "running" && (
+                      <div className="alert alert-info">
+                        Your analysis is currently running.{" "}
+                        {analysis && "The data below is from the previous run."}
+                      </div>
+                    )}
+                    {analysis &&
+                      status === "succeeded" &&
+                      (metric.segment || analysis.segment) &&
+                      metric.segment !== analysis.segment && (
                         <div className="alert alert-info">
-                          Your analysis is currently running.{" "}
-                          {analysis &&
-                            "The data below is from the previous run."}
+                          The graphs below are using an old Segment. Update them
+                          to see the latest numbers.
                         </div>
                       )}
-                      {analysis &&
-                        status === "succeeded" &&
-                        (metric.segment || analysis.segment) &&
-                        metric.segment !== analysis.segment && (
-                          <div className="alert alert-info">
-                            The graphs below are using an old Segment. Update
-                            them to see the latest numbers.
+                    {analysis && (
+                      <div className="mb-4">
+                        {metric.type !== "binomial" && (
+                          <div className="d-flex flex-row align-items-end">
+                            <div style={{ fontSize: "2.5em" }}>
+                              {getMetricFormatter(metric.type)(
+                                analysis.average,
+                                {
+                                  currency: displayCurrency,
+                                },
+                              )}
+                            </div>
+                            <div className="pb-2 ml-1">average</div>
                           </div>
                         )}
-                      {analysis && (
-                        <div className="mb-4">
-                          {metric.type !== "binomial" && (
-                            <div className="d-flex flex-row align-items-end">
-                              <div style={{ fontSize: "2.5em" }}>
-                                {getMetricFormatter(metric.type)(
-                                  analysis.average,
-                                  {
-                                    currency: displayCurrency,
-                                  }
-                                )}
-                              </div>
-                              <div className="pb-2 ml-1">average</div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {analysis?.dates && analysis.dates.length > 0 && (
-                        <div className="mb-4">
-                          <div className="row mt-3">
-                            <div className="col-auto">
-                              <h5 className="mb-1 mt-1">
-                                {metric.type === "binomial"
-                                  ? "Conversions"
-                                  : "Metric Value"}{" "}
-                                Over Time
-                              </h5>
-                            </div>
+                      </div>
+                    )}
+                    {analysis?.dates && analysis.dates.length > 0 && (
+                      <div className="mb-4">
+                        <div className="row mt-3">
+                          <div className="col-auto">
+                            <h5 className="mb-1 mt-1">
+                              {metric.type === "binomial"
+                                ? "Conversions"
+                                : "Metric Value"}{" "}
+                              Over Time
+                            </h5>
                           </div>
+                        </div>
 
-                          {metric.type !== "binomial" && (
-                            <>
-                              <div className="row mt-4 mb-1">
-                                <div className="col">
-                                  <Tooltip
-                                    body={
-                                      <>
-                                        <p>
-                                          This figure shows the average metric
-                                          value on a day divided by number of
-                                          unique units (e.g. users) in the
-                                          metric source on that day.
-                                        </p>
-                                        <p>
-                                          The standard deviation shows the
-                                          spread of the daily user metric
-                                          values.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average values and standard deviations
-                                          over the 7 trailing days (including
-                                          the selected day).
-                                        </p>
-                                      </>
-                                    }
-                                  >
-                                    <strong className="ml-4 align-bottom">
-                                      Daily Average <FaQuestionCircle />
-                                    </strong>
-                                  </Tooltip>
-                                </div>
-                                <div className="col">
-                                  <div className="float-right mr-2">
+                        {metric.type !== "binomial" && (
+                          <>
+                            <div className="row mt-4 mb-1">
+                              <div className="col">
+                                <Tooltip
+                                  body={
+                                    <>
+                                      <p>
+                                        This figure shows the average metric
+                                        value on a day divided by number of
+                                        unique units (e.g. users) in the metric
+                                        source on that day.
+                                      </p>
+                                      <p>
+                                        The standard deviation shows the spread
+                                        of the daily user metric values.
+                                      </p>
+                                      <p>
+                                        When smoothing is turned on, we simply
+                                        average values and standard deviations
+                                        over the 7 trailing days (including the
+                                        selected day).
+                                      </p>
+                                    </>
+                                  }
+                                >
+                                  <strong className="ml-4 align-bottom">
+                                    Daily Average <FaQuestionCircle />
+                                  </strong>
+                                </Tooltip>
+                              </div>
+                              <div className="col">
+                                <div className="float-right mr-2">
+                                  <Flex align="center" gap="1">
+                                    <Switch
+                                      value={smoothByAvg === "week"}
+                                      onChange={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week",
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                    />
                                     <label
                                       className="small my-0 mr-2 text-right align-middle"
                                       htmlFor="toggle-group-by-avg"
@@ -738,76 +798,74 @@ const MetricPage: FC = () => {
                                       <br />
                                       (7 day trailing)
                                     </label>
-                                    <Toggle
-                                      value={smoothByAvg === "week"}
-                                      setValue={() =>
-                                        setSmoothByAvg(
-                                          smoothByAvg === "week"
-                                            ? "day"
-                                            : "week"
-                                        )
-                                      }
-                                      id="toggle-group-by-avg"
-                                      className="align-middle"
-                                    />
-                                  </div>
+                                  </Flex>
                                 </div>
                               </div>
-                              <DateGraph
-                                type={metric.type}
-                                method="avg"
-                                dates={analysis.dates}
-                                smoothBy={smoothByAvg}
-                                onHover={onHoverCallback}
-                                hoverDate={hoverDate}
-                              />
-                            </>
-                          )}
-
-                          <div className="row mt-4 mb-1">
-                            <div className="col">
-                              <Tooltip
-                                body={
-                                  <>
-                                    {metric.type !== "binomial" ? (
-                                      <>
-                                        <p>
-                                          This figure shows the daily sum of
-                                          values in the metric source on that
-                                          day.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average values over the 7 trailing
-                                          days (including the selected day).
-                                        </p>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <p>
-                                          This figure shows the total count of
-                                          units (e.g. users) in the metric
-                                          source on that day.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average counts over the 7 trailing
-                                          days (including the selected day).
-                                        </p>
-                                      </>
-                                    )}
-                                  </>
-                                }
-                              >
-                                <strong className="ml-4 align-bottom">
-                                  Daily{" "}
-                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
-                                  <FaQuestionCircle />
-                                </strong>
-                              </Tooltip>
                             </div>
-                            <div className="col">
-                              <div className="float-right mr-2">
+                            <DateGraph
+                              type={metric.type}
+                              method="avg"
+                              dates={analysis.dates}
+                              smoothBy={smoothByAvg}
+                              onHover={onHoverCallback}
+                              hoverDate={hoverDate}
+                            />
+                          </>
+                        )}
+
+                        <div className="row mt-4 mb-1">
+                          <div className="col">
+                            <Tooltip
+                              body={
+                                <>
+                                  {metric.type !== "binomial" ? (
+                                    <>
+                                      <p>
+                                        This figure shows the daily sum of
+                                        values in the metric source on that day.
+                                      </p>
+                                      <p>
+                                        When smoothing is turned on, we simply
+                                        average values over the 7 trailing days
+                                        (including the selected day).
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p>
+                                        This figure shows the total count of
+                                        units (e.g. users) in the metric source
+                                        on that day.
+                                      </p>
+                                      <p>
+                                        When smoothing is turned on, we simply
+                                        average counts over the 7 trailing days
+                                        (including the selected day).
+                                      </p>
+                                    </>
+                                  )}
+                                </>
+                              }
+                            >
+                              <strong className="ml-4 align-bottom">
+                                Daily{" "}
+                                {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
+                                <FaQuestionCircle />
+                              </strong>
+                            </Tooltip>
+                          </div>
+                          <div className="col">
+                            <div className="float-right mr-2">
+                              <Flex align="center" gap="1">
+                                <Switch
+                                  value={smoothBySum === "week"}
+                                  onChange={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week",
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                />
                                 <label
                                   className="small my-0 mr-2 text-right align-middle"
                                   htmlFor="toggle-group-by-sum"
@@ -816,94 +874,65 @@ const MetricPage: FC = () => {
                                   <br />
                                   (7 day trailing)
                                 </label>
-                                <Toggle
-                                  value={smoothBySum === "week"}
-                                  setValue={() =>
-                                    setSmoothBySum(
-                                      smoothBySum === "week" ? "day" : "week"
-                                    )
-                                  }
-                                  id="toggle-group-by-sum"
-                                  className="align-middle"
-                                />
-                              </div>
+                              </Flex>
                             </div>
                           </div>
-                          <DateGraph
-                            type={metric.type}
-                            method="sum"
-                            dates={analysis.dates}
-                            smoothBy={smoothBySum}
-                            onHover={onHoverCallback}
-                            hoverDate={hoverDate}
+                        </div>
+                        <DateGraph
+                          type={metric.type}
+                          method="sum"
+                          dates={analysis.dates}
+                          smoothBy={smoothBySum}
+                          onHover={onHoverCallback}
+                          hoverDate={hoverDate}
+                        />
+                      </div>
+                    )}
+
+                    {!analysis && (
+                      <div>
+                        <em>
+                          No data for this metric yet.{" "}
+                          {canRunMetricQuery
+                            ? "Click the Run Analysis button above."
+                            : null}
+                        </em>
+                      </div>
+                    )}
+
+                    {hasQueries && (
+                      <div className="row my-3">
+                        <div className="col-auto">
+                          <ViewAsyncQueriesButton
+                            queries={metric.queries.map((q) => q.query)}
+                            color={status === "failed" ? "danger" : "info"}
+                            error={metric.analysisError}
                           />
                         </div>
-                      )}
-
-                      {!analysis && (
-                        <div>
-                          <em>
-                            No data for this metric yet.{" "}
-                            {canRunMetricQuery
-                              ? "Click the Run Analysis button above."
-                              : null}
-                          </em>
-                        </div>
-                      )}
-
-                      {hasQueries && (
-                        <div className="row my-3">
-                          <div className="col-auto">
-                            <ViewAsyncQueriesButton
-                              queries={metric.queries.map((q) => q.query)}
-                              color={status === "failed" ? "danger" : "info"}
-                              error={metric.analysisError}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Tab>
-            <Tab display="Experiments" anchor="experiments">
-              <h3>Experiments</h3>
-              <p>The most recent 10 experiments using this metric.</p>
-              <div className="list-group">
-                {experiments.map((e) => (
-                  <Link
-                    href={`/experiment/${e.id}`}
-                    key={e.id}
-                    className="list-group-item list-group-item-action"
-                  >
-                    <div className="d-flex">
-                      <strong className="mr-3">{e.name}</strong>
-                      <div style={{ flex: 1 }} />
-                      <StatusIndicator
-                        archived={false}
-                        status={e.status || "stopped"}
-                      />
-                      <FaChevronRight
-                        className="ml-3"
-                        style={{ fontSize: "1.5em" }}
-                      />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </Tab>
-            <Tab display="Discussion" anchor="discussion" lazy={true}>
-              <h3>Comments</h3>
-              <DiscussionThread
-                type="metric"
-                id={data.metric.id}
-                projects={metric.projects || []}
-              />
-            </Tab>
-            <Tab display="History" anchor="history" lazy={true}>
-              <HistoryTable type="metric" id={metric.id} />
-            </Tab>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="experiments">
+                <Box>
+                  <MetricExperiments metric={metric} outerClassName="" />
+                </Box>
+              </TabsContent>
+              <TabsContent value="discussion">
+                <Box>
+                  <h3>Comments</h3>
+                  <DiscussionThread
+                    type="metric"
+                    id={data.metric.id}
+                    projects={metric.projects || []}
+                  />
+                </Box>
+              </TabsContent>
+              <TabsContent value="history">
+                <HistoryTable type="metric" id={metric.id} />
+              </TabsContent>
+            </Box>
           </Tabs>
         </div>
         <div className="col-12 col-md-4 mt-md-5">
@@ -974,13 +1003,9 @@ const MetricPage: FC = () => {
                   <ProjectBadges
                     resourceType="metric"
                     projectIds={metric.projects}
-                    className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges
-                    resourceType="metric"
-                    className="badge-ellipsis align-middle"
-                  />
+                  <ProjectBadges resourceType="metric" />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>
@@ -1059,7 +1084,7 @@ const MetricPage: FC = () => {
                       {metric.conditions && metric.conditions.length > 0 && (
                         <RightRailSectionGroup title="Conditions" type="list">
                           {metric.conditions.map(
-                            (c) => `${c.column} ${c.operator} "${c.value}"`
+                            (c) => `${c.column} ${c.operator} "${c.value}"`,
                           )}
                         </RightRailSectionGroup>
                       )}
@@ -1136,32 +1161,33 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.cappingSettings.type && metric.cappingSettings.value && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title lg">
-                          {capitalizeFirstLetter(metric.cappingSettings.type)}
-                          {" capping"}
-                        </span>
-                      </li>
-                      <li>
-                        <span className="font-weight-bold">
-                          {metric.cappingSettings.value}
-                        </span>{" "}
-                        {metric.cappingSettings.type === "percentile" ? (
-                          <span className="text-gray">{`(${
-                            100 * metric.cappingSettings.value
-                          } pctile${
-                            metric.cappingSettings.ignoreZeros
-                              ? ", ignoring zeros"
-                              : ""
-                          })`}</span>
-                        ) : (
-                          ""
-                        )}{" "}
-                      </li>
-                    </>
-                  )}
+                  {metric.cappingSettings.type &&
+                    metric.cappingSettings.value && (
+                      <>
+                        <li className="mb-2">
+                          <span className="uppercase-title lg">
+                            {capitalizeFirstLetter(metric.cappingSettings.type)}
+                            {" capping"}
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {metric.cappingSettings.value}
+                          </span>{" "}
+                          {metric.cappingSettings.type === "percentile" ? (
+                            <span className="text-gray">{`(${
+                              100 * metric.cappingSettings.value
+                            } pctile${
+                              metric.cappingSettings.ignoreZeros
+                                ? ", ignoring zeros"
+                                : ""
+                            })`}</span>
+                          ) : (
+                            ""
+                          )}{" "}
+                        </li>
+                      </>
+                    )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}
@@ -1194,8 +1220,8 @@ const MetricPage: FC = () => {
                         <span className="text-gray">{` 
                         of first experiment exposure
                         ${
-                          metric.windowSettings.delayHours
-                            ? " plus the conversion delay"
+                          metric.windowSettings.delayValue
+                            ? " plus the metric delay"
                             : ""
                         }`}</span>
                       </li>
@@ -1224,21 +1250,21 @@ const MetricPage: FC = () => {
                       <li>
                         <span className="text-gray">{`Include all metric data after first experiment exposure
                       ${
-                        metric.windowSettings.delayHours
-                          ? " plus the conversion delay"
+                        metric.windowSettings.delayValue
+                          ? " plus the metric delay"
                           : ""
                       }`}</span>
                       </li>
                     </>
                   )}
-                  {metric.windowSettings.delayHours ? (
+                  {metric.windowSettings.delayValue ? (
                     <>
                       <li className="mt-3 mb-1">
                         <span className="uppercase-title lg">Metric Delay</span>
                       </li>
                       <li className="mt-1">
                         <span className="font-weight-bold">
-                          {metric.windowSettings.delayHours} hours
+                          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
                         </span>
                       </li>
                     </>
@@ -1249,12 +1275,35 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">
+                      Experiment Decision Framework
+                    </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">Target MDE:</span>{" "}
                     <span className="font-weight-bold">
-                      {getMinSampleSizeForMetric(metric)}
+                      {getTargetMDEForMetric(metric) * 100}%
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">
+                      Display Thresholds
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Minimum metric total:</span>{" "}
+                    <span className="font-weight-bold">
+                      {getMetricFormatter(metric.type)(
+                        getMinSampleSizeForMetric(metric),
+                        {
+                          currency: displayCurrency,
+                        },
+                      )}
                     </span>
                   </li>
                   <li className="mb-2">
@@ -1264,7 +1313,7 @@ const MetricPage: FC = () => {
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Min percent change :</span>{" "}
+                    <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>

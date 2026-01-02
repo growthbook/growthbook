@@ -1,13 +1,14 @@
+import "../init/aliases";
 import { AES, enc } from "crypto-js";
 import {
   updateDataSource,
   _dangerousGetAllDatasources,
-} from "../models/DataSourceModel";
-import { usingFileConfig } from "../init/config";
-import { ENCRYPTION_KEY, IS_CLOUD } from "../util/secrets";
-import { init } from "../init";
-import { encryptParams } from "../services/datasource";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
+} from "back-end/src/models/DataSourceModel";
+import { usingFileConfig } from "back-end/src/init/config";
+import { ENCRYPTION_KEY, IS_CLOUD } from "back-end/src/util/secrets";
+import { init } from "back-end/src/init";
+import { encryptParams } from "back-end/src/services/datasource";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const [oldEncryptionKey] = process.argv.slice(2);
 if (IS_CLOUD) {
@@ -17,7 +18,7 @@ if (IS_CLOUD) {
 
 if (oldEncryptionKey === ENCRYPTION_KEY) {
   console.error(
-    "============\n== ERROR: == Please specify the previous encryption key, not the current one\n============\n"
+    "============\n== ERROR: == Please specify the previous encryption key, not the current one\n============\n",
   );
   process.exit(1);
 }
@@ -27,7 +28,7 @@ async function run() {
   await init();
   if (usingFileConfig()) {
     console.error(
-      "============\n== ERROR: == Cannot migrate encryption keys when using config.yml\n============\n"
+      "============\n== ERROR: == Cannot migrate encryption keys when using config.yml\n============\n",
     );
     process.exit(1);
   }
@@ -43,10 +44,10 @@ async function run() {
     // Try to decrypt and parse using the old key
     try {
       const parsed = JSON.parse(
-        AES.decrypt(params, oldEncryptionKey || "dev").toString(enc.Utf8)
+        AES.decrypt(params, oldEncryptionKey || "dev").toString(enc.Utf8),
       );
       console.log(
-        `- Decrypted '${ds.name}' (${ds.id}), re-encrypting with new key and saving...`
+        `- Decrypted '${ds.name}' (${ds.id}), re-encrypting with new key and saving...`,
       );
       // Update the data source
       await updateDataSource(context, ds, {

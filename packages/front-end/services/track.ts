@@ -1,32 +1,32 @@
-/* 
+/*
 Track anonymous usage statistics
 - No identifiable information is sent.
 - Helps us figure out how often features are used so we can prioritize development
-- For example, if people start creating a metric and then 
+- For example, if people start creating a metric and then
   abandon the form, that tells us the UI needs improvement.
-- You can disable this tracking completely by setting 
+- You can disable this tracking completely by setting
   DISABLE_TELEMETRY=1 in your env.
 */
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "@back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "@back-end/types/report";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportInterface } from "shared/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { growthbook } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
   hasFileConfig,
-  inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
 } from "./env";
 
-type TrackEventProps = Record<string, unknown>;
+export type TrackEventProps = Record<string, unknown>;
 
 export interface TrackSnapshotProps {
   id: string;
@@ -46,10 +46,46 @@ export interface TrackSnapshotProps {
   error?: string;
 }
 
-let jitsu: JitsuClient;
+const PAGE_VIEW_EVENT = "Page View";
+export function trackPageView(pathName: string) {
+  track(PAGE_VIEW_EVENT, {
+    pathName,
+  });
+}
+
+let _jitsu: JitsuClient;
+export function getJitsuClient(): JitsuClient | null {
+  if (!isTelemetryEnabled()) return null;
+
+  if (!_jitsu) {
+    _jitsu = jitsuClient({
+      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
+      log_level: "ERROR",
+      tracking_host: "https://t.growthbook.io",
+      cookie_name: "__growthbookid",
+      capture_3rd_party_cookies: isCloud() ? ["_ga"] : false,
+      randomize_url: true,
+    });
+  }
+
+  return _jitsu;
+}
+
+const getHost = () => {
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+};
+
+const getURL = () => {
+  const host = getHost();
+  return document.location.protocol + "//" + host + location.pathname;
+};
+
 export default function track(
   event: string,
-  props: TrackEventProps = {}
+  props: TrackEventProps = {},
+  skipGrowthBookLogging = false,
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -60,22 +96,24 @@ export default function track(
   const org = currentUser?.org;
   const id = currentUser?.id;
   const role = currentUser?.role;
+  const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
+  const orgCreationDate = currentUser?.orgCreationDate;
 
-  // Mask the hostname and sanitize URLs to avoid leaking private info
-  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
-  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: document.location.protocol + "//" + host + location.pathname,
-    doc_host: host,
+    url: getURL(),
+    doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
-    referer: "",
+    referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
+    build_version: build.lastVersion,
+    account_plan: effectiveAccountPlan,
+    org_creation_date: orgCreationDate,
     configFile: hasFileConfig(),
     role: id ? role : "",
     // Track anonymous hashed identifiers for all deployments
@@ -86,30 +124,22 @@ export default function track(
     org: isCloud() ? org : "",
   };
 
-  if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event, trackProps);
-  }
-  if (!isTelemetryEnabled()) return;
-
-  if (!jitsu) {
-    jitsu = jitsuClient({
-      key: "js.y6nea.yo6e8isxplieotd6zxyeu5",
-      log_level: "ERROR",
-      tracking_host: "https://t.growthbook.io",
-      cookie_name: "__growthbookid",
-      capture_3rd_party_cookies: false,
-      randomize_url: true,
-    });
+  if (!skipGrowthBookLogging) {
+    growthbook.logEvent(event, props);
   }
 
-  jitsu.track(event, trackProps);
+  const jitsu = getJitsuClient();
+  if (jitsu) {
+    // Rename page load events for backwards compatibility in Jitsu
+    jitsu.track(event === PAGE_VIEW_EVENT ? "page-load" : event, trackProps);
+  }
 }
 
 export function trackSnapshot(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): void {
   const trackingProps = snapshot
     ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
@@ -124,7 +154,7 @@ export function trackReport(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  report: ExperimentReportInterface
+  report: ExperimentReportInterface,
 ): void {
   const trackingProps = report
     ? getTrackingPropsFromReport(report, source, datasourceType)
@@ -138,10 +168,10 @@ export function trackReport(
 function getTrackingPropsFromSnapshot(
   snapshot: ExperimentSnapshotInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(
-    snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
+    snapshot.settings.dimensions.map((d) => d.id).join(", ") || "",
   );
   const analysis = snapshot.analyses?.[0] as
     | ExperimentSnapshotAnalysis
@@ -152,8 +182,8 @@ function getTrackingPropsFromSnapshot(
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
     engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
-    regression_adjustment_enabled: !!snapshot.settings
-      .regressionAdjustmentEnabled,
+    regression_adjustment_enabled:
+      !!snapshot.settings.regressionAdjustmentEnabled,
     sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
     sequential_testing_tuning_parameter:
       analysis?.settings?.sequentialTestingTuningParameter ?? -99,
@@ -169,7 +199,7 @@ function getTrackingPropsFromSnapshot(
 function getTrackingPropsFromReport(
   report: ExperimentReportInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(report.args.dimension ?? "");
   return {
@@ -191,9 +221,10 @@ function getTrackingPropsFromReport(
   };
 }
 
-export function parseSnapshotDimension(
-  dimension: string
-): { type: string; id: string } {
+export function parseSnapshotDimension(dimension: string): {
+  type: string;
+  id: string;
+} {
   if (!dimension) {
     return { type: "none", id: "" };
   }

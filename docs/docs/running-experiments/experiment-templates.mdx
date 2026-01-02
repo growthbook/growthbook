@@ -1,0 +1,62 @@
+---
+title: Experiment Templates
+description: Experiment Templates provide standardized configurations for experiment creation across your team. By reducing setup overhead and eliminating common boilerplate, templates enable faster experiment initialization and consistency in experimental design.
+slug: experiment-templates
+---
+
+# Experiment Templates
+
+:::info Experiment Templates are an **Enterprise** feature.
+:::
+
+Experiment Templates provide standardized configurations for experiment creation across your team. By reducing setup overhead and eliminating common boilerplate, templates enable faster experiment initialization and consistency in experimental design.
+
+## Creating Experiment Templates
+
+Experiment Templates allow you to pre-configure:
+
+- Experiment metadata and details
+- Traffic allocation
+- Targeting rules (saved groups, attributes, and prerequisites)
+- Data source with goal, secondary, and guardrail metrics
+
+![Creating an Experiment Template](/images/experiment-template-create.webp)
+
+### Method 1: Start From Scratch
+
+1. Go to Experiments
+2. Click Add
+3. Select Create Template
+4. Configure your template settings
+
+### Method 2: Start From an Existing Experiment
+
+1. Open the existing experiment
+2. Click the overflow menu (⋮) in the upper right
+3. Select Save as template…
+4. Following the configuration prompts
+
+Use your Experiment Template by selecting it during experiment setup. Your configuration will be automatically applied ✨
+
+![Using an Experiment Template](/images/experiment-template-new-experiment.webp)
+
+## Managing Templates
+
+- To view all templates, go to **Experiments → Templates.**
+- Use the overflow menu (⋮) to edit, duplicate, or delete a template.
+- Click any template name to view a list of all experiments currently using that template.
+- Changes to a template only apply to new experiments—existing experiments remain unchanged.
+
+![Managing Experiment Templates](/images/experiment-template-manage.webp)
+
+## Require Template Usage
+
+To require template usage for all new experiments:
+
+1. Navigate to **Settings → General → Experiment Settings**
+2. Enable **Experiment Templates**
+
+![Require Template Usage](/images/experiment-template-enforce.webp)
+
+:::note Support for Bandits Templates coming soon.
+:::

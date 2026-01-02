@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
 
@@ -149,7 +149,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="catalog"
-          value={params.catalog || "AwsDataCatalog"}
+          value={params.catalog || ""}
           onChange={onParamChange}
         />
       </div>
@@ -172,6 +172,17 @@ const AthenaForm: FC<{
           required
           value={params.bucketUri || ""}
           onChange={onParamChange}
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <Field
+          name="resultReuseMaxAgeInMinutes"
+          type="number"
+          label="Reuse query results within past X minutes (optional)"
+          helpText="A value of 0 or an empty field will disable reuse of query results"
+          value={params.resultReuseMaxAgeInMinutes || ""}
+          onChange={onParamChange}
+          min={0}
         />
       </div>
     </div>

@@ -1,38 +1,41 @@
 import { Request, Response } from "express";
+import { UserInterface } from "shared/types/user";
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
   getUserIdFromForgotPasswordToken,
-} from "../models/ForgotPasswordModel";
+} from "back-end/src/models/ForgotPasswordModel";
 import {
   createOrganization,
   hasOrganization,
-} from "../models/OrganizationModel";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/src/models/OrganizationModel";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
   isNewInstallation,
   validatePasswordFormat,
-} from "../services/auth";
+} from "back-end/src/services/auth";
 import {
   IdTokenCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../util/cookie";
-import { getContextFromReq } from "../services/organizations";
-import { updatePassword, verifyPassword } from "../services/users";
-import { AuthRequest } from "../types/AuthRequest";
-import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
-import { UserInterface } from "../../types/user";
+} from "back-end/src/util/cookie";
+import {
+  getContextForAgendaJobByOrgObject,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
+import { updatePassword, verifyPassword } from "back-end/src/services/users";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { _dangerousGetSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
 import {
   resetMinTokenDate,
   getEmailFromUserId,
   createUser,
   getUserByEmail,
   getUserById,
-} from "../models/UserModel";
-import { AuthRefreshModel } from "../models/AuthRefreshModel";
+} from "back-end/src/models/UserModel";
+import { AuthRefreshModel } from "back-end/src/models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();
@@ -90,7 +93,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
     const { idToken, refreshToken, expiresIn } = await auth.processCallback(
       req,
       res,
-      null
+      null,
     );
 
     if (!idToken) {
@@ -112,16 +115,17 @@ export async function postOAuthCallback(req: Request, res: Response) {
   }
 }
 
-async function sendLocalSuccessResponse(
+export async function setResponseCookies(
   req: Request,
   res: Response,
-  user: UserInterface
+  user: UserInterface,
 ) {
   const { idToken, refreshToken, expiresIn } = await auth.processCallback(
     req,
     res,
-    user
+    user,
   );
+
   if (!idToken) {
     return res.status(400).json({
       status: 400,
@@ -129,12 +133,29 @@ async function sendLocalSuccessResponse(
     });
   }
 
-  IdTokenCookie.setValue(idToken, req, res, Math.max(600, expiresIn));
+  IdTokenCookie.setValue(
+    idToken,
+    req,
+    res,
+    Math.max(10 * 60 * 1000, expiresIn),
+  );
   RefreshTokenCookie.setValue(refreshToken, req, res);
+
+  return idToken;
+}
+
+export async function sendLocalSuccessResponse(
+  req: Request,
+  res: Response,
+  user: UserInterface,
+  projectId?: string,
+) {
+  const idToken = await setResponseCookies(req, res, user);
 
   res.status(200).json({
     status: 200,
     token: idToken,
+    projectId,
   });
 }
 
@@ -156,7 +177,7 @@ export async function postLogout(req: Request, res: Response) {
 export async function postLogin(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown; password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email, password } = req.body;
 
@@ -190,7 +211,7 @@ export async function postLogin(
 export async function postRegister(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown; name: unknown; password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email, name, password } = req.body;
 
@@ -238,13 +259,13 @@ export async function postFirstTimeRegister(
       companyname: unknown;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   // Only allow this API endpoint when it's a brand-new installation with no users yet
   const newInstallation = await isNewInstallation();
   if (!newInstallation) {
     throw new Error(
-      "An organization is already configured. Please refresh the page and try again."
+      "An organization is already configured. Please refresh the page and try again.",
     );
   }
 
@@ -275,19 +296,25 @@ export async function postFirstTimeRegister(
   // grant the first user on a new installation super admin access
   const user = await createUser({ name, email, password, superAdmin: true });
 
-  await createOrganization({
+  const org = await createOrganization({
     email,
     userId: user.id,
     name: companyname,
   });
 
-  sendLocalSuccessResponse(req, res, user);
+  const context = getContextForAgendaJobByOrgObject(org);
+
+  const project = await context.models.projects.create({
+    name: "My First Project",
+  });
+
+  sendLocalSuccessResponse(req, res, user, project.id);
 }
 
 export async function postForgotPassword(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email } = req.body;
   if (!email || typeof email !== "string") {
@@ -303,7 +330,7 @@ export async function postForgotPassword(
 
 export async function getResetPassword(
   req: Request<{ token: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { token } = req.params;
   if (!token || typeof token !== "string") {
@@ -330,7 +357,7 @@ export async function getResetPassword(
 export async function getSSOConnectionFromDomain(req: Request, res: Response) {
   const { domain } = req.body;
 
-  const sso = await getSSOConnectionByEmailDomain(domain as string);
+  const sso = await _dangerousGetSSOConnectionByEmailDomain(domain as string);
 
   if (!sso?.id) {
     throw new Error(`Unknown SSO Connection for *@${domain}`);
@@ -346,7 +373,7 @@ export async function getSSOConnectionFromDomain(req: Request, res: Response) {
 export async function postResetPassword(
   // eslint-disable-next-line
   req: Request<{ token: unknown }, any, { password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { token } = req.params;
   const { password } = req.body;
@@ -390,7 +417,7 @@ export async function postChangePassword(
     currentPassword: string;
     newPassword: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const { currentPassword, newPassword } = req.body;
   const { userId } = getContextFromReq(req);

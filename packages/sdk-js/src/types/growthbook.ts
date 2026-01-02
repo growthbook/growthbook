@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook, StickyBucketService } from "..";
+import type {
+  GrowthBook,
+  GrowthBookClient,
+  StickyBucketService,
+  UserScopedGrowthBook,
+} from "..";
 import { ConditionInterface, ParentConditionInterface } from "./mongrule";
 
 declare global {
@@ -151,36 +156,68 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
-export type RealtimeUsageData = {
-  key: string;
-  on: boolean;
-};
-
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
 }
 
+export interface TrackingDataWithUser {
+  experiment: Experiment<any>;
+  result: Result<any>;
+  user: UserContext;
+}
+
 export type TrackingCallback = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
+) => Promise<void> | void;
+
+export type TrackingCallbackWithUser = (
+  experiment: Experiment<any>,
+  result: Result<any>,
+  user: UserContext,
+) => Promise<void> | void;
+
+export type FeatureUsageCallback = (
+  key: string,
+  result: FeatureResult<any>,
 ) => void;
+
+export type FeatureUsageCallbackWithUser = (
+  key: string,
+  result: FeatureResult<any>,
+  user: UserContext,
+) => void;
+
+export type Plugin = (
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient,
+) => void;
+
+export type EventProperties = Record<string, unknown>;
+export type EventLogger = (
+  eventName: string,
+  properties: EventProperties,
+  userContext: UserContext,
+) => void | Promise<void>;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
-  changes: AutoExperimentVariation
+  changes: AutoExperimentVariation,
 ) => () => void;
 
 export type RenderFunction = () => void;
 
-export interface Context {
+// Constructor Options
+export type Options = {
   enabled?: boolean;
   attributes?: Attributes;
   url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  attributeOverrides?: Attributes;
   blockedChangeIds?: string[];
   disableVisualExperiments?: boolean;
   disableJsInjection?: boolean;
@@ -192,7 +229,6 @@ export interface Context {
     StickyAttributeKey,
     StickyAssignmentsDocument
   >;
-  stickyBucketIdentifierAttributes?: string[];
   stickyBucketService?: StickyBucketService;
   debug?: boolean;
   log?: (msg: string, ctx: any) => void;
@@ -206,11 +242,8 @@ export interface Context {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
-  onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
-  /** @deprecated */
-  realtimeKey?: string;
-  /** @deprecated */
-  realtimeInterval?: number;
+  onFeatureUsage?: FeatureUsageCallback;
+  eventLogger?: EventLogger;
   cacheKeyAttributes?: (keyof Attributes)[];
   /** @deprecated */
   user?: {
@@ -232,14 +265,109 @@ export interface Context {
   remoteEval?: boolean;
   navigate?: NavigateCallback;
   navigateDelay?: number;
+  maxNavigateDelay?: number;
+  /** @deprecated */
   antiFlicker?: boolean;
+  /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
-}
+  plugins?: Plugin[];
+};
+
+export type ClientOptions = {
+  enabled?: boolean;
+  debug?: boolean;
+  globalAttributes?: Attributes;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  log?: (msg: string, ctx: any) => void;
+  qaMode?: boolean;
+  disableCache?: boolean;
+  trackingCallback?: TrackingCallbackWithUser;
+  onFeatureUsage?: (
+    key: string,
+    result: FeatureResult<any>,
+    user: UserContext,
+  ) => void;
+  eventLogger?: EventLogger;
+  apiHost?: string;
+  streamingHost?: string;
+  apiHostRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
+  clientKey?: string;
+  decryptionKey?: string;
+  savedGroups?: SavedGroupsValues;
+  plugins?: Plugin[];
+};
+
+// Contexts
+export type GlobalContext = {
+  log: (msg: string, ctx: any) => void;
+  features?: FeatureDefinitions;
+  experiments?: AutoExperiment[];
+  enabled?: boolean;
+  qaMode?: boolean;
+  savedGroups?: SavedGroupsValues;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  trackingCallback?: TrackingCallbackWithUser;
+  onFeatureUsage?: FeatureUsageCallbackWithUser;
+  onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
+  saveDeferredTrack?: (data: TrackingData) => void;
+  recordChangeId?: (changeId: string) => void;
+  eventLogger?: EventLogger;
+
+  /** @deprecated */
+  overrides?: Record<string, ExperimentOverride>;
+  /** @deprecated */
+  groups?: Record<string, boolean>;
+  /** @deprecated */
+  user?: {
+    id?: string;
+    anonId?: string;
+    [key: string]: string | undefined;
+  };
+};
+
+// Some global fields can be overridden by the user, others are always user-level
+export type UserContext = {
+  enabled?: boolean;
+  qaMode?: boolean;
+  enableDevMode?: boolean;
+  attributes?: Attributes;
+  url?: string;
+  blockedChangeIds?: string[];
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
+  saveStickyBucketAssignmentDoc?: (
+    doc: StickyAssignmentsDocument,
+  ) => Promise<unknown>;
+  forcedVariations?: Record<string, number>;
+  forcedFeatureValues?: Map<string, any>;
+  attributeOverrides?: Attributes;
+  trackingCallback?: TrackingCallback;
+  onFeatureUsage?: FeatureUsageCallback;
+  trackedExperiments?: Set<string>;
+  trackedFeatureUsage?: Record<string, string>;
+  devLogs?: LogUnion[];
+};
+
+export type StackContext = {
+  id?: string;
+  evaluatedFeatures: Set<string>;
+};
+
+export type EvalContext = {
+  global: GlobalContext;
+  user: UserContext;
+  stack: StackContext;
+};
 
 export type PrefetchOptions = Pick<
-  Context,
+  Options,
   | "decryptionKey"
   | "apiHost"
   | "apiHostRequestHeaders"
@@ -253,7 +381,7 @@ export type PrefetchOptions = Pick<
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => void;
 
 export type VariationRange = [number, number];
@@ -286,15 +414,10 @@ export type JSONValue =
 export type WidenPrimitives<T> = T extends string
   ? string
   : T extends number
-  ? number
-  : T extends boolean
-  ? boolean
-  : T;
-
-export type FeatureEvalContext = {
-  id?: string;
-  evaluatedFeatures: Set<string>;
-};
+    ? number
+    : T extends boolean
+      ? boolean
+      : T;
 
 export type DOMMutation = {
   selector: string;
@@ -398,6 +521,7 @@ export type InitOptions = {
   skipCache?: boolean;
   payload?: FeatureApiResponse;
   streaming?: boolean;
+  cacheSettings?: CacheSettings;
 };
 
 export type InitSyncOptions = {
@@ -415,6 +539,10 @@ export type LoadFeaturesOptions = {
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
+};
+
+export type DestroyOptions = {
+  destroyAllStreams?: boolean;
 };
 
 export interface Filter {
@@ -438,3 +566,25 @@ export interface StickyAssignmentsDocument {
 }
 
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+export type BaseLog = {
+  timestamp: string;
+};
+
+export type EventLog = BaseLog & {
+  logType: "event";
+  eventName: string;
+  properties?: Record<string, unknown>;
+};
+export type ExperimentLog<T> = BaseLog & {
+  logType: "experiment";
+  experiment: Experiment<T>;
+  result: Result<T>;
+};
+export type FeatureLog = BaseLog & {
+  logType: "feature";
+  featureKey: string;
+  result: FeatureResult;
+};
+
+export type LogUnion = EventLog | ExperimentLog<any> | FeatureLog;

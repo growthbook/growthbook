@@ -1,0 +1,29 @@
+.button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--violet-9);
+  color: #fff;
+  border-radius: 3px;
+  padding: 0px 8px;
+  gap: 2px;
+  height: 24px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+
+  svg {
+    height: 14px;
+    width: 14px;
+  }
+
+  &:hover {
+    background-color: var(--violet-10);
+    color: #fff;
+  }
+
+  &:active {
+    background-color: color-mix(in hsl, var(--violet-10), black 20%);
+    color: #fff;
+  }
+}

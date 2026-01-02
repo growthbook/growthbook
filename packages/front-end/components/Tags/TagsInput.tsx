@@ -1,10 +1,11 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { isLight } from "./Tag";
+import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
+import { RadixColor } from "@/ui/HelperText";
 
 export interface ColorOption {
   readonly value: string;
@@ -14,6 +15,8 @@ export interface ColorOption {
   readonly isFixed?: boolean;
   readonly isDisabled?: boolean;
 }
+
+const DEFAULT_TAG_COLOR = TAG_COLORS_MAP["blue"];
 
 const TagsInput: FC<{
   onChange: (tags: string[]) => void;
@@ -55,24 +58,17 @@ const TagsInput: FC<{
   });
 
   const tagStyles: StylesConfig<ColorOption, true> = {
-    option: (styles, { data, isDisabled, isFocused, isSelected }) => {
+    option: (styles, { data, isDisabled }) => {
       const displayColor = data.color ?? "#029dd1";
       return {
         ...styles,
-        backgroundColor: isDisabled
-          ? undefined
-          : isSelected
-          ? displayColor + "20"
-          : isFocused
-          ? displayColor + "25"
-          : displayColor + "00",
         color: isDisabled ? "#ccc" : "#000",
         cursor: isDisabled ? "not-allowed" : "default",
         alignItems: "center",
         display: "flex",
         // add a colored dot:
         ":before": {
-          backgroundColor: data.color,
+          backgroundColor: data.color as RadixColor,
           borderRadius: 10,
           content: '" "',
           display: "block",
@@ -86,35 +82,51 @@ const TagsInput: FC<{
         },
       };
     },
+    control: (styles, { isFocused }) => {
+      return {
+        ...styles,
+        boxShadow: `0px 0px 0px 1px ${
+          isFocused ? "var(--violet-8)" : undefined
+        }`,
+      };
+    },
     multiValue: (styles, { data }) => {
+      const color = findClosestRadixColor(data.color) || "#029dd1";
       return {
         ...styles,
         borderRadius: 4,
-        backgroundColor: data.color,
-        color: isLight(data.color) ? "#000000" : "#ffffff",
+        backgroundColor: `var(--${color}-a3)`,
       };
     },
-    multiValueLabel: (styles, { data }) => ({
-      ...styles,
-      color: isLight(data.color) ? "#000000" : "#ffffff",
-    }),
-    multiValueRemove: (styles, { data }) => ({
-      ...styles,
-      color: isLight(data.color) ? "#000000" : "#ffffff",
-      ":hover": {
-        backgroundColor: data.color + "cc",
-      },
-    }),
+    multiValueLabel: (styles, { data }) => {
+      const color = findClosestRadixColor(data.color) || "#029dd1";
+      return {
+        ...styles,
+        color: `var(--${color}-11)`,
+      };
+    },
+    multiValueRemove: (styles, { data }) => {
+      return {
+        ...styles,
+        color: data.color as RadixColor,
+        ":hover": {
+          backgroundColor: data.color + "cc",
+          color: "#ffffff",
+        },
+      };
+    },
   };
 
   return (
     <MultiSelectField
       options={
         tagOptions.map((t) => {
+          // Converts Radix color to hex color to make it compatible with MultiSelectField
+          const hexColor = TAG_COLORS_MAP[t.color] ?? DEFAULT_TAG_COLOR;
           return {
             value: t.id,
             label: t.label,
-            color: t.color || "var(--form-multivalue-text-color)",
+            color: hexColor || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };
         }) ?? []
@@ -125,7 +137,6 @@ const TagsInput: FC<{
       }}
       closeMenuOnSelect={closeMenuOnSelect}
       autoFocus={autoFocus}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'StylesConfig<ColorOption, true, GroupBase<Co... Remove this comment to see the full error message
       customStyles={tagStyles}
       placeholder={prompt}
       creatable={creatable}

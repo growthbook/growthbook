@@ -6,7 +6,7 @@
     overflow: auto;
     font-size: 85%;
     line-height: 1.45;
-    background-color: #f6f8fa;
+    background-color: var(--markdown-code-background);
     border-radius: 6px;
   }
   ul,
@@ -46,9 +46,6 @@
     color: #fff;
     padding: 3px 8px;
     border-radius: 5px;
-  }
-  code[class*="language-"] {
-    color: #333;
   }
   table {
     border-collapse: collapse;

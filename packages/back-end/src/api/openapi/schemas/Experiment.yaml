@@ -1,9 +1,11 @@
 type: object
 required:
   - id
+  - trackingKey
   - dateCreated
   - dateUpdated
   - name
+  - type
   - project
   - hypothesis
   - description
@@ -20,6 +22,8 @@ required:
 properties:
   id:
     type: string
+  trackingKey:
+    type: string
   dateCreated:
     type: string
     format: date-time
@@ -28,6 +32,11 @@ properties:
     format: date-time
   name:
     type: string
+  type:
+    type: string
+    enum:
+      - "standard"
+      - "multi-armed-bandit"
   project:
     type: string
   hypothesis:
@@ -54,7 +63,7 @@ properties:
     type: number
     enum: [1, 2]
   disableStickyBucketing:
-    type: boolean;
+    type: boolean
   bucketVersion:
     type: number
   minBucketVersion:
@@ -135,6 +144,18 @@ properties:
               rangeEnd: number
         targetingCondition:
           type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
         savedGroupTargeting:
           type: array
           items:
@@ -175,3 +196,63 @@ properties:
         type: string
       excludeFromPayload:
         type: boolean
+
+  shareLevel:
+    type: string
+    enum:
+      - "public"
+      - "organization"
+  publicUrl:
+    type: string
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  linkedFeatures:
+    type: array
+    items:
+      type: string
+  hasVisualChangesets:
+    type: boolean
+  hasURLRedirects:
+    type: boolean
+  customFields:
+    type: object
+    additionalProperties: true
+  pinnedMetricSlices:
+    type: array
+    items:
+      type: string
+    description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+  customMetricSlices:
+    type: array
+    items:
+      type: object
+      properties:
+        slices:
+          type: array
+          items:
+            type: object
+            properties:
+              column:
+                type: string
+              levels:
+                type: array
+                items:
+                  type: string
+            required:
+              - column
+              - levels
+      required:
+        - slices
+    description: "Custom slices that apply to ALL applicable metrics in the experiment"

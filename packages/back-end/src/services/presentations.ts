@@ -1,17 +1,17 @@
 import uniqid from "uniqid";
-import { PresentationModel } from "../models/PresentationModel";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "../../types/presentation";
-import { getExperimentsByIds } from "../models/ExperimentModel";
-import { ExperimentInterface } from "../../types/experiment";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+} from "shared/types/presentation";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { PresentationModel } from "back-end/src/models/PresentationModel";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 
-//import {query} from "../config/postgres";
+//import {query} from "back-end/src/config/postgres";
 
 export function getPresentationsByOrganization(organization: string) {
   return PresentationModel.find({
@@ -27,7 +27,7 @@ export function getPresentationById(id: string) {
 
 export async function getPresentationSnapshots(
   context: ReqContext | ApiReqContext,
-  expIds: string[]
+  expIds: string[],
 ) {
   const experiments = await getExperimentsByIds(context, expIds);
 
@@ -38,7 +38,10 @@ export async function getPresentationSnapshots(
   const promises = experiments.map(async (experiment) => {
     // get best phase to show:
     const phase = experiment.phases.length - 1;
-    const snapshot = await getLatestSnapshot(experiment.id, phase);
+    const snapshot = await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+    });
     withSnapshots.push({
       experiment,
       snapshot: snapshot ? snapshot : null,
@@ -60,11 +63,11 @@ export async function removeExperimentFromPresentations(experiment: string) {
   await Promise.all(
     presentations.map(async (presentation) => {
       presentation.slides = presentation.slides.filter(
-        (obj) => obj.id !== experiment || obj.type !== "experiment"
+        (obj) => obj.id !== experiment || obj.type !== "experiment",
       );
       presentation.markModified("slides");
       await presentation.save();
-    })
+    }),
   );
 }
 

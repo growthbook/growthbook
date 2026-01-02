@@ -1,241 +1,186 @@
 import { PiSealQuestion } from "react-icons/pi";
+import { Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
-import styles from "@/components/GetStarted/GetStarted.module.scss";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {
   setUpgradeModal: (open: boolean) => void;
-  type: "get-started" | "features" | "experiments" | "imports";
+  type: "get-started" | "features" | "experiments" | "imports" | "data-source";
 }
 
 const DocumentationSidebar = ({
   setUpgradeModal,
   type,
 }: Props): React.ReactElement => {
-  const { accountPlan } = useUser();
+  const { accountPlan, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
   const canUpgrade =
-    accountPlan !== "enterprise" && permissionsUtil.canManageBilling();
+    accountPlan !== "enterprise" &&
+    permissionsUtil.canManageBilling() &&
+    !organization.isVercelIntegration;
 
   return (
-    <div id={styles.documentationSection} className="rounded p-4">
-      <h6 className="text-muted mb-3">FEATURED DOCS</h6>
-      {type === "features" ? (
-        <ul
-          id={styles.featuredDocs}
-          style={{ listStyleType: "none", padding: 0 }}
-        >
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/lib/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              GrowthBook SDK
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/features/basics"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Feature Flag Basics
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/features/targeting"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Targeting Attributes
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/warehouses"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Connect Your Data Source
-            </a>
-          </li>
-        </ul>
-      ) : type === "experiments" ? (
-        <ul
-          id={styles.featuredDocs}
-          style={{ listStyleType: "none", padding: 0 }}
-        >
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/experiments"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Running Experiments
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/app/sticky-bucketing"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sticky Bucketing
-            </a>
-            <PaidFeatureBadge type="pro" />
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/app/visual"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Visual Editor
-            </a>
-            <PaidFeatureBadge type="pro" />
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/app/url-redirects"
-              target="_blank"
-              rel="noreferrer"
-            >
-              URL Redirects
-            </a>
-            <PaidFeatureBadge type="pro" />
-          </li>
-        </ul>
-      ) : type === "imports" ? (
-        <ul
-          id={styles.featuredDocs}
-          style={{ listStyleType: "none", padding: 0 }}
-        >
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/warehouses"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Connect to Your Data Warehouse
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/app/fact-tables"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Fact Tables
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/app/data-pipeline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Data Pipeline Mode
-            </a>
-            <PaidFeatureBadge type="enterprise" />
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/app/experiment-results"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Experiment Results
-            </a>
-          </li>
-        </ul>
-      ) : (
-        <ul
-          id={styles.featuredDocs}
-          style={{ listStyleType: "none", padding: 0 }}
-        >
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/quick-start"
-              target="_blank"
-              rel="noreferrer"
-            >
-              QuickStart Guide
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/overview"
-              target="_blank"
-              rel="noreferrer"
-            >
-              How it Works
-            </a>
-          </li>
-          <li className="mb-2">
-            <a
-              href="https://docs.growthbook.io/lib/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              SDK Docs
-            </a>
-          </li>
-        </ul>
-      )}
+    <Card style={{ padding: "var(--space-5)" }}>
+      <SidebarHeading>FEATURED DOCS</SidebarHeading>
+      <Flex direction="column" gapY="3">
+        {getLinksFor(type, organization.isVercelIntegration)}
+      </Flex>
+      <Separator size="4" my="5" />
+      <SidebarHeading>QUESTIONS?</SidebarHeading>
+      <Flex direction="column" gapY="3">
+        <LinkItem href="https://slack.growthbook.io/?ref=getstarted">
+          <img
+            src="/images/get-started/slack-logo.svg"
+            alt="Slack Logo"
+            style={{ width: "18px", height: "18px" }}
+          />
+          <Text ml="1" style={{ verticalAlign: "middle" }}>
+            Community
+          </Text>
+        </LinkItem>
 
-      <hr />
+        <LinkItem href="https://docs.growthbook.io/faq">
+          <PiSealQuestion style={{ width: "20px", height: "20px" }} />
+          <Text ml="1" style={{ verticalAlign: "middle" }}>
+            GrowthBook FAQs
+          </Text>
+        </LinkItem>
+      </Flex>
 
-      <h6 className="text-muted mb-3">QUESTIONS?</h6>
-      <ul id={styles.questions} style={{ listStyleType: "none", padding: 0 }}>
-        <li className="mb-2">
-          <a
-            href="https://slack.growthbook.io/?ref=getstarted"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <img
-              className="mr-1"
-              src="/images/get-started/slack-logo.svg"
-              alt="Slack Logo"
-              width={"18px"}
-              height={"18px"}
-              style={{ margin: "1px 5px 1px 2px" }}
-            />{" "}
-            <span className="align-middle">GrowthBook Slack</span>
-          </a>
-        </li>
-        <li className="mb-2">
-          <a
-            href="https://docs.growthbook.io/faq"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <PiSealQuestion
-              className="mr-1"
-              style={{ width: "20px", height: "20px" }}
-            />{" "}
-            <span className="align-middle">GrowthBook FAQs</span>
-          </a>
-        </li>
-      </ul>
       {canUpgrade && (
-        <button
-          className="btn btn-primary ml-auto w-100"
-          onClick={(e) => {
-            e.preventDefault();
+        <Button
+          mt="3"
+          size="sm"
+          onClick={() => {
             setUpgradeModal(true);
           }}
+          style={{ width: "100%" }}
         >
           Upgrade
-        </button>
+        </Button>
       )}
-    </div>
+    </Card>
   );
 };
+
+function SidebarHeading({ children }: { children: string }) {
+  return (
+    <Heading as="h6" size="1" mb="2">
+      {children}
+    </Heading>
+  );
+}
+
+function LinkItem(
+  props: React.ComponentProps<typeof Link>,
+): React.ReactElement {
+  return (
+    <Link
+      color="dark"
+      weight="medium"
+      underline="none"
+      target="_blank"
+      rel="noreferrer"
+      {...props}
+    >
+      {props.children}
+    </Link>
+  );
+}
+
+function getLinksFor(
+  type: Props["type"],
+  isVercelIntegration?: boolean,
+): JSX.Element {
+  switch (type) {
+    case "get-started":
+    case "data-source":
+      if (isVercelIntegration) {
+        return (
+          <>
+            <LinkItem href="https://docs.growthbook.io/integrations/vercel">
+              Vercel Integration Docs
+            </LinkItem>
+            <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+            <LinkItem href="https://www.growthbook.io/pricing">
+              Premium Features
+            </LinkItem>
+          </>
+        );
+      }
+
+      return (
+        <>
+          <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
+          <LinkItem href="https://www.growthbook.io/pricing">
+            Premium Features
+          </LinkItem>
+        </>
+      );
+
+    case "features":
+      return (
+        <>
+          <LinkItem href="https://docs.growthbook.io/lib/">
+            GrowthBook SDK
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/features/basics">
+            Feature Flag Basics
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/features/targeting">
+            Targeting Attributes
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/warehouses">
+            Connect Your Data Source
+          </LinkItem>
+        </>
+      );
+
+    case "experiments":
+      return (
+        <>
+          <LinkItem href="https://docs.growthbook.io/experiments">
+            Running Experiments
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/app/sticky-bucketing">
+            Sticky Bucketing
+            <PaidFeatureBadge commercialFeature="sticky-bucketing" mx="2" />
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/app/visual">
+            Visual Editor
+            <PaidFeatureBadge commercialFeature="visual-editor" mx="2" />
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/app/url-redirects">
+            URL Redirects
+            <PaidFeatureBadge commercialFeature="redirects" mx="2" />
+          </LinkItem>
+        </>
+      );
+
+    case "imports":
+      return (
+        <>
+          <LinkItem href="https://docs.growthbook.io/warehouses">
+            Connect to Your Data Warehouse
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/app/fact-tables">
+            Fact Tables
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/app/data-pipeline">
+            Data Pipeline Mode
+            <PaidFeatureBadge commercialFeature="pipeline-mode" mx="2" />
+          </LinkItem>
+          <LinkItem href="https://docs.growthbook.io/app/experiment-results">
+            Experiment Results
+          </LinkItem>
+        </>
+      );
+  }
+}
 
 export default DocumentationSidebar;

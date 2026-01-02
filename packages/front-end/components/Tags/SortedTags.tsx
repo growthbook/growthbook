@@ -1,3 +1,4 @@
+import { Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
@@ -30,19 +31,16 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
-    const tagCopy = `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
+    const moreTagsCopy = `${tags.length} more tag${
+      tags.length === 1 ? "" : "s"
+    }...`;
     const tagElements = renderTags(tags);
     return (
       <Tooltip
         body={<>{renderFlexContainer(tagElements, true)}</>}
         usePortal={true}
       >
-        <Tag
-          tag={tagCopy}
-          key="tag-ellipsis"
-          skipMargin={useFlex}
-          color="#ffffff"
-        />
+        <Text ml={useFlex ? undefined : "2"}>{moreTagsCopy}</Text>
       </Tooltip>
     );
   };
@@ -55,7 +53,7 @@ export default function SortedTags({
   };
   const renderFlexContainer = (
     child: JSX.Element | JSX.Element[],
-    shouldUseFlex = useFlex
+    shouldUseFlex = useFlex,
   ) => {
     return shouldUseFlex ? (
       <div className="tags-container">{child}</div>
@@ -76,7 +74,7 @@ export default function SortedTags({
       <>
         {renderTags(truncatedTags)}
         {shouldRenderEllipsis && renderEllipsis()}
-      </>
+      </>,
     );
   };
 

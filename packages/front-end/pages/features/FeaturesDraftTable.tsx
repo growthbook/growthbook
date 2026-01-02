@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -13,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import ProjectBadges from "@/components/ProjectBadges";
 export interface Props {
   features: FeatureInterface[];
 }
@@ -68,11 +69,11 @@ export default function FeaturesDraftTable({ features }: Props) {
       }
       return result;
     },
-    []
+    [],
   );
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventAuditUserLoggedIn | null;
+    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
@@ -148,11 +149,7 @@ export default function FeaturesDraftTable({ features }: Props) {
           </div>
         </div>
 
-        <table
-          className={`table gbtable ${
-            items.length > 0 ? "table-hover" : ""
-          } appbox`}
-        >
+        <table className="table gbtable appbox">
           <thead
             className="sticky-top bg-white shadow-sm"
             style={{ top: "56px", zIndex: 900 }}
@@ -177,9 +174,11 @@ export default function FeaturesDraftTable({ features }: Props) {
               return (
                 <tr
                   key={`${featureAndRevision.id}:${featureAndRevision.version}`}
+                  className="hover-highlight"
                 >
-                  <td>
+                  <td className="py-0">
                     <Link
+                      className="featurename d-block p-2"
                       href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
                     >
                       {featureAndRevision.id}
@@ -205,7 +204,16 @@ export default function FeaturesDraftTable({ features }: Props) {
                           <span className="text-danger">Invalid project</span>
                         </Tooltip>
                       ) : (
-                        projectName ?? <em>None</em>
+                        <>
+                          {featureAndRevision.project ? (
+                            <ProjectBadges
+                              resourceType="feature"
+                              projectIds={[featureAndRevision.project]}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </>
                       )}
                     </td>
                   }

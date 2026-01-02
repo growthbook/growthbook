@@ -2,10 +2,17 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
-import { z } from "zod";
-import { ReqContext } from "../../types/organization";
-import { migrateWebhookModel } from "../util/migrations";
-import { WebhookInterface } from "../../types/webhook";
+import {
+  WebhookInterface,
+  UpdateSdkWebhookProps,
+  CreateSdkWebhookProps,
+} from "shared/types/webhook";
+import {
+  updateSdkWebhookValidator,
+  createSdkWebhookValidator,
+} from "shared/validators";
+import { ReqContext } from "back-end/types/request";
+import { migrateWebhookModel } from "back-end/src/util/migrations";
 
 const webhookSchema = new mongoose.Schema({
   id: {
@@ -33,8 +40,10 @@ const webhookSchema = new mongoose.Schema({
   /** @deprecated */
   sendPayload: Boolean,
   payloadFormat: String,
+  payloadKey: String,
   headers: String,
   httpMethod: String,
+  managedBy: {},
 });
 
 type WebhookDocument = mongoose.Document & WebhookInterface;
@@ -43,13 +52,13 @@ const WebhookModel = mongoose.model<WebhookInterface>("Webhook", webhookSchema);
 
 function toInterface(doc: WebhookDocument): WebhookInterface {
   return migrateWebhookModel(
-    omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"])
+    omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"]),
   );
 }
 
 export async function findAllSdkWebhooksByConnectionIds(
   context: ReqContext,
-  sdkConnectionIds: string[]
+  sdkConnectionIds: string[],
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -60,9 +69,22 @@ export async function findAllSdkWebhooksByConnectionIds(
   ).map((e) => toInterface(e));
 }
 
+export async function findAllSdkWebhooksByPayloadFormat(
+  context: ReqContext,
+  payloadFormat: string,
+): Promise<WebhookInterface[]> {
+  return (
+    await WebhookModel.find({
+      organization: context.org.id,
+      payloadFormat,
+      useSdkMode: true,
+    })
+  ).map((e) => toInterface(e));
+}
+
 export async function findAllSdkWebhooksByConnection(
   context: ReqContext,
-  sdkConnectionId: string
+  sdkConnectionId: string,
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -74,7 +96,7 @@ export async function findAllSdkWebhooksByConnection(
 }
 
 export async function findAllLegacySdkWebhooks(
-  context: ReqContext
+  context: ReqContext,
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -86,7 +108,7 @@ export async function findAllLegacySdkWebhooks(
 
 export async function deleteLegacySdkWebhookById(
   context: ReqContext,
-  id: string
+  id: string,
 ) {
   await WebhookModel.deleteOne({
     organization: context.org.id,
@@ -105,7 +127,7 @@ export async function deleteSdkWebhookById(context: ReqContext, id: string) {
 
 export async function setLastSdkWebhookError(
   webhook: WebhookInterface,
-  error: string
+  error: string,
 ) {
   await WebhookModel.updateOne(
     {
@@ -117,27 +139,14 @@ export async function setLastSdkWebhookError(
         error,
         lastSuccess: error ? undefined : new Date(),
       },
-    }
+    },
   );
 }
-
-export const updateSdkWebhookValidator = z
-  .object({
-    name: z.string().optional(),
-    endpoint: z.string().optional(),
-    payloadFormat: z
-      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
-      .optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
-    headers: z.string().optional(),
-  })
-  .strict();
-export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
 
 export async function updateSdkWebhook(
   context: ReqContext,
   existing: WebhookInterface,
-  updates: UpdateSdkWebhookProps
+  updates: UpdateSdkWebhookProps,
 ) {
   updates = updateSdkWebhookValidator.parse(updates);
 
@@ -151,7 +160,7 @@ export async function updateSdkWebhook(
       $set: {
         ...updates,
       },
-    }
+    },
   );
 
   return {
@@ -160,23 +169,10 @@ export async function updateSdkWebhook(
   };
 }
 
-const createSdkWebhookValidator = z
-  .object({
-    name: z.string(),
-    endpoint: z.string(),
-    payloadFormat: z
-      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
-      .optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]),
-    headers: z.string(),
-  })
-  .strict();
-export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
-
 export async function createSdkWebhook(
   context: ReqContext,
   sdkConnectionId: string,
-  data: CreateSdkWebhookProps
+  data: CreateSdkWebhookProps,
 ) {
   data = createSdkWebhookValidator.parse(data);
 
@@ -219,7 +215,7 @@ export async function findSdkWebhookById(context: ReqContext, id: string) {
 
 export async function findLegacySdkWebhookById(
   context: ReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await WebhookModel.findOne({
     organization: context.org.id,
@@ -230,5 +226,8 @@ export async function findLegacySdkWebhookById(
 }
 
 export async function countSdkWebhooksByOrg(organization: string) {
-  return await WebhookModel.countDocuments({ organization }).exec();
+  return await WebhookModel.countDocuments({
+    organization,
+    useSdkMode: true,
+  }).exec();
 }

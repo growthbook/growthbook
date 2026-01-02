@@ -2,12 +2,12 @@ import {
   CreateFactTableProps,
   FactTableInterface,
   UpdateFactTableProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -18,31 +18,35 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
+import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
+import { useUser } from "@/services/UserContext";
+import Checkbox from "@/ui/Checkbox";
 
 export interface Props {
   existing?: FactTableInterface;
   close: () => void;
+  duplicate?: boolean;
 }
 
-export default function FactTableModal({ existing, close }: Props) {
-  const {
-    datasources,
-    project,
-    getDatasourceById,
-    mutateDefinitions,
-  } = useDefinitions();
+export default function FactTableModal({
+  existing,
+  close,
+  duplicate = false,
+}: Props) {
+  const { datasources, project, getDatasourceById, mutateDefinitions } =
+    useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
 
   const [sqlOpen, setSqlOpen] = useState(false);
 
-  const [
-    showAdditionalColumnMessage,
-    setShowAdditionalColumnMessage,
-  ] = useState(false);
+  const [showAdditionalColumnMessage, setShowAdditionalColumnMessage] =
+    useState(false);
+
+  const [showIdentifierTypes, setShowIdentifierTypes] = useState(false);
+  const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const { apiCall } = useAuth();
 
@@ -62,6 +66,8 @@ export default function FactTableModal({ existing, close }: Props) {
       userIdTypes: existing?.userIdTypes || [],
       tags: existing?.tags || [],
       eventName: existing?.eventName || "",
+      managedBy: existing?.managedBy || "",
+      projects: existing?.projects || [],
     },
   });
 
@@ -72,7 +78,7 @@ export default function FactTableModal({ existing, close }: Props) {
 
     const [userIdTypes, sql] = getInitialMetricQuery(
       selectedDataSource,
-      "binomial"
+      "binomial",
     );
 
     form.setValue("userIdTypes", userIdTypes);
@@ -80,40 +86,40 @@ export default function FactTableModal({ existing, close }: Props) {
     setShowAdditionalColumnMessage(true);
   }, [selectedDataSource, form, existing]);
 
-  const isNew = !existing;
+  const isNew = !existing || duplicate;
   useEffect(() => {
     track(
-      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal"
+      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal",
     );
   }, [isNew]);
 
   return (
     <>
       {sqlOpen && (
-        <EditSqlModal
+        <EditFactTableSQLModal
           close={() => setSqlOpen(false)}
-          datasourceId={form.watch("datasource")}
-          placeholder={
-            "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
-          }
-          requiredColumns={new Set(["timestamp", ...form.watch("userIdTypes")])}
-          value={form.watch("sql")}
-          save={async (sql) => {
+          factTable={{
+            datasource: form.watch("datasource"),
+            sql: form.watch("sql"),
+            eventName: form.watch("eventName"),
+            userIdTypes: form.watch("userIdTypes"),
+            name: form.watch("name"),
+          }}
+          save={async ({ sql, userIdTypes, eventName }) => {
             form.setValue("sql", sql);
-          }}
-          templateVariables={{
-            eventName: form.watch("eventName") || "",
-          }}
-          setTemplateVariables={({ eventName }) => {
-            form.setValue("eventName", eventName || "");
+            form.setValue("userIdTypes", userIdTypes);
+            form.setValue("eventName", eventName);
           }}
         />
       )}
       <Modal
+        trackingEventModalType=""
         open={true}
         close={close}
         cta={"Save"}
-        header={existing ? "Edit Fact Table" : "Create Fact Table"}
+        header={
+          existing && !duplicate ? "Edit Fact Table" : "Create Fact Table"
+        }
         submit={form.handleSubmit(async (value) => {
           if (!value.userIdTypes.length) {
             throw new Error("Must select at least one identifier type");
@@ -128,13 +134,15 @@ export default function FactTableModal({ existing, close }: Props) {
           // Default eventName to the metric name
           value.eventName = value.eventName || value.name;
 
-          if (existing) {
+          if (existing && !duplicate) {
             const data: UpdateFactTableProps = {
               description: value.description,
               name: value.name,
               sql: value.sql,
               userIdTypes: value.userIdTypes,
               eventName: value.eventName,
+              managedBy: value.managedBy,
+              projects: value.projects,
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -169,7 +177,7 @@ export default function FactTableModal({ existing, close }: Props) {
       >
         <Field label="Name" {...form.register("name")} required />
 
-        {!existing && (
+        {
           <SelectField
             label="Data Source"
             value={form.watch("datasource")}
@@ -189,23 +197,7 @@ export default function FactTableModal({ existing, close }: Props) {
             name="datasource"
             placeholder="Select..."
           />
-        )}
-
-        {selectedDataSource && (
-          <MultiSelectField
-            value={form.watch("userIdTypes")}
-            onChange={(types) => {
-              form.setValue("userIdTypes", types);
-            }}
-            options={(selectedDataSource.settings.userIdTypes || []).map(
-              ({ userIdType }) => ({
-                value: userIdType,
-                label: userIdType,
-              })
-            )}
-            label="Identifier Types Supported"
-          />
-        )}
+        }
 
         {selectedDataSource && usesEventName(form.watch("sql")) && (
           <Field
@@ -216,7 +208,7 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
-        {selectedDataSource && (
+        {selectedDataSource && (!existing?.id || duplicate) && (
           <div className="form-group">
             <label>Query</label>
             {showAdditionalColumnMessage && (
@@ -248,6 +240,56 @@ export default function FactTableModal({ existing, close }: Props) {
             </div>
           </div>
         )}
+
+        {selectedDataSource && (!existing?.id || duplicate) && (
+          <>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowIdentifierTypes(!showIdentifierTypes);
+              }}
+            >
+              Edit Identifier Types{" "}
+              {showIdentifierTypes ? <FaAngleDown /> : <FaAngleRight />}
+            </a>
+            {showIdentifierTypes && (
+              <div className="pt-1">
+                <MultiSelectField
+                  value={form.watch("userIdTypes")}
+                  onChange={(types) => {
+                    form.setValue("userIdTypes", types);
+                  }}
+                  options={(selectedDataSource.settings.userIdTypes || []).map(
+                    ({ userIdType }) => ({
+                      value: userIdType,
+                      label: userIdType,
+                    }),
+                  )}
+                  helpText="The default values were auto-detected from your SQL query."
+                  autoFocus={true}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {permissionsUtil.canCreateOfficialResources({
+          projects: form.watch("projects") || [],
+        }) && hasCommercialFeature("manage-official-resources") ? (
+          <div className="mt-2">
+            <Checkbox
+              label="Mark as Official Fact Table"
+              disabled={form.watch("managedBy") === "api"}
+              disabledMessage="This Fact Table is managed by the API, so it can not be edited in the UI."
+              description="Official Fact Tables can only be modified by Admins or users with the ManageOfficialResources policy."
+              value={form.watch("managedBy") === "admin"}
+              setValue={(value) => {
+                form.setValue("managedBy", value ? "admin" : "");
+              }}
+            />
+          </div>
+        ) : null}
       </Modal>
     </>
   );

@@ -1,0 +1,28 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
+summary: Get all revisions for a feature
+tags:
+  - features
+operationId: getFeatureRevisions
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&offset=0 \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - revisions
+              properties:
+                revisions:
+                  type: array
+                  items:
+                    $ref: "../schemas/FeatureRevision.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

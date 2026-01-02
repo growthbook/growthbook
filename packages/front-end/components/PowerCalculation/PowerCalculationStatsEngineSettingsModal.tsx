@@ -1,17 +1,33 @@
 import { useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import RadioSelector from "@/components/Forms/RadioSelector";
-import { DocLink } from "@/components/DocLink";
-import Toggle from "@/components/Forms/Toggle";
+import { StatsEngineSettings } from "shared/power";
+import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import { StatsEngineSettings } from "./types";
+import RadioGroup from "@/ui/RadioGroup";
+import Field from "@/components/Forms/Field";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+
+type StatsEngineWithSequential = "bayesian" | "frequentist" | "sequential";
+
+export type StatsEngineSettingsWithAlpha = StatsEngineSettings & {
+  alpha: number;
+};
+
+export function alphaToChanceToWin(alpha: number): number {
+  return parseFloat((100 * (1 - alpha)).toFixed(6));
+}
+
+export function chanceToWinToAlpha(chanceToWin: number): number {
+  return parseFloat(((100 - chanceToWin) / 100).toFixed(6));
+}
 
 export type Props = {
   close: () => void;
-  params: StatsEngineSettings;
-  onSubmit: (_: StatsEngineSettings) => void;
+  params: StatsEngineSettingsWithAlpha;
+  onSubmit: (_: StatsEngineSettingsWithAlpha) => void;
 };
 
 export default function PowerCalculationStatsEngineSettingsModal({
@@ -20,16 +36,39 @@ export default function PowerCalculationStatsEngineSettingsModal({
   onSubmit,
 }: Props) {
   const orgSettings = useOrgSettings();
+  const pValueThresholdOrgDefault = usePValueThreshold();
+  const { ciLower: ciLowerOrgDefault, ciUpper: ciUpperOrgDefault } =
+    useConfidenceLevels();
+
   const sequentialTestingTuningParameter =
     orgSettings.sequentialTestingTuningParameter ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const [currentParams, setCurrentParams] = useState(params);
+  // separate state to handle undefined value better and for formatting
+  const [pValueThreshold, setPValueThreshold] = useState<number | undefined>(
+    params.alpha,
+  );
+  const [ciUpperPercent, setCiUpperPercent] = useState<number | undefined>(
+    alphaToChanceToWin(params.alpha),
+  );
+
+  const defaultAlpha =
+    params.type === "frequentist"
+      ? pValueThresholdOrgDefault
+      : ciLowerOrgDefault;
+  const currentEngine =
+    currentParams.type === "bayesian"
+      ? "bayesian"
+      : currentParams.sequentialTesting
+        ? "sequential"
+        : "frequentist";
 
   return (
     <Modal
+      trackingEventModalType=""
       open
       size="lg"
-      header="Analysis Settings"
+      header="Choose Statistics Engine"
       close={close}
       includeCloseCta={false}
       cta="Update"
@@ -47,94 +86,128 @@ export default function PowerCalculationStatsEngineSettingsModal({
         </button>
       }
     >
-      <div className="form-group">
-        <label>
-          <span className="mr-auto font-weight-bold">
-            Choose Statistical Engine
-          </span>{" "}
-        </label>
-        <RadioSelector
-          name="ruleType"
-          value={currentParams.type}
+      <div>
+        <RadioGroup
+          value={currentEngine}
           options={[
             {
-              key: "bayesian",
-              description: (
-                <div className="container">
-                  <div className="row">
-                    <span className="text-muted mr-1">Bayesian</span>
-                    {orgSettings.statsEngine === "bayesian"
-                      ? "(Org default)"
-                      : ""}
-                  </div>
-                </div>
-              ),
+              value: "bayesian",
+              label: `Bayesian${
+                orgSettings.statsEngine === "bayesian" ? " (Org default)" : ""
+              }`,
             },
             {
-              key: "frequentist",
-              description: (
-                <div className="container">
-                  <div className="row">
-                    <span className="mr-1 font-weight-bold">Frequentist</span>
-                    {orgSettings.statsEngine === "frequentist"
-                      ? "(Org default)"
-                      : ""}
-                  </div>
-                  <div className="row mt-2">
-                    <span>
-                      Enable Sequential Testing to look at your experiment
-                      results as many times as you like while preserving the
-                      false positive rate.{" "}
-                      <DocLink docSection="statisticsSequential">
-                        Learn More <FaExternalLinkAlt />
-                      </DocLink>
-                    </span>
-                    <div className="mt-3 form-group">
-                      <div className="row align-items-start">
-                        <div className="col-auto">
-                          <Toggle
-                            id="sequentialTestingToggle"
-                            value={!!currentParams.sequentialTesting}
-                            setValue={(value) =>
-                              setCurrentParams({
-                                ...currentParams,
-                                ...(value
-                                  ? {
-                                      sequentialTesting: sequentialTestingTuningParameter,
-                                    }
-                                  : { sequentialTesting: false }),
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <div>
-                            <span className="font-weight-bold">
-                              Sequential Testing
-                            </span>{" "}
-                            (Org default:{" "}
-                            {orgSettings.sequentialTestingEnabled
-                              ? "ON"
-                              : "OFF"}
-                            )
-                          </div>
-                          <div className="mt-2">
-                            Results will be calculated with the org’s default
-                            tuning parameter: {sequentialTestingTuningParameter}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ),
+              value: "frequentist",
+              label: `Frequentist${
+                orgSettings.statsEngine === "frequentist" &&
+                !orgSettings.sequentialTestingEnabled
+                  ? " (Org default)"
+                  : ""
+              }`,
+            },
+            {
+              value: "sequential",
+              label: `Frequentist, with Sequential Testing${
+                orgSettings.statsEngine === "frequentist" &&
+                orgSettings.sequentialTestingEnabled
+                  ? " (Org default)"
+                  : ""
+              }`,
+              description: `Sequential Testing enables safe peeking at results but makes confidence intervals wider.`,
             },
           ]}
-          setValue={(type: typeof currentParams.type) =>
-            setCurrentParams({ ...currentParams, type })
-          }
+          setValue={(type: StatsEngineWithSequential) => {
+            const unsetThreshold =
+              (type === "bayesian" && currentParams.type === "frequentist") ||
+              (type !== "bayesian" && currentParams.type === "bayesian");
+            // reset threshold if changing engine
+            if (unsetThreshold) {
+              setCiUpperPercent(undefined);
+              setPValueThreshold(undefined);
+            }
+            setCurrentParams({
+              type: type === "sequential" ? "frequentist" : type,
+              sequentialTesting:
+                type === "sequential"
+                  ? sequentialTestingTuningParameter
+                  : false,
+              alpha: unsetThreshold ? defaultAlpha : params.alpha,
+            });
+          }}
+          mt="3"
         />
       </div>
+      <Collapsible
+        trigger={
+          <div className="link-purple font-weight-bold mt-4 mb-2">
+            <PiCaretRightFill className="chevron mr-1" />
+            Advanced Settings
+          </div>
+        }
+        transitionTime={100}
+      >
+        <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+          {currentParams.type === "frequentist" ? (
+            <Field
+              label="P-value threshold"
+              type="number"
+              step="0.001"
+              max="0.5"
+              min="0.001"
+              className="ml-2"
+              containerClassName="mb-3"
+              value={pValueThreshold?.toString() || ""}
+              placeholder={pValueThresholdOrgDefault.toString()}
+              onChange={(e) => {
+                const value =
+                  e.target.value === ""
+                    ? undefined
+                    : parseFloat(e.target.value);
+                setPValueThreshold(value);
+                setCurrentParams({
+                  ...currentParams,
+                  alpha: value ?? defaultAlpha,
+                });
+              }}
+              helpText={
+                <span className="ml-2">
+                  ({pValueThresholdOrgDefault} is your organization default)
+                </span>
+              }
+            />
+          ) : null}
+          {currentParams.type === "bayesian" ? (
+            <Field
+              label="Chance to win threshold"
+              type="number"
+              step="any"
+              min="70"
+              max="99.999999"
+              className="ml-2"
+              containerClassName="mb-3"
+              append="%"
+              value={ciUpperPercent?.toString() || ""}
+              placeholder={(100 * ciUpperOrgDefault).toString()}
+              onChange={(e) => {
+                const value =
+                  e.target.value === ""
+                    ? undefined
+                    : parseFloat(e.target.value);
+                setCiUpperPercent(value);
+                setCurrentParams({
+                  ...currentParams,
+                  alpha: value ? chanceToWinToAlpha(value) : defaultAlpha,
+                });
+              }}
+              helpText={
+                <span className="ml-2">
+                  ({100 * ciUpperOrgDefault}% is your organization default)
+                </span>
+              }
+            />
+          ) : null}
+        </div>
+      </Collapsible>
     </Modal>
   );
 }

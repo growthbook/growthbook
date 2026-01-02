@@ -6,7 +6,7 @@ import {
   Role,
   ProjectMemberRole,
   MemberRoleInfo,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
@@ -21,14 +21,14 @@ export function policiesSupportEnvLimit(policies: Policy[]): boolean {
   return policies.some((policy) =>
     POLICY_PERMISSION_MAP[policy]?.some((permission) =>
       ENV_SCOPED_PERMISSIONS.includes(
-        permission as typeof ENV_SCOPED_PERMISSIONS[number]
-      )
-    )
+        permission as (typeof ENV_SCOPED_PERMISSIONS)[number],
+      ),
+    ),
   );
 }
 
 export function getPermissionsObjectByPolicies(
-  policies: Policy[]
+  policies: Policy[],
 ): PermissionsObject {
   const permissions: PermissionsObject = {};
 
@@ -43,7 +43,7 @@ export function getPermissionsObjectByPolicies(
 
 export function getRoleById(
   roleId: string,
-  organization: Partial<OrganizationInterface>
+  organization: Partial<OrganizationInterface>,
 ): Role | null {
   const roles = getRoles(organization);
 
@@ -77,7 +77,7 @@ export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
 
 export function areProjectRolesValid(
   projectRoles: ProjectMemberRole[] | undefined,
-  org: Partial<OrganizationInterface>
+  org: Partial<OrganizationInterface>,
 ) {
   if (!projectRoles) {
     return true;
@@ -86,7 +86,7 @@ export function areProjectRolesValid(
 }
 
 export function getDefaultRole(
-  org: Partial<OrganizationInterface>
+  org: Partial<OrganizationInterface>,
 ): MemberRoleInfo {
   // First try the explicitly provided default role
   if (
@@ -109,7 +109,7 @@ export function hasPermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
   project?: string | undefined,
-  envs?: string[]
+  envs?: string[],
 ): boolean {
   const usersPermissionsToCheck =
     (project && userPermissions?.projects[project]) || userPermissions?.global;
@@ -125,21 +125,16 @@ export function hasPermission(
     return true;
   }
   return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env)
+    usersPermissionsToCheck.environments.includes(env),
   );
 }
 
 export const userHasPermission = (
-  superAdmin: boolean,
   userPermissions: UserPermissions,
   permission: Permission,
   project?: string | (string | undefined)[] | undefined,
-  envs?: string[]
+  envs?: string[],
 ): boolean => {
-  if (superAdmin) {
-    return true;
-  }
-
   let checkProjects: (string | undefined)[];
   if (Array.isArray(project)) {
     checkProjects = project.length > 0 ? project : [undefined];
@@ -158,23 +153,32 @@ export const userHasPermission = (
     }
     // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
     return checkProjects.some((p) =>
-      hasPermission(userPermissions, permission, p, envs)
+      hasPermission(userPermissions, permission, p, envs),
     );
   } else {
     // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
     return checkProjects.every((p) =>
-      hasPermission(userPermissions, permission, p, envs)
+      hasPermission(userPermissions, permission, p, envs),
     );
   }
 };
 
 export function roleSupportsEnvLimit(
   roleId: string,
-  org: Partial<OrganizationInterface>
+  org: Partial<OrganizationInterface>,
 ): boolean {
   if (roleId === "admin") return false;
 
   const role = getRoleById(roleId, org);
 
   return policiesSupportEnvLimit(role?.policies || []);
+}
+
+export function roleToPermissionMap(
+  roleId: string,
+  org: OrganizationInterface,
+): PermissionsObject {
+  const role = getRoleById(roleId || "readonly", org);
+  const policies = role?.policies || [];
+  return getPermissionsObjectByPolicies(policies);
 }

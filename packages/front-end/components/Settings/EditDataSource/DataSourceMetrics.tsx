@@ -1,22 +1,28 @@
-import { MetricInterface } from "@back-end/types/metric";
-import { useState } from "react";
-import { FaArchive, FaChevronRight, FaPlus, FaRegCopy } from "react-icons/fa";
+import React, { useState } from "react";
+import { FaArchive, FaChevronRight, FaPlus } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
+import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricForm from "@/components/Metrics/MetricForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  MetricModal,
+  MetricModalState,
+} from "@/components/FactTables/NewMetricModal";
+import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -29,39 +35,38 @@ export default function DataSourceMetrics({
   canEdit,
 }: DataSourceMetricsProps) {
   const permissionsUtil = usePermissionsUtil();
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
-  const [modalData, setModalData] = useState<{
-    current: Partial<MetricInterface>;
-    edit: boolean;
-    duplicate: boolean;
-  } | null>(null);
-  const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const [modalData, setModalData] = useState<MetricModalState | null>(null);
+  const settings = useOrgSettings();
+  const { disableLegacyMetricCreation } = settings;
+  const {
+    mutateDefinitions,
+    factTables,
+    metrics: legacyMetrics,
+  } = useDefinitions();
 
-  const { data, mutate } = useApi<{
-    metrics: MetricInterface[];
-  }>(`/datasource/${dataSource.id}/metrics`);
-
-  const metrics: MetricInterface[] | undefined = data?.metrics;
-
-  const editMetricsPermissions: {
-    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
-  } = {};
-  metrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = {
-      canDuplicate: permissionsUtil.canCreateMetric(m),
-      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
-    };
+  const combinedMetrics = useCombinedMetrics({
+    setMetricModalProps: setModalData,
   });
+  const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
+
+  const hasLegacyMetrics = legacyMetrics.some(
+    (f) => f.datasource === dataSource.id,
+  );
+
+  const hasFactTables = factTables.some((f) => f.datasource === dataSource.id);
+
+  // Show the create fact table button if there are no legacy metrics and no fact tables
+  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
+  const showCreateFactTableButton = disableLegacyMetricCreation
+    ? !hasFactTables
+    : !hasLegacyMetrics && !hasFactTables;
 
   // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
-  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetric(
-    { projects: dataSource.projects }
-  );
+  const canCreateMetricsInAllDataSourceProjects =
+    permissionsUtil.canCreateMetric({ projects: dataSource.projects });
 
   return (
     <>
@@ -70,250 +75,212 @@ export default function DataSourceMetrics({
           source="datasource-detail-page"
           datasource={dataSource}
           setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-          mutate={mutate}
+          mutate={mutateDefinitions}
         />
       )}
       {modalData ? (
-        <MetricForm
+        <MetricModal
           {...modalData}
-          onClose={() => setModalData(null)}
-          onSuccess={() => {
-            mutateDefinitions();
-            mutate();
-          }}
+          close={() => setModalData(null)}
           source="datasource-detail"
+          datasource={dataSource.id}
         />
       ) : null}
-      <div className="d-flex flex-row align-items-center justify-content-between">
-        <div>
-          <h2>
-            Metrics{" "}
-            <span className="badge badge-purple mx-2 my-0">
-              {metrics && metrics.length > 0 ? metrics.length : "0"}
-            </span>
-          </h2>
-          <p className="m-0">
-            Metrics are what your experiments are trying to improve (or at least
-            not hurt). Below are the metrics defined from this data source.{" "}
-            <DocLink docSection="metrics">Learn more.</DocLink>
-          </p>
-        </div>
-        <div className="d-flex flex-row pl-3">
-          {canEdit &&
-          envAllowsCreatingMetrics() &&
-          canCreateMetricsInAllDataSourceProjects ? (
-            <>
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-                datasource={dataSource}
-              />
-              <button
-                className="btn btn-outline-primary font-weight-bold text-nowrap"
-                onClick={() =>
-                  setModalData({
-                    current: {
-                      datasource: dataSource.id,
-                      projects: dataSource.projects || [],
-                    },
-                    edit: false,
-                    duplicate: false,
-                  })
-                }
-              >
-                <FaPlus className="mr-1" /> Add
-              </button>
-            </>
-          ) : null}
-          <button
-            className="btn text-dark"
-            onClick={(e) => {
-              e.preventDefault();
-              setMetricsOpen(!metricsOpen);
-            }}
-          >
-            <FaChevronRight
-              style={{
-                transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
-              }}
+      <Flex align="center" justify="between" mb="3">
+        <Box>
+          <Flex align="center" gap="3" mb="0">
+            <Heading as="h4" size="4" mb="0">
+              Metrics
+            </Heading>
+            <Badge
+              label={metrics && metrics.length > 0 ? metrics.length + "" : "0"}
+              color="gray"
+              radius="medium"
             />
-          </button>
-        </div>
-      </div>
+          </Flex>
+        </Box>
+        {canEdit &&
+        envAllowsCreatingMetrics() &&
+        canCreateMetricsInAllDataSourceProjects &&
+        !showCreateFactTableButton ? (
+          <>
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+              datasource={dataSource}
+              size="sm"
+            />
+            <Button onClick={() => setModalData({ mode: "new" })}>
+              <FaPlus className="mr-1" /> Add
+            </Button>
+          </>
+        ) : permissionsUtil.canCreateFactTable({
+            projects: dataSource.projects || [],
+          }) ? (
+          <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+        ) : null}
+      </Flex>
+      <Flex gap="2">
+        <p className="m-0">
+          Metrics are what your experiments are trying to improve (or at least
+          not hurt). Below are the metrics defined from this data source.{" "}
+          <DocLink docSection="metrics">Learn more.</DocLink>
+        </p>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setMetricsOpen(!metricsOpen);
+          }}
+        >
+          <FaChevronRight
+            style={{
+              transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
+            }}
+          />
+        </Button>
+      </Flex>
       {metricsOpen ? (
-        <div className="my-3">
+        <Box>
           {metrics && metrics?.length > 0 ? (
-            <div>
+            <Box>
               {metrics.map((metric) => {
                 return (
-                  <div key={metric.id} className="card p-3 mb-3 bg-light">
-                    <Link href={getMetricLink(metric.id)}>
-                      <div
-                        className="d-flex flex-row align-items-center justify-content-between"
-                        role="button"
-                      >
-                        <div className="pr-3">
-                          <div className="mr-5 w-100">
-                            <h4
-                              className={
-                                metric.status === "archived" ? "text-muted" : ""
-                              }
-                            >
+                  <Card mt="3" key={metric.id}>
+                    <Flex align="start" justify="between" py="2" px="3" gap="3">
+                      <div className="pr-3">
+                        <div className="mr-5 w-100">
+                          <Heading
+                            size="3"
+                            mb="1"
+                            className={metric.archived ? "text-muted" : ""}
+                          >
+                            <Link href={getMetricLink(metric.id)}>
                               {metric.name}
-                            </h4>
-                            <div className="d-flex flex-row align-items-center">
-                              <div className="pr-3">
-                                <strong
-                                  className={
-                                    metric.status === "archived"
-                                      ? "text-muted"
-                                      : ""
-                                  }
-                                >
-                                  Type:{" "}
-                                </strong>
-                                <code
-                                  className={
-                                    metric.status === "archived"
-                                      ? "text-muted"
-                                      : ""
-                                  }
-                                >
-                                  {metric.type}
-                                </code>
-                              </div>
-                              <div
-                                className={clsx(
-                                  {
-                                    "text-muted": metric.status === "archived",
-                                  },
-                                  "pr-3"
-                                )}
+                            </Link>
+                          </Heading>
+                          <div className="d-flex flex-row align-items-center">
+                            <div className="pr-3">
+                              <strong
+                                className={metric.archived ? "text-muted" : ""}
                               >
-                                <strong>Owner: </strong>
-                                {metric.owner}
-                              </div>
-                              <div
-                                className={clsx(
-                                  {
-                                    "text-muted": metric.status === "archived",
-                                  },
-                                  "pr-3"
-                                )}
+                                Type:{" "}
+                              </strong>
+                              <code
+                                className={metric.archived ? "text-muted" : ""}
                               >
-                                <strong>Projects: </strong>
-                                {!metric?.projects?.length ? (
-                                  <ProjectBadges
-                                    resourceType="metric"
-                                    className="badge-ellipsis align-middle"
-                                  />
-                                ) : (
-                                  <ProjectBadges
-                                    resourceType="metric"
-                                    projectIds={metric.projects}
-                                    className={clsx(
-                                      {
-                                        "text-muted":
-                                          metric.status === "archived",
-                                      },
-                                      "badge-ellipsis align-middle"
-                                    )}
-                                  />
-                                )}
-                              </div>
-                              {metric.managedBy !== "config" && (
-                                <div
-                                  title={datetime(metric.dateUpdated || "")}
-                                  className={clsx(
-                                    {
-                                      "text-muted":
-                                        metric.status === "archived",
-                                    },
-                                    "d-none d-md-table-cell"
-                                  )}
-                                >
-                                  <strong>Last Updated: </strong>
-                                  {ago(metric.dateUpdated || "")}
-                                </div>
+                                {metric.type}
+                              </code>
+                            </div>
+                            <div
+                              className={clsx(
+                                {
+                                  "text-muted": metric.archived,
+                                },
+                                "pr-3",
+                              )}
+                            >
+                              <strong>Owner: </strong>
+                              {metric.owner}
+                            </div>
+                            <div
+                              className={clsx(
+                                {
+                                  "text-muted": metric.archived,
+                                },
+                                "pr-3",
+                              )}
+                            >
+                              <strong>Projects: </strong>
+                              {!metric?.projects?.length ? (
+                                <ProjectBadges resourceType="metric" />
+                              ) : (
+                                <ProjectBadges
+                                  resourceType="metric"
+                                  projectIds={metric.projects}
+                                />
                               )}
                             </div>
+                            {metric.managedBy !== "config" && (
+                              <div
+                                title={datetime(metric.dateUpdated || "")}
+                                className={clsx(
+                                  {
+                                    "text-muted": metric.archived,
+                                  },
+                                  "d-none d-md-table-cell",
+                                )}
+                              >
+                                <strong>Last Updated: </strong>
+                                {ago(metric.dateUpdated || "")}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <div className="d-flex flex-row align-items-center">
-                          <div className="text-muted px-2">
-                            {metric.status === "archived" ? (
-                              <Tooltip
-                                body={"Archived"}
-                                innerClassName="p-2"
-                                tipMinWidth="auto"
-                              >
-                                <FaArchive />
-                              </Tooltip>
-                            ) : null}
-                          </div>
-                          <MoreMenu className="px-2">
-                            {editMetricsPermissions[metric.id].canDuplicate ? (
-                              <button
-                                className="btn dropdown-item py-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  setModalData({
-                                    current: {
-                                      ...metric,
-                                      managedBy: "",
-                                      name: metric.name + " (copy)",
-                                    },
-                                    edit: false,
-                                    duplicate: true,
-                                  });
-                                }}
-                              >
-                                <FaRegCopy /> Duplicate
-                              </button>
-                            ) : null}
-                            {!metric.managedBy &&
-                            editMetricsPermissions[metric.id].canUpdate ? (
-                              <button
-                                className="btn dropdown-item py-2"
-                                color=""
-                                onClick={async () => {
-                                  const newStatus =
-                                    metric.status === "archived"
-                                      ? "active"
-                                      : "archived";
-                                  await apiCall(`/metric/${metric.id}`, {
-                                    method: "PUT",
-                                    body: JSON.stringify({
-                                      status: newStatus,
-                                    }),
-                                  });
-                                  mutateDefinitions({});
-                                  mutate();
-                                }}
-                              >
-                                <FaArchive />{" "}
-                                {metric.status === "archived"
-                                  ? "Unarchive"
-                                  : "Archive"}
-                              </button>
-                            ) : null}
-                          </MoreMenu>
                         </div>
                       </div>
-                    </Link>
-                  </div>
+                      <div className="d-flex flex-row align-items-center">
+                        <div className="text-muted px-2">
+                          {metric.archived ? (
+                            <Tooltip
+                              body={"Archived"}
+                              innerClassName="p-2"
+                              tipMinWidth="auto"
+                            >
+                              <FaArchive />
+                            </Tooltip>
+                          ) : null}
+                        </div>
+                        <MoreMenu className="px-2">
+                          {metric.onDuplicate ? (
+                            <button
+                              className="btn dropdown-item py-2"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                metric.onDuplicate?.();
+                              }}
+                            >
+                              Duplicate
+                            </button>
+                          ) : null}
+                          {!metric.managedBy &&
+                          !metric.archived &&
+                          metric.onEdit ? (
+                            <button
+                              className="btn dropdown-item py-2"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                metric.onEdit?.();
+                              }}
+                            >
+                              Edit
+                            </button>
+                          ) : null}
+                          {!metric.managedBy && metric.onArchive ? (
+                            <button
+                              className="btn dropdown-item py-2"
+                              color=""
+                              onClick={async () => {
+                                await metric.onArchive?.(!metric.archived);
+                              }}
+                            >
+                              {metric.archived ? "Unarchive" : "Archive"}
+                            </button>
+                          ) : null}
+                        </MoreMenu>
+                      </div>
+                    </Flex>
+                  </Card>
                 );
               })}
-            </div>
+            </Box>
           ) : (
             <div className="alert alert-info">
-              No metrics have been defined from this data source. Click the{" "}
-              <strong>Add</strong> button to create your first.
+              No metrics have been defined yet from this data source. Click the{" "}
+              <strong>
+                {showCreateFactTableButton ? "Create Fact Table" : "Add"}
+              </strong>{" "}
+              button to create your first one.
             </div>
           )}
-        </div>
+        </Box>
       ) : null}
     </>
   );

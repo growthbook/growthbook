@@ -1,18 +1,23 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  CSSProperties,
+  DetailedHTMLProps,
+  ReactElement,
+  TdHTMLAttributes,
+} from "react";
 import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -31,6 +36,11 @@ interface Props
   style?: CSSProperties;
   rowSpan?: number;
   showRatio?: boolean;
+  noDataMessage?: ReactElement | string;
+  displayCurrency: string;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
+  asTd?: boolean;
 }
 
 export default function MetricValueColumn({
@@ -41,25 +51,28 @@ export default function MetricValueColumn({
   style,
   rowSpan,
   showRatio = true,
+  noDataMessage = "no data",
+  displayCurrency,
+  getExperimentMetricById,
+  getFactTableById,
+  asTd = true,
   ...otherProps
 }: Props) {
-  const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
-  const { getFactTableById, getMetricById } = useDefinitions();
 
   const overall = getExperimentMetricFormatter(metric, getFactTableById)(
     stats.cr,
-    formatterOptions
+    formatterOptions,
   );
 
   const numeratorValue = stats.value;
   const denominatorValue = isRatioMetric(
     metric,
     !isFactMetric(metric) && metric.denominator
-      ? getMetricById(metric.denominator) ?? undefined
-      : undefined
+      ? (getExperimentMetricById(metric.denominator) ?? undefined)
+      : undefined,
   )
-    ? stats.denominator ?? stats.users
+    ? (stats.denominator ?? stats.users)
     : stats.denominator || stats.users || users;
 
   let numerator: string;
@@ -73,22 +86,32 @@ export default function MetricValueColumn({
   } else if (isFactMetric(metric)) {
     numerator = getColumnRefFormatter(metric.numerator, getFactTableById)(
       numeratorValue,
-      formatterOptions
+      formatterOptions,
     );
     if (metric.metricType === "ratio" && metric.denominator) {
       denominator = getColumnRefFormatter(metric.denominator, getFactTableById)(
         denominatorValue,
-        formatterOptions
+        formatterOptions,
       );
     }
   } else {
     numerator = getMetricFormatter(
-      metric.type === "binomial" ? "count" : metric.type
+      metric.type === "binomial" ? "count" : metric.type,
     )(numeratorValue, formatterOptions);
   }
 
   return (
-    <td className={className} style={style} rowSpan={rowSpan} {...otherProps}>
+    <ConditionalWrapper
+      condition={asTd}
+      wrapper={
+        <td
+          className={className}
+          style={style}
+          rowSpan={rowSpan}
+          {...otherProps}
+        />
+      }
+    >
       {metric && stats.users ? (
         <>
           <div className="result-number">{overall}</div>
@@ -114,8 +137,8 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em className="text-muted">no data</em>
+        <em className="text-muted">{noDataMessage}</em>
       )}
-    </td>
+    </ConditionalWrapper>
   );
 }

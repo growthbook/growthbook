@@ -1,10 +1,10 @@
-import { GetFactTableResponse } from "../../../types/openapi";
+import { GetFactTableResponse } from "shared/types/openapi";
+import { getFactTableValidator } from "shared/validators";
 import {
   getFactTable as findFactTableById,
   toFactTableApiInterface,
-} from "../../models/FactTableModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { getFactTableValidator } from "../../validators/openapi";
+} from "back-end/src/models/FactTableModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactTable = createApiRequestHandler(getFactTableValidator)(
   async (req): Promise<GetFactTableResponse> => {
@@ -16,5 +16,5 @@ export const getFactTable = createApiRequestHandler(getFactTableValidator)(
     return {
       factTable: toFactTableApiInterface(factTable),
     };
-  }
+  },
 );

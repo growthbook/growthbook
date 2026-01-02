@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export default function useGlobalMenu(
   selector: string,
-  close: () => void
+  close: () => void,
 ): void {
   useEffect(() => {
     const callback = (e: MouseEvent) => {

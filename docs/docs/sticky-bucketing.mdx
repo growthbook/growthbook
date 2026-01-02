@@ -24,22 +24,48 @@ So why would you want to use Sticky Bucketing? Let's look at a few examples:
 
 3. Your have a cross-platform app and want to ensure a consistent experience as users log in and move between devices.
 
-:::note
-
-Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
+:::info Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
 
 :::
 
-## Setting up Sticky Bucketing
+## Setting up Sticky Bucketing with the Script Tag SDK
+
+### 1. Configure the script tag
+
+Using Sticky Bucketing with our [HTML Script Tag](/lib/script-tag) is simple. Add either of these properties to your script tag:
+
+- `data-use-sticky-bucket-service="cookie"` or
+- `data-use-sticky-bucket-service="localStorage"`
+
+The sticky bucket assignments will be stored in either cookies or browser LocalStorage, respectively. Both of these implementations are session-based, but cookies are transportable and are generally more commonly used.
+
+For example:
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  data-use-sticky-bucket-service="cookie"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+Further details are available [here](/lib/script-tag#sticky-bucketing).
+
+### 2. Enable Sticky Bucketing for your organization
+
+In the GrowthBook app, go to **Settings** → **General** → **Experiment Settings** and enable the Sticky Bucketing toggle. This will add new options specific to Sticky Bucketing whenever you make changes to a running experiment. To read more about these options, see [Experiments (setup)](/app/experiment-configuration).
+
+Once Sticky Bucketing is enabled, there is an additional toggle for enabling a **Fallback Attribute**. See below for more information on this feature.
+
+## Setting up Sticky Bucketing with other SDKs
 
 To use Sticky Bucketing for your experiments, there are a few steps that you need to complete.
 
 ### 1. Ensure you are using a compatible SDK version
 
-Update your codebase to use a compatible SDK. Sticky Bucketing is currently supported in the following SDK versions:
+Update your codebase to use a compatible SDK. Sticky Bucketing is currently supported most SDK languages.
 
-- Javascript: `0.32.0`
-- React: `0.22.0`
+See "stickyBucketing" availability in the [list of SDKs and Capabilities](https://github.com/growthbook/growthbook/blob/main/packages/shared/src/sdk-versioning/CAPABILITIES.md).
 
 ### 2. Pass a Sticky Bucketing Service into your SDK Implementation
 

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { TagDBInterface, TagInterface } from "../../types/tag";
+import { TagDBInterface, TagInterface } from "shared/types/tag";
 
 const tagSchema = new mongoose.Schema({
   organization: {
@@ -34,7 +34,7 @@ function toTagInterface(doc: TagDocument | null): TagInterface[] {
 
 export async function getTag(
   organization: string,
-  tag: string
+  tag: string,
 ): Promise<TagInterface | null> {
   const doc = await TagModel.findOne({
     organization,
@@ -53,18 +53,17 @@ export async function getTag(
 }
 
 export async function getAllTags(
-  organization: string
+  organization: string,
 ): Promise<TagInterface[]> {
   const doc = await TagModel.findOne({
     organization,
   });
-
   return toTagInterface(doc);
 }
 
 export async function addTags(organization: string, tags: string[]) {
   tags = tags.filter(
-    (x) => x.length >= MIN_TAG_LENGTH && x.length <= MAX_TAG_LENGTH
+    (x) => x.length >= MIN_TAG_LENGTH && x.length <= MAX_TAG_LENGTH,
   );
   if (!tags.length) return;
 
@@ -77,7 +76,7 @@ export async function addTags(organization: string, tags: string[]) {
     },
     {
       upsert: true,
-    }
+    },
   );
 }
 
@@ -86,11 +85,11 @@ export async function addTag(
   tag: string,
   color: string,
   description: string,
-  label?: string
+  label?: string,
 ) {
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
-      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`
+      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
     );
   }
   if (description.length > 256) {
@@ -117,7 +116,7 @@ export async function addTag(
     },
     {
       upsert: true,
-    }
+    },
   );
 }
 
@@ -128,7 +127,7 @@ export async function removeTag(organization: string, tag: string) {
     },
     {
       $pull: { tags: tag },
-    }
+    },
   );
   await TagModel.updateOne(
     {
@@ -136,7 +135,7 @@ export async function removeTag(organization: string, tag: string) {
     },
     {
       $unset: { [`settings.${tag}`]: 1 },
-    }
+    },
   );
 }
 
@@ -145,7 +144,7 @@ export async function updateTag(
   tag: string,
   color: string,
   description: string,
-  label: string
+  label: string,
 ) {
   if (description.length > 256) {
     description = description.substring(0, 256);
@@ -164,14 +163,14 @@ export async function updateTag(
       $set: {
         [`settings.${tag}`]: { color, description, label },
       },
-    }
+    },
   );
 }
 
 export async function addTagsDiff(
   organization: string,
   oldTags: string[],
-  newTags: string[]
+  newTags: string[],
 ) {
   const diff = newTags.filter((x) => !oldTags.includes(x));
   if (diff.length) {

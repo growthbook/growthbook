@@ -1,5 +1,5 @@
-import { FeatureValueType } from "back-end/types/feature";
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { FeatureValueType } from "shared/types/feature";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 function rubySymbol(name: string): string {
@@ -74,8 +74,8 @@ import { useFeatureValue } from "@growthbook/growthbook-react";
 
 function MyComponent() {
   const value = useFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
-          valueType
-        )});
+    valueType,
+  )});
   return (
     <div>{value}</div>
   )
@@ -101,6 +101,50 @@ app.get("/", (req, res) => {
       />
     );
   }
+  if (language === "nextjs") {
+    const typeString = valueType === "json" ? "Record<string, any>" : valueType;
+    return (
+      <>
+        <div className="font-weight-bold text-muted mt-2">
+          Define your feature flag
+        </div>
+        <Code
+          filename="flags.ts"
+          language="typescript"
+          code={`
+import { growthbookAdapter } from '@flags-sdk/growthbook';
+import { flag } from 'flags/next';
+import { identify } from '@/lib/identify';
+
+export const myFeatureFlag = flag<${typeString}>({
+  key: ${JSON.stringify(featureId)},
+  adapter: growthbookAdapter.feature<${typeString}>(),
+  defaultValue: ${getDefaultValue(valueType)},
+  identify,
+});
+`.trim()}
+        />
+
+        <div className="font-weight-bold text-muted mt-2">Use the flag</div>
+        <Code
+          filename="my-component.tsx"
+          language="tsx"
+          code={`
+import { myFeatureFlag } from '@/flags';
+
+function MyComponent() {
+  const value = await myFeatureFlag();
+  // value is: ${getDefaultValue(valueType)}
+
+  return (
+    <div>{${valueType === "json" ? "JSON.stringify(value)" : "value"}}</div>
+  );
+}
+  `.trim()}
+        />
+      </>
+    );
+  }
   if (language === "android") {
     return (
       <Code
@@ -118,7 +162,7 @@ println(feature.value ?: ${getDefaultValue(valueType)})
         language="swift"
         code={`
 var value = gb.getFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
-          valueType
+          valueType,
         )})
 print(value)
     `.trim()}
@@ -130,9 +174,9 @@ print(value)
       <Code
         language="go"
         code={`
-value := gb.Feature(${JSON.stringify(
-          featureId
-        )}).GetValueWithDefault(${getDefaultValue(valueType)})
+value := client.EvalFeature(context.Background(), ${JSON.stringify(
+          featureId,
+        )}).Value
 fmt.Println(value)
             `.trim()}
       />
@@ -144,7 +188,7 @@ fmt.Println(value)
         language="ruby"
         code={`
 value = gb.feature_value(${rubySymbol(featureId)}, ${getDefaultValue(
-          valueType
+          valueType,
         )})
 puts(value)
             `.trim()}
@@ -158,7 +202,7 @@ puts(value)
         code={`
 $value = $growthbook->getValue(${JSON.stringify(featureId)}, ${getDefaultValue(
           valueType,
-          "[]"
+          "[]",
         )});
 echo $value;
             `.trim()}
@@ -171,7 +215,7 @@ echo $value;
         language="python"
         code={`
 value = gb.get_feature_value(${JSON.stringify(featureId)}, ${getDefaultValue(
-          valueType
+          valueType,
         )})
 print(value)
             `.trim()}
@@ -184,7 +228,7 @@ print(value)
         language="java"
         code={`
 ${javaType(valueType)} value = growthBook.getFeatureValue(${JSON.stringify(
-          featureId
+          featureId,
         )}, ${javaDefaultValue(valueType)});
             `.trim()}
       />
@@ -207,7 +251,7 @@ Println(feature.value)
         language="csharp"
         code={`
 var value = gb.GetFeatureValue<string>(${JSON.stringify(
-          featureId
+          featureId,
         )}, ${getDefaultValue(valueType)});
 Console.WriteLine(value);
     `.trim()}

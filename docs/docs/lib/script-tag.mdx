@@ -153,7 +153,7 @@ We send the following event to the Data Layer. You will need to add a trigger ba
 }
 ```
 
-We have a walkthrough tutorial on how to configure this in our [GTM Guide](/guide/google-tag-manager-and-growthbook#tracking-via-datalayer-and-gtm)
+We have a walkthrough tutorial on how to configure this in our [GTM Guide](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm)
 
 ### Mixpanel
 
@@ -275,13 +275,13 @@ If your site uses a Content Security Policy, you may need to make a few changes 
 
 First, make sure to add `https://cdn.jsdelivr.net` so the script itself can load. If this isn't possible, you can save the contents of the script and host it on your own domain instead. Just note that doing that means you will no longer get automatic updates when we make improvements to the script tag.
 
-Second, if you plan to use the Visual Editor to inject custom javascript into your site, you need to allow both `usafe-inline` and `unsafe-eval`. If this isn't possible, we have an alternative using nonces (see below).
+Second, if you plan to use the Visual Editor to inject custom javascript into your site, you need to allow both `unsafe-inline` and `unsafe-eval`. If this isn't possible, we have an alternative using nonces (see below).
 
 ### Using Script Nonces
 
 As an alternative to allowing `unsafe-inline`, we support "nonces", although this requires some very technical and custom configuration to hook up. This is only required if you plan to use the Visual Editor to inject custom javascript into your site.
 
-You will still need to allow `usafe-eval` due to how our Visual Editor works under-the-hood.
+You will still need to allow `unsafe-eval` due to how our Visual Editor works under-the-hood.
 
 First, you will need to generate a unique nonce value for every request and add it to your CSP header. This can be done on the edge such as with a Cloudflare Worker.
 

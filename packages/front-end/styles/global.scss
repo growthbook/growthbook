@@ -1,4 +1,5 @@
 @use "colors";
+@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -9,17 +10,17 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-html,
-body,
-#__next,
 main {
-  height: 100%;
+  padding-top: 56px;
 }
 
 body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
+  &.no-scroll {
+    overflow: hidden;
+  }
 }
 
 .text-main {
@@ -30,20 +31,14 @@ body {
   color: var(--text-color-muted) !important;
 }
 
-.dropdown-text-color {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
-}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.wrap-code,
+.wrap-code code {
+  white-space: pre-wrap !important;
 }
 
 #block-menu-container {
@@ -52,11 +47,18 @@ body {
 
 .main {
   padding-left: 240px;
-  padding-top: 60px;
+  &.lite {
+    padding-left: 0;
+  }
 
   &.present {
     padding: 0;
   }
+
+  &.setup {
+    padding-left: 0;
+  }
+
   & > .container-fluid,
   & > .pagecontents {
     padding: 15px;
@@ -75,7 +77,7 @@ pre {
   color: colors.$second-blue;
 }
 .text-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
 }
 .text-indigo {
   color: colors.$indigo;
@@ -88,6 +90,12 @@ pre {
 }
 .text-warning-muted {
   color: var(--alert-warn-color);
+}
+.text-danger-muted {
+  color: var(--alert-danger-color);
+}
+.text-success-green {
+  color: colors.$success;
 }
 .text-gray {
   color: var(--text-color-th);
@@ -106,19 +114,6 @@ pre {
   font-weight: 600;
   &.lg {
     font-size: 13px;
-  }
-}
-
-#feature-page-tabs,
-#experiment-page-tabs {
-  font-size: 1.2em;
-  .active-tab {
-    color: var(--text-color-primary);
-    background: linear-gradient(
-      var(--background-primary-light),
-      var(--background-color)
-    );
-    border-bottom-color: var(--background-color);
   }
 }
 
@@ -171,6 +166,12 @@ pre {
 .mh-50 {
   max-height: 50% !important;
 }
+.mh-250px {
+  max-height: 250px !important;
+}
+.mh-350px {
+  max-height: 350px !important;
+}
 
 // default bootstrap overrides:
 .btn:focus {
@@ -214,6 +215,14 @@ pre {
 .btn-outline-primary:not(:disabled):not(.disabled).selected {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
+}
+.dark-theme .btn-outline-primary {
+  @include button-outline-variant(
+    colors.$highlight-purple-light,
+    #fff,
+    lighten(colors.$highlight-purple, 0%),
+    colors.$highlight-purple
+  );
 }
 .btn-teal {
   @include button-variant(
@@ -261,12 +270,6 @@ pre {
   color: #8fb3a8;
   margin-left: 8px;
   cursor: not-allowed !important;
-  .toggle-switch.teal + label {
-    background: #cfe6de;
-  }
-  .toggle-switch.teal input:checked + label {
-    background: #cfe6de;
-  }
 }
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
@@ -307,6 +310,10 @@ pre {
   }
 }
 
+.opacity50 {
+  opacity: 0.5;
+}
+
 .experiment-row-tooltip-wrapper {
   z-index: 820;
   &.tooltip-animate-appear .experiment-row-tooltip {
@@ -331,10 +338,6 @@ pre {
   color: var(--text-color-table);
   pointer-events: all;
   transition: 250ms all;
-
-  .opacity50 {
-    opacity: 0.5;
-  }
 
   .arrow {
     position: absolute;
@@ -381,7 +384,7 @@ pre {
       font-size: 14px;
       font-weight: bold;
       &.won {
-        background-color: #09ac17;
+        background-color: #09ac68;
         color: #fff;
       }
       &.lost {
@@ -475,6 +478,12 @@ pre {
         }
         border-color: #17a2b888 !important;
       }
+      .flagged-no-scaled-impact {
+        .main-text {
+          color: #17a2b8;
+        }
+        border-color: #17a2b888 !important;
+      }
       .ok {
         color: #55ab95;
         border-color: #55ab9588 !important;
@@ -535,14 +544,23 @@ pre {
   }
 }
 
-.main.experiment {
+.main.experiment,
+.main.bandit,
+.main.holdout,
+.public.experiment,
+.public.bandit,
+.public.holdout {
   .experiment-header {
-    margin: -4px -8px 0;
+    .border {
+      border-bottom: 1px solid var(--border-color-200);
+    }
   }
   .experiment-tabs {
+    background-color: var(--color-background);
+    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // also, make sure shared reports & shared experiments look good
     top: 55px;
-    height: 44px;
-    margin: 0 -8px -3px;
+    height: 40px;
     transition: 150ms all;
     .header-tabs {
       flex-wrap: nowrap;
@@ -564,6 +582,11 @@ pre {
         }
       }
       .experiment-date-range {
+        position: absolute;
+        right: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
         text-align: right;
         font-size: 12px;
         @media (max-width: 750px) {
@@ -580,15 +603,41 @@ pre {
     }
     &.pinned {
       position: sticky;
-      z-index: 830;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      z-index: 930;
+      // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
+      .rt-BaseTabList {
+        box-shadow: none !important;
+      }
+    }
+  }
+  .analysis-settings-top {
+    background-color: var(--color-panel-translucent);
+  }
+}
+.tabwrap.sticky {
+  position: sticky;
+  z-index: 830;
+
+  &.pinned {
+    background-color: var(--color-surface-solid);
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
+    .header-tabs .tab-wrapper {
+      overflow: hidden;
+    }
+    .rt-BaseTabList {
+      box-shadow: none !important;
     }
   }
 }
-
 .analysis-settings-bar {
   .col,
   .col-auto {
@@ -596,37 +645,70 @@ pre {
   }
 }
 
-.dimension-header-label {
+.slice-header-label {
   margin-top: 30px;
   padding: 0 10px;
 }
 
-.experiment-results-wrapper {
+.experiment-results-wrapper,
+.bandit-summary-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;
   }
 }
 
-.experiment-results {
+.experiment-results,
+.bandit-summary-results {
   tbody {
-    tr:not(.noborder) {
-      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
-      &:not(.results-label-row) {
-        td:not(.graph-cell):not(:last-child) {
-          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+    &.slice-row {
+      background-color: var(--slate-a2);
+    }
+    tr {
+      &:not(.slice-header-row) {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+      }
+
+      &.slice-collapsed {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.last-slice-header {
+          box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
         }
+      }
+      &.slice-expanded {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &.last-before-slice-header {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+      }
+
+      &:not(.results-label-row):not(.slice-header-row) {
+        td:not(.graph-cell):not(:last-child) {
+          box-shadow: rgba(102, 102, 102, 0.05) -1px 0 inset;
+        }
+      }
+
+      td:first-of-type {
+        padding-left: var(--space-1);
       }
     }
   }
 
   table-layout: fixed;
   width: 100%;
+
   th,
   td {
     padding: 0 10px;
   }
+
   th {
     vertical-align: bottom;
+
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
@@ -635,24 +717,30 @@ pre {
           position: static;
         }
       }
-      background-color: var(--surface-background-color);
+      background-color: var(--color-panel-solid);
       z-index: 800;
-      box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      box-shadow: 0 -1px 0 var(--slate-9) inset;
 
       &.graph-cell {
         z-index: 801;
       }
+
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
       }
+
       &.label {
-        color: var(--text-link-hover-color);
+        color: var(--color-text-mid);
         font-size: 13px;
         padding-bottom: 5px;
       }
     }
   }
+}
+.experiment-results,
+.bandit-summary-results,
+.impact-results {
   .value,
   .chance,
   .change {
@@ -672,10 +760,9 @@ pre {
     font-size: 14px;
   }
   .result-number-sub {
-    font-size: 12px;
-    font-style: italic;
-    line-height: 14px;
-    margin-top: 3px;
+    font-size: 11px;
+    line-height: 13px;
+    margin-top: 2px;
   }
   .plusminus {
     font-size: 12px;
@@ -700,23 +787,25 @@ pre {
     }
   }
   .won {
-    color: #09ac17;
+    color: var(--jade-11);
     font-weight: bold;
 
     &.results-ctw,
-    &.results-pval {
+    &.results-pval,
+    &.results-mean {
       color: var(--alert-success-color);
-      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+      background: var(--jade-a3); //rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
-    color: #ce3729;
+    color: var(--red-11); //#bb1f37;
     font-weight: bold;
 
     &.results-ctw,
-    &.results-pval {
+    &.results-pval,
+    &.results-mean {
       color: var(--alert-danger-color);
-      background: linear-gradient(-40deg, #ce372930, #ce372916);
+      background: var(--red-a3); //#ce372930;
     }
   }
   //&.draw {
@@ -737,12 +826,20 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 50px;
-      }
+main.main {
+  &.report {
+    .experiment-results th.axis-col {
+      top: 55px;
+    }
+  }
+  &.public.experiment {
+    .experiment-results th.axis-col {
+      top: 95px;
+    }
+  }
+  .select-dropdown-underline {
+    .gb-select__control {
+      background-color: inherit !important;
     }
   }
 }
@@ -820,6 +917,10 @@ main.main.report {
   background-color: var(--table-row-highlight-background-color);
 }
 
+.webhook-filters .select-all .gb-multi-select__control {
+  background-color: var(--table-row-highlight-background-color) !important;
+}
+
 .experiment-switch-page {
   opacity: 0.6;
   transition: opacity 0.2s;
@@ -842,10 +943,16 @@ main.main.report {
     }
   }
 }
+.dark-theme .bg-white textarea.form-control,
+.dark-theme .tab-content input.form-control {
+  background-color: var(--black-a3);
+}
 
 .hover-show {
   .show-target {
-    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    &:not(.instant) {
+      transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    }
     opacity: 0;
   }
   &:hover {
@@ -858,7 +965,7 @@ main.main.report {
   opacity: 0.5;
   transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
   &:hover {
-    opacity: 1;
+    opacity: 1 !important;
   }
 }
 .hover-underline {
@@ -872,33 +979,42 @@ main.main.report {
     text-decoration: none !important;
   }
 }
+.underline {
+  text-decoration: underline;
+}
 
 .link-purple {
-  color: colors.$highlight-purple;
-  text-decoration: none;
+  color: var(--violet-a11);
+  text-decoration: var(--violet-a5);
   &:hover {
-    color: lighten(colors.$highlight-purple, 5%);
+    color: var(--violet-a10);
     text-decoration: underline;
   }
 }
 
 .modal {
   .modal-header {
-    background-color: var(--surface-background-color-alt);
+    background-color: var(--slate-a2);
   }
   .rbt-token {
     background-color: rgba(colors.$highlight-purple, 0.1);
     color: colors.$highlight-purple;
     font-weight: 600;
   }
+  .modal-footer.sticky-footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: var(--surface-background-color-alt);
+  }
 }
 .modal-dialog.modal-fill {
   margin: 0 auto;
 }
 .gbtable {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid); //var(--surface-background-color);
   margin-bottom: 0;
-
   thead {
     th {
       font-size: 11px;
@@ -907,16 +1023,62 @@ main.main.report {
       color: var(--text-color-th);
       white-space: nowrap;
       border-bottom-width: 1px;
+      border-bottom-color: var(--border-color-200);
       border-top: 0;
-
+      background-color: rgba(colors.$gray4, 0.05);
       .activesort,
       .inactivesort {
         font-size: 13px;
       }
     }
+    &.sticky-top th {
+      background-color: #fdfefe;
+    }
   }
   td {
     vertical-align: middle;
+  }
+
+  .dark-theme &.decision-criteria-table {
+    tbody {
+      tr {
+        background-color: #1b2339;
+        td {
+          color: var(--text-color-main);
+        }
+      }
+    }
+    .hover-highlight:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
+}
+.dark-theme .gbtable {
+  thead {
+    th {
+      background-color: #262d42;
+    }
+  }
+  td {
+    vertical-align: middle;
+  }
+}
+
+.query-table {
+  thead {
+    th {
+      background-color: var(--slate-2);
+    }
+  }
+}
+
+.dark-theme .query-table {
+  thead {
+    th {
+      // hard coded to match slate-a2 on the background color
+      // opaque to prevent table header from showing through
+      background-color: rgba(36, 43, 61, 1);
+    }
   }
 }
 
@@ -1080,6 +1242,28 @@ main.main.report {
     border-color: var(--border-color-300);
   }
 }
+.dark-theme .buttontabs {
+  .nav-button-item {
+    &.active {
+      color: colors.$highlight-purple-light;
+      background-color: rgba(colors.$highlight-purple, 0.35);
+      border: 1px solid rgba(colors.$highlight-purple-light, 0.5);
+      font-weight: bold;
+    }
+  }
+}
+.dropdown-circle {
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 1);
+  padding: 7px 9px;
+}
+.dark-theme .dropdown-circle {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.shiftdown-1 {
+  position: relative;
+  top: 1px;
+}
 .paged-modal-default {
   justify-content: space-between;
   flex-wrap: wrap;
@@ -1095,7 +1279,6 @@ main.main.report {
 
     .step-number {
       display: inline-block;
-      color: colors.$highlight-purple;
       text-align: center;
       margin: 0 4px;
       background-color: rgba(colors.$highlight-purple, 0.15);
@@ -1104,18 +1287,15 @@ main.main.report {
       line-height: 24px;
     }
     &.active {
-      a {
-        color: colors.$highlight-purple;
-      }
       .step-number {
-        background-color: colors.$highlight-purple;
-        color: colors.$white;
+        background-color: var(--step-color);
+        color: var(--text-color-on-bright);
       }
     }
     &.completed {
       .step-number {
-        background-color: colors.$highlight-purple;
-        color: colors.$white;
+        background-color: var(--step-completed-background);
+        color: var(--step-completed-color);
       }
     }
   }
@@ -1129,8 +1309,11 @@ main.main.report {
         content: "";
         display: inline-block;
         width: 100%;
-        border-bottom: 1px dashed colors.$purple-tint;
+        border-bottom: 1px dashed var(--step-color);
         height: 1px;
+      }
+      &.completed:not(:last-of-type)::after {
+        border-bottom: 1px solid var(--step-color);
       }
       &:last-of-type {
         width: auto !important;
@@ -1138,15 +1321,14 @@ main.main.report {
     }
   }
 }
-@media only screen and (min-width: 992px) {
-  .paged-modal-default {
-    padding: 0 40px;
-  }
-}
 .modal {
-  label {
-    color: var(--text-color-muted);
-    font-weight: 500;
+  label:not(.rt-Text) {
+    color: var(--text-color-main);
+    font-weight: 600;
+    strong,
+    b {
+      font-weight: 800;
+    }
   }
 }
 
@@ -1171,13 +1353,23 @@ main.main.report {
   }
 }
 
+.box,
 .appbox {
-  background-color: var(--surface-background-color);
-  border: 1px solid var(--border-color-100);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--slate-a3);
   margin-bottom: 1em;
   border-radius: 5px;
-  overflow-x: auto;
+  .appbox {
+    overflow-x: auto;
+    border: 1px solid var(--slate-a4);
+  }
 
+  &.nobg {
+    background-color: initial;
+    .appbox {
+      background-color: var(--color-panel-solid);
+    }
+  }
   td {
     vertical-align: middle;
   }
@@ -1197,11 +1389,18 @@ main.main.report {
     }
   }
 }
+.dark-theme .appbox:not(.nobg) .appbox,
+.dark-theme .box:not(.nobg) .appbox {
+  background-color: var(--white-a1);
+}
 
 .appbox--align-top {
   td {
     vertical-align: top;
   }
+}
+.tabbed-content {
+  border-top-left-radius: 0;
 }
 
 .flex-1 {
@@ -1221,10 +1420,15 @@ main.main.report {
   opacity: 0.5;
 }
 
+// Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
+.Collapsible__contentInner {
+  border: 1px solid transparent;
+}
+
 .Collapsible__trigger {
   &:hover {
     cursor: pointer;
-    color: var(--text-link-color);
+    //color: var(--text-link-color);
     .hover-label {
       color: var(--text-link-color) !important;
     }
@@ -1286,6 +1490,10 @@ main.main.report {
   font-size: 13px;
   text-transform: initial;
   font-weight: normal;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -1296,7 +1504,7 @@ main.main.report {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--surface-background-color);
+      background-color: var(--slate-1);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1306,10 +1514,20 @@ main.main.report {
   }
 
   .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
+    color: var(--slate-12);
+    background-color: var(--slate-1);
     padding: 15px;
     border-radius: 5px;
+
+    .text-muted {
+      color: var(--slate-a11) !important;
+    }
+    *:last-child {
+      margin-bottom: 0;
+    }
+    .gbtable {
+      background-color: var(--surface-background-color);
+    }
   }
 
   .premium {
@@ -1317,6 +1535,14 @@ main.main.report {
     color: var(--text-color-premium);
   }
 
+  &.tooltip-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+  &.tooltip-hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
   &[data-popper-placement^="top"] > .arrow {
     bottom: -4px;
     margin-left: -4px;
@@ -1339,7 +1565,7 @@ main.main.report {
 }
 
 .nav-link {
-  padding: 0.3rem 0.8rem;
+  padding: 0.3rem 1.2rem;
   @media (max-width: 520px) {
     padding: 0.3rem 0.4rem;
   }
@@ -1408,7 +1634,7 @@ main.main.report {
       max-width: 500px;
 
       label {
-        color: var(--form-input-group-color);
+        color: var(--color-text-high);
       }
     }
   }
@@ -1474,82 +1700,6 @@ main.main.report {
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
     border: 1px inset var(--border-color-300);
-  }
-}
-
-.toggle-switch {
-  display: inline-block;
-  margin-right: 5px;
-  vertical-align: middle;
-  height: 25px;
-  width: 50px;
-  position: relative;
-
-  input[type="checkbox"] {
-    height: 0;
-    width: 0;
-    visibility: hidden;
-  }
-
-  label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    cursor: pointer;
-    text-indent: -9999px;
-    width: 50px;
-    height: 25px;
-    background: var(--form-switch-background);
-    display: block;
-    border-radius: 100px;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  label:after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 21px;
-    height: 21px;
-    background: var(--surface-background-color);
-    border-radius: 90px;
-    transition: 0.3s;
-  }
-
-  input:checked + label:after {
-    left: calc(100% - 2px);
-    transform: translateX(-100%);
-  }
-
-  input:checked + label {
-    background: var(--form-switch-background-active);
-  }
-  &.toggle-featureValue input:checked + label {
-    background: colors.$blue;
-  }
-
-  label:active:after {
-    width: 30px;
-  }
-
-  &.disabled {
-    label {
-      cursor: not-allowed;
-    }
-    label:active:after {
-      width: 21px;
-    }
-  }
-
-  &.teal {
-    label {
-      background: #cfe6de;
-    }
-    input:checked + label {
-      background: colors.$teal;
-    }
   }
 }
 
@@ -1805,8 +1955,8 @@ main.main.report {
 .table-tiny {
   th,
   td {
-    font-size: 10px;
-    padding: 0.15rem 0.35rem;
+    font-size: 12px;
+    padding: 0.15rem 0.5rem;
   }
 }
 
@@ -1838,6 +1988,15 @@ main.main.report {
     transparent 100%
   );
 }
+.fade-mask-vertical-1rem {
+  mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
 .w100-1rem {
   width: calc(100% - 2rem);
 }
@@ -1846,126 +2005,90 @@ main.main.report {
 }
 
 .variation {
+  $colors:
+    colors.$variant-0, colors.$variant-1, colors.$variant-2, colors.$variant-3,
+    colors.$variant-4, colors.$variant-5, colors.$variant-6, colors.$variant-7,
+    colors.$variant-8;
+
   &.with-variation-label {
     .label {
       display: inline-flex;
+      flex-shrink: 0;
       align-items: center;
       justify-content: center;
       width: 24px;
       height: 24px;
-      color: colors.$variant-null;
+      line-height: 24px;
+      color: var(--slate-11);
       font-weight: 600;
-      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
+      border: 1.5px solid var(--slate-a11);
       border-radius: 20px;
-      margin-right: 4px;
+      margin-right: var(--space-2);
     }
+
     .name {
-      color: colors.$variant-null;
+      color: var(--slate-11);
       margin-right: 4px;
     }
 
-    &.variation0,
-    &.variation4 {
-      .label {
-        border-color: transparentize(colors.$variant-0, 0.35);
-        color: colors.$variant-0;
-      }
-      .name {
-        color: colors.$variant-0;
-      }
-    }
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        .label {
+          border-color: $color;
+          color: $color;
+        }
 
-    &.variation1,
-    &.variation5 {
-      .label {
-        border-color: transparentize(colors.$variant-1, 0.35);
-        color: colors.$variant-1;
+        .name {
+          color: $color;
+        }
       }
-      .name {
-        color: colors.$variant-1;
-      }
-    }
-
-    &.variation2,
-    &.variation6 {
-      .label {
-        border-color: transparentize(colors.$variant-2, 0.35);
-        color: colors.$variant-2;
-      }
-      .name {
-        color: colors.$variant-2;
-      }
-    }
-
-    &.variation3,
-    &.variation7 {
-      .label {
-        border-color: transparentize(colors.$variant-3, 0.35);
-        color: colors.$variant-3;
-      }
-      .name {
-        color: colors.$variant-3;
-      }
-    }
-  }
-
-  &.with-variation-fill {
-    background: colors.$variant-null;
-    &.variation0,
-    &.variation4 {
-      background: colors.$variant-0;
-    }
-    &.variation1,
-    &.variation5 {
-      background: colors.$variant-1;
-    }
-    &.variation2,
-    &.variation6 {
-      background: colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      background: colors.$variant-3;
     }
   }
 
   &.with-variation-border-bottom {
-    border-bottom: 7px solid colors.$variant-null;
-    &.variation0,
-    &.variation4 {
-      border-bottom: 7px solid colors.$variant-0;
+    border-bottom: 7px solid var(--slate-11);
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        border-bottom: 7px solid $color;
+      }
     }
-    &.variation1,
-    &.variation5 {
-      border-bottom: 7px solid colors.$variant-1;
+  }
+  &.with-small-border {
+    border-top: 4px solid var(--slate-11);
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        border-top: 4px solid $color;
+      }
     }
-    &.variation2,
-    &.variation6 {
-      border-bottom: 7px solid colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      border-bottom: 7px solid colors.$variant-3;
+  }
+  &.with-variation-color {
+    background-color: var(--slate-11);
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        background-color: $color;
+      }
     }
   }
 
   &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 colors.$variant-null inset;
-    &.variation0,
-    &.variation4 {
-      box-shadow: -3px 0 0 colors.$variant-0 inset;
-    }
-    &.variation1,
-    &.variation5 {
-      box-shadow: -3px 0 0 colors.$variant-1 inset;
-    }
-    &.variation2,
-    &.variation6 {
-      box-shadow: -3px 0 0 colors.$variant-2 inset;
-    }
-    &.variation3,
-    &.variation7 {
-      box-shadow: -3px 0 0 colors.$variant-3 inset;
+    box-shadow: -3px 0 0 var(--slate-11) inset;
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        box-shadow: -3px 0 0 $color inset;
+      }
     }
   }
 }
@@ -2213,7 +2336,6 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
-
     &:hover {
       text-decoration: none;
     }
@@ -2266,10 +2388,10 @@ li.metrics a span img {
 .experiment-details,
 .metric {
   .tab-content {
-    background-color: var(--surface-background-color);
+    //background-color: var(--surface-background-color);
     padding: 1rem;
     &:not(.noborder) {
-      border: 1px solid var(--border-color-300);
+      border: 1px solid var(--border-color-200);
     }
   }
 
@@ -2543,9 +2665,6 @@ html {
     fill: var(--text-color-muted);
   }
 }
-.cursor-pointer {
-  cursor: pointer;
-}
 .bg-impact {
   background-color: colors.$bg-impact;
 }
@@ -2586,7 +2705,8 @@ html {
     font-size: 10px;
   }
 }
-.select-dropdown-underline {
+.select-dropdown-underline,
+.select-dropdown-no-underline {
   position: relative !important;
   top: 1px !important;
 
@@ -2597,6 +2717,7 @@ html {
     height: 24px !important;
     min-height: initial !important;
     cursor: pointer !important;
+    background-color: inherit !important;
     .gb-select__value-container {
       position: relative !important;
       top: -1px !important;
@@ -2657,7 +2778,20 @@ html {
     }
   }
 }
+.select-dropdown-no-underline {
+  .gb-select__control {
+    border-bottom: 0 transparent !important;
+
+    &:hover {
+      border-bottom: 0 transparent !important;
+    }
+  }
+}
+
 .phase-selector {
+  .gb-select__control {
+    background-color: transparent !important;
+  }
   .gb-select__single-value {
     .phase-selector-select-option {
       display: none;
@@ -2667,6 +2801,22 @@ html {
     .phase-selector-with-tooltip {
       display: none;
     }
+  }
+  &.align-right {
+    .gb-select__menu-portal {
+      .gb-select__menu {
+        right: 0;
+      }
+    }
+  }
+}
+.select-unfixed {
+  position: relative;
+  .gb-select__menu-portal {
+    position: absolute !important;
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 .multiselect-unfixed {
@@ -2683,7 +2833,8 @@ html {
   }
 }
 
-#modal {
+#modal,
+#portal-root {
   position: relative;
   z-index: 999999;
 }
@@ -2769,11 +2920,8 @@ html {
     }
   }
   .secondary-box {
-    background: linear-gradient(
-        0deg,
-        rgba(124, 69, 234, 0.06),
-        rgba(124, 69, 234, 0.06)
-      ),
+    background:
+      linear-gradient(0deg, rgba(124, 69, 234, 0.06), rgba(124, 69, 234, 0.06)),
       #ffffff;
     box-shadow: 0px 1px 3px rgba(23, 18, 33, 0.08);
     border-radius: 3px;
@@ -2942,7 +3090,8 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 var(--border-color-300),
+  box-shadow:
+    0 4px 8px 0 var(--border-color-300),
     0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {
@@ -3073,11 +3222,23 @@ td.disabled {
 .gb-select-wrapper.disabled {
   cursor: not-allowed;
 }
-.gb-select--is-disabled {
-  .gb-select__control {
-    background-color: var(--disabled-background) !important;
+.gb-select-wrapper.error .gb-select__control,
+.form-group.error .gb-multi-select__control,
+.form-group.error input[type="text"] {
+  border-color: colors.$danger !important;
+}
+.gb-select-wrapper.warning .gb-select__control {
+  border-color: var(--amber-11) !important;
+}
+
+.gb-select--is-disabled,
+.gb-multi-select--is-disabled {
+  .gb-select__control,
+  .gb-multi-select__control {
+    background-color: var(--slate-a2) !important;
   }
-  .gb-select__single-value {
+  .gb-select__single-value,
+  .gb-multi-select__single-value {
     color: var(--text-color-muted) !important;
   }
 }
@@ -3105,9 +3266,14 @@ td.disabled {
     }
   }
 }
+.form-control:focus {
+  border-color: var(--border-color-200);
+  box-shadow: 0px 0px 0px 1px var(--violet-8);
+}
 .form-control:disabled {
   cursor: not-allowed;
-  background-color: var(--disabled-background) !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--slate-a3) !important;
 }
 input:disabled {
   cursor: not-allowed;
@@ -3148,6 +3314,21 @@ input:disabled {
   background: linear-gradient(to top, #c0d6e6, #d5ebf0);
   .btn-link {
     color: #007bff;
+  }
+}
+
+.btn-group-card {
+  .btn {
+    color: var(--text-color-main);
+    box-sizing: border-box;
+    border-color: var(--border-color-100);
+    background-color: var(--surface-background-color);
+    &.active {
+      border-color: var(--text-color-primary);
+    }
+    &:hover {
+      background-color: rgba(154, 110, 248, 0.1);
+    }
   }
 }
 
@@ -3194,7 +3375,7 @@ input:disabled {
   width: 100%;
 }
 .tags-container {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -3231,8 +3412,9 @@ input:disabled {
 @import "./components/demo-datasource-banner";
 
 .main.features {
-  .features-header {
-    margin: -4px -8px 0;
+  .featurename {
+    font-weight: 400;
+    color: var(--text-color-main);
   }
 }
 .approval-flow-accepted {
@@ -3273,4 +3455,244 @@ input:disabled {
 .table-column-fit-width {
   width: 1px;
   white-space: nowrap;
+}
+
+.round-text-background {
+  display: inline-block;
+  background-color: var(--table-row-highlight-background-color);
+  border-radius: 24px;
+  height: 24px;
+  line-height: 24px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.text-color-primary {
+  color: var(--text-color-primary);
+}
+
+.custom-file {
+  height: 2.625rem;
+}
+
+.custom-file-input {
+  height: 2.625rem;
+}
+
+.custom-file-label {
+  background-color: var(--color-surface);
+  display: flex;
+  align-items: center;
+  height: 2.625rem;
+  border-color: var(--border-color-300);
+
+  &::after {
+    display: flex;
+    height: calc(100% - 8px);
+    align-items: center;
+    background-color: var(--file-picker-browse);
+    color: var(--text-color-on-bright);
+    margin: 4px;
+    border-radius: 4px;
+    border: none;
+  }
+
+  &.remove-file {
+    &::after {
+      background: none;
+      color: colors.$danger;
+      font-size: 0.8rem;
+    }
+  }
+}
+
+.lh-full {
+  line-height: 100%;
+}
+
+.disabled-opacity {
+  opacity: 0.65;
+}
+
+// CSS style alternative to <TabsTrigger> for when a custom container is necessary
+.tab-trigger-container {
+  position: relative !important;
+  &.active::before {
+    box-sizing: border-box;
+    content: "";
+    height: 2px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--accent-indicator);
+  }
+}
+
+// Ace Editor theme overrides
+.ace_editor {
+  background-color: var(--color-background) !important;
+}
+.ace_editor .ace_gutter {
+  background: var(--color-panel-solid) !important;
+}
+.ace_editor.ace_autocomplete {
+  width: 500px !important;
+  background-color: var(--color-surface-solid) !important;
+}
+
+/* Radix-style pagination for ReactPaginate */
+.pagination-radix-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0;
+  margin: 0;
+  flex-direction: row;
+}
+.pagination-radix-container li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+.pagination-page {
+  margin: 0;
+}
+.pagination-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-active .pagination-link {
+  background: var(--violet-9);
+  color: white;
+  font-weight: 600;
+}
+.pagination-active .pagination-link:hover {
+  background: var(--violet-10);
+}
+.pagination-arrow-container {
+  margin: 0;
+}
+.pagination-link-arrow {
+  display: flex;
+  align-items: left;
+  justify-content: left;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link-arrow:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-disabled .pagination-link-arrow {
+  color: var(--gray-6);
+  cursor: not-allowed;
+}
+.pagination-disabled .pagination-link-arrow:hover {
+  background: transparent;
+  color: var(--gray-6);
+}
+.pagination-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--gray-9);
+  font-size: 14px;
+}
+.pagination-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-area-radix {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.needs-attentions-table {
+  thead th {
+    font-weight: 600;
+  }
+  tbody td {
+    font-weight: 400;
+  }
+}
+.rounded-table {
+  border-radius: 0.33rem;
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--slate-a6);
+}
+.border-violet {
+  border-color: var(--violet-a7);
+}
+
+.dashboard-disabled {
+  opacity: 50%;
+  pointer-events: none;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.hover-border-violet {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0);
+  border-radius: 2px;
+  &:hover {
+    border-color: var(--violet-11);
+  }
+}
+
+// For absolute or fixed containers that should position themselves after the sidebar
+.sidebarLeft {
+  left: variables.$sidebarwidth;
+}
+// Conditionally add these classes based on the SidebarOpenProvider
+@media (max-width: 1180px) {
+  .sidebarLeftOpen {
+    left: variables.$sidebarwidth !important;
+  }
+  .sidebarLeftClosed {
+    left: 0 !important;
+  }
 }

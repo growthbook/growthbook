@@ -3,12 +3,9 @@ import {
   FeatureRule,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import {
-  OrganizationSettings,
-  RequireReview,
-} from "back-end/types/organization";
+} from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   validateFeatureValue,
   getValidation,
@@ -274,7 +271,7 @@ describe("autoMerge", () => {
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
-      })
+      }),
     ).toEqual({
       success: false,
       conflicts: [
@@ -292,7 +289,7 @@ describe("autoMerge", () => {
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "discard",
-      })
+      }),
     ).toEqual({
       success: true,
       conflicts: [
@@ -316,7 +313,7 @@ describe("autoMerge", () => {
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "overwrite",
-      })
+      }),
     ).toEqual({
       success: true,
       conflicts: [
@@ -341,7 +338,7 @@ describe("autoMerge", () => {
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "overwrite",
         defaultValue: "overwrite",
-      })
+      }),
     ).toEqual({
       success: true,
       conflicts: [
@@ -461,7 +458,7 @@ describe("simpleToJSONSchema", () => {
       type: "primitive",
     };
     expect(JSON.parse(simpleToJSONSchema(primitiveSchema))).toEqual(
-      expectedProperties.a_string
+      expectedProperties.a_string,
     );
   });
   it("converts array of primitives", () => {
@@ -478,7 +475,7 @@ describe("simpleToJSONSchema", () => {
   it("throws an error if type is invalid", () => {
     const invalidSchema = { ...simpleSchema, type: "invalid" };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Invalid simple schema type");
   });
 
@@ -500,7 +497,7 @@ describe("simpleToJSONSchema", () => {
       ],
     };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Invalid min or max for field invalid");
   });
 
@@ -522,7 +519,7 @@ describe("simpleToJSONSchema", () => {
       ],
     };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Invalid min or max for field invalid");
   });
 
@@ -544,7 +541,7 @@ describe("simpleToJSONSchema", () => {
       ],
     };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Invalid min or max for field invalid");
   });
 
@@ -566,14 +563,14 @@ describe("simpleToJSONSchema", () => {
       ],
     };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Value '0.25' not in enum for field invalid");
   });
 
   it("throws if fields are empty", () => {
     const invalidSchema = { ...simpleSchema, fields: [] };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Schema must have at least 1 field");
   });
 
@@ -595,7 +592,7 @@ describe("simpleToJSONSchema", () => {
       ],
     };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Value '100' is greater than max value for field invalid");
   });
 
@@ -627,7 +624,7 @@ describe("simpleToJSONSchema", () => {
         },
         required: ["a_string", "a_float", "valid"],
         additionalProperties: false,
-      }
+      },
     );
   });
 
@@ -649,7 +646,7 @@ describe("simpleToJSONSchema", () => {
       ],
     };
     expect(() =>
-      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
+      JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema)),
     ).toThrowError("Value '0.5' is not an integer for field invalid");
   });
 });
@@ -763,7 +760,7 @@ describe("inferSchemaField", () => {
         default: "",
         min: 0,
         max: 256,
-      })
+      }),
     ).toEqual({
       type: "string",
       key: "h",
@@ -786,7 +783,7 @@ describe("inferSchemaField", () => {
         default: "",
         min: -999,
         max: 999,
-      })
+      }),
     ).toEqual({
       type: "integer",
       key: "",
@@ -811,7 +808,7 @@ describe("inferSchemaField", () => {
         default: "",
         min: 0,
         max: 999,
-      })
+      }),
     ).toEqual({
       type: "float",
       key: "",
@@ -834,7 +831,7 @@ describe("inferSchemaField", () => {
         default: "",
         min: 0,
         max: 999,
-      })
+      }),
     ).toEqual({
       type: "float",
       key: "",
@@ -859,14 +856,14 @@ describe("inferSchemaField", () => {
         default: "",
         min: 0,
         max: 999,
-      })
+      }),
     ).toThrowError("Conflicting types");
   });
 
   it("throws when an unknown type is encountered", () => {
     // Try to infer type of an object (only primitives are supported)
     expect(() => inferSchemaField({ a: 1 }, "")).toThrowError(
-      "Invalid value type: object"
+      "Invalid value type: object",
     );
   });
 
@@ -911,11 +908,11 @@ describe("inferSchemaFields", () => {
     };
     const existing_float_schema = inferSchemaField(
       256.1,
-      "a_float"
+      "a_float",
     ) as SchemaField;
     const existing_str_schema = inferSchemaField(
       "test",
-      "a_string"
+      "a_string",
     ) as SchemaField;
     const existing = new Map([
       ["a_float", structuredClone(existing_float_schema)],
@@ -995,15 +992,15 @@ describe("inferSimpleSchemaFromValue", () => {
   });
   it("Inferes a primitive array", () => {
     expect(
-      inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"]))
+      inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"])),
     ).toEqual({
       type: "primitive[]",
       fields: [inferSchemaField("test", "")],
     });
     expect(
       inferSimpleSchemaFromValue(
-        JSON.stringify([null, null, 123, 456, 1000, 26.5, -50])
-      )
+        JSON.stringify([null, null, 123, 456, 1000, 26.5, -50]),
+      ),
     ).toEqual({
       type: "primitive[]",
       fields: [{ ...inferSchemaField(1000, ""), min: -999, type: "float" }],
@@ -1015,7 +1012,7 @@ describe("inferSimpleSchemaFromValue", () => {
   });
   it("Returns generic schema when primitive array values are mixed", () => {
     expect(
-      inferSimpleSchemaFromValue(JSON.stringify(["test", 123, false]))
+      inferSimpleSchemaFromValue(JSON.stringify(["test", 123, false])),
     ).toEqual({
       type: "object",
       fields: [],
@@ -1023,7 +1020,7 @@ describe("inferSimpleSchemaFromValue", () => {
   });
   it("Infers an object", () => {
     expect(
-      inferSimpleSchemaFromValue(JSON.stringify({ a: "test", b: 123 }))
+      inferSimpleSchemaFromValue(JSON.stringify({ a: "test", b: 123 })),
     ).toEqual({
       type: "object",
       fields: [inferSchemaField("test", "a"), inferSchemaField(123, "b")],
@@ -1036,8 +1033,8 @@ describe("inferSimpleSchemaFromValue", () => {
           { a: null, b: 123.5 },
           { a: "test2", b: 1000 },
           { b: -50, c: true },
-        ])
-      )
+        ]),
+      ),
     ).toEqual({
       type: "object[]",
       fields: [
@@ -1050,8 +1047,8 @@ describe("inferSimpleSchemaFromValue", () => {
   it("Returns generic schema when value has too much nesting", () => {
     expect(
       inferSimpleSchemaFromValue(
-        JSON.stringify({ a: { b: { c: { d: { e: "test" } } } } })
-      )
+        JSON.stringify({ a: { b: { c: { d: { e: "test" } } } } }),
+      ),
     ).toEqual({
       type: "object",
       fields: [],
@@ -1210,7 +1207,7 @@ describe("validateFeatureValue", () => {
     });
     it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
-        "false"
+        "false",
       );
     });
   });
@@ -1228,7 +1225,7 @@ describe("validateFeatureValue", () => {
     it("throws an error if value is not a valid number", () => {
       const value = "not-a-number";
       expect(() =>
-        validateFeatureValue(feature, value, "testVal")
+        validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
     });
   });
@@ -1246,18 +1243,18 @@ describe("validateFeatureValue", () => {
     it('parses json that is "slightly" invalid', () => {
       let value = "{ technically: 'not valid' }";
       expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        '{"technically": "not valid"}'
+        '{"technically": "not valid"}',
       );
       value = "this is not jsonbruv";
       expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        `"${value}"`
+        `"${value}"`,
       );
     });
 
     it("throws an error with invalid json", () => {
       const value = "{ not-an-object }";
       expect(() =>
-        validateFeatureValue(feature, value, "testVal")
+        validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
     });
   });
@@ -1306,6 +1303,57 @@ describe("validateCondition", () => {
   });
   it("returns success when condition is valid", () => {
     expect(validateCondition('{"test": true}')).toEqual({
+      success: true,
+      empty: false,
+    });
+  });
+  it("returns error when condition has unknown nested saved group id", () => {
+    expect(
+      validateCondition(
+        JSON.stringify({
+          foo: "bar",
+          $savedGroups: ["a"],
+        }),
+        new Map([
+          [
+            "known-group-id",
+            {
+              id: "known-group-id",
+              type: "condition",
+              condition: JSON.stringify({
+                bar: "baz",
+              }),
+            },
+          ],
+        ]),
+      ),
+    ).toEqual({
+      success: false,
+      empty: false,
+      error: "Condition includes invalid or cyclic saved group reference",
+    });
+  });
+  it("returns success when condition has known nested saved group id", () => {
+    expect(
+      validateCondition(
+        JSON.stringify({
+          foo: "bar",
+          $savedGroups: ["known-group-id"],
+        }),
+        new Map([
+          [
+            "known-group-id",
+            {
+              id: "known-group-id",
+              type: "condition",
+              condition: JSON.stringify({
+                bar: "baz",
+              }),
+            },
+          ],
+        ]),
+      ),
+    ).toEqual({
       success: true,
       empty: false,
     });
@@ -1365,7 +1413,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(true);
   });
   it("should not require review", () => {
@@ -1386,7 +1434,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(false);
   });
 
@@ -1420,7 +1468,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(true);
   });
   it("should not require review with multi rules", () => {
@@ -1453,7 +1501,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(false);
   });
   it("legacy rules", () => {
@@ -1467,7 +1515,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(true);
     settings.requireReviews = false;
     expect(
@@ -1477,7 +1525,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(false);
   });
 });
@@ -1510,7 +1558,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -1518,7 +1566,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(true);
     expect(
       resetReviewOnChange({
@@ -1526,7 +1574,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -1534,7 +1582,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
   });
 
@@ -1577,7 +1625,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -1585,7 +1633,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(true);
     expect(
       resetReviewOnChange({
@@ -1593,7 +1641,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -1601,7 +1649,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
   });
   it("turn off for first project", () => {
@@ -1628,7 +1676,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["env"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(false);
     feature.project = "b";
     expect(
@@ -1637,7 +1685,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(true);
   });
 });

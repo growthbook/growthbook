@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
-import { PendingMember } from "back-end/types/organization";
+import { PendingMember } from "shared/types/organization";
 import { datetime } from "shared/dates";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -18,7 +18,7 @@ const PendingMemberList: FC<{
 }> = ({ pendingMembers, mutate, project }) => {
   const { apiCall } = useAuth();
   const [roleModalUser, setRoleModalUser] = useState<PendingMember | null>(
-    null
+    null,
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -88,7 +88,6 @@ const PendingMemberList: FC<{
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                              className="badge-ellipsis short align-middle font-weight-normal"
                             />
                             — {pr.role}
                           </div>
@@ -102,7 +101,7 @@ const PendingMemberList: FC<{
                   const access = roleHasAccessToEnv(
                     roleInfo,
                     env.id,
-                    organization
+                    organization,
                   );
                   return (
                     <td key={env.id}>

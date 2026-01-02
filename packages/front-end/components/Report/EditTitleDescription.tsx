@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { ReportInterface } from "back-end/types/report";
+import { ReportInterface } from "shared/types/report";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -24,6 +24,7 @@ export default function EditTitleDescription({
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/report/${report.id}`, {

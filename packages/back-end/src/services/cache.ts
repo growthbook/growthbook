@@ -7,7 +7,7 @@ export class MemoryCache<T, K> {
 
   public constructor(
     expensiveOperation: ExpensiveOperation<T, K>,
-    ttl: number = 30
+    ttl: number = 30,
   ) {
     this.store = new Map();
     this.ttl = ttl * 1000;
@@ -28,5 +28,31 @@ export class MemoryCache<T, K> {
       obj,
     });
     return obj;
+  }
+}
+
+export class LruCache<T, K> {
+  private store: Map<K, T> = new Map<K, T>();
+
+  public constructor(private maxEntries: number) {
+    this.store = new Map<K, T>();
+  }
+
+  public get(key: K): T | undefined {
+    const entry = this.store.get(key);
+    if (entry) {
+      this.store.delete(key);
+      this.store.set(key, entry);
+    }
+    return entry;
+  }
+
+  public put(key: K, value: T) {
+    if (this.store.size >= this.maxEntries) {
+      // items are stored in insertion order, so the first key is the oldest
+      const keyToDelete = this.store.keys().next().value;
+      this.store.delete(keyToDelete);
+    }
+    this.store.set(key, value);
   }
 }

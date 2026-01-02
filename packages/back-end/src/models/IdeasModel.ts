@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { IdeaInterface } from "../../types/idea";
+import { IdeaInterface } from "shared/types/idea";
 
 const ideaSchema = new mongoose.Schema({
   id: String,
@@ -25,6 +25,7 @@ const ideaSchema = new mongoose.Schema({
   impactScore: Number,
   experimentLength: Number,
   estimateParams: {
+    segment: String,
     estimate: String,
     improvement: Number,
     numVariations: Number,

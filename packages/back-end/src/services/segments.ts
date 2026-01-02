@@ -1,5 +1,5 @@
-import { ApiSegment } from "@back-end/types/openapi";
-import { SegmentInterface } from "@back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
+import { ApiSegment } from "shared/types/openapi";
 
 export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
   return {
@@ -7,9 +7,14 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     name: segment.name,
     owner: segment.owner || "",
     identifierType: segment.userIdType || "user_id",
-    query: segment.sql,
+    query: segment.sql || "",
     datasourceId: segment.datasource || "",
+    type: segment.type,
+    factTableId: segment.factTableId || "",
+    filters: segment.filters || [],
     dateCreated: segment.dateCreated?.toISOString() || "",
     dateUpdated: segment.dateUpdated?.toISOString() || "",
+    managedBy: segment.managedBy || "",
+    projects: segment.projects || [],
   };
 }

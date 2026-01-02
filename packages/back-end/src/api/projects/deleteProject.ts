@@ -1,7 +1,7 @@
-import { DeleteProjectResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { deleteProjectValidator } from "../../validators/openapi";
-import { auditDetailsDelete } from "../../services/audit";
+import { DeleteProjectResponse } from "shared/types/openapi";
+import { deleteProjectValidator } from "shared/validators";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteProject = createApiRequestHandler(deleteProjectValidator)(
   async (req): Promise<DeleteProjectResponse> => {
@@ -21,5 +21,5 @@ export const deleteProject = createApiRequestHandler(deleteProjectValidator)(
     return {
       deletedId: project.id,
     };
-  }
+  },
 );

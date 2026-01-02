@@ -1,9 +1,16 @@
 import React, { ReactNode } from "react";
-import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
+import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { BsFlag } from "react-icons/bs";
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureValueType } from "shared/types/feature";
 import Link from "next/link";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 type Props = {
   changeType: "flag" | "visual";
@@ -11,8 +18,25 @@ type Props = {
   additionalBadge?: ReactNode;
   page?: string;
   changes?: string[];
+  vc?: VisualChangesetInterface;
+  experiment?: ExperimentInterfaceStringDates;
+  canEditVisualChangesets?: boolean;
+  deleteVisualChangeset?: (id: string) => void;
   open: boolean;
   children?: ReactNode;
+  state?: string;
+};
+
+const joinWithOxfordComma = (array) => {
+  if (array.length <= 1) {
+    return array.join("");
+  } else if (array.length === 2) {
+    return array.join(" and ");
+  } else {
+    const allButLast = array.slice(0, -1).join(", ");
+    const last = array.slice(-1);
+    return `${allButLast}, and ${last}`;
+  }
 };
 
 export default function LinkedChange({
@@ -20,74 +44,166 @@ export default function LinkedChange({
   feature,
   page,
   changes,
+  vc,
+  experiment,
+  canEditVisualChangesets,
+  deleteVisualChangeset,
   additionalBadge,
   open,
   children,
+  state,
 }: Props) {
+  const [expanded, setExpanded] = React.useState(open);
+  //if (changeType === "visual" && !vc && !experiment) return null;
+
   return (
-    <div className="linked-change border bg-light my-3">
+    <Box className="linked-change appbox my-3" p="4" px="5">
       <Collapsible
         trigger={
-          <div className="px-3 py-3 row  text-dark">
-            <div className="col-auto d-flex align-items-center  text-dark">
-              <FaAngleRight className="chevron" />
-            </div>
-            {changeType === "flag" ? (
+          <Box>
+            <Flex justify="between" gap="3">
+              {changeType === "flag" ? (
+                <Flex gap="1" direction="column">
+                  <Flex gap="3">
+                    <Link
+                      href={`/features/${feature?.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Heading
+                        as="h4"
+                        size="3"
+                        weight="medium"
+                        mb="0"
+                        className="d-inline-flex align-items-center"
+                      >
+                        {feature?.id || "Feature"}
+                        <PiArrowSquareOut className="ml-2" />
+                      </Heading>
+                    </Link>
+                    <Box>{additionalBadge}</Box>
+                  </Flex>
+                  <Box>
+                    <Text weight="medium">{feature?.valueType}</Text>
+                  </Box>
+                </Flex>
+              ) : (
+                <>
+                  <Flex gap="1" direction="column" flexGrow="1">
+                    <Heading
+                      as="h4"
+                      size="3"
+                      weight="medium"
+                      mb="0"
+                      className="d-inline-flex align-items-center"
+                    >
+                      {page}
+                    </Heading>
+                    <Flex gap="3">
+                      {canEditVisualChangesets &&
+                        experiment?.status === "draft" &&
+                        vc && (
+                          <Box onClick={(e) => e.stopPropagation()}>
+                            <OpenVisualEditorLink
+                              visualChangeset={vc}
+                              useLink={true}
+                              button={
+                                <>
+                                  <Text weight="medium">
+                                    Launch Visual Editor
+                                  </Text>
+                                  <PiArrowSquareOut
+                                    className="ml-2"
+                                    style={{
+                                      position: "relative",
+                                      top: "-2px",
+                                    }}
+                                  />
+                                </>
+                              }
+                            />
+                          </Box>
+                        )}
+                      <Box>&middot;</Box>
+                      <Box className="text-muted">
+                        {(changes?.length || 0) > 0
+                          ? joinWithOxfordComma(changes) + " changes"
+                          : "no changes"}
+                      </Box>
+                    </Flex>
+                  </Flex>
+
+                  <Flex gap="3">
+                    {changeType === "visual" &&
+                      vc?.id &&
+                      deleteVisualChangeset && (
+                        <Box onClick={(e) => e.stopPropagation()}>
+                          <DeleteButton
+                            className="btn-sm ml-4"
+                            useRadix={true}
+                            text="Delete"
+                            stopPropagation={true}
+                            onClick={() => {
+                              deleteVisualChangeset(vc.id);
+                            }}
+                            displayName="Visual Changes"
+                          />
+                        </Box>
+                      )}
+                    {!expanded && (
+                      <>
+                        <Button variant="ghost">Edit details</Button>
+                      </>
+                    )}
+                    {canEditVisualChangesets && vc && (
+                      <Box onClick={(e) => e.stopPropagation()}>
+                        <OpenVisualEditorLink
+                          visualChangeset={vc}
+                          useLink={true}
+                          button={
+                            <Button variant="soft">Launch Visual Editor</Button>
+                          }
+                        />
+                      </Box>
+                    )}
+                  </Flex>
+                </>
+              )}
+              <Box>
+                <Button variant="ghost">
+                  <FaAngleRight className="chevron" />
+                </Button>
+              </Box>
+            </Flex>
+            {state && state === "draft" && (
               <>
-                <div className="col-auto d-flex align-items-center">
-                  <BsFlag />
-                  <code
-                    className="ml-1 text-break"
-                    style={{ color: "inherit" }}
-                  >
-                    {feature?.id || "Feature"}
-                  </code>
-                  <span className="badge badge-dark badge-pill ml-3">
-                    {feature?.valueType}
-                  </span>
-                  {additionalBadge}
-                </div>
-                <div className="col-auto ml-auto">
+                <Callout status="warning" mt="4">
+                  Feature is in <strong>Draft</strong> mode and will not allow
+                  experiments to run. Publish Feature from the Feature Flag
+                  detail page to start.{" "}
                   <Link
                     href={`/features/${feature?.id}`}
-                    className="ml-4"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    View Feature <FaExternalLinkAlt />
+                    Take me there <PiArrowSquareOut className="ml-1" />
                   </Link>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="col-auto d-flex align-items-center">
-                  <span className="text-muted">Page:</span>{" "}
-                  <span
-                    className="ml-1 d-inline-block text-ellipsis"
-                    style={{ width: 300 }}
-                  >
-                    {page}
-                  </span>
-                </div>
-                <div className="col-auto">
-                  <span className="text-muted">Changes:</span>{" "}
-                  <span>
-                    {(changes?.length || 0) > 0 ? (
-                      changes?.join(" + ")
-                    ) : (
-                      <em>none</em>
-                    )}
-                  </span>
-                </div>
+                </Callout>
               </>
             )}
-          </div>
+          </Box>
         }
+        onOpen={() => {
+          setExpanded(true);
+        }}
+        onClose={() => {
+          setExpanded(false);
+        }}
         open={open}
         transitionTime={100}
       >
-        <div className="border-top mx-3 mb-3"></div>
-        {children}
+        <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--slate-a4)" }}>
+          {children}
+        </Box>
       </Collapsible>
-    </div>
+    </Box>
   );
 }

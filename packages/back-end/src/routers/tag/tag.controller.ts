@@ -1,25 +1,25 @@
 import type { Response } from "express";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../../services/audit";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
-import { TagInterface } from "../../../types/tag";
+import { TagInterface } from "shared/types/tag";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   addTag,
   getAllTags,
   getTag,
   removeTag,
   updateTag,
-} from "../../models/TagModel";
-import { removeTagInMetrics } from "../../models/MetricModel";
-import { removeTagInFeature } from "../../models/FeatureModel";
-import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { removeTagFromExperiments } from "../../models/ExperimentModel";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+} from "back-end/src/models/TagModel";
+import { removeTagInMetrics } from "back-end/src/models/MetricModel";
+import { removeTagInFeature } from "back-end/src/models/FeatureModel";
+import { removeTagFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
+import { removeTagFromExperiments } from "back-end/src/models/ExperimentModel";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "back-end/src/services/audit";
 
 // region POST /tag
 
@@ -37,7 +37,7 @@ type CreateTagResponse = {
  */
 export const postTag = async (
   req: CreateTagRequest,
-  res: Response<CreateTagResponse>
+  res: Response<CreateTagResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -49,7 +49,9 @@ export const postTag = async (
   // make sure it doesn't already exist:
   const existing = await getAllTags(context.org.id);
   const matchingId = existing.find((tag) => tag.id === id);
-  const matchingLabel = existing.find((tag) => tag.label === label);
+  const matchingLabel = existing.find(
+    (tag) => tag.label === label && tag.id !== id,
+  );
 
   if (matchingId) {
     throw new Error("A Tag with this id already exists");
@@ -87,7 +89,7 @@ type PutTagResponse = {
  */
 export const putTag = async (
   req: AuthRequest<TagInterface, { id: string }>,
-  res: Response<PutTagResponse>
+  res: Response<PutTagResponse>,
 ) => {
   const context = getContextFromReq(req);
   if (!context.permissions.canCreateAndUpdateTag()) {
@@ -97,7 +99,9 @@ export const putTag = async (
   const { id } = req.params;
   const existing = await getAllTags(context.org.id);
   const matchingId = existing.find((tag) => tag.id === id);
-  const matchingLabel = existing.find((tag) => tag.label === label);
+  const matchingLabel = existing.find(
+    (tag) => tag.label === label && tag.id !== id,
+  );
   if (!matchingId) {
     throw new Error("Tag not found");
   }
@@ -122,7 +126,7 @@ export const putTag = async (
           description,
           label,
         },
-      }
+      },
     ),
   });
   res.status(200).json({
@@ -148,8 +152,8 @@ export const deleteTag = async (
   req: DeleteTagRequest,
   res: Response<
     DeleteTagResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
-  >
+    EventUserForResponseLocals
+  >,
 ) => {
   const context = getContextFromReq(req);
 

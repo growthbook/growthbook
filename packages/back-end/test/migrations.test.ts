@@ -7,9 +7,39 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface } from "../types/metric";
+import { LegacyMetricInterface } from "shared/types/metric";
 import {
-  migrateReport,
+  DataSourceInterface,
+  DataSourceSettings,
+} from "shared/types/datasource";
+import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import {
+  LegacyColumnRef,
+  LegacyFactMetricInterface,
+} from "shared/types/fact-table";
+import {
+  ExperimentRule,
+  FeatureInterface,
+  FeatureRule,
+  LegacyFeatureInterface,
+} from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
+import {
+  ExperimentReportResultDimension,
+  LegacyReportInterface,
+} from "shared/types/report";
+import { Queries } from "shared/types/query";
+import { ExperimentPhase } from "shared/types/experiment";
+import { LegacySavedGroupInterface } from "shared/types/saved-group";
+import { encryptParams } from "back-end/src/services/datasource";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import {
+  migrateExperimentReport,
   migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -18,29 +48,369 @@ import {
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
-} from "../src/util/migrations";
-import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
-import { encryptParams } from "../src/services/datasource";
-import { MixpanelConnectionParams } from "../types/integrations/mixpanel";
-import { PostgresConnectionParams } from "../types/integrations/postgres";
-import {
-  ExperimentRule,
-  FeatureInterface,
-  FeatureRule,
-  LegacyFeatureInterface,
-} from "../types/feature";
-import { OrganizationInterface } from "../types/organization";
-import {
-  ExperimentSnapshotInterface,
-  LegacyExperimentSnapshotInterface,
-} from "../types/experiment-snapshot";
-import {
-  ExperimentReportResultDimension,
-  LegacyReportInterface,
-} from "../types/report";
-import { Queries } from "../types/query";
-import { ExperimentPhase } from "../types/experiment";
-import { LegacySavedGroupInterface } from "../types/saved-group";
+} from "back-end/src/util/migrations";
+
+describe("Fact Metric Migration", () => {
+  it("upgrades delay hours", () => {
+    const baseFactMetric: LegacyFactMetricInterface = {
+      id: "",
+      organization: "",
+      owner: "",
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      name: "",
+      description: "",
+      tags: [],
+      projects: [],
+      inverse: false,
+
+      metricType: "proportion",
+      numerator: {
+        factTableId: "",
+        column: "",
+        rowFilters: [],
+      },
+      denominator: null,
+
+      windowSettings: {
+        type: "",
+        delayUnit: "hours",
+        delayValue: 0,
+        windowUnit: "hours",
+        windowValue: 0,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+
+      maxPercentChange: 0.05,
+      minPercentChange: 500,
+      minSampleSize: 150,
+      winRisk: 0.1,
+      loseRisk: 3,
+
+      regressionAdjustmentOverride: false,
+      regressionAdjustmentEnabled: true,
+      regressionAdjustmentDays: 14,
+
+      quantileSettings: null,
+    };
+
+    const delayHours: LegacyFactMetricInterface = {
+      ...baseFactMetric,
+      windowSettings: {
+        type: "",
+        delayHours: 14,
+        windowUnit: "hours",
+        windowValue: 0,
+      },
+    };
+    expect(FactMetricModel.upgradeFactMetricDoc(delayHours)).toEqual({
+      ...delayHours,
+      windowSettings: {
+        type: "",
+        delayUnit: "hours",
+        delayValue: 14,
+        windowUnit: "hours",
+        windowValue: 0,
+      },
+    });
+  });
+
+  describe("ColumnRef migration", () => {
+    it("upgrades filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_123"],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+        ],
+      });
+    });
+    it("upgrades multiple filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_123", "filt_456"],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+          {
+            operator: "saved_filter",
+            values: ["filt_456"],
+          },
+        ],
+      });
+    });
+    it("ignores empty filters array", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: [],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+
+    it("ignores already migrated rowFilters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_456"],
+          rowFilters: [
+            {
+              operator: "saved_filter",
+              values: ["filt_123"],
+            },
+          ],
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+        ],
+      });
+    });
+
+    it("migrates inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+        ],
+      });
+    });
+    it("migrates inline filters with a single value to =", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: ["value1"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "event_type",
+            operator: "=",
+            values: ["value1"],
+          },
+        ],
+      });
+    });
+    it("migrates multiple inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+            user_id: ["user1"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+          {
+            column: "user_id",
+            operator: "=",
+            values: ["user1"],
+          },
+        ],
+      });
+    });
+    it("ignores empty inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {},
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("ignores empty arrays in inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: [],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("ignores empty strings in arrays in inline filters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          inlineFilters: {
+            event_type: [""],
+            other: ["value1", ""],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            column: "other",
+            operator: "=",
+            values: ["value1"],
+          },
+        ],
+      });
+    });
+    it("migrates both filters and inlineFilters", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          filters: ["filt_456"],
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_456"],
+          },
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+        ],
+      });
+    });
+    it("ignores filters and inlineFilters when rowFilters is defined", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          filters: ["filt_456"],
+          inlineFilters: {
+            event_type: ["value1", "value2"],
+          },
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("Can unmigrate filters for API responses", () => {
+      const original: LegacyColumnRef = {
+        factTableId: "ft_123",
+        column: "event_name",
+        filters: ["filt_123", "filt_456"],
+        inlineFilters: {
+          event_type: ["value1", "value2"],
+          single_val: ["true"],
+        },
+      };
+      const migrated = FactMetricModel.migrateColumnRef(original);
+      expect(migrated).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filt_123"],
+          },
+          {
+            operator: "saved_filter",
+            values: ["filt_456"],
+          },
+          {
+            column: "event_type",
+            operator: "in",
+            values: ["value1", "value2"],
+          },
+          {
+            column: "single_val",
+            operator: "=",
+            values: ["true"],
+          },
+        ],
+      });
+
+      const apiVersion = FactMetricModel.addLegacyFiltersToColumnRef(migrated);
+      expect(apiVersion).toEqual({
+        ...original,
+        rowFilters: migrated.rowFilters,
+      });
+    });
+  });
+});
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart and conversion*Hours", () => {
@@ -85,7 +455,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72.5,
-        delayHours: -0.5,
+        delayValue: -0.5,
+        delayUnit: "hours",
       },
     });
 
@@ -101,7 +472,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 50.5,
-        delayHours: -0.5,
+        delayUnit: "hours",
+        delayValue: -0.5,
       },
     });
 
@@ -118,7 +490,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 50,
-        delayHours: 5,
+        delayUnit: "hours",
+        delayValue: 5,
       },
     });
 
@@ -133,7 +506,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 50,
-        delayHours: 5,
+        delayUnit: "hours",
+        delayValue: 5,
       },
     });
     const conversionWindowAndSettings: LegacyMetricInterface = {
@@ -153,7 +527,27 @@ describe("Metric Migration", () => {
         type: "lookback",
         windowUnit: "days",
         windowValue: 33,
+        delayUnit: "hours",
+        delayValue: 3,
+      },
+    });
+    const delayHours: LegacyMetricInterface = {
+      ...baseMetric,
+      windowSettings: {
+        type: "lookback",
+        windowUnit: "days",
+        windowValue: 33,
         delayHours: 3,
+      },
+    };
+    expect(upgradeMetricDoc(delayHours)).toEqual({
+      ...baseMetric,
+      windowSettings: {
+        type: "lookback",
+        windowUnit: "days",
+        windowValue: 33,
+        delayUnit: "hours",
+        delayValue: 3,
       },
     });
   });
@@ -181,7 +575,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       priorSettings: {
         override: false,
@@ -257,7 +652,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       priorSettings: {
         override: false,
@@ -274,7 +670,7 @@ describe("Metric Migration", () => {
         capping: "percentile",
         capValue: 0.99,
         cap: 35,
-      })
+      }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -284,7 +680,7 @@ describe("Metric Migration", () => {
     });
 
     expect(
-      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 })
+      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -300,7 +696,7 @@ describe("Metric Migration", () => {
         capValue: 0.99,
         capping: "absolute",
         cap: 35,
-      })
+      }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -337,7 +733,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       userIdTypes: ["anonymous_id", "user_id"],
     };
@@ -372,7 +769,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       cappingSettings: {
         type: "",
@@ -456,7 +854,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       cappingSettings: {
         type: "",
@@ -510,6 +909,35 @@ describe("Metric Migration", () => {
 });
 
 describe("Datasource Migration", () => {
+  it("adds settings when missing completely", () => {
+    const datasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    expect(upgradeDatasourceObject({ ...datasource }).settings).toEqual({
+      userIdTypes: [
+        {
+          userIdType: "user_id",
+          description: "Logged-in user id",
+        },
+        {
+          userIdType: "anonymous_id",
+          description: "Anonymous visitor id",
+        },
+      ],
+    });
+  });
   it("updates old datasource objects - userIdTypes", () => {
     const baseDatasource: DataSourceInterface = {
       dateCreated: new Date(),
@@ -532,7 +960,7 @@ describe("Datasource Migration", () => {
       upgradeDatasourceObject({
         ...baseDatasource,
         settings: { ...noUserIdTypes },
-      }).settings
+      }).settings,
     ).toEqual({
       userIdTypes: [
         {
@@ -558,7 +986,7 @@ describe("Datasource Migration", () => {
       upgradeDatasourceObject({
         ...baseDatasource,
         settings: { ...userIdTypes },
-      }).settings
+      }).settings,
     ).toEqual({
       ...userIdTypes,
     });
@@ -684,6 +1112,61 @@ describe("Datasource Migration", () => {
       },
     });
   });
+
+  it("migrates pipelineSettings: add mode if not existing", () => {
+    const baseDatasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      settings: {
+        pipelineSettings: {
+          allowWriting: true,
+        } as any,
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const upgraded = upgradeDatasourceObject(cloneDeep(baseDatasource));
+    expect(upgraded.settings?.pipelineSettings).toBeDefined();
+    expect(upgraded.settings?.pipelineSettings?.mode).toBe("ephemeral");
+    expect(upgraded.settings?.pipelineSettings?.allowWriting).toBe(true);
+  });
+
+  it("migrates pipelineSettings: does not change mode if it exists", () => {
+    const baseDatasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      settings: {
+        pipelineSettings: {
+          allowWriting: false,
+          mode: "incremental",
+        } as any,
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const upgraded = upgradeDatasourceObject(cloneDeep(baseDatasource));
+    expect(upgraded.settings?.pipelineSettings).toBeDefined();
+    expect(upgraded.settings?.pipelineSettings?.mode).toBe("incremental");
+    expect(upgraded.settings?.pipelineSettings?.allowWriting).toBe(false);
+  });
 });
 
 describe("Feature Migration", () => {
@@ -754,7 +1237,7 @@ describe("Feature Migration", () => {
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
-      })
+      }),
     ).toEqual(expected);
   });
 
@@ -799,7 +1282,7 @@ describe("Feature Migration", () => {
             description: "",
           },
         ],
-      })
+      }),
     ).toEqual(origFeature);
   });
 
@@ -1038,6 +1521,7 @@ describe("Experiment Migration", () => {
         name: "New Name",
       },
     ],
+    uid: "1234",
   };
 
   const upgraded = {
@@ -1046,6 +1530,9 @@ describe("Experiment Migration", () => {
     hashVersion: 2,
     releasedVariationId: "",
     attributionModel: "experimentDuration",
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
     variations: [
       {
         id: "0",
@@ -1093,7 +1580,11 @@ describe("Experiment Migration", () => {
       },
     ],
     sequentialTestingEnabled: false,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    uid: "1234",
+    shareLevel: "organization",
+    decisionFrameworkSettings: {},
   };
 
   it("upgrades experiment objects", () => {
@@ -1105,7 +1596,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "dnf",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1118,7 +1609,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "lost",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1132,7 +1623,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "won",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1147,7 +1638,7 @@ describe("Experiment Migration", () => {
         status: "stopped",
         results: "won",
         winner: 2,
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1161,7 +1652,7 @@ describe("Experiment Migration", () => {
       upgradeExperimentDoc({
         ...exp,
         attributionModel: "firstExposure",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       attributionModel: "firstExposure",
@@ -1181,7 +1672,7 @@ describe("Experiment Migration", () => {
             };
           }),
         ],
-      })
+      }),
     ).toEqual({
       ...upgraded,
       phases: [
@@ -1194,6 +1685,43 @@ describe("Experiment Migration", () => {
           };
         }),
       ],
+    });
+  });
+  it("Updates metric field names", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      }),
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_abc"],
+      guardrailMetrics: ["met_def"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
+    });
+  });
+
+  it("Does not override new metrics", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        goalMetrics: ["met_123"],
+        secondaryMetrics: ["met_456"],
+        guardrailMetrics: ["met_789"],
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      }),
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_123"],
+      secondaryMetrics: ["met_456"],
+      guardrailMetrics: ["met_789"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
     });
   });
 });
@@ -1213,7 +1741,7 @@ describe("Organization Migration", () => {
     expect(
       upgradeOrganizationDoc({
         ...org,
-      })
+      }),
     ).toEqual({
       ...org,
       settings: {
@@ -1367,6 +1895,7 @@ describe("Snapshot Migration", () => {
             regressionAdjusted: false,
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
+            numGoalMetrics: 1,
           },
         },
       ],
@@ -1384,6 +1913,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [
@@ -1394,7 +1924,8 @@ describe("Snapshot Migration", () => {
                 type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
-                delayHours: 0,
+                delayUnit: "hours",
+                delayValue: 0,
               },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
@@ -1412,7 +1943,8 @@ describe("Snapshot Migration", () => {
                 type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
-                delayHours: 0,
+                delayUnit: "hours",
+                delayValue: 0,
               },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
@@ -1443,7 +1975,7 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 
@@ -1486,6 +2018,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: [],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [],
@@ -1505,14 +2038,14 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
 
     initial.error = "foo";
     result.error = "foo";
     result.status = "error";
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 
@@ -1581,6 +2114,7 @@ describe("Snapshot Migration", () => {
             regressionAdjusted: false,
             sequentialTesting: false,
             sequentialTestingTuningParameter: 5000,
+            numGoalMetrics: 1,
           },
           status: "success",
         },
@@ -1595,6 +2129,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: true,
         metricSettings: [
@@ -1605,7 +2140,8 @@ describe("Snapshot Migration", () => {
                 type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
-                delayHours: 0,
+                delayUnit: "hours",
+                delayValue: 0,
               },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
@@ -1636,7 +2172,7 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 });
@@ -1671,11 +2207,63 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics"),
         attributionModel: "experimentDuration",
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        decisionFrameworkSettings: {},
+      },
+    });
+  });
+
+  it("migrates metrics and guardrails", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+      },
+    };
+
+    expect(migrateExperimentReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_123"],
+        guardrailMetrics: ["met_456"],
+        secondaryMetrics: [],
+        decisionFrameworkSettings: {},
+      },
+    });
+  });
+
+  it("does not migrate metrics and guardrails if new fields present", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
+        decisionFrameworkSettings: {},
+      },
+    };
+
+    expect(migrateExperimentReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1697,10 +2285,10 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),
         settingsForSnapshotMetrics: [
           {
             metric: "met_123",
@@ -1713,6 +2301,10 @@ describe("Report Migration", () => {
             properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
           },
         ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1734,7 +2326,7 @@ describe("saved group migrations", () => {
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1750,7 +2342,7 @@ describe("saved group migrations", () => {
         attributeKey: "foo",
         values: ["a", "b"],
         source: "inline",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1766,7 +2358,7 @@ describe("saved group migrations", () => {
         attributeKey: "foo",
         values: [],
         source: "runtime",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1784,7 +2376,7 @@ describe("saved group migrations", () => {
         values: ["a", "b"],
         source: "inline",
         type: "list",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1802,7 +2394,7 @@ describe("saved group migrations", () => {
         source: "runtime",
         type: "condition",
         condition: JSON.stringify({ id: { $eq: "123" } }),
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",

@@ -5,16 +5,12 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
-import dJSON from "dirty-json";
+} from "shared/types/feature";
 import { ReactElement, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import {
-  filterEnvironmentsByExperiment,
-  validateFeatureValue,
-} from "shared/util";
+import { filterEnvironmentsByExperiment } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,27 +39,8 @@ export type Props = {
   secondaryCTA?: ReactElement;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  source?: string;
 };
-
-function parseDefaultValue(
-  defaultValue: string,
-  valueType: FeatureValueType
-): string {
-  if (valueType === "boolean") {
-    return defaultValue === "true" ? "true" : "false";
-  }
-  if (valueType === "number") {
-    return parseFloat(defaultValue) + "";
-  }
-  if (valueType === "string") {
-    return defaultValue;
-  }
-  try {
-    return JSON.stringify(dJSON.parse(defaultValue), null, 2);
-  } catch (e) {
-    throw new Error(`JSON parse error for default value`);
-  }
-}
 
 const genEnvironmentSettings = ({
   environments,
@@ -78,7 +55,7 @@ const genEnvironmentSettings = ({
 
   environments.forEach((e) => {
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? e.defaultState ?? true : false;
+    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
     const rules = [];
     envSettings[e.id] = { enabled, rules };
@@ -97,7 +74,10 @@ const genFormDefaultValues = ({
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
-}): Omit<FeatureInterface, "organization" | "dateCreated" | "dateUpdated"> & {
+}): Omit<
+  FeatureInterface,
+  "organization" | "dateCreated" | "dateUpdated" | "defaultValue"
+> & {
   variations: ExperimentRefVariation[];
   existing: string;
 } => {
@@ -111,7 +91,6 @@ const genFormDefaultValues = ({
   return {
     existing: "",
     valueType: type,
-    defaultValue,
     version: 1,
     description: experiment.description || "",
     id: "",
@@ -135,12 +114,13 @@ export default function FeatureFromExperimentModal({
   secondaryCTA,
   experiment,
   mutate,
+  source,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
-    experiment
+    experiment,
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -166,10 +146,10 @@ export default function FeatureFromExperimentModal({
   const form = useForm({ defaultValues });
 
   const [showTags, setShowTags] = useState(
-    experiment.tags && experiment.tags.length > 0
+    experiment.tags && experiment.tags.length > 0,
   );
   const [showDescription, setShowDescription] = useState(
-    experiment.description && experiment.description.length > 0
+    experiment.description && experiment.description.length > 0,
   );
 
   const { apiCall } = useAuth();
@@ -213,18 +193,19 @@ export default function FeatureFromExperimentModal({
       }
     };
 
-    form.setValue("defaultValue", transformValue(form.watch("defaultValue")));
     form.setValue(
       "variations",
       form.watch("variations").map((v) => ({
         ...v,
         value: transformValue(v.value),
-      }))
+      })),
     );
   }
 
   return (
     <Modal
+      trackingEventModalType="feature-from-experiment"
+      trackingEventModalSource={source}
       open
       size="lg"
       inline={inline}
@@ -236,11 +217,24 @@ export default function FeatureFromExperimentModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
-        const valueType = feature.valueType as FeatureValueType;
 
-        const featureToCreate = existing
+        const featureToCreate:
+          | undefined
+          | Omit<
+              FeatureInterface,
+              "organization" | "dateCreated" | "dateUpdated"
+            > = existing
           ? features.find((f) => f.id === existing)
-          : feature;
+          : {
+              ...feature,
+              defaultValue: variations[0].value,
+              holdout: experiment.holdoutId
+                ? {
+                    id: experiment.holdoutId,
+                    value: variations[0].value,
+                  }
+                : undefined,
+            };
 
         if (!featureToCreate) {
           throw new Error("Invalid feature selected");
@@ -258,34 +252,41 @@ export default function FeatureFromExperimentModal({
           variations,
         };
 
-        const newRule = validateFeatureRule(rule, feature as FeatureInterface);
+        const newRule = validateFeatureRule(rule, featureToCreate);
         if (newRule) {
           form.setValue(
             "variations",
-            (newRule as ExperimentRefRule).variations
+            (newRule as ExperimentRefRule).variations,
           );
           hasChanges = true;
         }
 
-        if (!existing) {
-          const newDefaultValue = validateFeatureValue(
-            feature as FeatureInterface,
-            feature.defaultValue,
-            "Value"
-          );
-          if (newDefaultValue !== feature.defaultValue) {
-            form.setValue("defaultValue", newDefaultValue);
-            hasChanges = true;
-          }
-        }
-
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again."
+            "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 
         if (existing) {
+          const featureHoldoutId = validFeatures.find(
+            (f) => f.id === featureToCreate.id,
+          )?.holdout?.id;
+          // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
+          if (experiment.holdoutId && !featureHoldoutId) {
+            throw new Error(
+              "You cannot add a feature flag with no holdout to an experiment with a holdout. Add the holdout to the feature on the feature page itself.",
+            );
+          }
+          // Only allow adding a FF with the same holdout to an experiment that already is in a holdout
+          if (
+            experiment.holdoutId &&
+            featureHoldoutId !== experiment.holdoutId
+          ) {
+            throw new Error(
+              "You cannot add a feature flag with a holdout to an experiment that has a different holdout.",
+            );
+          }
+
           await apiCall(
             `/feature/${featureToCreate.id}/${featureToCreate.version}/experiment`,
             {
@@ -293,19 +294,14 @@ export default function FeatureFromExperimentModal({
               body: JSON.stringify({
                 rule: rule,
               }),
-            }
+            },
           );
         } else {
-          featureToCreate.defaultValue = parseDefaultValue(
-            values.defaultValue,
-            valueType
-          );
-
           // Add experiment rule to all environments
           Object.values(featureToCreate.environmentSettings).forEach(
             (settings) => {
               settings.rules.push(rule);
-            }
+            },
           );
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {
@@ -434,21 +430,12 @@ export default function FeatureFromExperimentModal({
               value={form.watch(`variations.${i}.value`) || ""}
               setValue={(v) => form.setValue(`variations.${i}.value`, v)}
               valueType={form.watch("valueType")}
+              useCodeInput={true}
+              showFullscreenButton={true}
             />
           ))}
         </div>
       </div>
-
-      {!existing && (
-        <FeatureValueField
-          label={"Fallback value"}
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
-          helpText="For users not included in the experiment"
-        />
-      )}
     </Modal>
   );
 }

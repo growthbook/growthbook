@@ -1,0 +1,28 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The id of the requested resource (a snapshot ID, not experiment ID)
+    schema:
+      type: string
+get:
+  tags:
+    - snapshots
+  summary: Get an experiment snapshot status
+  operationId: getExperimentSnapshot
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X GET https://api.growthbook.io/api/v1/snapshots/snp_1234 \
+          -u secret_abc123DEF456:
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - snapshot
+            properties:
+              snapshot:
+                $ref: "../schemas/ExperimentSnapshot.yaml"

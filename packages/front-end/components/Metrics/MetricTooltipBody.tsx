@@ -4,9 +4,10 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
-import React from "react";
+import React, { ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { StatsEngine } from "@back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
+import { MdSwapCalls } from "react-icons/md";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
@@ -15,14 +16,17 @@ import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import { getPercentileLabel } from "@/services/metrics";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
+import FactMetricTypeDisplayName from "./FactMetricTypeDisplayName";
 
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
   statsEngine?: StatsEngine;
-  reportRegressionAdjustmentEnabled?: boolean;
+  hideDetails?: boolean;
+  extraInfo?: ReactElement | string;
 }
 
 interface MetricInfo {
@@ -36,7 +40,8 @@ const MetricTooltipBody = ({
   metric,
   row,
   statsEngine,
-  reportRegressionAdjustmentEnabled,
+  hideDetails,
+  extraInfo,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -50,19 +55,40 @@ const MetricTooltipBody = ({
     {
       show: true,
       label: "Type",
-      body: isFactMetric(metric) ? metric.metricType : metric.type,
-    },
-    {
-      show: (metric.tags?.length ?? 0) > 0,
-      label: "Tags",
       body: (
-        <SortedTags
-          tags={metric.tags}
-          shouldShowEllipsis={false}
-          useFlex={true}
-        />
+        <>
+          {isFactMetric(metric) ? (
+            <FactMetricTypeDisplayName type={metric.metricType} />
+          ) : (
+            metric.type
+          )}
+          {metric.inverse ? (
+            <Tooltip body="Metric is inverse, lower is better" className="ml-1">
+              <span>
+                <MdSwapCalls />
+              </span>
+            </Tooltip>
+          ) : (
+            ""
+          )}
+        </>
       ),
     },
+    ...(!hideDetails
+      ? [
+          {
+            show: (metric.tags?.length ?? 0) > 0,
+            label: "Tags",
+            body: (
+              <SortedTags
+                tags={metric.tags}
+                shouldShowEllipsis={false}
+                useFlex={true}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       show: !!quantileMetricType(metric),
       label: "Quantile",
@@ -103,7 +129,7 @@ const MetricTooltipBody = ({
         (metric.windowSettings.windowValue !== 0 ||
           metricOverrideFields.includes("windowHours")),
       label: `${capitalizeFirstLetter(
-        metric.windowSettings.type || "no"
+        metric.windowSettings.type || "no",
       )} Window`,
       body: (
         <>
@@ -119,12 +145,15 @@ const MetricTooltipBody = ({
     },
     {
       show:
-        (metric.windowSettings.delayHours ?? 0) !== 0 ||
+        (metric.windowSettings.delayValue ?? 0) !== 0 ||
         metricOverrideFields.includes("delayHours"),
-      label: "Metric Delay Hours",
+      label:
+        isFactMetric(metric) && metric.metricType === "retention"
+          ? "Retention Window"
+          : "Metric Delay",
       body: (
         <>
-          {metric.windowSettings.delayHours}
+          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
           {metricOverrideFields.includes("delayHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}
@@ -155,7 +184,7 @@ const MetricTooltipBody = ({
     });
   }
 
-  if (reportRegressionAdjustmentEnabled && row) {
+  if (row?.metricSnapshotSettings) {
     metricInfo.push({
       show: true,
       label: "CUPED",
@@ -196,25 +225,32 @@ const MetricTooltipBody = ({
   return (
     <div>
       <h4>
-        <MetricName id={metric.id} showOfficialLabel disableTooltip />
+        <MetricName
+          id={metric.id}
+          showOfficialLabel
+          disableTooltip
+          showLink
+          officialBadgePosition="right"
+        />
       </h4>
-      <table className="table table-sm table-bordered text-left mb-0">
+      {extraInfo}
+      <table className="table gbtable mb-0">
         <tbody>
           {metricInfo
             .filter((i) => i.show)
             .map(({ label, body, markdown }, index) => (
               <tr key={`metricInfo${index}`}>
                 <td
-                  className="text-right font-weight-bold py-1 align-middle"
+                  className="text-right font-weight-bold py-2 align-middle"
                   style={{
-                    width: 120,
+                    width: 140,
                     border: "1px solid var(--border-color-100)",
                     fontSize: "12px",
                     lineHeight: "14px",
                   }}
                 >{`${label}`}</td>
                 <td
-                  className="py-1 align-middle"
+                  className="py-2 align-middle"
                   style={{
                     minWidth: 180,
                     border: "1px solid var(--border-color-100)",

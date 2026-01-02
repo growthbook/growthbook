@@ -1,6 +1,18 @@
-import { Environment } from "../../types/organization";
-import { deepFreeze } from "../test-helpers";
-import { addEnvironmentToOrganizationEnvironments } from "../../src/util/environments";
+import { Environment } from "shared/types/organization";
+import { deepFreeze } from "back-end/test/test-helpers";
+import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
+import { Context } from "back-end/src/models/BaseModel";
+
+const auditLogMock = jest.fn();
+
+const context = {
+  org: { id: "a" },
+  auditLog: auditLogMock,
+  permissions: {
+    canCreateEnvironment: () => true,
+    canUpdateEnvironment: () => true,
+  },
+} as unknown as Context;
 
 describe("environment utils", () => {
   describe("addEnvironmentToOrganizationEnvironments", () => {
@@ -32,8 +44,9 @@ describe("environment utils", () => {
       };
 
       const result = addEnvironmentToOrganizationEnvironments(
+        context,
         input,
-        existingEnvironments
+        existingEnvironments,
       );
 
       expect(result).toEqual([
@@ -66,9 +79,10 @@ describe("environment utils", () => {
 
       it("should replace the existing environment", () => {
         const result = addEnvironmentToOrganizationEnvironments(
+          context,
           input,
           existingEnvironments,
-          true
+          true,
         );
 
         expect(result).toEqual([
@@ -94,9 +108,10 @@ describe("environment utils", () => {
 
       it("should not replace the existing environment", () => {
         const result = addEnvironmentToOrganizationEnvironments(
+          context,
           input,
           existingEnvironments,
-          false
+          false,
         );
 
         expect(result).toEqual([
@@ -118,8 +133,9 @@ describe("environment utils", () => {
       describe("when replace arg omitted", () => {
         it("should not replace the existing environment", () => {
           const result = addEnvironmentToOrganizationEnvironments(
+            context,
             input,
-            existingEnvironments
+            existingEnvironments,
           );
 
           expect(result).toEqual([

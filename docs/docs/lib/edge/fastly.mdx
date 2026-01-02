@@ -7,18 +7,21 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink';
-import Pill from '@site/src/components/Pill';
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
-# Fastly Compute Edge App & SDK <Pill>beta</Pill>
+# Fastly Compute Edge App & SDK
+
+<SdkResources sdk="edgeFastly" />
 
 ## Overview
 
 GrowthBook currently supports two levels of integration with most edge workers, including Fastly:
 
 1. Our turnkey Edge App
-
    - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
    - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
+   - Perform custom feature flagging and experimentation logic.
    - Optionally inject the JavaScript SDK with hydrated payload, allowing the front-end to pick up where the edge left off without any extra network requests. We use an enhanced version of our [HTML Script Tag](/lib/script-tag) for this purpose.
 
 2. Support for edge apps using our JavaScript SDK
@@ -34,7 +37,7 @@ Regardless of your use case, our Fastly integration makes easy to synchronize fe
 
 ## Worker Configuration
 
-:::tip
+:::tip Get up to speed with Fastly Compute
 
 This tutorial assumes some familiarity with building and deploying Fastly Compute applications. You can quickly get up to speed by following the Fastly Compute [Developer guide <ExternalLink />](https://www.fastly.com/documentation/guides/compute/).
 
@@ -44,13 +47,17 @@ You may either use our turnkey Edge App for Fastly Compute or build your own app
 
 ## Turnkey Edge App
 
-Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
+Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments. Additionally, by using [lifecycle hooks](#lifecycle-hooks) you can perform custom logic such as feature flagging as well as proxying and early returns.
 
 :::note URL Redirects on edge
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` to "edge" or "everywhere".
+
+Additionally if your redirect is cross-domain (e.g. redirection from "public.mysite.io" to "newsite.io"), you must also set `RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS`.
+
+See [environment variables](#environment-variables) for more information.
 
 :::
 
@@ -304,7 +311,7 @@ You have the option to manually persist this cookie at any time, for example whe
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
-:::note
+:::note Sticky Bucketing and consent
 
 If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
 
@@ -312,6 +319,38 @@ If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie
 - Or only enable Sticky Bucketing per each user via runtime configuration. (only pass `config.enableStickyBucketing: true` if user has consented — identifiable by checking for presence of the `gbuuid` cookie).
 
 :::
+
+### Lifecycle hooks
+
+You can perform custom logic and optionally return a response at various stages in the Edge App's lifecycle. This allows for expressiveness of custom routing, user attribute mutation, header and body (DOM) mutation, and custom feature flag and experiment implementations – while preserving the ability to automatically run Visual and URL Redirect experiments and SDK hydration.
+
+With each hook, you may mutate any of the provided attributes _or_ return an early response to halt the Edge App processing. The following hooks are available:
+
+- `onRequest` - Fired on initial user request. Can exit early based on requested URL.
+- `onRoute` - Fired after standard routing has been processed. Can exit early (proxy) based on manual routing logic.
+- `onUserAttributes` - Fired after auto-attributes have been assigned to the user. Either enhance the provided `attributes` object or exit early if desired.
+- `onGrowthBookInit` - Fired after the Edge App's internal GrowthBook SDK has been initialized. Call SDK functions or exit early if desired.
+- `onBeforeOriginFetch` - Similar hook to the above; triggers after any URL Redirect experiments have run but before any origin requests have been made.
+- `onOriginFetch` - Fired immediately after the origin fetch has been made, but before the full response body has been captured. Useful for exiting early based on response status or headers.
+- `onBodyReadyParams` - Fired once the entire response body has been parsed. In addition to early exiting, you may begin to mutate the final response body via `resHeaders` and the `setBody()` method. The text `body` as well as the optional parsed virtual DOM `root` (disabled by default, use `ALWAYS_PARSE_DOM` to enable) are exposed. NOTE: If mutating the `root` DOM, it is your responsibility to `setBody()` with the latest changes before the response is returned.
+- `onBeforeResponse` - The final hook fired before the response is returned to the user, triggering after both visual editor changes and client SDK hydration have been injected. While the virtual DOM is no longer available, this hook can be used to apply any final changes the body via `setBody()`.
+
+To use one or more lifecycle hooks, pass any hooks to your `gbHandleRequest` method:
+
+```ts
+  const hooks = {
+    onRoute: (params) => {
+      if (params.requestUrl === "https://mysite.io/skip") {
+        return params.context.helpers.proxyRequest(context, params.req, params.res);
+      }
+    },
+    onBeforeResponse: (params) => {
+      params.setBody(params.body + `<script>console.log("custom logic")</script>`);
+    }
+  };
+
+  return await gbHandleRequest(event.request, env, config, hooks);
+```
 
 ## Manual SDK Integration on Edge
 
@@ -408,21 +447,23 @@ async function handleRequest(event) {
 For KV stored payloads (1), we eliminate network requests from edge to GrowthBook by using a GrowthBook SDK Webhook to push the SDK payload to the KV store on change.
 
 1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration. You do not need to worry about the receiving end of the webhook (verifying GrowthBook signatures, etc).
-2. Set the **Endpoint URL** to the Fastly's REST API endpoint for KV. At the time of writing, it follows this format:
-
-```
-https://api.fastly.com/resources/stores/kv/{store_id}/keys/gb_payload
-```
-
-3. Change the **Method** to `PUT`.
-4. Add appropriate authorization header:
-
-```json
-{
-  "Fastly-Key": "YOUR_FASTLY_REST_API_TOKEN"
-}
-```
-
-5. Set the **Payload format** to "SDK Payload only".
+2. Select **Fastly KV** as the Webhook Type and fill out the following fields:
+   - Store ID
+   - Key
+   - API Token
 
 Now whenever feature and experiment values change, your Fastly worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
+
+Under the hood, the webhook is being configured with the following properties. If you need to change any of these settings for any reason, you can always edit the webhook.
+
+- **Endpoint URL** is being set to
+  ```
+  https://api.fastly.com/resources/stores/kv/{store_id}/keys/{key}
+  ```
+- **Method** is being set to `PUT`
+- A **Fastly-Key Header** is being added with your API Token
+- The **Payload format** is being set to `SDK Payload only`
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="edgeFastly" />

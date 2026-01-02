@@ -1,7 +1,7 @@
 import {
   EventWebHookModel,
   getAllEventWebHooksForEvent,
-} from "../../src/models/EventWebhookModel";
+} from "back-end/src/models/EventWebhookModel";
 
 describe("getAllEventWebHooksForEvent", () => {
   describe("when event has no projects", () => {
@@ -34,7 +34,17 @@ describe("getAllEventWebHooksForEvent", () => {
         events: "feature.created",
         organizationId: "aabb",
       });
-      expect(ret).toEqual([{ name: "webhook with no filter on projects" }]);
+      expect(ret).toEqual([
+        {
+          name: "webhook with no filter on projects",
+          environments: [],
+          projects: [],
+          tags: [],
+          headers: {},
+          method: "POST",
+          payloadType: "raw",
+        },
+      ]);
     });
   });
 
@@ -46,11 +56,17 @@ describe("getAllEventWebHooksForEvent", () => {
           projects: [],
         },
         {
-          toJSON: () => ({ name: "webhook with filter for event project" }),
+          toJSON: () => ({
+            name: "webhook with filter for event project",
+            projects: ["event project"],
+          }),
           projects: ["event project"],
         },
         {
-          toJSON: () => ({ name: "webhook with filter for foo projects" }),
+          toJSON: () => ({
+            name: "webhook with filter for foo projects",
+            projects: ["foo"],
+          }),
           projects: ["foo"],
         },
       ]);
@@ -69,8 +85,24 @@ describe("getAllEventWebHooksForEvent", () => {
         organizationId: "aabb",
       });
       expect(ret).toEqual([
-        { name: "webhook with no filter on projects" },
-        { name: "webhook with filter for event project" },
+        {
+          name: "webhook with no filter on projects",
+          environments: [],
+          projects: [],
+          tags: [],
+          headers: {},
+          method: "POST",
+          payloadType: "raw",
+        },
+        {
+          name: "webhook with filter for event project",
+          environments: [],
+          projects: ["event project"],
+          tags: [],
+          headers: {},
+          method: "POST",
+          payloadType: "raw",
+        },
       ]);
     });
   });

@@ -1,20 +1,21 @@
 import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentReportVariation } from "back-end/types/report";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
+import { parseISO } from "date-fns";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
-import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
@@ -23,7 +24,7 @@ const numberFormatter = new Intl.NumberFormat();
 
 function compareDimsByTotalUsers(
   dim1: ExperimentSnapshotTrafficDimension,
-  dim2: ExperimentSnapshotTrafficDimension
+  dim2: ExperimentSnapshotTrafficDimension,
 ) {
   const sum1 = dim1.variationUnits.reduce((acc, num) => acc + num, 0);
   const sum2 = dim2.variationUnits.reduce((acc, num) => acc + num, 0);
@@ -35,27 +36,45 @@ function compareDimsByTotalUsers(
 export default function TrafficCard({
   traffic,
   variations,
+  isBandit,
+  disableDimensions,
+  cardTitle = "Traffic",
+  containerClassName = "box p-3 my-4",
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
+  isBandit: boolean;
+  disableDimensions?: boolean;
+  cardTitle?: string;
+  containerClassName?: string;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const trafficByDate = traffic.dimension?.dim_exposure_date;
+  const trafficByDate = useMemo(
+    () => traffic.dimension?.dim_exposure_date || [],
+    [traffic],
+  );
 
-  const availableDimensions = transformDimensionData(
-    traffic.dimension,
-    variations,
-    srmThreshold
+  const availableDimensions = useMemo(
+    () =>
+      disableDimensions
+        ? []
+        : transformDimensionData(
+            traffic.dimension,
+            variations,
+            srmThreshold,
+            isBandit,
+          ),
+    [disableDimensions, traffic, variations, srmThreshold, isBandit],
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
 
   const dimensionWithIssues = availableDimensions.find(
-    (d) => d.value === selectedDimension
+    (d) => d.value === selectedDimension,
   );
 
   useEffect(() => {
@@ -68,14 +87,13 @@ export default function TrafficCard({
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    const sortedTraffic = [...trafficByDate];
-    sortedTraffic.sort((a, b) => {
+    const sortedTraffic = [...trafficByDate].sort((a, b) => {
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     return sortedTraffic.map((d) => {
       return {
-        d: getValidDate(d.name),
+        d: getValidDate(parseISO(d.name)),
         variations: variations.map((variation, i) => {
           const users = d.variationUnits[i] || 0;
           total[i] = total[i] || 0;
@@ -94,30 +112,35 @@ export default function TrafficCard({
   }, [trafficByDate, variations, cumulative]);
 
   const sortedDimensionSlices = useMemo(() => {
-    return traffic.dimension[selectedDimension]?.sort(compareDimsByTotalUsers);
+    return traffic.dimension?.[selectedDimension]?.sort(
+      compareDimsByTotalUsers,
+    );
   }, [selectedDimension, traffic.dimension]);
 
   return (
-    <div className="appbox my-4 p-3">
+    <div className={containerClassName}>
       <div className="mx-2">
-        <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{"Traffic"}</h2>
-          <div className="col-2 ml-auto">
-            <div className="uppercase-title text-muted">Dimension</div>
-            <SelectField
-              containerClassName={"select-dropdown-underline"}
-              initialOption="Over Time"
-              options={availableDimensions}
-              value={selectedDimension}
-              onChange={(v) => {
-                if (v === selectedDimension) return;
-                track("Select health tab traffic card dimension");
-                setSelectedDimension(v);
-              }}
-              disabled={!availableDimensions.length}
-            />
+        {!disableDimensions && (
+          <div className="d-flex flex-row mt-1">
+            <h2 className="d-inline">{cardTitle}</h2>
+            <div className="flex-1" />
+            <div className="col-auto">
+              <div className="uppercase-title text-muted">Dimension</div>
+              <SelectField
+                containerClassName={"select-dropdown-underline"}
+                initialOption="Over Time"
+                options={availableDimensions}
+                value={selectedDimension}
+                onChange={(v) => {
+                  if (v === selectedDimension) return;
+                  track("Select health tab traffic card dimension");
+                  setSelectedDimension(v);
+                }}
+                disabled={!availableDimensions.length}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-3 mb-3 d-flex align-items-center">
           <h3>
@@ -129,13 +152,7 @@ export default function TrafficCard({
           </h3>
           {!selectedDimension && (
             <div className="ml-auto">
-              Cumulative{" "}
-              <Toggle
-                label="Cumulative"
-                id="cumulative"
-                value={cumulative}
-                setValue={setCumulative}
-              />
+              Cumulative <Switch value={cumulative} onChange={setCumulative} />
             </div>
           )}
         </div>
@@ -171,12 +188,12 @@ export default function TrafficCard({
           <tbody>
             {(sortedDimensionSlices || []).map((r, i) => {
               const showWarning = !!dimensionWithIssues?.issues.find(
-                (i) => i === r.name
+                (i) => i === r.name,
               );
               return (
                 <tr key={i}>
                   <td className="border-right">
-                    {(
+                    {!isBandit ? (
                       <>
                         <Tooltip
                           body={
@@ -202,7 +219,9 @@ export default function TrafficCard({
                           {r.name}
                         </a>
                       </>
-                    ) || <em>unknown</em>}
+                    ) : (
+                      r.name
+                    )}
                   </td>
                   {variations.map((_v, i) => (
                     <td style={{ paddingLeft: "35px" }} key={i}>
@@ -212,14 +231,14 @@ export default function TrafficCard({
                   <td className="border-left">
                     {formatTrafficSplit(
                       variations.map((v) => v.weight),
-                      1
+                      1,
                     )}
                   </td>
                   <td>
                     <b>
                       {formatTrafficSplit(
                         variations.map((v, i) => r.variationUnits[i] || 0),
-                        1
+                        1,
                       )}
                     </b>
                   </td>
@@ -233,9 +252,10 @@ export default function TrafficCard({
           <ExperimentDateGraph
             yaxis="users"
             variationNames={variations.map((v) => v.name)}
-            label="Users"
+            label="Units"
             datapoints={usersPerDate}
             formatter={formatNumber}
+            cumulative={cumulative}
           />
         </div>
       )}

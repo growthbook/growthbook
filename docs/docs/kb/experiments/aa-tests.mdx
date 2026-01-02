@@ -41,33 +41,47 @@ For these errors, check our [troubleshooting guide](/kb/experiments/troubleshoot
 
 ### Problem: Metrics show statistically significant lifts in the A/A test
 
-One goal of an A/A test is to confirm that all of the Metrics appear balanced across the two variations. In an ideal world, there would be no statistically significant Metric movements between the two variations, because if everything is set up correctly the two variations should have produced identical results (or nearly so, due to random chance).
+The main goal of an A/A test is to ensure your experimentation system is set up correctly. One common way to test this is to confirm that all of the Metrics appear balanced across the two variations. In an ideal world, there would be no statistically significant Metric movements between the two variations, because if everything is set up correctly the two variations should have produced (nearly) identical results.
 
-It's important to remember the uncertainty that underpins all experiments. In order to state that an experiment is a "winner" without collecting data forever, we often accept some level of uncertainty when declaring that a Metric is clearly positive or clearly negative.
+In a clearly broken A/A test, you might see 3-4 Metrics all statistically significant with > 99%+ or < 1%
+chance to win. This is a clear sign that something is wrong with the experimentation set up.
 
-The default level of uncertainty that is used in GrowthBook's Bayesian statistics engine is:
+However, there are often cases where only one or two Metrics are significant, and maybe only just across your significance thresholds. Often this is not a problem and can be a false positive, especially if you added many metrics to your A/A test. Understanding why this is requires a bit of background on statistical significance and false positives in experiments.
 
-:::note
+#### Understanding significance and false positives rate
 
-The probability of a variation being higher or lower than the baseline is greater than 95% or less than 5%.
+In experimentation, it is necessary to allow some amount of "wiggle room" when calling a result "statistically significant". In GrowthBook, our default is to state that a Metric is statistically significant if there is a 95% chance that the variation is better than the baseline (a positive result), or only a 5% chance that it is better (a negative result). This means that a significant positive result is actually better than the baseline 95% of the time; in other words, 5% of the time, it isn't actually better!
+
+We allow this 5% chance, also known as the "false positive rate", because we want to be able to declare a winner in an experiment even when we're not 100% certain.
+
+For an A/A test, this means that even if your experiment set up is perfect and everything is balanced, you still have a chance of seeing a statistically significant result due to randomness. Even if you run your A/A test for months, you can still see some imbalance just due to bad luck in the randomization.
+
+:::info False positive rate
+
+If you run an A/A test with one Metric and use GrowthBook's default 95% and 5% thresholds, you have a 10% chance of seeing a "statistically significant" result even when there is no real difference between the variations.
+
+Furthermore, the more Metrics you add to your test, the greater the probability of seeing a false positive rate! If you have 2 unrelated Metrics in your A/A test, your chance of getting at least one false positive is 19%, and with 5 unrelated Metrics, it's 41%!
 
 :::
 
-This means that some percentage of the time, your variations will be identical but still yield statistically significant effects.
+You can lower your false positive rate by lowering the "Chance to Win Threshold" in your Organization settings, but that just means it will also take longer for actual A/B experiments to reach your significance level.
 
-In other words, about 10% of the time, you may see a statistically significant effect in an A/A Metric even if the test is set up correctly. You can lower this value by lowering the "Chance to Win Threshold" in your Organization settings, but that just means it will also take longer for actual A/B experiments to reach a significance level.
+So, what does this mean practically for A/A tests?
 
-So, how do we use this information about statistical significance?
-
-- If you have an A/A test with 10 Metrics that are different from one another, and 7 of them are different in a statistically significant way, and the differences are large (e.g. not 96% chance to win, but 99.9+), then you can plausibly state that something is wrong and you may want to dig into your set up. Use the general solutions in the trouble shooting guide as hints for where to begin looking for errors.
-- If you have an A/A test with 10 Metrics and 1 of them is statistically significant, or even 2 of them, then this is very plausibly due to chance and likely can be ignored and deemed a successful A/A test. You can restart your A/A test with re-randomization to confirm this if you want to. You should see a similar number of metrics reaching statistical significance, and they should not always be the same ones.
+- If you have an A/A test with 10 substantively different Metrics, and 7 of them are statistically significant, and the differences are large (e.g. not 96% chance to win, but 99.9+), then you can plausibly state that something is wrong and you may want to dig into your set up further. Use the general solutions in the [troubleshooting guide](/kb/experiments/troubleshooting-experiments) as hints for where to begin looking for errors.
+- If you have an A/A test with 10 Metrics and 1 of them is statistically significant, or even 2 of them, then this is very plausibly due to chance and likely can be ignored and deemed a successful A/A test. Furthermore, if there are no SRM errors or other signs of issues with your experiment, that could lend further credibility to these few significant results being a false positive. You can restart your A/A test with re-randomization to confirm this if you want to. You should see a similar number of metrics reaching statistical significance, and they should not always be the same ones.
 - Things get more complicated when you have 10 Metrics and 3-4 of them show statistically significant differences. In these cases, you should consider whether the Metrics are related to one another. If you have three "purchase" Metrics that are highly correlated with one another, then it's plausible that one "unlucky" draw caused this statistical significance and the A/A test is working fine. In this situation, you should consider restarting your A/A test to confirm this theory. If all three Metrics are quite different from one another, then it's stronger evidence that something may be wrong in your set up.
 
 ## Restarting an A/A test
 
 If you found some issues with your set up and want to re-run your A/A test, or if you had a Metrics imbalance that you are still uncertain about, you should usually restart the A/A test and run it again.
 
-The easiest way to do this while still guaranteeing you have a clean test is to use the "Make Changes" flow in the A/A experiment page.
+You have two options:
+
+- Create an entirely new experiment. This may be the best and cleanest option since you ensure you are using a new tracking key, new set up, and are unlikely to have any issues carrying over from the old experiment.
+- Restart the existing experiment with a new phase. This is the easiest approach, and will likely work in most cases. You can do this as follows:
+
+Use the "Make Changes" flow in the A/A experiment page.
 
 Use this flow to "Start a New Phase" and make sure you "re-randomize traffic" to ensure that users returning to your test will be re-randomized into variations.
 

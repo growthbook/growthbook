@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
@@ -19,9 +19,10 @@ const RefreshSnapshotButton: FC<{
   phase: number;
   dimension?: string;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  onSubmit?: () => void;
+  resetFilters?: () => void;
+  setError: (e: string | undefined) => void;
 }> = ({
   mutate,
   experiment,
@@ -29,7 +30,8 @@ const RefreshSnapshotButton: FC<{
   phase,
   dimension,
   setAnalysisSettings,
-  onSubmit,
+  resetFilters,
+  setError,
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,7 @@ const RefreshSnapshotButton: FC<{
       "create",
       "RefreshSnapshotButton",
       getDatasourceById(experiment.datasource)?.type || null,
-      res.snapshot
+      res.snapshot,
     );
     mutate();
   };
@@ -83,8 +85,9 @@ const RefreshSnapshotButton: FC<{
       )}
       <Button
         color="outline-primary"
+        setErrorText={setError}
         onClick={async () => {
-          onSubmit?.();
+          resetFilters?.();
           setLoading(true);
           setLongResult(false);
 

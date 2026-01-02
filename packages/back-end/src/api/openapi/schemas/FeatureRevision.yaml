@@ -1,0 +1,33 @@
+type: object
+required:
+  - baseVersion
+  - version
+  - comment
+  - date
+  - status
+  - rules
+properties:
+  baseVersion:
+    type: integer
+  version:
+    type: integer
+  comment:
+    type: string
+  date:
+    type: string
+    format: date-time
+  status:
+    type: string
+  publishedBy:
+    type: string
+  rules:
+    type: object
+    additionalProperties:
+      type: array
+      items:
+        $ref: "./FeatureRule.yaml"
+  definitions:
+    type: object
+    additionalProperties:
+      type: string
+      description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"

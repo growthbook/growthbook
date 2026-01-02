@@ -2,7 +2,7 @@
 
 Unleash the power of experimentation with GrowthBook to supercharge your Shopify store—no coding skills required!
 
-:::info Note
+:::info Pro subscription required
 
 This guide walks you through creating experiments using the GrowthBook Visual Editor, which requires a `Pro` subscription. [Learn More](https://www.growthbook.io/pricing).
 
@@ -28,7 +28,7 @@ Once you're in the code editor, locate the `theme.liquid` file and add the snipp
 
 ![](../../static/images/integrations/shopify/shopify-theme-editor.png)
 
-:::info Note
+:::note Tracking experiment views
 
 When a user views an experiment, this script will fire an event that tracks which variation the user saw. If you have Google Analytics 4 (GA4) or Segment installed on your store, you don't have to do any additional configuration. If, however, you need to use a different analytics provider, you can follow our guide [here](/lib/script-tag).
 
@@ -36,19 +36,25 @@ When a user views an experiment, this script will fire an event that tracks whic
 
 Once added, click "Save" and navigate back to GrowthBook.
 
-### Step 3: Install the GrowthBook Chrome Extension
+### Step 3: Install the GrowthBook DevTools Browser Extension
 
-The GrowthBook Chrome Extension allows you to use the Visual Editor to update your Shopify store's content. It's free, and you can download it [here](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia).
+The GrowthBook DevTools browser extension enables you to use the Visual Editor to update your Shopify website content. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) (Chrome) or from [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) (Firefox).
+
+Next, open the DevTools extension by clicking the extension icon.
+
+- Find and click on the cog icon ⚙️.
+- Enter your Personal Access Token (available in GrowthBook from the **main dropdown menu** → **Personal Access Tokens**).
+- Click "Save". The GrowthBook browser extension is all set up!
 
 ### Step 4: Create a GrowthBook Visual Editor Experiment
 
-:::info Note
+:::tip Questions about the Visual Editor?
 
-If you have questions about how to use the Visual Editor, [check out our guide here](https://docs.growthbook.io/app/visual).
+If you have questions about how to use the Visual Editor, [check out our guide here](/app/visual).
 
 :::
 
-Now that GrowthBook is installed on your Shopify store and you've installed the Chrome Extension, you can create a new experiment using the Visual Editor.
+Now that GrowthBook is installed on your Shopify store and you've installed the browser extension, you can create a new experiment using the Visual Editor.
 
 First, navigate to "Experiments" on the left-hand navigation menu and then click "Create Experiment", before selecting "Design a New Experiment" and following the on-screen prompts.
 

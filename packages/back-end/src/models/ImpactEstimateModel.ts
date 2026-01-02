@@ -1,14 +1,15 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { getConversionWindowHours } from "shared/experiments";
-import { ImpactEstimateInterface } from "../../types/impact-estimate";
-import { getMetricById } from "../models/MetricModel";
-import { getIntegrationFromDatasourceId } from "../services/datasource";
-import { SegmentInterface } from "../../types/segment";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+import { getMetricWindowHours } from "shared/experiments";
+import { SegmentInterface } from "shared/types/segment";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
+import { processMetricValueQueryResponse } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { getFactTableMap } from "./FactTableModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,
@@ -25,11 +26,11 @@ export type ImpactEstimateDocument = mongoose.Document &
 
 export const ImpactEstimateModel = mongoose.model<ImpactEstimateInterface>(
   "ImpactEstimate",
-  impactEstimateSchema
+  impactEstimateSchema,
 );
 
 export async function createImpactEstimate(
-  data: Partial<ImpactEstimateInterface>
+  data: Partial<ImpactEstimateInterface>,
 ) {
   const doc = await ImpactEstimateModel.create({
     query: "",
@@ -46,7 +47,7 @@ export async function getImpactEstimate(
   context: ReqContext | ApiReqContext,
   metric: string,
   numDays: number,
-  segment?: string
+  segment?: string,
 ): Promise<ImpactEstimateDocument | null> {
   const metricObj = await getMetricById(context, metric);
   if (!metricObj) {
@@ -60,7 +61,7 @@ export async function getImpactEstimate(
   const integration = await getIntegrationFromDatasourceId(
     context,
     metricObj.datasource,
-    true
+    true,
   );
 
   if (!context.permissions.canRunMetricQueries(integration.datasource)) {
@@ -76,8 +77,10 @@ export async function getImpactEstimate(
     segmentObj = null;
   }
 
+  const factTableMap = await getFactTableMap(context);
+
   const conversionWindowHours =
-    getConversionWindowHours(metricObj.windowSettings) ||
+    getMetricWindowHours(metricObj.windowSettings) ||
     DEFAULT_CONVERSION_WINDOW_HOURS;
 
   // Ignore last X hours of data since we need to give people time to convert
@@ -94,6 +97,7 @@ export async function getImpactEstimate(
     metric: metricObj,
     includeByDate: true,
     segment: segmentObj || undefined,
+    factTableMap,
   });
 
   const queryResponse = await integration.runMetricValueQuery(
@@ -101,7 +105,7 @@ export async function getImpactEstimate(
     // We're not storing a query in Mongo for this, so we don't support cancelling here
     async () => {
       // Ignore calls to setExternalId
-    }
+    },
   );
   const value = processMetricValueQueryResponse(queryResponse.rows);
 

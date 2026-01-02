@@ -5,9 +5,7 @@ sidebar_label: Global SDK Webhooks
 slug: /app/webhooks/global-sdk-webhooks
 ---
 
-:::note
-
-Global SDK Webhooks are only available for self-hosted GrowthBook installations.
+:::info Global SDK Webhooks are only available for self-hosted GrowthBook installations.
 
 :::
 
@@ -28,9 +26,10 @@ The only required field for a global webhook is **`url`**. Here's a minimal exam
 There are additional fields you can specify:
 
 - **`signingKey`** (string) - Will be used to add a signature header that enables you to verify the webhook origin
-- **`method`** (string) - One of `GET`, `PUT`, `POST`, `PURGE`, or `DELETE`. Defaults to `POST` if omitted
+- **`method`** (string) - One of `GET`, `PUT`, `POST`, `PURGE`, `PATCH`, or `DELETE`. Defaults to `POST` if omitted
 - **`headers`** (object) - Additional headers to add to the webhook request. Useful for adding auth headers for example. Default `{}`.
-- **`payloadFormat`** (string) - How to format the body (ignored when method = "GET"). One of `standard`, `standard-no-payload`, `sdkPayload` or `none`. Defaults to `standard`. Read more about the different formats in the SDK Webhooks [Payload Format docs](/app/webhooks/sdk-webhooks#payload-format).
+- **`payloadFormat`** (string) - How to format the body (ignored when method = "GET"). One of `standard`, `standard-no-payload`, `sdkPayload`, `edgeConfig` or `none`. Defaults to `standard`. Read more about the different formats in the SDK Webhooks [Payload Format docs](/app/webhooks/sdk-webhooks#payload-format).
+- **`payloadKey`** (string) - Only used when payloadFormat is set to `edgeConfig`. The key in Vercel Edge Config you want to update.
 
 _Deprecated:_
 
@@ -47,12 +46,6 @@ Here's a full example using all of the fields:
 If you define a `signingKey`, you can use it to verify that webhooks are coming from GrowthBook.
 
 **See: [SDK Webhooks - Verify Signatures](/app/webhooks/sdk-webhooks#verify-signatures)**
-
-## Using Webhook Payloads
-
-Global SDK Webhooks always include a special header (`webhook-sdk-key`), which contains the clientKey of the SDK Connection that triggered the payload.
-
-If you specify `sendPayload: true`, you will also receive an SDK payload in the body. See [SDK Webhooks -> Sending Payload](/app/webhooks/sdk-webhooks#sending-payload)
 
 ## Errors and Retries
 

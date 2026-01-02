@@ -1,0 +1,31 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - name
+  - owner
+  - isPublic
+  - attributes
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+  dateUpdated:
+    type: string
+  name:
+    type: string
+  description:
+    type: string
+  owner:
+    type: string
+  isPublic:
+    type: boolean
+  attributes:
+    type: object
+    description: The attributes to set when using this Archetype
+  projects:
+    type: array
+    items:
+      type: string

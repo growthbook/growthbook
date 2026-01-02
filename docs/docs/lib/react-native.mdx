@@ -6,10 +6,14 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # React Native
 
 This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
+
+<SdkResources sdk="reactNative" />
 
 ## Installation
 
@@ -201,7 +205,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Waiting for Features to Load
@@ -277,7 +281,7 @@ const gb = new GrowthBook({
 });
 ```
 
-:::note
+:::note Sticky Bucketing with Remote Evaluation
 
 If you would like to implement Sticky Bucketing while using Remote Evaluation, you must configure your remote evaluation backend to support Sticky Bucketing. In the case of the GrowthBook Proxy Server, this means implementing a Redis database for sticky bucketing use. You will not need to provide a StickyBucketService instance to the client side SDK.
 
@@ -483,7 +487,7 @@ Alternatively, CryptoJS (https://www.npmjs.com/package/crypto-js) provides a syn
 ```js
 import sha256 from 'crypto-js/sha256';
 
-const userEmail = sha256(salt + user.email);
+const userEmail = sha256(salt + user.email).toString();
 ```
 
 ### Feature Usage Callback
@@ -499,20 +503,6 @@ new GrowthBook({
 ```
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
-
-### Dev Mode
-
-There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
-
-In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
-
-```js
-const gb = new GrowthBook({
-  enableDevMode: true,
-});
-```
-
-To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
 
 ### Inline Experiments
 
@@ -562,7 +552,7 @@ export default withRunExperiment(OtherComponent);
 
 Some hooks are available in type-safe versions. These require you to pass in your generated types as the generic argument.
 
-See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Scrict Typing](/lib/js#strict-typing) for how to use them.
+See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Strict Typing](/lib/js#strict-typing) for how to use them.
 
 ### useGrowthBook&lt;T&gt;()
 
@@ -626,3 +616,7 @@ const isDarkModeOn = useFeatureIsOn("dark_mode");
 
 - [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="reactNative" />

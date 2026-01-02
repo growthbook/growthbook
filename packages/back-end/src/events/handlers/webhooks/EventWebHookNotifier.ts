@@ -1,20 +1,27 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
-import { getAgendaInstance } from "../../../services/queueing";
-import { getEvent } from "../../../models/EventModel";
-import {
-  getEventWebHookById,
-  updateEventWebHookStatus,
-} from "../../../models/EventWebhookModel";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
-} from "../../../../types/event-webhook";
-import { findOrganizationById } from "../../../models/OrganizationModel";
-import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
-import { logger } from "../../../util/logger";
-import { cancellableFetch } from "../../../util/http.util";
-import { getSlackMessageForNotificationEvent } from "../slack/slack-event-handler-utils";
-import { NotificationEventName } from "../../../../types/event";
+} from "shared/types/event-webhook";
+import { LegacyNotificationEvent } from "shared/types/events/notification-events";
+import { NotificationEventName } from "shared/types/events/event";
+import { getAgendaInstance } from "back-end/src/services/queueing";
+import { getEvent } from "back-end/src/models/EventModel";
+import {
+  getEventWebHookById,
+  updateEventWebHookStatus,
+} from "back-end/src/models/EventWebhookModel";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
+import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel";
+import { logger } from "back-end/src/util/logger";
+import { cancellableFetch } from "back-end/src/util/http.util";
+import {
+  getSlackMessageForNotificationEvent,
+  getSlackMessageForLegacyNotificationEvent,
+} from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { SecretsReplacer } from "back-end/src/util/secrets";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -41,13 +48,13 @@ type EventWebHookJobData = JobAttributesData &
 export class EventWebHookNotifier implements Notifier {
   constructor(
     private options: EventWebHookNotificationHandlerOptions,
-    private agenda: Agenda = getAgendaInstance()
+    private agenda: Agenda = getAgendaInstance(),
   ) {
     if (jobDefined) return;
 
     this.agenda.define<EventWebHookJobData>(
       "eventWebHook",
-      EventWebHookNotifier.handleAgendaJob
+      EventWebHookNotifier.handleAgendaJob,
     );
     jobDefined = true;
   }
@@ -74,7 +81,7 @@ export class EventWebHookNotifier implements Notifier {
    * @private
    */
   private static async handleAgendaJob(
-    job: Job<EventWebHookJobData>
+    job: Job<EventWebHookJobData>,
   ): Promise<void> {
     const { eventId, eventWebHookId } = job.attrs.data;
 
@@ -82,58 +89,67 @@ export class EventWebHookNotifier implements Notifier {
     if (!event) {
       // We should never get here.
       throw new Error(
-        `EventWebHookNotifier -> ImplementationError: No event for provided ID ${eventId}`
+        `EventWebHookNotifier -> ImplementationError: No event for provided ID ${eventId}`,
       );
     }
 
     const eventWebHook = await getEventWebHookById(
       eventWebHookId,
-      event.organizationId
+      event.organizationId,
     );
     if (!eventWebHook) {
       // We should never get here.
       throw new Error(
-        `EventWebHookNotifier -> ImplementationError: No webhook for provided ID: ${eventWebHookId}`
+        `EventWebHookNotifier -> ImplementationError: No webhook for provided ID: ${eventWebHookId}`,
       );
     }
 
     const organization = await findOrganizationById(event.organizationId);
     if (!organization) {
       throw new Error(
-        `EventWebHookNotifier -> ImplementationError: No organization for ID: ${event.organizationId}`
+        `EventWebHookNotifier -> ImplementationError: No organization for ID: ${event.organizationId}`,
       );
     }
 
-    const eventPayload = event.data;
-
     const payload = await (async () => {
       let invalidPayloadType: never;
-      const { payloadType } = eventWebHook;
 
-      if (!payloadType) return eventPayload;
+      // There might be very old webhook definitions who don't have
+      // a payloadType at all. Assume "raw" in this case.
+      const payloadType = eventWebHook.payloadType || "raw";
 
       switch (payloadType) {
-        case "raw":
-          return eventPayload;
+        case "json": {
+          if (!event.version) throw new Error("Internal error");
+          return event.data;
+        }
+
+        case "raw": {
+          const legacyPayload: LegacyNotificationEvent | undefined =
+            event.version
+              ? getLegacyMessageForNotificationEvent(event.data)
+              : event.data;
+          return legacyPayload;
+        }
 
         case "slack": {
-          return getSlackMessageForNotificationEvent(eventPayload, eventId);
+          if (!event.version)
+            return getSlackMessageForLegacyNotificationEvent(
+              event.data,
+              eventId,
+            );
+          return getSlackMessageForNotificationEvent(event.data, eventId);
         }
 
         case "discord": {
-          const data = await getSlackMessageForNotificationEvent(
-            eventPayload,
-            eventId
-          );
+          const data = await (!event.version
+            ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
+            : getSlackMessageForNotificationEvent(event.data, eventId));
 
           if (!data) return null;
 
           return { content: data.text };
         }
-
-        case "ms-teams":
-          // TODO: not implemented
-          return eventPayload;
 
         default:
           invalidPayloadType = payloadType;
@@ -147,10 +163,18 @@ export class EventWebHookNotifier implements Notifier {
 
     const method = eventWebHook.method || "POST";
 
+    const context = getContextForAgendaJobByOrgObject(organization);
+
+    const origin = new URL(eventWebHook.url).origin;
+
+    const applySecrets =
+      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
+
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,
       eventWebHook,
       method,
+      applySecrets,
     });
 
     switch (webHookResult.result) {
@@ -188,10 +212,12 @@ export class EventWebHookNotifier implements Notifier {
     payload,
     eventWebHook,
     method,
+    applySecrets,
   }: {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
     method: EventWebHookMethod;
+    applySecrets: SecretsReplacer;
   }): Promise<EventWebHookResult> {
     const requestTimeout = 30000;
     const maxContentSize = 1000;
@@ -205,11 +231,12 @@ export class EventWebHookNotifier implements Notifier {
       });
 
       const result = await cancellableFetch(
-        url,
+        applySecrets(url, { encode: encodeURIComponent }),
         {
           headers: {
-            ...headers,
+            ...applySecrets(headers),
             "Content-Type": "application/json",
+            "User-Agent": "GrowthBook Webhook",
             "X-GrowthBook-Signature": signature,
           },
           method,
@@ -218,7 +245,7 @@ export class EventWebHookNotifier implements Notifier {
         {
           maxTimeMs: requestTimeout,
           maxContentSize: maxContentSize,
-        }
+        },
       );
 
       const { stringBody, responseWithoutBody } = result;

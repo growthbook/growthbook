@@ -1,16 +1,16 @@
 import {
   ExperimentDimension,
   DimensionSlicesQueryResponseRows,
-} from "../types/Integration";
+} from "shared/types/integrations";
 import {
   DimensionSlicesInterface,
   DimensionSlicesResult,
-} from "../../types/dimension";
-import { Queries } from "../../types/query";
+} from "shared/types/dimension";
+import { Queries } from "shared/types/query";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
-} from "../models/DimensionSlicesModel";
+} from "back-end/src/models/DimensionSlicesModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 export type DimensionSlicesParams = {
   exposureQueryId: string;
@@ -24,7 +24,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
 > {
   checkPermissions(): boolean {
     return this.context.permissions.canRunHealthQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -42,7 +42,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
 
     if (!dimensions.length) {
       throw new Error(
-        "Exposure query must have at least 1 dimension to get dimension slices."
+        "Exposure query must have at least 1 dimension to get dimension slices.",
       );
     }
 
@@ -57,7 +57,6 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runDimensionSlicesQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "dimensionSlices",
       }),
     ];
@@ -98,7 +97,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   async getLatestModel(): Promise<DimensionSlicesInterface> {
     const model = await getDimensionSlicesById(
       this.model.organization,
-      this.model.id
+      this.model.id,
     );
     if (!model) throw new Error("Could not find automatic dimension model");
     return model;

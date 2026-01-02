@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { UpdateResult } from "mongodb";
-import { WatchInterface } from "../../types/watch";
+import { WatchInterface } from "back-end/types/watch";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const watchSchema = new mongoose.Schema({
   userId: String,
@@ -32,7 +32,7 @@ const toInterface: ToInterface<WatchInterface> = (doc) =>
 
 export async function getWatchedByUser(
   organization: string,
-  userId: string
+  userId: string,
 ): Promise<WatchInterface | null> {
   const watchDoc = await getCollection(COLLECTION).findOne({
     userId,
@@ -43,7 +43,7 @@ export async function getWatchedByUser(
 
 export async function getExperimentWatchers(
   experimentId: string,
-  organization: string
+  organization: string,
 ): Promise<string[]> {
   const watchers = await getCollection(COLLECTION)
     .find({
@@ -73,7 +73,7 @@ export async function upsertWatch({
     },
     {
       upsert: true,
-    }
+    },
   );
 }
 
@@ -92,6 +92,6 @@ export async function deleteWatchedByEntity({
       $pull: {
         [type]: item,
       },
-    }
+    },
   );
 }

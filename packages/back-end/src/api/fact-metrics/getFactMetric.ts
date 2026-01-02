@@ -1,6 +1,6 @@
-import { GetFactMetricResponse } from "../../../types/openapi";
-import { createApiRequestHandler } from "../../util/handler";
-import { getFactMetricValidator } from "../../validators/openapi";
+import { GetFactMetricResponse } from "shared/types/openapi";
+import { getFactMetricValidator } from "shared/validators";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
   async (req): Promise<GetFactMetricResponse> => {
@@ -18,5 +18,5 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
-  }
+  },
 );

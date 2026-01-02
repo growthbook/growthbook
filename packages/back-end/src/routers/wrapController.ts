@@ -8,14 +8,18 @@ type Controller<T extends string> = Record<T, Handler>;
 
 export function wrapController<T extends string>(
   // eslint-disable-next-line
-  controller: Record<T, any>
+  controller: Record<T, any>,
 ): Controller<T> {
   const newController = {} as Controller<T>;
   Object.keys(controller).forEach((key: T) => {
     // Sanity check in case someone exports a non-function from the controller file
-    if (typeof controller[key] === "function") {
-      newController[key] = asyncHandler(controller[key]);
-    }
+
+    // Stash this into a variable otherwise the check below
+    // changes the type of the attribute..
+    const entry = typeof controller[key];
+    if (entry !== "function") return;
+
+    newController[key] = asyncHandler(controller[key]);
   });
   return newController;
 }

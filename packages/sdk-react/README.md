@@ -58,13 +58,9 @@ const gb = new GrowthBook({
     });
   },
 });
+gb.init();
 
 export default function App() {
-  useEffect(() => {
-    // Load features from the GrowthBook API
-    gb.loadFeatures();
-  }, []);
-
   useEffect(() => {
     // Set user attributes for targeting (from cookie, auth system, etc.)
     gb.setAttributes({
@@ -170,7 +166,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be downloaded
-await gb.loadFeatures({
+await gb.init({
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -211,7 +207,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
+Note that you don't have to call `gb.init()` or `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
@@ -318,7 +314,7 @@ export async function getServerSideProps(context) {
       id: context.req.cookies.DEVICE_ID,
     },
   });
-  await gb.loadFeatures();
+  await gb.init();
 
   return {
     props: {
@@ -378,13 +374,9 @@ const gb = new GrowthBook({
   // Update the instance in realtime as features change in GrowthBook
   subscribeToChanges: true,
 });
+gb.init();
 
 export default function App() {
-  useEffect(() => {
-    // Load features from GrowthBook and initialize the SDK
-    gb.loadFeatures();
-  }, []);
-
   useEffect(() => {
     // Set user attributes for targeting (use the same values as SSR when possible)
     gb.setAttributes({

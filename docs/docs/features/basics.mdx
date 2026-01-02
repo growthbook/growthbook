@@ -5,6 +5,8 @@ sidebar_label: Feature Flag Basics
 slug: /features/basics
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Basics of Feature Flags
 
 ## Feature Keys
@@ -13,7 +15,9 @@ Every feature is defined by a unique **key**. This is what the engineering team 
 check the value of a feature. Feature keys **cannot** be changed after they are created, so take care when choosing one.
 If you make a mistake, you can always delete the feature and create a new one.
 
-<img src="/images/features/feature-create-feature-1.png" alt="Create Feature" width="600" />
+<MaxWidthImage maxWidth={600}>
+  ![Create Feature](/images/features/feature-create-feature-1.png)
+</MaxWidthImage>
 
 Feature keys must only include letters, numbers, hyphens, and underscores.
 
@@ -42,11 +46,11 @@ const value = growthbook.getFeatureValue("other-feature", "fallback");
 
 GrowthBook also supports multiple environments, so you can, for example, have a feature enabled in **dev** but not **production**.
 
-You can also change the value of a feature with **Override Rules**. The following types of rules are supported:
+You can also change the value of a feature with **Rules**. The following types of rules are supported:
 
-## Override Rules
+## Rules
 
-Default values are overridden by **override rules**. Override rules are used to target specific users or groups of users,
+Default values are overridden by **Rules**. Rules are used to target specific users or groups of users,
 or when launching A/B tests.
 
 There are three kinds of rules we support:
@@ -55,7 +59,7 @@ There are three kinds of rules we support:
 - [**Percentage Rollout**](/features/rules#percentage-rollout) - use random sampling to roll out a feature to a percent of users
 - [**A/B Experiment**](/features/rules#experiments) - run a randomized A/B test between 2 or more feature values
 
-For more information, see our page on [override rules](/features/rules).
+For more information, see our page on [Rules](/features/rules).
 
 ## Feature Types
 
@@ -107,7 +111,7 @@ chances of typos. Currently, JSON validation is part of our enterprise plan.
 
 ## Publishing Changes
 
-When you make changes to a feature's definition (default value or override rules), a new draft revision of the feature is created automatically. This draft revision is unpublished and is only visible within the GrowthBook UI, not to your users.
+When you make changes to a feature's definition (e.g. the default value or modifying rules), a new draft revision of the feature is created automatically. This draft revision is unpublished and is only visible within the GrowthBook UI, not to your users.
 
 You can continue adding changes to this draft and when you are ready, publish them all at once with an optional commit message.
 

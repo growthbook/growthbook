@@ -1,22 +1,89 @@
+import { SignedUploadUrlResponse, UploadResponse } from "shared/types/upload";
 import { ApiCallType } from "./auth";
-import { getApiHost } from "./env";
+import { getApiHost, getUploadMethod } from "./env";
 
 export async function uploadFile(
-  apiCall: ApiCallType<{ fileURL: string }>,
-  file: File
+  apiCall: ApiCallType<UploadResponse | SignedUploadUrlResponse>,
+  file: File,
 ) {
+  const uploadMethod = getUploadMethod();
   let fileURL = "";
-  try {
-    ({ fileURL } = await apiCall("/upload", {
-      method: "PUT",
 
-      headers: {
-        "Content-Type": file.type,
-      },
-      body: file,
-    }));
-  } catch (e) {
-    throw new Error("Failed to upload file: " + e.message);
+  if (uploadMethod === "local") {
+    // Direct upload for local storage
+    try {
+      ({ fileURL } = (await apiCall("/upload", {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      })) as UploadResponse);
+    } catch (e) {
+      throw new Error("Failed to upload file: " + e.message);
+    }
+  } else {
+    // Signed URL approach for cloud storage (S3 or GCS)
+    try {
+      // Get signed URL for upload
+      const signedUrlResponse = (await apiCall(
+        "/upload/signed-url-for-upload",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contentType: file.type,
+          }),
+        },
+      )) as SignedUploadUrlResponse;
+
+      const { signedUrl, fileUrl, fields } = signedUrlResponse;
+
+      let uploadResponse: Response;
+
+      // Determine upload method based on URL and fields
+      const isS3Post = signedUrl.includes("s3.amazonaws.com");
+
+      if (isS3Post && fields) {
+        // S3 POST-based upload with policy enforcement
+        const formData = new FormData();
+
+        // Add all the fields from the presigned POST first
+        Object.entries(fields).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
+
+        // Add the file last (required by S3)
+        formData.append("file", file);
+
+        uploadResponse = await fetch(signedUrl, {
+          method: "POST",
+          body: formData,
+          // Don't set Content-Type header - browser will set it with boundary
+        });
+      } else {
+        // PUT-based upload (backward compatible)
+        uploadResponse = await fetch(signedUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type,
+          },
+          body: file,
+        });
+      }
+
+      if (!uploadResponse.ok) {
+        throw new Error(
+          `Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`,
+        );
+      }
+
+      fileURL = fileUrl;
+    } catch (e) {
+      throw new Error("Failed to upload file via signed URL: " + e.message);
+    }
   }
 
   return {

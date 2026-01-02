@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { DimensionInterface } from "back-end/types/dimension";
+import { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
@@ -9,27 +9,22 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import useMembers from "@/hooks/useMembers";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import SelectOwner from "../Owner/SelectOwner";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
-  const {
-    getDatasourceById,
-    datasources,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { getDatasourceById, datasources, mutateDefinitions, project } =
+    useDefinitions();
 
   const validDatasources = datasources.filter(
     (d) =>
       d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   const form = useForm({
@@ -40,7 +35,7 @@ const DimensionForm: FC<{
       datasource:
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.owner || "",
+      owner: current?.owner || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -69,9 +64,14 @@ const DimensionForm: FC<{
           requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
+          sqlObjectInfo={{
+            objectType: "Dimension",
+            objectName: form.watch("name"),
+          }}
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         open={true}
         size="md"
@@ -86,17 +86,16 @@ const DimensionForm: FC<{
             {
               method: current.id ? "PUT" : "POST",
               body: JSON.stringify(value),
-            }
+            },
           );
           mutateDefinitions();
         })}
       >
         <Field label="Name" required {...form.register("name")} />
-        <Field
-          label="Owner"
-          options={memberUsernameOptions}
-          comboBox
-          {...form.register("owner")}
+        <SelectOwner
+          resourceType="dimension"
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
         <Field label="Description" textarea {...form.register("description")} />
         <SelectField

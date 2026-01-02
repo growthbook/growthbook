@@ -1,3 +1,7 @@
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import track from "@/services/track";
 
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
@@ -8,6 +12,13 @@ export default function FeatureLinkedChanges({
   linkedFeatures,
   experiment,
   canAddChanges,
+  isPublic,
+}: {
+  setFeatureModal?: (open: boolean) => void;
+  linkedFeatures: LinkedFeatureInfo[];
+  experiment: ExperimentInterfaceStringDates;
+  canAddChanges: boolean;
+  isPublic?: boolean;
 }) {
   const featureFlagCount = linkedFeatures.length;
 
@@ -18,16 +29,20 @@ export default function FeatureLinkedChanges({
       type="feature-flag"
       experimentStatus={experiment.status}
       onAddChange={() => {
-        setFeatureModal(true);
+        setFeatureModal?.(true);
         track("Open linked feature modal", {
           source: "linked-changes",
           action: "add",
         });
       }}
     >
-      {linkedFeatures.map((info, i) => (
-        <LinkedFeatureFlag info={info} experiment={experiment} key={i} />
-      ))}
+      {!isPublic ? (
+        <>
+          {linkedFeatures.map((info, i) => (
+            <LinkedFeatureFlag info={info} experiment={experiment} key={i} />
+          ))}
+        </>
+      ) : null}
     </LinkedChangesContainer>
   );
 }

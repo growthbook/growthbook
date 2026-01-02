@@ -1,14 +1,15 @@
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
-  telemetry: "enable",
+  telemetry: "disable",
   cloud: false,
   isMultiOrg: false,
   allowSelfOrgCreation: false,
   showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
+  environment: "",
   s3domain: "",
   gcsDomain: "",
   cdnHost: "",
@@ -18,7 +19,14 @@ const env: EnvironmentInitValue = {
   usingSSO: false,
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
-  usingFileProxy: false,
+  allowCreateDimensions: true,
+  superadminDefaultRole: "readonly",
+  ingestorOverride: "",
+  stripePublishableKey: "",
+  experimentRefreshFrequency: 6,
+  hasOpenAIKey: false,
+  hasAnthropicKey: false,
+  uploadMethod: "local",
 };
 
 export async function initEnv() {
@@ -29,6 +37,9 @@ export async function initEnv() {
   if (env.sentryDSN) {
     Sentry.init({
       dsn: env.sentryDSN,
+      sendDefaultPii: true,
+      environment: env.environment,
+      release: env.build?.sha,
     });
   }
 }
@@ -62,10 +73,10 @@ export function showMultiOrgSelfSelector(): boolean {
   return env.showMultiOrgSelfSelector;
 }
 export function isTelemetryEnabled(): boolean {
-  return env.telemetry === "enable";
+  return env.telemetry === "enable" || env.telemetry === "enable-with-debug";
 }
 export function inTelemetryDebugMode(): boolean {
-  return env.telemetry === "debug";
+  return env.telemetry === "debug" || env.telemetry === "enable-with-debug";
 }
 export function hasFileConfig() {
   return env.config === "file";
@@ -73,11 +84,18 @@ export function hasFileConfig() {
 export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
 }
+export function envAllowsCreatingDimensions() {
+  return env.allowCreateDimensions;
+}
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
 }
-export function getGrowthBookBuild(): { sha: string; date: string } {
-  return env.build || { sha: "", date: "" };
+export function getGrowthBookBuild(): {
+  sha: string;
+  date: string;
+  lastVersion: string;
+} {
+  return env.build || { sha: "", date: "", lastVersion: "" };
 }
 export function usingSSO() {
   return env.usingSSO;
@@ -88,6 +106,28 @@ export function isSentryEnabled() {
 export function storeSegmentsInMongo() {
   return env.storeSegmentsInMongo;
 }
-export function usingFileProxy() {
-  return env.usingFileProxy;
+export function getSuperadminDefaultRole() {
+  return env.superadminDefaultRole;
+}
+export function getIngestorHost() {
+  return env.ingestorOverride || "https://us1.gb-ingest.com";
+}
+
+export function getStripePublishableKey() {
+  return env.stripePublishableKey;
+}
+export function hasOpenAIKey() {
+  return env.hasOpenAIKey || false;
+}
+
+export function hasAnthropicKey() {
+  return env.hasAnthropicKey || false;
+}
+
+export function getExperimentRefreshFrequency() {
+  return env.experimentRefreshFrequency;
+}
+
+export function getUploadMethod(): "local" | "s3" | "google-cloud" {
+  return env.uploadMethod;
 }

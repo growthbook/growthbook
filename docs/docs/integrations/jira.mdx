@@ -1,0 +1,105 @@
+---
+title: Official GrowthBook for Jira Integration
+description: How to integrate GrowthBook with Jira, making it easy to connect feature flags and experiments with Jira issues.
+id: jira
+slug: jira
+---
+
+# Jira Integration
+
+## Overview
+
+The **GrowthBook for Jira** integration connects your feature flags and experiments directly to Jira issues, streamlining your workflow, reducing context switching, and helping your team deploy confidently.
+
+What you’ll learn in this guide:
+
+- What the GrowthBook Jira integration does
+- How to install and configure the integration
+- How to link feature flags and experiments to Jira issues
+- How to view and manage linked feature flags and experiments within Jira
+- How to enable the Custom Field for your Jira Projects
+
+## What does the GrowthBook Jira integration do?
+
+GrowthBook for Jira makes it easy for your team to integrate GrowthBook feature flags and experiments directly within your Jira workflow. Your team can quickly associate feature flags and experiments to Jira issues, view critical details instantly, and streamline communication between development, product, and QA teams.
+
+:::warning Only supported for cloud-hosted GrowthBook accounts
+The app listed in the Atlassian Marketplace only supports cloud-hosted GrowthBook accounts. For self-hosted instances, see the instructions in our [readme](https://github.com/growthbook/jira-app/tree/main?tab=readme-ov-file#connecting-to-a-self-hosted-growthbook-instance)
+:::
+
+## Install the Integration
+
+1. Install the GrowthBook Jira Integration from the [Atlassian Marketplace](https://marketplace.atlassian.com/apps/1237621/growthbook-for-jira?tab=overview&hosting=cloud).
+2. Click **Get it now** and follow Jira’s prompts to complete installation.
+3. After installing, navigate to your Jira project’s Apps settings and select the GrowthBook Integration.
+4. Connect your GrowthBook workspace by providing your GrowthBook API key and other required configuration details.
+
+:::tip Ensure you have administrator privileges in both Jira and GrowthBook to complete the setup.
+:::
+
+## (Optional) Add the GrowthBook Custom Field to Jira Projects
+
+1. In the sidebar, click **Projects** &rarr; **Manage Projects**
+2. For each project that you want to enable the custom field in, select the &quot;...&quot; more options menu
+3. Select **Fields** and **Add field**, then search for "GrowthBook Link" and click **Add field**
+4. Under **Work types**, select which work type you want to add the field to, e.g. **Task**
+5. Move the GrowthBook Link field from the list of fields in the sidebar to where you'd like it to appear on your work item
+
+Once the field has been added, it will appear when you link an issue to a GrowthBook feature or experiment.
+![Adding field in project settings](/images/integrations/jira/add-field-to-project.png)
+![Adding field to work item](/images/integrations/jira/add-field-to-task.png)
+
+## Adding Feature Flags and Experiments to Jira Issues
+
+![Select menu for GrowthBook for Jira](/images/integrations/jira/jira-select-features.jpg)
+
+:::info Only existing items will be shown
+If the dropdown is empty, make sure you've already created a feature flag or experiment in GrowthBook. Only existing items will be shown.
+:::
+
+To link a GrowthBook feature flag or experiment to a Jira issue:
+
+1. Open the Jira issue
+2. Select the gear icon (View app actions) at the top and from the dropdown choose **GrowthBook for Jira**
+3. Use the search bar dropdown to quickly find or select an existing feature flag or experiment
+4. Click the feature flag or experiment to link it to the issue
+
+Now your Jira issue displays essential information from GrowthBook right within your workflow.
+
+## Viewing Flag and Experiment Details in Jira
+
+Once linked, Jira will display key details directly within your issue:
+
+![Feature status in Jira](/images/integrations/jira/jira-feature-status.jpg)
+
+### Feature Flags:
+
+- [Status](/features/features/approval-flows#approval-flow)
+- Last published/updated date
+- Creator
+- Associated experiments (if applicable)
+- Direct link to GrowthBook
+
+![Experiment status in Jira](/images/integrations/jira/jira-experiment-status.jpg)
+
+### Experiments:
+
+- [Experiment status](/app/experiment-decisions#experiment-statuses)
+- Phase, duration and days remaining (if running)
+- Linked feature flags (if applicable)
+- Experiment type (URL Redirect, Feature Flag, Visual Editor)
+- Direct link to GrowthBook
+
+## Removing or Changing Flags or Experiments
+
+To update a flag or experiment:
+
+1. Open the Jira issue containing the linked flag or experiment
+2. Click **Replace Linked Feature** or **Replace Linked Experiment** to update the linked flag or experiment
+3. Repeat the steps above to link a different flag or experiment
+
+To remove a flag or experiment:
+
+1. Open the Jira issue containing the linked flag or experiment
+2. Locate the GrowthBook panel and click the ellipsis (…) next to the linked item
+3. Select **Remove**

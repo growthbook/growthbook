@@ -154,28 +154,29 @@ Any normal HTML props can be passed as well and will be passed onto the underlyi
 
 ### Select Dropdowns
 
-Select dropdowns have 2 additional props:
+Use the `SelectField` component to render a dropdown.
 
-- **options** (required)
-- **initialOption** (optional, string)
+It has many of the same properties as `Field`, but there are 2 main differences:
 
-The `options` prop can be an array of strings, an array of `{value: "...", display: "..."}` objects, or an object mapping (e.g. `{fname: "First Name", lname: "Last Name"}`). Use the `initialOption` prop if you want to add a blank option to the top of the list (e.g. `Choose one...`).
+1. Must pass in `options`
+2. Cannot use `form.register`. Instead specify a `value` and `setValue` prop.
 
-Examples:
+Example:
 
 ```tsx
-<Field initialOption="Pick One" options={["one", "two"]}/>
-
-<Field options={[
-  {value: "1", display: "One"},
-  {value: "2", display: "Two"},
-]}/>
-
-<Field options={{
-  "1": "One",
-  "2": "Two",
-}}/>
+<SelectField
+  options={[
+    {value: "1", label: "One"},
+    {value: "2", label: "Two"}
+  ]}
+  value={form.watch("myField")}
+  setValue={(val) => form.setValue("myField", val)}
+>
 ```
+
+There is also a `MultiSelectField` component where the value is an array of strings instead of a single string.
+
+Both `SelectField` and `MultiSelectField` have a `createable` prop that makes it act more like an auto-complete field than a true dropdown.
 
 ### Textareas
 
@@ -204,7 +205,7 @@ There is also a `render` prop for completely custom inputs.
 />
 ```
 
-## Searching and Sorting
+## Searching, Sorting, and Pagination
 
 Whenever we show a list of items, we typically render a table and provide searching and sorting functionality.
 
@@ -217,11 +218,12 @@ The `useSearch` hook makes this process much simpler and removes a lot of boiler
 const features: FeatureInterface[];
 
 // Filter by search term and sort results
-const { items, searchInputProps, SortableTH } = useSearch({
+const { items, searchInputProps, SortableTH, pagination } = useSearch({
   items: features,
   localStorageKey: "features",
   searchFields: ["id", "description"],
   defaultSortField: "id",
+  pageSize: 20,
 });
 
 // Render the UI
@@ -248,6 +250,7 @@ return (
         ))}
       </tbody>
     </table>
+    {pagination}
   </div>
 );
 ```
@@ -276,7 +279,7 @@ const filterResults = useCallback(
   (features: FeatureInterface[]) => {
     return features.filter((feature) => showArchived || !feature.archived);
   },
-  [showArchived]
+  [showArchived],
 );
 
 useSearch({
@@ -319,7 +322,7 @@ const withMetricNames = useAddComputedFields(
     metricName: getMetricById(item.metricId)?.name || "",
   }),
   // Dependencies
-  [getMetricById]
+  [getMetricById],
 );
 
 const { items, SortableTH } = useSearch({
@@ -390,6 +393,18 @@ return (
   </table>
 );
 ```
+
+### Pagination
+
+By default, pagination is disabled. Specify a `pageSize` in the `useSearch` hook to enable it.
+
+There are also 3 return properties from the hook:
+
+- `pagination` - Make sure to render this right after your table
+- `page` - The current page
+- `resetPage` - A callback you can call to reset to page 1
+
+Note: Pagination is done client-side and does not reduce the memory consumption or network usage. It can however reduce CPU by limiting the number of components rendered to the screen.
 
 ### Custom search syntax (advanced)
 

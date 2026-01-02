@@ -1,8 +1,4 @@
-import {
-  DefaultMemberRole,
-  Permission,
-  Role,
-} from "back-end/types/organization";
+import { DefaultMemberRole, Permission, Role } from "shared/types/organization";
 
 export const POLICIES = [
   "ReadData",
@@ -29,6 +25,7 @@ export const POLICIES = [
   "EnvironmentsFullAccess",
   "NamespacesFullAccess",
   "SavedGroupsFullAccess",
+  "SavedGroupsBypassSizeLimit",
   "GeneralSettingsFullAccess",
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
@@ -40,9 +37,17 @@ export const POLICIES = [
   "BillingFullAccess",
   "AuditLogsFullAccess",
   "CustomRolesFullAccess",
+  "CustomFieldsFullAccess",
+  "TemplatesFullAccess",
+  "DecisionCriteriaFullAccess",
+  "SqlExplorerFullAccess",
+  "HoldoutsFullAccess",
+  "CustomHooksFullAccess",
+  "ManageOfficialResources",
+  "GeneralDashboardsFullAccess",
 ] as const;
 
-export type Policy = typeof POLICIES[number];
+export type Policy = (typeof POLICIES)[number];
 
 export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],
@@ -73,7 +78,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   DataSourceConfiguration: ["readData", "editDatasourceSettings", "runQueries"],
   RunQueries: ["readData", "runQueries"],
-  MetricsFullAccess: ["readData", "createMetrics", "runQueries"],
+  MetricsFullAccess: [
+    "readData",
+    "createMetrics",
+    "runQueries",
+    "createMetricGroups",
+  ],
   FactTablesFullAccess: [
     "readData",
     "manageFactTables",
@@ -97,10 +107,16 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageSDKConnections",
     "manageSDKWebhooks",
   ],
+  DecisionCriteriaFullAccess: ["readData", "manageDecisionCriteria"],
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
+  SavedGroupsBypassSizeLimit: [
+    "readData",
+    "manageSavedGroups",
+    "bypassSavedGroupSizeLimit",
+  ],
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
   NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
   TeamManagementFullAccess: ["readData", "manageTeam"],
@@ -112,6 +128,17 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   BillingFullAccess: ["readData", "manageBilling"],
   AuditLogsFullAccess: ["readData", "viewAuditLog"],
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
+  CustomFieldsFullAccess: ["readData", "manageCustomFields"],
+  TemplatesFullAccess: ["readData", "manageTemplates"],
+  GeneralDashboardsFullAccess: ["readData", "manageGeneralDashboards"],
+  SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
+  HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
+  CustomHooksFullAccess: ["readData", "manageCustomHooks"],
+  ManageOfficialResources: [
+    "readData",
+    "manageOfficialResources",
+    "runQueries",
+  ],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -133,6 +160,8 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
       "SuperDeleteReports",
+      "TemplatesFullAccess",
+      "HoldoutsFullAccess",
     ],
   },
   {
@@ -141,11 +170,13 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "DataSourcesFullAccess",
       "DataSourceConfiguration",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "ManageOfficialResources",
     ],
   },
   {
@@ -161,6 +192,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "SavedGroupsBypassSizeLimit",
     ],
   },
   {
@@ -170,6 +202,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "NorthStarMetricFullAccess",
       "TeamManagementFullAccess",
       "CustomRolesFullAccess",
+      "CustomFieldsFullAccess",
       "ProjectsFullAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
@@ -177,6 +210,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "EventWebhooksFullAccess",
       "BillingFullAccess",
       "AuditLogsFullAccess",
+      "DecisionCriteriaFullAccess",
     ],
   },
 ];
@@ -223,7 +257,7 @@ export const POLICY_METADATA_MAP: Record<
   SuperDeleteReports: {
     displayName: "Super Delete Reports",
     description:
-      "Delete ad-hoc reports made by other users. Typically assigned to admins only.",
+      "Delete custom reports made by other users. Typically assigned to admins only.",
   },
   DataSourcesFullAccess: {
     displayName: "Data Sources Full Access",
@@ -237,7 +271,11 @@ export const POLICY_METADATA_MAP: Record<
   RunQueries: {
     displayName: "Run Queries",
     description:
-      "Execute queries against data sources. Required to refresh experiment results.",
+      "Execute queries against data sources. Required to refresh experiment results. Does not include SQL Explorer access.",
+  },
+  SqlExplorerFullAccess: {
+    displayName: "SQL Explorer Full Access",
+    description: "Create, run, edit, and delete SQL Explorer queries",
   },
   MetricsFullAccess: {
     displayName: "Metrics Full Access",
@@ -293,6 +331,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Saved Groups Full Access",
     description: "Create, edit, and delete saved groups",
   },
+  SavedGroupsBypassSizeLimit: {
+    displayName: "Saved Groups Bypass Size Limit",
+    description: "Bypass org-defined size limits for saved groups",
+  },
+
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
     description: "Edit organization general settings",
@@ -342,6 +385,36 @@ export const POLICY_METADATA_MAP: Record<
   CustomRolesFullAccess: {
     displayName: "Manage Custom Roles",
     description: "Create, edit, and delete custom roles",
+  },
+  CustomFieldsFullAccess: {
+    displayName: "Manage Custom Fields",
+    description: "Create, edit, and delete custom fields",
+  },
+  TemplatesFullAccess: {
+    displayName: "Manage Templates",
+    description: "Create, edit, and delete experiment templates",
+  },
+  DecisionCriteriaFullAccess: {
+    displayName: "Decision Criteria Full Access",
+    description:
+      "Create, edit, and delete decision criteria, part of the experiment decision framework.",
+  },
+  HoldoutsFullAccess: {
+    displayName: "Holdouts Full Access",
+    description: "Create, edit, and delete holdouts",
+  },
+  CustomHooksFullAccess: {
+    displayName: "Custom Hooks Full Access",
+    description: "Create, edit, and delete custom hooks",
+  },
+  ManageOfficialResources: {
+    displayName: "Manage Official Resources",
+    description:
+      "Create, edit, and delete official resources. For example: Manage resources like Fact Tables, Metrics, Segments, etc that have been marked as 'Official'.",
+  },
+  GeneralDashboardsFullAccess: {
+    displayName: "General Dashboards Full Access",
+    description: "Create, edit, and delete Product Analytics dashboards.",
   },
 };
 
@@ -399,6 +472,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "ReadData",
       "Comments",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
@@ -410,6 +484,10 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "PresentationsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
+      "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
+      "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   experimenter: {
@@ -423,6 +501,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "VisualEditorFullAccess",
       "ArchetypesFullAccess",
       "RunQueries",
+      "SqlExplorerFullAccess",
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
@@ -438,6 +517,10 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "SavedGroupsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
+      "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
+      "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   admin: {
@@ -472,8 +555,10 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "canReview",
   "manageFeatureDrafts",
   "manageFeatures",
+  "manageArchetype",
   "manageProjects",
   "createAnalyses",
+  "createSegments",
   "createIdeas",
   "createMetrics",
   "manageFactTables",
@@ -482,15 +567,24 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "runSqlExplorerQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
+  "manageSavedGroups",
+  "manageCustomFields",
+  "manageTemplates",
+  "manageExecReports",
+  "manageCustomHooks",
+  "manageGeneralDashboards",
+  "manageOfficialResources",
+  "bypassSavedGroupSizeLimit",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
   "readData",
   "createPresentations",
   "createDimensions",
-  "createSegments",
+  "createMetricGroups",
   "organizationSettings",
   "superDeleteReport",
   "manageTeam",
@@ -500,10 +594,10 @@ export const GLOBAL_PERMISSIONS = [
   "manageEventWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
+  "manageDecisionCriteria",
   "manageNamespaces",
-  "manageSavedGroups",
-  "manageArchetype",
   "manageCustomRoles",
+  "manageCustomFields",
   "viewAuditLog",
 ] as const;
 
@@ -517,5 +611,6 @@ export const READ_ONLY_PERMISSIONS = [
   "readData",
   "viewAuditLog",
   "runQueries",
+  "runSqlExplorerQueries",
   "addComments",
 ];

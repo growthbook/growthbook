@@ -8,7 +8,7 @@
  */
 export const transformFloatMultiplierToHumanReadablePercentage = (
   value: number,
-  fractionDigits = 2
+  fractionDigits = 2,
 ): number => +(value * 100).toFixed(fractionDigits);
 
 /**
@@ -23,5 +23,5 @@ export const transformFloatMultiplierToHumanReadablePercentage = (
  */
 export const transformHumanReadablePercentageToFloatMultiplier = (
   value: number,
-  fractionDigits = 4
+  fractionDigits = 4,
 ): number => +(value / 100).toFixed(fractionDigits);

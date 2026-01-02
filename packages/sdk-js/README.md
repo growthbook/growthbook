@@ -67,7 +67,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be available
-await gb.loadFeatures();
+await gb.init();
 ```
 
 ### Step 2: Start Feature Flagging!
@@ -107,7 +107,13 @@ setPolyfills({
 });
 ```
 
-Create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
+There are 2 ways to use GrowthBook in a Node.js environment depending on where you want to declare user attributes.
+
+### Instance per Request
+
+In this mode, you create a separate GrowthBook instance for every incoming request that includes user-specific attributes. This has more overhead, but ensures you only need to define user attributes once instead of passing them throughout your app.
+
+This is easiest if you use a middleware:
 
 ```js
 // Example using Express
@@ -120,6 +126,11 @@ app.use(function (req, res, next) {
     enableDevMode: false,
     // Important: make sure this is set to `false`, otherwise features may change in the middle of a request
     subscribeToChanges: false,
+    // Any user/request specific attributes you want to use for targeting
+    attributes: {
+      id: req.user.id,
+      url: req.url,
+    },
   });
 
   // Clean up at the end of the request
@@ -127,7 +138,7 @@ app.use(function (req, res, next) {
 
   // Wait for features to load (will be cached in-memory for future requests)
   req.growthbook
-    .loadFeatures()
+    .init()
     .then(() => next())
     .catch((e) => {
       console.error("Failed to load features from GrowthBook", e);
@@ -144,6 +155,71 @@ app.get("/", (req, res) => {
   // ...
 });
 ```
+
+### Singleton
+
+In this mode, you create a singleton GrowthBookClient instance that is shared between all requests and you pass in user attributes when calling feature methods like `isOn`.
+
+This method is more efficient, but does require you to pass around a `userContext` throughout your code.
+
+```js
+// Create a multi-user GrowthBook instance without user-specific attributes
+const gb = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+});
+await gb.init();
+
+app.get("/hello", (req, res) => {
+  // User context to pass into feature methods
+  const userContext = {
+    attributes: {
+      id: req.user.id,
+      url: req.url,
+    },
+  };
+
+  const spanish = gb.isOn("spanish-greeting", userContext);
+
+  res.send(spanish ? "Hola Mundo" : "Hello World");
+});
+```
+
+#### Tracking Experiment Views
+
+With the singleton approach, you can either define a `trackingCallback` on the global instance:
+
+```js
+const gb = new GrowthBookClient({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Tracking callback gets the user context as the 3rd argument
+  trackingCallback: (experiment, result, user) => {
+    console.log("Experiment Viewed", user.attributes.id, {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+});
+```
+
+And/or define a `trackingCallback` within the user context:
+
+```js
+const userContext = {
+  attributes: {
+    id: req.user.id,
+  },
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", req.user.id, {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+};
+```
+
+Note: No de-duping is performed. If you evaluate the same feature 5 times in your code, the `trackingCallback` will be called 5 times.
 
 ## Loading Features
 
@@ -164,7 +240,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be downloaded
-await gb.loadFeatures({
+await gb.init({
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -205,7 +281,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
+Note that you don't have to call `gb.init()` or `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
@@ -668,9 +744,9 @@ You can change the default assigned value with the `defaultValue` property:
 }
 ```
 
-### Override Rules
+### Rules
 
-You can override the default value with **rules**.
+You can override the default value with **Rules**.
 
 Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`. Force rules give the same value to everyone. Experiment rules assign values to users randomly.
 

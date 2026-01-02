@@ -1,18 +1,16 @@
 import { ReactNode, FC, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const PORTAL_CONTAINER_ID = "modal";
+export const PORTAL_CONTAINER_ID = "portal-root";
 
 const Portal: FC<{ children: ReactNode }> = ({ children }) => {
   const ref = useRef<HTMLElement>();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    let el = document.getElementById(PORTAL_CONTAINER_ID);
+    const el = document.getElementById(PORTAL_CONTAINER_ID);
     if (!el) {
-      el = document.createElement("div");
-      el.id = PORTAL_CONTAINER_ID;
-      document.body.append(el);
+      return;
     }
     ref.current = el;
     setMounted(true);

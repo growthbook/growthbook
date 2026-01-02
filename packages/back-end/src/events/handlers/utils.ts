@@ -1,7 +1,10 @@
 import isEqual from "lodash/isEqual";
 import intersection from "lodash/intersection";
-import { NotificationEvent } from "../notification-events";
-import { ApiFeature } from "../../../types/openapi";
+import {
+  NotificationEvent,
+  LegacyNotificationEvent,
+} from "shared/types/events/notification-events";
+import { ApiFeature } from "shared/types/openapi";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];
@@ -9,7 +12,7 @@ export type FilterDataForNotificationEvent = {
 };
 
 export const getFilterDataForNotificationEvent = (
-  event: NotificationEvent
+  event: NotificationEvent | LegacyNotificationEvent,
 ): FilterDataForNotificationEvent | null => {
   return {
     tags: event.tags || [],
@@ -23,7 +26,7 @@ export const filterEventForEnvironments = ({
   event,
   environments,
 }: {
-  event: NotificationEvent;
+  event: NotificationEvent | LegacyNotificationEvent;
   environments: string[];
 }): boolean => {
   // if the environments are not specified, notify for all environments
@@ -45,13 +48,13 @@ export const RELEVANT_KEYS_FOR_ALL_ENVS: (keyof ApiFeature)[] = [
 
 export function getChangedApiFeatureEnvironments(
   previous: ApiFeature,
-  current: ApiFeature
+  current: ApiFeature,
 ): string[] {
   const allEnvs = Array.from(
     new Set([
       ...Object.keys(previous.environments),
       ...Object.keys(current.environments),
-    ])
+    ]),
   );
 
   if (

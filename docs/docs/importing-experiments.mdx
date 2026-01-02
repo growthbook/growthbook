@@ -1,0 +1,35 @@
+---
+description: Importing and analyzing experiments created outside of GrowthBook
+slug: /app/importing-experiments
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# Importing External Experiments
+
+GrowthBook can analyze experiments that are run on another service or platform so long as they exist in your linked Data Source. To do this, we create a dedicated experiment in GrowthBook that links to your data warehouse via the experiment metadata.
+
+If this is your first time importing any experiments, you need to [connect your data warehouse](/warehouses) and set up your [experiment assignment queries](/app/datasources#experiment-assignment-queries) which will tell GrowthBook where to find the experiment data.
+
+Once your datasource is set up, you can import an experiment by clicking select Create Experiment from the Experiment page and then selecting Import.
+
+## Importing Experiments
+
+When you choose to Import an Existing Experiment, we scan all of the experiment assignment queries for a datasource and present any experiments we have found in those experiment assignment queries.
+
+<MaxWidthImage border>
+  ![Experiment Import Modal](/images/import-experiment-modal.png)
+</MaxWidthImage>
+
+We scan the experiment assignment queries for any experiment metadata that we can use to create an experiment in GrowthBook. This metadata includes the experiment name, the variations and their splits, and the start date of the experiment. You can choose to Import an experiment, and you will be prompted to confirm this metadata.
+
+Because we have to infer the variation splits and the start date from the data we query from the experiment assignment queries, please review the metadata carefully before finalizing the import.
+
+## Missing Experiments
+
+If you don't see your experiment in the import list, there are a few potential explanations:
+
+1. The experiment was already imported! You can check the experiments page to see if it was imported, or deselect "Hide Imported" on the importer to see if it shows up there.
+2. The experiment does not fit some of the minimum criteria set in the filter bar. You can see that it is possible to filter by minimum number of users and duration.
+3. There was a delay in the data being available in your data warehouse. When you refresh the Importer, we only look at data since the the last data found by the importer. If there are many experiment assignment queries and one table is more delayed than another, it may cause some experiments not to show up. You can easily remedy this by clicking **Full Refresh** in the bottom right to re-scan the full history of data.
+4. The exposure events for your experiment are not in one of the experiment assignment queries for your datasource. Ensure you're selecting the right datasource and that it has the correct query to find your experiment data.

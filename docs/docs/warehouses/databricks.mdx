@@ -5,17 +5,17 @@ sidebar_label: Databricks
 slug: databricks
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 To connect to Databricks, you need to provide GrowthBook with the connection details and access token to the SQL Warehouse you use within Databricks.
 
 ## 1. Find the connection details for your SQL Warehouse
 
 In your Databricks instance, navigate to the SQL Warehouses, select your SQL Warehouse that stores the data you want GrowthBook to access, and the click Connection Details. You should see the following page, which contains most of the fields needed to connect GrowthBook to your Databricks SQL Warehouse.
 
-<img
-  src="/images/guides/databricks-connection.png"
-  alt="Finding SQL Warehouse Connection Details in Databricks"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600} border>
+  ![Finding SQL Warehouse Connection Details in Databricks](/images/guides/databricks-connection.png)
+</MaxWidthImage>
 
 ## 2. Create an access token for GrowthBook
 

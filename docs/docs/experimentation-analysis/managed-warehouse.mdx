@@ -1,0 +1,316 @@
+---
+title: Managed Warehouse
+description: Learn about GrowthBook Cloud's Managed Warehouse service
+sidebar_label: Managed Warehouse
+slug: /app/managed-warehouse
+---
+
+# Managed Warehouse
+
+GrowthBook Cloud offers a fully managed data warehouse and event tracking pipeline. This is primarily intended for users who want to use GrowthBook's experimentation and analysis features without needing to set up their own data warehouse.
+
+## Benefits
+
+- **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
+- **Seamless Integration**: One-click installation + built-in tracking in our SDKs.
+- **Raw SQL Access**: Use our SQL Explorer to run custom queries against your data.
+
+## How it Works
+
+We use ClickHouse, a database optimized for real-time analytics, to store your event data. The process is simple:
+
+1. You send analytics events to our scalable ingestion API
+2. We enrich and store them in ClickHouse within seconds
+3. You can query the data with SQL, define metrics, and analyze experiment results with our powerful stats engine.
+
+## Sending Events
+
+There are 2 ways to send events to GrowthBook Cloud's Managed Warehouse:
+
+1. With our [SDKs](#with-sdks) (limited language support)
+2. With our [Ingestion API](#ingestion-api)
+
+### With SDKs
+
+The following SDKs have a built-in plugin to automatically send events.
+
+- [HTML Script Tag](#html-script-tag)
+- [Client-Side JavaScript / React](#client-side-javascript--react)
+- [Node.js](#nodejs)
+
+For everything else, use the [Ingestion API](#ingestion-api).
+
+When the plugin is added, these SDKs will automatically send feature usage and experiment view events to GrowthBook. They also expose a helper method to log additional custom events with optional properties.
+
+All of the attributes in the SDK are sent along with events as context. Because of this, make sure you do not include any sensitive information in your attributes (or if you do, anonymize it first).
+
+#### HTML Script Tag
+
+Simply add `data-tracking="growthbook"` to your script tag to enable.
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY"
+  data-tracking="growthbook"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+To track additional events, use the `window.gbEvents` global variable. You can push events to this array, and they will be tracked.
+
+```html
+<script>
+  // Ensure the global variable exists
+  window.gbEvents = window.gbEvents || [];
+
+  // Simple (no properties)
+  window.gbEvents.push("Page View");
+
+  function handleSignUpClick() {
+    // With custom properties
+    window.gbEvents.push({
+      eventName: "Button Click",
+      properties: {
+        button: "Sign Up"
+      }
+    });
+  }
+</script>
+<button onclick="handleSignUpClick()">Sign Up</button>
+```
+
+#### Client-Side JavaScript / React
+
+Use the `growthbookTrackingPlugin` to enable tracking. We recommend also using the `autoAttributesPlugin` to include many common attributes in your events (browser, session_id, etc.).
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+    clientKey: "YOUR_CLIENT_KEY",
+    plugins: [
+        autoAttributesPlugin(),
+        growthbookTrackingPlugin()
+    ]
+});
+```
+
+Use the `logEvent` method to track additional custom events:
+
+```js
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+```
+
+#### Node.js
+
+Use the `growthbookTrackingPlugin` to enable tracking:
+
+```js
+import { GrowthBookClient } from "@growthbook/growthbook";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBookClient({
+  clientKey: process.env.GROWTHBOOK_CLIENT_KEY,
+  plugins: [growthbookTrackingPlugin()],
+});
+```
+
+Use the `logEvent` method to track additional custom events:
+
+```js
+gb.logEvent("Sign Up", {
+  accountPlan: "pro"
+}, userContext);
+```
+
+User-scoped instances also have a `logEvent` method that doesn't require the user context:
+
+```js
+req.growthbook.logEvent("Sign Up", {
+  accountPlan: "pro"
+});
+```
+
+### Ingestion API
+
+You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
+
+- **event_name**: The name of the event (e.g., "Purchase", "Button Click")
+- **properties**: Optional key-value pairs with properties of the event itself
+- **attributes**: Optional key-value pairs with attributes of the user or context at the time of the event
+
+```bash
+curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+-H "Content-Type: application/json" \
+-d '[{
+  "event_name": "Purchase",
+  "properties": {
+    "amount": 100
+  },
+  "attributes": {
+    "user_id": "12345"
+  }
+}]'
+```
+
+Make sure you do not include any sensitive information in your events (or if you do, anonymize it first).
+
+#### Experiment View Events
+
+In order to use GrowthBook's experiment analysis features, you must send an event every time a user views an experiment. It must match the following format:
+
+- **event_name**: Must be `"Experiment Viewed"`
+- **properties**: Must include the following key/value pairs:
+  - `experimentId`: The ID of the experiment being viewed
+  - `variationId`: The ID of the variation that was shown to the user
+
+In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing.
+
+#### Feature Usage Events
+
+To take advantage of GrowthBook's feature usage analytics, you must send an event every time a feature is evaluated with a specific format.
+
+- **event_name**: Must be `"Feature Evaluated"`
+- **properties**: Must include the following key/value pairs:
+  - `feature`: The name of the feature being evaluated
+  - `value`: The feature's value that was returned from the evaluation
+  - `source`: (optional) The source of the feature value (e.g., "defaultValue", "experiment", "force")
+  - `ruleId`: (optional) The ID of the specific rule that was used to evaluate the feature (or `$default` if the default value was used)
+  - `variationId`: (optional) If the value came from an experiment, the ID of the variation that was returned
+
+#### Attributes
+
+Attributes are key-value pairs that provide context about the user or environment at the time of the event. They can be used to slice and dice your data in analysis.
+
+It's recommended to include the same attributes you use in your GrowthBook SDK.
+
+Some attributes are enriched in the ingestion API if provided:
+
+- `ip` - a geoip lookup is done and the following attributes are added. If an ip attribute is not provided, we will use the IP address of the request.
+  - `geo_country`
+  - `geo_city`
+  - `geo_lat`
+  - `geo_lon`
+- `ua` - the user agent is parsed and the following attributes are added. If a user agent attribute is not provided, we will use the user agent of the request.
+  - `ua_browser` (e.g. Safari)
+  - `ua_os` (e.g. macOS)
+  - `ua_device_type` (e.g. mobile)
+- `url` - the URL is parsed and the following attributes are added:
+  - `url_path` (e.g. /products/123)
+  - `url_host` (e.g. www.example.com)
+  - `url_query` (e.g. ?utm_source=google)
+  - `url_fragment` (e.g. #section1)
+
+It's also recommend to include attributes about which SDK is being used. This can help with debugging.
+
+- `sdk_language` (e.g. python)
+- `sdk_version` (e.g. 1.2.3)
+
+#### Limits
+
+When calling the ingestion API directly, please be aware of the following default limits:
+
+- Maximum of 100 events per request
+- Maximum of 1 request per second
+
+If you need to send more than this, please reach out and we can increase your limits.
+
+## Key Attributes (Materialized Columns)
+
+By default, all attributes are stored as a JSON string in the `attributes` column of the `events` table. This keeps the table structure clean, but it can be more tedious and slow to query.
+
+On the data source settings page, you can pick a set of "Key Attributes" that will be added as top-level columns in the table.
+
+There are 2 main types of Key Attributes you should add:
+
+1. **Identifiers** - used to split traffic in experiments. Common examples are `user_id`, `anonymous_id`, and `session_id`.
+2. **Dimensions** - used to slice and dice your experiment results. Common examples are `geo_country`, `ua_device_type`, and `account_plan`.
+
+You can also select `Other` as the type for any attributes that don't fit into the above categories. This will add them as top-level columns, but they won't be used for splitting traffic or slicing results.
+
+Note: Adding new Key Attributes does not apply retroactively to existing events. It will only affect new events going forward. The GrowthBook team can help you backfill existing events with Key Attributes if needed.
+
+## Creating Metrics
+
+When you set up a Managed Warehouse data source, GrowthBook will create a Fact Table for you called `Events`. You can use this as a base to define metrics.
+
+Read more about [fact tables and metrics](/app/metrics) and how to use them in GrowthBook.
+
+## SQL Explorer
+
+You can use the SQL Explorer to run ad-hoc queries against your events. This can be useful for exploring your data, debugging issues, or creating custom reports.
+
+:::note
+
+The SQL Explorer only allows read-only SELECT queries. Write operations (INSERT, UPDATE, etc.) are prevented from being executed by the platform.
+
+:::
+
+You will see 3 tables in the SQL Explorer:
+
+- **feature_usage** - contains all feature usage events
+- **experiment_views** - contains all experiment view events
+- **events** - contains all other events
+
+### SQL Best Practices
+
+#### Use Indexes
+
+For best performance, take advantage of the indexed columns in each table:
+
+- **events** table:
+  - `timestamp` - the time the event occurred
+  - `event_name` - the name of the event (e.g., "Purchase", "Button Click")
+- **feature_usage** table:
+  - `timestamp` - the time the event occurred
+  - `feature` - the name of the feature being evaluated
+- **experiment_views** table:
+  - `timestamp` - the time the event occurred
+  - `experimentId` - the ID of the experiment being viewed
+
+#### Querying Attributes and Properties
+
+If you need to access data inside attributes or properties, you can use the `JSONExtract` functions from ClickHouse to extract values from the JSON string. Here's an example:
+
+```sql
+SELECT
+  JSONExtractString(attributes, 'geo_country') AS country,
+  JSONExtractFloat(properties, 'amount') AS amount
+FROM events
+WHERE timestamp >= '2025-06-01 00:00:00'
+  AND event_name = 'Purchase'
+```
+
+For attributes that are commonly used in queries, you can also define them as [Key Attributes](#key-attributes-materialized-columns) which will pull them out as top-level columns. This makes it easier to query and improves performance.
+
+#### Large Queries
+
+There is a limit of 1000 rows in the SQL Explorer. Returning raw events over a large time period will quickly exceed this limit.
+
+To work around this, you can use `GROUP BY` in your queries to aggregate results.
+
+One common aggregation is by time intervals. You can use the `toStartOf...` functions in ClickHouse for this. For example, to get daily event counts:
+
+```sql
+SELECT
+  toStartOfDay(timestamp) AS day,
+  COUNT(*) AS count
+FROM events
+WHERE timestamp >= '2025-06-01 00:00:00'
+GROUP BY day
+ORDER BY day ASC
+```
+
+Now, whether you have thousands or millions of events, this query will always return a manageable number of rows (one per day).
+
+There are also functions like `toStartOfHour`, `toStartOfMonth`, etc. that you can use to group by different time intervals.

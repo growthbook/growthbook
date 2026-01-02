@@ -7,10 +7,14 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Javascript
 
-Supports both browser and NodeJS environments.
+The documentation is meant for client-side environments. Check out the [Node.js docs](/lib/node) for server-side environments.
+
+<SdkResources sdk="js" />
 
 ## Installation
 
@@ -65,71 +69,99 @@ if (gb.isOn("my-feature")) {
 const color = gb.getFeatureValue("button-color", "blue");
 ```
 
-## OpenFeature Provider
+## Plugins
 
-If you are using OpenFeature, we have created a [GrowthBook Provider](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook-client) that you can use client-side.
-Simply import our package and set `GrowthbookClientProvider` as the provider for your OpenFeature client.
-Similarly to using our SDK directly, you'll want to pass in GrowthBook `Context` into the new provider instance as well as any `InitOptions`.
+GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook constructor.
 
-```js
-import { GrowthBook, Context, InitOptions } from '@growthbook/growthbook';
-import { GrowthbookClientProvider } from '@openfeature/growthbook-client-provider';
+Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
 
-/*
- * Configure your GrowthBook instance with GrowthBook context
- * @see https://docs.growthbook.io/lib/js#step-1-configure-your-app
- */
-const gbContext: Context = {
-  apiHost: 'https://cdn.growthbook.io',
-  clientKey: 'sdk-abc123',
-  // Only required if you have feature encryption enabled in GrowthBook
-  decryptionKey: 'key_abc123',
-};
+### Third Party Tracking
 
-/*
- * optional init options
- * @see https://docs.growthbook.io/lib/js#switching-to-init
- */
-const initOptions: InitOptions = {
-  timeout: 2000,
-  streaming: true,
-};
+The third-party tracking plugin automatically sends an "Experiment Viewed" event to several popular analytics tracking tools (Segment, Google Analytics, and Google Tag Manager). This plugin requires a browser environment and does not work from Node.js.
 
-OpenFeature.setProvider(new GrowthbookClientProvider(gbContext, initOptions));
-```
+This plugin does not install any 3rd party libraries, it just sends events to ones that are already installed on your site. Below are all of the supported trackers:
 
-## Node.js
-
-The GrowthBook SDK officially supports Node v18 and above.
-
-In browser environments, you typically want a single global GrowthBook instance.
-
-In server environments, you instead want a separate GrowthBook instance for every incoming request. Here's an example middleware you can use:
+- `segment` - Requires `window.analytics` to be defined.
+- `gtag` - Requires `window.gtag` to be defined.
+- `gtm` - Requires `window.dataLayer` to be defined.
 
 ```js
-// Example using Express
-app.use(function(req, res, next) {
-  // Create a GrowthBook instance and store in the request
-  req.growthbook = new GrowthBook({
-    apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abc123"
-  });
+import { thirdPartyTrackingPlugin } from "@growthbook/growthbook/plugins";
 
-  // Clean up at the end of the request
-  res.on('close', () => req.growthbook.destroy());
+// Optional settings for the plugin
+const pluginOptions = {
+  // By default, it will attempt to send to all 3 of these
+  trackers: ["segment", "gtag", "gtm"],
+  // Additional custom tracking callback
+  additionalCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    })
+  }
+}
 
-  // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.init({timeout: 1000}).then(() => next())
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [
+    thirdPartyTrackingPlugin(pluginOptions),
+  ],
 });
 ```
 
-Then, you can access the GrowthBook instance from any route:
+### Auto-Attributes
+
+The auto-attributes plugin automatically detects and sets common attributes in GrowthBook for the current user. These attributes are available locally for targeting and are not sent to GrowthBook's servers.
+
+This plugin requires a browser environment and does not work from Node.js.
 
 ```js
-app.get("/", (req, res) => {
-  const gb = req.growthbook;
-  // ...
-})
+import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+
+// Optional settings for the plugin (documented below)
+const pluginOptions: {}
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [
+    autoAttributesPlugin(pluginOptions),
+  ],
+});
+```
+
+#### Attributes
+
+Here is a list of all attributes that are set by this plugin:
+
+- `id` - A random unique identifier for the user, persisted in a cookie
+- `url` - The current URL of the page
+- `path` - The current URL path of the page
+- `host` - The current URL host of the page
+- `query` - The current URL query string of the page
+- `pageTitle` - The current page title
+- `deviceType` - The device type of the user. Either "mobile" or "desktop"
+- `browser` - The browser name of the user (edge, chrome, firefox, safari, or unknown)
+- `utmSource`, `utmMedium`, `utmCampaign`, `utmTerm`, `utmContent` - UTM parameters from the URL (persisted in sessionStorage for subsequent page views)
+
+In addition, any variables set through Google Tag Manager (`window.dataLayer`) will be added as attributes as well.
+
+You can still specify your own custom attributes in the GrowthBook constructor, and they will be merged with the auto-attributes.
+
+#### Options
+
+By default the plugin generates a random UUID for the user and stores it in a cookie. You can customize this behavior with the following options.
+
+- `uuidKey` - The attribute key to use for the uuid (default is `id`)
+- `uuid` - Pass in your own user id instead of having the plugin generate a random one.
+- `uuidCookieName` - The name of the cookie to use for the generated uuid (default is `gb_uuid`)
+- `uuidAutoPersist` - If `false`, the generated id will NOT be stored in a cookie automatically. Default depends on the `uuid` option. If `uuid` is set, the default is `false`. Otherwise, the default is `true`.
+
+If you have a cookie consent banner, you can set `uuidAutoPersist` to `false` and then later manually trigger the cookie to be saved by calling:
+
+```js
+document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
 ## Loading Features and Experiments
@@ -173,9 +205,9 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
 ### Custom Integration
 
@@ -205,7 +237,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `BrowserCookieStickyBucketService`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Streaming Updates
@@ -225,39 +257,15 @@ gb.init({
 
 You may also differentiate your streaming host URL from your API host by setting the `streamingHost` property in the GrowthBook constructor (ex: Remote Evaluation is done on a CDN edge worker while Streaming is done through a GrowthBook Proxy server).
 
-### Streaming in Node.js
-
-Node.js does not natively support SSE, but there is a small library you can install:
-
-```bash npm2yarn
-npm install --save eventsource
-```
-
-Instead of enabling streaming separately for every GrowthBook instance, we recommend opening a single shared stream at app startup instead:
-
-```js
-const { setPolyfills, prefetchPayload } = require("@growthbook/growthbook");
-
-// Configure GrowthBook to use the eventsource library
-setPolyfills({
-  EventSource: require("eventsource"),
-});
-
-// Start a streaming connection
-prefetchPayload({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  streaming: true
-}).then(() => console.log("Streaming connection open!"))
-```
-
-This will work as long as you use the exact same `apiHost` and `clientKey` when creating GrowthBook instances in your middleware.
-
 ## Remote Evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
 
 When used in a front-end context, the JS SDK may be run in Remote Evaluation mode. This mode brings the security benefits of a backend SDK to the front end by evaluating feature flags exclusively on a private server. Using Remote Evaluation ensures that any sensitive information within targeting rules or unused feature variations are never seen by the client. Note that Remote Evaluation should not be used in a backend context.
 
-You must enable Remote Evaluation in your SDK Connection settings. Cloud customers are also required to self-host a GrowthBook Proxy Server or custom remote evaluation backend.
+You must enable Remote Evaluation in your SDK Connection settings. Cloud customers are also required to self-host a GrowthBook Proxy Server, edge worker, or custom remote evaluation backend.
 
 To use Remote Evaluation, add the `remoteEval: true` property to your SDK instance. A new evaluation API call will be made any time a user attribute or other dependency changes. You may optionally limit these API calls to specific attribute changes by setting the `cacheKeyAttributes` property (an array of attribute names that, when changed, trigger a new evaluation call).
 
@@ -273,7 +281,7 @@ const gb = new GrowthBook({
 });
 ```
 
-:::note
+:::note Sticky Bucketing with Remote Evaluation
 
 If you would like to implement Sticky Bucketing while using Remote Evaluation, you must configure your remote evaluation backend to support Sticky Bucketing. In the case of the GrowthBook Proxy Server, this means implementing a Redis database for sticky bucketing use. You will not need to provide a StickyBucketService instance to the client side SDK.
 
@@ -311,26 +319,6 @@ configureCache({
 })
 ```
 
-### Polyfilling localStorage
-
-Outside of a browser environment, you can still use persistent caching. You just need to provide an implementation of the localStorage interface.
-
-Here's an example of using Redis in Node.js:
-
-```js
-const { setPolyfills } = require("@growthbook/growthbook");
-
-setPolyfills({
-  localStorage: {
-    // Example using Redis
-    getItem: (key) => redisClient.get(key),
-    setItem: (key, value) => redisClient.set(key, value),
-  }
-});
-```
-
-This must be done BEFORE you call either `prefetchPayload` or create the first GrowthBook instance.
-
 ## Re-rendering When Features Change
 
 When features change (e.g. by calling `gb.refreshFeatures()`), you need to re-render your app so that all of your feature flag checks can be re-evaluated. You can specify your own custom rendering function for this purpose:
@@ -345,6 +333,8 @@ gb.setRenderer(() => {
 ## Experimentation (A/B Testing)
 
 In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+**Note**: If you use the `third-party-tracking` plugin, you don't need to specify a `trackingCallback` since the plugin will handle that for you automatically.
 
 ```js
 const gb = new GrowthBook({
@@ -403,7 +393,7 @@ If you plan to use the Custom Javascript feature of the Visual Editor and you ha
 
 ### URL Redirect Experiments
 
-Similarly to Visual Editor experiments, URL redirect tests will run automatically if targetting conditions are met.
+Similarly to Visual Editor experiments, URL redirect tests will run automatically if targeting conditions are met.
 
 If you are using this SDK in a Single Page App (SPA), you'll want to pass in a custom navigation function into the SDK (as default navigation for URL Redirects uses `window.location.replace(url)`) and set the `navigateDelay` to 0.
 
@@ -458,11 +448,7 @@ Sticky bucketing ensures that users see the same experiment variant, even when u
 - `LocalStorageStickyBucketService` —
   For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
 
-- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured.
-
-- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured.
-
-- `RedisStickyBucketService` — For NodeJS Redis-based bucket persistence. Requires an `ioredis` Redis client instance to be passed in.
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `expires: {days}` into the constructor's `cookieAttributes`.
 
 - Build your own — Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations (ex: read/write to both cookies and Redis).
 
@@ -625,14 +611,18 @@ If your SDK Connection has secure attribute hashing enabled, you will need to ma
 
 To hash an attribute, use a cryptographic library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
 
+The example below is using CryptoJS (https://www.npmjs.com/package/crypto-js), which provides a synchronous API.
+
 ```js
-const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Organization Settings)
+import sha256 from 'crypto-js/sha256';
+
+const salt = "f09jq3fij"; // Your secure attribute salt (set in Organization Settings)
 
 // hashing a secureString attribute
-const userEmail = sha256(salt + user.email);
+const userEmail = sha256(salt + user.email).toString();
 
-// hashing an secureString[] attribute
-const userTags = user.tags.map(tag => sha256(salt + tag));
+// hashing a secureString[] attribute
+const userTags = user.tags.map(tag => sha256(salt + tag).toString());
 
 gb.setAttributes({
   id: user.id,
@@ -642,29 +632,25 @@ gb.setAttributes({
 });
 
 await gb.init();
-
-// In this example, we are using Node.js's built-in crypto library
-function sha256(str) {
-  return crypto.createHash("sha256").update(str).digest("hex");
-}
 ```
 
-Note that in a browser context, we will not be able to natively access the Node.js crypto library. In modern browsers `window.crypto.subtle` is available, although calls are asynchronous. You would need to await all attribute hashing to complete before calling `gb.setAttributes()`.
+If you prefer to use a browser native implementation, you will need to await hashing before calling `setAttributes` since SubtleCrypto methods are async. Here's an example implementation:
 
 ```js
+// Native browser implementation
 async function sha256(str) {
   const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   const hashArray = Array.from(new Uint8Array(buffer));
   return hashArray.map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
-```
 
-Alternatively, CryptoJS (https://www.npmjs.com/package/crypto-js) provides a synchronous API:
+// Hashing a single string
+const userEmail = await sha256(salt + user.email);
 
-```js
-import sha256 from 'crypto-js/sha256';
-
-const userEmail = sha256(salt + user.email);
+// Hashing an array of strings
+const userTags = await Promise.all(
+  user.tags.map(tag => sha256(salt + tag))
+);
 ```
 
 ### Feature Usage Callback
@@ -988,9 +974,9 @@ You can change the default assigned value with the `defaultValue` property:
 }
 ```
 
-### Override Rules
+### Rules
 
-You can override the default value with **rules**.
+You can override the default value with **Rules**.
 
 Rules give you fine-grained control over how feature values are assigned to users. There are 2 types of feature rules: `force` and `experiment`. Force rules give the same value to everyone. Experiment rules assign values to users randomly.
 
@@ -1257,3 +1243,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 ## Examples
 
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="js" />

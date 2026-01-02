@@ -1,0 +1,29 @@
+.workspaceLinkContainer {
+  border-bottom: 1px solid var(--gray-a5);
+
+  &:nth-last-child(1) {
+    border-bottom: none;
+  }
+
+  @media (min-width: 1024px) {
+    &:nth-last-child(2) {
+      border-bottom: none;
+    }
+  }
+}
+
+.workspaceLink {
+  color: var(--gray-12);
+  display: block;
+  height: 100%;
+
+  &:hover {
+    text-decoration: none;
+    color: var(--gray-11);
+  }
+
+  &[aria-disabled="true"] {
+    color: var(--gray-10);
+    pointer-events: none;
+  }
+}

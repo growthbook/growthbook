@@ -1,9 +1,12 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { getUserByEmail } from "../models/UserModel";
-import { APP_ORIGIN } from "../util/secrets";
-import { isEmailEnabled, sendResetPasswordEmail } from "../services/email";
-import { logger } from "../util/logger";
+import { getUserByEmail } from "back-end/src/models/UserModel";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import {
+  isEmailEnabled,
+  sendResetPasswordEmail,
+} from "back-end/src/services/email";
+import { logger } from "back-end/src/util/logger";
 
 export interface ForgotPasswordInterface {
   token: string;
@@ -29,7 +32,7 @@ export type ForgotPasswordDocument = mongoose.Document &
 
 export const ForgotPasswordModel = mongoose.model<ForgotPasswordInterface>(
   "ForgotPassword",
-  forgotPasswordSchema
+  forgotPasswordSchema,
 );
 
 export async function createForgotPasswordToken(email: string): Promise<void> {
@@ -54,7 +57,7 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
   try {
     if (!isEmailEnabled()) {
       throw new Error(
-        "Email server not configured. Check server logs for reset link."
+        "Email server not configured. Check server logs for reset link.",
       );
     }
 
@@ -66,7 +69,7 @@ export async function createForgotPasswordToken(email: string): Promise<void> {
 }
 
 export async function getUserIdFromForgotPasswordToken(
-  token: string
+  token: string,
 ): Promise<string> {
   const doc = await ForgotPasswordModel.findOne({
     token,

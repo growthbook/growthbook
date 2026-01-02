@@ -1,0 +1,35 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The fact metric id to analyze
+    schema:
+      type: string
+post:
+  tags:
+    - fact-metrics
+  summary: Create a fact metric analysis
+  operationId: postFactMetricAnalysis
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact_1234/analysis \
+          -d '{"lookbackDays":90}' \
+          -u secret_abc123DEF456:
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: "../payload-schemas/PostFactMetricAnalysisPayload.yaml"
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - metricAnalysis
+            properties:
+              metricAnalysis:
+                $ref: "../schemas/MetricAnalysis.yaml"

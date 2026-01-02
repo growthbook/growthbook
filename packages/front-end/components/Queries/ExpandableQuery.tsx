@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { QueryInterface } from "back-end/types/query";
+import { QueryInterface } from "shared/types/query";
 import { formatDistanceStrict } from "date-fns";
 import {
   FaCircle,
@@ -7,13 +7,15 @@ import {
   FaCheck,
   FaSquare,
 } from "react-icons/fa";
-import clsx from "clsx";
 import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import { useUser } from "@/services/UserContext";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
@@ -21,8 +23,8 @@ const ExpandableQuery: FC<{
   i: number;
   total: number;
 }> = ({ query, i, total }) => {
-  let title = "";
-  if (query.language === "sql") {
+  let title = query.displayTitle || "";
+  if (query.language === "sql" && !title) {
     const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
     if (comments && comments[2]) {
       title = comments[2];
@@ -30,6 +32,9 @@ const ExpandableQuery: FC<{
   }
 
   const { getFactMetricById } = useDefinitions();
+
+  const { hasCommercialFeature } = useUser();
+  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
 
   return (
     <div className="mb-4">
@@ -51,7 +56,7 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {query.queryType === "experimentMultiMetric" && (
+        {query.queryType === "experimentMultiMetric" && hasOptimizedQueries && (
           <div className="ml-auto">
             <Tooltip
               body={
@@ -61,12 +66,6 @@ const ExpandableQuery: FC<{
                     Multiple metrics in the same Fact Table are being combined
                     into a single query, which is much faster and more
                     efficient.
-                  </p>
-                  <p>
-                    This is a new feature, so please report any issues you
-                    encounter. You can disable this optimization under{" "}
-                    <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
-                    -&gt; <strong>Experiment Settings</strong>.
                   </p>
                 </>
               }
@@ -90,16 +89,18 @@ const ExpandableQuery: FC<{
         <>
           {query.rawResult?.[0] ? (
             <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              <table className="table table-bordered table-sm">
+              <table className="table table-bordered table-sm query-table">
                 <thead>
                   <tr
-                    style={{ position: "sticky", top: 0 }}
-                    className="bg-light"
+                    style={{
+                      position: "sticky",
+                      top: -1,
+                    }}
                   >
                     <th></th>
-                    {Object.keys(query.rawResult[0]).map((k) => {
-                      return <th key={k}>{k}</th>;
-                    })}
+                    {Object.keys(query.rawResult[0]).map((k) => (
+                      <th key={k}>{k}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -140,11 +141,11 @@ const ExpandableQuery: FC<{
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className={clsx("alert alert-info mb-1")}>
-              <em>No rows returned</em>
-            </div>
-          )}
+          ) : query.query.startsWith("SELECT") ? (
+            <Callout status="warning" my="3">
+              No rows returned
+            </Callout>
+          ) : null}
         </>
       )}
       {query.status === "succeeded" && (
@@ -158,7 +159,16 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.startedAt),
-                    getValidDate(query.finishedAt)
+                    getValidDate(query.finishedAt),
+                  )}
+                </strong>
+              </div>
+              <div className="col-auto mb-2">
+                <em>Time queued</em>:{" "}
+                <strong>
+                  {formatDistanceStrict(
+                    getValidDate(query.createdAt),
+                    getValidDate(query.startedAt),
                   )}
                 </strong>
               </div>
@@ -168,32 +178,26 @@ const ExpandableQuery: FC<{
       )}
       {query.status === "running" && (
         <>
-          <div className="alert alert-info">
-            <em>
-              Running for{" "}
-              {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
-            </em>
-            {query.dependencies?.length && !query.cachedQueryUsed ? (
-              <div>
-                <em>
-                  Was queued for{" "}
-                  {formatDistanceStrict(
-                    getValidDate(query.createdAt),
-                    getValidDate(query.startedAt)
-                  )}
-                </em>
-              </div>
-            ) : null}
-          </div>
+          <HelperText status="info" mb="2">
+            Running for{" "}
+            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+          </HelperText>
+          {query.dependencies?.length && !query.cachedQueryUsed ? (
+            <HelperText status="info" mb="2">
+              Was queued for{" "}
+              {formatDistanceStrict(
+                getValidDate(query.createdAt),
+                getValidDate(query.startedAt),
+              )}
+            </HelperText>
+          ) : null}
         </>
       )}
-      {query.status === "queued" && (
-        <div className="alert alert-secondary">
-          <em>
-            Queued for{" "}
-            {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
-          </em>
-        </div>
+      {query.status == "queued" && (
+        <HelperText status="info" mb="3">
+          Queued for{" "}
+          {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
+        </HelperText>
       )}
     </div>
   );

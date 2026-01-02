@@ -1,0 +1,28 @@
+parameters: []
+tags:
+  - archetypes
+summary: Create a single archetype
+operationId: postArchetype
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/archetypes \
+        -d '{ "name": "Mobile user", attributes: "{\"deviceType\": \"mobile\"}", isPublic: true, ... }'
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostArchetypePayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - archetype
+          properties:
+            archetype:
+              $ref: "../schemas/Archetype.yaml"

@@ -23,6 +23,7 @@ properties:
       - ""
       - api
       - config
+      - admin
   dateCreated:
     type: string
   dateUpdated:
@@ -62,6 +63,7 @@ properties:
       - minPercentChange
       - maxPercentChange
       - minSampleSize
+      - targetMDE
     properties:
       goal:
         type: string
@@ -100,28 +102,36 @@ properties:
         type: number
         deprecated: true
       windowSettings:
-          type: object
-          description: Controls the conversion window for the metric
-          required:
-            - type
-          properties:
-            type:
-              type: string
-              enum:
-                - "none"
-                - "conversion"
-                - "lookback"
-            delayHours:
-              type: number
-              description: Wait this many hours after experiment exposure before counting conversions
-            windowValue:
-              type: number
-            windowUnit:
-              type: string
-              enum:
-                - "hours"
-                - "days"
-                - "weeks"
+        type: object
+        description: Controls the conversion window for the metric
+        required:
+          - type
+        properties:
+          type:
+            type: string
+            enum:
+              - "none"
+              - "conversion"
+              - "lookback"
+          delayValue:
+            type: number
+            description: Wait this long after experiment exposure before counting conversions
+          delayUnit:
+            type: string
+            enum:
+              - "minutes"
+              - "hours"
+              - "days"
+              - "weeks"
+          windowValue:
+            type: number
+          windowUnit:
+            type: string
+            enum:
+              - "minutes"
+              - "hours"
+              - "days"
+              - "weeks"
       priorSettings:
         type: object
         description: Controls the bayesian prior for the metric.
@@ -158,6 +168,8 @@ properties:
       maxPercentChange:
         type: number
       minSampleSize:
+        type: number
+      targetMDE:
         type: number
   sql:
     type: object

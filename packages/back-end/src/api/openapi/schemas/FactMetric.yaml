@@ -19,6 +19,7 @@ required:
   - minPercentChange
   - maxPercentChange
   - minSampleSize
+  - targetMDE
   - managedBy
   - dateCreated
   - dateUpdated
@@ -45,31 +46,89 @@ properties:
     type: string
     enum:
       - proportion
+      - retention
       - mean
       - quantile
       - ratio
+      - dailyParticipation
   numerator:
     type: object
     required:
       - factTableId
       - column
-      - filters
     properties:
       factTableId:
         type: string
       column:
         type: string
+      aggregation:
+        type: string
+        enum:
+          - sum
+          - max
+          - count distinct
       filters:
         type: array
-        description: Array of Fact Table Filter Ids
+        description: Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+        deprecated: true
         items:
           type: string
+      inlineFilters:
+        type: object
+        description: Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+        deprecated: true
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      rowFilters:
+        type: array
+        description: Filters to apply to the rows of the fact table before aggregation.
+        items:
+          type: object
+          required:
+            - operator
+          properties:
+            operator:
+              type: string
+              enum:
+                - "="
+                - "!="
+                - ">"
+                - "<"
+                - ">="
+                - "<="
+                - "in"
+                - "not_in"
+                - "is_null"
+                - "not_null"
+                - "is_true"
+                - "is_false"
+                - "contains"
+                - "not_contains"
+                - "starts_with"
+                - "ends_with"
+                - "sql_expr"
+                - "saved_filter"
+            values:
+              type: array
+              description: Not required for is_null, not_null, is_true, is_false operators.
+              items:
+                type: string
+            column:
+              type: string
+              description: Required for all operators except sql_expr and saved_filter.
+      aggregateFilterColumn:
+        type: string
+        description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+      aggregateFilter:
+        type: string
+        description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
   denominator:
     type: object
     required:
       - factTableId
       - column
-      - filters
     properties:
       factTableId:
         type: string
@@ -77,9 +136,55 @@ properties:
         type: string
       filters:
         type: array
-        description: Array of Fact Table Filter Ids
+        description: Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+        deprecated: true
         items:
           type: string
+      inlineFilters:
+        type: object
+        description: Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+        deprecated: true
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      rowFilters:
+        type: array
+        description: Filters to apply to the rows of the fact table before aggregation.
+        items:
+          type: object
+          required:
+            - operator
+          properties:
+            operator:
+              type: string
+              enum:
+                - "="
+                - "!="
+                - ">"
+                - "<"
+                - ">="
+                - "<="
+                - "in"
+                - "not_in"
+                - "is_null"
+                - "not_null"
+                - "is_true"
+                - "is_false"
+                - "contains"
+                - "not_contains"
+                - "starts_with"
+                - "ends_with"
+                - "sql_expr"
+                - "saved_filter"
+            values:
+              type: array
+              description: Not required for is_null, not_null, is_true, is_false operators.
+              items:
+                type: string
+            column:
+              type: string
+              description: Required for all operators except sql_expr and saved_filter.
   inverse:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
@@ -136,14 +241,22 @@ properties:
           - "none"
           - "conversion"
           - "lookback"
-      delayHours:
+      delayValue:
         type: number
-        description: Wait this many hours after experiment exposure before counting conversions
+        description: Wait this long after experiment exposure before counting conversions.
+      delayUnit:
+        type: string
+        enum:
+          - "minutes"
+          - "hours"
+          - "days"
+          - "weeks"
       windowValue:
         type: number
       windowUnit:
         type: string
         enum:
+          - "minutes"
           - "hours"
           - "days"
           - "weeks"
@@ -187,11 +300,16 @@ properties:
     type: number
   riskThresholdDanger:
     type: number
+  displayAsPercentage:
+    type: boolean
+    description: If true and the metric is a ratio metric, variation means will be displayed as a percentage
   minPercentChange:
     type: number
   maxPercentChange:
     type: number
   minSampleSize:
+    type: number
+  targetMDE:
     type: number
   managedBy:
     type: string
@@ -199,9 +317,17 @@ properties:
     enum:
       - ""
       - api
+      - admin
   dateCreated:
     type: string
     format: date-time
   dateUpdated:
     type: string
     format: date-time
+  archived:
+    type: boolean
+  metricAutoSlices:
+    type: array
+    items:
+      type: string
+    description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.

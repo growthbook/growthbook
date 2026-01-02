@@ -36,7 +36,7 @@ In addition to passing attributes into the SDK, you also must update the GrowthB
 
 :::note
 
-The actual values of the targeting attributes (e.g. the user ids, emails, etc.) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture
+The actual values of the targeting attributes (e.g., the user IDs, emails, etc.) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture
 eliminates huge potential security holes and keeps your user's PII safe and secure.
 
 :::
@@ -45,21 +45,21 @@ Each attribute has 4 parts:
 
 - The **attribute name** itself. This is how the attribute will be referenced in the SDK.
 - The **data type** of the attribute
-- Whether it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device- and are used for experiment assignments.
+- Whether it's an **identifier**. Identifiers are attributes which uniquely identify something—typically either a person, account, company, or device—and are used for experiment assignments.
 - The **projects** that the attribute is associated with. This is useful if some attributes are only relevant to certain projects. If no projects are selected, the attribute will be available for all projects.
 
 ### Attribute Data Types
 
 GrowthBook supports the following attribute data types:
 
-- Boolean - true or false
-- Number - Floats or integers
-- String - freeform text
-- Enum - When there are only a small list of pre-defined values it could take
-- Secure String - Like a string, but the values will be hashed before passing to the SDK
-- Array of Strings - useful for things like "tags"
-- Array of Numbers - useful anytime you have multiple numeric values
-- Array of Secure Strings - an array of secure strings useful for passing multiple values that you want to keep secure
+- Boolean: True or false
+- Number: Floats or integers
+- String: Freeform text
+- Enum: Short list of pre-defined values
+- Secure String: Like a string, but the values will be hashed before passing to the SDK
+- Array of Strings: Useful for data like tags
+- Array of Numbers: Useful anytime you have multiple numeric values
+- Array of Secure Strings: Useful for passing multiple values that you want to keep secure
 
 #### Semantic Version Targeting
 
@@ -86,6 +86,20 @@ To leverage this feature, you first need to create a date string attribute. Navi
 ![Date string attribute](/images/targeting-dates.png)
 
 After saving, certain targeting operators (e.g. `is after or on` or `is equal to`) will display a date picker input. Dates entered with the date picker will be saved as an ISO-formatted Date string (e.g. `2024-07-23T20:06`).
+
+#### Country Code Targeting
+
+Use [2-character ISO country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) to simplify targeting by country.
+
+How to implement country code targeting:
+
+- Create an attribute and set the **Data Type** to `String`
+- Change the **String Format** to `ISO Country Code (2 letter)`
+- Save the attribute
+
+Now, when setting targeting rules, you'll get a dropdown to directly select a country to target.
+
+![Country code targeting dropdown](/images/features/feature-country-code.gif)
 
 ## Targeting Conditions
 
@@ -157,7 +171,7 @@ The JSON structure is inspired by the MongoDB Query syntax. Multiple conditions 
         "$regex": "@gmail.com$"
       }
     },
-    "hobies": {
+    "hobbies": {
       "$all": ["hiking","tennis","chess"]
     },
     "tags": {
@@ -217,31 +231,41 @@ We use the MongoDB query syntax because it is easy to read and write and is well
 
 ## Saved Groups
 
-In addition to targeting by attributes, GrowthBook has also the concept of **Saved Groups**, which makes it easy to target the same group of users across multiple features/experiments.
+<iframe style={{width: "100%", height: "auto", aspectRatio: "16 / 9", marginBottom: "1rem"}} src="https://www.youtube.com/embed/YAfGx1OY1jM?si=cjAnZfAX8BhPEPrc" title="Advanced Targeting with Saved Groups" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-Once you define your Saved Groups, you can easily reference them from any Feature rule or Experiment. Updates to saved groups apply immediately and will be instantly propagated to all matching Features and Experiments.
+Target the same group of users across multiple features and experiments with Saved Groups, ensuring consistent user targeting across your projects. For instance, easily manage beta testers or high-value customers by defining a group once and reusing it everywhere.
 
-![Saved Group Targeting](/images/saved-groups-targeting.png)
+![Saved groups overview](/images/saved-groups-overview.png)
 
-There are two types of Saved Groups:
+### Types of Saved Groups
 
-- **ID Lists** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
-- **Condition Groups** - Configure advanced targeting rules based on a user's attributes. For example, "all users located in the US on a mobile device".
+#### Condition Groups
+
+Define advanced targeting rules based on user attributes. For example, target users who are located in the US and on a mobile device.
+
+![Saved groups condition, showing how to add a US user on a mobile device](/images/saved-groups-condition.png)
+
+#### ID Lists
+
+Manually define targeted users via text input or by uploading a CSV. For example, create a beta testers saved group by uploading a CSV of user IDs.
+
+![Saved Group UI, focusing on adding an ID list](/images/saved-groups-id-list.png)
+
+ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
+
+ID Lists accept the following types of attributes: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
 
 :::note
+Empty lists would previously be ignored in the SDK payloads, causing targeting conditions referencing those
+lists to always evaluate to true. ID Lists created after the behavior was changed will properly use the empty
+list, so rules checking whether a value is in the list will always be false. Lists created before the
+change will preserve the old behavior so as not to break existing features.
 
-ID Lists are currently limited to a maximum of **100 values**. These values are included directly in the payload sent to your SDKs and large payloads can slow down your application. Support for largers lists is coming soon!
-
+To make an ID list with the legacy behavior evaluate to false instead of true for conditions, you can add a single fake value such as "" or "\_" so that the list isn't empty
 :::
 
-![Saved Groups UI](/images/saved-groups.png)
-
 :::note
-
-GrowthBook 2.7 introduced a naming change. "Inline Groups" were renamed to "ID Lists". "Runtime Groups" were renamed to "Condition Groups" and now support arbitrary targeting conditions.
-
-Only ID Lists can be referenced in the **Target by Attribute** field. Both types of Saved Groups can be referenced with the newer **Saved Group Targeting** field.
-
+Enterprise users can use optimized ID lists to reduce payload size. Enable this feature by editing your SDK connection and toggling on **Pass ID Lists by reference**. If the the toggle isn't visible, your SDK is not compatible with this feature.
 :::
 
 ## Prerequisite Targeting

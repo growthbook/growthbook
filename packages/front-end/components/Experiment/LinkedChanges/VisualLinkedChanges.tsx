@@ -1,3 +1,5 @@
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import track from "@/services/track";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
@@ -9,6 +11,15 @@ export default function VisualLinkedChanges({
   mutate,
   canAddChanges,
   canEditVisualChangesets,
+  isPublic,
+}: {
+  setVisualEditorModal?: (b: boolean) => void;
+  visualChangesets: VisualChangesetInterface[];
+  experiment: ExperimentInterfaceStringDates;
+  mutate?: () => void;
+  canAddChanges: boolean;
+  canEditVisualChangesets: boolean;
+  isPublic?: boolean;
 }) {
   const visualChangeCount = visualChangesets.length;
 
@@ -19,19 +30,21 @@ export default function VisualLinkedChanges({
       changeCount={visualChangeCount}
       experimentStatus={experiment.status}
       onAddChange={() => {
-        setVisualEditorModal(true);
+        setVisualEditorModal?.(true);
         track("Open visual editor modal", {
           source: "visual-editor-ui",
           action: "add",
         });
       }}
     >
-      <VisualChangesetTable
-        experiment={experiment}
-        visualChangesets={visualChangesets}
-        mutate={mutate}
-        canEditVisualChangesets={canEditVisualChangesets}
-      />
+      {!isPublic ? (
+        <VisualChangesetTable
+          experiment={experiment}
+          visualChangesets={visualChangesets}
+          mutate={mutate}
+          canEditVisualChangesets={canEditVisualChangesets}
+        />
+      ) : null}
     </LinkedChangesContainer>
   );
 }

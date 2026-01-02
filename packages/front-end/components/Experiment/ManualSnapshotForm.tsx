@@ -2,10 +2,11 @@ import { FC } from "react";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { MetricInterface, MetricStats } from "back-end/types/metric";
+} from "shared/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { MetricInterface, MetricStats } from "shared/types/metric";
 import { useForm } from "react-hook-form";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -23,19 +24,19 @@ const ManualSnapshotForm: FC<{
   lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
 }> = ({ experiment, close, success, lastAnalysis, phase }) => {
-  const { metrics, getMetricById } = useDefinitions();
+  const { getMetricById, metricGroups } = useDefinitions();
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
-  if (metrics) {
-    experiment.metrics.forEach((mid) => {
-      const m = metrics.filter((metric) => metric.id === mid)[0];
+  getAllMetricIdsFromExperiment(experiment, false, metricGroups).forEach(
+    (mid) => {
+      const m = getMetricById(mid);
       if (!m) return;
       filteredMetrics.push(m);
-    });
-  }
+    },
+  );
 
   const isRatio = (metric: MetricInterface) => {
     if (!metric.denominator) return false;
@@ -156,7 +157,7 @@ const ManualSnapshotForm: FC<{
       "create",
       "ManualSnapshotForm",
       getDatasourceById(experiment.datasource)?.type || null,
-      res.snapshot
+      res.snapshot,
     );
 
     success();
@@ -164,6 +165,7 @@ const ManualSnapshotForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       size="lg"
       close={close}
@@ -196,8 +198,8 @@ const ManualSnapshotForm: FC<{
             m.type === "binomial"
               ? "Conversions"
               : isRatio(m)
-              ? "Denominator"
-              : "Included Users";
+                ? "Denominator"
+                : "Included Users";
           return (
             <div className="mb-3" key={m.id}>
               <h4>{m.name}</h4>
@@ -238,7 +240,7 @@ const ManualSnapshotForm: FC<{
                           {values.users[i] > 0 &&
                             values.metrics[m.id][i].count > 0 &&
                             getMetricFormatter(m.type)(
-                              values.metrics[m.id][i].count / values.users[i]
+                              values.metrics[m.id][i].count / values.users[i],
                             )}
                         </td>
                       ) : (

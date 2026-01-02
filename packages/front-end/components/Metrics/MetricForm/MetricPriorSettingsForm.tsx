@@ -1,9 +1,11 @@
-import { MetricPriorSettings } from "@back-end/types/fact-table";
-import { MetricDefaults } from "@back-end/types/organization";
+import { MetricPriorSettings } from "shared/types/fact-table";
+import { MetricDefaults } from "shared/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
-import Toggle from "@/components/Forms/Toggle";
+import { Box, Flex } from "@radix-ui/themes";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
+import Checkbox from "@/ui/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -29,45 +31,27 @@ export function MetricPriorSettingsForm({
         Only applicable to Bayesian analyses
       </small>
       <div className="px-3 py-2 pb-0 mb-2 border rounded">
-        <div className="form-group mb-0 mr-0 form-inline">
-          <div className="form-inline my-1">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id={"toggle-properPriorOverride"}
-              checked={priorSettings.override}
-              onChange={(v) =>
-                setPriorSettings({
-                  ...priorSettings,
-                  override: v.target.checked,
-                })
-              }
-            />
-            <label
-              className="mr-1 cursor-pointer"
-              htmlFor="toggle-properPriorOverride"
-            >
-              Override organization-level settings
-            </label>
-          </div>
-        </div>
+        <Box mt="1">
+          <Checkbox
+            label="Override organization-level settings"
+            value={priorSettings.override}
+            setValue={(v) =>
+              setPriorSettings({ ...priorSettings, override: v })
+            }
+          />
+        </Box>
         <div
           style={{
             display: priorSettings.override ? "block" : "none",
           }}
         >
           <div className="d-flex my-2 border-bottom"></div>
-          <div className="form-group mt-3 mb-0 mr-2 form-inline">
-            <label
-              className="mr-1"
-              htmlFor="toggle-regressionAdjustmentEnabled"
-            >
-              Use proper prior for this metric
-            </label>
-            <Toggle
+          <Flex direction="column" className="form-group mt-3 mb-0 mr-2">
+            <Switch
               id={"toggle-properPrior"}
+              label="Use proper prior for this metric"
               value={!!priorSettings.proper}
-              setValue={(value) => {
+              onChange={(value) => {
                 setPriorSettings({ ...priorSettings, proper: value });
               }}
             />
@@ -75,7 +59,7 @@ export function MetricPriorSettingsForm({
               (organization default:{" "}
               {metricDefaults.priorSettings?.proper ? "On" : "Off"})
             </small>
-          </div>
+          </Flex>
 
           {(metricDefaults.priorSettings?.proper && !priorSettings.override) ||
           priorSettings.proper ? (
@@ -138,11 +122,11 @@ export function MetricPriorSettingsForm({
               <div>
                 <small className="text-muted mt-1">
                   {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
-                    priorSettings.mean
+                    priorSettings.mean,
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
-                    -1 * priorSettings.stddev + priorSettings.mean
+                    -1 * priorSettings.stddev + priorSettings.mean,
                   )} and ${percentFormatter.format(
-                    priorSettings.stddev + priorSettings.mean
+                    priorSettings.stddev + priorSettings.mean,
                   )}`}
                 </small>
               </div>

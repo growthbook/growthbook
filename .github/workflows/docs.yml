@@ -26,6 +26,14 @@ jobs:
           fi
         env:
           REF: ${{ github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+          cache-dependency-path: "docs/yarn.lock"
+
       - name: Deploy to Vercel
         if: ${{ github.repository == 'growthbook/growthbook' }}
         uses: amondnet/vercel-action@v20

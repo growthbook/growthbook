@@ -1,16 +1,16 @@
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {
@@ -27,12 +27,14 @@ export default function FactFilterList({ factTable }: Props) {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
-    items: factTable?.filters || [],
-    defaultSortField: "name",
-    localStorageKey: "factFilters",
-    searchFields: ["name^3", "description", "value^2"],
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
+    useSearch({
+      items: factTable?.filters || [],
+      defaultSortField: "name",
+      localStorageKey: "factFilters",
+      searchFields: ["name^3", "description", "value^2"],
+      pageSize: 10,
+    });
 
   const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
   const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
@@ -71,17 +73,15 @@ export default function FactFilterList({ factTable }: Props) {
                 : `You don't have permission to edit this fact table`
             }
           >
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              onClick={() => {
                 if (!canAddAndEdit) return;
                 setNewOpen(true);
               }}
               disabled={!canAddAndEdit}
             >
-              <GBAddCircle /> Add Filter
-            </button>
+              Add Filter
+            </Button>
           </Tooltip>
         </div>
       </div>
@@ -123,15 +123,18 @@ export default function FactFilterList({ factTable }: Props) {
                       {canDelete && !filter.managedBy ? (
                         <DeleteButton
                           displayName="Filter"
-                          className="dropdown-item"
+                          className="dropdown-item text-danger"
                           useIcon={false}
                           text="Delete"
+                          additionalMessage={
+                            "This will remove the filter from all metrics that are using it."
+                          }
                           onClick={async () => {
                             await apiCall(
                               `/fact-tables/${factTable.id}/filter/${filter.id}`,
                               {
                                 method: "DELETE",
-                              }
+                              },
                             );
                             mutateDefinitions();
                           }}
@@ -159,6 +162,7 @@ export default function FactFilterList({ factTable }: Props) {
               )}
             </tbody>
           </table>
+          {pagination}
         </>
       )}
     </>

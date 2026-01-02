@@ -6,10 +6,10 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import Tag from "@/components/Tags/Tag";
 import Button from "@/components/Button";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Badge from "@/ui/Badge";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();
@@ -45,10 +45,18 @@ export default function RoleList() {
                     >
                       {r.id}
                     </Link>{" "}
-                    {isCustom ? <Tag color="#f9f9f9" tag="Custom" /> : null}
-                    {isDeactivated ? (
-                      <Tag color="#808080" tag="Deactivated" />
-                    ) : null}
+                    <div className="tags-container">
+                      {isCustom ? (
+                        <Badge label="Custom" color="violet" variant="soft" />
+                      ) : null}
+                      {isDeactivated ? (
+                        <Badge
+                          label="Deactivated"
+                          color="gray"
+                          variant="soft"
+                        />
+                      ) : null}
+                    </div>
                   </td>
                   <td>{r.description}</td>
                   <td>
@@ -70,7 +78,7 @@ export default function RoleList() {
                             className="dropdown-item"
                             onClick={async () => {
                               await router.push(
-                                `/settings/role/${r.id}?edit=true`
+                                `/settings/role/${r.id}?edit=true`,
                               );
                             }}
                           >
@@ -120,7 +128,7 @@ export default function RoleList() {
                             }`,
                             {
                               method: "POST",
-                            }
+                            },
                           );
                           refreshOrganization();
                         }}

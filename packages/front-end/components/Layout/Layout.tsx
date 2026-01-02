@@ -2,73 +2,121 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import {
-  BsFlag,
-  BsClipboardCheck,
-  BsLightbulb,
-  BsCodeSlash,
-} from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
+import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   GBDatabase,
   GBExperiment,
-  GBPremiumBadge,
+  GBLibrary,
+  GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { AppFeatures } from "@/types/app-features";
+import { WhiteButton } from "@/ui/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
+import { useSidebarOpen } from "./SidebarOpenProvider";
 
 const navlinks: SidebarLinkProps[] = [
   {
-    name: "Get Started",
-    href: "/getstarted",
-    Icon: BsLightbulb,
-    path: /^getstarted/,
+    name: "Home",
+    href: "/",
+    Icon: BsHouse,
+    path: /^$/,
     className: styles.first,
   },
   {
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^features/,
+    path: /^(features)/,
   },
   {
-    name: "Experiments",
+    name: "Experimentation",
     href: "/experiments",
-    path: /^experiment/,
+    path: /^(experiments|experiment\/|bandit|namespaces|power-calculator)/,
     Icon: GBExperiment,
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "Experiments",
+        href: "/experiments",
+        path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
+      },
+      {
+        name: "Bandits",
+        href: "/bandits",
+        //Icon: GBBandit,
+        path: /^bandit/,
+        filter: ({ gb }) => !!gb?.isOn("bandits"),
+      },
+      {
+        name: "Holdouts",
+        href: "/holdouts",
+        path: /^holdouts/,
+        filter: ({ gb }) => !!gb?.isOn("holdouts_feature"),
+      },
+      {
+        name: "Templates",
+        href: "/experiments/templates",
+        path: /^experiments\/templates/,
+      },
+      {
+        name: "Power Calculator",
+        href: "/power-calculator",
+        path: /^power-calculator/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      // {
+      //   name: "Search",
+      //   href: "/experiments/explore",
+      //   path: /^experiments\/explore/,
+      // },
+    ],
+  },
+  {
+    name: "Product Analytics",
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
+    Icon: GBProductAnalytics,
+    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
   },
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources|fact-)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^(metric|fact-metric)/,
+        path: /^(metric\/|metrics|fact-metric|metric-group)/,
       },
       {
         name: "Fact Tables",
         href: "/fact-tables",
         path: /^fact-tables/,
-        beta: true,
       },
       {
         name: "Segments",
         href: "/segments",
         path: /^segment/,
+        filter: ({ segments }) => segments.length > 0,
       },
       {
         name: "Dimensions",
@@ -80,7 +128,57 @@ const navlinks: SidebarLinkProps[] = [
         href: "/datasources",
         path: /^datasources/,
       },
+      {
+        name: "SQL Explorer",
+        href: "/sql-explorer",
+        path: /^sql-explorer/,
+        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
+      },
     ],
+  },
+  {
+    name: "Insights",
+    href: "/dashboard",
+    Icon: GBLibrary,
+    path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
+    subLinks: [
+      {
+        name: "Dashboard",
+        href: "/dashboard",
+        path: /^dashboard/,
+      },
+      {
+        name: "Learnings",
+        href: "/learnings",
+        path: /^learnings/,
+      },
+      {
+        name: "Timeline",
+        href: "/timeline",
+        path: /^(timeline)/,
+      },
+      // {
+      //   name: "Interaction Effects",
+      //   href: "/interactions",
+      //   path: /^(interaction)/,
+      // },
+      {
+        name: "Metric Effects",
+        href: "/metric-effects",
+        path: /^(metric-effect)/,
+      },
+      {
+        name: "Metric Correlations",
+        href: "/correlations",
+        path: /^(correlations)/,
+      },
+      {
+        name: "Presentations",
+        href: "/presentations",
+        path: /^presentation/,
+      },
+    ],
+    filter: ({ gb }) => !!gb?.isOn("insights"),
   },
   {
     name: "Management",
@@ -105,11 +203,12 @@ const navlinks: SidebarLinkProps[] = [
         path: /^presentation/,
       },
     ],
+    filter: ({ gb }) => !gb?.isOn("insights"),
   },
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
+    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -124,11 +223,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^attributes/,
       },
       {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
-      {
         name: "Environments",
         href: "/environments",
         path: /^environments/,
@@ -137,6 +231,16 @@ const navlinks: SidebarLinkProps[] = [
         name: "Saved Groups",
         href: "/saved-groups",
         path: /^saved-groups/,
+      },
+      {
+        name: "Archetypes",
+        href: "/archetypes",
+        path: /^archetypes/,
+      },
+      {
+        name: "Exposures Debugger",
+        href: "/exposure-debugger",
+        path: /^exposure-debugger/,
       },
     ],
   },
@@ -174,6 +278,11 @@ const navlinks: SidebarLinkProps[] = [
         path: /^project/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageSomeProjects(),
+      },
+      {
+        name: "Custom Fields",
+        href: "/settings/customfields",
+        path: /^settings\/customfields/,
       },
       {
         name: "API Keys",
@@ -218,12 +327,28 @@ const navlinks: SidebarLinkProps[] = [
         path: /^importing/,
         filter: ({ permissionsUtils, gb }) =>
           permissionsUtils.canViewFeatureModal() &&
-          permissionsUtils.canCreateOrUpdateEnvironment({
+          permissionsUtils.canCreateEnvironment({
             projects: [],
             id: "",
           }) &&
           permissionsUtils.canCreateProjects() &&
           !!gb?.isOn("import-from-x"),
+      },
+      {
+        name: "Usage",
+        href: "/settings/usage",
+        path: /^settings\/usage/,
+        filter: ({ permissionsUtils, isCloud, gb }) =>
+          permissionsUtils.canViewUsage() &&
+          isCloud &&
+          !!gb?.isOn("cdn-usage-data"),
+      },
+      {
+        name: "Custom Hooks",
+        href: "/settings/custom-hooks",
+        path: /^settings\/custom-hooks/,
+        filter: ({ permissionsUtils, isCloud }) =>
+          !isCloud && permissionsUtils.canCreateCustomHook({ projects: [] }),
       },
       {
         name: "Billing",
@@ -261,12 +386,12 @@ const otherPageTitles = [
     title: "Activity Feed",
   },
   {
-    path: /^integrations\/vercel/,
-    title: "Vercel Integration",
+    path: /^reports/,
+    title: "My Reports",
   },
   {
-    path: /^integrations\/vercel\/configure/,
-    title: "Vercel Integration Configuration",
+    path: /^account\/personal-access-tokens/,
+    title: "Personal Access Tokens",
   },
   {
     path: /^getstarted/,
@@ -274,7 +399,7 @@ const otherPageTitles = [
   },
   {
     path: /^dashboard/,
-    title: "Program Management",
+    title: "Dashboard",
   },
 ];
 
@@ -295,19 +420,22 @@ const backgroundShade = (color: string) => {
 };
 
 const Layout = (): React.ReactElement => {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useSidebarOpen();
   const settings = useOrgSettings();
-  const { accountPlan, license } = useUser();
-  const { hasPaymentMethod } = useStripeSubscription();
+  const permissionsUtil = usePermissionsUtil();
+  const { organization, canSubscribe } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // holdout aa-test, dogfooding
+  growthbook?.isOn("aa-test-holdout");
 
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
-    ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !hasPaymentMethod) ||
-    (["pro", "pro_sso"].includes(accountPlan || "") &&
-      license?.stripeSubscription?.status === "canceled");
+    canSubscribe &&
+    permissionsUtil.canManageBilling() &&
+    !organization.isVercelIntegration;
 
   // hacky:
   const router = useRouter();
@@ -318,7 +446,10 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+  let pageTitle = [...breadcrumb]
+    .reverse()
+    .map((b) => b.display)
+    .join(" - ");
 
   // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {
@@ -366,8 +497,8 @@ const Layout = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="layout"
+          commercialFeature={null}
         />
       )}
       {settings?.customized && (
@@ -457,26 +588,16 @@ const Layout = (): React.ReactElement => {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <div className="p-3">
+        <Flex p="3" direction="column" gap="4">
           {showUpgradeButton && (
-            <button
-              className="btn btn-premium btn-block font-weight-normal"
-              onClick={() => setUpgradeModal(true)}
-            >
-              <>
-                Upgrade <GBPremiumBadge />
-              </>
-            </button>
+            <WhiteButton onClick={() => setUpgradeModal(true)}>
+              <>Upgrade</>
+            </WhiteButton>
           )}
-          <a
-            href={inferDocUrl()}
-            className="btn btn-outline-light btn-block"
-            target="_blank"
-            rel="noreferrer"
-          >
-            View Docs <FaArrowRight className="ml-2" />
+          <a href={inferDocUrl()} target="_blank" rel="noreferrer">
+            <WhiteButton variant="outline">View docs</WhiteButton>
           </a>
-        </div>
+        </Flex>
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>
@@ -487,7 +608,7 @@ const Layout = (): React.ReactElement => {
                 rel="noreferrer"
                 className="text-white"
               >
-                {build.sha.substr(0, 7)}
+                {build.lastVersion}+{build.sha.substr(0, 7)}
               </a>{" "}
               {build.date && (
                 <span className="text-muted">({build.date.substr(0, 10)})</span>

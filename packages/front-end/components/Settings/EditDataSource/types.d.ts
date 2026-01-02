@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 
 export type DataSourceUIMode = "edit" | "view" | "add";
 

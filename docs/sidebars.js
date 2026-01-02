@@ -59,6 +59,12 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "features/safe-rollouts",
+          label: "Safe Rollouts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "features/prerequisites",
           label: "Prerequisites",
         },
@@ -81,50 +87,17 @@ const sidebars = {
           type: "doc",
           id: "features/approval-flows",
           label: "Approval Flows",
-          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "features/custom-hooks",
+          label: "Custom Hooks",
         },
       ],
     },
     {
       type: "category",
-      label: "Running Experiments",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "experiments",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "feature-flag-experiments",
-          label: "In Code (Feature Flags)",
-        },
-        {
-          type: "doc",
-          id: "visual-editor",
-          label: "Visual Editor",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/url-redirects",
-          label: "URL Redirects",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "running-experiments/making-changes",
-          label: "Making Changes",
-        },
-        {
-          type: "doc",
-          id: "sticky-bucketing",
-          label: "Sticky Bucketing",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Experiment Analysis",
+      label: "Data & Metrics",
       collapsed: true,
       items: [
         {
@@ -175,6 +148,11 @@ const sidebars = {
               type: "doc",
               id: "warehouses/postgres",
               label: "Postgres",
+            },
+            {
+              type: "doc",
+              id: "warehouses/vertica",
+              label: "Vertica",
             },
             {
               type: "doc",
@@ -285,34 +263,177 @@ const sidebars = {
           ],
         },
         {
+          type: "category",
+          label: "Metrics and Fact Tables",
+          collapsed: true,
+
+          link: {
+            type: "doc",
+            id: "metrics/metrics",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "metrics/metrics",
+              label: "Metrics Overview",
+            },
+            {
+              type: "doc",
+              id: "metrics/metric-examples",
+              label: "Metric Examples and Use Cases",
+            },
+            {
+              type: "doc",
+              id: "metrics/legacy-metrics",
+              label: "Legacy Metrics",
+            },
+          ],
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/query-optimization",
+          label: "Query Optimization",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/sql-templates",
+          label: "SQL Templates",
+        },
+        {
           type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
         {
           type: "doc",
-          id: "experimentation-analysis/fact-tables",
-          label: "Fact Tables",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
         },
         {
           type: "doc",
-          id: "experimentation-analysis/metrics",
-          label: "Metrics",
+          id: "experimentation-analysis/event-forwarder",
+          label: "Event Forwarder",
         },
+        {
+          type: "doc",
+          id: "official-resources",
+          label: "Official Resources",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Experimentation",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "experiments",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "feature-flag-experiments",
+          label: "Feature Flag Experiments",
+        },
+        {
+          type: "doc",
+          id: "visual-editor",
+          label: "Visual Editor",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/url-redirects",
+          label: "URL Redirects",
+        },
+
         {
           type: "doc",
           id: "experimentation-analysis/experiment-configuration",
-          label: "Experiments (Setup)",
+          label: "Experiment Settings",
         },
+
+        {
+          type: "doc",
+          id: "running-experiments/experiment-templates",
+          label: "Experiment Templates",
+        },
+
         {
           type: "doc",
           id: "experimentation-analysis/experiment-results",
-          label: "Experiments (Results)",
+          label: "Experiment Results",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-time-series",
+          label: "Experiment Time Series",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/decision-framework",
+          label: "Experiment Decision Framework",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/making-changes",
+          label: "Make Changes to Experiments",
+        },
+        {
+          type: "category",
+          label: "Bandits",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "bandits/overview",
+              label: "Overview",
+            },
+            {
+              type: "doc",
+              id: "bandits/config",
+              label: "Configuring Bandits",
+            },
+            {
+              type: "doc",
+              id: "bandits/results",
+              label: "Understanding Results",
+            },
+          ],
+        },
+        {
+          type: "doc",
+          id: "running-experiments/running-holdouts",
+          label: "Holdouts",
+        },
+        {
+          type: "doc",
+          id: "sticky-bucketing",
+          label: "Sticky Bucketing",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/cluster-experiments",
+          label: "Cluster Experiments",
         },
         {
           type: "doc",
           id: "experimentation-analysis/dimensions",
           label: "Dimensions",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/pre-launch-checklist",
+          label: "Pre-Launch Checklists",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-dashboards",
+          label: "Experiment Dashboards",
+        },
+        {
+          type: "doc",
+          id: "importing-experiments",
+          label: "Importing External Experiments",
         },
         {
           type: "category",
@@ -364,6 +485,17 @@ const sidebars = {
       ],
     },
     {
+      type: "doc",
+      id: "insights",
+      label: "Insights",
+    },
+    {
+      type: "doc",
+      id: "product-analytics",
+      label: "Product Analytics",
+      className: "pill-new",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -373,11 +505,17 @@ const sidebars = {
       },
       items: [
         {
+          type: "doc",
+          id: "lib/quickstart",
+          label: "Quickstart",
+        },
+        {
           type: "category",
           label: "Back-end",
           collapsed: true,
           items: [
             { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/nextjs", label: "Next.js" },
             { type: "doc", id: "lib/php", label: "PHP" },
             { type: "doc", id: "lib/ruby", label: "Ruby" },
             { type: "doc", id: "lib/python", label: "Python" },
@@ -388,10 +526,21 @@ const sidebars = {
             },
             {
               type: "doc",
+              id: "lib/kotlin-jvm",
+              label: "Kotlin (JVM)",
+            },
+            {
+              type: "doc",
               id: "lib/csharp",
               label: "C#",
             },
             { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
             {
               type: "doc",
               id: "lib/elixir",
@@ -452,15 +601,20 @@ const sidebars = {
       type: "category",
       label: "Self-Hosting",
       collapsed: true,
-      link: {
-        type: "doc",
-        id: "self-host/index",
-      },
       items: [
+        "self-host/index",
         "self-host/environment-variables",
-        "self-host/config-yml",
         "self-host/production",
+        "self-host/kubernetes",
+        { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        {
+          type: "doc",
+          id: "self-host/remote-evaluation",
+          label: "Remote Evaluation",
+        },
+        { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
+        "self-host/config-yml",
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
@@ -470,7 +624,22 @@ const sidebars = {
       label: "Webhooks",
       items: [
         { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
-        { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
+        {
+          type: "category",
+          label: "Event Webhooks",
+          collapsed: true,
+          link: {
+            type: "doc",
+            id: "webhooks/event-webhooks",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "webhooks/event-webhooks/events",
+              label: "Available Events",
+            },
+          ],
+        },
         { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
         {
           type: "doc",
@@ -486,15 +655,31 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/mcp",
+          label: "MCP Server",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/vercel",
+          label: "Vercel",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/discord",
           label: "Discord alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -509,7 +694,7 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/chrome-extension",
-          label: "Chrome Extension",
+          label: "Browser Extension",
         },
         {
           type: "doc",
@@ -519,15 +704,31 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/cli",
-          className: "pill-new",
           label: "GrowthBook CLI",
+        },
+        {
+          type: "doc",
+          id: "integrations/clarity",
+          label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/jira",
+          label: "Jira",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/ai",
+          label: "AI",
+          className: "pill-new",
         },
       ],
     },
     {
       type: "category",
       label: "Security",
-      collapsed: false,
       items: [
         {
           type: "doc",
@@ -563,6 +764,37 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/migrate-from-statsig",
+          label: "Migrate from Statsig",
+        },
+        {
+          type: "doc",
+          id: "guide/sanity",
+          label: "Sanity",
+        },
+        {
+          type: "doc",
+          id: "guide/strapi",
+          label: "Strapi CMS",
+        },
+        {
+          type: "doc",
+          id: "guide/contentful",
+          label: "Contentful CMS",
+        },
+        { type: "doc", id: "guide/deno-hono", label: "Deno + Hono" },
+        {
+          type: "doc",
+          id: "guide/express-js",
+          label: "Express.js",
+        },
+        {
+          type: "doc",
+          id: "guide/nextjs-and-vercel-feature-flags",
+          label: "Next.js + Vercel Feature Flags",
+        },
         {
           type: "doc",
           id: "guide/nextjs-app-router",
@@ -645,6 +877,40 @@ const sidebars = {
               type: "doc",
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Google Analytics",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-big-query-bq-troubleshooting",
+              label: "BigQuery Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-analytics-ga4-troubleshooting",
+              label: "GA4 Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-tag-manager-gtm-troubleshooting",
+              label: "GTM Troubleshooting",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Metrics",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "kb/metrics/fact-metric-optimization",
+              label: "Fact Metric Optimization",
             },
           ],
         },

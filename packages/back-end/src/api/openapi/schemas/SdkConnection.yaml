@@ -54,6 +54,8 @@ properties:
     type: boolean
   includeRedirectExperiments:
     type: boolean
+  includeRuleIds:
+    type: boolean
   key:
     type: string
   proxyEnabled:
@@ -67,4 +69,6 @@ properties:
   hashSecureAttributes:
     type: boolean
   remoteEvalEnabled:
+    type: boolean
+  savedGroupReferencesEnabled:
     type: boolean

@@ -3,8 +3,24 @@ import {
   DataSourceType,
   SchemaFormat,
   SchemaOption,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { ReactElement } from "react";
+import { BsDatabase } from "react-icons/bs";
+import { GrBarChart } from "react-icons/gr";
+import {
+  SiAmazonredshift,
+  SiClickhouse,
+  SiDatabricks,
+  SiGoogleanalytics,
+  SiGooglebigquery,
+  SiMicrosoftsqlserver,
+  SiMixpanel,
+  SiMysql,
+  SiPostgresql,
+  SiPresto,
+  SiSnowflake,
+} from "react-icons/si";
+import { DocSection } from "@/components/DocLink";
 
 export type eventSchema = {
   value: SchemaFormat;
@@ -12,12 +28,20 @@ export type eventSchema = {
   types?: DataSourceType[];
   options?: SchemaOption[];
   logo?: string;
-  intro?: ReactElement;
+  helpLink?: string;
   popular?: boolean;
   beta?: boolean;
 };
 
 export const eventSchemas: eventSchema[] = [
+  {
+    value: "ga4",
+    label: "Google Analytics v4",
+    types: ["bigquery"],
+    logo: "/images/3rd-party-logos/ga4.png",
+    popular: true,
+    helpLink: "https://support.google.com/analytics/answer/9358801?hl=en",
+  },
   {
     value: "segment",
     label: "Segment",
@@ -27,19 +51,13 @@ export const eventSchemas: eventSchema[] = [
       "athena",
       "redshift",
       "postgres",
+      "vertica",
       "databricks",
       "athena",
     ],
     logo: "/images/3rd-party-logos/segment.png",
     popular: true,
-    intro: (
-      <>
-        Connect to your data warehouse where your Segment data is stored.
-        GrowthBook is not a destination for your Segment data, instead, we query
-        data from your data warehouse. Segment supports many data warehouses as
-        a destination.
-      </>
-    ),
+    helpLink: "https://segment.com/docs/connections/storage/warehouses/",
     options: [
       {
         name: "exposureTableName",
@@ -58,6 +76,7 @@ export const eventSchemas: eventSchema[] = [
       "athena",
       "redshift",
       "postgres",
+      "vertica",
       "databricks",
       "athena",
       "clickhouse",
@@ -65,21 +84,7 @@ export const eventSchemas: eventSchema[] = [
     ],
     logo: "/images/3rd-party-logos/rudderstack.png",
     popular: true,
-    intro: (
-      <>
-        Connect to your data warehouse where your Rudderstack data is stored.
-        Rudderstack supports many data warehouses as a destination, you can read
-        a{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/rudderstack"
-          rel="noreferrer"
-        >
-          step by step guide here
-        </a>
-        .
-      </>
-    ),
+    helpLink: "https://docs.growthbook.io/guide/rudderstack",
     options: [
       {
         name: "exposureTableName",
@@ -90,74 +95,37 @@ export const eventSchemas: eventSchema[] = [
     ],
   },
   {
-    value: "mixpanel",
-    label: "Mixpanel",
-    types: ["mixpanel"],
-    logo: "/images/3rd-party-logos/mixpanel.png",
-    popular: true,
-    intro: (
-      <>
-        Connect to your Mixpanel instance below. You can find a step by step
-        guide{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/mixpanel"
-          rel="noreferrer"
-        >
-          here
-        </a>
-        .
-      </>
-    ),
-  },
-  {
     value: "snowplow",
     label: "Snowplow",
     types: [
       "redshift",
       "bigquery",
       "postgres",
+      "vertica",
       "athena",
       "snowflake",
       "databricks",
     ],
     logo: "/images/3rd-party-logos/snowplow.png",
     popular: true,
-    intro: (
-      <>
-        Snowplow works with many data warehouses. Connect to your data warehouse
-        you use with Snowplow below. (read more about{" "}
-        <a
-          target="_blank"
-          href="https://docs.snowplowanalytics.com/docs/pipeline-components-and-applications/loaders-storage-targets/"
-          rel="noreferrer"
-        >
-          Snowplows data destinations
-        </a>
-        )
-      </>
-    ),
+    helpLink:
+      "https://docs.snowplowanalytics.com/docs/pipeline-components-and-applications/loaders-storage-targets/",
   },
   {
     value: "amplitude",
     label: "Amplitude",
-    types: ["snowflake", "bigquery", "redshift", "athena", "databricks"],
+    types: [
+      "snowflake",
+      "bigquery",
+      "redshift",
+      "athena",
+      "databricks",
+      "presto",
+    ],
     logo: "/images/3rd-party-logos/amplitude.png",
     popular: true,
-    intro: (
-      <div>
-        Unfortunately, Amplitude does not let us directly query your data. To
-        get around this limitation, you first must export Amplitude data to the
-        data warehouse of your choice. You can read more about it{" "}
-        <a
-          target="_blank"
-          href="https://www.docs.developers.amplitude.com/data/destinations/"
-          rel="noreferrer"
-        >
-          on Amplitudes help pages
-        </a>
-      </div>
-    ),
+    helpLink:
+      "https://amplitude.com/docs/data/destination-catalog#data-warehousedata-lake",
     options: [
       {
         name: "eventType",
@@ -174,79 +142,29 @@ export const eventSchemas: eventSchema[] = [
     ],
   },
   {
-    value: "ga4",
-    label: "Google Analytics v4",
-    types: ["bigquery"],
-    logo: "/images/3rd-party-logos/ga4.png",
-    popular: true,
-    intro: (
-      <>
-        Google Analytics v4 is a new version of Google Analytics that makes it
-        easy to export events to a BigQuery data warehouse on Google Cloud
-        Platform (GCP). Using BigQuery with your GA4 data makes it easy to use
-        with GrowthBook. You can{" "}
-        <a
-          target="_blank"
-          href="https://support.google.com/analytics/answer/9358801?hl=en"
-          rel="noreferrer"
-        >
-          read more about it here
-        </a>
-        .
-      </>
-    ),
-  },
-  {
     value: "firebase",
     label: "Firebase",
     types: ["bigquery"],
     logo: "/images/3rd-party-logos/firebase.png",
     popular: false,
-    intro: (
-      <>
-        You can export Firebase data to BigQuery, and then use that with
-        GrowthBook. You can read about how to export{" "}
-        <a
-          target="_blank"
-          href="https://firebase.google.com/docs/projects/bigquery-export"
-          rel="noreferrer"
-        >
-          your data to BigQuery here
-        </a>
-        , or read about how to set up{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/bigquery"
-          rel="noreferrer"
-        >
-          BigQuery to work with GrowthBook
-        </a>
-        .
-      </>
-    ),
+    helpLink: "https://firebase.google.com/docs/projects/bigquery-export",
   },
   {
     value: "fullstory",
     label: "FullStory",
-    types: ["bigquery", "snowflake"],
+    types: [
+      "bigquery",
+      "snowflake",
+      "redshift",
+      "presto",
+      "athena",
+      "databricks",
+    ],
     logo: "/images/3rd-party-logos/fullstory.png",
     beta: true,
     popular: true,
-    intro: (
-      <>
-        FullStory supports exporting to a Data Destination, specifically
-        BigQuery and Snowflake, which GrowthBook can use for experiment
-        analytics. You can{" "}
-        <a
-          target="_blank"
-          href="https://help.fullstory.com/hc/en-us/articles/6295300682903-Data-Destinations"
-          rel="noreferrer"
-        >
-          read more about setting up a data destination here
-        </a>
-        . This integration is in beta.
-      </>
-    ),
+    helpLink:
+      "https://help.fullstory.com/hc/en-us/articles/6295300682903-Data-Destinations",
     // options: [
     //   {
     //     name: "eventName",
@@ -262,6 +180,7 @@ export const eventSchemas: eventSchema[] = [
     types: [
       "bigquery",
       "postgres",
+      "vertica",
       "redshift",
       "snowflake",
       "athena",
@@ -269,20 +188,8 @@ export const eventSchemas: eventSchema[] = [
     ],
     logo: "/images/3rd-party-logos/freshpaint.png",
     popular: false,
-    intro: (
-      <>
-        Freshpaint supports{" "}
-        <a
-          target="_blank"
-          href="https://documentation.freshpaint.io/data-management/destinations/warehouses"
-          rel="noreferrer"
-        >
-          numerous data warehouse destinations
-        </a>
-        . Once you have one set up, GrowthBook can use it for experiment
-        analytics.
-      </>
-    ),
+    helpLink:
+      "https://documentation.freshpaint.io/data-management/destinations/warehouses",
     options: [
       {
         name: "exposureTableName",
@@ -298,20 +205,7 @@ export const eventSchemas: eventSchema[] = [
     types: ["mysql"],
     logo: "/images/3rd-party-logos/matomo.png",
     popular: false,
-    intro: (
-      <>
-        GrowthBook connect to the MySQL/MariaDB database you&apos;re using with
-        Matomo. You can read about{" "}
-        <a
-          target="_blank"
-          href="https://docs.growthbook.io/guide/matomo"
-          rel="noreferrer"
-        >
-          setting up GrowthBook with Matomo here
-        </a>
-        .
-      </>
-    ),
+    helpLink: "https://docs.growthbook.io/guide/matomo",
     options: [
       {
         name: "tablePrefix",
@@ -344,24 +238,17 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "heap",
     label: "Heap",
-    types: ["bigquery", "redshift", "snowflake", "athena", "databricks"],
+    types: [
+      "bigquery",
+      "redshift",
+      "snowflake",
+      "presto",
+      "athena",
+      "databricks",
+    ],
     logo: "/images/3rd-party-logos/heap.png",
     popular: false,
-    intro: (
-      <>
-        GrowthBook cannot directly query data stored in Heap Analytics, but
-        fortunately Heap Analytics allows you to easily export data to a number
-        of data warehouses, which you can use with GrowthBook. You can{" "}
-        <a
-          target="_blank"
-          href="https://help.heap.io/category/integrations/data-warehouses/"
-          rel="noreferrer"
-        >
-          read about their data export here
-        </a>
-        .
-      </>
-    ),
+    helpLink: "https://help.heap.io/category/integrations/data-warehouses/",
     options: [
       {
         name: "exposureTableName",
@@ -380,26 +267,14 @@ export const eventSchemas: eventSchema[] = [
       "athena",
       "redshift",
       "postgres",
+      "vertica",
       "clickhouse",
       "mysql",
       "databricks",
     ],
     logo: "/images/3rd-party-logos/jitsu.png",
     popular: false,
-    intro: (
-      <>
-        GrowthBook integrates with the destination data warehouse you create
-        within Jitsu. You can read about setting up a{" "}
-        <a
-          target="_blank"
-          href="https://jitsu.com/docs/destinations-configuration"
-          rel="noreferrer"
-        >
-          warehouse destination here
-        </a>
-        .
-      </>
-    ),
+    helpLink: "https://docs.jitsu.com/category/warehouses",
     options: [
       {
         name: "exposureTableName",
@@ -412,77 +287,90 @@ export const eventSchemas: eventSchema[] = [
   {
     value: "mparticle",
     label: "mParticle",
-    types: ["bigquery", "snowflake", "athena", "redshift", "databricks"],
+    types: [
+      "bigquery",
+      "snowflake",
+      "presto",
+      "athena",
+      "redshift",
+      "databricks",
+    ],
     logo: "/images/3rd-party-logos/mparticle.png",
     popular: false,
-    intro: (
-      <>
-        GrowthBook integrates with the destination data warehouse you create
-        within mParticle. You can read about setting up a{" "}
-        <a
-          target="_blank"
-          href="https://docs.mparticle.com/integrations/?category=Raw%20Data%20Export"
-          rel="noreferrer"
-        >
-          warehouse destination here
-        </a>
-        . Please contact us for help setting up the initial queries.
-      </>
-    ),
+    helpLink:
+      "https://docs.mparticle.com/integrations/?category=Business%20Intelligence",
+  },
+  {
+    value: "mixpanel",
+    label: "Mixpanel",
+    types: ["mixpanel"],
+    logo: "/images/3rd-party-logos/mixpanel.png",
+    popular: true,
   },
   {
     value: "keen",
     label: "Keen IO",
-    types: ["athena", "databricks"],
+    types: ["presto", "athena", "databricks"],
     logo: "/images/3rd-party-logos/keen-io.png",
     popular: false,
-    intro: (
-      <>
-        GrowthBook integrates with the S3 destination warehouse you create
-        within Keen. You can read about setting up a{" "}
-        <a
-          target="_blank"
-          href="https://keen.io/docs/streams/extended-functionality/amazon-s3/"
-          rel="noreferrer"
-        >
-          warehouse destination here
-        </a>
-        . Please contact us for help setting up the initial queries.
-      </>
-    ),
+    helpLink: "https://keen.io/docs/streams/extended-functionality/amazon-s3/",
   },
   {
     value: "clevertap",
     label: "CleverTap",
-    types: ["bigquery", "athena", "databricks"],
+    types: ["bigquery", "presto", "athena", "databricks"],
     logo: "/images/3rd-party-logos/clevertap.png",
     popular: false,
-    intro: (
-      <>
-        GrowthBook works with the raw event data you can export from CleverTap.
-        CleverTap has built in support to export to S3 (athena) and BigQuery.
-        You can{" "}
-        <a
-          target="_blank"
-          href="https://docs.clevertap.com/docs/export"
-          rel="noreferrer"
-        >
-          read about this here
-        </a>
-        . Please contact us for help setting up the initial queries.
-      </>
-    ),
+    helpLink: "https://docs.clevertap.com/docs/export",
   },
 ];
 
 export const dataSourceConnections: {
   type: DataSourceType;
   display: string;
+  icon: ReactElement;
+  docs: DocSection;
   default: Partial<DataSourceParams>;
 }[] = [
   {
+    type: "bigquery",
+    display: "BigQuery",
+    icon: <SiGooglebigquery />,
+    docs: "bigquery",
+    default: {
+      privateKey: "",
+      clientEmail: "",
+      projectId: "",
+    },
+  },
+  {
+    type: "snowflake",
+    display: "Snowflake",
+    icon: <SiSnowflake />,
+    docs: "snowflake",
+    default: {
+      account: "",
+      username: "",
+      password: "",
+    },
+  },
+  {
+    type: "databricks",
+    display: "Databricks",
+    icon: <SiDatabricks />,
+    docs: "databricks",
+    default: {
+      host: "",
+      port: 443,
+      path: "",
+      token: "",
+    },
+  },
+  {
     type: "redshift",
     display: "Redshift",
+    icon: <SiAmazonredshift />,
+    docs: "redshift",
     default: {
       host: "",
       port: 5439,
@@ -494,6 +382,8 @@ export const dataSourceConnections: {
   {
     type: "google_analytics",
     display: "Google Analytics",
+    icon: <SiGoogleanalytics />,
+    docs: "google_analytics",
     default: {
       viewId: "",
       customDimension: "1",
@@ -503,10 +393,13 @@ export const dataSourceConnections: {
   {
     type: "athena",
     display: "AWS Athena",
+    icon: <GrBarChart />,
+    docs: "athena",
     default: {
       bucketUri: "s3://",
       region: "us-east-1",
       database: "",
+      catalog: "AwsDataCatalog",
       accessKeyId: "",
       secretAccessKey: "",
       workGroup: "primary",
@@ -514,7 +407,9 @@ export const dataSourceConnections: {
   },
   {
     type: "presto",
-    display: "PrestoDB or Trino",
+    display: "Presto / Trino",
+    icon: <SiPresto />,
+    docs: "presto",
     default: {
       engine: "presto",
       host: "",
@@ -526,27 +421,23 @@ export const dataSourceConnections: {
     },
   },
   {
-    type: "databricks",
-    display: "Databricks",
+    type: "clickhouse",
+    display: "ClickHouse",
+    icon: <SiClickhouse />,
+    docs: "clickhouse",
     default: {
-      host: "",
-      port: 443,
-      path: "",
-      token: "",
-    },
-  },
-  {
-    type: "snowflake",
-    display: "Snowflake",
-    default: {
-      account: "",
+      url: "",
+      port: 8123,
       username: "",
       password: "",
+      database: "",
     },
   },
   {
     type: "postgres",
     display: "Postgres",
+    icon: <SiPostgresql />,
+    docs: "postgres",
     default: {
       host: "",
       port: 5432,
@@ -557,7 +448,9 @@ export const dataSourceConnections: {
   },
   {
     type: "mysql",
-    display: "MySQL or MariaDB",
+    display: "MySQL / MariaDB",
+    icon: <SiMysql />,
+    docs: "mysql",
     default: {
       host: "",
       port: 3306,
@@ -567,8 +460,23 @@ export const dataSourceConnections: {
     },
   },
   {
+    type: "vertica",
+    display: "Vertica",
+    icon: <BsDatabase />,
+    docs: "vertica",
+    default: {
+      host: "",
+      port: 5433,
+      database: "",
+      user: "",
+      password: "",
+    },
+  },
+  {
     type: "mssql",
-    display: "MS SQL or SQL Server",
+    display: "MS SQL Server",
+    icon: <SiMicrosoftsqlserver />,
+    docs: "mssql",
     default: {
       server: "",
       port: 1433,
@@ -583,28 +491,10 @@ export const dataSourceConnections: {
     },
   },
   {
-    type: "bigquery",
-    display: "BigQuery",
-    default: {
-      privateKey: "",
-      clientEmail: "",
-      projectId: "",
-    },
-  },
-  {
-    type: "clickhouse",
-    display: "ClickHouse",
-    default: {
-      url: "",
-      port: 8123,
-      username: "",
-      password: "",
-      database: "",
-    },
-  },
-  {
     type: "mixpanel",
     display: "Mixpanel",
+    icon: <SiMixpanel />,
+    docs: "mixpanel",
     default: {
       username: "",
       secret: "",

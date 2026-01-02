@@ -24,13 +24,13 @@ properties:
   fallbackAttribute:
     type: string
   disableStickyBucketing:
-    type: boolean;
+    type: boolean
   bucketVersion:
     type: number
   minBucketVersion:
     type: number
   namespace:
-    type: obect
+    type: object
     required:
       - enabled
       - name
@@ -48,6 +48,15 @@ properties:
         maxItems: 2
   coverage:
     type: number
+  scheduleRules:
+    type: array
+    items:
+      $ref: "./ScheduleRule.yaml"
+    example:
+      - enabled: true
+        timestamp: null
+      - enabled: false
+        timestamp: "2025-06-23T16:09:37.769Z"
   value:
     type: array
     items:

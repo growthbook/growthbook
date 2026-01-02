@@ -1,14 +1,28 @@
 import React from "react";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Badge";
+import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
 
-interface Props {
+export const TAG_COLORS = [
+  "blue",
+  "teal",
+  "pink",
+  "orange",
+  "lime",
+  "gray",
+  "gold",
+] as const;
+
+type Props = {
   tag: string;
-  color?: string;
+  label?: string;
+  color?: RadixColor;
   description?: string;
   skipMargin?: boolean;
-  label?: string;
-}
+  variant?: "badge" | "dot";
+} & MarginProps;
 
 export default function Tag({
   tag,
@@ -16,25 +30,46 @@ export default function Tag({
   description,
   skipMargin,
   label,
+  variant = "badge",
 }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
   const displayTitle = description ?? fullTag?.description ?? "";
-  const displayColor = color ?? fullTag?.color ?? "#029dd1";
+
   const displayLabel = label ?? fullTag?.label ?? tag;
 
+  const tagColor = color ?? fullTag?.color ?? "blue";
+
+  if (variant === "dot") {
+    return (
+      <Flex
+        gap="2"
+        align="center"
+        title={displayTitle}
+        mr={skipMargin ? undefined : "2"}
+        mb={skipMargin ? undefined : "1"}
+      >
+        <div
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: 10,
+            background: `var(--${tagColor}-10)`,
+          }}
+        ></div>
+        <div>{displayLabel}</div>
+      </Flex>
+    );
+  }
   return (
     <Badge
-      className={"tag badge-primary"}
       title={displayTitle}
-      content={displayLabel}
-      skipMargin={skipMargin}
-      style={{
-        backgroundColor: displayColor,
-        color: isLight(displayColor) ? "#000000" : "#ffffff",
-        cursor: "default",
-      }}
+      label={tag}
+      color={tagColor as RadixColor}
+      variant="soft"
+      mr={skipMargin ? undefined : "2"}
+      mb={skipMargin ? undefined : "1"}
     />
   );
 }
