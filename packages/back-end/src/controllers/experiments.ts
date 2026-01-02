@@ -107,6 +107,8 @@ import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
+import { queueManualSnapshotJob } from "back-end/src/jobs/createManualSnapshot";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -3011,22 +3013,24 @@ export async function postSnapshot(
   }
 
   const useCache = !req.query["force"];
+  const type = getSnapshotType({ experiment, dimension, phaseIndex: phase });
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
-
+  // Queue the snapshot job instead of running it inline
   try {
-    const { snapshot } = await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension,
+    const agenda = getAgendaInstance();
+    if (!agenda) {
+      throw new Error("Job queue not initialized");
+    }
+
+    const jobId = await queueManualSnapshotJob(
+      agenda,
+      org.id,
+      experiment.id,
       phase,
+      dimension,
       useCache,
-      type:
-        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
-    });
+      type,
+    );
 
     await req.audit({
       event: "experiment.refresh",
@@ -3039,20 +3043,113 @@ export async function postSnapshot(
         dimension,
         useCache,
         manual: false,
+        jobId,
       }),
     });
-    res.status(200).json({
-      status: 200,
-      snapshot,
+
+    res.status(202).json({
+      status: 202,
+      jobId,
+      message: "Snapshot queued for processing",
     });
   } catch (e) {
-    req.log.error(e, "Failed to create experiment snapshot");
+    req.log.error(e, "Failed to queue experiment snapshot");
     res.status(400).json({
       status: 400,
       message: e.message,
     });
   }
 }
+
+export async function getSnapshotJobStatus(
+  req: AuthRequest<null, { id: string; jobId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, jobId } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (experiment.organization !== org.id) {
+    res.status(403).json({
+      status: 403,
+      message: "You do not have access to this experiment",
+    });
+    return;
+  }
+
+  try {
+    const agenda = getAgendaInstance();
+    if (!agenda) {
+      throw new Error("Job queue not initialized");
+    }
+
+    const jobs = await agenda.jobs({ _id: jobId });
+    const job = jobs[0];
+
+    if (!job) {
+      res.status(404).json({
+        status: 404,
+        message: "Job not found",
+      });
+      return;
+    }
+
+    // const jobStatus = {
+    //   pending: ["scheduled", "queued"],
+    //   running: ["running"],
+    //   completed: ["completed"],
+    //   failed: ["failed"],
+    // };
+
+    let currentStatus: "pending" | "running" | "completed" | "failed" =
+      "pending";
+    const lastRunAt = job.attrs.lastRunAt;
+    const failedAt = job.attrs.failedAt;
+    const lockedAt = job.attrs.lockedAt;
+
+    if (failedAt) {
+      currentStatus = "failed";
+    } else if (lastRunAt && !lockedAt) {
+      currentStatus = "completed";
+    } else if (lockedAt) {
+      currentStatus = "running";
+    }
+
+    // If completed, fetch the latest snapshot
+    let snapshot = null;
+    if (currentStatus === "completed") {
+      const phase = job.attrs.data?.phase ?? experiment.phases.length - 1;
+      snapshot = await getLatestSnapshot({
+        experiment: experiment.id,
+        phase,
+        dimension: job.attrs.data?.dimension,
+      });
+    }
+
+    res.status(200).json({
+      status: 200,
+      jobStatus: currentStatus,
+      snapshot,
+      error: job.attrs.failReason || null,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to get job status");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
 export async function postSnapshotAnalysis(
   req: AuthRequest<
     {
