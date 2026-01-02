@@ -222,25 +222,47 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     isMetricSelector,
   );
   if (blockHasMetrics) {
-    const allMetricIds =
-      block.metricSelector === "custom"
-        ? (block.metricIds ?? [])
-        : block.metricSelector === "experiment-goal"
-          ? blockHasExperiment
-            ? (blockExperiment?.goalMetrics ?? [])
-            : []
-          : block.metricSelector === "experiment-secondary"
-            ? blockHasExperiment
-              ? (blockExperiment?.secondaryMetrics ?? [])
-              : []
-            : block.metricSelector === "experiment-guardrail"
-              ? blockHasExperiment
-                ? (blockExperiment?.guardrailMetrics ?? [])
-                : []
-              : [];
-    const blockMetrics = expandMetricGroups(allMetricIds, metricGroups).map(
-      getExperimentMetricById,
-    );
+    // Determine base metric IDs based on metricSelector
+    let baseMetricIds: string[] = [];
+    if (block.metricSelector === "all") {
+      // "all" includes all metrics from all categories
+      baseMetricIds = blockHasExperiment
+        ? [
+            ...(blockExperiment?.goalMetrics ?? []),
+            ...(blockExperiment?.secondaryMetrics ?? []),
+            ...(blockExperiment?.guardrailMetrics ?? []),
+          ]
+        : [];
+    } else if (block.metricSelector === "experiment-goal") {
+      baseMetricIds = blockHasExperiment
+        ? (blockExperiment?.goalMetrics ?? [])
+        : [];
+    } else if (block.metricSelector === "experiment-secondary") {
+      baseMetricIds = blockHasExperiment
+        ? (blockExperiment?.secondaryMetrics ?? [])
+        : [];
+    } else if (block.metricSelector === "experiment-guardrail") {
+      baseMetricIds = blockHasExperiment
+        ? (blockExperiment?.guardrailMetrics ?? [])
+        : [];
+    }
+
+    let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
+
+    if (block.metricIds && block.metricIds.length > 0) {
+      const filteredMetricIds = expandMetricGroups(
+        block.metricIds,
+        metricGroups,
+      );
+      const filteredMetricIdsSet = new Set(filteredMetricIds);
+      expandedMetricIds = expandedMetricIds.filter((id) =>
+        filteredMetricIdsSet.has(id),
+      );
+    }
+
+    const blockMetrics = expandedMetricIds
+      .map(getExperimentMetricById)
+      .filter(isDefined);
     objectProps = { ...objectProps, metrics: blockMetrics };
   }
 
@@ -292,10 +314,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   }, [editingBlock, isFocused]);
 
   const blockNeedsConfiguration =
-    (blockHasMetrics &&
-      (!isMetricSelector(block.metricSelector) ||
-        (block.metricSelector === "custom" &&
-          (block.metricIds ?? []).length === 0))) ||
+    (blockHasMetrics && !isMetricSelector(block.metricSelector)) ||
     (blockHasFieldOfType(block, "dimensionId", isString) &&
       block.dimensionId.length === 0) ||
     (blockHasSavedQuery &&

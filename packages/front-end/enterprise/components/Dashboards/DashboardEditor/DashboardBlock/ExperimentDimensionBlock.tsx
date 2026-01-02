@@ -148,8 +148,8 @@ export default function ExperimentDimensionBlock({
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
-      sortBy={metricSelector === "custom" ? "custom" : null}
-      customMetricOrder={metricSelector === "custom" ? metricIds : undefined}
+      sortBy={metricIds && metricIds.length > 0 ? "custom" : null}
+      customMetricOrder={metricIds && metricIds.length > 0 ? metricIds : undefined}
     />
   );
 }

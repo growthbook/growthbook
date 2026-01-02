@@ -140,8 +140,8 @@ export default function ExperimentMetricBlock({
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
-    sortBy: metricSelector === "custom" ? "custom" : null,
-    customMetricOrder: metricSelector === "custom" ? blockMetricIds : undefined,
+    sortBy: blockMetricIds && blockMetricIds.length > 0 ? "custom" : null,
+    customMetricOrder: blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
   });
 
   const { sliceData, togglePinnedMetricSlice, isSlicePinned } =

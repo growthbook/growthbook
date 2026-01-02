@@ -128,7 +128,9 @@ export type ExperimentMetricBlockInterface = z.infer<
 const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
   .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
   .extend({
-    metricSelector: z.enum(metricSelectors).optional(),
+    metricSelector: z
+      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .optional(),
   })
   .merge(metricSliceSettingsInterface.partial());
 
@@ -162,7 +164,9 @@ export type ExperimentDimensionBlockInterface = z.infer<
 >;
 const legacyExperimentDimensionBlockInterface =
   experimentDimensionBlockInterface.omit({ metricSelector: true }).extend({
-    metricSelector: z.enum(metricSelectors).optional(),
+    metricSelector: z
+      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .optional(),
   });
 
 const experimentTimeSeriesBlockInterface = baseBlockInterface
@@ -185,7 +189,9 @@ const legacyExperimentTimeSeriesBlockInterface =
   experimentTimeSeriesBlockInterface
     .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
     .extend({
-      metricSelector: z.enum(metricSelectors).optional(),
+      metricSelector: z
+        .enum([...metricSelectors, "custom"] as [string, ...string[]])
+        .optional(),
     })
     .merge(metricSliceSettingsInterface.partial());
 

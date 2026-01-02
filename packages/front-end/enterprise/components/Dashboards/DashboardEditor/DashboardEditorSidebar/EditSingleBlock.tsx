@@ -20,8 +20,13 @@ import {
   PiPushPinFill,
   PiTrashSimpleFill,
 } from "react-icons/pi";
-import { expandMetricGroups } from "shared/experiments";
+import { expandMetricGroups, isMetricGroupId } from "shared/experiments";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
+import {
+  getAvailableMetricsFilters,
+  getAvailableMetricTags,
+} from "@/services/experiments";
+import { getMetricOptions } from "@/components/Experiment/ResultsMetricFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -86,10 +91,10 @@ const REQUIRED_FIELDS: {
 const metricSelectorLabels: {
   [k in (typeof metricSelectors)[number]]: string;
 } = {
+  all: "All Metrics",
   "experiment-goal": "All Goal Metrics",
   "experiment-secondary": "All Secondary Metrics",
   "experiment-guardrail": "All Guardrail Metrics",
-  custom: "Custom Selection",
 };
 
 interface Props {
@@ -161,6 +166,7 @@ export default function EditSingleBlock({
     dimensions,
     metricGroups,
     getExperimentMetricById,
+    getMetricGroupById,
     getDatasourceById,
     factMetrics,
   } = useDefinitions();
@@ -231,115 +237,87 @@ export default function EditSingleBlock({
       .map((m) => ({ label: m.name, value: m.id }));
   }, [block, factMetrics, projects]);
 
-  const metricOptions = useMemo(() => {
-    // For general dashboards without experiment, return empty options
+  // Extract available metrics and groups for filtering, filtered by metricSelector
+  const availableMetricsFilters = useMemo(() => {
     if (!experiment) {
-      return [];
+      return { groups: [], metrics: [] };
     }
 
-    const getMetrics = (metricOrGroupIds: string[]) => {
-      const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
-      return metricIds.map(getExperimentMetricById).filter(isDefined);
-    };
+    // Filter input metrics based on metricSelector before calling getAvailableMetricsFilters
+    let goalMetrics = experiment.goalMetrics;
+    let secondaryMetrics = experiment.secondaryMetrics;
+    let guardrailMetrics = experiment.guardrailMetrics;
 
+    if (blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
+      const selector = block.metricSelector;
+      if (selector === "experiment-goal") {
+        secondaryMetrics = [];
+        guardrailMetrics = [];
+      } else if (selector === "experiment-secondary") {
+        goalMetrics = [];
+        guardrailMetrics = [];
+      } else if (selector === "experiment-guardrail") {
+        goalMetrics = [];
+        secondaryMetrics = [];
+      }
+      // If selector === "all", use all metrics (no filtering)
+    }
+
+    return getAvailableMetricsFilters({
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      metricGroups,
+      getExperimentMetricById,
+    });
+  }, [
+    experiment,
+    metricGroups,
+    getExperimentMetricById,
+    block,
+  ]);
+
+  // Generate metric options (uses shared utility)
+  const metricOptions = useMemo(() => {
+    const blockMetricIds: string[] =
+      block && "metricIds" in block && isStringArray(block.metricIds)
+        ? block.metricIds
+        : [];
+    return getMetricOptions({
+      availableMetricsFilters,
+      selectedMetricIds: blockMetricIds,
+    });
+  }, [availableMetricsFilters, block]);
+
+  // Format metric options for MultiSelectField
+  const formattedMetricOptions = useMemo(() => {
     return [
-      {
-        label: "Metric Groups",
-        options: [
-          ...experiment.goalMetrics.filter((mId) => metricGroupMap.has(mId)),
-          ...experiment.secondaryMetrics.filter((mId) =>
-            metricGroupMap.has(mId),
-          ),
-          ...experiment.guardrailMetrics.filter((mId) =>
-            metricGroupMap.has(mId),
-          ),
-        ]
-          .map((groupId) => {
-            const group = metricGroupMap.get(groupId);
-            return group
-              ? {
-                  label: group.name,
-                  value: group.id,
-                  tooltip: group.description,
-                }
-              : undefined;
-          })
-          .filter(isDefined),
-      },
-      {
-        label: "Goal Metrics",
-        options: getMetrics(experiment.goalMetrics).map((metric) => {
-          return {
-            label: metric.name,
-            value: metric.id,
-            tooltip: metric.description,
-          };
-        }),
-      },
-      {
-        label: "Secondary Metrics",
-        options: getMetrics(experiment.secondaryMetrics).map((metric) => {
-          return {
-            label: metric.name,
-            value: metric.id,
-            tooltip: metric.description,
-          };
-        }),
-      },
-      {
-        label: "Guardrail Metrics",
-        options: getMetrics(experiment.guardrailMetrics).map((metric) => {
-          return {
-            label: metric.name,
-            value: metric.id,
-            tooltip: metric.description,
-          };
-        }),
-      },
+      ...(metricOptions.groups.length > 0
+        ? [
+            {
+              label: "Metric Groups",
+              options: metricOptions.groups.map((group) => ({
+                label: group.name,
+                value: group.id,
+                isOrphaned: group.isOrphaned,
+              })),
+            },
+          ]
+        : []),
+      ...(metricOptions.metrics.length > 0
+        ? [
+            {
+              label: "Metrics",
+              options: metricOptions.metrics.map((metric) => ({
+                label: metric.name,
+                value: metric.id,
+                isOrphaned: metric.isOrphaned,
+              })),
+            },
+          ]
+        : []),
     ];
-  }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
-
-  // Filtered metric options based on the block's metricSelector
-  const filteredMetricOptions = useMemo(() => {
-    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
-      return metricOptions;
-    }
-
-    const selector = block.metricSelector;
-
-    // For custom selector, show all metrics that are in the block's metricIds
-    if (selector === "custom") {
-      const customMetricIds = expandMetricGroups(
-        block.metricIds ?? [],
-        metricGroups,
-      );
-      return metricOptions
-        .map((group) => ({
-          ...group,
-          options: group.options.filter((option) =>
-            customMetricIds.includes(option.value),
-          ),
-        }))
-        .filter((group) => group.options.length > 0);
-    }
-
-    // For specific selectors, filter to only show metrics from that category
-    if (selector === "experiment-goal") {
-      return metricOptions.filter((group) => group.label === "Goal Metrics");
-    }
-    if (selector === "experiment-secondary") {
-      return metricOptions.filter(
-        (group) => group.label === "Secondary Metrics",
-      );
-    }
-    if (selector === "experiment-guardrail") {
-      return metricOptions.filter(
-        (group) => group.label === "Guardrail Metrics",
-      );
-    }
-
-    return metricOptions;
-  }, [metricOptions, block, metricGroups]);
+  }, [metricOptions]);
 
   // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
   useEffect(() => {
@@ -349,28 +327,57 @@ export default function EditSingleBlock({
     const selector = block.metricSelector;
     let isAllowed = false;
 
-    // Check if the selected metric is allowed by the current selector
+    // Check if the selected metric is allowed by the current selector and metricIds filter
     if (experiment) {
-      if (selector === "custom") {
-        isAllowed = expandMetricGroups(
-          block.metricIds ?? [],
+      // First check if metricIds filter excludes it
+      if (block.metricIds && block.metricIds.length > 0) {
+        const filteredMetricIds = expandMetricGroups(
+          block.metricIds,
           metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      } else if (selector === "experiment-goal") {
-        isAllowed = expandMetricGroups(
-          experiment.goalMetrics,
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      } else if (selector === "experiment-secondary") {
-        isAllowed = expandMetricGroups(
-          experiment.secondaryMetrics,
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
-      } else if (selector === "experiment-guardrail") {
-        isAllowed = expandMetricGroups(
-          experiment.guardrailMetrics,
-          metricGroups,
-        ).includes(selectedMetricIdForPinning);
+        );
+        if (!filteredMetricIds.includes(selectedMetricIdForPinning)) {
+          isAllowed = false;
+        } else {
+          // If it passes the filter, check the selector category
+          if (selector === "all") {
+            isAllowed = true; // All metrics are allowed
+          } else if (selector === "experiment-goal") {
+            isAllowed = expandMetricGroups(
+              experiment.goalMetrics,
+              metricGroups,
+            ).includes(selectedMetricIdForPinning);
+          } else if (selector === "experiment-secondary") {
+            isAllowed = expandMetricGroups(
+              experiment.secondaryMetrics,
+              metricGroups,
+            ).includes(selectedMetricIdForPinning);
+          } else if (selector === "experiment-guardrail") {
+            isAllowed = expandMetricGroups(
+              experiment.guardrailMetrics,
+              metricGroups,
+            ).includes(selectedMetricIdForPinning);
+          }
+        }
+      } else {
+        // No metricIds filter, check selector category only
+        if (selector === "all") {
+          isAllowed = true; // All metrics are allowed
+        } else if (selector === "experiment-goal") {
+          isAllowed = expandMetricGroups(
+            experiment.goalMetrics,
+            metricGroups,
+          ).includes(selectedMetricIdForPinning);
+        } else if (selector === "experiment-secondary") {
+          isAllowed = expandMetricGroups(
+            experiment.secondaryMetrics,
+            metricGroups,
+          ).includes(selectedMetricIdForPinning);
+        } else if (selector === "experiment-guardrail") {
+          isAllowed = expandMetricGroups(
+            experiment.guardrailMetrics,
+            metricGroups,
+          ).includes(selectedMetricIdForPinning);
+        }
       }
     }
 
@@ -829,45 +836,50 @@ export default function EditSingleBlock({
                   sort={false}
                   autoFocus
                 />
-                {block.metricSelector.includes("custom") && (
-                  <MultiSelectField
-                    required
-                    markRequired
-                    label="Custom Metric Selection"
-                    labelClassName="font-weight-bold"
-                    value={block.metricIds ?? []}
-                    containerClassName="mb-0"
-                    onChange={(value) =>
-                      setBlock({ ...block, metricIds: value })
-                    }
-                    options={metricOptions}
-                    sort={false}
-                    formatOptionLabel={({ value }, { context }) => {
-                      const metricGroup = metricGroupMap.get(value);
-                      const metricsWithJoinableStatus = metricGroup
-                        ? metricGroup.metrics
-                            .map((m) => {
-                              const metric = getExperimentMetricById(m);
-                              return metric
-                                ? {
-                                    metric,
-                                    joinable: true,
-                                  }
-                                : undefined;
-                            })
-                            .filter(isDefined)
-                        : undefined;
-                      return (
+                <MultiSelectField
+                  label="Filter Metrics"
+                  labelClassName="font-weight-bold"
+                  value={block.metricIds ?? []}
+                  containerClassName="mb-0"
+                  onChange={(value) =>
+                    setBlock({ ...block, metricIds: value })
+                  }
+                  options={formattedMetricOptions}
+                  sort={false}
+                  formatOptionLabel={(option: any, meta) => {
+                    const isGroup = isMetricGroupId(option.value);
+                    const metrics = isGroup
+                      ? (() => {
+                          const group = getMetricGroupById(option.value);
+                          if (!group) return undefined;
+                          return group.metrics.map((metricId) => {
+                            const metric = getExperimentMetricById(metricId);
+                            return { metric, joinable: true };
+                          });
+                        })()
+                      : undefined;
+                    return (
+                      <span
+                        style={
+                          option.isOrphaned
+                            ? { textDecoration: "line-through" }
+                            : undefined
+                        }
+                      >
                         <MetricName
-                          id={value}
-                          showDescription={context !== "value"}
-                          isGroup={!!metricGroup}
-                          metrics={metricsWithJoinableStatus}
+                          id={option.value}
+                          showDescription={meta?.context !== "value"}
+                          isGroup={isGroup}
+                          metrics={metrics}
+                          officialBadgePosition="left"
                         />
-                      );
-                    }}
-                  />
-                )}
+                      </span>
+                    );
+                  }}
+                  formatGroupLabel={(group) => (
+                    <div className="pb-1 pt-2">{group.label}</div>
+                  )}
+                />
               </>
             )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
@@ -1025,25 +1037,31 @@ export default function EditSingleBlock({
                       containerClassName="mt-3"
                       value={selectedMetricIdForPinning || ""}
                       onChange={(value) => setSelectedMetricIdForPinning(value)}
-                      options={filteredMetricOptions}
+                      options={formattedMetricOptions.flatMap((group) =>
+                        group.options.map((opt) => ({
+                          label: opt.label,
+                          value: opt.value,
+                          isOrphaned: opt.isOrphaned,
+                        })),
+                      )}
                       sort={false}
-                      formatOptionLabel={({ label, value }) => (
+                      formatOptionLabel={(option: any) => (
                         <Flex align="center" justify="between" gap="3">
                           <Box
                             flexGrow="1"
                             overflow="hidden"
                             style={{ textOverflow: "ellipsis" }}
                           >
-                            <Text>{label}</Text>
+                            <Text>{option.label}</Text>
                           </Box>
                           <Box flexShrink="0">
                             <Text size="1" color="gray">
                               {
-                                getSliceOptions(value)
+                                getSliceOptions(option.value)
                                   .map((slice) => isSlicePinned(slice.value))
                                   .filter(Boolean).length
                               }{" "}
-                              of {getSliceOptions(value).length} pinned
+                              of {getSliceOptions(option.value).length} pinned
                             </Text>
                           </Box>
                         </Flex>

@@ -10,6 +10,8 @@ import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
   LegacyDashboardBlockInterface,
+  isMetricSelector,
+  metricSelectors,
 } from "shared/enterprise";
 import {
   MakeModelClass,
@@ -356,23 +358,41 @@ export function migrateBlock(
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
     case "experiment-metric":
+      // Migrate: "custom" -> "all", preserve existing metricIds as filter
+      const metricSelectorValue = doc.metricSelector || "all";
+      const metricSelector: (typeof metricSelectors)[number] =
+        isMetricSelector(metricSelectorValue)
+          ? metricSelectorValue
+          : "all";
       return {
         ...doc,
-        metricSelector: doc.metricSelector || "custom",
+        metricSelector,
         pinSource: doc.pinSource || "experiment",
         pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-dimension":
+      // Migrate: "custom" -> "all", preserve existing metricIds as filter
+      const dimensionMetricSelectorValue = doc.metricSelector || "all";
+      const dimensionMetricSelector: (typeof metricSelectors)[number] =
+        isMetricSelector(dimensionMetricSelectorValue)
+          ? dimensionMetricSelectorValue
+          : "all";
       return {
         ...doc,
-        metricSelector: doc.metricSelector || "custom",
+        metricSelector: dimensionMetricSelector,
       };
     case "experiment-time-series":
+      // Migrate: "custom" -> "all", preserve existing metricIds as filter
+      const timeSeriesMetricSelectorValue = doc.metricSelector || "all";
+      const timeSeriesMetricSelector: (typeof metricSelectors)[number] =
+        isMetricSelector(timeSeriesMetricSelectorValue)
+          ? timeSeriesMetricSelectorValue
+          : "all";
       return {
         ...doc,
-        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
+        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
         metricId: undefined,
-        metricSelector: doc.metricSelector || "custom",
+        metricSelector: timeSeriesMetricSelector,
         pinSource: doc.pinSource || "experiment",
         pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };

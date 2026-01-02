@@ -17,6 +17,64 @@ import { useUser } from "@/services/UserContext";
 import MetricName from "@/components/Metrics/MetricName";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
+export function getMetricOptions({
+  availableMetricsFilters,
+  selectedMetricIds = [],
+}: {
+  availableMetricsFilters: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
+  selectedMetricIds?: string[];
+}): {
+  groups: Array<{ id: string; name: string; isOrphaned: boolean }>;
+  metrics: Array<{ id: string; name: string; isOrphaned: boolean }>;
+} {
+  const availableGroupIds = new Set(
+    availableMetricsFilters.groups.map((g) => g.id),
+  );
+  const availableMetricIds = new Set(
+    availableMetricsFilters.metrics.map((m) => m.id),
+  );
+
+  // Get all unique metric IDs from both available and selected
+  const allMetricIds = Array.from(
+    new Set([
+      ...availableMetricsFilters.groups.map((g) => g.id),
+      ...availableMetricsFilters.metrics.map((m) => m.id),
+      ...selectedMetricIds,
+    ]),
+  );
+
+  const groups = allMetricIds
+    .filter((id) => isMetricGroupId(id))
+    .map((id) => {
+      const availableGroup = availableMetricsFilters.groups.find(
+        (g) => g.id === id,
+      );
+      return {
+        id,
+        name: availableGroup?.name || id,
+        isOrphaned: !availableGroupIds.has(id),
+      };
+    });
+
+  const metrics = allMetricIds
+    .filter((id) => !isMetricGroupId(id))
+    .map((id) => {
+      const availableMetric = availableMetricsFilters.metrics.find(
+        (m) => m.id === id,
+      );
+      return {
+        id,
+        name: availableMetric?.name || id,
+        isOrphaned: !availableMetricIds.has(id),
+      };
+    });
+
+  return { groups, metrics };
+}
+
 export default function ResultsMetricFilter({
   availableMetricTags = [],
   metricTagFilter = [],
@@ -262,51 +320,14 @@ export default function ResultsMetricFilter({
     [sliceTagsFilter, isSliceCoveredBySelectAll],
   );
 
-  const metricOptions = useMemo(() => {
-    const availableGroupIds = new Set(
-      availableMetricsFilters.groups.map((g) => g.id),
-    );
-    const availableMetricIds = new Set(
-      availableMetricsFilters.metrics.map((m) => m.id),
-    );
-
-    // Get all unique metric IDs from both available and selected
-    const allMetricIds = Array.from(
-      new Set([
-        ...availableMetricsFilters.groups.map((g) => g.id),
-        ...availableMetricsFilters.metrics.map((m) => m.id),
-        ...(metricsFilter || []),
-      ]),
-    );
-
-    const groups = allMetricIds
-      .filter((id) => isMetricGroupId(id))
-      .map((id) => {
-        const availableGroup = availableMetricsFilters.groups.find(
-          (g) => g.id === id,
-        );
-        return {
-          id,
-          name: availableGroup?.name || id,
-          isOrphaned: !availableGroupIds.has(id),
-        };
-      });
-
-    const metrics = allMetricIds
-      .filter((id) => !isMetricGroupId(id))
-      .map((id) => {
-        const availableMetric = availableMetricsFilters.metrics.find(
-          (m) => m.id === id,
-        );
-        return {
-          id,
-          name: availableMetric?.name || id,
-          isOrphaned: !availableMetricIds.has(id),
-        };
-      });
-
-    return { groups, metrics };
-  }, [availableMetricsFilters, metricsFilter]);
+  const metricOptions = useMemo(
+    () =>
+      getMetricOptions({
+        availableMetricsFilters,
+        selectedMetricIds: metricsFilter || [],
+      }),
+    [availableMetricsFilters, metricsFilter],
+  );
 
   const metricTagOptions = useMemo(() => {
     const availableTagSet = new Set(availableMetricTags);
