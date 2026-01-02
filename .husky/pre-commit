@@ -32,7 +32,7 @@ docchanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/event
 if [ -n "$docchanged" ]
   then
     echo "#### Generating doc files"
-    yarn workspace shared gen-event-webhook-docs
+    yarn workspace shared gen-event-webhook-for-docs
     git add docs
 fi
 
