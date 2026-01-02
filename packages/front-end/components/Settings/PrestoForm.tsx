@@ -85,7 +85,7 @@ const PrestoForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>User</label>
+        <label>Query User</label>
         <input
           type="text"
           className="form-control"
