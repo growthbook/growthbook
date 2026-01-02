@@ -12,7 +12,7 @@ import {
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { isDefined, isNumber, isString, isStringArray } from "shared/util";
+import { isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
 import {
   PiCopySimple,
@@ -22,16 +22,14 @@ import {
 } from "react-icons/pi";
 import { expandMetricGroups, isMetricGroupId } from "shared/experiments";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
-import {
-  getAvailableMetricsFilters,
-  getAvailableMetricTags,
-} from "@/services/experiments";
+import { FormatOptionLabelMeta } from "react-select";
+import { getAvailableMetricsFilters } from "@/services/experiments";
 import { getMetricOptions } from "@/components/Experiment/ResultsMetricFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
 import SqlExplorerModal, {
@@ -183,11 +181,6 @@ export default function EditSingleBlock({
     "existing",
   );
 
-  const metricGroupMap = useMemo(
-    () => new Map(metricGroups.map((group) => [group.id, group])),
-    [metricGroups],
-  );
-
   const [sqlExplorerModalProps, setSqlExplorerModalProps] = useState<
     { initial?: SqlExplorerModalInitial; savedQueryId?: string } | undefined
   >(undefined);
@@ -270,12 +263,7 @@ export default function EditSingleBlock({
       metricGroups,
       getExperimentMetricById,
     });
-  }, [
-    experiment,
-    metricGroups,
-    getExperimentMetricById,
-    block,
-  ]);
+  }, [experiment, metricGroups, getExperimentMetricById, block]);
 
   // Generate metric options (uses shared utility)
   const metricOptions = useMemo(() => {
@@ -841,12 +829,13 @@ export default function EditSingleBlock({
                   labelClassName="font-weight-bold"
                   value={block.metricIds ?? []}
                   containerClassName="mb-0"
-                  onChange={(value) =>
-                    setBlock({ ...block, metricIds: value })
-                  }
+                  onChange={(value) => setBlock({ ...block, metricIds: value })}
                   options={formattedMetricOptions}
                   sort={false}
-                  formatOptionLabel={(option: any, meta) => {
+                  formatOptionLabel={(
+                    option: SingleValue & { isOrphaned?: boolean },
+                    meta: FormatOptionLabelMeta<SingleValue>,
+                  ) => {
                     const isGroup = isMetricGroupId(option.value);
                     const metrics = isGroup
                       ? (() => {
@@ -1045,7 +1034,9 @@ export default function EditSingleBlock({
                         })),
                       )}
                       sort={false}
-                      formatOptionLabel={(option: any) => (
+                      formatOptionLabel={(
+                        option: SingleValue & { isOrphaned?: boolean },
+                      ) => (
                         <Flex align="center" justify="between" gap="3">
                           <Box
                             flexGrow="1"

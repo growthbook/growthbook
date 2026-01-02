@@ -32,7 +32,7 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
-    metricSelector,
+    metricSelector: _metricSelector,
     metricIds,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
@@ -149,7 +149,9 @@ export default function ExperimentDimensionBlock({
         d.startsWith("precomputed:"),
       )}
       sortBy={metricIds && metricIds.length > 0 ? "custom" : null}
-      customMetricOrder={metricIds && metricIds.length > 0 ? metricIds : undefined}
+      customMetricOrder={
+        metricIds && metricIds.length > 0 ? metricIds : undefined
+      }
     />
   );
 }

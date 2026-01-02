@@ -39,7 +39,7 @@ export default function ExperimentMetricBlock({
     columnsFilter,
     variationIds,
     pinSource,
-    metricSelector,
+    metricSelector: _metricSelector,
     metricIds: blockMetricIds,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
@@ -141,7 +141,8 @@ export default function ExperimentMetricBlock({
     enablePinning: true,
     expandedMetrics,
     sortBy: blockMetricIds && blockMetricIds.length > 0 ? "custom" : null,
-    customMetricOrder: blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
+    customMetricOrder:
+      blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
   });
 
   const { sliceData, togglePinnedMetricSlice, isSlicePinned } =

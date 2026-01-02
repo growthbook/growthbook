@@ -357,20 +357,22 @@ export function migrateBlock(
     | CreateDashboardBlockInterface,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
-    case "experiment-metric":
+    case "experiment-metric": {
       // Migrate: "custom" -> "all", preserve existing metricIds as filter
       const metricSelectorValue = doc.metricSelector || "all";
-      const metricSelector: (typeof metricSelectors)[number] =
-        isMetricSelector(metricSelectorValue)
-          ? metricSelectorValue
-          : "all";
+      const metricSelector: (typeof metricSelectors)[number] = isMetricSelector(
+        metricSelectorValue,
+      )
+        ? metricSelectorValue
+        : "all";
       return {
         ...doc,
         metricSelector,
         pinSource: doc.pinSource || "experiment",
         pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
-    case "experiment-dimension":
+    }
+    case "experiment-dimension": {
       // Migrate: "custom" -> "all", preserve existing metricIds as filter
       const dimensionMetricSelectorValue = doc.metricSelector || "all";
       const dimensionMetricSelector: (typeof metricSelectors)[number] =
@@ -381,7 +383,8 @@ export function migrateBlock(
         ...doc,
         metricSelector: dimensionMetricSelector,
       };
-    case "experiment-time-series":
+    }
+    case "experiment-time-series": {
       // Migrate: "custom" -> "all", preserve existing metricIds as filter
       const timeSeriesMetricSelectorValue = doc.metricSelector || "all";
       const timeSeriesMetricSelector: (typeof metricSelectors)[number] =
@@ -396,6 +399,7 @@ export function migrateBlock(
         pinSource: doc.pinSource || "experiment",
         pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
+    }
     case "experiment-description":
       return {
         ...doc,

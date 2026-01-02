@@ -36,7 +36,7 @@ export default function ExperimentTimeSeriesBlock({
   const {
     variationIds,
     pinSource,
-    metricSelector,
+    metricSelector: _metricSelector,
     metricIds: blockMetricIds,
   } = block;
 
@@ -120,7 +120,8 @@ export default function ExperimentTimeSeriesBlock({
     enablePinning: true,
     expandedMetrics,
     sortBy: blockMetricIds && blockMetricIds.length > 0 ? "custom" : null,
-    customMetricOrder: blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
+    customMetricOrder:
+      blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
   });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
