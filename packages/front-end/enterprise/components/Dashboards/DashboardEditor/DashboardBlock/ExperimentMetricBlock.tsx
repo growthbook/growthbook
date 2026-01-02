@@ -147,7 +147,21 @@ export default function ExperimentMetricBlock({
   const { sliceData, togglePinnedMetricSlice, isSlicePinned } =
     useDashboardMetricSliceData(block, setBlock, rows);
 
-  const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
+  // Filter rows based on expansion state and pinned slices (no slice filter in dashboard blocks)
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (!row.isSliceRow) return true; // Always include parent rows
+      if (row.isPinned) return true; // Always include pinned rows
+      // For slice rows, check if parent metric is expanded
+      if (row.parentRowId) {
+        const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+        return !!expandedMetrics?.[expandedKey];
+      }
+      return true;
+    });
+  }, [rows, expandedMetrics]);
+
+  const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   useEffect(() => {
     const contextValue: ExperimentMetricBlockContext = {

@@ -11,6 +11,7 @@ import {
   quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  isMetricGroupId,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -18,15 +19,14 @@ import {
   ExperimentTableRow,
   compareRows,
 } from "@/services/experiments";
-import {
-  ResultsMetricFilters,
-  sortAndFilterMetricsByTags,
-} from "@/components/Experiment/Results";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getAllMetricTags } from "./useExperimentTableRows";
+import {
+  filterMetricsByTags,
+  getAllMetricTags,
+} from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
   results: ExperimentReportResultDimension[];
@@ -35,8 +35,9 @@ export interface UseExperimentDimensionRowsParams {
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
   ssrPolyfills?: SSRPolyfills;
-  metricFilter?: ResultsMetricFilters;
-  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  metricTagFilter?: string[];
+  metricsFilter?: string[];
+  sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -65,10 +66,11 @@ export function useExperimentDimensionRows({
   guardrailMetrics,
   metricOverrides,
   ssrPolyfills,
-  metricFilter,
+  metricTagFilter,
+  metricsFilter,
   sortBy,
   sortDirection,
-  customMetricOrder,
+  customMetricOrder: _customMetricOrder,
   analysisBarSettings,
   statsEngine,
   pValueCorrection,
@@ -85,17 +87,86 @@ export function useExperimentDimensionRows({
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
+      const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
+
+      // Filter by metric groups if filter is active
+      let filteredGoalMetrics = goalMetrics;
+      let filteredSecondaryMetrics = secondaryMetrics;
+      let filteredGuardrailMetrics = guardrailMetrics;
+
+      if (metricsFilter && metricsFilter.length > 0) {
+        // Create a set of allowed metric IDs from expanded groups and individual metrics
+        const allowedMetricIds = new Set<string>();
+        metricsFilter.forEach((id) => {
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              group.metrics.forEach((metricId) =>
+                allowedMetricIds.add(metricId),
+              );
+            }
+          } else {
+            allowedMetricIds.add(id);
+          }
+        });
+
+        // Filter metrics by group or allowed metric IDs
+        // For groups, expand them first and check if any expanded metric matches
+        filteredGoalMetrics = goalMetrics.filter((id) => {
+          if (metricsFilter.includes(id)) return true;
+          if (allowedMetricIds.has(id)) return true;
+          // If it's a group, expand it and check if any metric matches
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              return group.metrics.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+          }
+          return false;
+        });
+        filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
+          if (metricsFilter.includes(id)) return true;
+          if (allowedMetricIds.has(id)) return true;
+          // If it's a group, expand it and check if any metric matches
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              return group.metrics.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+          }
+          return false;
+        });
+        filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
+          if (metricsFilter.includes(id)) return true;
+          if (allowedMetricIds.has(id)) return true;
+          // If it's a group, expand it and check if any metric matches
+          if (isMetricGroupId(id)) {
+            const group = allMetricGroups.find((g) => g.id === id);
+            if (group) {
+              return group.metrics.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+          }
+          return false;
+        });
+      }
+
       const expandedGoals = expandMetricGroups(
-        goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
+        filteredGoalMetrics,
+        allMetricGroups,
       );
       const expandedSecondaries = expandMetricGroups(
-        secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
+        filteredSecondaryMetrics,
+        allMetricGroups,
       );
       const expandedGuardrails = expandMetricGroups(
-        guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
+        filteredGuardrailMetrics,
+        allMetricGroups,
       );
 
       return { expandedGoals, expandedSecondaries, expandedGuardrails };
@@ -105,6 +176,7 @@ export function useExperimentDimensionRows({
       ssrPolyfills?.metricGroups,
       secondaryMetrics,
       guardrailMetrics,
+      metricsFilter,
     ]);
 
   const allMetricTags = useMemo(() => {
@@ -145,13 +217,12 @@ export function useExperimentDimensionRows({
             getExperimentMetricById(metricId);
           if (!metric) return null;
 
-          const ret =
-            sortBy === "metric-tags"
-              ? sortAndFilterMetricsByTags([metric], metricFilter)
-              : sortBy === "custom" && customMetricOrder
-                ? sortMetricsByCustomOrder([metric], customMetricOrder)
-                : [metric.id];
-          if (ret.length === 0) return null;
+          // Apply filtering first (independent of sorting)
+          const filteredMetrics = filterMetricsByTags(
+            [metric],
+            metricTagFilter,
+          );
+          if (filteredMetrics.length === 0) return null;
 
           const { newMetric, overrideFields } = applyMetricOverrides(
             metric,
@@ -232,10 +303,9 @@ export function useExperimentDimensionRows({
     results,
     metricOverrides,
     ssrPolyfills,
-    metricFilter,
+    metricTagFilter,
     sortBy,
     sortDirection,
-    customMetricOrder,
     analysisBarSettings,
     statsEngine,
     pValueCorrection,
@@ -328,14 +398,4 @@ export function generateDimensionRowsForMetric({
   });
 
   return rows;
-}
-
-function sortMetricsByCustomOrder(
-  metrics: ExperimentMetricInterface[],
-  customOrder: string[],
-): string[] {
-  const metricIds = metrics.map((m) => m.id);
-  const orderedMetrics = customOrder.filter((id) => metricIds.includes(id));
-  const unorderedMetrics = metricIds.filter((id) => !customOrder.includes(id));
-  return [...orderedMetrics, ...unorderedMetrics];
 }
