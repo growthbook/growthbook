@@ -596,6 +596,11 @@ export default function SqlExplorerModal({
               setAiError(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              setAiError(
+                "Error getting AI suggestion: " + responseData.message,
+              );
+              throw new Error(responseData.message);
             } else {
               setAiError("Error getting AI suggestion");
             }
