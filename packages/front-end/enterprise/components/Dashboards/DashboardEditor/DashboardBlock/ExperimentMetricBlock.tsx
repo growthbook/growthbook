@@ -39,7 +39,7 @@ export default function ExperimentMetricBlock({
     columnsFilter,
     variationIds,
     pinSource,
-    metricSelector,
+    metricSelector: _metricSelector,
     metricIds: blockMetricIds,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
@@ -140,14 +140,29 @@ export default function ExperimentMetricBlock({
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
-    sortBy: metricSelector === "custom" ? "custom" : null,
-    customMetricOrder: metricSelector === "custom" ? blockMetricIds : undefined,
+    sortBy: blockMetricIds && blockMetricIds.length > 0 ? "custom" : null,
+    customMetricOrder:
+      blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
   });
 
   const { sliceData, togglePinnedMetricSlice, isSlicePinned } =
     useDashboardMetricSliceData(block, setBlock, rows);
 
-  const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
+  // Filter rows based on expansion state and pinned slices (no slice filter in dashboard blocks)
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (!row.isSliceRow) return true; // Always include parent rows
+      if (row.isPinned) return true; // Always include pinned rows
+      // For slice rows, check if parent metric is expanded
+      if (row.parentRowId) {
+        const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+        return !!expandedMetrics?.[expandedKey];
+      }
+      return true;
+    });
+  }, [rows, expandedMetrics]);
+
+  const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   useEffect(() => {
     const contextValue: ExperimentMetricBlockContext = {

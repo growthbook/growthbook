@@ -1,20 +1,15 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { StatsEngine } from "shared/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {
-  ExperimentMetricInterface,
-  generatePinnedSliceKey,
-  SliceLevelsData,
-} from "shared/experiments";
+import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
-import { HoldoutInterface } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -22,15 +17,19 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import FilterSummary from "@/components/Experiment/FilterSummary";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import AnalysisSettingsBar, {
-  AnalysisBarSettings,
-} from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { ExperimentTab } from "./TabbedPage";
+
+export type AnalysisBarSettings = {
+  dimension: string;
+  baselineRow: number;
+  differenceType: DifferenceType;
+  variationFilter: number[];
+};
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults"),
@@ -41,52 +40,38 @@ const CompactResults = dynamic(
 
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutateExperiment: () => void;
   draftMode?: boolean;
   editMetrics?: () => void;
   editResult?: () => void;
-  editPhases?: () => void;
-  alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
   statsEngine: StatsEngine;
-  regressionAdjustmentAvailable?: boolean;
-  regressionAdjustmentEnabled?: boolean;
-  regressionAdjustmentHasValidMetrics?: boolean;
-  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  metricsFilter?: string[];
+  sliceTagsFilter?: string[];
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
-  holdout?: HoldoutInterface;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortBy?: "significance" | "change" | null;
+  setSortBy?: (s: "significance" | "change" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
-  envs,
   mutateExperiment,
   draftMode = false,
   editMetrics,
-  editPhases,
   editResult,
-  alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
   statsEngine,
-  regressionAdjustmentAvailable = false,
-  regressionAdjustmentEnabled = false,
-  regressionAdjustmentHasValidMetrics = false,
-  onRegressionAdjustmentChange,
   analysisBarSettings,
   setAnalysisBarSettings,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  metricsFilter,
+  sliceTagsFilter,
   isTabActive = true,
   setTab,
-  holdout,
   sortBy,
   setSortBy,
   sortDirection,
@@ -234,7 +219,10 @@ const Results: FC<{
     d.startsWith("precomputed:"),
   );
 
-  const datasource = getDatasourceById(experiment.datasource);
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const manualSnapshot = !datasource;
 
   const hasMetrics =
     experiment.goalMetrics.length > 0 ||
@@ -245,27 +233,7 @@ const Results: FC<{
 
   return (
     <>
-      {!draftMode ? (
-        <AnalysisSettingsBar
-          envs={envs}
-          mutateExperiment={mutateExperiment}
-          analysisBarSettings={analysisBarSettings}
-          setAnalysisBarSettings={setAnalysisBarSettings}
-          setAnalysisSettings={setAnalysisSettings}
-          editMetrics={editMetrics}
-          variations={variations}
-          editPhases={editPhases}
-          alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-          regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-          regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-          regressionAdjustmentHasValidMetrics={
-            regressionAdjustmentHasValidMetrics
-          }
-          onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-          showMoreMenu={false}
-          holdout={holdout}
-        />
-      ) : (
+      {!draftMode ? null : (
         <StatusBanner
           mutateExperiment={mutateExperiment}
           editResult={editResult || undefined}
@@ -392,7 +360,21 @@ const Results: FC<{
           queryStatusData={queryStatusData}
           variations={variations}
           variationFilter={analysisBarSettings.variationFilter}
+          setVariationFilter={(v: number[]) =>
+            setAnalysisBarSettings({
+              ...analysisBarSettings,
+              variationFilter: v,
+            })
+          }
           baselineRow={analysisBarSettings.baselineRow}
+          setBaselineRow={(b: number) =>
+            setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
+          }
+          snapshot={snapshot}
+          analysis={analysis}
+          setAnalysisSettings={setAnalysisSettings}
+          mutate={mutate}
+          manualSnapshot={manualSnapshot}
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
@@ -413,8 +395,14 @@ const Results: FC<{
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
-          metricFilter={metricFilter}
-          setMetricFilter={setMetricFilter}
+          setDifferenceType={(d: DifferenceType) =>
+            setAnalysisBarSettings({
+              ...analysisBarSettings,
+              differenceType: d,
+            })
+          }
+          metricTagFilter={metricTagFilter}
+          metricsFilter={metricsFilter}
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -438,7 +426,21 @@ const Results: FC<{
             editMetrics={editMetrics}
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}
+            setVariationFilter={(v: number[]) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                variationFilter: v,
+              })
+            }
             baselineRow={analysisBarSettings.baselineRow}
+            setBaselineRow={(b: number) =>
+              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
+            }
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
+            manualSnapshot={manualSnapshot}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}
@@ -458,8 +460,15 @@ const Results: FC<{
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
+            setDifferenceType={(d: DifferenceType) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                differenceType: d,
+              })
+            }
+            metricTagFilter={metricTagFilter}
+            metricsFilter={metricsFilter}
+            sliceTagsFilter={sliceTagsFilter}
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
@@ -479,78 +488,3 @@ const Results: FC<{
 };
 
 export default Results;
-
-// given an ordered list of tags, sort the metrics by their tags
-export type ResultsMetricFilters = {
-  tagOrder?: string[];
-  filterByTag?: boolean;
-  tagFilter?: string[] | null; // if null, use tagOrder
-};
-export function sortAndFilterMetricsByTags(
-  metrics: ExperimentMetricInterface[],
-  filters?: ResultsMetricFilters,
-): string[] {
-  let { tagOrder, filterByTag, tagFilter } = filters || {};
-  // normalize input
-  if (!tagOrder) tagOrder = [];
-  if (!filterByTag) filterByTag = false;
-  if (!tagFilter) tagFilter = null;
-
-  if (filterByTag && !tagFilter) {
-    tagFilter = tagOrder;
-  }
-  const sortedMetrics: string[] = [];
-
-  const metricsByTag: Record<string, string[]> = {};
-  const metricDefs: Record<string, ExperimentMetricInterface> = {};
-
-  // get all possible tags from the metric definitions
-  const tagsInMetrics: Set<string> = new Set();
-  const allMetrics: ExperimentMetricInterface[] = [];
-  metrics.forEach((metric) => {
-    if (!metric) return;
-    metricDefs[metric.id] = metric;
-    allMetrics.push(metric);
-    metric.tags?.forEach((tag) => {
-      tagsInMetrics.add(tag);
-    });
-  });
-
-  // reduce tagOrder to only the tags that are in the metrics
-  tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
-
-  // using tagOrder, build our initial set of sorted metrics
-  if (tagOrder?.length) {
-    tagOrder.forEach((tag) => {
-      metricsByTag[tag] = [];
-      for (const metricId in metricDefs) {
-        const metric = metricDefs[metricId];
-        if (metric.tags?.includes(tag)) {
-          if (filterByTag && !tagFilter?.includes(tag)) {
-            continue;
-          }
-          // pick out the metrics that match the tag
-          metricsByTag[tag].push(metricId);
-          delete metricDefs[metricId];
-        }
-      }
-    });
-    for (const tag in metricsByTag) {
-      sortedMetrics.push(...metricsByTag[tag]);
-    }
-  }
-
-  // add any remaining metrics to the end
-  for (const i in allMetrics) {
-    const metric = allMetrics[i];
-    if (filterByTag) {
-      if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
-        sortedMetrics.push(metric.id);
-      }
-    } else {
-      sortedMetrics.push(metric.id);
-    }
-  }
-
-  return sortedMetrics;
-}

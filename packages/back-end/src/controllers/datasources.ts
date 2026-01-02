@@ -16,6 +16,7 @@ import { AuditUserLoggedIn } from "shared/types/audit";
 import {
   DataSourceParams,
   DataSourceType,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceInterface,
   ExposureQuery,
@@ -537,7 +538,7 @@ export async function putDataSource(
 export async function postValidatePipelineSettings(
   req: AuthRequest<
     {
-      pipelineSettings: DataSourceSettings["pipelineSettings"];
+      pipelineSettings: DataSourcePipelineSettings;
     },
     { id: string }
   >,

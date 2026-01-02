@@ -13,7 +13,6 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
-import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
 import Callout from "@/ui/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
@@ -95,12 +94,6 @@ export default function BanditSummaryResultsTab({
     <>
       <div className="d-flex mt-2 mb-3 align-items-end">
         <h3 className="mb-0">Bandit Leaderboard</h3>
-        <div className="flex-1" />
-        {!isPublic && (
-          <div style={{ marginBottom: -5 }}>
-            <PhaseSelector phase={phase} setPhase={setPhase} isBandit={true} />
-          </div>
-        )}
       </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (

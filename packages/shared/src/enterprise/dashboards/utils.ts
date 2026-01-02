@@ -21,10 +21,10 @@ import { DataVizConfig } from "../../../validators";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
+  "all",
   "experiment-goal",
   "experiment-secondary",
   "experiment-guardrail",
-  "custom",
 ] as const;
 
 // BlockConfig item types for sql-explorer blocks
@@ -182,7 +182,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "experiment-goal",
+    metricSelector: "all",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
@@ -197,7 +197,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "experiment-goal",
+    metricSelector: "all",
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -212,7 +212,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "experiment-goal",
+    metricSelector: "all",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     pinSource: "experiment",
