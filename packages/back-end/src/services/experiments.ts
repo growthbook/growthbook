@@ -3504,7 +3504,7 @@ export async function computeResultsStatus({
 
           if (resultsStatus.clearSignalResultsStatus === "won") {
             metricStatus.superStatSigStatus = "won";
-          } else if (resultsStatus.resultsStatus === "lost") {
+          } else if (resultsStatus.clearSignalResultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
           if (!variationStatus.goalMetrics) {

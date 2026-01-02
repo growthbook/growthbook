@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
-import { AIPromptDefaults, AIPromptInterface } from "shared/ai";
+import {
+  AI_PROMPT_DEFAULTS,
+  AIPromptInterface,
+  AIModel,
+  EmbeddingModel,
+  getProviderFromModel,
+} from "shared/ai";
+import { ensureValuesExactlyMatchUnion } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud, hasOpenAIKey } from "@/services/env";
+import { isCloud, hasOpenAIKey, hasAnthropicKey } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -16,7 +23,42 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 
-// create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
+const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
+  { value: "gpt-4o-mini", label: "GTP 4o mini" },
+  { value: "gpt-4o", label: "GTP 4o" },
+  { value: "gpt-4-turbo", label: "GTP 4 turbo" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
+  { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
+  { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
+  { value: "claude-opus-4-20250514", label: "Claude 4 Opus" },
+  { value: "claude-sonnet-4-20250514", label: "Claude 4 Sonnet" },
+  { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
+  { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
+  { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+]);
+
+const PROMPT_MODEL_LABELS = [
+  { value: "", label: "-- Use Default AI Model --" },
+  ...AI_MODEL_LABELS,
+];
+
+const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
+  { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
+  { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
+  { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
+]);
+
+const hasAPIforModel = (model: AIModel | string) => {
+  const provider = getProviderFromModel(model as AIModel);
+  if (provider === "openai") {
+    return hasOpenAIKey();
+  }
+  if (provider === "anthropic") {
+    return hasAnthropicKey();
+  }
+  return false;
+};
+
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
   promptName: string;
@@ -24,6 +66,8 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptValue: string;
   promptDefaultValue: string;
   promptHelpText: string;
+  overrideModel: string | undefined;
+  overrideModelHelpText?: string | undefined;
 }> {
   return [
     {
@@ -33,10 +77,12 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "When an experiment is stopped, this prompt creates an analysis of the results.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-analysis")?.prompt ||
-        AIPromptDefaults["experiment-analysis"],
-      promptDefaultValue: AIPromptDefaults["experiment-analysis"],
+        AI_PROMPT_DEFAULTS["experiment-analysis"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
+      overrideModel: data.prompts.find((p) => p.type === "experiment-analysis")
+        ?.overrideModel,
     },
     {
       promptType: "experiment-hypothesis",
@@ -45,9 +91,12 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "Specify a style for your hypothesis so that it is consistent across experiments.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-hypothesis")?.prompt ||
-        AIPromptDefaults["experiment-hypothesis"],
-      promptDefaultValue: AIPromptDefaults["experiment-hypothesis"],
+        AI_PROMPT_DEFAULTS["experiment-hypothesis"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
       promptHelpText: "",
+      overrideModel: data.prompts.find(
+        (p) => p.type === "experiment-hypothesis",
+      )?.overrideModel,
     },
     {
       promptType: "metric-description",
@@ -56,23 +105,48 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         "When a metric is created, this prompt creates a description of the metric.",
       promptValue:
         data.prompts.find((p) => p.type === "metric-description")?.prompt ||
-        AIPromptDefaults["metric-description"],
-      promptDefaultValue: AIPromptDefaults["metric-description"],
+        AI_PROMPT_DEFAULTS["metric-description"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
       promptHelpText:
         "Make sure to explain the format of the results you would like to see.",
+      overrideModel: data.prompts.find((p) => p.type === "metric-description")
+        ?.overrideModel,
+    },
+    {
+      promptType: "generate-sql-query",
+      promptName: "Text to SQL Generation",
+      promptDescription:
+        "The prompt field below adds additional context when generating this SQL. Databases type, name and table structures are included automatically.",
+      promptValue:
+        data.prompts.find((p) => p.type === "generate-sql-query")?.prompt ||
+        AI_PROMPT_DEFAULTS["generate-sql-query"],
+      promptDefaultValue: AI_PROMPT_DEFAULTS["generate-sql-query"],
+      overrideModelHelpText:
+        "Some prompts are better than others at generating SQL.",
+      promptHelpText:
+        "Provide any additional guidance on how you would like SQL queries to be generated.",
+      overrideModel: data.prompts.find((p) => p.type === "generate-sql-query")
+        ?.overrideModel,
     },
   ];
 }
 
-const openAIModels = [
-  { value: "gpt-4o-mini", label: "gpt-4o-mini" },
-  { value: "gpt-4o", label: "gpt-4o" },
-  { value: "gpt-4", label: "gpt-4" },
-  { value: "gpt-4-turbo", label: "gpt-4-turbo" },
-  { value: "gpt-4-vision-preview", label: "gpt-4-vision-preview" },
-  { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo" },
-  { value: "gpt-3.5-turbo-16k", label: "gpt-3.5-turbo-16k" },
-];
+/**
+ * Small component to render a provider-specific API key warning
+ * if the given model's provider does not have a configured API key.
+ */
+const ApiKeyWarning: React.FC<{ model?: string }> = ({ model }) => {
+  if (!model) return null;
+  if (hasAPIforModel(model)) return null;
+  const provider = getProviderFromModel(model as AIModel);
+  return (
+    <Box mt="2">
+      <Callout status="warning">
+        This AI model requires an API key for {provider} that is not defined.
+      </Callout>
+    </Box>
+  );
+};
 
 export default function AISettings({
   promptForm,
@@ -106,6 +180,8 @@ export default function AISettings({
             setError(
               `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
             );
+          } else if (responseData.message) {
+            throw new Error(responseData.message);
           } else {
             setError("Error getting AI suggestion");
           }
@@ -123,12 +199,15 @@ export default function AISettings({
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
 
-  // Run the logic only once when `data` is loaded
   useEffect(() => {
     if (data) {
       const prompts = getPrompts(data);
       prompts.forEach((prompt) => {
         promptForm.setValue(prompt.promptType, prompt.promptValue);
+        promptForm.setValue(
+          `${prompt.promptType}-model`,
+          prompt.overrideModel || "",
+        );
       });
     }
   }, [data, promptForm]);
@@ -182,45 +261,129 @@ export default function AISettings({
               {form.watch("aiEnabled") && !isCloud() && (
                 <>
                   <Box mb="6" width="100%">
-                    <Text as="label" size="3" className="font-weight-semibold">
-                      Open AI Key
+                    <Text
+                      as="label"
+                      htmlFor="defaultAIModel"
+                      size="3"
+                      className="font-weight-semibold"
+                    >
+                      Default AI model
                     </Text>
-                    {hasOpenAIKey() ? (
-                      <Box>
-                        Your openAI API key is correctly set in your environment
-                        variable <code>OPENAI_API_KEY</code>.
-                      </Box>
-                    ) : (
-                      <Box>
-                        <Callout status="warning">
-                          You must set your OpenAI API key to use AI features.
-                          Please define it in your environment variables as{" "}
-                          <code>OPENAI_API_KEY</code>. See more in our{" "}
-                          <a href="https://docs.growthbook.io/self-host/env">
-                            self-hosting docs
-                          </a>
-                          .
-                        </Callout>
-                      </Box>
-                    )}
+                    <SelectField
+                      id="defaultAIModel"
+                      helpText="Default is 4o-mini."
+                      value={form.watch("defaultAIModel")}
+                      onChange={(v) => form.setValue("defaultAIModel", v)}
+                      options={AI_MODEL_LABELS}
+                    />
+                    {/* Use centralized warning component */}
+                    <ApiKeyWarning
+                      model={form.watch("defaultAIModel") || "gpt-4o-mini"}
+                    />
                   </Box>
                   <Box mb="6" width="100%">
                     <Text
                       as="label"
-                      htmlFor="openaiModel"
+                      htmlFor="embeddingModel"
                       size="3"
                       className="font-weight-semibold"
                     >
-                      OpenAI model
+                      Embedding Model
                     </Text>
                     <SelectField
-                      id="openaiModel"
-                      helpText="Default is 4o-mini."
-                      value={form.watch("openAIDefaultModel")}
-                      onChange={(v) => form.setValue("openAIDefaultModel", v)}
-                      options={openAIModels}
+                      id="embeddingModel"
+                      helpText="Choose the OpenAI embedding model to use. Default is text-embedding-ada-002."
+                      value={
+                        form.watch("embeddingModel") || "text-embedding-ada-002"
+                      }
+                      onChange={(v) => form.setValue("embeddingModel", v)}
+                      options={EMBEDDING_MODEL_LABELS}
                     />
                   </Box>
+                  {(() => {
+                    const defaultModel =
+                      form.watch("defaultAIModel") || "gpt-4o-mini";
+                    const defaultProvider = getProviderFromModel(defaultModel);
+
+                    const promptUsesAnthropic = prompts.some((prompt) => {
+                      const promptModel = promptForm.watch(
+                        `${prompt.promptType}-model`,
+                      );
+                      return (
+                        promptModel &&
+                        getProviderFromModel(promptModel) === "anthropic"
+                      );
+                    });
+
+                    const showAnthropicKey =
+                      defaultProvider === "anthropic" || promptUsesAnthropic;
+
+                    return (
+                      <>
+                        {showAnthropicKey && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Anthropic API Key
+                            </Text>
+                            {hasAnthropicKey() ? (
+                              <Box>
+                                Your Anthropic API key is correctly set in your
+                                environment variable{" "}
+                                <code>ANTHROPIC_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Anthropic API key to use
+                                  Claude models. Please define it in your
+                                  environment variables as{" "}
+                                  <code>ANTHROPIC_API_KEY</code>. See more in
+                                  our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        <Box mb="6" width="100%">
+                          <Text
+                            as="label"
+                            size="3"
+                            className="font-weight-semibold"
+                          >
+                            OpenAI API Key
+                          </Text>
+                          {hasOpenAIKey() ? (
+                            <Box>
+                              Your OpenAI API key is correctly set in your
+                              environment variable <code>OPENAI_API_KEY</code>.
+                            </Box>
+                          ) : (
+                            <Box>
+                              <Callout status="warning">
+                                {defaultProvider === "openai"
+                                  ? "You must set your OpenAI API key to use GPT models."
+                                  : "OpenAI API key is required for embeddings."}{" "}
+                                Please define it in your environment variables
+                                as <code>OPENAI_API_KEY</code>. See more in our{" "}
+                                <a href="https://docs.growthbook.io/self-host/env">
+                                  self-hosting docs
+                                </a>
+                                .
+                              </Callout>
+                            </Box>
+                          )}
+                        </Box>
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </Flex>
@@ -228,7 +391,6 @@ export default function AISettings({
         </Flex>
       </Frame>
 
-      {/* Prompts Section */}
       {hasAISuggestions && form.watch("aiEnabled") && (
         <>
           <Frame>
@@ -259,13 +421,63 @@ export default function AISettings({
                               {prompt.promptDescription}
                             </Text>
                           </Box>
-                          <Field
-                            textarea={true}
-                            id={`prompt-${prompt.promptType}`}
-                            placeholder=""
-                            helpText={prompt.promptHelpText}
-                            {...promptForm.register(prompt.promptType)}
-                          />
+                          {!isCloud() && (
+                            <Box mb="3">
+                              <Text
+                                as="label"
+                                htmlFor={`${prompt.promptType}-model`}
+                                size="2"
+                                className="font-weight-semibold"
+                              >
+                                Model
+                              </Text>
+                              <SelectField
+                                id={`${prompt.promptType}-model`}
+                                value={
+                                  promptForm.watch(
+                                    `${prompt.promptType}-model`,
+                                  ) || ""
+                                }
+                                onChange={(v) =>
+                                  promptForm.setValue(
+                                    `${prompt.promptType}-model`,
+                                    v,
+                                  )
+                                }
+                                options={PROMPT_MODEL_LABELS}
+                                helpText={prompt?.overrideModelHelpText || ""}
+                              />
+                              {(() => {
+                                const modelToCheck =
+                                  promptForm.watch(
+                                    `${prompt.promptType}-model`,
+                                  ) || "";
+                                if (!modelToCheck) {
+                                  return null;
+                                }
+                                return <ApiKeyWarning model={modelToCheck} />;
+                              })()}
+                            </Box>
+                          )}
+                          <Box mb="3">
+                            {!isCloud() && (
+                              <Text
+                                as="label"
+                                htmlFor={`prompt-${prompt.promptType}`}
+                                size="2"
+                                className="font-weight-semibold"
+                              >
+                                Prompt
+                              </Text>
+                            )}
+                            <Field
+                              textarea={true}
+                              id={`prompt-${prompt.promptType}`}
+                              placeholder=""
+                              helpText={prompt.promptHelpText}
+                              {...promptForm.register(prompt.promptType)}
+                            />
+                          </Box>
                           {prompt.promptDefaultValue !==
                             promptForm.watch(prompt.promptType) && (
                             <Box style={{ position: "relative" }}>
@@ -324,11 +536,20 @@ export default function AISettings({
                       </p>
                       <Button
                         onClick={handleRegenerate}
-                        disabled={loading}
+                        disabled={loading || !hasOpenAIKey()}
                         variant="solid"
                       >
                         {loading ? "Regenerating..." : "Regenerate all"}
                       </Button>
+                      {!hasOpenAIKey() && (
+                        <Box mt="2">
+                          <Callout status="warning">
+                            OpenAI API key is required for embeddings. Please
+                            set <code>OPENAI_API_KEY</code> in your environment
+                            variables.
+                          </Callout>
+                        </Box>
+                      )}
                       {error && (
                         <Box className="col-auto pt-3">
                           <div className="alert alert-danger">{error}</div>
