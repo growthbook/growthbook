@@ -346,6 +346,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "blue",
                   description: "",
+                  label: t,
                 })),
               ),
             },
