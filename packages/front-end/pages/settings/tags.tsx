@@ -87,6 +87,7 @@ const TagsPage: FC = () => {
                           setModalOpen(t);
                         }}
                         className="cursor-pointer"
+                        title={`Tag id: ${t.id}`}
                       >
                         {t.label}
                       </td>

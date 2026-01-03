@@ -123,18 +123,9 @@ export async function addTag(
 
 export async function removeTag(organization: string, tag: string) {
   await TagModel.updateOne(
-    {
-      organization,
-    },
+    { organization },
     {
       $pull: { tags: tag },
-    },
-  );
-  await TagModel.updateOne(
-    {
-      organization,
-    },
-    {
       $unset: { [`settings.${tag}`]: 1 },
     },
   );
