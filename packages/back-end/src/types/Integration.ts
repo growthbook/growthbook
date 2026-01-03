@@ -116,6 +116,7 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  isAbsoluteCapped: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
   capCoalesceMetric: string;
@@ -172,6 +173,7 @@ export type BanditMetricData = Pick<
   | "ratioMetric"
   | "regressionAdjusted"
   | "isPercentileCapped"
+  | "isAbsoluteCapped"
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"

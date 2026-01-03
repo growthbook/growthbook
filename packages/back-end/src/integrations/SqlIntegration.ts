@@ -1479,6 +1479,37 @@ export default abstract class SqlIntegration
           ...(row.main_sum_uncapped !== undefined && {
             main_sum_uncapped: parseFloat(row.main_sum_uncapped) || 0,
           }),
+          ...(row.main_sum_squares_uncapped !== undefined && {
+            main_sum_squares_uncapped:
+              parseFloat(row.main_sum_squares_uncapped) || 0,
+          }),
+          ...(row.denominator_sum_uncapped !== undefined && {
+            denominator_sum_uncapped:
+              parseFloat(row.denominator_sum_uncapped) || 0,
+          }),
+          ...(row.denominator_sum_squares_uncapped !== undefined && {
+            denominator_sum_squares_uncapped:
+              parseFloat(row.denominator_sum_squares_uncapped) || 0,
+          }),
+          ...(row.denominator_cap_value_uncapped !== undefined && {
+            denominator_cap_value_uncapped:
+              parseFloat(row.denominator_cap_value_uncapped) || 0,
+          }),
+          ...(row.covariate_sum_uncapped !== undefined && {
+            covariate_sum_uncapped: parseFloat(row.covariate_sum_uncapped) || 0,
+          }),
+          ...(row.covariate_sum_squares_uncapped !== undefined && {
+            covariate_sum_squares_uncapped:
+              parseFloat(row.covariate_sum_squares_uncapped) || 0,
+          }),
+          ...(row.main_denominator_sum_product_uncapped !== undefined && {
+            main_denominator_sum_product_uncapped:
+              parseFloat(row.main_denominator_sum_product_uncapped) || 0,
+          }),
+          ...(row.main_covariate_sum_product_uncapped !== undefined && {
+            main_covariate_sum_product_uncapped:
+              parseFloat(row.main_covariate_sum_product_uncapped) || 0,
+          }),
         };
       }),
       statistics: statistics,
@@ -2701,6 +2732,10 @@ export default abstract class SqlIntegration
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
       isCappableMetricType(metric);
+    const isAbsoluteCapped =
+      metric.cappingSettings.type === "absolute" &&
+      !!metric.cappingSettings.value &&
+      isCappableMetricType(metric);
 
     const numeratorSourceIndex =
       factTablesWithIndices.find(
@@ -2798,6 +2833,7 @@ export default abstract class SqlIntegration
       regressionAdjustmentHours,
       overrideConversionWindows,
       isPercentileCapped,
+      isAbsoluteCapped,
       numeratorSourceIndex,
       denominatorSourceIndex,
       capCoalesceMetric,
@@ -3470,11 +3506,18 @@ export default abstract class SqlIntegration
             return `
            , ${this.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
-              data.isPercentileCapped
+              data.isPercentileCapped || data.isAbsoluteCapped
                 ? `
                 , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
                 , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
-                , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
+                ${
+                  data.isPercentileCapped
+                    ? `
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value 
+                    `
+                    : ""
+                }
+                `
                 : ""
             }
             , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
@@ -3518,12 +3561,19 @@ export default abstract class SqlIntegration
               data.ratioMetric
                 ? `
                 ${
-                  data.isPercentileCapped
+                  data.isPercentileCapped || data.isAbsoluteCapped
                     ? `
                     , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
                     , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
                     , SUM(${data.uncappedCoalesceMetric} * ${data.uncappedCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product_uncapped                    
-                    , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
+                    ${
+                      data.isPercentileCapped
+                        ? `
+                    , MAX(COALESCE(cap${data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value
+                    `
+                        : ""
+                    }
+                    `
                     : ""
                 }
                 , SUM(${data.capCoalesceDenominator}) AS 
@@ -3534,7 +3584,7 @@ export default abstract class SqlIntegration
                   data.regressionAdjusted
                     ? `
                   ${
-                    data.isPercentileCapped
+                    data.isPercentileCapped || data.isAbsoluteCapped
                       ? `
                       , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
                       , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
@@ -3568,7 +3618,7 @@ export default abstract class SqlIntegration
                 data.regressionAdjusted
                   ? `
                   ${
-                    data.isPercentileCapped
+                    data.isPercentileCapped || data.isAbsoluteCapped
                       ? `
                       , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
                       , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
@@ -3735,11 +3785,22 @@ export default abstract class SqlIntegration
       metric.cappingSettings.value < 1 &&
       isCappableMetricType(metric);
 
+    const isAbsoluteCapped =
+      metric.cappingSettings.type === "absolute" &&
+      !!metric.cappingSettings.value &&
+      isCappableMetricType(metric);
+
     const denominatorIsPercentileCapped =
       denominator &&
       denominator.cappingSettings.type === "percentile" &&
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
+      isCappableMetricType(denominator);
+
+    const denominatorIsAbsoluteCapped =
+      denominator &&
+      denominator.cappingSettings.type === "absolute" &&
+      !!denominator.cappingSettings.value &&
       isCappableMetricType(denominator);
 
     const capCoalesceMetric = this.capCoalesceValue({
@@ -3760,7 +3821,45 @@ export default abstract class SqlIntegration
       capTablePrefix: "cap",
       columnRef: null,
     });
-
+    const uncappedMetric = {
+      ...metric,
+      cappingSettings: {
+        type: "" as const,
+        value: 0,
+      },
+    };
+    const uncappedDenominator = {
+      ...denominator,
+      cappingSettings: {
+        type: "" as const,
+        value: 0,
+      },
+    };
+    const uncappedCovariate = {
+      ...metric,
+      cappingSettings: {
+        type: "" as const,
+        value: 0,
+      },
+    };
+    const uncappedCoalesceMetric = this.capCoalesceValue({
+      valueCol: "m.value",
+      metric: uncappedMetric,
+      capTablePrefix: "cap",
+      columnRef: null,
+    });
+    const uncappedCoalesceDenominator = this.capCoalesceValue({
+      valueCol: "d.value",
+      metric: uncappedDenominator,
+      capTablePrefix: "capd",
+      columnRef: null,
+    });
+    const uncappedCoalesceCovariate = this.capCoalesceValue({
+      valueCol: "c.value",
+      metric: uncappedCovariate,
+      capTablePrefix: "cap",
+      columnRef: null,
+    });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : [])
       .concat(denominatorMetrics)
@@ -4087,6 +4186,7 @@ export default abstract class SqlIntegration
               ratioMetric,
               regressionAdjusted,
               isPercentileCapped,
+              isAbsoluteCapped,
               capCoalesceMetric,
               capCoalesceCovariate,
               capCoalesceDenominator,
@@ -4107,8 +4207,15 @@ export default abstract class SqlIntegration
     ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
     , COUNT(*) AS users
     ${
-      isPercentileCapped
-        ? ", MAX(COALESCE(cap.value_cap, 0)) as main_cap_value"
+      isPercentileCapped || isAbsoluteCapped
+        ? `, SUM(${uncappedCoalesceMetric}) AS main_sum_uncapped
+           , SUM(POWER(${uncappedCoalesceMetric}, 2)) AS main_sum_squares_uncapped
+           ${
+             isPercentileCapped
+               ? `
+           , MAX(COALESCE(cap.value_cap, 0)) as main_cap_value`
+               : ""
+           }`
         : ""
     }
     , SUM(${capCoalesceMetric}) AS main_sum
@@ -4117,8 +4224,16 @@ export default abstract class SqlIntegration
       ratioMetric
         ? `
       ${
-        denominatorIsPercentileCapped
-          ? ", MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value"
+        denominatorIsPercentileCapped || denominatorIsAbsoluteCapped
+          ? `, SUM(${uncappedCoalesceDenominator}) AS denominator_sum_uncapped
+             , SUM(POWER(${uncappedCoalesceDenominator}, 2)) AS denominator_sum_squares_uncapped
+             , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceDenominator}) AS main_denominator_sum_product_uncapped
+             ${
+               isPercentileCapped
+                 ? `
+             , MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value`
+                 : ""
+             }`
           : ""
       }
       , SUM(${capCoalesceDenominator}) AS denominator_sum
@@ -4130,6 +4245,13 @@ export default abstract class SqlIntegration
     ${
       regressionAdjusted
         ? `
+        ${
+          isPercentileCapped || isAbsoluteCapped
+            ? `, SUM(${uncappedCoalesceCovariate}) AS covariate_sum_uncapped
+               , SUM(POWER(${uncappedCoalesceCovariate}, 2)) AS covariate_sum_squares_uncapped
+               , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceCovariate}) AS main_covariate_sum_product_uncapped`
+            : ""
+        }
       , SUM(${capCoalesceCovariate}) AS covariate_sum
       , SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares
       , SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product

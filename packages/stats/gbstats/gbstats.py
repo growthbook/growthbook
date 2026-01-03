@@ -560,6 +560,15 @@ def get_cuped_unadjusted_stat(stat: TestStatistic) -> TestStatistic:
     return stat
 
 
+def test_post_strat_eligible(
+    metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine
+) -> bool:
+    return analysis.post_stratification_enabled and metric.statistic_type not in [
+        "quantile_event",
+        "quantile_unit",
+    ]
+
+
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
     metric_data: List[DimensionMetricData],
@@ -592,10 +601,7 @@ def analyze_metric_df(
             stats = list(zip(control_stats, variation_stats))
 
             # TODO(post-stratification): throw error if post-stratify is false and there are 2+ rows?
-            post_stratify = (
-                analysis.post_stratification_enabled
-                and metric.statistic_type not in ["quantile_event", "quantile_unit"]
-            )
+            post_stratify = test_post_strat_eligible(metric, analysis)
             test = get_configured_test(
                 stats,
                 dimensionData.total_units,
@@ -928,6 +934,7 @@ def create_core_and_supplemental_results(
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> List[DimensionResponse]:
+
     core_result = analyze_metric_df(
         metric_data=reduced_metric_data,
         num_variations=num_variations,
@@ -938,10 +945,7 @@ def create_core_and_supplemental_results(
     cuped_adjusted = metric.statistic_type in ["ratio_ra", "mean_ra"]
     metric_capped = metric.capped
     analysis_bayesian = analysis.stats_engine == "bayesian"
-    post_stratify = (
-        analysis.post_stratification_enabled
-        and metric.statistic_type not in ["quantile_event", "quantile_unit"]
-    )
+    post_stratify = test_post_strat_eligible(metric, analysis)
 
     if cuped_adjusted:
         metric_cuped_adjusted = dataclasses.replace(
@@ -958,14 +962,14 @@ def create_core_and_supplemental_results(
         result_cuped_adjusted = None
     if metric_capped:
         analysis_uncapped = dataclasses.replace(analysis, use_uncapped_metric=True)
-        result_capped = analyze_metric_df(
+        result_uncapped = analyze_metric_df(
             metric_data=reduced_metric_data,
             num_variations=num_variations,
             metric=metric,
             analysis=analysis_uncapped,
         )
     else:
-        result_capped = None
+        result_uncapped = None
     if analysis_bayesian:
         metric_flat_prior = dataclasses.replace(metric, prior_proper=False)
         result_flat_prior = analyze_metric_df(
@@ -996,7 +1000,7 @@ def create_core_and_supplemental_results(
         num_variations,
         core_result,
         result_cuped_adjusted,
-        result_capped,
+        result_uncapped,
         result_flat_prior,
         result_unstratified,
     )
