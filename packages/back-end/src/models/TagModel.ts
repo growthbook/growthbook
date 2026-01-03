@@ -16,6 +16,7 @@ const TagModel = mongoose.model<TagDBInterface>("Tag", tagSchema);
 
 const MIN_TAG_LENGTH = 2;
 const MAX_TAG_LENGTH = 64;
+const DEFAULT_TAG_COLOR = "#029dd1";
 
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
@@ -25,7 +26,7 @@ function toTagInterface(doc: TagDocument | null): TagInterface[] {
   return json.tags.map((t) => {
     return {
       id: t,
-      color: settings[t]?.color || "#029dd1",
+      color: settings[t]?.color || DEFAULT_TAG_COLOR,
       description: settings[t]?.description || "",
       label: settings[t]?.label || t,
     };
@@ -46,7 +47,7 @@ export async function getTag(
   const settings = doc.settings || {};
   return {
     id: tag,
-    color: settings[tag]?.color || "#029dd1",
+    color: settings[tag]?.color || DEFAULT_TAG_COLOR,
     description: settings[tag]?.description || "",
     label: settings[tag]?.label || tag,
   };
@@ -89,7 +90,7 @@ export async function addTag(
 ) {
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
-      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
+      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characters long.`,
     );
   }
   if (description.length > 256) {

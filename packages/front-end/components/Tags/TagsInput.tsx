@@ -52,14 +52,14 @@ const TagsInput: FC<{
         id: value,
         label: tag?.label || value,
         description: tag?.description || "",
-        color: tag?.color || "#029dd1",
+        color: tag?.color || DEFAULT_TAG_COLOR,
       });
     }
   });
 
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled }) => {
-      const displayColor = data.color ?? "#029dd1";
+      const displayColor = data.color ?? DEFAULT_TAG_COLOR;
       return {
         ...styles,
         color: isDisabled ? "#ccc" : "#000",
