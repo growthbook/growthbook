@@ -1,12 +1,13 @@
 import { useForm } from "react-hook-form";
 import React from "react";
 import { TagInterface } from "shared/types/tag";
-import { Text, Container } from "@radix-ui/themes";
+import { Text, Container, Flex, Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
 import { Select, SelectItem } from "@/ui/Select";
+import Badge from "@/ui/Badge";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [
@@ -82,6 +83,15 @@ export default function TagsModal({
             required
             {...form.register("label")}
           />
+          {existing?.id &&
+            (existing.id !== existing?.label ||
+              form.watch("label") !== existing.id) && (
+              <Box mt="2">
+                <Text size="1" color="gray">
+                  Tag ID: {existing.id}
+                </Text>
+              </Box>
+            )}
         </Container>
         <Select
           label="Color"
@@ -91,7 +101,14 @@ export default function TagsModal({
         >
           {colorOptions.map((c) => (
             <SelectItem key={c} value={c}>
-              {c}
+              <Flex gap="3" align="center">
+                <Badge
+                  color={c}
+                  label={" "}
+                  style={{ height: "16px", width: "16px" }}
+                ></Badge>
+                {c}
+              </Flex>
             </SelectItem>
           ))}
         </Select>

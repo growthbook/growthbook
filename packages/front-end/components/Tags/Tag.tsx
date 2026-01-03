@@ -65,7 +65,7 @@ export default function Tag({
   return (
     <Badge
       title={displayTitle}
-      label={tag}
+      label={displayLabel}
       color={tagColor as RadixColor}
       variant="soft"
       mr={skipMargin ? undefined : "2"}
