@@ -4,7 +4,7 @@ import {
   FactFilterTestResults,
   FactTableInterface,
   UpdateFactFilterProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight, FaPlay } from "react-icons/fa";

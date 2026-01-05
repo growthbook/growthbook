@@ -1,4 +1,4 @@
-import { SavedGroupTargeting } from "back-end/types/feature";
+import { SavedGroupTargeting } from "shared/types/feature";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
@@ -44,23 +44,24 @@ export default function SavedGroupTargetingDisplay({
               {s.ids.length > 1 && "("}
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
-                const link =
-                  group?.type === "list"
-                    ? `/saved-groups/${group.id}`
-                    : "/saved-groups#conditionGroups";
+                if (!group) {
+                  return (
+                    <Badge key={id} color="gray" label={<Text>{id}</Text>} />
+                  );
+                }
                 return (
                   <Badge
                     key={id}
                     color="gray"
                     label={
                       <Link
-                        href={link}
+                        href={`/saved-groups/${group.id}`}
                         title="Manage Saved Group"
                         size="1"
                         target="_blank"
                         color="violet"
                       >
-                        {group?.groupName || id}
+                        {group.groupName}
                       </Link>
                     }
                   />

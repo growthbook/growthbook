@@ -1,7 +1,7 @@
 import React from "react";
 import { Text } from "@radix-ui/themes";
 import { FaQuestionCircle } from "react-icons/fa";
-import { MetricAnalysisPopulationType } from "back-end/types/metric-analysis";
+import { MetricAnalysisPopulationType } from "shared/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

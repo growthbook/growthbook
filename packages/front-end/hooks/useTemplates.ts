@@ -1,7 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentTemplateInterface,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useMemo } from "react";
 import useApi from "./useApi";
 import { useExperiments } from "./useExperiments";

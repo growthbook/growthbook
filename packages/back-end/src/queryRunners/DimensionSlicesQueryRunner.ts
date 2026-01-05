@@ -5,8 +5,8 @@ import {
 import {
   DimensionSlicesInterface,
   DimensionSlicesResult,
-} from "back-end/types/dimension";
-import { Queries } from "back-end/types/query";
+} from "shared/types/dimension";
+import { Queries } from "shared/types/query";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
@@ -57,7 +57,6 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runDimensionSlicesQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "dimensionSlices",
       }),
     ];

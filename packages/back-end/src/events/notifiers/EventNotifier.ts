@@ -1,8 +1,8 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
+import { EventInterface } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { webHooksEventHandler } from "back-end/src/events/handlers/webhooks/webHooksEventHandler";
 import { slackEventHandler } from "back-end/src/events/handlers/slack/slackEventHandler";
-import { EventInterface } from "back-end/types/events/event";
 import { getEvent } from "back-end/src/models/EventModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { Context } from "back-end/src/models/BaseModel";

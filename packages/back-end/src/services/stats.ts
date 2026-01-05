@@ -34,15 +34,12 @@ import {
   MetricSettingsForStatsEngine,
   MultipleExperimentMetricAnalysis,
   QueryResultsForStatsEngine,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
   ExperimentReportVariation,
-} from "back-end/types/report";
-import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
-import { promiseAllChunks } from "back-end/src/util/promise";
-import { logger } from "back-end/src/util/logger";
+} from "shared/types/report";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
@@ -52,12 +49,15 @@ import {
   ExperimentSnapshotTrafficDimension,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
+import { BanditResult } from "shared/types/experiment";
+import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { BanditResult } from "back-end/types/experiment";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
 
@@ -100,7 +100,7 @@ export function getAnalysisSettingsForStatsEngine(
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
     one_sided_intervals: !!settings.oneSidedIntervals,
-    post_stratification_enabled: !!settings.postStratificationEnabled,
+    post_stratification_enabled: false, //!!settings.postStratificationEnabled,
   };
 
   return analysisData;

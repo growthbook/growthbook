@@ -1,11 +1,13 @@
 import React, { useMemo, useEffect } from "react";
-import { ExperimentTimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  ExperimentTimeSeriesBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { expandMetricGroups, generatePinnedSliceKey } from "shared/experiments";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
-import { blockHasFieldOfType } from "shared/enterprise";
 import { isString } from "shared/util";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";

@@ -19,8 +19,28 @@ import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { DataSourceInterface } from "shared/types/datasource";
+import { MetricInterface, MetricStats } from "shared/types/metric";
+import {
+  Changeset,
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentPhase,
+  ExperimentStatus,
+  ExperimentTargetingData,
+  ExperimentType,
+  Variation,
+} from "shared/types/experiment";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+  SnapshotTriggeredBy,
+  SnapshotType,
+} from "shared/types/experiment-snapshot";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { OrganizationSettings } from "shared/types/organization";
+import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -41,7 +61,6 @@ import {
   updateExperimentBanditSettings,
   validateExperimentData,
 } from "back-end/src/services/experiments";
-import { MetricInterface, MetricStats } from "back-end/types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -84,16 +103,6 @@ import {
   getPastExperimentsModelByDatasource,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import {
-  Changeset,
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-  ExperimentPhase,
-  ExperimentStatus,
-  ExperimentTargetingData,
-  ExperimentType,
-  Variation,
-} from "back-end/types/experiment";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
@@ -103,14 +112,7 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-  SnapshotTriggeredBy,
-  SnapshotType,
-} from "back-end/types/experiment-snapshot";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import {
@@ -123,9 +125,7 @@ import {
   upsertWatch,
 } from "back-end/src/models/WatchModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationSettings } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
-import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
@@ -135,7 +135,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -358,7 +358,7 @@ export async function postAIExperimentAnalysis(
     releasedVariationName;
 
   const type = "experiment-analysis";
-  const { isDefaultPrompt, prompt } =
+  const { isDefaultPrompt, prompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(type);
 
   const aiResults = await simpleCompletion({
@@ -368,6 +368,7 @@ export async function postAIExperimentAnalysis(
     type,
     isDefaultPrompt,
     temperature: 0.1,
+    overrideModel,
   });
 
   res.status(200).json({
@@ -487,7 +488,7 @@ export async function postSimilarExperiments(
     context,
     input: [newExperimentText],
   });
-  const newEmbedding = newExperimentEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newExperimentEmbeddingResponse[0];
   // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
   const similarities = experimentsToSearch
     .map((exp) => {
@@ -3102,7 +3103,7 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis({
+    await createSnapshotAnalysis(context, {
       experiment: experiment,
       organization: org,
       analysisSettings: analysisSettings,

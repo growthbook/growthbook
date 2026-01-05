@@ -1,4 +1,4 @@
-import { FactMetricType } from "back-end/types/fact-table";
+import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
@@ -126,6 +126,7 @@ export const sdkLanguages = [
   "edge-fastly",
   "edge-lambda",
   "edge-other",
+  "rust",
   "other",
 ] as const;
 
@@ -209,6 +210,8 @@ export const entityEvents = {
   incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
   customHook: ["create", "update", "delete"],
+  ssoConnection: ["create", "update", "delete"],
+  sqlResultChunk: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

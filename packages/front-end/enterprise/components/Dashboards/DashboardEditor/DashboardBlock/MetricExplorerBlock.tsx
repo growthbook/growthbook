@@ -1,9 +1,13 @@
-import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  MetricExplorerBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { isString } from "shared/util";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
@@ -15,6 +19,7 @@ import { formatSliceLabel } from "@/services/dataVizConfigUtilities";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import HelperText from "@/ui/HelperText";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
+import { useDashboardCharts } from "../../DashboardChartsContext";
 import { BlockProps } from ".";
 
 export default function MetricExplorerBlock({
@@ -29,6 +34,16 @@ export default function MetricExplorerBlock({
   const displayCurrency = useCurrency();
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const chartsContext = useDashboardCharts();
+
+  const chartId = useMemo(() => {
+    if (blockHasFieldOfType(block, "id", isString) && block.id) {
+      return `metric-explorer-${block.id}`;
+    }
+    // Fallback to a stable ID based on block properties
+    return `metric-explorer-${block.metricAnalysisId || "unknown"}`;
+  }, [block]);
+
   const formatterOptions = useMemo(
     () => ({ currency: displayCurrency }),
     [displayCurrency],
@@ -352,7 +367,7 @@ export default function MetricExplorerBlock({
       xAxis: {
         type: "category",
         nameLocation: "middle",
-        scale: true,
+        scale: false,
         nameTextStyle: {
           fontSize: 14,
           fontWeight: "bold",
@@ -367,7 +382,7 @@ export default function MetricExplorerBlock({
       },
       yAxis: {
         type: "value",
-        scale: true,
+        scale: false,
         nameLocation: "middle",
         nameTextStyle: {
           fontSize: 14,
@@ -474,6 +489,11 @@ export default function MetricExplorerBlock({
           key={JSON.stringify(chartData)}
           option={chartData}
           style={{ width: "100%", minHeight: "450px", height: "80%" }}
+          onChartReady={(chart) => {
+            if (chartsContext && chart) {
+              chartsContext.registerChart(chartId, chart);
+            }
+          }}
         />
       )}
     </Box>

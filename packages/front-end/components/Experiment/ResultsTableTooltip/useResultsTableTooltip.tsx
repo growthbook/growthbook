@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import {

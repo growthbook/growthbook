@@ -6,7 +6,7 @@ import {
 } from "shared/experiments";
 import React, { ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import { MdSwapCalls } from "react-icons/md";
 import {
   capitalizeFirstLetter,
@@ -19,6 +19,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
+import FactMetricTypeDisplayName from "./FactMetricTypeDisplayName";
 
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
@@ -56,7 +57,11 @@ const MetricTooltipBody = ({
       label: "Type",
       body: (
         <>
-          {isFactMetric(metric) ? metric.metricType : metric.type}
+          {isFactMetric(metric) ? (
+            <FactMetricTypeDisplayName type={metric.metricType} />
+          ) : (
+            metric.type
+          )}
           {metric.inverse ? (
             <Tooltip body="Metric is inverse, lower is better" className="ml-1">
               <span>

@@ -47,21 +47,17 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
     gbstats_version: str = "0.8.0"
 
     summary_cols = [
+        "variation",
         "dimension",
-        "baseline_name",
-        "baseline_users",
-        "baseline_cr",
+        "users",
+        "cr",
+        "expected",
+        "ci",
     ]
-    for i in range(1, len(analysis.var_names)):
-        summary_cols.append(f"v{i}_name")
-        summary_cols.append(f"v{i}_users")
-        summary_cols.append(f"v{i}_cr")
-        summary_cols.append(f"v{i}_expected")
-        summary_cols.append(f"v{i}_ci")
-        if analysis.stats_engine == "bayesian":
-            summary_cols.append(f"v{i}_prob_beat_baseline")
-        elif analysis.stats_engine == "frequentist":
-            summary_cols.append(f"v{i}_p_value")
+    if analysis.stats_engine == "bayesian":
+        summary_cols.append("chanceToWin")
+    elif analysis.stats_engine == "frequentist":
+        summary_cols.append("pValue")
 
     cells = [
         nbf.new_markdown_cell(

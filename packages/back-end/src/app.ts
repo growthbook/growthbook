@@ -510,6 +510,10 @@ app.post(
   "/query/user-exposures",
   datasourcesController.runUserExperimentExposuresQuery,
 );
+app.post(
+  "/query/feature-eval-diagnostic",
+  datasourcesController.postFeatureEvalDiagnostics,
+);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
@@ -937,16 +941,29 @@ app.use("/upload", uploadRouter);
 app.use("/teams", teamRouter);
 
 // Admin
-app.get("/admin/organizations", adminController.getOrganizations);
-app.put("/admin/organization", adminController.putOrganization);
-app.put("/admin/organization/disable", adminController.disableOrganization);
-app.put("/admin/organization/enable", adminController.enableOrganization);
+app.get(
+  "/admin/organizations",
+  adminController._dangerousAdminGetOrganizations,
+);
+app.put("/admin/organization", adminController._dangerousAdminPutOrganization);
+app.put(
+  "/admin/organization/disable",
+  adminController._dangerousAdminDisableOrganization,
+);
+app.put(
+  "/admin/organization/enable",
+  adminController._dangerousAdminEnableOrganization,
+);
 app.get(
   "/admin/organization/:orgId/members",
-  adminController.getOrganizationMembers,
+  adminController._dangerousAdminGetOrganizationMembers,
 );
-app.get("/admin/members", adminController.getMembers);
-app.put("/admin/member", adminController.putMember);
+app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.put("/admin/member", adminController._dangerousAdminPutMember);
+app.post(
+  "/admin/sso-connection",
+  adminController._dangerousAdminUpsertSSOConnection,
+);
 
 // License
 app.get("/license", licenseController.getLicenseData);

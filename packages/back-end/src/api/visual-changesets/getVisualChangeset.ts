@@ -1,5 +1,8 @@
-import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
-import { GetVisualChangesetResponse } from "back-end/types/openapi";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  getVisualChangesetValidator,
+} from "shared/validators";
+import { GetVisualChangesetResponse } from "shared/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   findVisualChangesetById,
@@ -7,7 +10,6 @@ import {
 } from "back-end/src/models/VisualChangesetModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getVisualChangesetValidator } from "back-end/src/validators/openapi";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,

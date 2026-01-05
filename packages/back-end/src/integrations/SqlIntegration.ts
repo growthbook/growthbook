@@ -4,7 +4,7 @@ import { getValidDate } from "shared/dates";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
-  getConversionWindowHours,
+  getMetricWindowHours,
   getUserIdTypes,
   isFactMetric,
   isFunnelMetric,
@@ -92,6 +92,7 @@ import {
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
+  FeatureEvalDiagnosticsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
@@ -104,6 +105,7 @@ import {
   FactMetricQuantileData,
   FactMetricPercentileData,
   FactMetricAggregationMetadata,
+  FeatureEvalDiagnosticsQueryResponse,
   UserExperimentExposuresQueryParams,
   UserExperimentExposuresQueryResponse,
   CovariateWindowType,
@@ -113,10 +115,8 @@ import {
   CovariatePhaseStartSettings,
   PipelineIntegration,
 } from "shared/types/integrations";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/request";
-import { MetricInterface, MetricType } from "back-end/types/metric";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
@@ -125,39 +125,41 @@ import {
   DataSourceInterface,
   AutoFactTableSchemas,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "shared/types/experiment-snapshot";
+import {
+  ColumnRef,
+  FactMetricInterface,
+  FactTableInterface,
+  MetricQuantileSettings,
+} from "shared/types/fact-table";
+import type { PopulationDataQuerySettings } from "shared/types/query";
+import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { ReqContext } from "back-end/types/request";
 import {
   MissingDatasourceParamsError,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
-import { DimensionInterface } from "back-end/types/dimension";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import {
-  ExperimentSnapshotSettings,
-  SnapshotBanditSettings,
-  SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  ColumnRef,
-  FactMetricInterface,
-  FactTableInterface,
-  MetricQuantileSettings,
-} from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
-import type { PopulationDataQuerySettings } from "back-end/types/query";
 import {
   INCREMENTAL_METRICS_TABLE_PREFIX,
   INCREMENTAL_UNITS_TABLE_PREFIX,
 } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { AdditionalQueryMetadata, QueryMetadata } from "back-end/types/query";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -960,6 +962,12 @@ export default abstract class SqlIntegration
       );
     }
 
+    if (baseMetric.metricType === "dailyParticipation") {
+      throw new Error(
+        "Metric analyses for daily participation metrics are not supported yet",
+      );
+    }
+
     const createHistogram = baseMetric.metricType === "mean";
 
     // TODO test HLL count distinct works for daily values
@@ -1048,8 +1056,26 @@ export default abstract class SqlIntegration
               .map((m) => {
                 return `
                 , MAX(${m.alias}_id) AS ${m.alias}_id
-                , ${m.numeratorAggFns.reAggregationFunction(`${m.alias}_value`)} AS ${m.alias}_value
-              ${m.ratioMetric ? `, ${m.denominatorAggFns.reAggregationFunction(`${m.alias}_denominator`)} AS ${m.alias}_denominator` : ""}
+                , ${m.aggregatedValueTransformation({
+                  column: m.numeratorAggFns.reAggregationFunction(
+                    `${m.alias}_value_for_reaggregation`,
+                  ),
+                  initialTimestampColumn: this.toTimestamp(settings.startDate),
+                  analysisEndDate: settings.endDate,
+                })} AS ${m.alias}_value
+                ${
+                  m.ratioMetric
+                    ? `, ${m.aggregatedValueTransformation({
+                        column: m.denominatorAggFns.reAggregationFunction(
+                          `${m.alias}_denominator_for_reaggregation`,
+                        ),
+                        initialTimestampColumn: this.toTimestamp(
+                          settings.startDate,
+                        ),
+                        analysisEndDate: settings.endDate,
+                      })} AS ${m.alias}_denominator`
+                    : ""
+                }
               `;
               })
               .join("\n")}
@@ -1714,7 +1740,7 @@ export default abstract class SqlIntegration
         initial.${baseIdType}`;
   }
 
-  private getDimensionColumn(
+  private getDimensionValuePerUnit(
     dimension: UserDimension | ExperimentDimension | null,
     experimentDimensionPrefix?: string,
   ) {
@@ -1749,7 +1775,7 @@ export default abstract class SqlIntegration
     endDate: Date,
     overrideConversionWindows: boolean,
   ): string {
-    let windowHours = getConversionWindowHours(metric.windowSettings);
+    let windowHours = getMetricWindowHours(metric.windowSettings);
     const delayHours = getDelayWindowHours(metric.windowSettings);
 
     // all metrics have to be after the base timestamp +- delay hours
@@ -1829,7 +1855,7 @@ export default abstract class SqlIntegration
       if (m.windowSettings.type === "conversion") {
         const hours =
           runningHours +
-          getConversionWindowHours(m.windowSettings) +
+          getMetricWindowHours(m.windowSettings) +
           getDelayWindowHours(m.windowSettings);
         if (hours > maxHours) maxHours = hours;
         runningHours = hours;
@@ -1856,7 +1882,7 @@ export default abstract class SqlIntegration
       if (m.windowSettings.type === "conversion") {
         const metricHours =
           getDelayWindowHours(m.windowSettings) +
-          getConversionWindowHours(m.windowSettings);
+          getMetricWindowHours(m.windowSettings);
         if (funnelMetric) {
           // funnel metric windows can cascade, so sum each metric hours to get max
           neededHoursForConversion += metricHours;
@@ -1872,7 +1898,7 @@ export default abstract class SqlIntegration
     ) {
       neededHoursForConversion +=
         getDelayWindowHours(activationMetric.windowSettings) +
-        getConversionWindowHours(activationMetric.windowSettings);
+        getMetricWindowHours(activationMetric.windowSettings);
     }
     return neededHoursForConversion;
   }
@@ -1886,6 +1912,7 @@ export default abstract class SqlIntegration
       unitDimensions: [],
       experimentDimensions: [],
       activationDimension: null,
+      dateDimension: null,
     };
 
     dimensions.forEach((dimension) => {
@@ -1907,6 +1934,8 @@ export default abstract class SqlIntegration
         processedDimensions.unitDimensions.push(clonedDimension);
       } else if (dimension?.type === "experiment") {
         processedDimensions.experimentDimensions.push(dimension);
+      } else if (dimension?.type === "date") {
+        processedDimensions.dateDimension = dimension;
       }
     });
     return processedDimensions;
@@ -2161,13 +2190,13 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_unit_${d.dimension.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+          , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
@@ -2243,12 +2272,7 @@ export default abstract class SqlIntegration
     const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
       params;
 
-    // unitDimensions not supported yet
-    const { experimentDimensions } = this.processDimensions(
-      params.dimensions,
-      settings,
-      activationMetric,
-    );
+    const experimentDimensions = params.dimensions;
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
@@ -2304,7 +2328,15 @@ export default abstract class SqlIntegration
             this.dateTrunc("first_exposure_timestamp"),
           )} AS dim_exposure_date
           ${banditDates ? `${this.getBanditCaseWhen(banditDates)}` : ""}
-          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
+          ${experimentDimensions
+            .map(
+              (d) =>
+                `, ${this.getDimensionInStatement(
+                  `dim_exp_${d.id}`,
+                  d.specifiedSlices,
+                )} AS dim_exp_${d.id}`,
+            )
+            .join("\n")}
           ${
             activationMetric
               ? `, ${this.ifElse(
@@ -2477,7 +2509,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
+            , ${this.getDimensionValuePerUnit(d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -2606,6 +2638,31 @@ export default abstract class SqlIntegration
     );
   }
 
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
+    const featureKey = this.escapeStringLiteral(params.feature);
+
+    // We only support one feature usage query per data source for now
+    // Always use the first query in the array for now
+    const featureEvalQuery = this.datasource.settings?.queries?.featureUsage
+      ? this.datasource.settings.queries.featureUsage[0].query
+      : "";
+
+    return format(
+      `-- Feature Evaluation Diagnostics Query
+      WITH __featureEvalQuery AS (
+        ${featureEvalQuery}
+      )
+      SELECT * FROM __featureEvalQuery
+      WHERE feature_key = '${featureKey}'
+      ORDER BY timestamp DESC
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
   public async runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse> {
@@ -2620,6 +2677,27 @@ export default abstract class SqlIntegration
           timestamp: row.timestamp,
           experiment_id: row.experiment_id,
           variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
+      truncated,
+    };
+  }
+
+  public async runFeatureEvalDiagnosticsQuery(
+    query: string,
+  ): Promise<FeatureEvalDiagnosticsQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          feature_key: row.feature_key,
           ...row,
         };
       }),
@@ -2782,6 +2860,29 @@ export default abstract class SqlIntegration
       useDenominator: true,
     });
 
+    // Create aggregated value transformation function
+    // For dailyParticipation metrics, this divides by the participation window
+    // For all other metrics, this is an identity function
+    const aggregatedValueTransformation =
+      metric.metricType === "dailyParticipation"
+        ? ({
+            column,
+            initialTimestampColumn,
+            analysisEndDate,
+          }: {
+            column: string;
+            initialTimestampColumn: string;
+            analysisEndDate: Date;
+          }) =>
+            this.applyDailyParticipationTransformation({
+              column,
+              initialTimestampColumn,
+              analysisEndDate,
+              metric,
+              overrideConversionWindows,
+            })
+        : ({ column }: { column: string }) => column;
+
     return {
       alias,
       id: metric.id,
@@ -2813,6 +2914,7 @@ export default abstract class SqlIntegration
       metricStart,
       metricEnd,
       maxHoursToConvert,
+      aggregatedValueTransformation,
     };
   }
 
@@ -3253,6 +3355,7 @@ export default abstract class SqlIntegration
         , __userMetricJoin${f.index === 0 ? "" : f.index} as (
           SELECT
             d.variation AS variation
+            , d.timestamp AS timestamp
             ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
             ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
             , d.${baseIdType} AS ${baseIdType}
@@ -3328,25 +3431,32 @@ export default abstract class SqlIntegration
           ${banditDates?.length ? `, umj.bandit_period` : ""}
           , umj.${baseIdType}
           ${metricData
-            .map(
-              (data) =>
-                `${
-                  data.numeratorSourceIndex === f.index
-                    ? `, ${data.numeratorAggFns.fullAggregationFunction(
+            .map((data) => {
+              return `${
+                data.numeratorSourceIndex === f.index
+                  ? `, ${data.aggregatedValueTransformation({
+                      column: data.numeratorAggFns.fullAggregationFunction(
                         `umj.${data.alias}_value`,
                         `qm.${data.alias}_quantile`,
-                      )} AS ${data.alias}_value`
-                    : ""
-                }
+                      ),
+                      initialTimestampColumn: "MIN(umj.timestamp)",
+                      analysisEndDate: params.settings.endDate,
+                    })} AS ${data.alias}_value`
+                  : ""
+              }
                 ${
                   data.ratioMetric && data.denominatorSourceIndex === f.index
-                    ? `, ${data.denominatorAggFns.fullAggregationFunction(
-                        `umj.${data.alias}_denominator`,
-                        `qm.${data.alias}_quantile`,
-                      )} AS ${data.alias}_denominator`
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: data.denominatorAggFns.fullAggregationFunction(
+                          `umj.${data.alias}_denominator`,
+                          `qm.${data.alias}_quantile`,
+                        ),
+                        initialTimestampColumn: "MIN(umj.timestamp)",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_denominator`
                     : ""
-                }`,
-            )
+                }`;
+            })
             .join("\n")}
           ${eventQuantileData
             .map(
@@ -6234,6 +6344,79 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     `;
   }
 
+  computeParticipationDenominator({
+    initialTimestampColumn,
+    analysisEndDate,
+    metric,
+    overrideConversionWindows,
+  }: {
+    initialTimestampColumn: string;
+    analysisEndDate: Date;
+    metric: FactMetricInterface;
+    overrideConversionWindows: boolean;
+  }): string {
+    // get start date of metric analysis window
+    const delayHours = getDelayWindowHours(metric.windowSettings);
+    const windowHours = getMetricWindowHours(metric.windowSettings);
+
+    let startDateString = this.castToTimestamp(initialTimestampColumn);
+    if (delayHours > 0) {
+      startDateString = this.addHours(startDateString, delayHours);
+    }
+
+    let endDateString = this.castToTimestamp(this.toTimestamp(analysisEndDate));
+
+    if (metric.windowSettings.type === "lookback") {
+      const lookbackStartDate = new Date(analysisEndDate);
+      lookbackStartDate.setHours(lookbackStartDate.getHours() - windowHours);
+      // Only override start date for lookback
+      startDateString = `GREATEST(${startDateString}, ${this.castToTimestamp(this.toTimestamp(lookbackStartDate))})`;
+    } else if (
+      metric.windowSettings.type === "conversion" &&
+      !overrideConversionWindows
+    ) {
+      endDateString = `LEAST(${this.getCurrentTimestamp()}, ${this.addHours(startDateString, windowHours)})`;
+    }
+
+    return this.ensureFloat(
+      `GREATEST(${this.dateDiff(startDateString, endDateString)} + 1, 1)`,
+    );
+  }
+
+  /**
+   * Applies the daily participation transformation to an aggregated value.
+   * For dailyParticipation metrics, this divides the count by the number of days
+   * in the participation window to get a participation rate.
+   * For all other metric types, this returns the value unchanged.
+   */
+  applyDailyParticipationTransformation({
+    column,
+    initialTimestampColumn,
+    analysisEndDate,
+    metric,
+    overrideConversionWindows,
+  }: {
+    column: string;
+    initialTimestampColumn: string;
+    analysisEndDate: Date;
+    metric: FactMetricInterface;
+    overrideConversionWindows: boolean;
+  }): string {
+    if (metric.metricType !== "dailyParticipation") {
+      return column;
+    }
+
+    return `
+      ${this.ensureFloat(column)} / 
+      ${this.computeParticipationDenominator({
+        initialTimestampColumn,
+        analysisEndDate,
+        metric,
+        overrideConversionWindows,
+      })}
+    `;
+  }
+
   getAggregationMetadata({
     metric,
     useDenominator,
@@ -6631,7 +6814,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
-        "Activation metrics are not supported for incremental refresh",
+        "Activation metrics are not yet supported for incremental refresh",
       );
     }
 
@@ -6662,7 +6845,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             }
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           FROM ${params.unitsTableFullName}
-          ${params.lastMaxTimestamp ? `WHERE max_timestamp <= ${this.toTimestampWithMs(params.lastMaxTimestamp)}` : ""}
         )
         ${
           segment
@@ -6734,7 +6916,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${experimentDimensions
               .map(
                 (d) => `
-              , ${this.getDimensionColumn(d, "dim_exp_")} AS dim_exp_${d.id}`,
+              , ${this.getDimensionValuePerUnit(d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
           FROM __jointExposures e
@@ -7432,11 +7614,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileTableIndices.add(0);
     }
 
-    const { unitDimensions } = this.processDimensions(
-      params.dimensions,
-      params.settings,
-      params.activationMetric,
-    );
+    // exploratory dimensions
+    const { experimentDimensions, unitDimensions, dateDimension } =
+      this.processDimensions(
+        params.dimensionsForAnalysis,
+        params.settings,
+        params.activationMetric,
+      );
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
@@ -7451,14 +7635,39 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       experimentId: params.settings.experimentId,
     });
 
-    const unitDimensionCols = unitDimensions.map((d) =>
+    const unitDimensionCols = unitDimensions.map((d) => ({
+      // override value with the a MAX statement that will get one
+      // value per unit
+      value: this.getDimensionValuePerUnit(d),
+      alias: this.getDimensionCol(d).alias,
+    }));
+
+    const experimentDimensionCols = experimentDimensions.map((d) =>
       this.getDimensionCol(d),
     );
-    const nonUnitDimensionCols = params.dimensions
-      .filter((d) => d.type !== "user")
-      .map((d) => this.getDimensionCol(d));
+    const precomputedDimensionCols: DimensionColumnData[] =
+      params.dimensionsForPrecomputation.map((d) => {
+        const col = this.getDimensionCol(d);
+        // override value with case when statement for precomputed dimensions
+        const value = this.getDimensionInStatement(
+          col.alias,
+          d.specifiedSlices,
+        );
+        return {
+          value,
+          alias: col.alias,
+        };
+      });
+    const dateDimensionCol = dateDimension
+      ? this.getDimensionCol(dateDimension)
+      : undefined;
 
-    const allDimensionCols = [...unitDimensionCols, ...nonUnitDimensionCols];
+    const nonUnitDimensionCols = [
+      ...experimentDimensionCols,
+      ...(dateDimensionCol ? [dateDimensionCol] : []),
+      ...precomputedDimensionCols,
+    ];
+    const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -7479,20 +7688,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             )})`,
         )
         .join("\n")}
-      ${
+      , __experimentUnits AS (${
         unitDimensions.length > 0
-          ? `
-        , __experimentUnits AS (
-          SELECT
+          ? `SELECT
             e.${baseIdType} AS ${baseIdType}
             , MIN(e.variation) AS variation
             , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
-            ${unitDimensions.map((d) => `, ${this.getDimensionColumn(d)} AS ${this.getDimensionCol(d).alias}`).join("")}
-            ${nonUnitDimensionCols
-              .map((d) => {
-                return `, MIN(${d.value}) AS ${d.alias}`;
-              })
-              .join("")}
+            ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
+            ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
           FROM ${params.unitsSourceTableFullName} e
           ${unitDimensions
             .map(
@@ -7505,21 +7708,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .join("\n")}
           GROUP BY
             e.${baseIdType}
-        )
       `
-          : `, __experimentUnits AS (
-        SELECT
+          : `SELECT
           e.${baseIdType} AS ${baseIdType}
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
-            ${nonUnitDimensionCols
-              .map((d) => {
-                return `, ${d.value} AS ${d.alias}`;
-              })
-              .join("")}
-        FROM ${params.unitsSourceTableFullName} e
-      )`
-      }
+          ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
+        FROM ${params.unitsSourceTableFullName} e`
+      })
       , __metricDataAggregated AS (
         SELECT
           ${baseIdType}
@@ -7548,14 +7744,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${metricData
               // TODO(incremental-refresh): here is where we need to nullif 0 for
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
-              .map(
-                (data) =>
-                  `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0) AS ${data.alias}_value ${
-                    data.ratioMetric
-                      ? `, COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0) AS ${data.alias}_denominator`
-                      : ""
-                  }`,
-              )
+              .map((data) => {
+                return `, ${data.aggregatedValueTransformation({
+                  column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
+                  initialTimestampColumn: "u.first_exposure_timestamp",
+                  analysisEndDate: params.settings.endDate,
+                })} AS ${data.alias}_value ${
+                  data.ratioMetric
+                    ? `, ${data.aggregatedValueTransformation({
+                        column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        initialTimestampColumn: "u.first_exposure_timestamp",
+                        analysisEndDate: params.settings.endDate,
+                      })} AS ${data.alias}_denominator`
+                    : ""
+                }`;
+              })
               .join("\n")}
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}

@@ -1,16 +1,16 @@
 import { Permissions, roleToPermissionMap } from "shared/permissions";
 import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "shared/types/datasource";
+import { OrganizationInterface } from "shared/types/organization";
+import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
 } from "back-end/src/models/DataSourceModel";
-import {
-  DataSourceInterface,
-  DataSourceSettings,
-} from "back-end/types/datasource";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/services/datasource");
