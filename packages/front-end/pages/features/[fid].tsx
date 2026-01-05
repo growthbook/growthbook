@@ -179,7 +179,7 @@ export default function FeaturePage() {
     setTab(tab);
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
+    router.push(newUrl, undefined, { shallow: true });
     window.scrollTo({
       top: 0,
       behavior: "smooth",
