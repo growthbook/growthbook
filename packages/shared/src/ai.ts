@@ -1,5 +1,5 @@
 // AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic";
+export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 
 export type EmbeddingModel =
   | "text-embedding-3-small"
@@ -8,7 +8,33 @@ export type EmbeddingModel =
 
 // Available models for each provider
 export const AI_PROVIDER_MODEL_MAP = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+  openai: [
+    // GPT-5 series
+    "gpt-5.2",
+    "gpt-5.2-pro",
+    "gpt-5.1-codex",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex-mini",
+    "gpt-5",
+    "gpt-5-nano",
+    "gpt-5-mini",
+    "gpt-5-pro",
+    "gpt-5-codex",
+    // GPT-4 series
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    // O series (reasoning models)
+    "o4-mini",
+    "o3",
+    "o3-mini",
+    "o1",
+    // GPT-3.5 series
+    "gpt-3.5-turbo",
+  ],
   anthropic: [
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
@@ -18,6 +44,30 @@ export const AI_PROVIDER_MODEL_MAP = {
     "claude-3-7-sonnet-20250219",
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
+  ],
+  xai: [
+    "grok-code-fast-1",
+    "grok-4-fast-non-reasoning",
+    "grok-4-fast-reasoning",
+    "grok-4",
+    "grok-3",
+    "grok-3-mini",
+    "grok-3-fast",
+    "grok-3-mini-fast",
+    "grok-2",
+  ],
+  mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  google: [
+    "gemini-3-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-pro-latest",
   ],
 } as const;
 

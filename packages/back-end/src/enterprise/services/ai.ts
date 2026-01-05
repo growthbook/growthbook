@@ -1,6 +1,9 @@
-import { generateText, generateObject, embed } from "ai";
+import { generateText, embed, Output } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createXai } from "@ai-sdk/xai";
+import { createMistral } from "@ai-sdk/mistral";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   encoding_for_model,
   get_encoding,
@@ -23,11 +26,20 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 export const getAIProviderClass = (
   context: ReqContext | ApiReqContext,
   model: AIModel,
-): ReturnType<typeof createAnthropic> | ReturnType<typeof createOpenAI> => {
-  const { aiEnabled, openAIAPIKey, anthropicAPIKey } = getAISettingsForOrg(
-    context,
-    true,
-  );
+):
+  | ReturnType<typeof createAnthropic>
+  | ReturnType<typeof createOpenAI>
+  | ReturnType<typeof createXai>
+  | ReturnType<typeof createMistral>
+  | ReturnType<typeof createGoogleGenerativeAI> => {
+  const {
+    aiEnabled,
+    openAIAPIKey,
+    anthropicAPIKey,
+    xaiAPIKey,
+    mistralAPIKey,
+    googleAPIKey,
+  } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI is not enabled for this organization.");
@@ -42,8 +54,28 @@ export const getAIProviderClass = (
     return createAnthropic({
       apiKey: anthropicAPIKey,
     });
+  } else if (selectedProvider === "xai") {
+    if (!xaiAPIKey) {
+      throw new Error("XAI_API_KEY is not set.");
+    }
+    return createXai({
+      apiKey: xaiAPIKey,
+    });
+  } else if (selectedProvider === "mistral") {
+    if (!mistralAPIKey) {
+      throw new Error("MISTRAL_API_KEY is not set.");
+    }
+    return createMistral({
+      apiKey: mistralAPIKey,
+    });
+  } else if (selectedProvider === "google") {
+    if (!googleAPIKey) {
+      throw new Error("GOOGLE_AI_API_KEY is not set.");
+    }
+    return createGoogleGenerativeAI({
+      apiKey: googleAPIKey,
+    });
   } else {
-    // selectedProvider === "openai"
     if (!openAIAPIKey) {
       throw new Error("OPENAI_API_KEY is not set.");
     }
@@ -155,7 +187,7 @@ export const simpleCompletion = async ({
   const messages = constructMessages(prompt, instructions);
 
   const generateOptions = {
-    model: aiProvider(model),
+    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
     ...(temperature != null ? { temperature } : {}),
   };
@@ -166,12 +198,14 @@ export const simpleCompletion = async ({
   let result: string;
 
   if (returnType === "json" && jsonSchema) {
-    const objectResponse = await generateObject({
+    const objectResponse = await generateText({
       ...generateOptions,
-      schema: jsonSchema,
+      output: Output.object({
+        schema: jsonSchema,
+      }),
     });
     numTokensUsed = objectResponse.usage?.totalTokens;
-    result = JSON.stringify(objectResponse.object);
+    result = JSON.stringify(objectResponse.output);
     inputTokensUsed = objectResponse.usage?.inputTokens;
     outputTokensUsed = objectResponse.usage?.outputTokens;
   } else {
@@ -239,10 +273,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   const messages = constructMessages(prompt, instructions);
 
-  const response = await generateObject({
-    model: aiProvider(model),
+  const response = await generateText({
+    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages: messages,
-    schema: zodObjectSchema,
+    output: Output.object({
+      schema: zodObjectSchema,
+    }),
     ...(temperature != null ? { temperature } : {}),
   });
 
@@ -263,10 +299,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 
-  if (!response.object) {
-    throw new Error("No object returned from AI API.");
+  if (!response.output) {
+    throw new Error("No output returned from AI API.");
   }
-  return response.object as z.infer<T>;
+  return response.output as z.infer<T>;
 };
 
 export function cosineSimilarity(vec1: number[], vec2: number[]): number {

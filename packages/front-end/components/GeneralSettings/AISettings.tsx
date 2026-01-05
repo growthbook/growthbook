@@ -14,7 +14,14 @@ import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud, hasOpenAIKey, hasAnthropicKey } from "@/services/env";
+import {
+  isCloud,
+  hasOpenAIKey,
+  hasAnthropicKey,
+  hasXaiKey,
+  hasMistralKey,
+  hasGoogleAIKey,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -24,17 +31,95 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 
 const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
-  { value: "gpt-4o-mini", label: "GTP 4o mini" },
-  { value: "gpt-4o", label: "GTP 4o" },
-  { value: "gpt-4-turbo", label: "GTP 4 turbo" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude 4.5 Haiku" },
-  { value: "claude-sonnet-4-5-20250929", label: "Claude 4.5 Sonnet" },
-  { value: "claude-opus-4-1-20250805", label: "Claude 4.1 Opus" },
-  { value: "claude-opus-4-20250514", label: "Claude 4 Opus" },
-  { value: "claude-sonnet-4-20250514", label: "Claude 4 Sonnet" },
-  { value: "claude-3-7-sonnet-20250219", label: "Claude 3.7 Sonnet" },
-  { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
-  { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+  // OpenAI GPT-5 series
+  { value: "gpt-5.2", label: "OpenAI: GPT 5.2" },
+  { value: "gpt-5.2-pro", label: "OpenAI: GPT 5.2 Pro" },
+  { value: "gpt-5.1-codex", label: "OpenAI: GPT 5.1 Codex" },
+  { value: "gpt-5.1-codex-max", label: "OpenAI: GPT 5.1 Codex Max" },
+  { value: "gpt-5.1-codex-mini", label: "OpenAI: GPT 5.1 Codex Mini" },
+  { value: "gpt-5", label: "OpenAI: GPT 5" },
+  { value: "gpt-5-nano", label: "OpenAI: GPT 5 Nano" },
+  { value: "gpt-5-mini", label: "OpenAI: GPT 5 Mini" },
+  { value: "gpt-5-pro", label: "OpenAI: GPT 5 Pro" },
+  { value: "gpt-5-codex", label: "OpenAI: GPT 5 Codex" },
+  // OpenAI GPT-4 series
+  { value: "gpt-4.1", label: "OpenAI: GPT 4.1" },
+  { value: "gpt-4.1-mini", label: "OpenAI: GPT 4.1 Mini" },
+  { value: "gpt-4.1-nano", label: "OpenAI: GPT 4.1 Nano" },
+  { value: "gpt-4o", label: "OpenAI: GPT 4o" },
+  { value: "gpt-4o-mini", label: "OpenAI: GPT 4o Mini" },
+  { value: "gpt-4-turbo", label: "OpenAI: GPT 4 Turbo" },
+  // OpenAI O series (reasoning models)
+  { value: "o4-mini", label: "OpenAI: O4 Mini" },
+  { value: "o3", label: "OpenAI: O3" },
+  { value: "o3-mini", label: "OpenAI: O3 Mini" },
+  { value: "o1", label: "OpenAI: O1" },
+  // OpenAI GPT-3.5 series
+  { value: "gpt-3.5-turbo", label: "OpenAI: GPT 3.5 Turbo" },
+  // Anthropic Claude
+  {
+    value: "claude-haiku-4-5-20251001",
+    label: "Anthropic: Claude 4.5 Haiku (20251001)",
+  },
+  {
+    value: "claude-sonnet-4-5-20250929",
+    label: "Anthropic: Claude 4.5 Sonnet (20250929)",
+  },
+  {
+    value: "claude-opus-4-1-20250805",
+    label: "Anthropic: Claude 4.1 Opus (20250805)",
+  },
+  {
+    value: "claude-opus-4-20250514",
+    label: "Anthropic: Claude 4 Opus (20250514)",
+  },
+  {
+    value: "claude-sonnet-4-20250514",
+    label: "Anthropic: Claude 4 Sonnet (20250514)",
+  },
+  {
+    value: "claude-3-7-sonnet-20250219",
+    label: "Anthropic: Claude 3.7 Sonnet (20250219)",
+  },
+  {
+    value: "claude-3-5-haiku-20241022",
+    label: "Anthropic: Claude 3.5 Haiku (20241022)",
+  },
+  {
+    value: "claude-3-haiku-20240307",
+    label: "Anthropic: Claude 3 Haiku (20240307)",
+  },
+  // xAI Grok
+  { value: "grok-code-fast-1", label: "xAI: Grok Code Fast 1" },
+  {
+    value: "grok-4-fast-non-reasoning",
+    label: "xAI: Grok 4 Fast Non-Reasoning",
+  },
+  { value: "grok-4-fast-reasoning", label: "xAI: Grok 4 Fast Reasoning" },
+  { value: "grok-4", label: "xAI: Grok 4" },
+  { value: "grok-3", label: "xAI: Grok 3" },
+  { value: "grok-3-mini", label: "xAI: Grok 3 Mini" },
+  { value: "grok-3-fast", label: "xAI: Grok 3 Fast" },
+  { value: "grok-3-mini-fast", label: "xAI: Grok 3 Mini Fast" },
+  { value: "grok-2", label: "xAI: Grok 2" },
+  // Mistral
+  { value: "mistral-small", label: "Mistral: Mistral Small" },
+  { value: "mistral-medium", label: "Mistral: Mistral Medium" },
+  { value: "pixtral-12b", label: "Mistral: Pixtral 12B" },
+  // Google Gemini
+  { value: "gemini-3-pro-preview", label: "Google: Gemini 3 Pro Preview" },
+  { value: "gemini-3-flash-preview", label: "Google: Gemini 3 Flash Preview" },
+  { value: "gemini-2.5-flash", label: "Google: Gemini 2.5 Flash" },
+  { value: "gemini-2.5-flash-lite", label: "Google: Gemini 2.5 Flash Lite" },
+  { value: "gemini-2.5-pro", label: "Google: Gemini 2.5 Pro" },
+  { value: "gemini-2.0-flash", label: "Google: Gemini 2.0 Flash" },
+  { value: "gemini-2.0-flash-lite", label: "Google: Gemini 2.0 Flash Lite" },
+  { value: "gemini-flash-latest", label: "Google: Gemini Flash Latest" },
+  {
+    value: "gemini-flash-lite-latest",
+    label: "Google: Gemini Flash Lite Latest",
+  },
+  { value: "gemini-pro-latest", label: "Google: Gemini Pro Latest" },
 ]);
 
 const PROMPT_MODEL_LABELS = [
@@ -49,12 +134,26 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
 ]);
 
 const hasAPIforModel = (model: AIModel | string) => {
-  const provider = getProviderFromModel(model as AIModel);
+  let provider;
+  try {
+    provider = getProviderFromModel(model as AIModel);
+  } catch {
+    return false;
+  }
   if (provider === "openai") {
     return hasOpenAIKey();
   }
   if (provider === "anthropic") {
     return hasAnthropicKey();
+  }
+  if (provider === "xai") {
+    return hasXaiKey();
+  }
+  if (provider === "mistral") {
+    return hasMistralKey();
+  }
+  if (provider === "google") {
+    return hasGoogleAIKey();
   }
   return false;
 };
@@ -138,7 +237,12 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
 const ApiKeyWarning: React.FC<{ model?: string }> = ({ model }) => {
   if (!model) return null;
   if (hasAPIforModel(model)) return null;
-  const provider = getProviderFromModel(model as AIModel);
+  let provider;
+  try {
+    provider = getProviderFromModel(model as AIModel);
+  } catch {
+    return null;
+  }
   return (
     <Box mt="2">
       <Callout status="warning">
@@ -303,24 +407,26 @@ export default function AISettings({
                   {(() => {
                     const defaultModel =
                       form.watch("defaultAIModel") || "gpt-4o-mini";
-                    const defaultProvider = getProviderFromModel(defaultModel);
-
-                    const promptUsesAnthropic = prompts.some((prompt) => {
+                    let defaultProvider;
+                    try {
+                      defaultProvider = getProviderFromModel(defaultModel);
+                    } catch {
+                      return null;
+                    }
+                    // Check which providers are used by prompts
+                    const usedProviders = new Set<string>([defaultProvider]);
+                    prompts.forEach((prompt) => {
                       const promptModel = promptForm.watch(
                         `${prompt.promptType}-model`,
                       );
-                      return (
-                        promptModel &&
-                        getProviderFromModel(promptModel) === "anthropic"
-                      );
+                      if (promptModel) {
+                        usedProviders.add(getProviderFromModel(promptModel));
+                      }
                     });
-
-                    const showAnthropicKey =
-                      defaultProvider === "anthropic" || promptUsesAnthropic;
 
                     return (
                       <>
-                        {showAnthropicKey && (
+                        {usedProviders.has("anthropic") && (
                           <Box mb="6" width="100%">
                             <Text
                               as="label"
@@ -343,6 +449,98 @@ export default function AISettings({
                                   environment variables as{" "}
                                   <code>ANTHROPIC_API_KEY</code>. See more in
                                   our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {usedProviders.has("xai") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              xAI API Key
+                            </Text>
+                            {hasXaiKey() ? (
+                              <Box>
+                                Your xAI API key is correctly set in your
+                                environment variable <code>XAI_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your xAI API key to use Grok
+                                  models. Please define it in your environment
+                                  variables as <code>XAI_API_KEY</code>. See
+                                  more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {usedProviders.has("mistral") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Mistral API Key
+                            </Text>
+                            {hasMistralKey() ? (
+                              <Box>
+                                Your Mistral API key is correctly set in your
+                                environment variable{" "}
+                                <code>MISTRAL_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Mistral API key to use
+                                  Mistral models. Please define it in your
+                                  environment variables as{" "}
+                                  <code>MISTRAL_API_KEY</code>. See more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {usedProviders.has("google") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Google API Key
+                            </Text>
+                            {hasGoogleAIKey() ? (
+                              <Box>
+                                Your Google API key is correctly set in your
+                                environment variable{" "}
+                                <code>GOOGLE_AI_API_KEY</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Google API key to use Gemini
+                                  models. Please define it in your environment
+                                  variables as <code>GOOGLE_AI_API_KEY</code>.
+                                  See more in our{" "}
                                   <a href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
                                   </a>
