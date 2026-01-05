@@ -3,6 +3,7 @@ import { v4 as uuid4 } from "uuid";
 import {
   ExperimentMetricBlockInterface,
   blockHasFieldOfType,
+  filterAndGroupExperimentMetrics,
 } from "shared/enterprise";
 import { isString } from "shared/util";
 import { groupBy } from "lodash";
