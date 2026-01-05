@@ -33,7 +33,7 @@ const ExperimentTimelinePage = (): React.ReactElement => {
   );
 
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set("startDate", formatDateForURL(startDate));
     params.set("endDate", formatDateForURL(endDate));
     router.replace(`${router.pathname}?${params.toString()}`, undefined, {
