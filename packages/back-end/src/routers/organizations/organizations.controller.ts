@@ -10,7 +10,7 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType } from "shared/validators";
+import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import {
@@ -1828,7 +1828,7 @@ export async function putSDKWebhook(
 
   const updatedWebhook = await context.models.sdkWebhooks.update(
     webhook,
-    req.body,
+    updateSdkWebhookValidator.parse(req.body),
   );
 
   // Fire the webhook now that it has changed
