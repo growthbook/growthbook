@@ -176,7 +176,7 @@ export default function StatsEngineSettings() {
       <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
-            Variance Reduction (CUPED)
+            Variance Reduction (CUPEDps)
           </PremiumTooltip>
         </Heading>
         <Flex direction="column" gap="3">
@@ -195,7 +195,7 @@ export default function StatsEngineSettings() {
             <Box>
               <Text size="2" className="font-weight-semibold">
                 <label htmlFor="toggle-regressionAdjustmentEnabled">
-                  Use CUPED by default on all experiments
+                  Use CUPEDps by default on all experiments
                 </label>
               </Text>
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
@@ -238,7 +238,7 @@ export default function StatsEngineSettings() {
               )}
             </Box>
           </Flex>
-          {/* <Flex align="start" gap="3">
+          <Flex align="start" gap="3">
             <Checkbox
               id="toggle-postStratification"
               value={!form.watch("postStratificationDisabled")}
@@ -258,7 +258,7 @@ export default function StatsEngineSettings() {
                 is enabled and pre-computed dimensions are available.
               </Text>
             </Flex>
-          </Flex> */}
+          </Flex>
         </Flex>
       </Box>
     </Box>
