@@ -14,12 +14,7 @@ import {
   findSDKConnectionsByOrganization,
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  findAllSdkWebhooksByConnection,
-  findAllSdkWebhooksByConnectionIds,
-  findSdkWebhookByIdAcrossOrgs,
-  setLastSdkWebhookError,
-} from "back-end/src/models/WebhookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
 import {
   cancellableFetch,
@@ -58,7 +53,8 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
     return;
   }
 
-  const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
+  const webhook =
+    await SdkWebhookModel.dangerousFindSdkWebhookByIdAcrossOrgs(webhookId);
   if (!webhook || !webhook.sdks) {
     logger.error(
       {
@@ -121,7 +117,10 @@ export async function queueWebhooksForSdkConnection(
   context: ReqContext,
   connection: SDKConnectionInterface,
 ) {
-  const webhooks = await findAllSdkWebhooksByConnection(context, connection.id);
+  const webhooks =
+    await context.models.sdkWebhooks.findAllSdkWebhooksByConnection(
+      connection.id,
+    );
   for (const webhook of webhooks) {
     if (webhook) await queueSingleSdkWebhookJob(webhook);
   }
@@ -151,7 +150,8 @@ export async function queueWebhooksBySdkPayloadKeys(
     }
   }
 
-  const webhooks = await findAllSdkWebhooksByConnectionIds(context, sdkKeys);
+  const webhooks =
+    await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds(sdkKeys);
   for (const webhook of webhooks) {
     if (webhook) await queueSingleSdkWebhookJob(webhook);
   }
@@ -317,7 +317,8 @@ async function runWebhookFetch({
         responseCode: res.responseWithoutBody.status,
       },
     });
-    if (!global) await setLastSdkWebhookError(webhook, "");
+    if (!global)
+      await context.models.sdkWebhooks.setLastSdkWebhookError(webhook, "");
     return res;
   } catch (e) {
     const message = res?.stringBody || e.message;
@@ -332,7 +333,8 @@ async function runWebhookFetch({
         responseCode: res?.responseWithoutBody?.status || 0,
       },
     });
-    if (!global) await setLastSdkWebhookError(webhook, message);
+    if (!global)
+      await context.models.sdkWebhooks.setLastSdkWebhookError(webhook, message);
     throw e;
   }
 }
@@ -517,6 +519,8 @@ export async function fireGlobalSdkWebhooks(
         payloadKey,
         organization: context.org?.id,
         created: new Date(),
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
         error: "",
         lastSuccess: new Date(),
         name: "",
