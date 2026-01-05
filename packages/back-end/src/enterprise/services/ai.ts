@@ -9,7 +9,12 @@ import {
   get_encoding,
   TiktokenModel,
 } from "@dqbd/tiktoken";
-import { AIModel, AIPromptType, getProviderFromModel } from "shared/ai";
+import {
+  AIModel,
+  AIPromptType,
+  getProviderFromModel,
+  getProviderFromEmbeddingModel,
+} from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
@@ -322,25 +327,49 @@ export async function generateEmbeddings({
   context: ReqContext | ApiReqContext;
   input: string[];
 }): Promise<number[][]> {
-  const { aiEnabled, openAIAPIKey, embeddingModel } = getAISettingsForOrg(
-    context,
-    true,
-  );
+  const {
+    aiEnabled,
+    openAIAPIKey,
+    mistralAPIKey,
+    googleAPIKey,
+    embeddingModel,
+  } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI features are not enabled");
   }
 
-  if (!openAIAPIKey) {
-    throw new Error("OpenAI API key not set");
+  // Get the provider for this embedding model
+  const provider = getProviderFromEmbeddingModel(embeddingModel);
+
+  // Check that we have the API key for this provider
+  let aiProvider;
+  if (provider === "openai") {
+    if (!openAIAPIKey) {
+      throw new Error("OpenAI API key not set");
+    }
+    aiProvider = createOpenAI({
+      apiKey: openAIAPIKey,
+    });
+  } else if (provider === "mistral") {
+    if (!mistralAPIKey) {
+      throw new Error("Mistral API key not set");
+    }
+    aiProvider = createMistral({
+      apiKey: mistralAPIKey,
+    });
+  } else if (provider === "google") {
+    if (!googleAPIKey) {
+      throw new Error("Google AI API key not set");
+    }
+    aiProvider = createGoogleGenerativeAI({
+      apiKey: googleAPIKey,
+    });
+  } else {
+    throw new Error(`Unsupported embedding provider: ${provider}`);
   }
 
   try {
-    // Always use OpenAI for embeddings
-    const aiProvider = createOpenAI({
-      apiKey: openAIAPIKey,
-    });
-
     const model = aiProvider.embedding(embeddingModel);
 
     // Generate embeddings for each input string

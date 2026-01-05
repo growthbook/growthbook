@@ -7,6 +7,7 @@ import {
   AIModel,
   EmbeddingModel,
   getProviderFromModel,
+  getProviderFromEmbeddingModel,
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -125,9 +126,23 @@ const PROMPT_MODEL_LABELS = [
 ];
 
 const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
-  { value: "text-embedding-3-small", label: "OpenAI text embedding 3 small" },
-  { value: "text-embedding-3-large", label: "OpenAI text embedding 3 large" },
-  { value: "text-embedding-ada-002", label: "OpenAI text embedding Ada 002" },
+  // OpenAI embeddings
+  { value: "text-embedding-3-small", label: "OpenAI: text-embedding-3-small" },
+  { value: "text-embedding-3-large", label: "OpenAI: text-embedding-3-large" },
+  {
+    value: "text-embedding-ada-002",
+    label: "OpenAI: text-embedding-ada-002",
+  },
+  // Mistral embeddings
+  { value: "mistral-embed", label: "Mistral: mistral-embed" },
+  { value: "codestral-embed", label: "Mistral: codestral-embed" },
+  // Google embeddings
+  { value: "text-embedding-005", label: "Google: text-embedding-005" },
+  {
+    value: "text-multilingual-embedding-002",
+    label: "Google: text-multilingual-embedding-002",
+  },
+  { value: "gemini-embedding-001", label: "Google: gemini-embedding-001" },
 ]);
 
 const hasAPIforModel = (model: AIModel | string) => {
@@ -393,7 +408,7 @@ export default function AISettings({
                     </Text>
                     <SelectField
                       id="embeddingModel"
-                      helpText="Choose the OpenAI embedding model to use. Default is text-embedding-ada-002."
+                      helpText="Choose the embedding model to use for semantic search. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
                       value={
                         form.watch("embeddingModel") || "text-embedding-ada-002"
                       }
@@ -402,24 +417,45 @@ export default function AISettings({
                     />
                   </Box>
                   {(() => {
-                    const defaultModel =
-                      form.watch("defaultAIModel") || "gpt-4o-mini";
-                    let defaultProvider;
-                    try {
-                      defaultProvider = getProviderFromModel(defaultModel);
-                    } catch {
-                      return null;
+                    const defaultModel = form.watch("defaultAIModel");
+                    const usedProviders = new Set<string>();
+
+                    // Add default model provider if set
+                    if (defaultModel) {
+                      try {
+                        const defaultProvider =
+                          getProviderFromModel(defaultModel);
+                        usedProviders.add(defaultProvider);
+                      } catch {
+                        // Ignore invalid models
+                      }
                     }
+
                     // Check which providers are used by prompts
-                    const usedProviders = new Set<string>([defaultProvider]);
                     prompts.forEach((prompt) => {
                       const promptModel = promptForm.watch(
                         `${prompt.promptType}-model`,
                       );
                       if (promptModel) {
-                        usedProviders.add(getProviderFromModel(promptModel));
+                        try {
+                          usedProviders.add(getProviderFromModel(promptModel));
+                        } catch {
+                          // Ignore invalid models
+                        }
                       }
                     });
+
+                    // Add embedding model provider if set
+                    const embeddingModel = form.watch("embeddingModel");
+                    if (embeddingModel) {
+                      try {
+                        const embeddingProvider =
+                          getProviderFromEmbeddingModel(embeddingModel);
+                        usedProviders.add(embeddingProvider);
+                      } catch {
+                        // Ignore invalid embedding models
+                      }
+                    }
 
                     return (
                       <>
@@ -547,35 +583,37 @@ export default function AISettings({
                             )}
                           </Box>
                         )}
-                        <Box mb="6" width="100%">
-                          <Text
-                            as="label"
-                            size="3"
-                            className="font-weight-semibold"
-                          >
-                            OpenAI API Key
-                          </Text>
-                          {hasOpenAIKey() ? (
-                            <Box>
-                              Your OpenAI API key is correctly set in your
-                              environment variable <code>OPENAI_API_KEY</code>.
-                            </Box>
-                          ) : (
-                            <Box>
-                              <Callout status="warning">
-                                {defaultProvider === "openai"
-                                  ? "You must set your OpenAI API key to use GPT models."
-                                  : "OpenAI API key is required for embeddings."}{" "}
-                                Please define it in your environment variables
-                                as <code>OPENAI_API_KEY</code>. See more in our{" "}
-                                <a href="https://docs.growthbook.io/self-host/env">
-                                  self-hosting docs
-                                </a>
+                        {usedProviders.has("openai") && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              OpenAI API Key
+                            </Text>
+                            {hasOpenAIKey() ? (
+                              <Box>
+                                Your OpenAI API key is correctly set in your
+                                environment variable <code>OPENAI_API_KEY</code>
                                 .
-                              </Callout>
-                            </Box>
-                          )}
-                        </Box>
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your OpenAI API key to use OpenAI
+                                  models. Please define it in your environment
+                                  variables as <code>OPENAI_API_KEY</code>. See
+                                  more in our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
                       </>
                     );
                   })()}
@@ -729,22 +767,66 @@ export default function AISettings({
                         These similarity scores are automatically updated, but
                         if the results seem off, you can regenerate them here.
                       </p>
-                      <Button
-                        onClick={handleRegenerate}
-                        disabled={loading || !hasOpenAIKey()}
-                        variant="solid"
-                      >
-                        {loading ? "Regenerating..." : "Regenerate all"}
-                      </Button>
-                      {!hasOpenAIKey() && (
-                        <Box mt="2">
-                          <Callout status="warning">
-                            OpenAI API key is required for embeddings. Please
-                            set <code>OPENAI_API_KEY</code> in your environment
-                            variables.
-                          </Callout>
-                        </Box>
-                      )}
+                      {(() => {
+                        const embeddingModel =
+                          form.watch("embeddingModel") ||
+                          "text-embedding-ada-002";
+                        let embeddingProvider = "openai";
+                        let hasKey = true;
+                        try {
+                          embeddingProvider =
+                            getProviderFromEmbeddingModel(embeddingModel);
+                          if (embeddingProvider === "openai") {
+                            hasKey = hasOpenAIKey();
+                          } else if (embeddingProvider === "mistral") {
+                            hasKey = hasMistralKey();
+                          } else if (embeddingProvider === "google") {
+                            hasKey = hasGoogleAIKey();
+                          }
+                        } catch {
+                          // Use defaults
+                        }
+
+                        const providerNames: Record<string, string> = {
+                          openai: "OpenAI",
+                          mistral: "Mistral",
+                          google: "Google",
+                          anthropic: "Anthropic",
+                          xai: "xAI",
+                        };
+
+                        const providerEnvVars: Record<string, string> = {
+                          openai: "OPENAI_API_KEY",
+                          mistral: "MISTRAL_API_KEY",
+                          google: "GOOGLE_AI_API_KEY",
+                          anthropic: "ANTHROPIC_API_KEY",
+                          xai: "XAI_API_KEY",
+                        };
+
+                        return (
+                          <>
+                            <Button
+                              onClick={handleRegenerate}
+                              disabled={loading || !hasKey}
+                              variant="solid"
+                            >
+                              {loading ? "Regenerating..." : "Regenerate all"}
+                            </Button>
+                            {!hasKey && (
+                              <Box mt="2">
+                                <Callout status="warning">
+                                  {providerNames[embeddingProvider]} API key is
+                                  required for embeddings. Please set{" "}
+                                  <code>
+                                    {providerEnvVars[embeddingProvider]}
+                                  </code>{" "}
+                                  in your environment variables.
+                                </Callout>
+                              </Box>
+                            )}
+                          </>
+                        );
+                      })()}
                       {error && (
                         <Box className="col-auto pt-3">
                           <div className="alert alert-danger">{error}</div>

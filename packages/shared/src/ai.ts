@@ -1,12 +1,7 @@
 // AI Provider types and configurations
 export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 
-export type EmbeddingModel =
-  | "text-embedding-3-small"
-  | "text-embedding-3-large"
-  | "text-embedding-ada-002";
-
-// Available models for each provider
+// Available text generation models for each provider
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
     // GPT-5 series
@@ -79,6 +74,39 @@ export function getProviderFromModel(model: AIModel): AIProvider {
     }
   }
   throw new Error(`Model ${model} is not supported.`);
+}
+
+// Available embedding models for each provider
+export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
+  openai: [
+    "text-embedding-3-small",
+    "text-embedding-3-large",
+    "text-embedding-ada-002",
+  ],
+  mistral: ["mistral-embed", "codestral-embed"],
+  google: [
+    "text-embedding-005",
+    "text-multilingual-embedding-002",
+    "gemini-embedding-001",
+  ],
+} as const;
+
+// Derive EmbeddingModel type from the models defined in AI_PROVIDER_EMBEDDING_MODEL_MAP
+export type EmbeddingModel =
+  (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
+
+// Helper to determine which provider an embedding model belongs to
+export function getProviderFromEmbeddingModel(
+  model: EmbeddingModel,
+): AIProvider {
+  for (const [provider, models] of Object.entries(
+    AI_PROVIDER_EMBEDDING_MODEL_MAP,
+  )) {
+    if (models.includes(model as never)) {
+      return provider as AIProvider;
+    }
+  }
+  throw new Error(`Embedding model ${model} is not supported.`);
 }
 
 export interface AITokenUsageInterface {
