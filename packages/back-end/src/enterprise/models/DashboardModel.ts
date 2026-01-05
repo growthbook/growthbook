@@ -374,6 +374,7 @@ export function migrateBlock(
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
           : undefined;
+      console.log("====================== migrating experiment-metric block ======================", {pinnedSlices, sliceTagsFilter});
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource"]),
         metricSelector,
