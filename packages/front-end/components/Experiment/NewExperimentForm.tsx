@@ -189,6 +189,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   >([]);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [enoughWords, setEnoughWords] = useState(false);
+  const [missingEmbeddingKey, setMissingEmbeddingKey] = useState<{
+    provider: string;
+    envVar: string;
+  } | null>(null);
   const [expandSimilarResults, setExpandSimilarResults] = useState(false);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
@@ -556,8 +560,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     // Check if we have the API key for the embedding model provider
     const embeddingModel = settings.embeddingModel || "text-embedding-ada-002";
     let hasEmbeddingKey = false;
+    let embeddingProvider = "openai";
+    const providerEnvVars: Record<string, string> = {
+      openai: "OPENAI_API_KEY",
+      mistral: "MISTRAL_API_KEY",
+      google: "GOOGLE_AI_API_KEY",
+    };
     try {
-      const embeddingProvider = getProviderFromEmbeddingModel(embeddingModel);
+      embeddingProvider = getProviderFromEmbeddingModel(embeddingModel);
       if (embeddingProvider === "openai") {
         hasEmbeddingKey = hasOpenAIKey();
       } else if (embeddingProvider === "mistral") {
@@ -566,11 +576,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         hasEmbeddingKey = hasGoogleAIKey();
       }
     } catch {
-      // If we can't determine the provider, default to checking OpenAI
-      hasEmbeddingKey = hasOpenAIKey();
+      //  Ignore if we can't determine the provider
     }
 
-    if (!hasEmbeddingKey) return;
+    if (!hasEmbeddingKey) {
+      setMissingEmbeddingKey({
+        provider:
+          embeddingProvider.charAt(0).toUpperCase() +
+          embeddingProvider.slice(1),
+        envVar: providerEnvVars[embeddingProvider] || "API_KEY",
+      });
+      return;
+    }
+
+    setMissingEmbeddingKey(null);
 
     // check how many words we're sending in the hypothesis, name, and description:
     const wordCount =
@@ -830,7 +849,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {useCheckForSimilar && (
               <>
-                {!enoughWords ? (
+                {missingEmbeddingKey ? (
+                  <Box my="4">
+                    <Callout status="warning">
+                      {missingEmbeddingKey.provider} API key is required for
+                      checking similar experiments. Please set{" "}
+                      <code>{missingEmbeddingKey.envVar}</code> in your
+                      environment variables.
+                    </Callout>
+                  </Box>
+                ) : !enoughWords ? (
                   <Box my="4">
                     <Flex gap="2" className="text-muted" align="center">
                       <FaExclamationCircle />
