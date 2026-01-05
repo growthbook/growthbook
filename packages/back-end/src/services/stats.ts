@@ -529,6 +529,13 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
+const getFormattedCI = (
+  ci?: [number | null, number | null],
+): [number, number] | undefined => {
+  if (!ci) return undefined;
+  return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
+};
+
 function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
@@ -582,43 +589,18 @@ function parseStatsEngineResult({
           data.users = Math.max(data.users, v.users);
 
           // translate null in CI to infinity
-          const ci: [number, number] | undefined = v.ci
-            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
-            : undefined;
-
-          const ciCupedUnadjusted: [number, number] | undefined = v
-            .supplementalResultsCupedUnadjusted?.ci
-            ? [
-                v.supplementalResultsCupedUnadjusted.ci[0] ?? -Infinity,
-                v.supplementalResultsCupedUnadjusted.ci[1] ?? Infinity,
-              ]
-            : undefined;
-
-          const ciUncapped: [number, number] | undefined = v
-            .supplementalResultsUncapped?.ci
-            ? [
-                v.supplementalResultsUncapped.ci[0] ?? -Infinity,
-                v.supplementalResultsUncapped.ci[1] ?? Infinity,
-              ]
-            : undefined;
-
-          const ciFlatPrior: [number, number] | undefined =
-            "supplementalResultsFlatPrior" in v &&
-            v.supplementalResultsFlatPrior?.ci
-              ? [
-                  v.supplementalResultsFlatPrior.ci[0] ?? -Infinity,
-                  v.supplementalResultsFlatPrior.ci[1] ?? Infinity,
-                ]
-              : undefined;
-
-          const ciUnstratified: [number, number] | undefined = v
-            .supplementalResultsUnstratified?.ci
-            ? [
-                v.supplementalResultsUnstratified.ci[0] ?? -Infinity,
-                v.supplementalResultsUnstratified.ci[1] ?? Infinity,
-              ]
-            : undefined;
-
+          const ci = getFormattedCI(v.ci);
+          const ciCupedUnadjusted = getFormattedCI(
+            v.supplementalResultsCupedUnadjusted?.ci,
+          );
+          const ciUncapped = getFormattedCI(v.supplementalResultsUncapped?.ci);
+          const ciUnstratified = getFormattedCI(
+            v.supplementalResultsUnstratified?.ci,
+          );
+          const parsedVariation = {
+            ...v,
+            ci,
+          };
           // Update CI values in supplemental results
           if (v.supplementalResultsCupedUnadjusted) {
             v.supplementalResultsCupedUnadjusted.ci = ciCupedUnadjusted;
@@ -630,16 +612,14 @@ function parseStatsEngineResult({
             "supplementalResultsFlatPrior" in v &&
             v.supplementalResultsFlatPrior
           ) {
+            const ciFlatPrior = getFormattedCI(
+              v.supplementalResultsFlatPrior?.ci,
+            );
             v.supplementalResultsFlatPrior.ci = ciFlatPrior;
           }
           if (v.supplementalResultsUnstratified) {
             v.supplementalResultsUnstratified.ci = ciUnstratified;
           }
-
-          const parsedVariation = {
-            ...v,
-            ci,
-          };
           data.metrics[metric] = {
             ...parsedVariation,
             buckets: [],
