@@ -17,6 +17,211 @@ import { useUser } from "@/services/UserContext";
 import MetricName from "@/components/Metrics/MetricName";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
+export type SliceChunk = {
+  column: string;
+  value: string | null;
+  datatype: FactTableColumnType;
+  isOther: boolean;
+  isSelectAll?: boolean;
+};
+
+export type SliceOption = {
+  value: string;
+  parsedChunks: SliceChunk[];
+  isOrphaned: boolean;
+};
+
+export function getSliceOptions({
+  availableSliceTags = [],
+  sliceTagsFilter = [],
+}: {
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter?: string[];
+}): SliceOption[] {
+  // Create a map of available tags by ID for quick lookup
+  const availableTagMap = new Map(
+    availableSliceTags.map((tag) => [tag.id, tag]),
+  );
+
+  // Get all unique tag IDs from both available and selected
+  const allTagIds = Array.from(
+    new Set([
+      ...availableSliceTags.map((tag) => tag.id),
+      ...(sliceTagsFilter || []),
+    ]),
+  );
+
+  const options = allTagIds.map((tagId) => {
+    const availableTag = availableTagMap.get(tagId);
+    const isOrphaned = !availableTag;
+
+    // Handle "select all" format: dim:column (no equals sign)
+    if (!tagId.includes("=")) {
+      const columnMatch = tagId.match(/^dim:(.+)$/);
+      if (columnMatch) {
+        const column = decodeURIComponent(columnMatch[1]);
+        const datatype =
+          availableTag?.datatypes?.[column] ||
+          ("string" as FactTableColumnType);
+        return {
+          value: tagId,
+          parsedChunks: [
+            {
+              column,
+              value: null,
+              datatype,
+              isSelectAll: true,
+              isOther: false,
+            },
+          ],
+          isOrphaned,
+        };
+      }
+    }
+
+    // Parse regular slice tag using parseSliceQueryString
+    const sliceLevels = parseSliceQueryString(tagId);
+    const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
+      const value = sl?.levels?.[0] || "";
+      const datatype =
+        availableTag?.datatypes?.[sl?.column] ||
+        sl.datatype ||
+        ("string" as FactTableColumnType);
+
+      return {
+        column: sl.column,
+        value: value || null,
+        datatype,
+        isOther: !value,
+      };
+    });
+
+    return {
+      value: tagId,
+      parsedChunks,
+      isOrphaned,
+    };
+  });
+
+  // Add "overall" option at the top if there are any slices available or selected
+  const hasAnySlices =
+    availableSliceTags.length > 0 || (sliceTagsFilter?.length || 0) > 0;
+  if (hasAnySlices) {
+    return [
+      {
+        value: "overall",
+        parsedChunks: [
+          {
+            column: "Overall",
+            value: null,
+            datatype: "string" as FactTableColumnType,
+            isSelectAll: false,
+            isOther: false,
+          },
+        ],
+        isOrphaned: false,
+      },
+      ...options,
+    ];
+  }
+
+  return options;
+}
+
+export function isSliceCoveredBySelectAll(
+  sliceId: string,
+  selectedSliceTags: string[],
+): boolean {
+  // "Select all" options themselves should never be considered covered
+  if (sliceId.startsWith("dim:") && !sliceId.includes("=")) {
+    return false;
+  }
+
+  // Get all "select all" tags from selected filters (format: dim:column)
+  const selectAllTags = selectedSliceTags.filter(
+    (tag) => tag.startsWith("dim:") && !tag.includes("="),
+  );
+
+  if (selectAllTags.length === 0) return false;
+
+  // Parse the slice ID to get its columns
+  const sliceLevels = parseSliceQueryString(sliceId);
+  const sliceColumns = sliceLevels.map((sl) => sl.column);
+
+  // Check if any of the slice's columns has a "select all" filter
+  return sliceColumns.some((column) => {
+    const selectAllTag = `dim:${encodeURIComponent(column)}`;
+    return selectAllTags.includes(selectAllTag);
+  });
+}
+
+export function formatSliceOptionLabel(
+  option: SliceOption,
+  meta: FormatOptionLabelMeta<SingleValue>,
+  sliceTagsFilter?: string[],
+): React.ReactNode {
+  if (option.value === "overall") {
+    return (
+      <>
+        Overall <span className="text-muted">(Totals)</span>
+      </>
+    );
+  }
+
+  if (option.parsedChunks[0]?.isSelectAll) {
+    const chunk = option.parsedChunks[0];
+    return (
+      <span
+        style={
+          option.isOrphaned ? { textDecoration: "line-through" } : undefined
+        }
+      >
+        {chunk.column} <span className="text-muted">(All Slices)</span>
+      </span>
+    );
+  }
+
+  const isCoveredBySelectAll = sliceTagsFilter
+    ? isSliceCoveredBySelectAll(option.value, sliceTagsFilter)
+    : false;
+
+  // Regular slices: all chunks are non-select-all
+  return (
+    <span
+      className={clsx(meta?.context === "menu" && "pl-3")}
+      style={{
+        opacity: isCoveredBySelectAll ? 0.3 : 1,
+        ...(option.isOrphaned && { textDecoration: "line-through" }),
+      }}
+    >
+      {option.parsedChunks.map((chunk, index) => (
+        <React.Fragment key={index}>
+          {index > 0 && ", "}
+          {chunk.isOther ? (
+            <>
+              {chunk.column}:{" "}
+              <span
+                style={{
+                  fontVariant: "small-caps",
+                  fontWeight: 600,
+                }}
+              >
+                {chunk.datatype === "boolean" ? "null" : "other"}
+              </span>
+            </>
+          ) : (
+            `${chunk.column}: ${chunk.value}`
+          )}
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
 export function getMetricOptions({
   availableMetricsFilters,
   selectedMetricIds = [],
@@ -124,200 +329,27 @@ export default function ResultsMetricFilter({
     (metricsFilter?.length || 0) +
     (sliceTagsFilter?.length || 0);
 
-  type SliceChunk = {
-    column: string;
-    value: string | null;
-    datatype: FactTableColumnType;
-    isOther: boolean;
-    isSelectAll?: boolean;
-  };
-
-  const sliceOptions = useMemo(() => {
-    // Create a map of available tags by ID for quick lookup
-    const availableTagMap = new Map(
-      availableSliceTags.map((tag) => [tag.id, tag]),
-    );
-
-    // Get all unique tag IDs from both available and selected
-    const allTagIds = Array.from(
-      new Set([
-        ...availableSliceTags.map((tag) => tag.id),
-        ...(sliceTagsFilter || []),
-      ]),
-    );
-
-    const options = allTagIds.map((tagId) => {
-      const availableTag = availableTagMap.get(tagId);
-      const isOrphaned = !availableTag;
-
-      // Handle "select all" format: dim:column (no equals sign)
-      if (!tagId.includes("=")) {
-        const columnMatch = tagId.match(/^dim:(.+)$/);
-        if (columnMatch) {
-          const column = decodeURIComponent(columnMatch[1]);
-          const datatype =
-            availableTag?.datatypes?.[column] ||
-            ("string" as FactTableColumnType);
-          return {
-            value: tagId,
-            parsedChunks: [
-              {
-                column,
-                value: null,
-                datatype,
-                isSelectAll: true,
-                isOther: false,
-              },
-            ],
-            isOrphaned,
-          };
-        }
-      }
-
-      // Parse regular slice tag using parseSliceQueryString
-      const sliceLevels = parseSliceQueryString(tagId);
-      const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
-        const value = sl?.levels?.[0] || "";
-        const datatype =
-          availableTag?.datatypes?.[sl?.column] ||
-          sl.datatype ||
-          ("string" as FactTableColumnType);
-
-        return {
-          column: sl.column,
-          value: value || null,
-          datatype,
-          isOther: !value,
-        };
-      });
-
-      return {
-        value: tagId,
-        parsedChunks,
-        isOrphaned,
-      };
-    });
-
-    // Add "overall" option at the top if there are any slices available or selected
-    const hasAnySlices =
-      availableSliceTags.length > 0 || (sliceTagsFilter?.length || 0) > 0;
-    if (hasAnySlices) {
-      return [
-        {
-          value: "overall",
-          parsedChunks: [
-            {
-              column: "Overall",
-              value: null,
-              datatype: "string" as FactTableColumnType,
-              isSelectAll: false,
-              isOther: false,
-            },
-          ],
-          isOrphaned: false,
-        },
-        ...options,
-      ];
-    }
-
-    return options;
-  }, [availableSliceTags, sliceTagsFilter]);
-
-  const isSliceCoveredBySelectAll = useCallback(
-    (sliceId: string, selectedSliceTags: string[]): boolean => {
-      // "Select all" options themselves should never be considered covered
-      if (sliceId.startsWith("dim:") && !sliceId.includes("=")) {
-        return false;
-      }
-
-      // Get all "select all" tags from selected filters (format: dim:column)
-      const selectAllTags = selectedSliceTags.filter(
-        (tag) => tag.startsWith("dim:") && !tag.includes("="),
-      );
-
-      if (selectAllTags.length === 0) return false;
-
-      // Parse the slice ID to get its columns
-      const sliceLevels = parseSliceQueryString(sliceId);
-      const sliceColumns = sliceLevels.map((sl) => sl.column);
-
-      // Check if any of the slice's columns has a "select all" filter
-      return sliceColumns.some((column) => {
-        const selectAllTag = `dim:${encodeURIComponent(column)}`;
-        return selectAllTags.includes(selectAllTag);
-      });
-    },
-    [],
+  const sliceOptions = useMemo(
+    () =>
+      getSliceOptions({
+        availableSliceTags,
+        sliceTagsFilter,
+      }),
+    [availableSliceTags, sliceTagsFilter],
   );
 
-  const formatSliceOptionLabel = useCallback(
+  const formatSliceOptionLabelCallback = useCallback(
     (
-      option: {
-        value: string;
-        parsedChunks: SliceChunk[];
-        isOrphaned?: boolean;
-      },
+      option: SingleValue & { isOrphaned?: boolean },
       meta: FormatOptionLabelMeta<SingleValue>,
     ) => {
-      if (option.value === "overall") {
-        return (
-          <>
-            Overall <span className="text-muted">(Totals)</span>
-          </>
-        );
+      const fullOption = sliceOptions.find((o) => o.value === option.value);
+      if (!fullOption) {
+        return option.label;
       }
-
-      if (option.parsedChunks[0]?.isSelectAll) {
-        const chunk = option.parsedChunks[0];
-        return (
-          <span
-            style={
-              option.isOrphaned ? { textDecoration: "line-through" } : undefined
-            }
-          >
-            {chunk.column} <span className="text-muted">(All Slices)</span>
-          </span>
-        );
-      }
-
-      const isCoveredBySelectAll = isSliceCoveredBySelectAll(
-        option.value,
-        sliceTagsFilter,
-      );
-
-      // Regular slices: all chunks are non-select-all
-      return (
-        <span
-          className={clsx(meta?.context === "menu" && "pl-3")}
-          style={{
-            opacity: isCoveredBySelectAll ? 0.3 : 1,
-            ...(option.isOrphaned && { textDecoration: "line-through" }),
-          }}
-        >
-          {option.parsedChunks.map((chunk, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && ", "}
-              {chunk.isOther ? (
-                <>
-                  {chunk.column}:{" "}
-                  <span
-                    style={{
-                      fontVariant: "small-caps",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {chunk.datatype === "boolean" ? "null" : "other"}
-                  </span>
-                </>
-              ) : (
-                `${chunk.column}: ${chunk.value}`
-              )}
-            </React.Fragment>
-          ))}
-        </span>
-      );
+      return formatSliceOptionLabel(fullOption, meta, sliceTagsFilter);
     },
-    [sliceTagsFilter, isSliceCoveredBySelectAll],
+    [sliceOptions, sliceTagsFilter],
   );
 
   const metricOptions = useMemo(
@@ -474,15 +506,7 @@ export default function ResultsMetricFilter({
                       value,
                       isOrphaned,
                     }))}
-                    formatOptionLabel={(option, meta) => {
-                      const fullOption = sliceOptions.find(
-                        (o) => o.value === option.value,
-                      );
-                      if (!fullOption || !fullOption.parsedChunks) {
-                        return option.label;
-                      }
-                      return formatSliceOptionLabel(fullOption, meta);
-                    }}
+                    formatOptionLabel={formatSliceOptionLabelCallback}
                     onChange={(v) => {
                       setSliceTagsFilter?.(v);
                       return;

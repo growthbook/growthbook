@@ -1,4 +1,4 @@
-import { Box, Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
+import { Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -8,7 +8,6 @@ import {
   isMetricSelector,
   metricSelectors,
   BLOCK_CONFIG_ITEM_TYPES,
-  pinSources,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -17,14 +16,20 @@ import { SavedQuery } from "shared/validators";
 import {
   PiCopySimple,
   PiPencilSimpleFill,
-  PiPushPinFill,
   PiTrashSimpleFill,
 } from "react-icons/pi";
-import { expandMetricGroups, isMetricGroupId } from "shared/experiments";
+import { isMetricGroupId } from "shared/experiments";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { FormatOptionLabelMeta } from "react-select";
-import { getAvailableMetricsFilters } from "@/services/experiments";
-import { getMetricOptions } from "@/components/Experiment/ResultsMetricFilter";
+import {
+  getAvailableMetricsFilters,
+  getAvailableSliceTags,
+} from "@/services/experiments";
+import {
+  getMetricOptions,
+  getSliceOptions,
+  formatSliceOptionLabel,
+} from "@/components/Experiment/ResultsMetricFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -52,11 +57,6 @@ import {
   DashboardSnapshotContext,
 } from "../../DashboardSnapshotProvider";
 import MetricExplorerSettings from "./MetricExplorerSettings";
-import {
-  ExperimentMetricBlockContext,
-  ExperimentTimeSeriesBlockContext,
-} from "./types";
-import { useBlockContext } from "./useBlockContext";
 
 type RequiredField = {
   field: string;
@@ -166,7 +166,9 @@ export default function EditSingleBlock({
     getExperimentMetricById,
     getMetricGroupById,
     getDatasourceById,
+    getFactTableById,
     factMetrics,
+    factTables,
   } = useDefinitions();
   const { apiCall } = useAuth();
   const {
@@ -188,8 +190,6 @@ export default function EditSingleBlock({
     showDeleteSavedQueryConfirmation,
     setShowDeleteSavedQueryConfirmation,
   ] = useState(false);
-  const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
-    useState<string>("");
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
   const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
@@ -197,10 +197,6 @@ export default function EditSingleBlock({
   );
 
   const { incrementalRefresh } = useIncrementalRefresh(experiment?.id ?? "");
-
-  // Get block context from workspace level
-  const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
-  const blockContext = useBlockContext(blockId);
 
   // TODO: does this need to handle metric groups
   const factMetricOptions = useMemo(() => {
@@ -307,158 +303,62 @@ export default function EditSingleBlock({
     ];
   }, [metricOptions]);
 
-  // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
-  useEffect(() => {
-    if (!selectedMetricIdForPinning) return;
-    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) return;
+  // Generate available slice tags for blocks that support slice filtering
+  const availableSliceTags = useMemo(() => {
+    if (!experiment) return [];
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
+      return [];
+    }
+
+    // Filter input metrics based on metricSelector (same logic as availableMetricsFilters)
+    let goalMetrics = experiment.goalMetrics;
+    let secondaryMetrics = experiment.secondaryMetrics;
+    let guardrailMetrics = experiment.guardrailMetrics;
 
     const selector = block.metricSelector;
-    let isAllowed = false;
-
-    // Check if the selected metric is allowed by the current selector and metricIds filter
-    if (experiment) {
-      // First check if metricIds filter excludes it
-      if (block.metricIds && block.metricIds.length > 0) {
-        const filteredMetricIds = expandMetricGroups(
-          block.metricIds,
-          metricGroups,
-        );
-        if (!filteredMetricIds.includes(selectedMetricIdForPinning)) {
-          isAllowed = false;
-        } else {
-          // If it passes the filter, check the selector category
-          if (selector === "all") {
-            isAllowed = true; // All metrics are allowed
-          } else if (selector === "experiment-goal") {
-            isAllowed = expandMetricGroups(
-              experiment.goalMetrics,
-              metricGroups,
-            ).includes(selectedMetricIdForPinning);
-          } else if (selector === "experiment-secondary") {
-            isAllowed = expandMetricGroups(
-              experiment.secondaryMetrics,
-              metricGroups,
-            ).includes(selectedMetricIdForPinning);
-          } else if (selector === "experiment-guardrail") {
-            isAllowed = expandMetricGroups(
-              experiment.guardrailMetrics,
-              metricGroups,
-            ).includes(selectedMetricIdForPinning);
-          }
-        }
-      } else {
-        // No metricIds filter, check selector category only
-        if (selector === "all") {
-          isAllowed = true; // All metrics are allowed
-        } else if (selector === "experiment-goal") {
-          isAllowed = expandMetricGroups(
-            experiment.goalMetrics,
-            metricGroups,
-          ).includes(selectedMetricIdForPinning);
-        } else if (selector === "experiment-secondary") {
-          isAllowed = expandMetricGroups(
-            experiment.secondaryMetrics,
-            metricGroups,
-          ).includes(selectedMetricIdForPinning);
-        } else if (selector === "experiment-guardrail") {
-          isAllowed = expandMetricGroups(
-            experiment.guardrailMetrics,
-            metricGroups,
-          ).includes(selectedMetricIdForPinning);
-        }
-      }
+    if (selector === "experiment-goal") {
+      secondaryMetrics = [];
+      guardrailMetrics = [];
+    } else if (selector === "experiment-secondary") {
+      goalMetrics = [];
+      guardrailMetrics = [];
+    } else if (selector === "experiment-guardrail") {
+      goalMetrics = [];
+      secondaryMetrics = [];
     }
 
-    if (!isAllowed) {
-      setSelectedMetricIdForPinning("");
-    }
-  }, [block, selectedMetricIdForPinning, experiment, metricGroups]);
+    return getAvailableSliceTags({
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      customMetricSlices: experiment.customMetricSlices,
+      metricGroups,
+      factTables,
+      getExperimentMetricById,
+      getFactTableById,
+    });
+  }, [
+    experiment,
+    metricGroups,
+    factTables,
+    getExperimentMetricById,
+    getFactTableById,
+    block,
+  ]);
 
-  const getSliceOptions = (metricId: string) => {
-    if (!metricId) return [];
-
-    // If we have context with sliceData, use it
-    if (
-      blockContext &&
-      "sliceData" in blockContext &&
-      Array.isArray(blockContext.sliceData)
-    ) {
-      // Filter slice data for the selected metric
-      const metricSliceData = (
-        blockContext as
-          | ExperimentMetricBlockContext
-          | ExperimentTimeSeriesBlockContext
-      ).sliceData.filter((slice) => {
-        // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
-        const sliceMetricId = slice.value.split("?")[0];
-        return sliceMetricId === metricId;
-      });
-      return metricSliceData;
-    }
-
-    return [];
-  };
-
-  const isSlicePinned = (pinKey: string) => {
-    if (!block) return false;
-
-    // If we have context with isSlicePinned function, use it
-    if (
-      blockContext &&
-      "isSlicePinned" in blockContext &&
-      typeof blockContext.isSlicePinned === "function"
-    ) {
-      return blockContext.isSlicePinned(pinKey) || false;
-    }
-
-    return false;
-  };
-
-  const toggleSlicePin = (pinKey: string, checked: boolean) => {
-    if (
-      !block ||
-      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
-    )
-      return;
-
-    const newPinnedSlices = checked
-      ? [...block.pinnedMetricSlices, pinKey]
-      : block.pinnedMetricSlices.filter((id) => id !== pinKey);
-
-    setBlock({
-      ...block,
-      pinnedMetricSlices: newPinnedSlices,
-    } as typeof block);
-  };
-
-  const getSelectAllState = () => {
-    if (
-      !block ||
-      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
-    )
-      return false;
-
-    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
-    const pinnedCount = sliceOptions.filter((slice) =>
-      block.pinnedMetricSlices.includes(slice.value),
-    ).length;
-
-    if (pinnedCount === 0) return false;
-    if (pinnedCount === sliceOptions.length) return true;
-    return "indeterminate";
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (!block) return;
-
-    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
-    const pinKeys = sliceOptions.map((slice) => slice.value);
-
-    setBlock({
-      ...block,
-      pinnedMetricSlices: checked ? pinKeys : [],
-    } as typeof block);
-  };
+  // Generate slice options
+  const sliceOptions = useMemo(() => {
+    const blockSliceTagsFilter: string[] =
+      block &&
+      "sliceTagsFilter" in block &&
+      isStringArray(block.sliceTagsFilter)
+        ? block.sliceTagsFilter
+        : [];
+    return getSliceOptions({
+      availableSliceTags,
+      sliceTagsFilter: blockSliceTagsFilter,
+    });
+  }, [availableSliceTags, block]);
 
   const dimensionOptions = useMemo(() => {
     // For general dashboards without experiment, return empty options
@@ -869,6 +769,52 @@ export default function EditSingleBlock({
                     <div className="pb-1 pt-2">{group.label}</div>
                   )}
                 />
+                {block &&
+                  "sliceTagsFilter" in block &&
+                  sliceOptions.length > 0 && (
+                    <MultiSelectField
+                      label="Filter Slices"
+                      labelClassName="font-weight-bold"
+                      value={
+                        block.sliceTagsFilter &&
+                        isStringArray(block.sliceTagsFilter)
+                          ? block.sliceTagsFilter
+                          : []
+                      }
+                      containerClassName="mb-0"
+                      onChange={(value) =>
+                        setBlock({ ...block, sliceTagsFilter: value })
+                      }
+                      options={sliceOptions.map(({ value, isOrphaned }) => ({
+                        label: value,
+                        value,
+                        isOrphaned,
+                      }))}
+                      sort={false}
+                      formatOptionLabel={(
+                        option: SingleValue & { isOrphaned?: boolean },
+                        meta: FormatOptionLabelMeta<SingleValue>,
+                      ) => {
+                        const fullOption = sliceOptions.find(
+                          (o) => o.value === option.value,
+                        );
+                        if (!fullOption) {
+                          return option.label;
+                        }
+                        const blockSliceTagsFilter: string[] =
+                          block &&
+                          "sliceTagsFilter" in block &&
+                          isStringArray(block.sliceTagsFilter)
+                            ? block.sliceTagsFilter
+                            : [];
+                        return formatSliceOptionLabel(
+                          fullOption,
+                          meta,
+                          blockSliceTagsFilter,
+                        );
+                      }}
+                    />
+                  )}
               </>
             )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
@@ -988,176 +934,6 @@ export default function EditSingleBlock({
                 }}
               />
             )}
-            {blockHasFieldOfType(block, "pinSource", isString) ? (
-              <SelectField
-                label="Pin slice rows"
-                containerClassName="mb-2"
-                value={block.pinSource || "experiment"}
-                onChange={(value) =>
-                  setBlock({
-                    ...block,
-                    pinSource: value as (typeof pinSources)[number],
-                    // Reset pinnedMetricSlices when switching to experiment or none
-                    pinnedMetricSlices:
-                      value === "custom" ? block.pinnedMetricSlices || [] : [],
-                  } as DashboardBlockInterface & { pinSource: string })
-                }
-                options={pinSources.map((source) => ({
-                  value: source,
-                  label:
-                    source === "experiment"
-                      ? "Use Experiment"
-                      : source === "custom"
-                        ? "Custom"
-                        : "None",
-                }))}
-                sort={false}
-              />
-            ) : null}
-            {blockHasFieldOfType(block, "pinSource", isString) &&
-              block.pinSource === "custom" && (
-                <div className="border rounded mb-2">
-                  <div className="px-3 pt-2 pb-1 border-bottom">
-                    <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />
-                    <Text weight="medium">Custom Pin Selection</Text>
-
-                    <SelectField
-                      label="Select Metric"
-                      containerClassName="mt-3"
-                      value={selectedMetricIdForPinning || ""}
-                      onChange={(value) => setSelectedMetricIdForPinning(value)}
-                      options={formattedMetricOptions.flatMap((group) =>
-                        group.options.map((opt) => ({
-                          label: opt.label,
-                          value: opt.value,
-                          isOrphaned: opt.isOrphaned,
-                        })),
-                      )}
-                      sort={false}
-                      formatOptionLabel={(
-                        option: SingleValue & { isOrphaned?: boolean },
-                      ) => (
-                        <Flex align="center" justify="between" gap="3">
-                          <Box
-                            flexGrow="1"
-                            overflow="hidden"
-                            style={{ textOverflow: "ellipsis" }}
-                          >
-                            <Text>{option.label}</Text>
-                          </Box>
-                          <Box flexShrink="0">
-                            <Text size="1" color="gray">
-                              {
-                                getSliceOptions(option.value)
-                                  .map((slice) => isSlicePinned(slice.value))
-                                  .filter(Boolean).length
-                              }{" "}
-                              of {getSliceOptions(option.value).length} pinned
-                            </Text>
-                          </Box>
-                        </Flex>
-                      )}
-                    />
-                  </div>
-                  {selectedMetricIdForPinning ? (
-                    <div
-                      className="p-3"
-                      style={{ maxHeight: 200, overflowY: "auto" }}
-                    >
-                      {getSliceOptions(selectedMetricIdForPinning).length >
-                      0 ? (
-                        <>
-                          <Checkbox
-                            label="Select All"
-                            value={getSelectAllState()}
-                            setValue={handleSelectAll}
-                            size="sm"
-                            mb="4"
-                          />
-                          <Flex direction="column" gap="0.5">
-                            {getSliceOptions(selectedMetricIdForPinning).map(
-                              (slice) => {
-                                // Generate label from column + level pairs
-                                const labelParts = slice.sliceLevels.map(
-                                  (sl) => {
-                                    if (sl.datatype === "boolean") {
-                                      const value =
-                                        sl.levels.length === 0
-                                          ? "null"
-                                          : sl.levels[0] === "true"
-                                            ? "true"
-                                            : "false";
-                                      return (
-                                        <span key={sl.column}>
-                                          {sl.column}:{" "}
-                                          <span
-                                            style={{
-                                              fontVariant: "small-caps",
-                                              fontWeight: 600,
-                                              fontSize: "16px",
-                                            }}
-                                          >
-                                            {value}
-                                          </span>
-                                        </span>
-                                      );
-                                    } else {
-                                      const value =
-                                        sl.levels.length === 0
-                                          ? "other"
-                                          : sl.levels[0];
-                                      return `${sl.column}: ${value}`;
-                                    }
-                                  },
-                                );
-
-                                const label =
-                                  labelParts.length === 1
-                                    ? labelParts[0]
-                                    : labelParts.reduce((acc, curr, index) => {
-                                        if (index === 0) return acc;
-                                        return (
-                                          <span key={index}>
-                                            {acc} + {curr}
-                                          </span>
-                                        );
-                                      });
-
-                                return (
-                                  <Checkbox
-                                    key={slice.value}
-                                    label={label}
-                                    value={isSlicePinned(slice.value)}
-                                    setValue={(checked) =>
-                                      toggleSlicePin(slice.value, checked)
-                                    }
-                                    size="sm"
-                                    weight="regular"
-                                  />
-                                );
-                              },
-                            )}
-                          </Flex>
-                        </>
-                      ) : (
-                        <Text
-                          weight="regular"
-                          color="gray"
-                          as="p"
-                          mx="4"
-                          my="2"
-                        >
-                          No slices available for this metric
-                        </Text>
-                      )}
-                    </div>
-                  ) : (
-                    <Text weight="regular" color="gray" as="p" mx="4" my="2">
-                      No metric selected
-                    </Text>
-                  )}
-                </div>
-              )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"

@@ -1,26 +1,17 @@
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import {
   ExperimentTimeSeriesBlockInterface,
-  blockHasFieldOfType,
+  filterAndGroupExperimentMetrics,
 } from "shared/enterprise";
-import { expandMetricGroups } from "shared/experiments";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
-import { isString } from "shared/util";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricResultGroup as _getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
-import {
-  useDashboardMetricSliceData,
-  useDashboardPinnedMetricSlices,
-} from "@/enterprise/hooks/useDashboardMetricSlices";
-import { ExperimentTimeSeriesBlockContext } from "../DashboardEditorSidebar/types";
-import { setBlockContextValue } from "../DashboardEditorSidebar/useBlockContext";
 import { BlockProps } from ".";
 
 export default function ExperimentTimeSeriesBlock({
@@ -31,27 +22,16 @@ export default function ExperimentTimeSeriesBlock({
   ssrPolyfills,
   isEditing,
   metrics,
-  setBlock,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
   const {
     variationIds,
-    pinSource,
-    metricSelector: _metricSelector,
     metricIds: blockMetricIds,
+    sliceTagsFilter: blockSliceTagsFilter,
   } = block;
 
-  // The actual ID of the block which might be null in the case of a block being created
-  const blockInherentId = useMemo(
-    () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
-    [block],
-  );
-
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const {
-    metricGroups: _metricGroups,
-    getExperimentMetricById,
-    getFactTableById,
-  } = useDefinitions();
+  const { metricGroups, getExperimentMetricById, getFactTableById } =
+    useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
@@ -81,27 +61,31 @@ export default function ExperimentTimeSeriesBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const { expandedMetrics, toggleExpandedMetric, effectivePinnedMetricSlices } =
-    useDashboardPinnedMetricSlices(block, experiment);
+  const [expandedMetrics, setExpandedMetrics] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedMetric = useCallback(
+    (metricId: string, resultGroup: "goal" | "secondary" | "guardrail") => {
+      const key = `${metricId}:${resultGroup}`;
+      setExpandedMetrics((prev) => ({
+        ...prev,
+        [key]: !prev[key],
+      }));
+    },
+    [],
+  );
 
   const metricIds = metrics?.map((m) => m.id) || [];
-  const goalMetrics = expandMetricGroups(
-    experiment.goalMetrics,
-    ssrPolyfills?.metricGroups || _metricGroups,
-  ).filter((mId) => metricIds.includes(mId));
-  const secondaryMetrics = expandMetricGroups(
-    experiment.secondaryMetrics,
-    ssrPolyfills?.metricGroups || _metricGroups,
-  ).filter((mId) => metricIds.includes(mId) && !goalMetrics.includes(mId));
-  const guardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
-    ssrPolyfills?.metricGroups || _metricGroups,
-  ).filter(
-    (mId) =>
-      metricIds.includes(mId) &&
-      !goalMetrics.includes(mId) &&
-      !secondaryMetrics.includes(mId),
-  );
+  const allowDuplicates = block.metricSelector === "all";
+  const { goalMetrics, secondaryMetrics, guardrailMetrics } =
+    filterAndGroupExperimentMetrics({
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+      metricGroups: ssrPolyfills?.metricGroups || metricGroups,
+      selectedMetricIds: metricIds,
+      allowDuplicates,
+    });
 
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
@@ -111,52 +95,56 @@ export default function ExperimentTimeSeriesBlock({
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
-    pinnedMetricSlices: effectivePinnedMetricSlices,
+    pinnedMetricSlices: undefined,
+    sliceTagsFilter: blockSliceTagsFilter,
     statsEngine,
     pValueCorrection,
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
-    enablePinning: true,
+    enablePinning: false,
     expandedMetrics,
     sortBy: blockMetricIds && blockMetricIds.length > 0 ? "custom" : null,
     customMetricOrder:
       blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
   });
 
-  const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
+  // Filter rows based on expansion state when there's no slice filter
+  const hasSliceFilter =
+    blockSliceTagsFilter && blockSliceTagsFilter.length > 0;
+  const filteredRows = useMemo(() => {
+    if (hasSliceFilter) {
+      // When filter is active, use isHiddenByFilter from the hook
+      return rows;
+    }
+    // When no filter, filter out slice rows that aren't expanded
+    return rows.filter((row) => {
+      if (!row.isSliceRow) return true; // Always include parent rows
+      // For slice rows, check if parent metric is expanded
+      if (row.parentRowId) {
+        const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+        return !!expandedMetrics?.[expandedKey];
+      }
+      return true;
+    });
+  }, [rows, hasSliceFilter, expandedMetrics]);
 
-  const { sliceData, togglePinnedMetricSlice, isSlicePinned } =
-    useDashboardMetricSliceData(block, setBlock, rows);
-
-  useEffect(() => {
-    const contextValue: ExperimentTimeSeriesBlockContext = {
-      type: "experiment-time-series",
-      sliceData,
-      togglePinnedMetricSlice,
-      isSlicePinned,
-    };
-    setBlockContextValue(blockInherentId, contextValue);
-
-    return () => {
-      setBlockContextValue(blockInherentId, null);
-    };
-  }, [blockInherentId, sliceData, togglePinnedMetricSlice, isSlicePinned]);
+  const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   // Create the render label function
   const renderLabelColumn = getRenderLabelColumn({
     statsEngine,
     hideDetails: false,
     experimentType: undefined,
-    pinnedMetricSlices: effectivePinnedMetricSlices,
-    togglePinnedMetricSlice: isEditing ? togglePinnedMetricSlice : undefined,
+    pinnedMetricSlices: undefined,
+    togglePinnedMetricSlice: undefined,
     expandedMetrics,
     toggleExpandedMetric: isEditing ? toggleExpandedMetric : undefined,
     getExperimentMetricById,
     getFactTableById,
     shouldShowMetricSlices: true,
     getChildRowCounts,
-    pinSource,
+    pinSource: undefined,
   });
 
   return (
@@ -185,19 +173,11 @@ export default function ExperimentTimeSeriesBlock({
                 ({ name }) => name,
               );
 
-              // Check if this metric has slices and if it's expanded
-              const expandedKey = `${metric.id}:${resultGroup}`;
-              const isExpanded = !!expandedMetrics[expandedKey];
-
-              // Filter child rows based on expansion state and pinned slices
-              // This matches the filtering logic in ExperimentMetricBlock.tsx and CompactResults.tsx
-              const childRows = rows
-                .filter((r) => r.parentRowId === metric.id)
-                .filter((sliceRow) => {
-                  if (!sliceRow.isSliceRow) return false;
-                  if (sliceRow.isPinned) return true; // Always include pinned rows
-                  return isExpanded; // Include if parent metric is expanded
-                });
+              // Get child rows (slice rows) for this metric from filteredRows
+              // filteredRows already handles expansion state or slice filter filtering
+              const childRows = filteredRows.filter(
+                (r) => r.parentRowId === metric.id && r.isSliceRow,
+              );
 
               return (
                 <div key={metric.id} className="mb-2">

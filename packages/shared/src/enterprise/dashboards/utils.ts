@@ -17,6 +17,11 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { getSnapshotAnalysis } from "../../util";
+import {
+  parseSliceQueryString,
+  generateSliceString,
+  expandMetricGroups,
+} from "../../experiments";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
@@ -187,8 +192,7 @@ export const CREATE_BLOCK_TYPE: {
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
-    pinSource: "experiment",
-    pinnedMetricSlices: [],
+    sliceTagsFilter: undefined,
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
@@ -214,8 +218,7 @@ export const CREATE_BLOCK_TYPE: {
     metricSelector: "all",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
-    pinSource: "experiment",
-    pinnedMetricSlices: [],
+    sliceTagsFilter: undefined,
     ...(initialValues || {}),
   }),
   "experiment-traffic": ({ initialValues, experiment }) => ({
@@ -267,4 +270,111 @@ export function createDashboardBlocksFromTemplate(
   return blockInitialValues.map(({ type, ...initialValues }) =>
     CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
   );
+}
+
+// Filters and groups experiment metrics based on selected metric IDs.
+// Optionally deduplicates metrics across groups when allowDuplicates is false.
+export function filterAndGroupExperimentMetrics({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricGroups,
+  selectedMetricIds,
+  allowDuplicates,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+  selectedMetricIds: string[];
+  allowDuplicates: boolean;
+}): {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+} {
+  const expandedGoalMetrics = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaryMetrics = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrailMetrics = expandMetricGroups(
+    guardrailMetrics,
+    metricGroups,
+  );
+
+  const filteredGoalMetrics = expandedGoalMetrics.filter((mId) =>
+    selectedMetricIds.includes(mId),
+  );
+
+  const filteredSecondaryMetrics = expandedSecondaryMetrics.filter(
+    (mId) =>
+      selectedMetricIds.includes(mId) &&
+      (allowDuplicates || !filteredGoalMetrics.includes(mId)),
+  );
+
+  const filteredGuardrailMetrics = expandedGuardrailMetrics.filter(
+    (mId) =>
+      selectedMetricIds.includes(mId) &&
+      (allowDuplicates ||
+        (!filteredGoalMetrics.includes(mId) &&
+          !filteredSecondaryMetrics.includes(mId))),
+  );
+
+  return {
+    goalMetrics: filteredGoalMetrics,
+    secondaryMetrics: filteredSecondaryMetrics,
+    guardrailMetrics: filteredGuardrailMetrics,
+  };
+}
+
+/**
+ * Converts pinnedMetricSlices to sliceTagsFilter by extracting slice tags
+ * from pinned slice keys and generating all possible slice tags (individual + combined).
+ * The pinned slice key format is: metricId?sliceString&location=location
+ * We extract the sliceString part and generate tags from it.
+ */
+export function convertPinnedSlicesToSliceTags(
+  pinnedMetricSlices: string[],
+): string[] {
+  const sliceTags = new Set<string>();
+
+  for (const pinnedKey of pinnedMetricSlices) {
+    // Parse format: metricId?sliceString&location=location
+    const questionMarkIndex = pinnedKey.indexOf("?");
+    if (questionMarkIndex === -1) continue;
+
+    const locationIndex = pinnedKey.indexOf("&location=");
+    if (locationIndex === -1) continue;
+
+    // Extract slice string (between ? and &location=)
+    const sliceString = pinnedKey.substring(
+      questionMarkIndex + 1,
+      locationIndex,
+    );
+
+    // Parse slice string to get slice levels
+    const sliceLevels = parseSliceQueryString(sliceString);
+
+    if (sliceLevels.length === 0) continue;
+
+    // Generate individual column tags (one per column)
+    sliceLevels.forEach((sliceLevel) => {
+      const value = sliceLevel.levels[0] || "";
+      const tag = generateSliceString({ [sliceLevel.column]: value });
+      sliceTags.add(tag);
+    });
+
+    // Generate combined tag for multi-dimensional slices
+    if (sliceLevels.length > 1) {
+      const slices: Record<string, string> = {};
+      sliceLevels.forEach((sl) => {
+        slices[sl.column] = sl.levels[0] || "";
+      });
+      const comboTag = generateSliceString(slices);
+      sliceTags.add(comboTag);
+    }
+  }
+
+  return Array.from(sliceTags);
 }

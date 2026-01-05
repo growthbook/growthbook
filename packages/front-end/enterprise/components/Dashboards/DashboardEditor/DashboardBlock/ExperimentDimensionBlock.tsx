@@ -3,13 +3,13 @@ import { v4 as uuid4 } from "uuid";
 import {
   ExperimentDimensionBlockInterface,
   blockHasFieldOfType,
+  filterAndGroupExperimentMetrics,
 } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { expandMetricGroups } from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
@@ -32,8 +32,8 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
-    metricSelector: _metricSelector,
     metricIds,
+    metricSelector,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
@@ -45,18 +45,6 @@ export default function ExperimentDimensionBlock({
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const expandedMetricIds = metrics.map((m) => m.id);
-  const expGoalMetrics = expandMetricGroups(
-    experiment.goalMetrics,
-    metricGroups,
-  );
-  const expSecondaryMetrics = expandMetricGroups(
-    experiment.secondaryMetrics,
-    metricGroups,
-  );
-  const expGuardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
-    metricGroups,
-  );
 
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
@@ -104,15 +92,16 @@ export default function ExperimentDimensionBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const goalMetrics = expGoalMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId),
-  );
-  const secondaryMetrics = expSecondaryMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId),
-  );
-  const guardrailMetrics = expGuardrailMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId),
-  );
+  const allowDuplicates = metricSelector === "all";
+  const { goalMetrics, secondaryMetrics, guardrailMetrics } =
+    filterAndGroupExperimentMetrics({
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+      metricGroups,
+      selectedMetricIds: expandedMetricIds,
+      allowDuplicates,
+    });
 
   return (
     <BreakDownResults

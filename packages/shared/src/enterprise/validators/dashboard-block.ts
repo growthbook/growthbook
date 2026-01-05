@@ -22,11 +22,6 @@ const baseBlockInterface = z
   })
   .strict();
 
-const metricSliceSettingsInterface = z.object({
-  pinSource: z.enum(pinSources),
-  pinnedMetricSlices: z.array(z.string()),
-});
-
 const markdownBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("markdown"),
@@ -118,21 +113,22 @@ const experimentMetricBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
+    sliceTagsFilter: z.array(z.string()).optional(),
   })
-  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentMetricBlockInterface = z.infer<
   typeof experimentMetricBlockInterface
 >;
 const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
-  .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
+  .omit({ metricSelector: true })
   .extend({
     metricSelector: z
       .enum([...metricSelectors, "custom"] as [string, ...string[]])
       .optional(),
-  })
-  .merge(metricSliceSettingsInterface.partial());
+    pinSource: z.enum(pinSources).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+  });
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -178,22 +174,21 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
+    sliceTagsFilter: z.array(z.string()).optional(),
   })
-  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentTimeSeriesBlockInterface = z.infer<
   typeof experimentTimeSeriesBlockInterface
 >;
 const legacyExperimentTimeSeriesBlockInterface =
-  experimentTimeSeriesBlockInterface
-    .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
-    .extend({
-      metricSelector: z
-        .enum([...metricSelectors, "custom"] as [string, ...string[]])
-        .optional(),
-    })
-    .merge(metricSliceSettingsInterface.partial());
+  experimentTimeSeriesBlockInterface.omit({ metricSelector: true }).extend({
+    metricSelector: z
+      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .optional(),
+    pinSource: z.enum(pinSources).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+  });
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({

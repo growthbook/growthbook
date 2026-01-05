@@ -12,6 +12,7 @@ import {
   LegacyDashboardBlockInterface,
   isMetricSelector,
   metricSelectors,
+  convertPinnedSlicesToSliceTags,
 } from "shared/enterprise";
 import {
   MakeModelClass,
@@ -365,11 +366,19 @@ export function migrateBlock(
       )
         ? metricSelectorValue
         : "all";
+      // Convert pinnedMetricSlices to sliceTagsFilter (if present in legacy doc)
+      const pinnedSlices =
+        "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
+          ? doc.pinnedMetricSlices
+          : [];
+      const sliceTagsFilter =
+        pinnedSlices.length > 0
+          ? convertPinnedSlicesToSliceTags(pinnedSlices)
+          : undefined;
       return {
         ...doc,
         metricSelector,
-        pinSource: doc.pinSource || "experiment",
-        pinnedMetricSlices: doc.pinnedMetricSlices || [],
+        sliceTagsFilter,
       };
     }
     case "experiment-dimension": {
@@ -391,13 +400,21 @@ export function migrateBlock(
         isMetricSelector(timeSeriesMetricSelectorValue)
           ? timeSeriesMetricSelectorValue
           : "all";
+      // Convert pinnedMetricSlices to sliceTagsFilter (if present in legacy doc)
+      const pinnedSlices =
+        "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
+          ? doc.pinnedMetricSlices
+          : [];
+      const sliceTagsFilter =
+        pinnedSlices.length > 0
+          ? convertPinnedSlicesToSliceTags(pinnedSlices)
+          : undefined;
       return {
         ...doc,
         metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
         metricId: undefined,
         metricSelector: timeSeriesMetricSelector,
-        pinSource: doc.pinSource || "experiment",
-        pinnedMetricSlices: doc.pinnedMetricSlices || [],
+        sliceTagsFilter,
       };
     }
     case "experiment-description":
