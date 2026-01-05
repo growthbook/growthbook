@@ -48,14 +48,11 @@ const AI_MODEL_LABELS = ensureValuesExactlyMatchUnion<AIModel>()([
   { value: "gpt-4.1-nano", label: "OpenAI: GPT 4.1 Nano" },
   { value: "gpt-4o", label: "OpenAI: GPT 4o" },
   { value: "gpt-4o-mini", label: "OpenAI: GPT 4o Mini" },
-  { value: "gpt-4-turbo", label: "OpenAI: GPT 4 Turbo" },
   // OpenAI O series (reasoning models)
   { value: "o4-mini", label: "OpenAI: O4 Mini" },
   { value: "o3", label: "OpenAI: O3" },
   { value: "o3-mini", label: "OpenAI: O3 Mini" },
   { value: "o1", label: "OpenAI: O1" },
-  // OpenAI GPT-3.5 series
-  { value: "gpt-3.5-turbo", label: "OpenAI: GPT 3.5 Turbo" },
   // Anthropic Claude
   {
     value: "claude-haiku-4-5-20251001",

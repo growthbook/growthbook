@@ -26,14 +26,11 @@ export const AI_PROVIDER_MODEL_MAP = {
     "gpt-4.1-nano",
     "gpt-4o",
     "gpt-4o-mini",
-    "gpt-4-turbo",
     // O series (reasoning models)
     "o4-mini",
     "o3",
     "o3-mini",
     "o1",
-    // GPT-3.5 series
-    "gpt-3.5-turbo",
   ],
   anthropic: [
     "claude-haiku-4-5-20251001",
