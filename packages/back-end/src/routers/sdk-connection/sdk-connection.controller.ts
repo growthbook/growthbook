@@ -289,8 +289,8 @@ export async function postSDKConnectionWebhook(
   }
 
   const webhook = await context.models.sdkWebhooks.create({
-    ...createSdkWebhookValidator.parse(req.body),
     ...context.models.sdkWebhooks.getCreateProps(id),
+    ...createSdkWebhookValidator.parse(req.body),
   });
   return res.status(200).json({
     status: 200,

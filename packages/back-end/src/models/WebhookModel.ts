@@ -126,11 +126,13 @@ export class SdkWebhookModel extends BaseClass {
   public getCreateProps(sdkConnectionId: string) {
     return {
       environment: "",
+      project: "",
       error: "",
       created: new Date(),
       lastSuccess: null,
       signingKey: "wk_" + md5(uniqid()).slice(0, 16),
       useSdkMode: true,
+      featuresOnly: true,
       sdks: [sdkConnectionId],
     };
   }
