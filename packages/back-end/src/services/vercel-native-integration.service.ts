@@ -2,10 +2,8 @@ import { Promise as BluebirdPromise } from "bluebird";
 import { OrganizationInterface } from "shared/types/organization";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
-import {
-  VercelIntallationNotFound,
-  findVercelInstallationByOrganization,
-} from "back-end/src/models/VercelNativeIntegrationModel";
+import { VercelIntallationNotFound } from "shared/util";
+import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import {
