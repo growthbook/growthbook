@@ -118,10 +118,15 @@ function SingleDashboardPage() {
         dashboardId: dashboard.id,
         data: {
           blocks: newBlocks,
+          // Include seriesDisplaySettings from local dashboard if it exists
+          ...(localDashboard?.seriesDisplaySettings &&
+          Object.keys(localDashboard.seriesDisplaySettings).length > 0
+            ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
+            : {}),
         },
       });
     },
-    [blocks, submitDashboard, dashboard],
+    [blocks, submitDashboard, dashboard, localDashboard],
   );
 
   if (!hasCommercialFeature("product-analytics-dashboards")) {
@@ -178,6 +183,17 @@ function SingleDashboardPage() {
         <DashboardSeriesDisplayProvider
           dashboard={dashboard}
           setDashboard={setLocalDashboard}
+          onSave={async (updatedDashboard) => {
+            if (updatedDashboard?.id) {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: updatedDashboard.id,
+                data: {
+                  seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+                },
+              });
+            }
+          }}
         >
           {isEditing && dashboard ? (
             <DashboardWorkspace

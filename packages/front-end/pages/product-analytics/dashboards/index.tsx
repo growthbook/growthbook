@@ -160,6 +160,17 @@ export default function DashboardsPage() {
         <DashboardSeriesDisplayProvider
           dashboard={localDashboard}
           setDashboard={setLocalDashboard}
+          onSave={async (updatedDashboard) => {
+            if (updatedDashboard?.id) {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: updatedDashboard.id,
+                data: {
+                  seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+                },
+              });
+            }
+          }}
         >
           <DashboardWorkspace
             experiment={null}

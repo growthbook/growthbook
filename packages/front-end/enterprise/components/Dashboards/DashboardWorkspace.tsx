@@ -100,15 +100,19 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
+        // Exclude seriesDisplaySettings from localDashboard to prevent double saves
+        // onSave in the provider handles color changes exclusively
+        const { seriesDisplaySettings: _, ...localDashboardWithoutSettings } =
+          localDashboard;
         await submitDashboard({
           ...args,
           data: {
-            ...localDashboard,
+            ...localDashboardWithoutSettings,
             ...args.data,
-            // Include seriesDisplaySettings from local dashboard if not explicitly overridden
-            ...(!("seriesDisplaySettings" in args.data) &&
-            Object.keys(localDashboard.seriesDisplaySettings ?? {}).length > 0
-              ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
+            // Only include seriesDisplaySettings if explicitly provided in args.data
+            // This allows memoizedSetBlock and other operations to include it when needed
+            ...(args.data.seriesDisplaySettings !== undefined
+              ? { seriesDisplaySettings: args.data.seriesDisplaySettings }
               : {}),
           },
         });

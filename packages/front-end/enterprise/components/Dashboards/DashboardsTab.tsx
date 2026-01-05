@@ -254,10 +254,15 @@ function DashboardsTab({
         dashboardId,
         data: {
           blocks: newBlocks,
+          // Include seriesDisplaySettings from local dashboard if it exists
+          ...(localDashboard?.seriesDisplaySettings &&
+          Object.keys(localDashboard.seriesDisplaySettings).length > 0
+            ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
+            : {}),
         },
       });
     },
-    [blocks, submitDashboard, dashboardId],
+    [blocks, submitDashboard, dashboardId, localDashboard],
   );
 
   const createOrPromptUpgrade = () => {
@@ -283,6 +288,17 @@ function DashboardsTab({
       <DashboardSeriesDisplayProvider
         dashboard={dashboard}
         setDashboard={setLocalDashboard}
+        onSave={async (updatedDashboard) => {
+          if (updatedDashboard?.id && dashboardId) {
+            await submitDashboard({
+              method: "PUT",
+              dashboardId: updatedDashboard.id,
+              data: {
+                seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+              },
+            });
+          }
+        }}
       >
         {canEdit && isEditing && dashboard ? (
           <DashboardWorkspace

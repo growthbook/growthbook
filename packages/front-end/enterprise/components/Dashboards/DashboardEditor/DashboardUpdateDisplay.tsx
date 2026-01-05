@@ -1,7 +1,14 @@
 import React, { useContext, useMemo } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, Text, Heading } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
-import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
+import {
+  PiArrowClockwise,
+  PiCaretDownLight,
+  PiInfo,
+  PiLightning,
+  PiCircleFill,
+} from "react-icons/pi";
+import { HexColorPicker, HexColorInput } from "react-colorful";
 import clsx from "clsx";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -9,7 +16,13 @@ import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  DropdownMenuItem,
+  DropdownMenu,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
+import { DashboardSeriesDisplayContext } from "../DashboardSeriesDisplayProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 function DashboardStatusSummary({
@@ -127,6 +140,9 @@ export default function DashboardUpdateDisplay({
     savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
+  const { settings, updateSeriesColor } = useContext(
+    DashboardSeriesDisplayContext,
+  );
   const refreshing = ["running", "queued"].includes(refreshStatus);
   const { numQueries, numFinished } = useMemo(() => {
     const numQueries = allQueries.length;
@@ -206,6 +222,69 @@ export default function DashboardUpdateDisplay({
           />
         )}
       </div>
+
+      {isEditing && (
+        <DropdownMenu
+          trigger={
+            <Button variant="outline">
+              Configure Series <PiCaretDownLight size={16} />
+            </Button>
+          }
+        >
+          <DropdownMenuLabel>
+            Hover over an item&apos;s color swatch to customize it.
+          </DropdownMenuLabel>
+          <Flex direction="column">
+            {Object.entries(settings).map(([seriesKey, seriesSettings]) => (
+              <DropdownMenuItem key={seriesKey}>
+                <Flex align="center justify-between">
+                  <Flex align="center" gap="1">
+                    <Tooltip
+                      body={
+                        <Flex direction="column" gap="1">
+                          <Heading as="h4" size="4">
+                            Customize Color
+                          </Heading>
+                          <Flex direction="column" gap="3">
+                            <HexColorPicker
+                              color={seriesSettings.color}
+                              onChange={(color) => {
+                                updateSeriesColor(seriesKey, color);
+                              }}
+                            />
+                            <Flex direction="column">
+                              <Text as="label" size="3" weight="bold">
+                                Hex Color
+                              </Text>
+                              <div
+                                onKeyDown={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
+                                <HexColorInput
+                                  color={seriesSettings.color}
+                                  onChange={(color) => {
+                                    updateSeriesColor(seriesKey, color);
+                                  }}
+                                />
+                              </div>
+                            </Flex>
+                          </Flex>
+                        </Flex>
+                      }
+                    >
+                      <PiCircleFill
+                        size={20}
+                        style={{ color: seriesSettings.color }}
+                      />
+                    </Tooltip>
+                    <Text>{seriesKey}</Text>
+                  </Flex>
+                </Flex>
+              </DropdownMenuItem>
+            ))}
+          </Flex>
+        </DropdownMenu>
+      )}
     </Flex>
   );
 }

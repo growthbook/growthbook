@@ -80,6 +80,9 @@ export default function NewDashboardPage() {
               updateSchedule:
                 args.data.updateSchedule || dashboard.updateSchedule,
               userId: args.data.userId,
+              seriesDisplaySettings:
+                args.data.seriesDisplaySettings ??
+                localDashboard?.seriesDisplaySettings,
             }),
           });
           setDashboard(res.dashboard);
@@ -100,12 +103,15 @@ export default function NewDashboardPage() {
               updateSchedule:
                 args.data.updateSchedule ?? dashboard.updateSchedule,
               userId: args.data.userId,
+              seriesDisplaySettings:
+                args.data.seriesDisplaySettings ??
+                localDashboard?.seriesDisplaySettings,
             }),
           });
           setDashboard(res.dashboard);
         }
       },
-      [apiCall, dashboard],
+      [apiCall, dashboard, localDashboard],
     );
 
   const handleClose = useCallback(() => {
@@ -141,6 +147,18 @@ export default function NewDashboardPage() {
       <DashboardSeriesDisplayProvider
         dashboard={localDashboard}
         setDashboard={setLocalDashboard}
+        onSave={async (updatedDashboard) => {
+          // Only save if dashboard has been created (not "new")
+          if (updatedDashboard?.id && updatedDashboard.id !== "new") {
+            await handleSubmitDashboard({
+              method: "PUT",
+              dashboardId: updatedDashboard.id,
+              data: {
+                seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+              },
+            });
+          }
+        }}
       >
         <DashboardWorkspace
           isTabActive={true}
