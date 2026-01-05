@@ -8,11 +8,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import {
-  findSDKConnectionsByIds,
-  findSDKConnectionsByOrganization,
-} from "back-end/src/models/SdkConnectionModel";
+import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import {
   findAllSdkWebhooksByConnectionIds,
@@ -373,42 +369,6 @@ export async function fireSdkWebhook(
       context: webhookContext,
     }),
   );
-}
-
-export async function getSDKConnectionsByPayloadKeys(
-  context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
-) {
-  if (!payloadKeys.length) return [];
-
-  const connections = await findSDKConnectionsByOrganization(context);
-  if (!connections) return [];
-
-  return connections.filter((c) => {
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === c.environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      c.projects,
-      environmentDoc,
-      true,
-    );
-    if (!filteredProjects) {
-      return false;
-    }
-
-    // Skip if this SDK Connection isn't affected by the changes
-    if (
-      !payloadKeys.some(
-        (key) =>
-          key.environment === c.environment &&
-          (!filteredProjects.length || filteredProjects.includes(key.project)),
-      )
-    ) {
-      return false;
-    }
-    return true;
-  });
 }
 
 export async function fireGlobalSdkWebhooks(

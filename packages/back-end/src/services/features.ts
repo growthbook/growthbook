@@ -446,14 +446,20 @@ export function filterUsedSavedGroups(
 export function isSDKConnectionAffectedByPayloadKey(
   connection: SDKConnectionInterface,
   payloadKey: SDKPayloadKey,
+  treatEmptyProjectAsGlobal = false,
 ): boolean {
   // Environment must match
   if (connection.environment !== payloadKey.environment) {
     return false;
   }
 
-  // If either payload key or connection is global (no project), it matches
-  if (!payloadKey.project || !connection.projects.length) {
+  // Global payload keys affect all projects
+  if (treatEmptyProjectAsGlobal && !payloadKey.project) {
+    return true;
+  }
+
+  // If connection is global (not project scoped), it matches
+  if (!connection.projects?.length) {
     return true;
   }
 
@@ -466,11 +472,13 @@ export async function refreshSDKPayloadCache({
   payloadKeys,
   skipRefreshForProject,
   sdkConnections: sdkConnectionsToUpdate = [],
+  treatEmptyProjectAsGlobal = false,
 }: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
+  treatEmptyProjectAsGlobal?: boolean;
 }) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
@@ -612,7 +620,11 @@ export async function refreshSDKPayloadCache({
     if (
       !sdkConnectionsToUpdate.some((c) => c.key === connection.key) &&
       !payloadKeys.some((k) =>
-        isSDKConnectionAffectedByPayloadKey(connection, k),
+        isSDKConnectionAffectedByPayloadKey(
+          connection,
+          k,
+          treatEmptyProjectAsGlobal,
+        ),
       )
     ) {
       return;

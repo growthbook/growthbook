@@ -16,5 +16,6 @@ export async function savedGroupUpdated(
   await refreshSDKPayloadCache({
     context,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
+    treatEmptyProjectAsGlobal: true,
   });
 }
