@@ -328,44 +328,36 @@ export function filterAndGroupExperimentMetrics({
   };
 }
 
-/**
- * Converts pinnedMetricSlices to sliceTagsFilter by extracting slice tags
- * from pinned slice keys and generating all possible slice tags (individual + combined).
- * The pinned slice key format is: metricId?sliceString&location=location
- * We extract the sliceString part and generate tags from it.
- */
+// Converts pinnedMetricSlices to sliceTagsFilter by extracting slice tags
+// from pinned slice keys and generating all possible slice tags (individual + combined).
+// Adds "overall" to include base metric results when migrating pinned slices.
 export function convertPinnedSlicesToSliceTags(
   pinnedMetricSlices: string[],
 ): string[] {
   const sliceTags = new Set<string>();
 
   for (const pinnedKey of pinnedMetricSlices) {
-    // Parse format: metricId?sliceString&location=location
     const questionMarkIndex = pinnedKey.indexOf("?");
     if (questionMarkIndex === -1) continue;
 
     const locationIndex = pinnedKey.indexOf("&location=");
     if (locationIndex === -1) continue;
 
-    // Extract slice string (between ? and &location=)
     const sliceString = pinnedKey.substring(
       questionMarkIndex + 1,
       locationIndex,
     );
 
-    // Parse slice string to get slice levels
     const sliceLevels = parseSliceQueryString(sliceString);
 
     if (sliceLevels.length === 0) continue;
 
-    // Generate individual column tags (one per column)
     sliceLevels.forEach((sliceLevel) => {
       const value = sliceLevel.levels[0] || "";
       const tag = generateSliceString({ [sliceLevel.column]: value });
       sliceTags.add(tag);
     });
 
-    // Generate combined tag for multi-dimensional slices
     if (sliceLevels.length > 1) {
       const slices: Record<string, string> = {};
       sliceLevels.forEach((sl) => {
@@ -374,6 +366,10 @@ export function convertPinnedSlicesToSliceTags(
       const comboTag = generateSliceString(slices);
       sliceTags.add(comboTag);
     }
+  }
+
+  if (pinnedMetricSlices.length > 0) {
+    sliceTags.add("overall");
   }
 
   return Array.from(sliceTags);

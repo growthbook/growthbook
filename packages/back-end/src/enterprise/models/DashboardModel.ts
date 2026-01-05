@@ -14,6 +14,7 @@ import {
   metricSelectors,
   convertPinnedSlicesToSliceTags,
 } from "shared/enterprise";
+import omit from "lodash/omit";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -359,14 +360,12 @@ export function migrateBlock(
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
     case "experiment-metric": {
-      // Migrate: "custom" -> "all", preserve existing metricIds as filter
       const metricSelectorValue = doc.metricSelector || "all";
       const metricSelector: (typeof metricSelectors)[number] = isMetricSelector(
         metricSelectorValue,
       )
         ? metricSelectorValue
         : "all";
-      // Convert pinnedMetricSlices to sliceTagsFilter (if present in legacy doc)
       const pinnedSlices =
         "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
           ? doc.pinnedMetricSlices
@@ -376,10 +375,10 @@ export function migrateBlock(
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
           : undefined;
       return {
-        ...doc,
+        ...omit(doc, ["pinnedMetricSlices", "pinSource"]),
         metricSelector,
         sliceTagsFilter,
-      };
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-dimension": {
       // Migrate: "custom" -> "all", preserve existing metricIds as filter
@@ -394,13 +393,11 @@ export function migrateBlock(
       };
     }
     case "experiment-time-series": {
-      // Migrate: "custom" -> "all", preserve existing metricIds as filter
       const timeSeriesMetricSelectorValue = doc.metricSelector || "all";
       const timeSeriesMetricSelector: (typeof metricSelectors)[number] =
         isMetricSelector(timeSeriesMetricSelectorValue)
           ? timeSeriesMetricSelectorValue
           : "all";
-      // Convert pinnedMetricSlices to sliceTagsFilter (if present in legacy doc)
       const pinnedSlices =
         "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
           ? doc.pinnedMetricSlices
@@ -410,12 +407,11 @@ export function migrateBlock(
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
           : undefined;
       return {
-        ...doc,
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricId"]),
         metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
-        metricId: undefined,
         metricSelector: timeSeriesMetricSelector,
         sliceTagsFilter,
-      };
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-description":
       return {
