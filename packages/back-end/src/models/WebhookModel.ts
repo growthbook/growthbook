@@ -129,7 +129,7 @@ export class SdkWebhookModel extends BaseClass {
       error: "",
       created: new Date(),
       lastSuccess: null,
-      signingKey: "wk_" + md5(uniqid()).substr(0, 16),
+      signingKey: "wk_" + md5(uniqid()).slice(0, 16),
       useSdkMode: true,
       sdks: [sdkConnectionId],
     };
