@@ -2294,7 +2294,7 @@ export default function FactMetricModal({
 
                         <PremiumTooltip commercialFeature="regression-adjustment">
                           <label className="mb-1">
-                            <GBCuped /> Regression Adjustment (CUPED)
+                            <GBCuped /> Regression Adjustment (CUPEDps)
                           </label>
                         </PremiumTooltip>
                         <div className="px-3 py-2 pb-0 mb-2 border rounded">

@@ -304,7 +304,7 @@ export default function BanditSummaryTooltip({
               <div className="mt-3">
                 <Tooltip body="Credible intervals have been adjusted using CUPED and are scaled to represent variation means. They are not actual credible intervals for variation means.">
                   <div className="mt-1 text-muted">
-                    <GBCuped size={13} /> CUPED affects results{" "}
+                    <GBCuped size={13} /> CUPEDps affects results{" "}
                     <HiOutlineExclamationCircle />
                   </div>
                 </Tooltip>
