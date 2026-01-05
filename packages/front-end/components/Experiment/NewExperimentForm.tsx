@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
+import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -40,7 +41,7 @@ import {
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
-import { hasOpenAIKey } from "@/services/env";
+import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -550,8 +551,26 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
-    // only OpenAI allows for embeddings right now.
-    if (!aiEnabled || !useCheckForSimilar || !hasOpenAIKey()) return;
+    if (!aiEnabled || !useCheckForSimilar) return;
+
+    // Check if we have the API key for the embedding model provider
+    const embeddingModel = settings.embeddingModel || "text-embedding-ada-002";
+    let hasEmbeddingKey = false;
+    try {
+      const embeddingProvider = getProviderFromEmbeddingModel(embeddingModel);
+      if (embeddingProvider === "openai") {
+        hasEmbeddingKey = hasOpenAIKey();
+      } else if (embeddingProvider === "mistral") {
+        hasEmbeddingKey = hasMistralKey();
+      } else if (embeddingProvider === "google") {
+        hasEmbeddingKey = hasGoogleAIKey();
+      }
+    } catch {
+      // If we can't determine the provider, default to checking OpenAI
+      hasEmbeddingKey = hasOpenAIKey();
+    }
+
+    if (!hasEmbeddingKey) return;
 
     // check how many words we're sending in the hypothesis, name, and description:
     const wordCount =
