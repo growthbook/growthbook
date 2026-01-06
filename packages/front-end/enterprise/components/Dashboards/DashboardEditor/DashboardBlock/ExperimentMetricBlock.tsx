@@ -166,6 +166,15 @@ export default function ExperimentMetricBlock({
 
   const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
+  const selectorLabel =
+    block.metricSelector !== "all"
+      ? {
+          "experiment-goal": "Goal Metrics",
+          "experiment-secondary": "Secondary Metrics",
+          "experiment-guardrail": "Guardrail Metrics",
+        }[block.metricSelector]
+      : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
       {Object.entries(rowGroups).map(([resultGroup, rows]) =>
@@ -187,9 +196,10 @@ export default function ExperimentMetricBlock({
             rows={rows}
             tableRowAxis="metric"
             resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
-            labelHeader={`${
-              resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
-            } Metrics`}
+            labelHeader={
+              selectorLabel ||
+              `${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`
+            }
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails: false,

@@ -275,6 +275,50 @@ export function createDashboardBlocksFromTemplate(
   );
 }
 
+// Filters experiment metrics based on metricSelector.
+// Returns filtered goalMetrics, secondaryMetrics, and guardrailMetrics arrays.
+export function filterMetricsBySelector({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricSelector,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricSelector: (typeof metricSelectors)[number];
+}): {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+} {
+  if (metricSelector === "experiment-goal") {
+    return {
+      goalMetrics,
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+    };
+  } else if (metricSelector === "experiment-secondary") {
+    return {
+      goalMetrics: [],
+      secondaryMetrics,
+      guardrailMetrics: [],
+    };
+  } else if (metricSelector === "experiment-guardrail") {
+    return {
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics,
+    };
+  }
+  // If selector === "all", use all metrics (no filtering)
+  return {
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+  };
+}
+
 // Filters and groups experiment metrics based on selected metric IDs.
 // Optionally deduplicates metrics across groups when allowDuplicates is false.
 export function filterAndGroupExperimentMetrics({

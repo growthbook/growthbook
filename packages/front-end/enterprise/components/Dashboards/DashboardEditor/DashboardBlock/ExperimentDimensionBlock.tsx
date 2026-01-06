@@ -3,7 +3,7 @@ import { v4 as uuid4 } from "uuid";
 import {
   ExperimentDimensionBlockInterface,
   blockHasFieldOfType,
-  filterAndGroupExperimentMetrics,
+  filterMetricsBySelector,
 } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
 import {
@@ -14,7 +14,6 @@ import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
@@ -23,7 +22,6 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-  metrics,
 }: BlockProps<ExperimentDimensionBlockInterface>) {
   const {
     baselineRow,
@@ -44,8 +42,6 @@ export default function ExperimentDimensionBlock({
   const blockId = useMemo(() => blockInherentId ?? uuid4(), [blockInherentId]);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups } = useDefinitions();
-  const expandedMetricIds = metrics.map((m) => m.id);
 
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
@@ -93,15 +89,12 @@ export default function ExperimentDimensionBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const allowDuplicates = metricSelector === "all";
   const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-    filterAndGroupExperimentMetrics({
+    filterMetricsBySelector({
       goalMetrics: experiment.goalMetrics,
       secondaryMetrics: experiment.secondaryMetrics,
       guardrailMetrics: experiment.guardrailMetrics,
-      metricGroups,
-      selectedMetricIds: expandedMetricIds,
-      allowDuplicates,
+      metricSelector: metricSelector,
     });
 
   return (

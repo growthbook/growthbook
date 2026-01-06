@@ -141,8 +141,8 @@ export default function SafeRolloutAnalysisSettingsSummary({
                     latest={latest}
                     mutate={mutateSnapshot}
                     setRefreshError={setRefreshError}
-                    safeRollout={safeRollout}
-                  />
+                      safeRollout={safeRollout}
+                    />
                 </div>
               )}
 

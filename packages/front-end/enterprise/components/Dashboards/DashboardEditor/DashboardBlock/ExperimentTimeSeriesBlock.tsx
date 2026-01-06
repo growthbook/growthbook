@@ -149,14 +149,23 @@ export default function ExperimentTimeSeriesBlock({
     pinSource: undefined,
   });
 
+  const selectorLabel =
+    block.metricSelector !== "all"
+      ? {
+          "experiment-goal": "Goal Metrics",
+          "experiment-secondary": "Secondary Metrics",
+          "experiment-guardrail": "Guardrail Metrics",
+        }[block.metricSelector]
+      : null;
+
   return (
     <>
       {Object.entries(rowGroups).map(([resultGroup, rows]) =>
         !rows.length ? null : (
           <div key={resultGroup} className="mb-4">
             <h4 className="mb-3">
-              {resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)}{" "}
-              Metrics
+              {selectorLabel ||
+                `${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             </h4>
             {rows.map((row) => {
               // Only render parent rows (not slice rows) for time series

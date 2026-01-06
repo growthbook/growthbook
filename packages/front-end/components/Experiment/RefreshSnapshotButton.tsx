@@ -89,20 +89,20 @@ const RefreshSnapshotButton: FC<{
       )}
       {useRadixButton ? (
         <>
-          {loading && longResult && (
+        {loading && longResult && (
             <Text size="1" color="gray" mr="3">
               this may take several minutes
             </Text>
-          )}
+        )}
           <RadixButton
             variant={radixVariant}
             size="sm"
             disabled={loading}
             setError={(error) => setError(error ?? undefined)}
             onClick={async () => {
-              resetFilters?.();
-              setLoading(true);
-              setLongResult(false);
+          resetFilters?.();
+          setLoading(true);
+          setLongResult(false);
 
               const timer = setTimeout(() => {
                 setLongResult(true);
@@ -120,45 +120,45 @@ const RefreshSnapshotButton: FC<{
             }}
             style={{
               minWidth: 110,
-            }}
-            icon={<PiArrowClockwise />}
-          >
-            Update
-          </RadixButton>
+        }}
+        icon={<PiArrowClockwise />}
+        >
+          Update
+        </RadixButton>
         </>
       ) : (
         <>
-          {loading && longResult && (
+      {loading && longResult && (
             <small className="text-muted mr-3">
               this may take several minutes
             </small>
-          )}
-          <Button
-            color="outline-primary"
-            setErrorText={setError}
-            onClick={async () => {
-              resetFilters?.();
-              setLoading(true);
-              setLongResult(false);
+      )}
+      <Button
+        color="outline-primary"
+        setErrorText={setError}
+        onClick={async () => {
+          resetFilters?.();
+          setLoading(true);
+          setLongResult(false);
 
-              const timer = setTimeout(() => {
-                setLongResult(true);
-              }, 5000);
+          const timer = setTimeout(() => {
+            setLongResult(true);
+          }, 5000);
 
-              try {
-                await refreshSnapshot();
-                setLoading(false);
-                clearTimeout(timer);
-              } catch (e) {
-                setLoading(false);
-                clearTimeout(timer);
-                throw e;
-              }
-            }}
-          >
-            <BsArrowRepeat /> Update
-          </Button>
-        </>
+          try {
+            await refreshSnapshot();
+            setLoading(false);
+            clearTimeout(timer);
+          } catch (e) {
+            setLoading(false);
+            clearTimeout(timer);
+            throw e;
+          }
+        }}
+      >
+        <BsArrowRepeat /> Update
+      </Button>
+      </>
       )}
     </>
   );

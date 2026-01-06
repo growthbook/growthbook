@@ -128,7 +128,7 @@ export function useExperimentTableRows({
         metricsFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
+          if (group) {
               group.metrics.forEach((metricId) =>
                 allowedMetricIds.add(metricId),
               );
@@ -257,9 +257,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
-            customMetricOrder,
-          )
-        : filteredMetrics;
+              customMetricOrder,
+            )
+          : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -280,9 +280,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
-            customMetricOrder,
-          )
-        : filteredSecondary;
+              customMetricOrder,
+            )
+          : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -303,9 +303,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
-            customMetricOrder,
-          )
-        : filteredGuardrails;
+              customMetricOrder,
+            )
+          : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -511,15 +511,15 @@ export function generateRowsForMetric({
           errorMessage: "No data",
         }))
       : resultsArray[0].variations.map((v) => {
-          return (
-            v.metrics?.[metricId] || {
-              users: 0,
-              value: 0,
-              cr: 0,
-              errorMessage: "No data",
-            }
-          );
-        }),
+      return (
+        v.metrics?.[metricId] || {
+          users: 0,
+          value: 0,
+          cr: 0,
+          errorMessage: "No data",
+        }
+      );
+    }),
     metricSnapshotSettings,
     resultGroup,
     numSlices,
@@ -568,27 +568,27 @@ export function generateRowsForMetric({
           sliceMatches = true;
           hasMatchingSlice = true;
         } else {
-          // Extract slice tags from slice data
-          const sliceTags: string[] = [];
-          // Generate single dimension tags
-          slice.sliceLevels.forEach((sliceLevel) => {
-            const value = sliceLevel.levels[0] || "";
-            const tag = generateSliceString({ [sliceLevel.column]: value });
-            sliceTags.push(tag);
+        // Extract slice tags from slice data
+        const sliceTags: string[] = [];
+        // Generate single dimension tags
+        slice.sliceLevels.forEach((sliceLevel) => {
+          const value = sliceLevel.levels[0] || "";
+          const tag = generateSliceString({ [sliceLevel.column]: value });
+          sliceTags.push(tag);
+        });
+        // Generate combined tag for multi-dimensional slices
+        if (slice.sliceLevels.length > 1) {
+          const slices: Record<string, string> = {};
+          slice.sliceLevels.forEach((sl) => {
+            slices[sl.column] = sl.levels[0] || "";
           });
-          // Generate combined tag for multi-dimensional slices
-          if (slice.sliceLevels.length > 1) {
-            const slices: Record<string, string> = {};
-            slice.sliceLevels.forEach((sl) => {
-              slices[sl.column] = sl.levels[0] || "";
-            });
-            const comboTag = generateSliceString(slices);
-            sliceTags.push(comboTag);
-          }
-          // Check if any slice tag matches the filter
-          sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
-          if (sliceMatches) {
-            hasMatchingSlice = true;
+          const comboTag = generateSliceString(slices);
+          sliceTags.push(comboTag);
+        }
+        // Check if any slice tag matches the filter
+        sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+        if (sliceMatches) {
+          hasMatchingSlice = true;
           }
         }
       }

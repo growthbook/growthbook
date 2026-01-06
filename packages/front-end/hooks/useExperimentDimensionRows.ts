@@ -100,7 +100,7 @@ export function useExperimentDimensionRows({
         metricsFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
+          if (group) {
               group.metrics.forEach((metricId) =>
                 allowedMetricIds.add(metricId),
               );

@@ -232,10 +232,10 @@ export default function TabbedPage({
         getExperimentMetricById,
       }),
     [
-      experiment.goalMetrics,
-      experiment.secondaryMetrics,
-      experiment.guardrailMetrics,
-      metricGroups,
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    metricGroups,
       getExperimentMetricById,
     ],
   );
@@ -273,13 +273,13 @@ export default function TabbedPage({
         getFactTableById,
       }),
     [
-      experiment.goalMetrics,
-      experiment.secondaryMetrics,
-      experiment.guardrailMetrics,
-      experiment.customMetricSlices,
-      metricGroups,
-      getExperimentMetricById,
-      getFactTableById,
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    experiment.customMetricSlices,
+    metricGroups,
+    getExperimentMetricById,
+    getFactTableById,
       factTables,
     ],
   );
@@ -531,10 +531,10 @@ export default function TabbedPage({
               <Link
                 ml="2"
                 onClick={() => setPhase(experiment.phases.length - 1)}
-              >
-                {isHoldout
-                  ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
-                  : "Switch to the latest phase"}
+                >
+                  {isHoldout
+                    ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
+                    : "Switch to the latest phase"}
               </Link>
             </Callout>
           )}
