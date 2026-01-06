@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { customMetricSlice } from "shared/validators";
+import { customMetricSlice } from "./experiments";
 import { queryPointerValidator } from "./queries";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
