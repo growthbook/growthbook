@@ -6,7 +6,7 @@ from gbstats.models.statistics import (
     compute_theta,
     compute_theta_regression_adjusted_ratio,
 )
-from gbstats.models.results import Uplift
+from gbstats.models.tests import Uplift
 from scipy.stats import t
 
 import pandas as pd
@@ -45,8 +45,6 @@ from gbstats.models.settings import (
 )
 from gbstats.devtools.simulation import CreateRow
 from gbstats.gbstats import (
-    get_metric_dfs,
-    variation_statistic_from_metric_row,
     process_single_metric,
 )
 
