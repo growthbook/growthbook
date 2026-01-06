@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react";
+import React, { useContext, useMemo, useRef } from "react";
 import { Flex, Text, Heading } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import {
@@ -139,6 +139,18 @@ export default function DashboardUpdateDisplay({
   const { settings, updateSeriesColor } = useContext(
     DashboardSeriesDisplayContext,
   );
+  // Track pending colors during drag (uncontrolled pattern)
+  const pendingColorsRef = useRef<Map<string, string>>(new Map());
+
+  // Sync pending colors when settings change from outside
+  useMemo(() => {
+    Object.entries(settings).forEach(([seriesKey, seriesSettings]) => {
+      if (!pendingColorsRef.current.has(seriesKey)) {
+        pendingColorsRef.current.set(seriesKey, seriesSettings.color);
+      }
+    });
+  }, [settings]);
+
   const refreshing = ["running", "queued"].includes(refreshStatus);
   const { numQueries, numFinished } = useMemo(() => {
     const numQueries = allQueries.length;
@@ -235,51 +247,88 @@ export default function DashboardUpdateDisplay({
             Hover over an item&apos;s color swatch to customize it.
           </Text>
           <Flex direction="column">
-            {Object.entries(settings).map(([seriesKey, seriesSettings]) => (
-              <DropdownMenuItem key={seriesKey}>
-                <Flex align="center" gap="1">
-                  <Tooltip
-                    body={
-                      <Flex direction="column" gap="1">
-                        <Heading as="h4" size="4">
-                          Customize Color
-                        </Heading>
-                        <Flex direction="column" gap="3">
-                          <HexColorPicker
-                            color={seriesSettings.color}
-                            onChange={(color) => {
-                              updateSeriesColor(seriesKey, color);
-                            }}
-                          />
-                          <Flex direction="column">
-                            <Text as="label" size="3" weight="bold">
-                              Hex Color
-                            </Text>
+            {Object.entries(settings).map(([seriesKey, seriesSettings]) => {
+              // Initialize pending color if not set
+              if (!pendingColorsRef.current.has(seriesKey)) {
+                pendingColorsRef.current.set(seriesKey, seriesSettings.color);
+              }
+
+              return (
+                <DropdownMenuItem key={seriesKey}>
+                  <Flex align="center" gap="1">
+                    <Tooltip
+                      body={
+                        <Flex direction="column" gap="1">
+                          <Heading as="h4" size="4">
+                            Customize Color
+                          </Heading>
+                          <Flex direction="column" gap="3">
                             <div
-                              onKeyDown={(e) => e.stopPropagation()}
-                              onMouseDown={(e) => e.stopPropagation()}
+                              onMouseUp={() => {
+                                // Only sync to state when user releases mouse
+                                const pendingColor =
+                                  pendingColorsRef.current.get(seriesKey);
+                                if (pendingColor) {
+                                  updateSeriesColor(seriesKey, pendingColor);
+                                }
+                              }}
                             >
-                              <HexColorInput
+                              <HexColorPicker
                                 color={seriesSettings.color}
                                 onChange={(color) => {
-                                  updateSeriesColor(seriesKey, color);
+                                  // Track color during drag, but don't sync to state yet
+                                  pendingColorsRef.current.set(
+                                    seriesKey,
+                                    color,
+                                  );
                                 }}
                               />
                             </div>
+                            <Flex direction="column">
+                              <Text as="label" size="3" weight="bold">
+                                Hex Color
+                              </Text>
+                              <div
+                                onKeyDown={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
+                                <HexColorInput
+                                  color={seriesSettings.color}
+                                  onChange={(color) => {
+                                    // Track color, sync on blur
+                                    pendingColorsRef.current.set(
+                                      seriesKey,
+                                      color,
+                                    );
+                                  }}
+                                  onBlur={() => {
+                                    // Sync to state when user finishes typing
+                                    const pendingColor =
+                                      pendingColorsRef.current.get(seriesKey);
+                                    if (pendingColor) {
+                                      updateSeriesColor(
+                                        seriesKey,
+                                        pendingColor,
+                                      );
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </Flex>
                           </Flex>
                         </Flex>
-                      </Flex>
-                    }
-                  >
-                    <PiCircleFill
-                      size={20}
-                      style={{ color: seriesSettings.color }}
-                    />
-                  </Tooltip>
-                  <Text>{seriesKey}</Text>
-                </Flex>
-              </DropdownMenuItem>
-            ))}
+                      }
+                    >
+                      <PiCircleFill
+                        size={20}
+                        style={{ color: seriesSettings.color }}
+                      />
+                    </Tooltip>
+                    <Text>{seriesKey}</Text>
+                  </Flex>
+                </DropdownMenuItem>
+              );
+            })}
           </Flex>
         </DropdownMenu>
       )}

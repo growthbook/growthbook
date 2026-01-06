@@ -54,12 +54,12 @@ export default function DashboardSeriesDisplayProvider({
     Record<string, DisplaySettings>
   >(() => dashboard?.seriesDisplaySettings ?? {});
 
-  // Always sync settings state from dashboard prop when it changes
-  // This ensures we stay in sync after saves, while pending updates merge naturally
+  // Sync settings state from dashboard prop when it changes
+  // Merge with pending auto-assigned colors to preserve them during sync
   useEffect(() => {
     if (dashboard?.seriesDisplaySettings !== undefined) {
-      // Merge with any pending updates to avoid losing in-flight changes
       const merged = { ...dashboard.seriesDisplaySettings };
+      // Preserve auto-assigned colors that haven't been persisted yet
       pendingUpdatesRef.current.forEach(
         ({ color, existingSettings }, seriesKey) => {
           if (!merged[seriesKey]?.color) {
@@ -73,7 +73,6 @@ export default function DashboardSeriesDisplayProvider({
       setSettingsState(merged);
     } else if (dashboard) {
       // Dashboard exists but has no seriesDisplaySettings (legacy dashboard)
-      // Merge with pending updates
       const merged: Record<string, DisplaySettings> = {};
       pendingUpdatesRef.current.forEach(
         ({ color, existingSettings }, seriesKey) => {
@@ -157,7 +156,7 @@ export default function DashboardSeriesDisplayProvider({
           color,
         };
 
-        // Update local settings state immediately for instant UI feedback
+        // Update local settings state for UI feedback
         setSettingsState(next);
 
         const updatedDashboard = {
