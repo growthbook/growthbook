@@ -3,7 +3,7 @@ import { FaTimes } from "react-icons/fa";
 import { PiX, PiStackBold } from "react-icons/pi";
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import { SliceLevelsData } from "shared/experiments";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";

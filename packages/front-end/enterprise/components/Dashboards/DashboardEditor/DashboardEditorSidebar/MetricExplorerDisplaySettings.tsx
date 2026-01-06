@@ -3,8 +3,8 @@ import { Flex, Text, Box } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import { FactTableInterface } from "back-end/types/fact-table";
+} from "shared/src/enterprise/validators/dashboard-block";
+import { FactTableInterface } from "shared/types/fact-table";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { PiPalette } from "react-icons/pi";

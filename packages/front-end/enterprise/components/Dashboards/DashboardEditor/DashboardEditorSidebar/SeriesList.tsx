@@ -1,8 +1,8 @@
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import { FactTableInterface } from "back-end/types/fact-table";
+} from "shared/src/enterprise/validators/dashboard-block";
+import { FactTableInterface } from "shared/types/fact-table";
 import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { useMemo, useState } from "react";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
