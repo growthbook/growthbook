@@ -226,10 +226,10 @@ export default function FeatureFromExperimentModal({
             >;
 
         if (existing) {
-          const existingFeature = await apiCall<FeatureInterface>(
-            `/feature/${existing}`,
+          const existingFeature = await apiCall<{ feature: FeatureInterface }>(
+            `/feature/${existing}/data`,
           );
-          featureToCreate = existingFeature;
+          featureToCreate = existingFeature.feature;
         } else {
           featureToCreate = {
             ...feature,

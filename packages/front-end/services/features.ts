@@ -437,11 +437,9 @@ export function findGaps(
 }
 
 export function useFeaturesListWithValues() {
-  const url = `/feature`;
-
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
-  }>(url);
+  }>("/feature");
 
   const { features } = useMemo(() => {
     if (data) {
