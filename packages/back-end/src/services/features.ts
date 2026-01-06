@@ -659,7 +659,9 @@ export async function refreshSDKPayloadCache({
           experiments: experimentsDefinitions || [],
           holdouts: holdoutFeatureDefinitions || {},
           dateUpdated: new Date(),
-          encryptionKey: connection.encryptionKey,
+          encryptionKey: connection.encryptPayload
+            ? connection.encryptionKey
+            : undefined,
           includeVisualExperiments: connection.includeVisualExperiments,
           includeDraftExperiments: connection.includeDraftExperiments,
           includeExperimentNames: connection.includeExperimentNames,
