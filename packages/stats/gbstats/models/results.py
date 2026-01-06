@@ -64,18 +64,9 @@ ResponseCI = Tuple[Optional[float], Optional[float]]
 
 
 @dataclass
-class BaseExperimentResults:
-    expected: float
-    uplift: Uplift
-    ci: ResponseCI
-    errorMessage: Optional[str]
-
-
-# TODO: talk to Sonnet about better way to handle defaults
-@dataclass
 class TestResultNoDefaults:
     expected: float
-    ci: List[float]
+    ci: ResponseCI
     uplift: Uplift
     errorMessage: Optional[str]
 
