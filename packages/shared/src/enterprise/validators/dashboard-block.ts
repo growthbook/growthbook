@@ -121,13 +121,14 @@ export type ExperimentMetricBlockInterface = z.infer<
   typeof experimentMetricBlockInterface
 >;
 const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
-  .omit({ metricSelector: true })
+  .omit({ metricSelector: true, sliceTagsFilter: true })
   .extend({
     metricSelector: z
       .enum([...metricSelectors, "custom"] as [string, ...string[]])
       .optional(),
     pinSource: z.enum(pinSources).optional(),
     pinnedMetricSlices: z.array(z.string()).optional(),
+    sliceTagsFilter: z.array(z.string()).nullable().optional(),
   });
 
 const experimentDimensionBlockInterface = baseBlockInterface
@@ -182,13 +183,16 @@ export type ExperimentTimeSeriesBlockInterface = z.infer<
   typeof experimentTimeSeriesBlockInterface
 >;
 const legacyExperimentTimeSeriesBlockInterface =
-  experimentTimeSeriesBlockInterface.omit({ metricSelector: true }).extend({
-    metricSelector: z
-      .enum([...metricSelectors, "custom"] as [string, ...string[]])
-      .optional(),
-    pinSource: z.enum(pinSources).optional(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
-  });
+  experimentTimeSeriesBlockInterface
+    .omit({ metricSelector: true, sliceTagsFilter: true })
+    .extend({
+      metricSelector: z
+        .enum([...metricSelectors, "custom"] as [string, ...string[]])
+        .optional(),
+      pinSource: z.enum(pinSources).optional(),
+      pinnedMetricSlices: z.array(z.string()).optional(),
+      sliceTagsFilter: z.array(z.string()).nullable().optional(),
+    });
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({

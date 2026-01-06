@@ -373,7 +373,7 @@ export function migrateBlock(
       const sliceTagsFilter =
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
-          : doc.sliceTagsFilter;
+          : doc.sliceTagsFilter || [];
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource"]),
         metricSelector,
@@ -381,7 +381,6 @@ export function migrateBlock(
       } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-dimension": {
-      // Migrate: "custom" -> "all", preserve existing metricIds as filter
       const dimensionMetricSelectorValue = doc.metricSelector || "all";
       const dimensionMetricSelector: (typeof metricSelectors)[number] =
         isMetricSelector(dimensionMetricSelectorValue)
@@ -405,7 +404,7 @@ export function migrateBlock(
       const sliceTagsFilter =
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
-          : doc.sliceTagsFilter;
+          : doc.sliceTagsFilter || [];
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricId"]),
         metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
