@@ -34,6 +34,10 @@ export class HoldoutModel extends BaseClass {
     return this.context.permissions.canDeleteHoldout(doc);
   }
 
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("holdouts");
+  }
+
   public async getAllPayloadHoldouts(
     environment?: string,
   ): Promise<
