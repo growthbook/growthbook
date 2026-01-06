@@ -127,13 +127,14 @@ export default function ResultsTab({
     experiment.activationMetric || "",
   );
 
-  const hasData =
-    (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasValidStatsEngine =
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const hasResults =
     experiment.status !== "draft" &&
     hasData &&
+    hasValidStatsEngine &&
     snapshot &&
     analysis?.results?.[0];
 

@@ -143,6 +143,8 @@ export default function AnalysisSettingsSummary({
   } = useSnapshot();
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasValidStatsEngine =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
@@ -625,6 +627,7 @@ export default function AnalysisSettingsSummary({
                   <OutdatedBadge
                     label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
                     reasons={reasons}
+                    hasData={hasData && hasValidStatsEngine}
                   />
                 ) : null}
               </Flex>
