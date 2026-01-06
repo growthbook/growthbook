@@ -148,7 +148,6 @@ export default function DashboardSeriesDisplayProvider({
 
   const updateSeriesColor = useCallback(
     (seriesKey: string, color: string) => {
-      console.log("updateSeriesColor", seriesKey, color);
       setDashboard((prevDashboard) => {
         if (!prevDashboard) return prevDashboard;
         const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
@@ -180,7 +179,7 @@ export default function DashboardSeriesDisplayProvider({
             saveTimersRef.current.delete(seriesKey);
             const currentDashboard = latestDashboardRef.current;
             if (currentDashboard?.id && currentDashboard.id !== "new") {
-              onSave(currentDashboard).catch((e) => {
+              Promise.resolve(onSave(currentDashboard)).catch((e) => {
                 console.error("Failed to save series display settings:", e);
               });
             }

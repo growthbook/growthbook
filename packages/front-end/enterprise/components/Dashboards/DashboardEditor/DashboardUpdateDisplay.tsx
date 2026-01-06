@@ -16,11 +16,7 @@ import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  DropdownMenuItem,
-  DropdownMenu,
-  DropdownMenuLabel,
-} from "@/ui/DropdownMenu";
+import { DropdownMenuItem, DropdownMenu } from "@/ui/DropdownMenu";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import { DashboardSeriesDisplayContext } from "../DashboardSeriesDisplayProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
@@ -227,58 +223,60 @@ export default function DashboardUpdateDisplay({
         <DropdownMenu
           trigger={
             <Button variant="outline">
-              Configure Series <PiCaretDownLight size={16} />
+              Configure Legends <PiCaretDownLight size={16} />
             </Button>
           }
         >
-          <DropdownMenuLabel>
+          <Text
+            className="text-wrap"
+            style={{ maxWidth: "250px", padding: "6px 12px" }}
+            color="gray"
+          >
             Hover over an item&apos;s color swatch to customize it.
-          </DropdownMenuLabel>
+          </Text>
           <Flex direction="column">
             {Object.entries(settings).map(([seriesKey, seriesSettings]) => (
               <DropdownMenuItem key={seriesKey}>
-                <Flex align="center justify-between">
-                  <Flex align="center" gap="1">
-                    <Tooltip
-                      body={
-                        <Flex direction="column" gap="1">
-                          <Heading as="h4" size="4">
-                            Customize Color
-                          </Heading>
-                          <Flex direction="column" gap="3">
-                            <HexColorPicker
-                              color={seriesSettings.color}
-                              onChange={(color) => {
-                                updateSeriesColor(seriesKey, color);
-                              }}
-                            />
-                            <Flex direction="column">
-                              <Text as="label" size="3" weight="bold">
-                                Hex Color
-                              </Text>
-                              <div
-                                onKeyDown={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              >
-                                <HexColorInput
-                                  color={seriesSettings.color}
-                                  onChange={(color) => {
-                                    updateSeriesColor(seriesKey, color);
-                                  }}
-                                />
-                              </div>
-                            </Flex>
+                <Flex align="center" gap="1">
+                  <Tooltip
+                    body={
+                      <Flex direction="column" gap="1">
+                        <Heading as="h4" size="4">
+                          Customize Color
+                        </Heading>
+                        <Flex direction="column" gap="3">
+                          <HexColorPicker
+                            color={seriesSettings.color}
+                            onChange={(color) => {
+                              updateSeriesColor(seriesKey, color);
+                            }}
+                          />
+                          <Flex direction="column">
+                            <Text as="label" size="3" weight="bold">
+                              Hex Color
+                            </Text>
+                            <div
+                              onKeyDown={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            >
+                              <HexColorInput
+                                color={seriesSettings.color}
+                                onChange={(color) => {
+                                  updateSeriesColor(seriesKey, color);
+                                }}
+                              />
+                            </div>
                           </Flex>
                         </Flex>
-                      }
-                    >
-                      <PiCircleFill
-                        size={20}
-                        style={{ color: seriesSettings.color }}
-                      />
-                    </Tooltip>
-                    <Text>{seriesKey}</Text>
-                  </Flex>
+                      </Flex>
+                    }
+                  >
+                    <PiCircleFill
+                      size={20}
+                      style={{ color: seriesSettings.color }}
+                    />
+                  </Tooltip>
+                  <Text>{seriesKey}</Text>
                 </Flex>
               </DropdownMenuItem>
             ))}
