@@ -684,7 +684,7 @@ export function generateRowsForMetric({
   return rows;
 }
 
-function sortMetricsByCustomOrder(
+export function sortMetricsByCustomOrder(
   metrics: ExperimentMetricInterface[],
   customOrder: string[],
 ): string[] {

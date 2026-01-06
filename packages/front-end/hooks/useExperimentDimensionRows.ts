@@ -23,7 +23,10 @@ import { RowError } from "@/components/Experiment/ResultsTable";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { filterMetricsByTags } from "./useExperimentTableRows";
+import {
+  filterMetricsByTags,
+  sortMetricsByCustomOrder,
+} from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
   results: ExperimentReportResultDimension[];
@@ -66,7 +69,7 @@ export function useExperimentDimensionRows({
   metricsFilter,
   sortBy,
   sortDirection,
-  customMetricOrder: _customMetricOrder,
+  customMetricOrder,
   analysisBarSettings,
   statsEngine,
   pValueCorrection,
@@ -214,19 +217,36 @@ export function useExperimentDimensionRows({
       metricIds: string[],
       resultGroup: "goal" | "secondary" | "guardrail",
     ) {
-      return metricIds
+      // Get metric definitions
+      const metricDefs = metricIds
+        .map(
+          (metricId) =>
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId),
+        )
+        .filter((m): m is ExperimentMetricInterface => !!m);
+
+      // Apply tag filtering first (independent of sorting)
+      const filteredMetricIds = filterMetricsByTags(
+        metricDefs,
+        metricTagFilter,
+      );
+
+      // Apply custom ordering if sortBy is "custom"
+      const sortedMetricIds =
+        sortBy === "custom" && customMetricOrder
+          ? sortMetricsByCustomOrder(
+              metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
+              customMetricOrder,
+            )
+          : filteredMetricIds;
+
+      return sortedMetricIds
         .map((metricId) => {
           const metric =
             ssrPolyfills?.getExperimentMetricById?.(metricId) ||
             getExperimentMetricById(metricId);
           if (!metric) return null;
-
-          // Apply filtering first (independent of sorting)
-          const filteredMetrics = filterMetricsByTags(
-            [metric],
-            metricTagFilter,
-          );
-          if (filteredMetrics.length === 0) return null;
 
           const { newMetric, overrideFields } = applyMetricOverrides(
             metric,
@@ -310,6 +330,7 @@ export function useExperimentDimensionRows({
     metricTagFilter,
     sortBy,
     sortDirection,
+    customMetricOrder,
     analysisBarSettings,
     statsEngine,
     pValueCorrection,
