@@ -122,10 +122,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
   const existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources;
 
-  const metricSourceGroups = getIncrementalRefreshMetricSources(
-    selectedMetrics.filter((m) => isFactMetric(m)),
-    existingSources ?? [],
-  );
+  const metricSourceGroups = getIncrementalRefreshMetricSources({
+    metrics: selectedMetrics.filter((m) => isFactMetric(m)),
+    existingMetricSources: existingSources ?? [],
+    integration,
+    snapshotSettings,
+  });
 
   for (const group of metricSourceGroups) {
     const existingSource = existingSources?.find(
