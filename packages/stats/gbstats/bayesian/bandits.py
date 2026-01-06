@@ -1,11 +1,12 @@
 from abc import abstractmethod, ABC
 from dataclasses import field
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import numpy as np
 import random
 from pydantic.dataclasses import dataclass
 
+from gbstats.models.tests import ResponseCI
 from gbstats.models.results import BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
@@ -32,7 +33,7 @@ class BanditConfig(BayesianConfig):
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
-    ci: Optional[List[List[float]]]
+    ci: Optional[List[ResponseCI]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
     seed: int
@@ -184,7 +185,7 @@ class Bandits(ABC):
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
-            ci=credible_intervals,
+            ci=cast(List[ResponseCI], credible_intervals),
             bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,

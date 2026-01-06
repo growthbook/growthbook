@@ -84,7 +84,7 @@ class BayesianABTest(BaseABTest):
         return BayesianTestResult(
             chanceToWin=0.5,
             expected=0,
-            ci=[0, 0],
+            ci=(0, 0),
             uplift=Uplift(dist="normal", mean=0, stddev=0),
             risk=[0, 0],
             errorMessage=error_message,
@@ -103,14 +103,20 @@ class BayesianABTest(BaseABTest):
         if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
         if self.scaled_impact_eligible:
-            if self.total_users:
+            if self.total_users and result.ci:
                 daily_traffic = self.total_users / (
                     self.traffic_percentage * self.phase_length_days
+                )
+                lower = (
+                    result.ci[0] * daily_traffic if result.ci[0] is not None else None
+                )
+                upper = (
+                    result.ci[1] * daily_traffic if result.ci[1] is not None else None
                 )
                 return BayesianTestResult(
                     chanceToWin=result.chanceToWin,
                     expected=result.expected * daily_traffic,
-                    ci=[result.ci[0] * daily_traffic, result.ci[1] * daily_traffic],
+                    ci=(lower, upper),
                     uplift=Uplift(
                         dist=result.uplift.dist,
                         mean=result.uplift.mean * daily_traffic,

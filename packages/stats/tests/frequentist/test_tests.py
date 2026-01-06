@@ -44,8 +44,12 @@ def _round_result_dict(result_dict):
             v = {
                 kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
             }
-        else:
-            v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
+        elif isinstance(v, tuple) and len(v) == 2:
+            v_low = round_(v[0]) if v[0] is not None else None
+            v_high = round_(v[1]) if v[1] is not None else None
+            v = (v_low, v_high)
+        elif isinstance(v, float):
+            v = round_(v)
         result_dict[k] = v
     return result_dict
 
@@ -66,7 +70,7 @@ class TestTwoSidedTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.70732,
-                ci=[-0.03526, 1.44989],
+                ci=(-0.03526, 1.44989),
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 pValue=0.06191,
                 errorMessage=None,
@@ -86,7 +90,7 @@ class TestTwoSidedTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.7 - 0.41,
-                ci=[0.04538, 0.53462],
+                ci=(0.04538, 0.53462),
                 uplift=Uplift("normal", 0.29, 0.12478),
                 pValue=0.02016,
                 errorMessage=None,
@@ -105,7 +109,7 @@ class TestTwoSidedTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=np.round((16 / 30 - 0.5) / 0.5, DECIMALS),
-                ci=[-0.47767, 0.61101],
+                ci=(-0.47767, 0.61101),
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 pValue=0.80707,
                 errorMessage=None,
@@ -177,7 +181,7 @@ class TestTwoSidedTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=-0.0007,
-                ci=[-0.00841, 0.00700],
+                ci=(-0.00841, 0.00700),
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
                 errorMessage=None,
                 pValue=0.85771,
@@ -197,7 +201,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50336,
-                ci=[-0.55844, 1.56516],
+                ci=(-0.55844, 1.56516),
                 uplift=Uplift("normal", 0.50336, 0.33341),
                 pValue=1,
                 errorMessage=None,
@@ -215,7 +219,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50386,
-                ci=[0.40098, 0.60675],
+                ci=(0.40098, 0.60675),
                 uplift=Uplift("normal", 0.50386, 0.03386),
                 pValue=0.0,
                 errorMessage=None,
@@ -248,7 +252,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50338,
-                ci=[-0.50969, 1.51646],
+                ci=(-0.50969, 1.51646),
                 uplift=Uplift("normal", 0.50338, 0.33341),
                 pValue=1,
                 errorMessage=None,
@@ -308,7 +312,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=-0.0007,
-                ci=[-0.02063, 0.01923],
+                ci=(-0.02063, 0.01923),
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
                 errorMessage=None,
                 pValue=1.0,
@@ -362,7 +366,7 @@ class TestOneSidedGreaterTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.5033610858562358,
-                ci=[-0.045136675850396046, np.inf],
+                ci=(-0.045136675850396046, np.inf),
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
@@ -385,7 +389,7 @@ class TestOneSidedGreaterTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
-                ci=[0.020791480063255735, np.inf],
+                ci=(0.020791480063255735, np.inf),
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
@@ -411,7 +415,7 @@ class TestOneSidedLesserTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.5033610858562358,
-                ci=[-np.inf, 1.0518588475628676],
+                ci=(-np.inf, 1.0518588475628676),
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
@@ -434,7 +438,7 @@ class TestOneSidedLesserTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
-                ci=[-np.inf, 0.44796185327007765],
+                ci=(-np.inf, 0.44796185327007765),
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
@@ -462,7 +466,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.5033610858562358,
-                ci=[-0.42356454602790883, np.inf],
+                ci=(-0.42356454602790883, np.inf),
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
@@ -485,7 +489,7 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
-                ci=[-0.12656844172804982, np.inf],
+                ci=(-0.12656844172804982, np.inf),
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
@@ -513,7 +517,7 @@ class TestSequentialOneSidedLesserTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.5033610858562358,
-                ci=[-np.inf, 1.4302867177403806],
+                ci=(-np.inf, 1.4302867177403806),
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
@@ -536,7 +540,7 @@ class TestSequentialOneSidedLesserTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
-                ci=[-np.inf, 0.5953217750613832],
+                ci=(-np.inf, 0.5953217750613832),
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),

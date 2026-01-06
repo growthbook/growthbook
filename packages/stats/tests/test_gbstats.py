@@ -25,7 +25,6 @@ from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    BanditPeriodDataSampleMean,
 )
 from gbstats.models.results import (
     BayesianVariationResponseIndividual,

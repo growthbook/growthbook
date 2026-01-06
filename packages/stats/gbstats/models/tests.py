@@ -65,10 +65,13 @@ class Uplift:
     stddev: float
 
 
+ResponseCI = Tuple[Optional[float], Optional[float]]
+
+
 @dataclass
 class TestResult:
     expected: float
-    ci: List[float]
+    ci: ResponseCI
     uplift: Uplift
     errorMessage: Optional[str]
 
