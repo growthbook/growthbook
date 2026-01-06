@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Flex, Text, Box, Separator } from "@radix-ui/themes";
-import {
-  DashboardBlockInterfaceOrData,
-  MetricExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import { CustomMetricSlice } from "shared/validators";
-import { FactTableInterface } from "back-end/types/fact-table";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { PiChartPieSlice, PiArrowSquareOut } from "react-icons/pi";
-import { MAX_METRICS_IN_METRIC_ANALYSIS_QUERY } from "shared/constants";
+import { MAX_METRICS_PER_QUERY } from "shared/constants";
+import {
+  DashboardBlockInterfaceOrData,
+  MetricExplorerBlockInterface,
+} from "shared/src/enterprise/validators/dashboard-block";
+import { FactTableInterface } from "shared/types/fact-table";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
@@ -66,7 +66,7 @@ export default function MetricSlicesSection({
       numOfSlices += block.analysisSettings.customMetricSlices.length;
     }
 
-    if (numOfSlices > MAX_METRICS_IN_METRIC_ANALYSIS_QUERY) {
+    if (numOfSlices > MAX_METRICS_PER_QUERY) {
       setShowMaxSlicesWarning(true);
     } else {
       setShowMaxSlicesWarning(false);
@@ -186,8 +186,8 @@ export default function MetricSlicesSection({
             {showMaxSlicesWarning && (
               <Callout status="warning" mb="2">
                 You have exceeded the maximum number of slices allowed (
-                {MAX_METRICS_IN_METRIC_ANALYSIS_QUERY}). Any slices beyond the
-                limit will not be analyzed.
+                {MAX_METRICS_PER_QUERY}). Any slices beyond the limit will not
+                be analyzed.
               </Callout>
             )}
             {!hasMetricSlicesFeature ? (

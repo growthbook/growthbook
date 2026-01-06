@@ -15,7 +15,7 @@ import {
 } from "shared/util";
 import {
   DEFAULT_METRIC_HISTOGRAM_BINS,
-  MAX_METRICS_IN_METRIC_ANALYSIS_QUERY,
+  MAX_METRICS_PER_QUERY,
 } from "shared/constants";
 import {
   MetricAnalysisParams,
@@ -256,7 +256,7 @@ export function processMetricAnalysisQueryResponse(
   rows.forEach((row) => {
     const { date, data_type, units } = row;
 
-    for (let i = 0; i < MAX_METRICS_IN_METRIC_ANALYSIS_QUERY; i++) {
+    for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
       const prefix = `m${i}_`;
       const idKey = `${prefix}id`;
       const metricIdRaw = row[idKey];
