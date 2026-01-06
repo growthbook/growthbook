@@ -46,7 +46,6 @@ import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -72,15 +71,12 @@ export interface Props {
   }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
-  sortBy?: "significance" | "change" | null;
-  setSortBy?: (s: "significance" | "change" | null) => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
-  envs: _envs,
   mutate,
   statsEngine,
   editMetrics,
@@ -99,8 +95,6 @@ export default function AnalysisSettingsSummary({
   availableSliceTags = [],
   sliceTagsFilter,
   setSliceTagsFilter,
-  sortBy: _sortBy,
-  setSortBy: _setSortBy,
 }: Props) {
   const {
     getDatasourceById,

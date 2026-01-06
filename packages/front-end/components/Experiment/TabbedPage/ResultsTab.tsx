@@ -295,7 +295,6 @@ export default function ResultsTab({
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
-            envs={envs}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
@@ -338,8 +337,6 @@ export default function ResultsTab({
             availableSliceTags={availableSliceTags}
             sliceTagsFilter={sliceTagsFilter}
             setSliceTagsFilter={setSliceTagsFilter}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
