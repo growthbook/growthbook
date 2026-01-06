@@ -218,23 +218,30 @@ export default function FeatureFromExperimentModal({
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
-        const featureToCreate:
+        let featureToCreate:
           | undefined
           | Omit<
               FeatureInterface,
               "organization" | "dateCreated" | "dateUpdated"
-            > = existing
-          ? features.find((f) => f.id === existing)
-          : {
-              ...feature,
-              defaultValue: variations[0].value,
-              holdout: experiment.holdoutId
-                ? {
-                    id: experiment.holdoutId,
-                    value: variations[0].value,
-                  }
-                : undefined,
-            };
+            >;
+
+        if (existing) {
+          const existingFeature = await apiCall<FeatureInterface>(
+            `/feature/${existing}`,
+          );
+          featureToCreate = existingFeature;
+        } else {
+          featureToCreate = {
+            ...feature,
+            defaultValue: variations[0].value,
+            holdout: experiment.holdoutId
+              ? {
+                  id: experiment.holdoutId,
+                  value: variations[0].value,
+                }
+              : undefined,
+          };
+        }
 
         if (!featureToCreate) {
           throw new Error("Invalid feature selected");

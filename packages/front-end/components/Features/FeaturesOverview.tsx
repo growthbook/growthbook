@@ -46,9 +46,9 @@ import {
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
-  useFeaturesList,
   getRules,
   isRuleInactive,
+  useFeaturesListWithValues,
 } from "@/services/features";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
@@ -150,7 +150,7 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesListWithValues();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);

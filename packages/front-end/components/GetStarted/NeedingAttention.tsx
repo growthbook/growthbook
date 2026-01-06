@@ -8,7 +8,7 @@ import {
   PiChartLineBold,
 } from "react-icons/pi";
 import { ComputedExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureWithoutValues } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
@@ -42,7 +42,7 @@ import LinkButton from "@/ui/LinkButton";
 import styles from "./NeedingAttention.module.scss";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
-  feature: FeatureInterface;
+  feature: FeatureWithoutValues;
   safeRollout: SafeRolloutInterface | undefined;
 };
 

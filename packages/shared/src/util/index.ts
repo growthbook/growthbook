@@ -11,7 +11,12 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "shared/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureRuleWithoutValues,
+  FeatureWithoutValues,
+} from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
@@ -304,6 +309,47 @@ export function getMatchingRules(
   return matches;
 }
 
+export type MatchingRuleWithoutValues = {
+  environmentId: string;
+  i: number;
+  environmentEnabled: boolean;
+  rule: FeatureRuleWithoutValues;
+};
+
+export function getMatchingRulesWithoutValues(
+  feature: FeatureWithoutValues,
+  filter: (rule: FeatureRuleWithoutValues) => boolean,
+  environments: string[],
+  omitDisabledEnvironments: boolean = false,
+): MatchingRuleWithoutValues[] {
+  const matches: MatchingRuleWithoutValues[] = [];
+
+  if (feature.environmentSettings) {
+    Object.entries(feature.environmentSettings).forEach(
+      ([environmentId, settings]) => {
+        if (!isValidEnvironment(environmentId, environments)) return;
+
+        if (omitDisabledEnvironments && !settings.enabled) return;
+
+        if (settings.rules) {
+          settings.rules.forEach((rule, i) => {
+            if (filter(rule)) {
+              matches.push({
+                rule,
+                i,
+                environmentEnabled: settings.enabled,
+                environmentId,
+              });
+            }
+          });
+        }
+      },
+    );
+  }
+
+  return matches;
+}
+
 export function isProjectListValidForProject(
   projects?: string[],
   project?: string,
@@ -463,13 +509,13 @@ export function featuresReferencingSavedGroups({
   environments,
 }: {
   savedGroups: SavedGroupInterface[];
-  features: FeatureInterface[];
+  features: FeatureWithoutValues[];
   environments: Environment[];
-}): Record<string, FeatureInterface[]> {
-  const referenceMap: Record<string, FeatureInterface[]> = {};
+}): Record<string, FeatureWithoutValues[]> {
+  const referenceMap: Record<string, FeatureWithoutValues[]> = {};
   features.forEach((feature) => {
     savedGroups.forEach((savedGroup) => {
-      const matches = getMatchingRules(
+      const matches = getMatchingRulesWithoutValues(
         feature,
         (rule) =>
           rule.condition?.includes(savedGroup.id) ||

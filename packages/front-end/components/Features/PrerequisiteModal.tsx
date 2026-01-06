@@ -23,7 +23,7 @@ import {
   getFeatureDefaultValue,
   getPrerequisites,
   useEnvironments,
-  useFeaturesList,
+  useFeaturesListWithValues,
 } from "@/services/features";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -62,7 +62,7 @@ export default function PrerequisiteModal({
   revisions,
   version,
 }: Props) {
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesListWithValues();
   const { projects } = useDefinitions();
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;

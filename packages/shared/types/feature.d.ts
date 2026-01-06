@@ -3,6 +3,7 @@
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { z } from "zod";
 import {
+  FeatureEnvironment,
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
   FeatureRule,
@@ -22,7 +23,6 @@ export {
   ExperimentRefRule,
   RolloutRule,
   ExperimentRefVariation,
-  ComputedFeatureInterface,
 } from "shared/validators";
 
 export {
@@ -87,3 +87,38 @@ export interface FeatureUsageData {
 }
 
 export type AttributeMap = Map<string, string>;
+
+type MakeOptionalIfPresent<T, K extends PropertyKey> = T extends any
+  ? Omit<T, Extract<K, keyof T>> & Partial<Pick<T, Extract<K, keyof T>>>
+  : never;
+
+export type FeatureRuleWithoutValues = MakeOptionalIfPresent<
+  FeatureRule,
+  "value" | "values" | "variations" | "controlValue" | "variationValue"
+>;
+
+// JSON features can have very large values
+// Omit them on the front-end unless specifically needed
+export type FeatureWithoutValues = Omit<
+  FeatureInterface,
+  "environmentSettings" | "defaultValue" | "holdout"
+> & {
+  environmentSettings: Record<
+    string,
+    Omit<FeatureEnvironment, "rules"> & {
+      rules: FeatureRuleWithoutValues[];
+    }
+  >;
+  holdout?: { id: string; value?: string };
+  defaultValue?: string;
+};
+
+export type ComputedFeatureInterface = FeatureWithoutValues & {
+  projectId: string;
+  projectName: string;
+  projectIsDeReferenced: boolean;
+  savedGroups: string[];
+  stale: boolean;
+  staleReason: string;
+  ownerName: string;
+};

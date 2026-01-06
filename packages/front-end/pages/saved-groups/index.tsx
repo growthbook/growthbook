@@ -25,7 +25,7 @@ import Callout from "@/ui/Callout";
 import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
 
 export const getSavedGroupMessage = (
-  featuresUsingSavedGroups?: FeatureInterface[],
+  featuresUsingSavedGroups?: Pick<FeatureInterface, "id">[],
   experimentsUsingSavedGroups?: Array<
     ExperimentInterface | ExperimentInterfaceStringDates
   >,

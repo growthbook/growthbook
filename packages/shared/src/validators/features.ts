@@ -280,17 +280,3 @@ export const featureInterface = z
   .strict();
 
 export type FeatureInterface = z.infer<typeof featureInterface>;
-
-const computedFeatureInterface = featureInterface
-  .extend({
-    projectId: z.string(),
-    projectName: z.string(),
-    projectIsDeReferenced: z.boolean(),
-    savedGroups: z.array(z.string()),
-    stale: z.boolean(),
-    staleReason: z.string(),
-    ownerName: z.string(),
-  })
-  .strict();
-
-export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
