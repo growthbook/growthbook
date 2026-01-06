@@ -184,6 +184,7 @@ export type BanditMetricData = Pick<
   | "ratioMetric"
   | "regressionAdjusted"
   | "isPercentileCapped"
+  | "isAbsoluteCapped"
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"

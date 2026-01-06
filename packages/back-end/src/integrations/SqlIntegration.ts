@@ -3905,13 +3905,15 @@ export default abstract class SqlIntegration
         value: 0,
       },
     };
-    const uncappedDenominator = {
-      ...denominator,
-      cappingSettings: {
-        type: "" as const,
-        value: 0,
-      },
-    };
+    const uncappedDenominator = denominator
+      ? {
+          ...denominator,
+          cappingSettings: {
+            type: "" as const,
+            value: 0,
+          },
+        }
+      : undefined;
     const uncappedCovariate = {
       ...metric,
       cappingSettings: {
@@ -3925,12 +3927,14 @@ export default abstract class SqlIntegration
       capTablePrefix: "cap",
       columnRef: null,
     });
-    const uncappedCoalesceDenominator = this.capCoalesceValue({
-      valueCol: "d.value",
-      metric: uncappedDenominator,
-      capTablePrefix: "capd",
-      columnRef: null,
-    });
+    const uncappedCoalesceDenominator = uncappedDenominator
+      ? this.capCoalesceValue({
+          valueCol: "d.value",
+          metric: uncappedDenominator,
+          capTablePrefix: "capd",
+          columnRef: null,
+        })
+      : "";
     const uncappedCoalesceCovariate = this.capCoalesceValue({
       valueCol: "c.value",
       metric: uncappedCovariate,

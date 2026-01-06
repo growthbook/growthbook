@@ -145,6 +145,7 @@ export interface AnalysisSettingsForStatsEngine {
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
   post_stratification_enabled?: boolean;
+  use_uncapped_metric?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -187,6 +188,7 @@ export interface MetricSettingsForStatsEngine {
   prior_stddev?: number;
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
+  capped: boolean;
 }
 
 export interface QueryResultsForStatsEngine {
