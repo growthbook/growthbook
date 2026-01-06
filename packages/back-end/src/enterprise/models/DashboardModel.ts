@@ -373,8 +373,7 @@ export function migrateBlock(
       const sliceTagsFilter =
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
-          : undefined;
-      console.log("====================== migrating experiment-metric block ======================", {pinnedSlices, sliceTagsFilter});
+          : doc.sliceTagsFilter;
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource"]),
         metricSelector,
@@ -406,7 +405,7 @@ export function migrateBlock(
       const sliceTagsFilter =
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
-          : undefined;
+          : doc.sliceTagsFilter;
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricId"]),
         metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
