@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { AIPromptInterface, AIPromptType } from "shared/ai";
+import { AIModel, AIPromptInterface, AIPromptType } from "shared/ai";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -8,7 +8,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 
 type GetAIPromptResponse = {
   status: 200;
@@ -29,7 +29,7 @@ export async function getAIPrompts(
 
 export async function postAIPrompts(
   req: AuthRequest<{
-    prompts: { type: AIPromptType; prompt: string }[];
+    prompts: { type: AIPromptType; prompt: string; overrideModel?: AIModel }[];
   }>,
   res: Response,
 ) {
@@ -39,14 +39,18 @@ export async function postAIPrompts(
   const currentPrompts = await context.models.aiPrompts.getAll();
 
   await Promise.all(
-    prompts.map(async ({ type, prompt }) => {
+    prompts.map(async ({ type, prompt, overrideModel }) => {
       const existingPrompt = currentPrompts.find((p) => p.type === type);
       if (existingPrompt) {
-        return context.models.aiPrompts.update(existingPrompt, { prompt });
+        return context.models.aiPrompts.update(existingPrompt, {
+          prompt,
+          overrideModel,
+        });
       } else {
         return context.models.aiPrompts.create({
           type,
           prompt,
+          overrideModel,
         });
       }
     }),
@@ -89,7 +93,7 @@ export async function postReformat(
     });
   }
 
-  const { prompt, isDefaultPrompt } =
+  const { prompt, isDefaultPrompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
     return res.status(400).json({
@@ -106,6 +110,7 @@ export async function postReformat(
     temperature: 0.1,
     type: req.body.type,
     isDefaultPrompt,
+    overrideModel,
   });
 
   res.status(200).json({

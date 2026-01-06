@@ -38,6 +38,10 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("templates");
+  }
+
   // TODO: Implement this for OpenAPI
   //   public toApiInterface(project: ProjectInterface): ApiProject {
   //     return {

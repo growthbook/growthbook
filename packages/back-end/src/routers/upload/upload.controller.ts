@@ -173,7 +173,7 @@ export async function getSignedUploadToken(
   const fileName = "img_" + uuidv4();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
 
-  const { signedUrl, fileUrl } = await getSignedUploadUrl(
+  const { signedUrl, fileUrl, fields } = await getSignedUploadUrl(
     filePath,
     contentType,
     SIGNED_IMAGE_EXPIRY_MINUTES,
@@ -183,6 +183,7 @@ export async function getSignedUploadToken(
     signedUrl,
     fileUrl,
     filePath,
+    fields, // Include POST form fields for S3
     expiresAt: new Date(
       Date.now() + SIGNED_IMAGE_EXPIRY_MINUTES * 60 * 1000,
     ).toISOString(),

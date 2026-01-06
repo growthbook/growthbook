@@ -39,7 +39,7 @@ export default class Presto extends SqlIntegration {
     const configOptions: ClientOptions = {
       host: this.params.host,
       port: this.params.port,
-      user: "growthbook",
+      user: this.params.user || "growthbook",
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
