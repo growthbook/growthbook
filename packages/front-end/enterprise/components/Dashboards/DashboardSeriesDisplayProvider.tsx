@@ -13,10 +13,12 @@ export const DashboardSeriesDisplayContext = React.createContext<{
   settings: Record<string, DisplaySettings>;
   updateSeriesColor: (seriesKey: string, color: string) => void;
   getSeriesColor: (seriesKey: string, index: number) => string;
+  getActiveSeriesKeys: () => Set<string>;
 }>({
   settings: {},
   updateSeriesColor: () => {},
   getSeriesColor: () => "",
+  getActiveSeriesKeys: () => new Set(),
 });
 
 export default function DashboardSeriesDisplayProvider({
@@ -42,6 +44,10 @@ export default function DashboardSeriesDisplayProvider({
 
   // Track debounce timers per seriesKey to avoid spamming API calls
   const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Track active series keys (keys that are currently being used in charts)
+  // This is populated during render via getSeriesColor() calls
+  const activeSeriesKeysRef = useRef<Set<string>>(new Set());
 
   // Store latest dashboard ref to avoid stale closures in debounce callbacks
   const latestDashboardRef = useRef<DashboardInterface | undefined>(dashboard);
@@ -195,6 +201,8 @@ export default function DashboardSeriesDisplayProvider({
 
   const getSeriesColor = useCallback(
     (seriesKey: string, index: number): string => {
+      activeSeriesKeysRef.current.add(seriesKey);
+
       // Check if seriesKey already has a color in dashboard settings
       const existingSettings = settings[seriesKey];
       if (existingSettings?.color) {
@@ -222,6 +230,11 @@ export default function DashboardSeriesDisplayProvider({
     [settings],
   );
 
+  // Get the set of active series keys (for filtering)
+  const getActiveSeriesKeys = useCallback(() => {
+    return new Set(activeSeriesKeysRef.current);
+  }, []);
+
   // Cleanup debounce timers and pending updates on unmount
   useEffect(() => {
     const timers = saveTimersRef.current;
@@ -242,8 +255,9 @@ export default function DashboardSeriesDisplayProvider({
       settings,
       updateSeriesColor,
       getSeriesColor,
+      getActiveSeriesKeys,
     }),
-    [settings, updateSeriesColor, getSeriesColor],
+    [settings, updateSeriesColor, getSeriesColor, getActiveSeriesKeys],
   );
 
   return (

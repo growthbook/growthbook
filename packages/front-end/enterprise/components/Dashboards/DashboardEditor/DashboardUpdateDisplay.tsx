@@ -136,7 +136,7 @@ export default function DashboardUpdateDisplay({
     savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
-  const { settings, updateSeriesColor } = useContext(
+  const { settings, updateSeriesColor, getActiveSeriesKeys } = useContext(
     DashboardSeriesDisplayContext,
   );
   // Track pending colors during drag (uncontrolled pattern)
@@ -247,88 +247,94 @@ export default function DashboardUpdateDisplay({
             Hover over an item&apos;s color swatch to customize it.
           </Text>
           <Flex direction="column">
-            {Object.entries(settings).map(([seriesKey, seriesSettings]) => {
-              // Initialize pending color if not set
-              if (!pendingColorsRef.current.has(seriesKey)) {
-                pendingColorsRef.current.set(seriesKey, seriesSettings.color);
-              }
+            {Object.entries(settings)
+              .filter(([seriesKey]) => {
+                // Only show active series keys (hide orphaned ones)
+                const activeKeys = getActiveSeriesKeys();
+                return activeKeys.has(seriesKey);
+              })
+              .map(([seriesKey, seriesSettings]) => {
+                // Initialize pending color if not set
+                if (!pendingColorsRef.current.has(seriesKey)) {
+                  pendingColorsRef.current.set(seriesKey, seriesSettings.color);
+                }
 
-              return (
-                <DropdownMenuItem key={seriesKey}>
-                  <Flex align="center" gap="1">
-                    <Tooltip
-                      body={
-                        <Flex direction="column" gap="1">
-                          <Heading as="h4" size="4">
-                            Customize Color
-                          </Heading>
-                          <Flex direction="column" gap="3">
-                            <div
-                              onMouseUp={() => {
-                                // Only sync to state when user releases mouse
-                                const pendingColor =
-                                  pendingColorsRef.current.get(seriesKey);
-                                if (pendingColor) {
-                                  updateSeriesColor(seriesKey, pendingColor);
-                                }
-                              }}
-                            >
-                              <HexColorPicker
-                                color={seriesSettings.color}
-                                onChange={(color) => {
-                                  // Track color during drag, but don't sync to state yet
-                                  pendingColorsRef.current.set(
-                                    seriesKey,
-                                    color,
-                                  );
-                                }}
-                              />
-                            </div>
-                            <Flex direction="column">
-                              <Text as="label" size="3" weight="bold">
-                                Hex Color
-                              </Text>
+                return (
+                  <DropdownMenuItem key={seriesKey}>
+                    <Flex align="center" gap="1">
+                      <Tooltip
+                        body={
+                          <Flex direction="column" gap="1">
+                            <Heading as="h4" size="4">
+                              Customize Color
+                            </Heading>
+                            <Flex direction="column" gap="3">
                               <div
-                                onKeyDown={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
+                                onMouseUp={() => {
+                                  // Only sync to state when user releases mouse
+                                  const pendingColor =
+                                    pendingColorsRef.current.get(seriesKey);
+                                  if (pendingColor) {
+                                    updateSeriesColor(seriesKey, pendingColor);
+                                  }
+                                }}
                               >
-                                <HexColorInput
+                                <HexColorPicker
                                   color={seriesSettings.color}
                                   onChange={(color) => {
-                                    // Track color, sync on blur
+                                    // Track color during drag, but don't sync to state yet
                                     pendingColorsRef.current.set(
                                       seriesKey,
                                       color,
                                     );
                                   }}
-                                  onBlur={() => {
-                                    // Sync to state when user finishes typing
-                                    const pendingColor =
-                                      pendingColorsRef.current.get(seriesKey);
-                                    if (pendingColor) {
-                                      updateSeriesColor(
-                                        seriesKey,
-                                        pendingColor,
-                                      );
-                                    }
-                                  }}
                                 />
                               </div>
+                              <Flex direction="column">
+                                <Text as="label" size="3" weight="bold">
+                                  Hex Color
+                                </Text>
+                                <div
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <HexColorInput
+                                    color={seriesSettings.color}
+                                    onChange={(color) => {
+                                      // Track color, sync on blur
+                                      pendingColorsRef.current.set(
+                                        seriesKey,
+                                        color,
+                                      );
+                                    }}
+                                    onBlur={() => {
+                                      // Sync to state when user finishes typing
+                                      const pendingColor =
+                                        pendingColorsRef.current.get(seriesKey);
+                                      if (pendingColor) {
+                                        updateSeriesColor(
+                                          seriesKey,
+                                          pendingColor,
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </Flex>
                             </Flex>
                           </Flex>
-                        </Flex>
-                      }
-                    >
-                      <PiCircleFill
-                        size={20}
-                        style={{ color: seriesSettings.color }}
-                      />
-                    </Tooltip>
-                    <Text>{seriesKey}</Text>
-                  </Flex>
-                </DropdownMenuItem>
-              );
-            })}
+                        }
+                      >
+                        <PiCircleFill
+                          size={20}
+                          style={{ color: seriesSettings.color }}
+                        />
+                      </Tooltip>
+                      <Text>{seriesKey}</Text>
+                    </Flex>
+                  </DropdownMenuItem>
+                );
+              })}
           </Flex>
         </DropdownMenu>
       )}

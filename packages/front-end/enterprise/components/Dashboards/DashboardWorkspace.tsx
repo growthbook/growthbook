@@ -33,6 +33,7 @@ import DashboardEditor, {
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
+import { useSeriesDisplaySettings } from "./DashboardSeriesDisplayProvider";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
@@ -79,6 +80,7 @@ export default function DashboardWorkspace({
     }
   }, [dashboard]);
   const { metricGroups } = useDefinitions();
+  const { getActiveSeriesKeys } = useSeriesDisplaySettings();
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,15 +106,27 @@ export default function DashboardWorkspace({
         // onSave in the provider handles color changes exclusively
         const { seriesDisplaySettings: _, ...localDashboardWithoutSettings } =
           localDashboard;
+
+        // If blocks are being updated, filter seriesDisplaySettings to only include active keys
+        let seriesDisplaySettings = args.data.seriesDisplaySettings;
+        if (args.data.blocks !== undefined) {
+          const activeKeys = getActiveSeriesKeys();
+          const currentSettings = localDashboard.seriesDisplaySettings ?? {};
+          seriesDisplaySettings = Object.fromEntries(
+            Object.entries(currentSettings).filter(([key]) =>
+              activeKeys.has(key),
+            ),
+          );
+        }
+
         await submitDashboard({
           ...args,
           data: {
             ...localDashboardWithoutSettings,
             ...args.data,
-            // Only include seriesDisplaySettings if explicitly provided in args.data
-            // This allows memoizedSetBlock and other operations to include it when needed
-            ...(args.data.seriesDisplaySettings !== undefined
-              ? { seriesDisplaySettings: args.data.seriesDisplaySettings }
+            // Include filtered seriesDisplaySettings if blocks changed, otherwise use explicit value
+            ...(seriesDisplaySettings !== undefined
+              ? { seriesDisplaySettings }
               : {}),
           },
         });
@@ -122,7 +136,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, localDashboard],
+    [submitDashboard, localDashboard, getActiveSeriesKeys],
   );
 
   const [blocks, setBlocks] = useState<
