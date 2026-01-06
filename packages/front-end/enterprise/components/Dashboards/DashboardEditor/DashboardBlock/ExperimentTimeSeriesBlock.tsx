@@ -27,6 +27,7 @@ export default function ExperimentTimeSeriesBlock({
     variationIds,
     metricIds: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
+    metricTagFilter: blockMetricTagFilter,
   } = block;
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
@@ -96,6 +97,7 @@ export default function ExperimentTimeSeriesBlock({
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
     pinnedMetricSlices: undefined,
+    metricTagFilter: blockMetricTagFilter,
     sliceTagsFilter: blockSliceTagsFilter,
     statsEngine,
     pValueCorrection,

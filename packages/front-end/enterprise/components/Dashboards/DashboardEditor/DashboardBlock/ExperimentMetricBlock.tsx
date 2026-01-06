@@ -33,6 +33,7 @@ export default function ExperimentMetricBlock({
     variationIds,
     metricIds: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
+    metricTagFilter: blockMetricTagFilter,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
@@ -129,6 +130,7 @@ export default function ExperimentMetricBlock({
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
     pinnedMetricSlices: undefined,
+    metricTagFilter: blockMetricTagFilter,
     sliceTagsFilter: blockSliceTagsFilter,
     statsEngine,
     pValueCorrection,

@@ -2,7 +2,12 @@ import React, { useMemo, useCallback } from "react";
 import { Flex, Box, Heading } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { parseSliceQueryString, isMetricGroupId } from "shared/experiments";
+import {
+  parseSliceQueryString,
+  isMetricGroupId,
+  ExperimentMetricInterface,
+} from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import clsx from "clsx";
 import { FormatOptionLabelMeta } from "react-select";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -157,6 +162,52 @@ export function isSliceCoveredBySelectAll(
     const selectAllTag = `dim:${encodeURIComponent(column)}`;
     return selectAllTags.includes(selectAllTag);
   });
+}
+
+export function formatMetricTagOptionLabel(option: {
+  value: string;
+  label: string;
+  isOrphaned?: boolean;
+}): React.ReactNode {
+  return (
+    <span
+      style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
+    >
+      {option.label}
+    </span>
+  );
+}
+
+export function formatMetricOptionLabel(
+  option: { value: string; label: string; isOrphaned?: boolean },
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
+  getMetricGroupById: (id: string) => MetricGroupInterface | null,
+  showDescription?: boolean,
+): React.ReactNode {
+  const isGroup = isMetricGroupId(option.value);
+  const metrics = isGroup
+    ? (() => {
+        const group = getMetricGroupById(option.value);
+        if (!group) return undefined;
+        return group.metrics.map((metricId) => {
+          const metric = getExperimentMetricById(metricId);
+          return { metric, joinable: true };
+        });
+      })()
+    : undefined;
+  return (
+    <span
+      style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
+    >
+      <MetricName
+        id={option.value}
+        showDescription={showDescription}
+        isGroup={isGroup}
+        metrics={metrics}
+        officialBadgePosition="left"
+      />
+    </span>
+  );
 }
 
 export function formatSliceOptionLabel(
@@ -374,52 +425,6 @@ export default function ResultsMetricFilter({
     }));
   }, [availableMetricTags, metricTagFilter]);
 
-  const formatMetricOptionLabel = useCallback(
-    (option: { value: string; label: string; isOrphaned?: boolean }) => {
-      const isGroup = isMetricGroupId(option.value);
-      const metrics = isGroup
-        ? (() => {
-            const group = getMetricGroupById(option.value);
-            if (!group) return undefined;
-            return group.metrics.map((metricId) => {
-              const metric = getExperimentMetricById(metricId);
-              return { metric, joinable: true };
-            });
-          })()
-        : undefined;
-      return (
-        <span
-          style={
-            option.isOrphaned ? { textDecoration: "line-through" } : undefined
-          }
-        >
-          <MetricName
-            id={option.value}
-            isGroup={isGroup}
-            metrics={metrics}
-            officialBadgePosition="left"
-          />
-        </span>
-      );
-    },
-    [getExperimentMetricById, getMetricGroupById],
-  );
-
-  const formatMetricTagOptionLabel = useCallback(
-    (option: { value: string; label: string; isOrphaned?: boolean }) => {
-      return (
-        <span
-          style={
-            option.isOrphaned ? { textDecoration: "line-through" } : undefined
-          }
-        >
-          {option.label}
-        </span>
-      );
-    },
-    [],
-  );
-
   return (
     <Flex align="center" gap="3" className="position-relative">
       <Popover
@@ -564,9 +569,19 @@ export default function ResultsMetricFilter({
                           ]
                         : []),
                     ]}
-                    formatOptionLabel={(option) =>
-                      formatMetricOptionLabel(option)
-                    }
+                    formatOptionLabel={(
+                      option: SingleValue & { isOrphaned?: boolean },
+                    ) => {
+                      return formatMetricOptionLabel(
+                        {
+                          value: option.value,
+                          label: option.label,
+                          isOrphaned: option.isOrphaned,
+                        },
+                        getExperimentMetricById,
+                        getMetricGroupById,
+                      );
+                    }}
                     formatGroupLabel={(group) => (
                       <div className="pb-1 pt-2">{group.label}</div>
                     )}

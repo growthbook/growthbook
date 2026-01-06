@@ -113,7 +113,8 @@ const experimentMetricBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
-    sliceTagsFilter: z.array(z.string()).optional(),
+    sliceTagsFilter: z.array(z.string()),
+    metricTagFilter: z.array(z.string()),
   })
   .strict();
 
@@ -153,6 +154,7 @@ const experimentDimensionBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
+    metricTagFilter: z.array(z.string()),
   })
   .strict();
 
@@ -175,7 +177,8 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
-    sliceTagsFilter: z.array(z.string()).optional(),
+    sliceTagsFilter: z.array(z.string()),
+    metricTagFilter: z.array(z.string()),
   })
   .strict();
 

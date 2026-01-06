@@ -374,10 +374,12 @@ export function migrateBlock(
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
           : doc.sliceTagsFilter || [];
+      const metricTagFilter = doc.metricTagFilter || [];
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource"]),
         metricSelector,
         sliceTagsFilter,
+        metricTagFilter,
       } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-dimension": {
@@ -386,9 +388,11 @@ export function migrateBlock(
         isMetricSelector(dimensionMetricSelectorValue)
           ? dimensionMetricSelectorValue
           : "all";
+      const metricTagFilter = doc.metricTagFilter || [];
       return {
         ...doc,
         metricSelector: dimensionMetricSelector,
+        metricTagFilter,
       };
     }
     case "experiment-time-series": {
@@ -405,11 +409,13 @@ export function migrateBlock(
         pinnedSlices.length > 0
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
           : doc.sliceTagsFilter || [];
+      const metricTagFilter = doc.metricTagFilter || [];
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricId"]),
         metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
         metricSelector: timeSeriesMetricSelector,
         sliceTagsFilter,
+        metricTagFilter,
       } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-description":

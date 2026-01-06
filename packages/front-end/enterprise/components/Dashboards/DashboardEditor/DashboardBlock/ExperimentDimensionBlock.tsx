@@ -34,6 +34,7 @@ export default function ExperimentDimensionBlock({
     differenceType,
     metricIds,
     metricSelector,
+    metricTagFilter: blockMetricTagFilter,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
@@ -141,6 +142,7 @@ export default function ExperimentDimensionBlock({
       customMetricOrder={
         metricIds && metricIds.length > 0 ? metricIds : undefined
       }
+      metricTagFilter={blockMetricTagFilter}
     />
   );
 }

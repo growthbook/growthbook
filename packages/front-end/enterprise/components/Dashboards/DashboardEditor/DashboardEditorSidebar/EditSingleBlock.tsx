@@ -18,17 +18,19 @@ import {
   PiPencilSimpleFill,
   PiTrashSimpleFill,
 } from "react-icons/pi";
-import { isMetricGroupId } from "shared/experiments";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { FormatOptionLabelMeta } from "react-select";
 import {
   getAvailableMetricsFilters,
   getAvailableSliceTags,
+  getAvailableMetricTags,
 } from "@/services/experiments";
 import {
   getMetricOptions,
   getSliceOptions,
   formatSliceOptionLabel,
+  formatMetricTagOptionLabel,
+  formatMetricOptionLabel,
 } from "@/components/Experiment/ResultsMetricFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
@@ -263,10 +265,8 @@ export default function EditSingleBlock({
 
   // Generate metric options (uses shared utility)
   const metricOptions = useMemo(() => {
-    const blockMetricIds: string[] =
-      block && "metricIds" in block && isStringArray(block.metricIds)
-        ? block.metricIds
-        : [];
+    const blockMetricIds =
+      block && "metricIds" in block ? block.metricIds || [] : [];
     return getMetricOptions({
       availableMetricsFilters,
       selectedMetricIds: blockMetricIds,
@@ -346,14 +346,59 @@ export default function EditSingleBlock({
     block,
   ]);
 
+  // Generate available metric tags for blocks that support metric tag filtering
+  const availableMetricTags = useMemo(() => {
+    if (!experiment) return [];
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
+      return [];
+    }
+
+    // Filter input metrics based on metricSelector
+    let goalMetrics = experiment.goalMetrics;
+    let secondaryMetrics = experiment.secondaryMetrics;
+    let guardrailMetrics = experiment.guardrailMetrics;
+
+    const selector = block.metricSelector;
+    if (selector === "experiment-goal") {
+      secondaryMetrics = [];
+      guardrailMetrics = [];
+    } else if (selector === "experiment-secondary") {
+      goalMetrics = [];
+      guardrailMetrics = [];
+    } else if (selector === "experiment-guardrail") {
+      goalMetrics = [];
+      secondaryMetrics = [];
+    }
+
+    return getAvailableMetricTags({
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      metricGroups,
+      getExperimentMetricById,
+    });
+  }, [experiment, metricGroups, getExperimentMetricById, block]);
+
+  // Generate metric tag options
+  const metricTagOptions = useMemo(() => {
+    const blockMetricTagFilter =
+      block && "metricTagFilter" in block ? block.metricTagFilter || [] : [];
+    const availableTagSet = new Set(availableMetricTags);
+    const allTagIds = Array.from(
+      new Set([...availableMetricTags, ...blockMetricTagFilter]),
+    );
+
+    return allTagIds.map((tag) => ({
+      value: tag,
+      label: tag,
+      isOrphaned: !availableTagSet.has(tag),
+    }));
+  }, [availableMetricTags, block]);
+
   // Generate slice options
   const sliceOptions = useMemo(() => {
-    const blockSliceTagsFilter: string[] =
-      block &&
-      "sliceTagsFilter" in block &&
-      isStringArray(block.sliceTagsFilter)
-        ? block.sliceTagsFilter
-        : [];
+    const blockSliceTagsFilter =
+      block && "sliceTagsFilter" in block ? block.sliceTagsFilter : [];
     return getSliceOptions({
       availableSliceTags,
       sliceTagsFilter: blockSliceTagsFilter,
@@ -735,52 +780,44 @@ export default function EditSingleBlock({
                   formatOptionLabel={(
                     option: SingleValue & { isOrphaned?: boolean },
                     meta: FormatOptionLabelMeta<SingleValue>,
-                  ) => {
-                    const isGroup = isMetricGroupId(option.value);
-                    const metrics = isGroup
-                      ? (() => {
-                          const group = getMetricGroupById(option.value);
-                          if (!group) return undefined;
-                          return group.metrics.map((metricId) => {
-                            const metric = getExperimentMetricById(metricId);
-                            return { metric, joinable: true };
-                          });
-                        })()
-                      : undefined;
-                    return (
-                      <span
-                        style={
-                          option.isOrphaned
-                            ? { textDecoration: "line-through" }
-                            : undefined
-                        }
-                      >
-                        <MetricName
-                          id={option.value}
-                          showDescription={meta?.context !== "value"}
-                          isGroup={isGroup}
-                          metrics={metrics}
-                          officialBadgePosition="left"
-                        />
-                      </span>
-                    );
-                  }}
+                  ) =>
+                    formatMetricOptionLabel(
+                      option,
+                      getExperimentMetricById,
+                      getMetricGroupById,
+                      meta?.context !== "value",
+                    )
+                  }
                   formatGroupLabel={(group) => (
                     <div className="pb-1 pt-2">{group.label}</div>
                   )}
                 />
-                {block &&
-                  "sliceTagsFilter" in block &&
+                {blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
+                  metricTagOptions.length > 0 && (
+                    <MultiSelectField
+                      label="Filter Tags"
+                      labelClassName="font-weight-bold"
+                      value={block.metricTagFilter}
+                      containerClassName="mb-0"
+                      onChange={(value) =>
+                        setBlock({ ...block, metricTagFilter: value })
+                      }
+                      options={metricTagOptions.map((tag) => ({
+                        label: tag.label,
+                        value: tag.value,
+                        isOrphaned: tag.isOrphaned,
+                      }))}
+                      formatOptionLabel={(option) =>
+                        formatMetricTagOptionLabel(option)
+                      }
+                    />
+                  )}
+                {blockHasFieldOfType(block, "sliceTagsFilter", isStringArray) &&
                   sliceOptions.length > 0 && (
                     <MultiSelectField
                       label="Filter Slices"
                       labelClassName="font-weight-bold"
-                      value={
-                        block.sliceTagsFilter &&
-                        isStringArray(block.sliceTagsFilter)
-                          ? block.sliceTagsFilter
-                          : []
-                      }
+                      value={block.sliceTagsFilter}
                       containerClassName="mb-0"
                       onChange={(value) =>
                         setBlock({ ...block, sliceTagsFilter: value })
@@ -801,16 +838,10 @@ export default function EditSingleBlock({
                         if (!fullOption) {
                           return option.label;
                         }
-                        const blockSliceTagsFilter: string[] =
-                          block &&
-                          "sliceTagsFilter" in block &&
-                          isStringArray(block.sliceTagsFilter)
-                            ? block.sliceTagsFilter
-                            : [];
                         return formatSliceOptionLabel(
                           fullOption,
                           meta,
-                          blockSliceTagsFilter,
+                          block.sliceTagsFilter,
                         );
                       }}
                     />
