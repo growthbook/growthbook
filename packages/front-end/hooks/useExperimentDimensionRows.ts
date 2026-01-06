@@ -169,7 +169,31 @@ export function useExperimentDimensionRows({
         allMetricGroups,
       );
 
-      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+      // Dedupe metric rows to prevent rendering the same metric multiple times
+      const dedupedGoals: string[] = [];
+      expandedGoals.forEach((metricId) => {
+        if (!dedupedGoals.includes(metricId)) {
+          dedupedGoals.push(metricId);
+        }
+      });
+      const dedupedSecondaries: string[] = [];
+      expandedSecondaries.forEach((metricId) => {
+        if (!dedupedSecondaries.includes(metricId)) {
+          dedupedSecondaries.push(metricId);
+        }
+      });
+      const dedupedGuardrails: string[] = [];
+      expandedGuardrails.forEach((metricId) => {
+        if (!dedupedGuardrails.includes(metricId)) {
+          dedupedGuardrails.push(metricId);
+        }
+      });
+
+      return {
+        expandedGoals: dedupedGoals,
+        expandedSecondaries: dedupedSecondaries,
+        expandedGuardrails: dedupedGuardrails,
+      };
     }, [
       goalMetrics,
       metricGroups,

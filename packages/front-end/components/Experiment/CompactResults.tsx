@@ -22,7 +22,6 @@ import {
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
 import {
-  PiMinus,
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiPushPinFill,
@@ -632,8 +631,9 @@ export function getRenderLabelColumn({
         : "";
       const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
 
+      const sliceRowClassName = isSliceRow ? "pl-4" : className;
       return (
-        <div className={className} style={{ position: "relative" }}>
+        <div className={sliceRowClassName} style={{ position: "relative" }}>
           {(!sliceTagsFilter || sliceTagsFilter.length === 0) && (
             <>
               {isExpanded && pinSource === "experiment" && isPinned && (
@@ -799,14 +799,9 @@ export function getRenderLabelColumn({
           >
             {hasSlices ? (
               <>
-                {(sliceTagsFilter?.length || 0) > 0 ? (
-                  <span
-                    className="text-muted"
-                    style={{ position: "absolute", left: 4, marginTop: -1 }}
-                  >
-                    <PiMinus size={16} />
-                  </span>
-                ) : toggleExpandedMetric && !row?.labelOnly ? (
+                {toggleExpandedMetric &&
+                !row?.labelOnly &&
+                !sliceTagsFilter?.length ? (
                   <div style={{ position: "absolute", left: 4, marginTop: 3 }}>
                     <Tooltip
                       body={
