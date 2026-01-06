@@ -72,13 +72,15 @@ export default function DisplaySettingsPanel({
               {supportsAnchorToZero && (
                 <Checkbox
                   label="Anchor chart to zero"
-                  value={dataVizConfig.displaySettings?.anchorToZero ?? true}
-                  setValue={(anchorToZero) => {
+                  value={
+                    dataVizConfig.displaySettings?.anchorYAxisToZero ?? true
+                  }
+                  setValue={(anchorYAxisToZero) => {
                     onDataVizConfigChange({
                       ...dataVizConfig,
                       displaySettings: {
                         ...dataVizConfig.displaySettings,
-                        anchorToZero,
+                        anchorYAxisToZero,
                       },
                     });
                   }}
