@@ -161,7 +161,7 @@ const BreakDownResults: FC<{
     dimensionId?.split(":")?.[1] ||
     "Dimension";
 
-  const { tables, allMetricTags: _allMetricTags } = useExperimentDimensionRows({
+  const { tables } = useExperimentDimensionRows({
     results,
     goalMetrics,
     secondaryMetrics,

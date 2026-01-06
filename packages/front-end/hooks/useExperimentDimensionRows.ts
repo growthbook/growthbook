@@ -23,10 +23,7 @@ import { RowError } from "@/components/Experiment/ResultsTable";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import {
-  filterMetricsByTags,
-  getAllMetricTags,
-} from "./useExperimentTableRows";
+import { filterMetricsByTags } from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
   results: ExperimentReportResultDimension[];
@@ -56,7 +53,6 @@ export interface UseExperimentDimensionRowsReturn {
     isGuardrail: boolean;
     rows: ExperimentTableRow[];
   }>;
-  allMetricTags: string[];
 }
 
 export function useExperimentDimensionRows({
@@ -203,22 +199,6 @@ export function useExperimentDimensionRows({
       metricsFilter,
     ]);
 
-  const allMetricTags = useMemo(() => {
-    return getAllMetricTags(
-      expandedGoals,
-      expandedSecondaries,
-      expandedGuardrails,
-      ssrPolyfills,
-      getExperimentMetricById,
-    );
-  }, [
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
-
   const tables = useMemo(() => {
     if (!results.length || (!ready && !ssrPolyfills)) {
       return [];
@@ -347,7 +327,6 @@ export function useExperimentDimensionRows({
 
   return {
     tables,
-    allMetricTags,
   };
 }
 

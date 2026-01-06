@@ -68,7 +68,6 @@ export interface UseExperimentTableRowsParams {
 
 export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
-  allMetricTags: string[];
   getChildRowCounts: (metricId: string) => { total: number; pinned: number };
 }
 
@@ -220,22 +219,6 @@ export function useExperimentTableRows({
       guardrailMetrics,
       metricsFilter,
     ]);
-
-  const allMetricTags = useMemo(() => {
-    return getAllMetricTags(
-      expandedGoals,
-      expandedSecondaries,
-      expandedGuardrails,
-      ssrPolyfills,
-      getExperimentMetricById,
-    );
-  }, [
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRowsForMetric(
@@ -424,7 +407,6 @@ export function useExperimentTableRows({
 
   return {
     rows,
-    allMetricTags,
     getChildRowCounts,
   };
 }
@@ -700,27 +682,6 @@ export function generateRowsForMetric({
   rows.unshift(parentRow);
 
   return rows;
-}
-
-export function getAllMetricTags(
-  expandedGoals: string[],
-  expandedSecondaries: string[],
-  expandedGuardrails: string[],
-  ssrPolyfills?: SSRPolyfills,
-  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
-): string[] {
-  const allMetricTagsSet: Set<string> = new Set();
-  [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
-    (metricId) => {
-      const metric =
-        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-        getExperimentMetricById?.(metricId);
-      metric?.tags?.forEach((tag) => {
-        allMetricTagsSet.add(tag);
-      });
-    },
-  );
-  return [...allMetricTagsSet];
 }
 
 function sortMetricsByCustomOrder(
