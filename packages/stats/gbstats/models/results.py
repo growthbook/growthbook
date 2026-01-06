@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 from pydantic.dataclasses import dataclass
 import pandas as pd
 
-from gbstats.bayesian.tests import RiskType
+from gbstats.bayesian.tests import BayesianTestResult
 from gbstats.frequentist.tests import PValueErrorMessage
 from gbstats.models.tests import Uplift
 
@@ -72,22 +72,13 @@ class TestResultNoDefaults:
 
 
 @dataclass
-class BayesianTestResultNoDefaults(TestResultNoDefaults):
-    chanceToWin: float
-    risk: List[float]
-    riskType: RiskType
-
-
-@dataclass
 class FrequentistTestResultNoDefaults(TestResultNoDefaults):
     pValue: Optional[float]
     pValueErrorMessage: Optional[PValueErrorMessage]
 
 
 @dataclass
-class BayesianVariationResponseIndividual(
-    BayesianTestResultNoDefaults, BaselineResponse
-):
+class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
     power: Optional[PowerResponse]
 
 
@@ -119,12 +110,12 @@ class DimensionResponseIndividual:
 
 
 @dataclass
-class BayesianVariationResponse(BayesianTestResultNoDefaults, BaselineResponse):
+class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
     power: Optional[PowerResponse]
-    supplementalResultsCupedUnadjusted: Optional[BayesianTestResultNoDefaults]
-    supplementalResultsUncapped: Optional[BayesianTestResultNoDefaults]
-    supplementalResultsFlatPrior: Optional[BayesianTestResultNoDefaults]
-    supplementalResultsUnstratified: Optional[BayesianTestResultNoDefaults]
+    supplementalResultsCupedUnadjusted: Optional[BayesianTestResult]
+    supplementalResultsUncapped: Optional[BayesianTestResult]
+    supplementalResultsFlatPrior: Optional[BayesianTestResult]
+    supplementalResultsUnstratified: Optional[BayesianTestResult]
 
 
 @dataclass
