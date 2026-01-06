@@ -179,6 +179,8 @@ export default function DashboardUpdateDisplay({
       </Flex>
     );
 
+  const activeKeys = getActiveSeriesKeys();
+
   return (
     <Flex
       gap="1"
@@ -231,11 +233,11 @@ export default function DashboardUpdateDisplay({
         )}
       </div>
 
-      {isEditing && (
+      {isEditing && activeKeys.size > 0 && (
         <DropdownMenu
           trigger={
             <Button variant="outline">
-              Configure Legends <PiCaretDownLight size={16} />
+              Series Settings <PiCaretDownLight size={16} />
             </Button>
           }
         >
@@ -250,7 +252,6 @@ export default function DashboardUpdateDisplay({
             {Object.entries(settings)
               .filter(([seriesKey]) => {
                 // Only show active series keys (hide orphaned ones)
-                const activeKeys = getActiveSeriesKeys();
                 return activeKeys.has(seriesKey);
               })
               .map(([seriesKey, seriesSettings]) => {
