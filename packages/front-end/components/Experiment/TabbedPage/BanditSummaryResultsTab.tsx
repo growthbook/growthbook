@@ -172,7 +172,7 @@ export default function BanditSummaryResultsTab({
                   style={{ maxWidth: 130, fontSize: "0.8em" }}
                 >
                   <span className="font-weight-bold">
-                    <GBCuped size={13} /> CUPED:
+                    <GBCuped size={13} /> CUPEDps:
                   </span>{" "}
                   <span className="">Enabled</span>
                 </div>

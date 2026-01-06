@@ -607,7 +607,7 @@ const AnalysisForm: FC<{
           <SelectField
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
+                <GBCuped /> Use Regression Adjustment (CUPEDps)
               </PremiumTooltip>
             }
             style={{ width: 200 }}

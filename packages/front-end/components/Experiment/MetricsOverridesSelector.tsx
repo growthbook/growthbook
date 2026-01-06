@@ -646,7 +646,7 @@ export default function MetricsOverridesSelector({
                   <div className="col">
                     <PremiumTooltip commercialFeature="regression-adjustment">
                       <span className="uppercase-title">
-                        <GBCuped size={14} /> Regression Adjustment (CUPED)
+                        <GBCuped size={14} /> Regression Adjustment (CUPEDps)
                       </span>
                     </PremiumTooltip>{" "}
                   </div>
