@@ -10,6 +10,10 @@ import {
 import { PiWrench } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
+import {
+  chartTypeSupportsAnchorYAxisToZero,
+  chartTypeHasDisplaySettings,
+} from "shared/enterprise";
 import { Select, SelectItem } from "@/ui/Select";
 import {
   getXAxisConfig,
@@ -20,7 +24,21 @@ import {
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";
 import DataVizDimensionPanel from "./DataVizDimensionPanel";
-import DisplaySettingsPanel from "./DisplaySettingsPanel";
+import DisplaySettingsPanel from "./DisplaySettingsPanel/DisplaySettingsPanel";
+import AnchorYAxisToZeroCheckbox from "./DisplaySettingsPanel/AnchorYAxisToZeroCheckbox";
+
+// Helper function to remove displaySettings from a config object
+function removeDisplaySettings<T extends Partial<DataVizConfig>>(
+  config: T,
+): Omit<T, "displaySettings"> {
+  if ("displaySettings" in config) {
+    const { displaySettings: _displaySettings, ...rest } = config as T & {
+      displaySettings?: { anchorYAxisToZero: boolean };
+    };
+    return rest as Omit<T, "displaySettings">;
+  }
+  return config as Omit<T, "displaySettings">;
+}
 
 export function inferFieldType(
   sampleRow: Record<string, unknown>,
@@ -164,12 +182,18 @@ export default function DataVizConfigPanel({
               setValue={(v) => {
                 if (v === "big-value") {
                   // If graph type is big value - set defaults
-                  onDataVizConfigChange({
+                  const configForBigValue: Partial<DataVizConfig> = {
                     ...dataVizConfig,
                     chartType: "big-value",
                     format: "shortNumber",
                     displaySettings: {},
-                  });
+                  };
+                  // Remove displaySettings if it exists (big-value doesn't support it)
+                  onDataVizConfigChange(
+                    removeDisplaySettings(
+                      configForBigValue,
+                    ) as Partial<DataVizConfig>,
+                  );
                   return;
                 }
                 // Update chart type and normalize dimensions if needed
@@ -177,6 +201,32 @@ export default function DataVizConfigPanel({
                   ...dataVizConfig,
                   chartType: v as DataVizConfig["chartType"],
                 } as Partial<DataVizConfig>);
+                // If the chart type changes to line/scatter & we don't have displaySettings, set the default
+                if (
+                  updatedConfig.chartType &&
+                  chartTypeSupportsAnchorYAxisToZero(updatedConfig.chartType)
+                ) {
+                  if (
+                    !("displaySettings" in updatedConfig) ||
+                    !updatedConfig.displaySettings
+                  ) {
+                    onDataVizConfigChange({
+                      ...updatedConfig,
+                      displaySettings: {
+                        anchorYAxisToZero: true,
+                      },
+                    } as Partial<DataVizConfig>);
+                    return;
+                  }
+                } else {
+                  // Remove displaySettings for chart types that don't support it
+                  onDataVizConfigChange(
+                    removeDisplaySettings(
+                      updatedConfig,
+                    ) as Partial<DataVizConfig>,
+                  );
+                  return;
+                }
                 onDataVizConfigChange(updatedConfig);
               }}
             >
@@ -850,10 +900,14 @@ export default function DataVizConfigPanel({
         onDataVizConfigChange={onDataVizConfigChange}
         rows={rows}
       />
-      <DisplaySettingsPanel
-        dataVizConfig={dataVizConfig}
-        onDataVizConfigChange={onDataVizConfigChange}
-      />
+      {chartTypeHasDisplaySettings(dataVizConfig.chartType) && (
+        <DisplaySettingsPanel>
+          <AnchorYAxisToZeroCheckbox
+            dataVizConfig={dataVizConfig}
+            onDataVizConfigChange={onDataVizConfigChange}
+          />
+        </DisplaySettingsPanel>
+      )}
     </Flex>
   );
 }

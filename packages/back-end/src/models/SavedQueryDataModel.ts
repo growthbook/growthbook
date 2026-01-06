@@ -1,5 +1,6 @@
 import { UpdateProps } from "shared/types/base-model";
 import { SavedQuery, savedQueryValidator } from "shared/validators";
+import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -27,32 +28,32 @@ export class SavedQueryDataModel extends BaseClass {
   protected migrate(legacyDoc: unknown): SavedQuery {
     const doc = legacyDoc as SavedQuery;
 
-    // Migrate anchorToZero for line and scatter charts
+    // Migrate anchorYAxisToZero for line and scatter charts
     if (doc.dataVizConfig && Array.isArray(doc.dataVizConfig)) {
-      const chartTypesWithAnchorToZero = ["line", "scatter"];
-
       doc.dataVizConfig = doc.dataVizConfig.map((config) => {
-        const chartType = config.chartType;
-
-        // Only handle line and scatter charts
-        if (!chartTypesWithAnchorToZero.includes(chartType)) {
+        if (!chartTypeSupportsAnchorYAxisToZero(config.chartType)) {
+          // If the chart type doesn't support display settings, return the config as is
           return config;
         }
 
         const configWithDisplaySettings = config as typeof config & {
           displaySettings?: {
-            anchorToZero?: boolean;
+            anchorYAxisToZero?: boolean;
           };
         };
         const displaySettings = configWithDisplaySettings.displaySettings;
 
-        // Ensure anchorToZero exists (default to true)
-        if (!displaySettings || !("anchorToZero" in displaySettings)) {
+        // Ensure anchorYAxisToZero exists and is a boolean (default to true)
+        const needsMigration =
+          !displaySettings ||
+          typeof displaySettings.anchorYAxisToZero !== "boolean";
+
+        if (needsMigration) {
           return {
             ...config,
             displaySettings: {
               ...(displaySettings || {}),
-              anchorToZero: true,
+              anchorYAxisToZero: true,
             },
           } as typeof config;
         }

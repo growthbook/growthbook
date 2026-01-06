@@ -190,7 +190,7 @@ const lineChartValidator = baseChartConfig
   .merge(withBaseDimensions)
   .extend({
     displaySettings: z.object({
-      anchorToZero: z.boolean(),
+      anchorYAxisToZero: z.boolean(),
     }),
   });
 
@@ -205,7 +205,7 @@ const scatterChartValidator = baseChartConfig
   .merge(withBaseDimensions)
   .extend({
     displaySettings: z.object({
-      anchorToZero: z.boolean(),
+      anchorYAxisToZero: z.boolean(),
     }),
   });
 

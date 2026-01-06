@@ -61,6 +61,7 @@ const docSections = {
   csharp: "/lib/csharp",
   elixir: "/lib/elixir",
   flutter: "/lib/flutter",
+  rust: "/lib/rust",
   nocode: "/lib/script-tag",
   cloudflare: "/lib/edge/cloudflare",
   fastly: "/lib/edge/fastly",
