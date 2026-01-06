@@ -2,9 +2,9 @@ import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -15,9 +15,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import {
   getRules,

@@ -1,14 +1,14 @@
 import { snowflakeCreateTableOptions } from "shared/enterprise";
 import { FormatDialect } from "shared/types/sql";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { runSnowflakeQuery } from "back-end/src/services/snowflake";
 import {
   QueryResponse,
   DataType,
   ExternalIdCallback,
-} from "back-end/src/types/Integration";
-import { QueryMetadata } from "back-end/types/query";
+} from "shared/types/integrations";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { QueryMetadata } from "shared/types/query";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runSnowflakeQuery } from "back-end/src/services/snowflake";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {

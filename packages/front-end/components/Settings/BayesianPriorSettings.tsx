@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { MetricDefaults } from "back-end/types/organization";
+import { MetricDefaults } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";

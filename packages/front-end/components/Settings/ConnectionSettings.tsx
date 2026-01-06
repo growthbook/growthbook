@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler } from "react";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm from "./BigQueryForm";

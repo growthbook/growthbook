@@ -6,26 +6,31 @@ import {
 } from "shared/experiments";
 import { lastMondayString } from "shared/dates";
 import { SegmentInterface } from "shared/types/segment";
-import { ApiReqContext } from "back-end/types/api";
-import { MetricInterface } from "back-end/types/metric";
-import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
 import {
   Dimension,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
-import { expandDenominatorMetrics } from "back-end/src/util/sql";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
-import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { getFactMetricGroups } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+} from "shared/types/integrations";
+import { MetricInterface } from "shared/types/metric";
+import {
+  Queries,
+  QueryPointer,
+  QueryStatus,
+  PopulationDataQuerySettings,
+} from "shared/types/query";
 import {
   PopulationDataInterface,
   PopulationDataMetric,
-} from "back-end/types/population-data";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+} from "shared/types/population-data";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { ApiReqContext } from "back-end/types/api";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { expandDenominatorMetrics } from "back-end/src/util/sql";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
   QueryRunner,
   QueryMap,
@@ -34,10 +39,6 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 
-export type PopulationDataQuerySettings = Pick<
-  PopulationDataInterface,
-  "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
->;
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -138,7 +139,6 @@ export const startPopulationDataQueries = async (
             query,
             setExternalId,
           ),
-        process: (rows) => rows,
         queryType: "populationMetric",
       }),
     );
@@ -173,7 +173,6 @@ export const startPopulationDataQueries = async (
             query,
             setExternalId,
           ),
-        process: (rows) => rows,
         queryType: "populationMultiMetric",
       }),
     );

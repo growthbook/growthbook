@@ -1,4 +1,4 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
   ExperimentMetricInterface,

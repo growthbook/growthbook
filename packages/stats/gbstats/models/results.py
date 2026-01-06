@@ -157,6 +157,7 @@ class DimensionResponse:
 
     def to_df(self) -> pd.DataFrame:
         df = pd.DataFrame(self.variations)
+        df["variation"] = df.index
         df["dimension"] = self.dimension
         df["srm"] = self.srm
         return df

@@ -1,8 +1,8 @@
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import { useMemo } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { OrganizationSettings } from "shared/types/organization";
 import { SegmentInterface } from "shared/types/segment";
 
 type Props = {

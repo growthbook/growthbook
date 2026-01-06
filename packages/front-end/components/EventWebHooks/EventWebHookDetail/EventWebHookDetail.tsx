@@ -1,4 +1,4 @@
-import { EventWebHookInterface } from "back-end/types/event-webhook";
+import { EventWebHookInterface } from "shared/types/event-webhook";
 import React, { FC, useRef, useCallback, useState } from "react";
 import pick from "lodash/pick";
 import { FaPencilAlt } from "react-icons/fa";

@@ -1,9 +1,9 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { ReqContext } from "back-end/types/organization";
-import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
+import { ExperimentInterface } from "shared/types/experiment";
+import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { upsertWatch } from "./WatchModel";
 import { createVisualChangeset } from "./VisualChangesetModel";

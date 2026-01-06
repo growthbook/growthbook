@@ -1,5 +1,6 @@
 import { includeExperimentInPayload } from "shared/util";
-import { ReqContext } from "back-end/types/organization";
+import { SavedGroupInterface } from "shared/types/groups";
+import { ReqContext } from "back-end/types/request";
 import {
   getAllPayloadExperiments,
   getPayloadKeysForAllEnvs,
@@ -16,10 +17,22 @@ import {
 
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
-  id: string,
+  savedGroup: SavedGroupInterface,
 ) {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
+  // Condition groups can be nested recursively, so to be safe, refresh all environments
+  // TODO: Optimize this later if performance becomes an issue
+  if (savedGroup.type === "condition") {
+    await refreshSDKPayloadCache(
+      context,
+      getPayloadKeysForAllEnvs(context, [""]),
+    );
+    return;
+  }
+
+  const id = savedGroup.id;
 
   // Use a map to build a list of unique SDK payload keys
   const payloadKeys: Map<string, SDKPayloadKey> = new Map();

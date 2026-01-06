@@ -38,15 +38,20 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
 import {
-  ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
-} from "back-end/types/api";
+} from "shared/types/sdk";
 import {
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+} from "shared/types/openapi";
+import { HoldoutInterface } from "shared/validators";
+import {
+  AttributeMap,
   ExperimentRefRule,
   ExperimentRule,
   FeatureDraftChanges,
@@ -57,7 +62,18 @@ import {
   FeatureTestResult,
   ForceRule,
   RolloutRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
+import {
+  Environment,
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "shared/types/organization";
+import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
@@ -69,17 +85,8 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
-import {
-  getAllSavedGroups,
-  getSavedGroupsById,
-} from "back-end/src/models/SavedGroupModel";
-import {
-  Environment,
-  OrganizationInterface,
-  ReqContext,
-  SDKAttribute,
-  SDKAttributeSchema,
-} from "back-end/types/organization";
+import { getAllSavedGroups } from "back-end/src/models/SavedGroupModel";
+import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
   getSDKPayloadCacheLocation,
@@ -89,29 +96,15 @@ import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
-  ApiFeatureWithRevisions,
-  ApiFeatureEnvironment,
-  ApiFeatureRule,
-} from "back-end/types/openapi";
-import {
-  ExperimentInterface,
-  ExperimentPhase,
-} from "back-end/types/experiment";
-import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
 } from "back-end/src/api/features/postFeature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
 } from "./organizations";
-
-export type AttributeMap = Map<string, string>;
 
 export function generateFeaturesPayload({
   features,
@@ -583,7 +576,7 @@ export type FeatureDefinitionsResponseArgs = {
   secureAttributeSalt?: string;
   projects: string[];
   capabilities: SDKCapability[];
-  savedGroups: SavedGroupInterface[];
+  usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
 };
@@ -602,10 +595,18 @@ export async function getFeatureDefinitionsResponse({
   secureAttributeSalt,
   projects,
   capabilities,
-  savedGroups,
+  usedSavedGroups,
   savedGroupReferencesEnabled = false,
   organization,
-}: FeatureDefinitionsResponseArgs) {
+}: FeatureDefinitionsResponseArgs): Promise<{
+  features: Record<string, FeatureDefinition>;
+  experiments?: AutoExperiment[];
+  dateUpdated: Date | null;
+  encryptedFeatures?: string;
+  encryptedExperiments?: string;
+  savedGroups?: SavedGroupsValues;
+  encryptedSavedGroups?: string;
+}> {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
@@ -680,29 +681,29 @@ export async function getFeatureDefinitionsResponse({
       );
     }
 
-    savedGroups = applySavedGroupHashing(
-      savedGroups,
+    usedSavedGroups = applySavedGroupHashing(
+      usedSavedGroups,
       attributes,
       secureAttributeSalt,
     );
   }
 
   const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    savedGroups,
+    usedSavedGroups,
     organization,
   );
 
   features = scrubFeatures(
     features,
     capabilities,
-    savedGroups,
+    usedSavedGroups,
     savedGroupReferencesEnabled,
     organization,
   );
   experiments = scrubExperiments(
     experiments,
     capabilities,
-    savedGroups,
+    usedSavedGroups,
     savedGroupReferencesEnabled,
     organization,
   );
@@ -829,9 +830,9 @@ export async function getFeatureDefinitions({
       let secureAttributeSalt: string | undefined = undefined;
       const { features, experiments, savedGroupsInUse, holdouts } =
         cached.contents;
-      const usedSavedGroups = await getSavedGroupsById(
-        savedGroupsInUse,
-        context.org.id,
+      const allSavedGroups = await getAllSavedGroups(context.org.id);
+      const usedSavedGroups = allSavedGroups.filter((sg) =>
+        savedGroupsInUse?.includes(sg.id),
       );
       if (hashSecureAttributes) {
         // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
@@ -856,7 +857,7 @@ export async function getFeatureDefinitions({
         secureAttributeSalt,
         projects: projects || [],
         capabilities,
-        savedGroups: usedSavedGroups || [],
+        usedSavedGroups: usedSavedGroups || [],
         savedGroupReferencesEnabled,
         organization: context.org,
       });
@@ -880,13 +881,13 @@ export async function getFeatureDefinitions({
     attributes = context.org.settings?.attributeSchema;
   }
   // TODO: filter by projects
-  const savedGroups = await getAllSavedGroups(context.org.id);
+  const allSavedGroups = await getAllSavedGroups(context.org.id);
 
   // Generate the feature definitions
   const features = await getAllFeatures(context, {
     projects: filterByProjects && projects ? projects : undefined,
   });
-  const groupMap = await getSavedGroupMap(context.org, savedGroups);
+  const groupMap = await getSavedGroupMap(context.org, allSavedGroups);
   const experimentMap = await getAllPayloadExperiments(
     context,
     filterByProjects && projects ? projects : undefined,
@@ -941,6 +942,10 @@ export async function getFeatureDefinitions({
     experimentsDefinitions,
   );
 
+  const usedSavedGroups = allSavedGroups.filter(
+    (sg) => sg.id in savedGroupsInUse,
+  );
+
   // Cache in Mongo
   await updateSDKPayload({
     organization: context.org.id,
@@ -976,7 +981,7 @@ export async function getFeatureDefinitions({
     secureAttributeSalt,
     projects: projects || [],
     capabilities,
-    savedGroups,
+    usedSavedGroups,
     savedGroupReferencesEnabled,
     organization: context.org,
   });

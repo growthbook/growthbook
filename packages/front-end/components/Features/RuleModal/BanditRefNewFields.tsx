@@ -3,10 +3,10 @@ import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";

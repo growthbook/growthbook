@@ -1,12 +1,12 @@
 import uniqid from "uniqid";
-import { PostDimensionResponse } from "back-end/types/openapi";
+import { PostDimensionResponse } from "shared/types/openapi";
+import { postDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   createDimension,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { postDimensionValidator } from "back-end/src/validators/openapi";
 
 export const postDimension = createApiRequestHandler(postDimensionValidator)(
   async (req): Promise<PostDimensionResponse> => {

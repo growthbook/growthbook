@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { validateFeatureValue } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";

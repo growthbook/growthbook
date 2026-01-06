@@ -1,7 +1,7 @@
 import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
-} from "back-end/src/routers/experiment-template/template.validators";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

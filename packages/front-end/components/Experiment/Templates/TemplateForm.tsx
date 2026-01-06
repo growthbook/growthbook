@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { FC, useEffect, useState } from "react";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";

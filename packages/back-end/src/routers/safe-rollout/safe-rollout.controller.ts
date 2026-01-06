@@ -1,19 +1,19 @@
 import type { Response } from "express";
 import { omit } from "lodash";
-import { MetricTimeSeries } from "shared/validators";
+import {
+  MetricTimeSeries,
+  CreateSafeRolloutInterface,
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
-import {
-  CreateSafeRolloutInterface,
-  SafeRolloutInterface,
-  validateCreateSafeRolloutFields,
-} from "back-end/src/validators/safe-rollout";
+import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 
 // region GET /safe-rollout/:id/snapshot
 /**

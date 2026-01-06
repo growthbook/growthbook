@@ -1,5 +1,5 @@
 import mssql from "mssql";
-import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
+import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 const pools = new Map();
 
 export function findOrCreateConnection(

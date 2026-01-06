@@ -1,6 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef } from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -8,8 +8,8 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
