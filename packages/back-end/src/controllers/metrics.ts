@@ -57,7 +57,7 @@ import {
   generateEmbeddings,
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/ai";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -701,7 +701,7 @@ export const getMetricNorthstarData = async (
   });
 };
 
-// get endpoint to use OpenAI library to generate a description for a given
+// get endpoint to use ai library to generate a description for a given
 // metric based on the ID, based on the data source, project, SQL, any template
 // variables, and options. Supports both regular metrics and fact-table metrics.
 export const getGeneratedDescription = async (
@@ -735,7 +735,7 @@ export const getGeneratedDescription = async (
   }
 
   const type = "metric-description";
-  const { isDefaultPrompt, prompt } =
+  const { isDefaultPrompt, prompt, overrideModel } =
     await context.models.aiPrompts.getAIPrompt(type);
 
   // try to see if this id is a fact metric id:
@@ -847,6 +847,7 @@ export const getGeneratedDescription = async (
       temperature: 0.1,
       type,
       isDefaultPrompt,
+      overrideModel,
     });
 
     res.status(200).json({
@@ -969,6 +970,7 @@ export const getGeneratedDescription = async (
       temperature: 0.1,
       type,
       isDefaultPrompt,
+      overrideModel,
     });
 
     res.status(200).json({
@@ -1067,7 +1069,7 @@ export async function postSimilarMetrics(
     context,
     input: [newMetric],
   });
-  const newEmbedding = newMetricEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newMetricEmbeddingResponse[0];
   // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
   const similarities = metricsToSearch
     .map((mv) => {
