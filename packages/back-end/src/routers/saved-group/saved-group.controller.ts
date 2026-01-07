@@ -240,6 +240,7 @@ export const postSavedGroupAddItems = async (
     values: newValues,
   });
 
+
   return res.status(200).json({
     status: 200,
   });
@@ -324,6 +325,7 @@ export const postSavedGroupRemoveItems = async (
   await context.models.savedGroups.update(savedGroup, {
     values: newValues,
   });
+
 
   return res.status(200).json({
     status: 200,
@@ -449,6 +451,7 @@ export const putSavedGroup = async (
   }
 
   await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+
 
   return res.status(200).json({
     status: 200,

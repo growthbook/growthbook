@@ -34,15 +34,6 @@ jobs:
           cache: "yarn"
           cache-dependency-path: "docs/yarn.lock"
 
-      - name: Produce generated files
-        run: |
-          yarn
-          cd packages/back-end
-          yarn
-          cd ../../docs
-          yarn
-          yarn gen
-
       - name: Deploy to Vercel
         if: ${{ github.repository == 'growthbook/growthbook' }}
         uses: amondnet/vercel-action@v20

@@ -316,12 +316,14 @@ In practice, we substitute $\boldsymbol{\gamma}_{k}$ for $\hat{\boldsymbol{\gamm
 
 ## Combining cell estimates
 
-In this section we describe how to combine estimates across cells to estimate population absolute effects and control means.
+At a high level, for each cell we now have estimates of population means (e.g., the control mean and the absolute effect), and uncertainty about those estimates.
+In this section we describe how to combine these estimates across cells to estimate population absolute effects and control means.
 This algorithm can be used for count or ratio metrics, unadjusted or adjusted (e.g., CUPED), and absolute or relative inference.
 
 Define the population (sample) proportion for the $k^{\text{th}}$ strata cell as $\nu_{k}$ ($\hat{\nu}_{k})$.
 
 Under stratified sampling, the $\nu_{k}$ are deterministic, and we could define $\hat{\boldsymbol{\alpha}} = \sum_{k=1}^{K}\nu_{k}\hat{\boldsymbol{\alpha}}_{k}$ and $\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\nu_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}$. However, we do not conduct stratified sampling in GrowthBook. Under simple random sampling the $\hat{\nu}_{k}$ are multinomial random variables, and we could define $\hat{\boldsymbol{\alpha}} = \sum_{k=1}^{K}\hat{\nu}_{k}\hat{\boldsymbol{\alpha}}_{k}$.
+Define the $4 \times K$ matrix $\boldsymbol{\alpha}_{M}$ as the matrix whose $k^{\text{th}}$ row is $\boldsymbol{\alpha}_{k}$.
 Our point estimate is the expected value of $\sum_{k=1}^{K}\hat{\nu_{k}}\hat{\boldsymbol{\alpha}}_{k}$, which is
 
 $$
@@ -334,119 +336,27 @@ $$
 
 Below we derive its covariance.
 Define the collection of $\hat{\nu}_{k}$ as $\hat{\boldsymbol{\nu}}$.
-The naive covariance is $\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\hat{\nu}_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}$.
+The naive covariance is $$\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\hat{\nu}_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}$$.
+
 Alternatively, we can use Equation 15 in ([Xie and Aurriset 2016](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)) to define
-$\hat{\boldsymbol{\Sigma}} = \sum_{k=1}^{K}\hat{\nu}_{k}^{2}n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k}\left(1 + \frac{1-\hat{\nu}_{k}}{n_{k}}\right)$.
-Both approaches assume the population cell proportions $p_{k}$ are known.
 
-For GrowthBook experiments, the $\hat{\nu}_{k}$ are random variables, and this assumption is not met. There is dependence between the $n_{k}$ (or equivalently, between the $\hat{p}_{k}$) that is not accounted for when estimating the variance.
+$$ \hat{\boldsymbol{\Sigma}} = n^{-1}\sum*{k=1}^{K}\left(\boldsymbol{\nu}[k] + \frac{1-\boldsymbol{\nu}[k]}{n} \right)\boldsymbol{\Sigma}*{k} $$
 
-We derive the covariance using results from linear models.
-Recall that if $\textbf{A}$ is a matrix and $\textbf{Z}$ is a random vector with mean $\boldsymbol{\mu}$ and covariance $\boldsymbol{\Psi}$ then $E\left(\textbf{Z}^{\top} \textbf{A}\textbf{Z}\right) = \boldsymbol{\alpha}^{\top} \textbf{A}\boldsymbol{\alpha} + \text{tr}\left( \textbf{A}\boldsymbol{\Psi}\right).$
+Both approaches assume the population cell proportions $\nu_{k}$ are known.
 
-- Define the $4 \times K$ matrix $\boldsymbol{\alpha}_{M}$ as the matrix whose $k^{\text{th}}$ row is $\boldsymbol{\alpha}_{k}$.
-- Define the $4 \times K$ matrix $\hat{\boldsymbol{\alpha}}_{M}$ as the matrix whose $k^{\text{th}}$ row is $\hat{\boldsymbol{\alpha}}_{k}$.
-- Define $\textbf{D}_{i,j}$ as the diagonal matrix whose nonzero elements are $\left\{\boldsymbol{\Sigma}_{1}[i, j], \boldsymbol{\Sigma}_{2}[i, j], ..., \boldsymbol{\Sigma}_{K}[i, j] \right\}$.
-- Define $\boldsymbol{\Sigma}_{\nu}$ as the $K \times K$ covariance of $\hat{\boldsymbol{\nu}}$.
-- Define $\textbf{D}_{\hat{\boldsymbol{\nu}}}$ as a diagonal matrix whose nonzero elements are $\hat{\boldsymbol{\nu}}$.
-- Define the $K \times K$ covariance of $(\hat{\boldsymbol{\alpha}}[i], \hat{\boldsymbol{\alpha}}[j])$ given $\hat{\boldsymbol{\nu}}$ as $\boldsymbol{\Sigma}_{i, j}$. In words, this is the covariance across dimensions between different components of $\boldsymbol{\alpha}$.
-
-To get the covariance we need the following:
+For GrowthBook experiments, the $\hat{\nu}_{k}$ are random variables, and this assumption is not met. There is dependence between the $n_{k}$ (or equivalently, between the $\hat{\boldsymbol{\nu}}_{k}$) that is not accounted for when estimating the variance.
+We show below in the Section [Derivation of conditional covariance](#derivation-of-conditional-covariance) that $\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}} \right)$ is:
 
 $$
-\begin{align*}
-E\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\hat{\boldsymbol{\alpha}}_{M}^{\top} \right) &=
-E_{\hat{\boldsymbol{\nu}}}\left(E_{\hat{\boldsymbol{\alpha}}}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\hat{\boldsymbol{\alpha}}_{M}^{\top}|\hat{\boldsymbol{\nu}} \right)\right)
-\\&=
-E_{\hat{\boldsymbol{\nu}}}
-\left(
-\boldsymbol{\alpha}_{M}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\boldsymbol{\alpha}_{M}^{\top}
-\right)
-\\&+ n^{-1}
-E_{\hat{\boldsymbol{\nu}}}
-\left(
-\begin{pmatrix}
-\text{tr}\left\{\textbf{D}_{1,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  &  & \\
-\text{tr}\left\{\textbf{D}_{2,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{2,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  & \\
-\text{tr}\left\{\textbf{D}_{3,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{3,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{
-\boldsymbol{\Sigma}_{3
-,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \\
-\text{tr}\left\{\textbf{D}_{4,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
-,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
-,4}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\}
-\end{pmatrix}
-\right)
-\\&=
-\boldsymbol{\alpha}_{M}\left(\boldsymbol{\nu}\boldsymbol{\nu}^{\top} + \boldsymbol{\Sigma}_{\boldsymbol{\nu}} \right) \boldsymbol{\alpha}_{M}^{\top}
-\\&+ n^{-1}
-E_{\hat{\boldsymbol{\nu}}}
-\left(
-\begin{pmatrix}
-\text{tr}\left\{\textbf{D}_{1,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  &  & \\
-\text{tr}\left\{\textbf{D}_{2,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{2,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  & \\
-\text{tr}\left\{\textbf{D}_{3,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{3,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{
-\boldsymbol{\Sigma}_{3
-,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \\
-\text{tr}\left\{\textbf{D}_{4,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
-,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
-,4}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\}
-\end{pmatrix}
-\right)
-\end{align*}
+\begin{align}
+\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}} \right) &=
+\boldsymbol{\alpha}_{M}\text{Cov}\left(\hat{\boldsymbol{\nu}}\right)\boldsymbol{\alpha}_{M}^{\top}
++
+n^{-1}\sum_{k=1}^{K} \boldsymbol{\nu}[k]\boldsymbol{\Sigma}_{k}.
+\end{align}
 $$
 
-Note that $\boldsymbol{\alpha}_{M}\left(\boldsymbol{\nu}\boldsymbol{\nu}^{\top}\right) \boldsymbol{\alpha}_{M}^{\top}$ is the mean squared, so the covariance is
-
-$$
-\begin{align*}
-\boldsymbol{\Sigma} &=
-\boldsymbol{\alpha}_{M}\left(\boldsymbol{\Sigma}_{\boldsymbol{\nu}} \right) \boldsymbol{\alpha}_{M}^{\top}
-\\&+ n^{-1}
-E_{\hat{\boldsymbol{\nu}}}
-\left(
-\begin{pmatrix}
-\text{tr}\left\{\textbf{D}_{1,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  &  & \\
-\text{tr}\left\{\textbf{D}_{2,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{2,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} &  & \\
-\text{tr}\left\{\textbf{D}_{3,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{3,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{
-\boldsymbol{\Sigma}_{3
-,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \\
-\text{tr}\left\{\textbf{D}_{4,1}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4,2}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
-,3}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\} & \text{tr}\left\{\textbf{D}_{4
-,4}\textbf{D}_{\hat{\boldsymbol{\nu}}}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top} \right\}
-\end{pmatrix}
-\right)
-\end{align*}
-$$
-
-The expectations in the equation above can be evaluated using Equation 3.3 in ([Quimet 2020](https://arxiv.org/abs/2006.09059)).
-
-By the central limit theorem and independence across dimensions conditional upon the sample sizes,
-
-$$
-\begin{equation}
-\hat{\boldsymbol{\alpha}}
-| \textbf{n}
-=\begin{pmatrix}
-\hat{\boldsymbol{\alpha}}_{1}|n_{1}\\
-\hat{\boldsymbol{\alpha}}_{2}|n_{2} \\
-...\\
-\hat{\boldsymbol{\alpha}}_{K}|n_{K}
-\end{pmatrix}
-\stackrel{}{\sim}\mathcal{N}\left(\boldsymbol{\alpha}=\begin{pmatrix}
-\boldsymbol{\alpha}_{1}\\
-\boldsymbol{\alpha}_{2} \\
-...\\
-\boldsymbol{\alpha}_{K}
-\end{pmatrix},\boldsymbol{\Sigma}=\begin{pmatrix}
-\boldsymbol{\Sigma}_{1} & \textbf{0} & ... & \textbf{0}\\
-\textbf{0} & \boldsymbol{\Sigma}_{2} & ... & \textbf{0}\\
-\vdots & \vdots & \ddots & \vdots \\
-\textbf{0} & \textbf{0} & ... & \boldsymbol{\Sigma}_{K}
-\end{pmatrix} \right).
-\end{equation}
-$$
-
-Return $\hat{\boldsymbol{\alpha}} = \sum_{k=1}^{K}\hat{\nu}_{k}\hat{\boldsymbol{\alpha}}_{k}$ and $\boldsymbol{\Sigma}$, as defined in Equation 4.
+Note that $\hat{\boldsymbol{\nu}}$ is a multinomial random variable divided by $n$, so its $K\times K$ covariance matrix has diagonal element equal to $\nu_{k} / n^{2}$ and off-diagonal element $(i, j)^{\text{th}}$ element equal to $-\nu_{i} \nu_{j} / n^{2}$.
 
 ## Delta method
 
@@ -590,3 +500,142 @@ In summary, the steps for the algorithm are:
 1. Compute the point estimate $\hat{\Delta} = g(\hat{\boldsymbol{\alpha}})$.
 2. Compute the estimated variance $\hat{v} = \boldsymbol{\nabla}^{\top}\boldsymbol{\Sigma}\boldsymbol{\nabla}$.
 3. Return $(\hat{\Delta}, \hat{v})$.
+
+## Appendix
+
+### Derivation of conditional covariance
+
+In this section we derive the covariance of $\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}$.
+
+We derive the covariance using results from linear models.
+Recall that if $\textbf{A}$ is a matrix and $\textbf{Z}$ is a random vector with mean $\boldsymbol{\mu}$ and covariance $\boldsymbol{\Psi}$ then $E\left(\textbf{Z}^{\top} \textbf{A}\textbf{Z}\right) = \boldsymbol{\alpha}^{\top} \textbf{A}\boldsymbol{\alpha} + \text{tr}\left( \textbf{A}\boldsymbol{\Psi}\right).$
+Define $\boldsymbol{\alpha}_{l}$ as the $l^{\text{th}}$ row of $\boldsymbol{\alpha}_{M}$, and analogously define $\hat{\boldsymbol{\alpha}}_{m}$.
+
+Below we derive $\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{M}|\hat{\boldsymbol{\nu}}\right)$.
+Define $\boldsymbol{\alpha}_{l}$ as the $l^{\text{th}}$ row of $\boldsymbol{\alpha}_{M}$, and analogously define $\hat{\boldsymbol{\alpha}}_{m}$.
+First we need the following result:
+$E\left(\hat{\boldsymbol{\alpha}}_{l}\hat{\boldsymbol{\alpha}}_{m}^{\top}|\hat{\boldsymbol{\nu}}\right)$
+
+$$
+\begin{align*}
+&=
+\begin{bmatrix}
+E\left(\hat{\boldsymbol{\alpha}}_{l}[1]\hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) & E\left(\hat{\boldsymbol{\alpha}}_{l}[1]\hat{\boldsymbol{\alpha}}_{m}[2]|\hat{\boldsymbol{\nu}}\right) & ... & E\left(\hat{\boldsymbol{\alpha}}_{l}[1]\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right) \\
+E\left(\hat{\boldsymbol{\alpha}}_{l}[2]\hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) & E\left(\hat{\boldsymbol{\alpha}}_{l}[2]\hat{\boldsymbol{\alpha}}_{m}[2]|\hat{\boldsymbol{\nu}}\right) & ... & E\left(\hat{\boldsymbol{\alpha}}_{l}[2]\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right) \\
+  \vdots & \vdots & \vdots & \vdots \\
+  E\left(\hat{\boldsymbol{\alpha}}_{l}[K]\hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) & E\left(\hat{\boldsymbol{\alpha}}_{l}[K]\hat{\boldsymbol{\alpha}}_{m}[2]|\hat{\boldsymbol{\nu}}\right) & ... & E\left(\hat{\boldsymbol{\alpha}}_{l}[K]\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right) \\
+  \end{bmatrix}
+  \\&=
+  \begin{bmatrix}
+ E\left(\hat{\boldsymbol{\alpha}}_{l}[1]\hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) & E\left(\hat{\boldsymbol{\alpha}}_{l}[1]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[2]|\hat{\boldsymbol{\nu}}\right) & ... & E\left(\hat{\boldsymbol{\alpha}}_{l}[1]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right) \\
+ E\left(\hat{\boldsymbol{\alpha}}_{l}[2]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) & E\left(\hat{\boldsymbol{\alpha}}_{l}[2]\hat{\boldsymbol{\alpha}}_{m}[2]|\hat{\boldsymbol{\nu}}\right)  & ... & E\left(\hat{\boldsymbol{\alpha}}_{l}[2]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right) \\
+ \vdots & \vdots & \vdots & \vdots \\
+ E\left(\hat{\boldsymbol{\alpha}}_{l}[K]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) &
+  E\left(\hat{\boldsymbol{\alpha}}_{l}[1]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right) & ... &
+ E\left(\hat{\boldsymbol{\alpha}}_{l}[K]|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}[i, K]|\hat{\boldsymbol{\nu}}\right)
+\end{bmatrix}
+ \end{align*}
+$$
+
+Therefore,
+
+$$
+ \begin{align*}
+ \text{Cov}\left(\hat{\boldsymbol{\alpha}}_{l}, \hat{\boldsymbol{\alpha}}_{m}|\hat{\boldsymbol{\nu}}\right) &=
+ E\left(\hat{\boldsymbol{\alpha}}_{l}\hat{\boldsymbol{\alpha}}_{m}^{\top}|\hat{\boldsymbol{\nu}}\right) -
+ E\left(\hat{\boldsymbol{\alpha}}_{l}|\hat{\boldsymbol{\nu}}\right)E\left(\hat{\boldsymbol{\alpha}}_{m}^{\top}|\hat{\boldsymbol{\nu}}\right)
+\\&= \begin{bmatrix}
+   \text{Cov}\left(\hat{\boldsymbol{\alpha}}_{l}[1], \hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right) & 0 & ... & 0 \\
+ 0 & \text{Cov}\left(\hat{\boldsymbol{\alpha}}_{l}[1], \hat{\boldsymbol{\alpha}}_{m}[1]|\hat{\boldsymbol{\nu}}\right)  & ... & 0 \\
+   \vdots & \vdots & \vdots & \vdots \\
+0 &
+    0 & ... &
+\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{l}[K], \hat{\boldsymbol{\alpha}}_{m}[K]|\hat{\boldsymbol{\nu}}\right)
+\end{bmatrix}
+\\&=
+ n^{-1}\begin{bmatrix}
+ \boldsymbol{\Sigma}_{1}[l, m] / (\hat{\boldsymbol{\nu}}[1]) & 0 & ... & 0 \\
+0 & \boldsymbol{\Sigma}_{2}[l, m] / (\hat{\boldsymbol{\nu}}[2])  & ... & 0 \\
+ \vdots & \vdots & \vdots & \vdots \\
+0 &
+  0 & ... &
+\boldsymbol{\Sigma}_{K}[l, m] / (\hat{\boldsymbol{\nu}}[K])
+\end{bmatrix}
+\end{align*}
+$$
+
+To get the $(l, m)^{\text{th}}$ element of the covariance we first calculate the $(l, m)^{\text{th}}$ element of the second moment $E\left(\hat{\boldsymbol{\alpha}}_{l}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\hat{\boldsymbol{\alpha}}_{m}^{\top} \right)$:
+
+$$
+\begin{align*}
+ &=
+E_{\hat{\boldsymbol{\nu}}}\left(E_{\hat{\boldsymbol{\alpha}}}\left(\hat{\boldsymbol{\alpha}}_{l}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\hat{\boldsymbol{\alpha}}_{m}^{\top}|\hat{\boldsymbol{\nu}} \right)\right)
+\\&=
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\boldsymbol{\alpha}_{l}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\boldsymbol{\alpha}_{m}^{\top}
+\right)
+\\&+
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\text{tr}\left(\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{l}, \hat{\boldsymbol{\alpha}}_{m}|\hat{\boldsymbol{\nu}} \right)\right)|\hat{\boldsymbol{\nu}}
+\right)
+\\&=
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\boldsymbol{\alpha}_{l}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\boldsymbol{\alpha}_{m}^{\top}
+\right)
+\\&+
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\text{tr}\left(\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{l}, \hat{\boldsymbol{\alpha}}_{m}|\hat{\boldsymbol{\nu}} \right)\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\right)|\hat{\boldsymbol{\nu}}
+\right)
+\\&=
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\boldsymbol{\alpha}_{l}\hat{\boldsymbol{\nu}}\hat{\boldsymbol{\nu}}^{\top}\boldsymbol{\alpha}_{m}^{\top}
+\right)
+\\&+
+E_{\hat{\boldsymbol{\nu}}}
+\left(
+\text{tr}\left(
+n^{-1}\begin{bmatrix}
+  \boldsymbol{\Sigma}_{1}[l, m] / \hat{\boldsymbol{\nu}}[1] & 0 & ... & 0 \\
+  0 & \boldsymbol{\Sigma}_{2}[l, m] / \hat{\boldsymbol{\nu}}[2]  & ... & 0 \\
+  \vdots & \vdots & \vdots & \vdots \\
+  0 &
+   0 & ... &
+  \boldsymbol{\Sigma}_{K}[l, m] / \hat{\boldsymbol{\nu}}[K]
+  \end{bmatrix}
+\right)
+\right)
+\\&=
+\boldsymbol{\alpha}_{l}\left(\text{Cov}\left(\hat{\boldsymbol{\nu}}\right) + \boldsymbol{\nu}\boldsymbol{\nu}^{\top}\right)\boldsymbol{\alpha}_{m}^{\top}
+\\&+
+n^{-1}\sum_{k=1}^{K} \boldsymbol{\nu}[k]\boldsymbol{\Sigma}_{k}[l, m]
+\end{align*}
+$$
+
+where we used the fact that the trace of a product of a diagonal matrix and a matrix is the sum of the products of the diagonal elements of the diagonal matrix and the diagonal elements of the matrix.
+
+In summary, the $(l, m)^{\text{th}}$ element of $\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}} \right)$ is:
+
+$$
+\begin{align*}
+\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}} \right)[l, m] &=
+\boldsymbol{\alpha}_{l}\text{Cov}\left(\hat{\boldsymbol{\nu}}\right)\boldsymbol{\alpha}_{m}^{\top}
++
+n^{-1}\sum_{k=1}^{K} \boldsymbol{\nu}[k]\boldsymbol{\Sigma}_{k}[l, m].
+\end{align*}
+$$
+
+Therefore, the covariance of $\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}}$ is:
+
+$$
+\begin{align*}
+\text{Cov}\left(\hat{\boldsymbol{\alpha}}_{M}\hat{\boldsymbol{\nu}} \right) &=
+\boldsymbol{\alpha}_{M}\text{Cov}\left(\hat{\boldsymbol{\nu}}\right)\boldsymbol{\alpha}_{M}^{\top}
++
+n^{-1}\sum_{k=1}^{K} \boldsymbol{\nu}[k]\boldsymbol{\Sigma}_{k}.
+\end{align*}
+$$

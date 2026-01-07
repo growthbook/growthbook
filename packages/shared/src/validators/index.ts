@@ -33,3 +33,4 @@ export * from "./experiment-template";
 export * from "./metric-analysis";
 export * from "./population-data";
 export * from "./url-redirects";
+export * from "./sdk-connection-cache";
