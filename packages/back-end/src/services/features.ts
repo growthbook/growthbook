@@ -658,7 +658,7 @@ export async function refreshSDKPayloadCache({
         const capabilities = getConnectionSDKCapabilities(connection);
 
         const environmentDoc = context.org?.settings?.environments?.find(
-          (e) => e.id === environment,
+          (e) => e.id === env,
         );
 
         // null projects have nothing in the payload. They result from environment project scrubbing.
