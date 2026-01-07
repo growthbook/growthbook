@@ -11,7 +11,6 @@ import {
   apiCreateDashboardBody,
   apiDashboardInterface,
   ApiDashboardInterface,
-  ApiGetDashboardsForExperimentRequest,
   ApiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
@@ -32,6 +31,7 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import { ApiRequestForValidator } from "back-end/src/util/handler";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -80,7 +80,10 @@ const BaseClass = MakeModelClass({
         validator: apiGetDashboardsForExperimentValidator,
         zodReturnObject: apiGetDashboardsForExperimentReturn,
         reqHandler: async (
-          req: ApiGetDashboardsForExperimentRequest,
+          req: ApiRequestForValidator<
+            typeof apiGetDashboardsForExperimentValidator,
+            ApiGetDashboardsForExperimentReturn
+          >,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
           dashboards: (
             await req.context.models.dashboards.findByExperiment(

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { ApiRequest } from "back-end/src/util/handler";
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
@@ -125,13 +124,6 @@ export const apiGetDashboardsForExperimentReturn = z.strictObject({
 export type ApiGetDashboardsForExperimentReturn = z.infer<
   typeof apiGetDashboardsForExperimentReturn
 >;
-export type ApiGetDashboardsForExperimentRequest = ApiRequest<
-  ApiGetDashboardsForExperimentReturn,
-  typeof apiGetDashboardsForExperimentValidator.paramsSchema,
-  typeof apiGetDashboardsForExperimentValidator.bodySchema,
-  typeof apiGetDashboardsForExperimentValidator.querySchema
->;
-
 export type DashboardInterface = z.infer<typeof dashboardInterface>;
 export type ApiDashboardInterface = z.infer<typeof apiDashboardInterface>;
 
