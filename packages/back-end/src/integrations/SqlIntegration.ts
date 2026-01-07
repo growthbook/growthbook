@@ -51,6 +51,7 @@ import {
   PastExperimentParams,
   PastExperimentQueryResponse,
   ExperimentMetricQueryResponse,
+  ExperimentMetricQueryResponseRows,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
@@ -1372,6 +1373,39 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback,
   ): Promise<ExperimentMetricQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
+
+    // Helper function to parse a single float field
+    const parseFloatField = (
+      row: Record<string, unknown>,
+      field: string,
+    ): Record<string, number> => {
+      return row[field] !== undefined
+        ? { [field]: parseFloat(row[field] as string) || 0 }
+        : {};
+    };
+
+    // Helper function to parse paired fields (base + squares)
+    const parsePairedFields = (
+      row: Record<string, unknown>,
+      base: string,
+      squares: string,
+    ): Record<string, number> => {
+      return row[base] !== undefined
+        ? {
+            [base]: parseFloat(row[base] as string) || 0,
+            [squares]: parseFloat(row[squares] as string) || 0,
+          }
+        : {};
+    };
+
+    // Helper function to parse non-float fields (cap values)
+    const parseNonFloatField = (
+      row: Record<string, unknown>,
+      field: string,
+    ): Record<string, unknown> => {
+      return row[field] !== undefined ? { [field]: row[field] } : {};
+    };
+
     return {
       rows: rows.map((row) => {
         const dimensionData: Record<string, string> = {};
@@ -1380,129 +1414,156 @@ export default abstract class SqlIntegration
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
-        return {
+
+        // Build result object by processing all field types
+        const result: Record<string, unknown> = {
           variation: row.variation ?? "",
           ...dimensionData,
-          users: parseInt(row.users) || 0,
-          count: parseInt(row.users) || 0,
-          main_sum: parseFloat(row.main_sum) || 0,
-          main_sum_squares: parseFloat(row.main_sum_squares) || 0,
-          ...(row.quantile !== undefined && {
-            quantile: parseFloat(row.quantile) || 0,
-            ...this.getQuantileBoundsFromQueryResponse(row, ""),
-          }),
-          ...(row.denominator_sum !== undefined && {
-            denominator_sum: parseFloat(row.denominator_sum) || 0,
-            denominator_sum_squares:
-              parseFloat(row.denominator_sum_squares) || 0,
-          }),
-          ...(row.main_denominator_sum_product !== undefined && {
-            main_denominator_sum_product:
-              parseFloat(row.main_denominator_sum_product) || 0,
-          }),
-          ...(row.covariate_sum !== undefined && {
-            covariate_sum: parseFloat(row.covariate_sum) || 0,
-            covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
-          }),
-          ...(row.denominator_pre_sum !== undefined && {
-            denominator_pre_sum: parseFloat(row.denominator_pre_sum) || 0,
-            denominator_pre_sum_squares:
-              parseFloat(row.denominator_pre_sum_squares) || 0,
-          }),
-          ...(row.main_covariate_sum_product !== undefined && {
-            main_covariate_sum_product:
-              parseFloat(row.main_covariate_sum_product) || 0,
-          }),
-          ...(row.main_cap_value !== undefined && {
-            main_cap_value: row.main_cap_value,
-          }),
-          ...(row.denominator_cap_value !== undefined && {
-            denominator_cap_value: row.denominator_cap_value,
-          }),
-          ...(row.theta !== undefined && {
-            theta: parseFloat(row.theta) || 0,
-          }),
-          ...(row.main_post_denominator_pre_sum_product !== undefined && {
-            main_post_denominator_pre_sum_product:
-              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
-          }),
-          ...(row.main_pre_denominator_post_sum_product !== undefined && {
-            main_pre_denominator_post_sum_product:
-              parseFloat(row.main_pre_denominator_post_sum_product) || 0,
-          }),
-          ...(row.main_pre_denominator_pre_sum_product !== undefined && {
-            main_pre_denominator_pre_sum_product:
-              parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
-          }),
-          ...(row.denominator_post_denominator_pre_sum_product !==
-            undefined && {
-            denominator_post_denominator_pre_sum_product:
-              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
-          }),
-          ...(row.main_covariate_sum_product_uncapped !== undefined && {
-            main_covariate_sum_product_uncapped:
-              parseFloat(row.main_covariate_sum_product_uncapped) || 0,
-          }),
-          ...(row.main_post_denominator_pre_sum_product_uncapped !==
-            undefined && {
-            main_post_denominator_pre_sum_product_uncapped:
-              parseFloat(row.main_post_denominator_pre_sum_product_uncapped) ||
-              0,
-          }),
-          ...(row.main_pre_denominator_pre_sum_product_uncapped !==
-            undefined && {
-            main_pre_denominator_pre_sum_product_uncapped:
-              parseFloat(row.main_pre_denominator_pre_sum_product_uncapped) ||
-              0,
-          }),
-          ...(row.denominator_post_denominator_pre_sum_product_uncapped !==
-            undefined && {
-            denominator_post_denominator_pre_sum_product_uncapped:
-              parseFloat(
-                row.denominator_post_denominator_pre_sum_product_uncapped,
-              ) || 0,
-          }),
-          ...(row.main_post_denominator_pre_sum_product_uncapped !==
-            undefined && {
-            main_post_denominator_pre_sum_product_uncapped:
-              parseFloat(row.main_post_denominator_pre_sum_product_uncapped) ||
-              0,
-          }),
-          ...(row.main_sum_uncapped !== undefined && {
-            main_sum_uncapped: parseFloat(row.main_sum_uncapped) || 0,
-          }),
-          ...(row.main_sum_squares_uncapped !== undefined && {
-            main_sum_squares_uncapped:
-              parseFloat(row.main_sum_squares_uncapped) || 0,
-          }),
-          ...(row.denominator_sum_uncapped !== undefined && {
-            denominator_sum_uncapped:
-              parseFloat(row.denominator_sum_uncapped) || 0,
-          }),
-          ...(row.denominator_sum_squares_uncapped !== undefined && {
-            denominator_sum_squares_uncapped:
-              parseFloat(row.denominator_sum_squares_uncapped) || 0,
-          }),
-          ...(row.denominator_cap_value_uncapped !== undefined && {
-            denominator_cap_value_uncapped:
-              parseFloat(row.denominator_cap_value_uncapped) || 0,
-          }),
-          ...(row.covariate_sum_uncapped !== undefined && {
-            covariate_sum_uncapped: parseFloat(row.covariate_sum_uncapped) || 0,
-          }),
-          ...(row.covariate_sum_squares_uncapped !== undefined && {
-            covariate_sum_squares_uncapped:
-              parseFloat(row.covariate_sum_squares_uncapped) || 0,
-          }),
-          ...(row.main_denominator_sum_product_uncapped !== undefined && {
-            main_denominator_sum_product_uncapped:
-              parseFloat(row.main_denominator_sum_product_uncapped) || 0,
-          }),
-          ...(row.main_covariate_sum_product_uncapped !== undefined && {
-            main_covariate_sum_product_uncapped:
-              parseFloat(row.main_covariate_sum_product_uncapped) || 0,
-          }),
+          users: parseInt(row.users as string) || 0,
+          count: parseInt(row.users as string) || 0,
         };
+
+        // Main case - always present
+        result.main_sum = parseFloat(row.main_sum as string) || 0;
+        result.main_sum_squares =
+          parseFloat(row.main_sum_squares as string) || 0;
+
+        // Quantile case
+        if (row.quantile !== undefined) {
+          result.quantile = parseFloat(row.quantile as string) || 0;
+          Object.assign(
+            result,
+            this.getQuantileBoundsFromQueryResponse(row, ""),
+          );
+        }
+
+        // Ratio case
+        Object.assign(
+          result,
+          parsePairedFields(row, "denominator_sum", "denominator_sum_squares"),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_denominator_sum_product"),
+        );
+
+        // CUPED case
+        Object.assign(
+          result,
+          parsePairedFields(row, "covariate_sum", "covariate_sum_squares"),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_covariate_sum_product"),
+        );
+
+        // Ratio CUPED case
+        Object.assign(
+          result,
+          parsePairedFields(
+            row,
+            "denominator_pre_sum",
+            "denominator_pre_sum_squares",
+          ),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_post_denominator_pre_sum_product"),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_pre_denominator_post_sum_product"),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_pre_denominator_pre_sum_product"),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "denominator_post_denominator_pre_sum_product"),
+        );
+
+        // Capping case
+        Object.assign(result, parseNonFloatField(row, "main_cap_value"));
+        Object.assign(result, parseNonFloatField(row, "denominator_cap_value"));
+
+        // Bandits case
+        Object.assign(result, parseFloatField(row, "theta"));
+
+        // Uncapped main case
+        Object.assign(
+          result,
+          parsePairedFields(
+            row,
+            "main_sum_uncapped",
+            "main_sum_squares_uncapped",
+          ),
+        );
+
+        // Uncapped ratio case
+        Object.assign(
+          result,
+          parsePairedFields(
+            row,
+            "denominator_sum_uncapped",
+            "denominator_sum_squares_uncapped",
+          ),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_denominator_sum_product_uncapped"),
+        );
+
+        // Uncapped CUPED case
+        Object.assign(
+          result,
+          parseFloatField(row, "main_covariate_sum_product_uncapped"),
+        );
+        Object.assign(
+          result,
+          parsePairedFields(
+            row,
+            "covariate_sum_uncapped",
+            "covariate_sum_squares_uncapped",
+          ),
+        );
+
+        // Uncapped CUPED ratio case
+        Object.assign(
+          result,
+          parsePairedFields(
+            row,
+            "denominator_pre_sum_uncapped",
+            "denominator_pre_sum_squares_uncapped",
+          ),
+        );
+        Object.assign(
+          result,
+          parseFloatField(
+            row,
+            "main_post_denominator_pre_sum_product_uncapped",
+          ),
+        );
+        Object.assign(
+          result,
+          parseFloatField(
+            row,
+            "main_pre_denominator_post_sum_product_uncapped",
+          ),
+        );
+        Object.assign(
+          result,
+          parseFloatField(row, "main_pre_denominator_pre_sum_product_uncapped"),
+        );
+        Object.assign(
+          result,
+          parseFloatField(
+            row,
+            "denominator_post_denominator_pre_sum_product_uncapped",
+          ),
+        );
+
+        return result as ExperimentMetricQueryResponseRows[number];
       }),
       statistics: statistics,
     };
@@ -4310,7 +4371,7 @@ export default abstract class SqlIntegration
              , SUM(POWER(${uncappedCoalesceDenominator}, 2)) AS denominator_sum_squares_uncapped
              , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceDenominator}) AS main_denominator_sum_product_uncapped
              ${
-               isPercentileCapped
+               denominatorIsPercentileCapped
                  ? `
              , MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value`
                  : ""
