@@ -10,15 +10,23 @@ import { DashboardInterface, DisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
 export const DashboardSeriesDisplayContext = React.createContext<{
-  settings: Record<string, DisplaySettings>;
-  updateSeriesColor: (seriesKey: string, color: string) => void;
-  getSeriesColor: (seriesKey: string, index: number) => string;
-  getActiveSeriesKeys: () => Set<string>;
+  settings: Record<string, Record<string, DisplaySettings>>;
+  updateSeriesColor: (
+    columnName: string,
+    dimensionValue: string,
+    color: string,
+  ) => void;
+  getSeriesColor: (
+    columnName: string,
+    dimensionValue: string,
+    index: number,
+  ) => string;
+  getActiveSeriesKeys: () => Map<string, Set<string>>;
 }>({
   settings: {},
   updateSeriesColor: () => {},
   getSeriesColor: () => "",
-  getActiveSeriesKeys: () => new Set(),
+  getActiveSeriesKeys: () => new Map(),
 });
 
 export default function DashboardSeriesDisplayProvider({
@@ -38,16 +46,27 @@ export default function DashboardSeriesDisplayProvider({
 }) {
   // Track color assignments during render to avoid race conditions
   // Updates are applied in useEffect after render to avoid warnings
+  // Key format: `${columnName}:${dimensionValue}`
   const pendingUpdatesRef = useRef<
-    Map<string, { color: string; existingSettings?: DisplaySettings }>
+    Map<
+      string,
+      {
+        color: string;
+        existingSettings?: DisplaySettings;
+        columnName: string;
+        dimensionValue: string;
+      }
+    >
   >(new Map());
 
-  // Track debounce timers per seriesKey to avoid spamming API calls
+  // Track debounce timers per series key to avoid spamming API calls
+  // Key format: `${columnName}:${dimensionValue}`
   const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Track active series keys (keys that are currently being used in charts)
   // This is populated during render via getSeriesColor() calls
-  const activeSeriesKeysRef = useRef<Set<string>>(new Set());
+  // Structure: Map<columnName, Set<dimensionValue>>
+  const activeSeriesKeysRef = useRef<Map<string, Set<string>>>(new Map());
 
   // Store latest dashboard ref to avoid stale closures in debounce callbacks
   const latestDashboardRef = useRef<DashboardInterface | undefined>(dashboard);
@@ -55,9 +74,38 @@ export default function DashboardSeriesDisplayProvider({
     latestDashboardRef.current = dashboard;
   }, [dashboard]);
 
+  // Clean up seriesDisplaySettings by removing entries without required color field
+  const cleanSeriesDisplaySettings = useCallback(
+    (
+      settings: Record<string, Record<string, DisplaySettings>> | undefined,
+    ): Record<string, Record<string, DisplaySettings>> | undefined => {
+      if (!settings) return undefined;
+
+      const cleaned: Record<string, Record<string, DisplaySettings>> = {};
+      Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
+        const cleanedDimensions: Record<string, DisplaySettings> = {};
+        Object.entries(dimensionSettings).forEach(
+          ([dimensionValue, displaySettings]) => {
+            // Only include entries that have a color (required field)
+            if (displaySettings?.color) {
+              cleanedDimensions[dimensionValue] = displaySettings;
+            }
+          },
+        );
+        // Only include columns that have at least one valid dimension
+        if (Object.keys(cleanedDimensions).length > 0) {
+          cleaned[columnName] = cleanedDimensions;
+        }
+      });
+
+      return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+    },
+    [],
+  );
+
   // Track settings state separately to handle updates from both prop and local state
   const [settingsState, setSettingsState] = React.useState<
-    Record<string, DisplaySettings>
+    Record<string, Record<string, DisplaySettings>>
   >(() => dashboard?.seriesDisplaySettings ?? {});
 
   // Sync settings state from dashboard prop when it changes
@@ -67,9 +115,12 @@ export default function DashboardSeriesDisplayProvider({
       const merged = { ...dashboard.seriesDisplaySettings };
       // Preserve auto-assigned colors that haven't been persisted yet
       pendingUpdatesRef.current.forEach(
-        ({ color, existingSettings }, seriesKey) => {
-          if (!merged[seriesKey]?.color) {
-            merged[seriesKey] = {
+        ({ color, existingSettings, columnName, dimensionValue }) => {
+          if (!merged[columnName]) {
+            merged[columnName] = {};
+          }
+          if (!merged[columnName][dimensionValue]?.color) {
+            merged[columnName][dimensionValue] = {
               ...(existingSettings ?? {}),
               color,
             };
@@ -79,10 +130,13 @@ export default function DashboardSeriesDisplayProvider({
       setSettingsState(merged);
     } else if (dashboard) {
       // Dashboard exists but has no seriesDisplaySettings (legacy dashboard)
-      const merged: Record<string, DisplaySettings> = {};
+      const merged: Record<string, Record<string, DisplaySettings>> = {};
       pendingUpdatesRef.current.forEach(
-        ({ color, existingSettings }, seriesKey) => {
-          merged[seriesKey] = {
+        ({ color, existingSettings, columnName, dimensionValue }) => {
+          if (!merged[columnName]) {
+            merged[columnName] = {};
+          }
+          merged[columnName][dimensionValue] = {
             ...(existingSettings ?? {}),
             color,
           };
@@ -95,12 +149,19 @@ export default function DashboardSeriesDisplayProvider({
   // Merge settingsState with pending updates so settings reflects both persisted and in-flight changes
   // Compute directly (not memoized) so it always includes current pendingUpdatesRef state
   const settings = (() => {
-    const merged = { ...settingsState };
+    const merged: Record<string, Record<string, DisplaySettings>> = {};
+    // Deep clone the settings state
+    Object.keys(settingsState).forEach((columnName) => {
+      merged[columnName] = { ...settingsState[columnName] };
+    });
     // Include pending updates so settings is immediately available during render
     pendingUpdatesRef.current.forEach(
-      ({ color, existingSettings }, seriesKey) => {
-        if (!merged[seriesKey]?.color) {
-          merged[seriesKey] = {
+      ({ color, existingSettings, columnName, dimensionValue }) => {
+        if (!merged[columnName]) {
+          merged[columnName] = {};
+        }
+        if (!merged[columnName][dimensionValue]?.color) {
+          merged[columnName][dimensionValue] = {
             ...(existingSettings ?? {}),
             color,
           };
@@ -123,55 +184,78 @@ export default function DashboardSeriesDisplayProvider({
       if (!prevDashboard) return prevDashboard;
 
       const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
-      const next = { ...currentSettings };
+      const next: Record<string, Record<string, DisplaySettings>> = {};
+      // Deep clone current settings
+      Object.keys(currentSettings).forEach((columnName) => {
+        next[columnName] = { ...currentSettings[columnName] };
+      });
       let hasChanges = false;
 
-      updates.forEach(({ color, existingSettings }, seriesKey) => {
-        // Only update if color doesn't already exist (atomic check)
-        if (!next[seriesKey]?.color) {
-          next[seriesKey] = {
-            ...(existingSettings ?? {}),
-            color,
-          };
-          hasChanges = true;
-        }
-      });
+      updates.forEach(
+        ({ color, existingSettings, columnName, dimensionValue }) => {
+          if (!next[columnName]) {
+            next[columnName] = {};
+          }
+          // Only update if color doesn't already exist (atomic check)
+          if (!next[columnName][dimensionValue]?.color) {
+            next[columnName][dimensionValue] = {
+              ...(existingSettings ?? {}),
+              color,
+            };
+            hasChanges = true;
+          }
+        },
+      );
 
       if (!hasChanges) return prevDashboard;
 
+      // Clean settings to remove any entries without colors before saving
+      const cleanedSettings = cleanSeriesDisplaySettings(next);
+
       const updatedDashboard = {
         ...prevDashboard,
-        seriesDisplaySettings: next,
+        seriesDisplaySettings: cleanedSettings,
       };
 
-      // Update local settings state immediately
-      setSettingsState(next);
+      // Update local settings state immediately (use cleaned version)
+      setSettingsState(cleanedSettings ?? {});
 
       return updatedDashboard;
     });
-  }, [dashboard, setDashboard]);
+  }, [dashboard, setDashboard, cleanSeriesDisplaySettings]);
 
   const updateSeriesColor = useCallback(
-    (seriesKey: string, color: string) => {
+    (columnName: string, dimensionValue: string, color: string) => {
       setDashboard((prevDashboard) => {
         if (!prevDashboard) return prevDashboard;
         const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
-        const next = { ...currentSettings };
-        next[seriesKey] = {
-          ...(next[seriesKey] ?? {}),
+        const next: Record<string, Record<string, DisplaySettings>> = {};
+        // Deep clone current settings
+        Object.keys(currentSettings).forEach((colName) => {
+          next[colName] = { ...currentSettings[colName] };
+        });
+        if (!next[columnName]) {
+          next[columnName] = {};
+        }
+        next[columnName][dimensionValue] = {
+          ...(next[columnName][dimensionValue] ?? {}),
           color,
         };
 
+        // Clean settings to remove any entries without colors
+        const cleanedSettings = cleanSeriesDisplaySettings(next);
+
         // Update local settings state for UI feedback
-        setSettingsState(next);
+        setSettingsState(cleanedSettings ?? {});
 
         const updatedDashboard = {
           ...prevDashboard,
-          seriesDisplaySettings: next,
+          seriesDisplaySettings: cleanedSettings,
         };
 
         // Debounce the save operation to avoid spamming API calls
         if (onSave && updatedDashboard.id && updatedDashboard.id !== "new") {
+          const seriesKey = `${columnName}:${dimensionValue}`;
           // Clear any existing timer for this seriesKey
           const existingTimer = saveTimersRef.current.get(seriesKey);
           if (existingTimer) {
@@ -184,7 +268,14 @@ export default function DashboardSeriesDisplayProvider({
             saveTimersRef.current.delete(seriesKey);
             const currentDashboard = latestDashboardRef.current;
             if (currentDashboard?.id && currentDashboard.id !== "new") {
-              Promise.resolve(onSave(currentDashboard)).catch((e) => {
+              // Clean settings before saving to remove any entries without colors
+              const cleanedDashboard = {
+                ...currentDashboard,
+                seriesDisplaySettings: cleanSeriesDisplaySettings(
+                  currentDashboard.seriesDisplaySettings,
+                ),
+              };
+              Promise.resolve(onSave(cleanedDashboard)).catch((e) => {
                 console.error("Failed to save series display settings:", e);
               });
             }
@@ -196,20 +287,25 @@ export default function DashboardSeriesDisplayProvider({
         return updatedDashboard;
       });
     },
-    [setDashboard, onSave],
+    [setDashboard, onSave, cleanSeriesDisplaySettings],
   );
 
   const getSeriesColor = useCallback(
-    (seriesKey: string, index: number): string => {
-      activeSeriesKeysRef.current.add(seriesKey);
+    (columnName: string, dimensionValue: string, index: number): string => {
+      // Track active series keys
+      if (!activeSeriesKeysRef.current.has(columnName)) {
+        activeSeriesKeysRef.current.set(columnName, new Set());
+      }
+      activeSeriesKeysRef.current.get(columnName)!.add(dimensionValue);
 
-      // Check if seriesKey already has a color in dashboard settings
-      const existingSettings = settings[seriesKey];
+      // Check if this series already has a color in dashboard settings
+      const existingSettings = settings[columnName]?.[dimensionValue];
       if (existingSettings?.color) {
         return existingSettings.color;
       }
 
       // Check if we've already assigned a color during this render cycle
+      const seriesKey = `${columnName}:${dimensionValue}`;
       const pendingUpdate = pendingUpdatesRef.current.get(seriesKey);
       if (pendingUpdate?.color) {
         return pendingUpdate.color;
@@ -223,6 +319,8 @@ export default function DashboardSeriesDisplayProvider({
       pendingUpdatesRef.current.set(seriesKey, {
         color: selectedColor,
         existingSettings,
+        columnName,
+        dimensionValue,
       });
 
       return selectedColor;
@@ -230,9 +328,13 @@ export default function DashboardSeriesDisplayProvider({
     [settings],
   );
 
-  // Get the set of active series keys (for filtering)
+  // Get the map of active series keys grouped by column name (for filtering)
   const getActiveSeriesKeys = useCallback(() => {
-    return new Set(activeSeriesKeysRef.current);
+    const result = new Map<string, Set<string>>();
+    activeSeriesKeysRef.current.forEach((dimensionValues, columnName) => {
+      result.set(columnName, new Set(dimensionValues));
+    });
+    return result;
   }, []);
 
   // Cleanup debounce timers and pending updates on unmount

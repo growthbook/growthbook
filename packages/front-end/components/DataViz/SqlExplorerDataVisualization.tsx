@@ -13,7 +13,10 @@ import { getValidDate } from "shared/dates";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
-import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
+import {
+  CHART_COLOR_PALETTE,
+  getXAxisConfig,
+} from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
 import { useSeriesDisplaySettings } from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
@@ -674,7 +677,7 @@ export function DataVisualizationDisplay({
               ? "line"
               : dataVizConfig.chartType,
           ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
-          color: getSeriesColor(xField, 0),
+          color: CHART_COLOR_PALETTE[0],
           encode: {
             x: "x",
             y: "y",
@@ -690,6 +693,8 @@ export function DataVisualizationDisplay({
 
     // Use the first dimension's display setting for stacking
     const shouldStack = dimensionConfigs[0]?.display === "stacked";
+    // Use the first dimension's fieldName as the column name
+    const columnName = dimensionFields[0];
 
     return dimensionCombinations.map((combination, index) => {
       const dimensionKey = combination.join(", ");
@@ -700,7 +705,7 @@ export function DataVisualizationDisplay({
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
         stack: shouldStack ? "stack" : undefined,
-        color: getSeriesColor(dimensionKey, index),
+        color: getSeriesColor(columnName, dimensionKey, index),
         encode: {
           x: "x",
           y: dimensionKey,
@@ -708,13 +713,13 @@ export function DataVisualizationDisplay({
       };
     });
   }, [
-    dimensionFields.length,
     generateAllDimensionCombinations,
     dimensionValuesByField,
     dimensionConfigs,
     xField,
     dataVizConfig.chartType,
     getSeriesColor,
+    dimensionFields,
   ]);
 
   const option = useMemo(() => {

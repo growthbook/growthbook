@@ -28,7 +28,9 @@ export const createDashboardBody = z
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
-    seriesDisplaySettings: z.record(z.string(), displaySettings).optional(),
+    seriesDisplaySettings: z
+      .record(z.string(), z.record(z.string(), displaySettings))
+      .optional(),
   })
   .strict();
 
@@ -41,7 +43,9 @@ export const updateDashboardBody = z
     enableAutoUpdates: z.boolean().optional(),
     updateSchedule: dashboardUpdateSchedule.optional(),
     projects: z.array(z.string()).optional(),
-    seriesDisplaySettings: z.record(z.string(), displaySettings).optional(),
+    seriesDisplaySettings: z
+      .record(z.string(), z.record(z.string(), displaySettings))
+      .optional(),
     blocks: z
       .array(
         z.union([

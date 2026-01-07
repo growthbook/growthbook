@@ -112,11 +112,52 @@ export default function DashboardWorkspace({
         if (args.data.blocks !== undefined) {
           const activeKeys = getActiveSeriesKeys();
           const currentSettings = localDashboard.seriesDisplaySettings ?? {};
-          seriesDisplaySettings = Object.fromEntries(
-            Object.entries(currentSettings).filter(([key]) =>
-              activeKeys.has(key),
-            ),
+          // Filter to only include active column/dimension combinations
+          const filtered: Record<string, Record<string, DisplaySettings>> = {};
+          Object.entries(currentSettings).forEach(
+            ([columnName, dimensionSettings]) => {
+              const activeDimensions = activeKeys.get(columnName);
+              if (activeDimensions && activeDimensions.size > 0) {
+                const filteredDimensions: Record<string, DisplaySettings> = {};
+                Object.entries(dimensionSettings).forEach(
+                  ([dimensionValue, displaySettings]) => {
+                    // Only include if it's an active dimension and has a color
+                    if (
+                      activeDimensions.has(dimensionValue) &&
+                      displaySettings?.color
+                    ) {
+                      filteredDimensions[dimensionValue] = displaySettings;
+                    }
+                  },
+                );
+                if (Object.keys(filteredDimensions).length > 0) {
+                  filtered[columnName] = filteredDimensions;
+                }
+              }
+            },
           );
+          seriesDisplaySettings =
+            Object.keys(filtered).length > 0 ? filtered : undefined;
+        } else if (seriesDisplaySettings) {
+          // Clean settings to remove entries without colors
+          const cleaned: Record<string, Record<string, DisplaySettings>> = {};
+          Object.entries(seriesDisplaySettings).forEach(
+            ([columnName, dimensionSettings]) => {
+              const cleanedDimensions: Record<string, DisplaySettings> = {};
+              Object.entries(dimensionSettings).forEach(
+                ([dimensionValue, displaySettings]) => {
+                  if (displaySettings?.color) {
+                    cleanedDimensions[dimensionValue] = displaySettings;
+                  }
+                },
+              );
+              if (Object.keys(cleanedDimensions).length > 0) {
+                cleaned[columnName] = cleanedDimensions;
+              }
+            },
+          );
+          seriesDisplaySettings =
+            Object.keys(cleaned).length > 0 ? cleaned : undefined;
         }
 
         await submitDashboard({
