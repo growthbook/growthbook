@@ -122,7 +122,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 backgroundColor: getVariationColor(i, true),
               }}
             />
-            {i}
+            <span style={{ position: "relative", top: 6 }}>{i}</span>
           </td>
         )}
         {!hideValueField && (
@@ -173,7 +173,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               }}
             />
           ) : (
-            <strong>{variation.name || ""}</strong>
+            <strong style={{ position: "relative", top: 6 }}>
+              {variation.name || ""}
+            </strong>
           )}
         </td>
         {showDescription && (
@@ -193,7 +195,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 minRows={1}
               />
             ) : (
-              <span>{variation.description || ""}</span>
+              <span style={{ position: "relative", top: 6 }}>
+                {variation.description || ""}
+              </span>
             )}
           </td>
         )}
@@ -232,7 +236,9 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   </div>
                 ) : (
                   <div className="col d-flex flex-row">
-                    {decimalToPercent(weights[i])}%
+                    <span style={{ position: "relative", top: 6 }}>
+                      {decimalToPercent(weights[i])}%
+                    </span>
                   </div>
                 )}
               </>
@@ -241,11 +247,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               setVariations &&
               !onlySafeToEditVariationMetadata && (
                 <div {...handle} title="Drag and drop to re-order rules">
-                  <FaArrowsAlt />
+                  <FaArrowsAlt style={{ position: "relative", top: 4 }} />
                 </div>
               )}
             {setVariations && !onlySafeToEditVariationMetadata && (
-              <div className="col-auto">
+              <div
+                className="col-auto"
+                style={{ position: "relative", top: 4 }}
+              >
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
                     body="Experiments must have at least two variations"

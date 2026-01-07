@@ -37,6 +37,10 @@ export class CustomFieldModel extends BaseClass {
     return this.context.permissions.canManageCustomFields();
   }
 
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("custom-metadata");
+  }
+
   public async getCustomFields() {
     const customFieldsArr = await this.getAll();
     if (customFieldsArr && customFieldsArr.length > 0) {

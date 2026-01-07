@@ -457,6 +457,15 @@ export function isRegressionAdjusted(
   );
 }
 
+export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "percentile" &&
+    !!metric.cappingSettings.value &&
+    metric.cappingSettings.value < 1 &&
+    isCappableMetricType(metric)
+  );
+}
+
 export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
@@ -533,23 +542,14 @@ export interface SliceMetricInfo {
   sliceLevels: SliceLevelsData[];
 }
 
-export function parseSliceMetricId(
-  metricId: string,
+/**
+ * Parses a slice query string (e.g., "dim:browser=Chrome&dim:country=AU")
+ * and returns the slice levels with datatypes.
+ */
+export function parseSliceQueryString(
+  queryString: string,
   factTableMap?: Record<string, FactTableInterface>,
-): SliceMetricInfo {
-  const questionMarkIndex = metricId.indexOf("?");
-  if (questionMarkIndex === -1) {
-    return {
-      isSliceMetric: false,
-      baseMetricId: metricId,
-      sliceLevels: [],
-    };
-  }
-
-  const baseMetricId = metricId.substring(0, questionMarkIndex);
-  const queryString = metricId.substring(questionMarkIndex + 1);
-
-  // Parse query parameters using URLSearchParams
+): SliceLevelsData[] {
   const sliceLevels: SliceLevelsData[] = [];
   const params = new URLSearchParams(queryString);
 
@@ -578,6 +578,27 @@ export function parseSliceMetricId(
       });
     }
   }
+
+  return sliceLevels;
+}
+
+export function parseSliceMetricId(
+  metricId: string,
+  factTableMap?: Record<string, FactTableInterface>,
+): SliceMetricInfo {
+  const questionMarkIndex = metricId.indexOf("?");
+  if (questionMarkIndex === -1) {
+    return {
+      isSliceMetric: false,
+      baseMetricId: metricId,
+      sliceLevels: [],
+    };
+  }
+
+  const baseMetricId = metricId.substring(0, questionMarkIndex);
+  const queryString = metricId.substring(questionMarkIndex + 1);
+
+  const sliceLevels = parseSliceQueryString(queryString, factTableMap);
 
   if (sliceLevels.length === 0) {
     return {

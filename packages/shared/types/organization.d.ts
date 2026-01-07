@@ -1,6 +1,5 @@
 import Stripe from "stripe";
 import { z } from "zod";
-import { TiktokenModel } from "@dqbd/tiktoken";
 import {
   OWNER_JOB_TITLES,
   USAGE_INTENTS,
@@ -18,6 +17,7 @@ import {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { AIModel, EmbeddingModel } from "shared/ai";
 import { AgreementType, environment } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { ApiKeyInterface } from "shared/types/apikey";
@@ -217,8 +217,10 @@ export interface OrganizationSettings {
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
   aiEnabled?: boolean;
-  openAIDefaultModel?: TiktokenModel;
+  defaultAIModel?: AIModel;
+  embeddingModel?: EmbeddingModel;
   /** @deprecated */
+  openAIDefaultModel?: AIModel;
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;

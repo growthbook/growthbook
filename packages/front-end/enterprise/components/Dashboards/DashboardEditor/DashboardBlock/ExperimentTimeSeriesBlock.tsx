@@ -3,7 +3,7 @@ import {
   ExperimentTimeSeriesBlockInterface,
   blockHasFieldOfType,
 } from "shared/enterprise";
-import { expandMetricGroups, generatePinnedSliceKey } from "shared/experiments";
+import { expandMetricGroups } from "shared/experiments";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
@@ -187,7 +187,16 @@ export default function ExperimentTimeSeriesBlock({
               // Check if this metric has slices and if it's expanded
               const expandedKey = `${metric.id}:${resultGroup}`;
               const isExpanded = !!expandedMetrics[expandedKey];
-              const childRows = rows.filter((r) => r.parentRowId === metric.id);
+
+              // Filter child rows based on expansion state and pinned slices
+              // This matches the filtering logic in ExperimentMetricBlock.tsx and CompactResults.tsx
+              const childRows = rows
+                .filter((r) => r.parentRowId === metric.id)
+                .filter((sliceRow) => {
+                  if (!sliceRow.isSliceRow) return false;
+                  if (sliceRow.isPinned) return true; // Always include pinned rows
+                  return isExpanded; // Include if parent metric is expanded
+                });
 
               return (
                 <div key={metric.id} className="mb-2">
@@ -229,18 +238,6 @@ export default function ExperimentTimeSeriesBlock({
                     {childRows.map((sliceRow) => {
                       if (!sliceRow.metric || !sliceRow.sliceLevels)
                         return null;
-
-                      // If not expanded, only show pinned slices
-                      if (!isExpanded) {
-                        const pinnedKey = generatePinnedSliceKey(
-                          sliceRow.metric.id,
-                          sliceRow.sliceLevels,
-                          resultGroup as "goal" | "secondary" | "guardrail",
-                        );
-                        if (!isSlicePinned(pinnedKey)) {
-                          return null;
-                        }
-                      }
 
                       return (
                         <div

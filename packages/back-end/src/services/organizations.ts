@@ -20,7 +20,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { TiktokenModel } from "@dqbd/tiktoken";
+import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -185,18 +185,29 @@ export function getAISettingsForOrg(
 ): {
   aiEnabled: boolean;
   openAIAPIKey: string;
-  openAIDefaultModel: TiktokenModel;
+  anthropicAPIKey: string;
+  defaultAIModel: AIModel;
+  embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
+
+  const hasValidKey = !!(openAIKey || anthropicKey);
+
   const aiEnabled = IS_CLOUD
-    ? context.org.settings?.aiEnabled !== false
-    : !!(context.org.settings?.aiEnabled && openAIKey);
+    ? !!context.org.settings?.aiEnabled
+    : !!(context.org.settings?.aiEnabled && hasValidKey);
 
   return {
     aiEnabled,
     openAIAPIKey: includeKey ? openAIKey : "",
-    openAIDefaultModel:
-      context.org.settings?.openAIDefaultModel || "gpt-4o-mini",
+    anthropicAPIKey: includeKey ? anthropicKey : "",
+    defaultAIModel:
+      context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel ||
+      "gpt-4o-mini",
+    embeddingModel:
+      context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
 }
 
