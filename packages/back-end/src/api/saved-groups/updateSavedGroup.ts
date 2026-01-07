@@ -95,7 +95,6 @@ export const updateSavedGroup = createApiRequestHandler(
     fieldsToUpdate,
   );
 
-
   return {
     savedGroup: req.context.models.savedGroups.toApiInterface({
       ...savedGroup,
