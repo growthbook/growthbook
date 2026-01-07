@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -7,7 +7,6 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -78,50 +77,6 @@ const Results: FC<{
   setSortDirection,
 }) => {
   const { apiCall } = useAuth();
-
-  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
-    string[]
-  >(experiment.pinnedMetricSlices || []);
-  useEffect(
-    () => setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []),
-    [experiment.pinnedMetricSlices],
-  );
-
-  const togglePinnedMetricSlice = async (
-    metricId: string,
-    sliceLevels: SliceLevelsData[],
-    location?: "goal" | "secondary" | "guardrail",
-  ) => {
-    if (!editMetrics || !mutateExperiment) return;
-
-    const key = generatePinnedSliceKey(
-      metricId,
-      sliceLevels,
-      location || "goal",
-    );
-    const newPinned = optimisticPinnedLevels.includes(key)
-      ? optimisticPinnedLevels.filter((id) => id !== key)
-      : [...optimisticPinnedLevels, key];
-    setOptimisticPinnedLevels(newPinned);
-
-    try {
-      const response = await apiCall<{ pinnedMetricSlices: string[] }>(
-        `/experiment/${experiment.id}`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            pinnedMetricSlices: newPinned,
-          }),
-        },
-      );
-      if (response?.pinnedMetricSlices) {
-        setOptimisticPinnedLevels(response.pinnedMetricSlices);
-      }
-      mutateExperiment();
-    } catch (error) {
-      setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []);
-    }
-  };
 
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
@@ -483,8 +438,6 @@ const Results: FC<{
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
-            pinnedMetricSlices={optimisticPinnedLevels}
-            togglePinnedMetricSlice={togglePinnedMetricSlice}
             customMetricSlices={experiment.customMetricSlices}
             sortBy={sortBy}
             setSortBy={setSortBy}

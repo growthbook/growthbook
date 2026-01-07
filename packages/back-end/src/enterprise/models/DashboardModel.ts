@@ -366,8 +366,19 @@ export function migrateBlock(
       )
         ? metricSelectorValue
         : "all";
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map "custom" (used by hooks) to "metricIds" (used by dashboard blocks), otherwise use the value if it's valid
       const sortBy =
-        "sortBy" in doc && typeof doc.sortBy === "string" ? doc.sortBy : null;
+        sortByRaw === "custom"
+          ? "metricIds"
+          : sortByRaw === "metricIds" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
       const sortDirection =
         "sortDirection" in doc && typeof doc.sortDirection === "string"
           ? doc.sortDirection
@@ -397,8 +408,19 @@ export function migrateBlock(
           ? dimensionMetricSelectorValue
           : "all";
       const metricTagFilter = doc.metricTagFilter || [];
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map "custom" (used by hooks) to "metricIds" (used by dashboard blocks), otherwise use the value if it's valid
       const sortBy =
-        "sortBy" in doc && typeof doc.sortBy === "string" ? doc.sortBy : null;
+        sortByRaw === "custom"
+          ? "metricIds"
+          : sortByRaw === "metricIds" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
       const sortDirection =
         "sortDirection" in doc && typeof doc.sortDirection === "string"
           ? doc.sortDirection
@@ -417,8 +439,19 @@ export function migrateBlock(
         isMetricSelector(timeSeriesMetricSelectorValue)
           ? timeSeriesMetricSelectorValue
           : "all";
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map "custom" (used by hooks) to "metricIds" (used by dashboard blocks), otherwise use the value if it's valid
       const sortBy =
-        "sortBy" in doc && typeof doc.sortBy === "string" ? doc.sortBy : null;
+        sortByRaw === "custom"
+          ? "metricIds"
+          : sortByRaw === "metricIds" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
       const sortDirection =
         "sortDirection" in doc && typeof doc.sortDirection === "string"
           ? doc.sortDirection

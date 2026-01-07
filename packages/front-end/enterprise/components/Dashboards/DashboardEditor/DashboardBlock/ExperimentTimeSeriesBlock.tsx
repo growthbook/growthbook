@@ -98,7 +98,6 @@ export default function ExperimentTimeSeriesBlock({
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
-    pinnedMetricSlices: undefined,
     metricTagFilter: blockMetricTagFilter,
     sliceTagsFilter: blockSliceTagsFilter,
     statsEngine,
@@ -106,12 +105,11 @@ export default function ExperimentTimeSeriesBlock({
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
-    enablePinning: false,
     expandedMetrics,
-    sortBy: blockSortBy,
-    sortDirection: blockSortBy !== "custom" ? blockSortDirection : undefined,
+    sortBy: blockSortBy === "metricIds" ? "custom" : blockSortBy,
+    sortDirection: blockSortBy !== "metricIds" ? blockSortDirection : undefined,
     customMetricOrder:
-      blockSortBy === "custom" && blockMetricIds && blockMetricIds.length > 0
+      blockSortBy === "metricIds" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
         : undefined,
   });
@@ -143,15 +141,12 @@ export default function ExperimentTimeSeriesBlock({
     statsEngine,
     hideDetails: false,
     experimentType: undefined,
-    pinnedMetricSlices: undefined,
-    togglePinnedMetricSlice: undefined,
     expandedMetrics,
     toggleExpandedMetric: isEditing ? toggleExpandedMetric : undefined,
     getExperimentMetricById,
     getFactTableById,
     shouldShowMetricSlices: true,
     getChildRowCounts,
-    pinSource: undefined,
     sliceTagsFilter: blockSliceTagsFilter,
   });
 

@@ -12,7 +12,6 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  generatePinnedSliceKey,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -60,15 +59,13 @@ export interface UseExperimentTableRowsParams {
   pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   shouldShowMetricSlices?: boolean;
-  enablePinning?: boolean;
-  pinnedMetricSlices?: string[];
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
 }
 
 export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
-  getChildRowCounts: (metricId: string) => { total: number; pinned: number };
+  getChildRowCounts: (metricId: string) => number;
 }
 
 export function useExperimentTableRows({
@@ -79,7 +76,6 @@ export function useExperimentTableRows({
   metricOverrides,
   ssrPolyfills,
   customMetricSlices,
-  pinnedMetricSlices,
   metricTagFilter,
   metricsFilter,
   sliceTagsFilter,
@@ -92,7 +88,6 @@ export function useExperimentTableRows({
   settingsForSnapshotMetrics,
   shouldShowMetricSlices = true,
   enableExpansion: _enableExpansion = true,
-  enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
@@ -233,7 +228,6 @@ export function useExperimentTableRows({
         settingsForSnapshotMetrics,
         shouldShowMetricSlices,
         customMetricSlices,
-        pinnedMetricSlices: enablePinning ? pinnedMetricSlices : undefined,
         expandedMetrics,
         getExperimentMetricById,
         getFactTableById,
@@ -381,12 +375,10 @@ export function useExperimentTableRows({
     getExperimentMetricById,
     getFactTableById,
     metricTagFilter,
-    pinnedMetricSlices,
     expandedMetrics,
     shouldShowMetricSlices,
     sliceTagsFilter,
     customMetricSlices,
-    enablePinning,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -398,11 +390,7 @@ export function useExperimentTableRows({
     const childRows = rows.filter(
       (row) => row.parentRowId === metricId && !row.isHiddenByFilter,
     );
-    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
-    return {
-      total: childRows.length,
-      pinned: pinnedChildRows.length,
-    };
+    return childRows.length;
   };
 
   return {
@@ -419,7 +407,6 @@ export function generateRowsForMetric({
   settingsForSnapshotMetrics,
   shouldShowMetricSlices,
   customMetricSlices,
-  pinnedMetricSlices,
   expandedMetrics,
   getExperimentMetricById,
   getFactTableById,
@@ -437,7 +424,6 @@ export function generateRowsForMetric({
       levels: string[];
     }>;
   }>;
-  pinnedMetricSlices?: string[];
   expandedMetrics?: Record<string, boolean>;
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
   getFactTableById: (id: string) => FactTableInterface | null;
@@ -546,19 +532,6 @@ export function generateRowsForMetric({
     let hasMatchingSlice = false;
 
     sliceData.forEach((slice) => {
-      // Generate pinned key from all slice levels
-      const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
-        column: dl.column,
-        datatype: dl.datatype,
-        levels: dl.levels,
-      }));
-      const pinnedKey = generatePinnedSliceKey(
-        metricId,
-        pinnedSliceLevels,
-        resultGroup,
-      );
-      const isPinned = !!pinnedMetricSlices?.includes(pinnedKey);
-
       // Check if slice matches filter
       let sliceMatches = true;
       if (sliceTagsFilter && sliceTagsFilter.length > 0) {
@@ -599,11 +572,11 @@ export function generateRowsForMetric({
         }
       }
 
-      // Show if: (expanded or pinned) AND matches filter (no special treatment for pinned when filter is active)
+      // Show if: expanded AND matches filter (when filter is active)
       const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
       const shouldShowLevel = hasFilter
-        ? (isExpanded || isPinned) && sliceMatches
-        : isExpanded || isPinned;
+        ? isExpanded && sliceMatches
+        : isExpanded;
 
       const label = slice.sliceLevels
         .map((dl, _index) => {
@@ -653,7 +626,6 @@ export function generateRowsForMetric({
         // Only use isHiddenByFilter when there's actually a filter active
         // When no filter, expansion state is handled by rendering logic
         isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
-        isPinned: isPinned,
       };
 
       // Skip "other" slice rows with no data

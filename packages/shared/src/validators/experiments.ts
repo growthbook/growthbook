@@ -199,7 +199,6 @@ export const experimentAnalysisSettings = z
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<
@@ -342,7 +341,6 @@ export const experimentInterface = z
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict()

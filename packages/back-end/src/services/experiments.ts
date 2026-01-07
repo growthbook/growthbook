@@ -2838,7 +2838,6 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
-    pinnedMetricSlices: payload.pinnedMetricSlices || [],
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
   };
@@ -2908,7 +2907,6 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
-    pinnedMetricSlices,
     customMetricSlices,
     customFields,
     autoRefresh,
@@ -3008,7 +3006,6 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
-    ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),

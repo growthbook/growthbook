@@ -2137,11 +2137,6 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                pinnedMetricSlices:
-                  type: array
-                  items:
-                    type: string
-                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
                 customMetricSlices:
                   type: array
                   items:
@@ -2504,11 +2499,6 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                pinnedMetricSlices:
-                  type: array
-                  items:
-                    type: string
-                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
                 customMetricSlices:
                   type: array
                   items:
@@ -7384,11 +7374,6 @@ components:
         customFields:
           type: object
           additionalProperties: true
-        pinnedMetricSlices:
-          type: array
-          items:
-            type: string
-          description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
         customMetricSlices:
           type: array
           items:

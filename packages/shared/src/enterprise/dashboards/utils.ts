@@ -195,6 +195,8 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     sliceTagsFilter: [],
     metricTagFilter: [],
+    sortBy: null,
+    sortDirection: null,
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
@@ -211,6 +213,8 @@ export const CREATE_BLOCK_TYPE: {
     baselineRow: 0,
     columnsFilter: [],
     metricTagFilter: [],
+    sortBy: null,
+    sortDirection: null,
     ...(initialValues || {}),
   }),
   "experiment-time-series": ({ initialValues, experiment }) => ({
@@ -223,6 +227,8 @@ export const CREATE_BLOCK_TYPE: {
     variationIds: [],
     sliceTagsFilter: [],
     metricTagFilter: [],
+    sortBy: null,
+    sortDirection: null,
     ...(initialValues || {}),
   }),
   "experiment-traffic": ({ initialValues, experiment }) => ({

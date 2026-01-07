@@ -278,6 +278,48 @@ export default function EditSingleBlock({
     });
   }, [availableMetricsFilters, block]);
 
+  // Check if metric filters exist
+  const hasMetricFilters = useMemo(() => {
+    if (!block || !("metricIds" in block)) return false;
+    const blockMetricIds = block.metricIds || [];
+    return blockMetricIds.length > 0;
+  }, [block]);
+
+  // Generate available sort options
+  const sortByOptions = useMemo(() => {
+    const options = [{ value: "", label: "Default" }];
+    if (hasMetricFilters) {
+      options.push({ value: "metricIds", label: "Metric filter" });
+    }
+    if (block?.type !== "experiment-time-series") {
+      options.push(
+        { value: "significance", label: "Significance" },
+        { value: "change", label: "Change" },
+      );
+    }
+    return options;
+  }, [hasMetricFilters, block?.type]);
+
+  // Reset sortBy to null if it's "metricIds" but no metric filters exist
+  useEffect(() => {
+    if (
+      block &&
+      blockHasFieldOfType(
+        block,
+        "sortBy",
+        (val) => val === null || typeof val === "string",
+      ) &&
+      block.sortBy === "metricIds" &&
+      !hasMetricFilters
+    ) {
+      setBlock({
+        ...block,
+        sortBy: null,
+        sortDirection: null,
+      });
+    }
+  }, [block, hasMetricFilters, setBlock]);
+
   // Generate available slice tags for blocks that support slice filtering
   const availableSliceTags = useMemo(() => {
     if (!experiment) return [];
@@ -860,32 +902,28 @@ export default function EditSingleBlock({
                   block,
                   "sortBy",
                   (val) => val === null || typeof val === "string",
-                ) && (
-                  <SelectField
-                    label="Sort by"
-                    labelClassName="font-weight-bold"
-                    containerClassName="mb-2"
-                    value={block.sortBy || ""}
-                    onChange={(value) =>
-                      setBlock({
-                        ...block,
-                        sortBy: (value || null) as (typeof block)["sortBy"],
-                        // Clear sortDirection when switching away from significance/change
-                        sortDirection:
-                          value === "significance" || value === "change"
-                            ? block.sortDirection
-                            : null,
-                      })
-                    }
-                    options={[
-                      { value: "", label: "Default" },
-                      { value: "custom", label: "Metric filter" },
-                      { value: "significance", label: "Significance" },
-                      { value: "change", label: "Change" },
-                    ]}
-                    sort={false}
-                  />
-                )}
+                ) &&
+                  sortByOptions.length > 1 && (
+                    <SelectField
+                      label="Sort by"
+                      labelClassName="font-weight-bold"
+                      containerClassName="mb-2"
+                      value={block.sortBy || ""}
+                      onChange={(value) =>
+                        setBlock({
+                          ...block,
+                          sortBy: (value || null) as (typeof block)["sortBy"],
+                          // Clear sortDirection when switching away from significance/change
+                          sortDirection:
+                            value === "significance" || value === "change"
+                              ? block.sortDirection
+                              : null,
+                        })
+                      }
+                      options={sortByOptions}
+                      sort={false}
+                    />
+                  )}
                 {blockHasFieldOfType(
                   block,
                   "sortDirection",

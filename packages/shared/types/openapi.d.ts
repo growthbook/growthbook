@@ -2936,8 +2936,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-      pinnedMetricSlices?: (string)[];
       /** @description Custom slices that apply to ALL applicable metrics in the experiment */
       customMetricSlices?: ({
           slices: ({
@@ -3272,8 +3270,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-      pinnedMetricSlices?: (string)[];
       /** @description Custom slices that apply to ALL applicable metrics in the experiment */
       customMetricSlices?: ({
           slices: ({
@@ -9183,8 +9179,6 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-                pinnedMetricSlices?: (string)[];
                 /** @description Custom slices that apply to ALL applicable metrics in the experiment */
                 customMetricSlices?: ({
                     slices: ({
@@ -9320,8 +9314,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-          pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
           customMetricSlices?: ({
               slices: ({
@@ -9479,8 +9471,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -9670,8 +9660,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -9811,8 +9799,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-          pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
           customMetricSlices?: ({
               slices: ({
@@ -9970,8 +9956,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -11071,8 +11055,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
