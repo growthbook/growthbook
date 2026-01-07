@@ -111,14 +111,13 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
-      // announcementBar: {
-      //   id: "announcement-bar",
-      //   content:
-      //     '<a href="https://blog.growthbook.io/growthbook-version-4-1" target="_blank">🆕 GrowthBook v4.1 is now available</a>',
-      //   backgroundColor: "var(--violet-a3)",
-      //   textColor: "var(--violet-a11)",
-      //   isCloseable: true,
-      // },
+      announcementBar: {
+        id: "announcement-bar",
+        content: `<p style="margin: 0;">Office Hours: Live demo of GrowthBook's MCP server. <a href="https://us06web.zoom.us/webinar/register/8217678192715/WN_s9WmhALhTneHZyJFKs0jpg" target="_blank">Register Now →</a></p>`,
+        backgroundColor: "var(--violet-a3)",
+        textColor: "var(--violet-a11)",
+        isCloseable: true,
+      },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
