@@ -33,6 +33,7 @@ import {
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 type AuthChecks = {
   connection_id: string;
@@ -181,6 +182,7 @@ export class OpenIdAuthConnection implements AuthConnection {
 
       let middleware = jwksMiddlewareCache[cacheKey];
       if (!middleware) {
+        const proxy = process.env.HTTPS_PROXY;
         middleware = jwtExpress({
           secret: jwks.expressJwtSecret({
             cache: true,
@@ -189,6 +191,7 @@ export class OpenIdAuthConnection implements AuthConnection {
             rateLimit: false,
             jwksRequestsPerMinute: 10,
             jwksUri,
+            requestAgent: proxy ? new HttpsProxyAgent(proxy) : undefined,
           }),
           audience: connection.clientId,
           issuer,
