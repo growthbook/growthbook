@@ -1000,7 +1000,11 @@ export default function ResultsTable({
                                     {!compactResults ? (
                                       <div
                                         className={`d-flex align-items-center ${
-                                          row.isSliceRow ? "pl-4" : "pl-3"
+                                          row.isSliceRow
+                                            ? "pl-4"
+                                            : dimension
+                                              ? "pl-2" // less padding because no expansion buttons
+                                              : "pl-3"
                                         }`}
                                       >
                                         <span
