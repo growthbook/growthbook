@@ -2,25 +2,19 @@ import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
 import clsx from "clsx";
 import { expandMetricGroups } from "shared/experiments";
-import {
-  SafeRolloutInterface,
-  SafeRolloutSnapshotInterface,
-} from "shared/validators";
+import { SafeRolloutInterface } from "shared/validators";
 import { differenceInHours } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAuth } from "@/services/auth";
-import RunQueriesButton, {
-  getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Metadata from "@/ui/Metadata";
+import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
-import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 const numberFormatter = Intl.NumberFormat();
 export interface Props {
@@ -41,7 +35,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
-  const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const showQueryWarning =
@@ -141,40 +134,15 @@ export default function SafeRolloutAnalysisSettingsSummary({
               numMetrics > 0 &&
               feature && (
                 <div className="col-auto">
-                  {safeRollout.datasourceId &&
-                  latest &&
-                  latest.queries?.length > 0 ? (
-                    <RunQueriesButton
-                      cta="Update"
-                      cancelEndpoint={`/safe-rollout/snapshot/${latest.id}/cancel`}
-                      mutate={() => {
-                        mutateSnapshot();
-                      }}
-                      model={latest}
-                      icon="refresh"
-                      onSubmit={async () => {
-                        await apiCall<{
-                          snapshot: SafeRolloutSnapshotInterface;
-                        }>(`/safe-rollout/${safeRollout.id}/snapshot`, {
-                          method: "POST",
-                        })
-                          .then(() => {
-                            mutateSnapshot();
-                            setRefreshError("");
-                          })
-                          .catch((e) => {
-                            setRefreshError(e.message);
-                          });
-                      }}
-                    />
-                  ) : (
-                    <RefreshSnapshotButton
-                      mutate={() => {
-                        mutateSnapshot();
-                      }}
-                      safeRollout={safeRollout}
-                    />
-                  )}
+                  <RefreshResultsButton
+                    entityType="safe-rollout"
+                    entityId={safeRollout.id}
+                    datasourceId={safeRollout.datasourceId}
+                    latest={latest}
+                    mutate={mutateSnapshot}
+                    setRefreshError={setRefreshError}
+                    safeRollout={safeRollout}
+                  />
                 </div>
               )}
 

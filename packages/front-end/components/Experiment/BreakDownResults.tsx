@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -9,6 +9,11 @@ import {
   ExperimentType,
   MetricOverride,
 } from "shared/types/experiment";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
@@ -23,8 +28,6 @@ import ResultsTable, {
 } from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -48,6 +51,7 @@ const BreakDownResults: FC<{
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   goalMetrics: string[];
@@ -70,8 +74,8 @@ const BreakDownResults: FC<{
   sequentialTestingEnabled?: boolean;
   showErrorsOnQuantileMetrics?: boolean;
   differenceType: DifferenceType;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTagFilter?: string[];
+  metricsFilter?: string[];
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
@@ -79,16 +83,23 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
-  setSortBy?: (
-    s: "metric-tags" | "significance" | "change" | "custom" | null,
-  ) => void;
+  sortBy?: "significance" | "change" | "custom" | null;
+  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
   };
+  manualSnapshot?: boolean;
+  setBaselineRow?: (baselineRow: number) => void;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  mutate?: () => void;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
   dimensionId,
@@ -97,6 +108,7 @@ const BreakDownResults: FC<{
   queryStatusData,
   variations,
   variationFilter,
+  setVariationFilter,
   baselineRow,
   columnsFilter,
   goalMetrics,
@@ -117,8 +129,8 @@ const BreakDownResults: FC<{
   sequentialTestingEnabled,
   showErrorsOnQuantileMetrics,
   differenceType,
-  metricFilter,
-  setMetricFilter,
+  metricTagFilter,
+  metricsFilter,
   experimentType,
   ssrPolyfills,
   hideDetails,
@@ -130,9 +142,14 @@ const BreakDownResults: FC<{
   setSortDirection,
   customMetricOrder,
   analysisBarSettings,
+  manualSnapshot,
+  setBaselineRow,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  mutate,
+  setDifferenceType,
 }) => {
-  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
-
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
   const _settings = useOrgSettings();
@@ -144,14 +161,15 @@ const BreakDownResults: FC<{
     dimensionId?.split(":")?.[1] ||
     "Dimension";
 
-  const { tables, allMetricTags } = useExperimentDimensionRows({
+  const { tables } = useExperimentDimensionRows({
     results,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
     metricOverrides,
     ssrPolyfills,
-    metricFilter,
+    metricTagFilter,
+    metricsFilter,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -205,21 +223,13 @@ const BreakDownResults: FC<{
         )}
       </div>
 
-      <div className="d-flex mx-2">
-        {setMetricFilter ? (
-          <ResultsMetricFilter
-            metricTags={allMetricTags}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-            showMetricFilter={showMetricFilter}
-            setShowMetricFilter={setShowMetricFilter}
-          />
-        ) : null}
-      </div>
       {tables.map((table, i) => {
         return (
           <>
-            <h5 className="ml-2 mt-2 position-relative">
+            <h4
+              className="mt-2 mb-1 d-flex position-relative ml-2"
+              style={{ gap: 4 }}
+            >
               {table.rows[0]?.resultGroup === "goal"
                 ? "Goal Metric"
                 : table.rows[0]?.resultGroup === "secondary"
@@ -227,7 +237,7 @@ const BreakDownResults: FC<{
                   : table.rows[0]?.resultGroup === "guardrail"
                     ? "Guardrail Metric"
                     : null}
-            </h5>
+            </h4>
             <ResultsTable
               key={i}
               experimentId={experimentId}
@@ -240,6 +250,7 @@ const BreakDownResults: FC<{
               queryStatusData={queryStatusData}
               variations={variations}
               variationFilter={variationFilter}
+              setVariationFilter={setVariationFilter}
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={table.rows}
@@ -269,6 +280,7 @@ const BreakDownResults: FC<{
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
+              setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label }) => (
                 <div
                   className="pl-3 font-weight-bold"
@@ -291,7 +303,6 @@ const BreakDownResults: FC<{
                   )}
                 </div>
               )}
-              metricFilter={metricFilter}
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}
@@ -301,6 +312,12 @@ const BreakDownResults: FC<{
               setSortBy={setSortBy}
               sortDirection={sortDirection}
               setSortDirection={setSortDirection}
+              setBaselineRow={setBaselineRow}
+              snapshot={snapshot}
+              analysis={analysis}
+              setAnalysisSettings={setAnalysisSettings}
+              mutate={mutate}
+              manualSnapshot={manualSnapshot}
             />
             <div className="mb-5" />
           </>

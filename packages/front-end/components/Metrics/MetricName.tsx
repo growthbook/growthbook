@@ -207,7 +207,7 @@ export default function MetricName({
         >
           <span className="ml-1 small">
             ({metricGroup.metrics.length} metric
-            {metricGroup.metrics.length === 0 ? "" : "s"})
+            {metricGroup.metrics.length !== 1 ? "s" : ""})
             {!allJoinable && (
               <FaExclamationCircle
                 size={10}
