@@ -5,6 +5,7 @@ import {
 } from "shared/types/saved-group";
 import { savedGroupValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
+import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "../services/savedGroups";
 import { MakeModelClass } from "./BaseModel";
 
@@ -95,10 +96,12 @@ export class SavedGroupModel extends BaseClass {
   }
 
   public async removeProjectIdFromAllGroups(projectId: string) {
+    const pullOperation: UpdateFilter<SavedGroupInterface> = {
+      projects: projectId,
+    };
     await this._dangerousGetCollection().updateMany(
       { organization: this.context.org.id, projects: projectId },
-      // @ts-expect-error - Mongodb driver types are strict about $pull
-      { $pull: { projects: projectId } },
+      { $pull: pullOperation },
     );
   }
 
