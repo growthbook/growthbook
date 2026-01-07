@@ -998,7 +998,11 @@ export default function ResultsTable({
                                     }}
                                   >
                                     {!compactResults ? (
-                                      <div className="d-flex align-items-center pl-3">
+                                      <div
+                                        className={`d-flex align-items-center ${
+                                          row.isSliceRow ? "pl-4" : "pl-3"
+                                        }`}
+                                      >
                                         <span
                                           className="label ml-2"
                                           style={{ width: 20, height: 20 }}
