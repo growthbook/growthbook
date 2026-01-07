@@ -68,7 +68,6 @@ export interface UseExperimentTableRowsParams {
 
 export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
-  allMetricTags: string[];
   getChildRowCounts: (metricId: string) => { total: number; pinned: number };
 }
 
@@ -128,7 +127,7 @@ export function useExperimentTableRows({
         metricsFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
-          if (group) {
+            if (group) {
               group.metrics.forEach((metricId) =>
                 allowedMetricIds.add(metricId),
               );
@@ -187,7 +186,31 @@ export function useExperimentTableRows({
         allMetricGroups,
       );
 
-      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+      // Dedup metric rows to prevent rendering the same metric multiple times
+      const dedupedGoals: string[] = [];
+      expandedGoals.forEach((metricId) => {
+        if (!dedupedGoals.includes(metricId)) {
+          dedupedGoals.push(metricId);
+        }
+      });
+      const dedupedSecondaries: string[] = [];
+      expandedSecondaries.forEach((metricId) => {
+        if (!dedupedSecondaries.includes(metricId)) {
+          dedupedSecondaries.push(metricId);
+        }
+      });
+      const dedupedGuardrails: string[] = [];
+      expandedGuardrails.forEach((metricId) => {
+        if (!dedupedGuardrails.includes(metricId)) {
+          dedupedGuardrails.push(metricId);
+        }
+      });
+
+      return {
+        expandedGoals: dedupedGoals,
+        expandedSecondaries: dedupedSecondaries,
+        expandedGuardrails: dedupedGuardrails,
+      };
     }, [
       goalMetrics,
       metricGroups,
@@ -196,22 +219,6 @@ export function useExperimentTableRows({
       guardrailMetrics,
       metricsFilter,
     ]);
-
-  const allMetricTags = useMemo(() => {
-    return getAllMetricTags(
-      expandedGoals,
-      expandedSecondaries,
-      expandedGuardrails,
-      ssrPolyfills,
-      getExperimentMetricById,
-    );
-  }, [
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRowsForMetric(
@@ -257,9 +264,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
-              customMetricOrder,
-            )
-          : filteredMetrics;
+            customMetricOrder,
+          )
+        : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -280,9 +287,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
-              customMetricOrder,
-            )
-          : filteredSecondary;
+            customMetricOrder,
+          )
+        : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -303,9 +310,9 @@ export function useExperimentTableRows({
       sortBy === "custom" && customMetricOrder
         ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
-              customMetricOrder,
-            )
-          : filteredGuardrails;
+            customMetricOrder,
+          )
+        : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -400,7 +407,6 @@ export function useExperimentTableRows({
 
   return {
     rows,
-    allMetricTags,
     getChildRowCounts,
   };
 }
@@ -511,15 +517,15 @@ export function generateRowsForMetric({
           errorMessage: "No data",
         }))
       : resultsArray[0].variations.map((v) => {
-      return (
-        v.metrics?.[metricId] || {
-          users: 0,
-          value: 0,
-          cr: 0,
-          errorMessage: "No data",
-        }
-      );
-    }),
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
+        }),
     metricSnapshotSettings,
     resultGroup,
     numSlices,
@@ -568,27 +574,27 @@ export function generateRowsForMetric({
           sliceMatches = true;
           hasMatchingSlice = true;
         } else {
-        // Extract slice tags from slice data
-        const sliceTags: string[] = [];
-        // Generate single dimension tags
-        slice.sliceLevels.forEach((sliceLevel) => {
-          const value = sliceLevel.levels[0] || "";
-          const tag = generateSliceString({ [sliceLevel.column]: value });
-          sliceTags.push(tag);
-        });
-        // Generate combined tag for multi-dimensional slices
-        if (slice.sliceLevels.length > 1) {
-          const slices: Record<string, string> = {};
-          slice.sliceLevels.forEach((sl) => {
-            slices[sl.column] = sl.levels[0] || "";
+          // Extract slice tags from slice data
+          const sliceTags: string[] = [];
+          // Generate single dimension tags
+          slice.sliceLevels.forEach((sliceLevel) => {
+            const value = sliceLevel.levels[0] || "";
+            const tag = generateSliceString({ [sliceLevel.column]: value });
+            sliceTags.push(tag);
           });
-          const comboTag = generateSliceString(slices);
-          sliceTags.push(comboTag);
-        }
-        // Check if any slice tag matches the filter
-        sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
-        if (sliceMatches) {
-          hasMatchingSlice = true;
+          // Generate combined tag for multi-dimensional slices
+          if (slice.sliceLevels.length > 1) {
+            const slices: Record<string, string> = {};
+            slice.sliceLevels.forEach((sl) => {
+              slices[sl.column] = sl.levels[0] || "";
+            });
+            const comboTag = generateSliceString(slices);
+            sliceTags.push(comboTag);
+          }
+          // Check if any slice tag matches the filter
+          sliceMatches = sliceTags.some((tag) => sliceTagsFilter.includes(tag));
+          if (sliceMatches) {
+            hasMatchingSlice = true;
           }
         }
       }
@@ -678,28 +684,7 @@ export function generateRowsForMetric({
   return rows;
 }
 
-export function getAllMetricTags(
-  expandedGoals: string[],
-  expandedSecondaries: string[],
-  expandedGuardrails: string[],
-  ssrPolyfills?: SSRPolyfills,
-  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
-): string[] {
-  const allMetricTagsSet: Set<string> = new Set();
-  [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
-    (metricId) => {
-      const metric =
-        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-        getExperimentMetricById?.(metricId);
-      metric?.tags?.forEach((tag) => {
-        allMetricTagsSet.add(tag);
-      });
-    },
-  );
-  return [...allMetricTagsSet];
-}
-
-function sortMetricsByCustomOrder(
+export function sortMetricsByCustomOrder(
   metrics: ExperimentMetricInterface[],
   customOrder: string[],
 ): string[] {

@@ -151,8 +151,8 @@ const Results: FC<{
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const hasData =
-    (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasValidStatsEngine =
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
@@ -189,6 +189,7 @@ const Results: FC<{
   const showCompactResults =
     !draftMode &&
     hasData &&
+    hasValidStatsEngine &&
     snapshot &&
     analysis &&
     !analysis?.settings?.dimensions?.length;
@@ -196,6 +197,7 @@ const Results: FC<{
   const showBreakDownResults =
     !draftMode &&
     hasData &&
+    hasValidStatsEngine &&
     ((snapshot?.dimension &&
       snapshot.dimension.substring(0, 8) !== "pre:date") ||
       (analysis?.settings?.dimensions?.length ?? 0) > 0);
@@ -203,6 +205,7 @@ const Results: FC<{
   const showDateResults =
     !draftMode &&
     hasData &&
+    hasValidStatsEngine &&
     snapshot?.dimension?.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
     analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
 
@@ -258,36 +261,44 @@ const Results: FC<{
         </div>
       )}
 
-      {!hasData &&
+      {(!hasData || !hasValidStatsEngine) &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
         hasMetrics &&
         !snapshotLoading && (
           <Callout status="info" mx="3" mb="4">
             No data yet.{" "}
-            {snapshot &&
-              phaseAgeMinutes >= 120 &&
-              `Make sure your ${
-                isBandit
-                  ? "Bandit"
-                  : experiment.type === "holdout"
-                    ? "Holdout"
-                    : "Experiment"
-              } is tracking properly.`}
-            {snapshot &&
-              phaseAgeMinutes < 120 &&
-              (phaseAgeMinutes < 0
-                ? "This experiment will start " +
-                  relativeDate(experiment.phases[phase]?.dateStarted ?? "") +
-                  ". Wait until it's been running for a little while and click the 'Update' button above to check again."
-                : "It was just started " +
-                  ago(experiment.phases[phase]?.dateStarted ?? "") +
-                  ". Give it a little longer and click the 'Update' button above to check again.")}
-            {!snapshot &&
-              datasource &&
-              permissionsUtil.canRunExperimentQueries(datasource) &&
-              `Click the "Update" button above.`}
-            {snapshotLoading && <div> Snapshot loading...</div>}
+            {!hasValidStatsEngine ? (
+              "Stats engine was changed. Try clicking the 'Update' button above to re-run the analysis."
+            ) : (
+              <>
+                {snapshot &&
+                  phaseAgeMinutes >= 120 &&
+                  `Make sure your ${
+                    isBandit
+                      ? "Bandit"
+                      : experiment.type === "holdout"
+                        ? "Holdout"
+                        : "Experiment"
+                  } is tracking properly.`}
+                {snapshot &&
+                  phaseAgeMinutes < 120 &&
+                  (phaseAgeMinutes < 0
+                    ? "This experiment will start " +
+                      relativeDate(
+                        experiment.phases[phase]?.dateStarted ?? "",
+                      ) +
+                      ". Wait until it's been running for a little while and click the 'Update' button above to check again."
+                    : "It was just started " +
+                      ago(experiment.phases[phase]?.dateStarted ?? "") +
+                      ". Give it a little longer and click the 'Update' button above to check again.")}
+                {!snapshot &&
+                  datasource &&
+                  permissionsUtil.canRunExperimentQueries(datasource) &&
+                  `Click the "Update" button above.`}
+                {snapshotLoading && <div> Snapshot loading...</div>}
+              </>
+            )}
           </Callout>
         )}
 

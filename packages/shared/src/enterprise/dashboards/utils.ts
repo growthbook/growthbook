@@ -22,6 +22,7 @@ import {
   generateSliceString,
   expandMetricGroups,
 } from "../../experiments";
+import { DataVizConfig } from "../../../validators";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
@@ -420,4 +421,21 @@ export function convertPinnedSlicesToSliceTags(
   }
 
   return Array.from(sliceTags);
+}
+
+export function chartTypeSupportsAnchorYAxisToZero(
+  chartType: DataVizConfig["chartType"],
+): boolean {
+  return ["line", "scatter"].includes(chartType);
+}
+
+export function chartTypeHasDisplaySettings(
+  chartType: DataVizConfig["chartType"] | undefined,
+): boolean {
+  if (!chartType) {
+    return false;
+  }
+  // Check if the chart type supports any display settings
+  // As more display settings are added, add their checks here
+  return chartTypeSupportsAnchorYAxisToZero(chartType);
 }

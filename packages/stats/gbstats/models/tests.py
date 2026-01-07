@@ -5,7 +5,7 @@ from pydantic.dataclasses import dataclass
 import numpy as np
 import operator
 from functools import reduce, cached_property
-from gbstats.utils import multinomial_covariance, third_moments_matrix_vectorized
+from gbstats.utils import multinomial_covariance
 
 
 from gbstats.messages import (
@@ -473,10 +473,10 @@ class CreateStrataResult(CreateStrataResultBase):
         )
         return StrataResultCount(
             n=self.n,
-            effect=mean[0],
-            effect_cov=covariance[0, 0],
-            control_mean=mean[1],
-            control_mean_cov=covariance[1, 1],
+            effect=mean[1],
+            effect_cov=covariance[1, 1],
+            control_mean=mean[0],
+            control_mean_cov=covariance[0, 0],
             effect_control_mean_cov=covariance[0, 1],
             error_message=None,
         )
@@ -666,10 +666,10 @@ class CreateStrataResultRegressionAdjusted(CreateStrataResultBase):
         )
         return StrataResultCount(
             n=self.n,
-            effect=mean[0],
-            effect_cov=covariance[0, 0],
-            control_mean=mean[1],
-            control_mean_cov=covariance[1, 1],
+            effect=mean[1],
+            effect_cov=covariance[1, 1],
+            control_mean=mean[0],
+            control_mean_cov=covariance[0, 0],
             effect_control_mean_cov=covariance[0, 1],
             error_message=None,
         )
@@ -741,6 +741,29 @@ class CreateStrataResultRatio(CreateStrataResultBase):
             error_message=error_message,
         )
 
+    @staticmethod
+    def get_result_object(
+        n: int, mean: np.ndarray, covariance: np.ndarray
+    ) -> StrataResultRatio:
+        return StrataResultRatio(
+            n=n,
+            numerator_control_mean=mean[0],
+            numerator_effect=mean[1],
+            denominator_control_mean=mean[2],
+            denominator_effect=mean[3],
+            numerator_control_mean_cov=covariance[0, 0],
+            numerator_effect_cov=covariance[1, 1],
+            denominator_control_mean_cov=covariance[2, 2],
+            denominator_effect_cov=covariance[3, 3],
+            numerator_effect_numerator_control_mean_cov=covariance[1, 0],
+            numerator_effect_denominator_control_mean_cov=covariance[1, 2],
+            numerator_effect_denominator_effect_cov=covariance[1, 3],
+            numerator_control_mean_denominator_effect_cov=covariance[0, 3],
+            numerator_control_mean_denominator_control_mean_cov=covariance[0, 2],
+            denominator_effect_denominator_control_mean_cov=covariance[2, 3],
+            error_message=None,
+        )
+
     def compute_result(self) -> StrataResultRatio:
         if self._has_zero_variance():
             return self._default_output(error_message=ZERO_NEGATIVE_VARIANCE_MESSAGE)
@@ -762,24 +785,7 @@ class CreateStrataResultRatio(CreateStrataResultBase):
         covariance = CreateStrataResult.covariance_unadjusted(
             self.contrast_matrix, regression_coefs_covariance
         )
-        return StrataResultRatio(
-            n=self.n,
-            numerator_effect=mean[0],
-            numerator_control_mean=mean[1],
-            denominator_effect=mean[2],
-            denominator_control_mean=mean[3],
-            numerator_effect_cov=covariance[0, 0],
-            numerator_control_mean_cov=covariance[1, 1],
-            denominator_effect_cov=covariance[2, 2],
-            denominator_control_mean_cov=covariance[3, 3],
-            numerator_effect_numerator_control_mean_cov=covariance[0, 1],
-            numerator_effect_denominator_effect_cov=covariance[0, 2],
-            numerator_effect_denominator_control_mean_cov=covariance[0, 3],
-            numerator_control_mean_denominator_effect_cov=covariance[1, 2],
-            numerator_control_mean_denominator_control_mean_cov=covariance[1, 3],
-            denominator_effect_denominator_control_mean_cov=covariance[2, 3],
-            error_message=None,
-        )
+        return self.get_result_object(self.n, mean, covariance)
 
 
 # Regression version of Algorithm 1 for ratio metrics
@@ -1060,24 +1066,7 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
             )
             mean = self.mean(self.contrast_matrix, regression_coefs)
             covariance = self.covariance(regression_coefs, coef_covariance)
-            return StrataResultRatio(
-                n=self.n,
-                numerator_effect=mean[0],
-                numerator_control_mean=mean[1],
-                denominator_effect=mean[2],
-                denominator_control_mean=mean[3],
-                numerator_effect_cov=covariance[0, 0],
-                numerator_control_mean_cov=covariance[1, 1],
-                denominator_effect_cov=covariance[2, 2],
-                denominator_control_mean_cov=covariance[3, 3],
-                numerator_effect_numerator_control_mean_cov=covariance[0, 1],
-                numerator_effect_denominator_effect_cov=covariance[0, 2],
-                numerator_effect_denominator_control_mean_cov=covariance[0, 3],
-                numerator_control_mean_denominator_effect_cov=covariance[1, 2],
-                numerator_control_mean_denominator_control_mean_cov=covariance[1, 3],
-                denominator_effect_denominator_control_mean_cov=covariance[2, 3],
-                error_message=None,
-            )
+            return CreateStrataResultRatio.get_result_object(self.n, mean, covariance)
 
 
 # Algorithm 4
@@ -1117,54 +1106,57 @@ class PostStratificationSummary:
     def alpha_matrix(self) -> np.ndarray:
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
-            alpha_matrix[:, i] = [stat.effect, stat.control_mean]
+            alpha_matrix[:, i] = [stat.control_mean, stat.effect]
         return alpha_matrix
 
     @cached_property
     def mean(self) -> np.ndarray:
         return self.alpha_matrix.dot(self.nu_hat)
 
-    @cached_property
-    def covariance_nu(self) -> np.ndarray:
-        return multinomial_covariance(self.nu_hat) / self.n_total
-
-    @cached_property
-    def covariance_part_1(self) -> np.ndarray:
-        return self.alpha_matrix.dot(self.covariance_nu).dot(self.alpha_matrix.T)
-
     @staticmethod
     def cell_covariance_count(stat: StrataResultCount) -> np.ndarray:
         return np.array(
             [
-                [stat.effect_cov, stat.effect_control_mean_cov],
-                [stat.effect_control_mean_cov, stat.control_mean_cov],
+                [stat.control_mean_cov, stat.effect_control_mean_cov],
+                [stat.effect_control_mean_cov, stat.effect_cov],
             ]
         )
 
-    @cached_property
-    def v_full(self) -> np.ndarray:
-        v_full = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
-        for cell in range(self.num_cells):
-            v = self.cell_covariance_count(self.strata_results[cell])
-            v_full[cell] = v / self.nu_hat[cell]
-        return v_full
-
-    @cached_property
-    def covariance_part_2(self) -> np.ndarray:
-        covariance_2 = np.zeros((self.len_alpha, self.len_alpha))
-        third_moments_matrix = third_moments_matrix_vectorized(
-            self.n_total, self.nu_hat
-        )
-        for row in range(self.len_alpha):
-            for col in range(self.len_alpha):
-                covariance_2[row, col] = np.sum(
-                    np.diag(self.v_full[:, row, col]).dot(third_moments_matrix)
-                )
-        return covariance_2 / self.n_total
+    @staticmethod
+    def covariance_of_multinomial_weighted_means(
+        n_total: int, alpha_mean: np.ndarray, alpha_cov: np.ndarray, nu: np.ndarray
+    ) -> np.ndarray:
+        """
+        Calculate the covariance matrix of the weighted means of the alpha vectors.
+        Let n ~ Multi(nu, n_total), where nu is a vector on the unit simplex and n_total is the total number of samples.
+        Let alpha[k] | n[k] ~ N((alpha_mean[k], alpha_cov[k] / n[k]).
+        Args:
+            n_total: The total number of samples.
+            alpha_mean: len(alpha) x K matrix of the mean of the alpha vectors.
+            alpha_cov: The K x len(alpha) x len(alpha) array of the covariance matrices of the alpha vectors.
+            nu: The vector of proportions.
+        Returns:
+            The covariance matrix of the weighted means of the alpha vectors.
+        """
+        nu_cov = multinomial_covariance(nu) / n_total
+        len_alpha = alpha_mean.shape[0]
+        num_cells = alpha_mean.shape[1]
+        covariance_part_1 = alpha_mean.dot(nu_cov).dot(alpha_mean.T)
+        covariance_part_2 = np.zeros((len_alpha, len_alpha))
+        for cell in range(num_cells):
+            covariance_part_2 += nu[cell] * alpha_cov[cell, :, :] / n_total
+        return covariance_part_1 + covariance_part_2
 
     @cached_property
     def covariance(self) -> np.ndarray:
-        return self.covariance_part_1 + self.covariance_part_2
+        alpha_cov = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
+        for cell in range(self.num_cells):
+            alpha_cov[cell, :, :] = self.cell_covariance_count(
+                self.strata_results[cell]
+            )
+        return self.covariance_of_multinomial_weighted_means(
+            self.n_total, self.alpha_matrix, alpha_cov, self.nu_hat
+        )
 
     @cached_property
     def nabla(self) -> np.ndarray:
@@ -1251,28 +1243,28 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
         return np.array(
             [
                 [
-                    stat.numerator_effect_cov,
-                    stat.numerator_effect_numerator_control_mean_cov,
-                    stat.numerator_effect_denominator_effect_cov,
-                    stat.numerator_effect_denominator_control_mean_cov,
-                ],
-                [
-                    stat.numerator_effect_numerator_control_mean_cov,
                     stat.numerator_control_mean_cov,
-                    stat.numerator_control_mean_denominator_effect_cov,
+                    stat.numerator_effect_numerator_control_mean_cov,
                     stat.numerator_control_mean_denominator_control_mean_cov,
-                ],
-                [
-                    stat.numerator_effect_denominator_effect_cov,
                     stat.numerator_control_mean_denominator_effect_cov,
-                    stat.denominator_effect_cov,
-                    stat.denominator_effect_denominator_control_mean_cov,
                 ],
                 [
+                    stat.numerator_effect_numerator_control_mean_cov,
+                    stat.numerator_effect_cov,
                     stat.numerator_effect_denominator_control_mean_cov,
+                    stat.numerator_effect_denominator_effect_cov,
+                ],
+                [
                     stat.numerator_control_mean_denominator_control_mean_cov,
-                    stat.denominator_effect_denominator_control_mean_cov,
+                    stat.numerator_effect_denominator_control_mean_cov,
                     stat.denominator_control_mean_cov,
+                    stat.denominator_effect_denominator_control_mean_cov,
+                ],
+                [
+                    stat.numerator_control_mean_denominator_effect_cov,
+                    stat.numerator_effect_denominator_effect_cov,
+                    stat.denominator_effect_denominator_control_mean_cov,
+                    stat.denominator_effect_cov,
                 ],
             ]
         )
@@ -1290,17 +1282,26 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
             alpha_matrix[:, i] = [
-                stat.numerator_effect,
                 stat.numerator_control_mean,
-                stat.denominator_effect,
+                stat.numerator_effect,
                 stat.denominator_control_mean,
+                stat.denominator_effect,
             ]
         return alpha_matrix
 
     @cached_property
+    def covariance(self) -> np.ndarray:
+        alpha_cov = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
+        for cell in range(self.num_cells):
+            alpha_cov[cell, :, :] = self.cell_covariance_ratio(
+                self.strata_results[cell]
+            )
+        return self.covariance_of_multinomial_weighted_means(
+            self.n_total, self.alpha_matrix, alpha_cov, self.nu_hat
+        )
+
+    @cached_property
     def nabla(self) -> np.ndarray:
-        if self.mean[2] == 0 or self.mean[3] == 0:
-            return np.zeros((self.len_alpha,))
         nabla = np.empty((self.len_alpha,))
 
         if self.relative:
@@ -1319,8 +1320,9 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
                 nabla[3] = -self.point_estimate_rel_numerator / (
                     self.mean[0] * (self.mean[2] + self.mean[3]) ** 2
                 )
-
         else:
+            if self.mean[2] == 0 or self.mean[2] + self.mean[3] == 0:
+                return np.zeros((self.len_alpha,))
             nabla[1] = 1 / (self.mean[2] + self.mean[3])
             nabla[0] = nabla[1] - 1 / self.mean[2]
             nabla[3] = -(self.mean[0] + self.mean[1]) / (
@@ -1364,6 +1366,15 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             return 0
         else:
             return self.mean[0] / self.mean[2]
+
+    @cached_property
+    def covariance_part_2(self) -> np.ndarray:
+        covariance_2 = np.zeros((self.len_alpha, self.len_alpha))
+        for cell in range(self.num_cells):
+            covariance_2 += self.cell_covariance_ratio(self.strata_results[cell]) / (
+                self.n_total * self.nu_hat[cell]
+            )
+        return covariance_2
 
 
 def simplify_stats_if_baseline_variance_zero(
@@ -1471,7 +1482,6 @@ class EffectMomentsPostStratification:
     ) -> List[Tuple[SummableStatistic, SummableStatistic]]:
         # Sort cells from largest to smallest by number of users
         sorted_cells = sorted(stats, key=lambda x: x[0].n + x[1].n, reverse=True)
-
         cells_for_analysis = [sorted_cells[0]]
         for i in range(1, len(sorted_cells)):
             if EffectMomentsPostStratification.is_cell_viable(

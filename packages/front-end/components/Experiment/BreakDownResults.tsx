@@ -22,7 +22,6 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { filterAndGroupExperimentMetrics } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -151,8 +150,7 @@ const BreakDownResults: FC<{
   mutate,
   setDifferenceType,
 }) => {
-  const { getDimensionById, getExperimentMetricById, metricGroups } =
-    useDefinitions();
+  const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -163,29 +161,11 @@ const BreakDownResults: FC<{
     dimensionId?.split(":")?.[1] ||
     "Dimension";
 
-  const allMetricIds = [
-    ...goalMetrics,
-    ...secondaryMetrics,
-    ...guardrailMetrics,
-  ];
-  const {
-    goalMetrics: filteredGoalMetrics,
-    secondaryMetrics: filteredSecondaryMetrics,
-    guardrailMetrics: filteredGuardrailMetrics,
-  } = filterAndGroupExperimentMetrics({
+  const { tables } = useExperimentDimensionRows({
+    results,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
-    metricGroups: ssrPolyfills?.metricGroups || metricGroups,
-    selectedMetricIds: allMetricIds,
-    allowDuplicates: true,
-  });
-
-  const { tables, allMetricTags: _allMetricTags } = useExperimentDimensionRows({
-    results,
-    goalMetrics: filteredGoalMetrics,
-    secondaryMetrics: filteredSecondaryMetrics,
-    guardrailMetrics: filteredGuardrailMetrics,
     metricOverrides,
     ssrPolyfills,
     metricTagFilter,

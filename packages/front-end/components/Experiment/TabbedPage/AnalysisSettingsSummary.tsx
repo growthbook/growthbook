@@ -46,7 +46,6 @@ import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -72,15 +71,12 @@ export interface Props {
   }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
-  sortBy?: "significance" | "change" | null;
-  setSortBy?: (s: "significance" | "change" | null) => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
-  envs: _envs,
   mutate,
   statsEngine,
   editMetrics,
@@ -99,8 +95,6 @@ export default function AnalysisSettingsSummary({
   availableSliceTags = [],
   sliceTagsFilter,
   setSliceTagsFilter,
-  sortBy: _sortBy,
-  setSortBy: _setSortBy,
 }: Props) {
   const {
     getDatasourceById,
@@ -143,6 +137,8 @@ export default function AnalysisSettingsSummary({
   } = useSnapshot();
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasValidStatsEngine =
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
@@ -625,6 +621,7 @@ export default function AnalysisSettingsSummary({
                   <OutdatedBadge
                     label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
                     reasons={reasons}
+                    hasData={hasData && hasValidStatsEngine}
                   />
                 ) : null}
               </Flex>

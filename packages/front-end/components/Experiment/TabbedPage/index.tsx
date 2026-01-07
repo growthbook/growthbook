@@ -232,10 +232,10 @@ export default function TabbedPage({
         getExperimentMetricById,
       }),
     [
-    experiment.goalMetrics,
-    experiment.secondaryMetrics,
-    experiment.guardrailMetrics,
-    metricGroups,
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      metricGroups,
       getExperimentMetricById,
     ],
   );
@@ -273,13 +273,13 @@ export default function TabbedPage({
         getFactTableById,
       }),
     [
-    experiment.goalMetrics,
-    experiment.secondaryMetrics,
-    experiment.guardrailMetrics,
-    experiment.customMetricSlices,
-    metricGroups,
-    getExperimentMetricById,
-    getFactTableById,
+      experiment.goalMetrics,
+      experiment.secondaryMetrics,
+      experiment.guardrailMetrics,
+      experiment.customMetricSlices,
+      metricGroups,
+      getExperimentMetricById,
+      getFactTableById,
       factTables,
     ],
   );
@@ -298,7 +298,13 @@ export default function TabbedPage({
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
+    router.push(newUrl, undefined, { shallow: true }).catch((e) => {
+      // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+      // This navigation gets cancelled by persistTabPath with the default dashboard id
+      if (!e.cancelled) {
+        throw e;
+      }
+    });
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -311,8 +317,11 @@ export default function TabbedPage({
       const newUrl =
         window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;
       if (newUrl === window.location.href) return;
-      window.history.pushState("", "", newUrl);
+      router.replace(newUrl, undefined, {
+        shallow: true,
+      });
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [tab],
   );
 
@@ -531,10 +540,10 @@ export default function TabbedPage({
               <Link
                 ml="2"
                 onClick={() => setPhase(experiment.phases.length - 1)}
-                >
-                  {isHoldout
-                    ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
-                    : "Switch to the latest phase"}
+              >
+                {isHoldout
+                  ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
+                  : "Switch to the latest phase"}
               </Link>
             </Callout>
           )}

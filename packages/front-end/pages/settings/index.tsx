@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
+import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -169,7 +170,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
-      openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -224,7 +225,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
-    openAIDefaultModel: form.watch("openAIDefaultModel"),
+    defaultAIModel: form.watch("defaultAIModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
@@ -323,13 +324,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasChanges(value, originalValue) || promptForm.formState.isDirty;
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    const formattedPrompts = Object.entries(promptValues).map(
-      ([key, value]) => ({
-        type: key,
-        prompt: value,
-      }),
-    );
-
+    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
+      type,
+      prompt: promptValues[type],
+      overrideModel: promptValues[`${type}-model`] || undefined,
+    }));
     await apiCall(`/ai/prompts`, {
       method: "POST",
       body: JSON.stringify({ prompts: formattedPrompts }),

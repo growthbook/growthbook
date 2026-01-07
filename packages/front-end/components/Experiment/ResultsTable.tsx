@@ -998,7 +998,15 @@ export default function ResultsTable({
                                     }}
                                   >
                                     {!compactResults ? (
-                                      <div className="d-flex align-items-center pl-3">
+                                      <div
+                                        className={`d-flex align-items-center ${
+                                          row.isSliceRow
+                                            ? "pl-4"
+                                            : dimension
+                                              ? "pl-2" // less padding because no expansion buttons
+                                              : "pl-3"
+                                        }`}
+                                      >
                                         <span
                                           className="label ml-2"
                                           style={{ width: 20, height: 20 }}

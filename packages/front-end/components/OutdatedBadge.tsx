@@ -7,7 +7,8 @@ import Badge from "@/ui/Badge";
 const OutdatedBadge: FC<{
   label?: string;
   reasons: string[];
-}> = ({ label, reasons }) => {
+  hasData?: boolean;
+}> = ({ label, reasons, hasData = true }) => {
   return (
     <Tooltip
       body={
@@ -32,7 +33,7 @@ const OutdatedBadge: FC<{
       <Badge
         label={
           <>
-            Outdated
+            {hasData ? "Outdated" : "Update required"}
             <PiInfo size={14} />
           </>
         }

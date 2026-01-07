@@ -184,11 +184,18 @@ export default function ExperimentTimeSeriesBlock({
                 ({ name }) => name,
               );
 
-              // Get child rows (slice rows) for this metric from filteredRows
-              // filteredRows already handles expansion state or slice filter filtering
-              const childRows = filteredRows.filter(
-                (r) => r.parentRowId === metric.id && r.isSliceRow,
-              );
+              // Check if this metric has slices and if it's expanded
+              const expandedKey = `${metric.id}:${resultGroup}`;
+              const isExpanded = !!expandedMetrics[expandedKey];
+
+              // Filter child rows based on expansion state and pinned slices
+              // This matches the filtering logic in ExperimentMetricBlock.tsx and CompactResults.tsx
+              const childRows = rows
+                .filter((r) => r.parentRowId === metric.id)
+                .filter((sliceRow) => {
+                  if (!sliceRow.isSliceRow) return false;
+                  return isExpanded; // Include if parent metric is expanded
+                });
 
               return (
                 <div key={metric.id} className="mb-2">

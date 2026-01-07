@@ -25,7 +25,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   filterMetricsByTags,
-  getAllMetricTags,
+  sortMetricsByCustomOrder,
 } from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
@@ -56,7 +56,6 @@ export interface UseExperimentDimensionRowsReturn {
     isGuardrail: boolean;
     rows: ExperimentTableRow[];
   }>;
-  allMetricTags: string[];
 }
 
 export function useExperimentDimensionRows({
@@ -70,7 +69,7 @@ export function useExperimentDimensionRows({
   metricsFilter,
   sortBy,
   sortDirection,
-  customMetricOrder: _customMetricOrder,
+  customMetricOrder,
   analysisBarSettings,
   statsEngine,
   pValueCorrection,
@@ -100,7 +99,7 @@ export function useExperimentDimensionRows({
         metricsFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
-          if (group) {
+            if (group) {
               group.metrics.forEach((metricId) =>
                 allowedMetricIds.add(metricId),
               );
@@ -169,7 +168,31 @@ export function useExperimentDimensionRows({
         allMetricGroups,
       );
 
-      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+      // Dedupe metric rows to prevent rendering the same metric multiple times
+      const dedupedGoals: string[] = [];
+      expandedGoals.forEach((metricId) => {
+        if (!dedupedGoals.includes(metricId)) {
+          dedupedGoals.push(metricId);
+        }
+      });
+      const dedupedSecondaries: string[] = [];
+      expandedSecondaries.forEach((metricId) => {
+        if (!dedupedSecondaries.includes(metricId)) {
+          dedupedSecondaries.push(metricId);
+        }
+      });
+      const dedupedGuardrails: string[] = [];
+      expandedGuardrails.forEach((metricId) => {
+        if (!dedupedGuardrails.includes(metricId)) {
+          dedupedGuardrails.push(metricId);
+        }
+      });
+
+      return {
+        expandedGoals: dedupedGoals,
+        expandedSecondaries: dedupedSecondaries,
+        expandedGuardrails: dedupedGuardrails,
+      };
     }, [
       goalMetrics,
       metricGroups,
@@ -178,22 +201,6 @@ export function useExperimentDimensionRows({
       guardrailMetrics,
       metricsFilter,
     ]);
-
-  const allMetricTags = useMemo(() => {
-    return getAllMetricTags(
-      expandedGoals,
-      expandedSecondaries,
-      expandedGuardrails,
-      ssrPolyfills,
-      getExperimentMetricById,
-    );
-  }, [
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-    ssrPolyfills,
-    getExperimentMetricById,
-  ]);
 
   const tables = useMemo(() => {
     if (!results.length || (!ready && !ssrPolyfills)) {
@@ -210,7 +217,31 @@ export function useExperimentDimensionRows({
       metricIds: string[],
       resultGroup: "goal" | "secondary" | "guardrail",
     ) {
-      return metricIds
+      // Get metric definitions
+      const metricDefs = metricIds
+        .map(
+          (metricId) =>
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId),
+        )
+        .filter((m): m is ExperimentMetricInterface => !!m);
+
+      // Apply tag filtering first (independent of sorting)
+      const filteredMetricIds = filterMetricsByTags(
+        metricDefs,
+        metricTagFilter,
+      );
+
+      // Apply custom ordering if sortBy is "custom"
+      const sortedMetricIds =
+        sortBy === "custom" && customMetricOrder
+          ? sortMetricsByCustomOrder(
+              metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
+              customMetricOrder,
+            )
+          : filteredMetricIds;
+
+      return sortedMetricIds
         .map((metricId) => {
           const metric =
             ssrPolyfills?.getExperimentMetricById?.(metricId) ||
@@ -306,6 +337,7 @@ export function useExperimentDimensionRows({
     metricTagFilter,
     sortBy,
     sortDirection,
+    customMetricOrder,
     analysisBarSettings,
     statsEngine,
     pValueCorrection,
@@ -323,7 +355,6 @@ export function useExperimentDimensionRows({
 
   return {
     tables,
-    allMetricTags,
   };
 }
 

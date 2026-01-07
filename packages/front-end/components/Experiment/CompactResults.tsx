@@ -22,7 +22,6 @@ import {
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
 import {
-  PiMinus,
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiPushPinFill,
@@ -632,8 +631,9 @@ export function getRenderLabelColumn({
         : "";
       const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
 
+      const sliceRowClassName = isSliceRow ? "pl-4" : className;
       return (
-        <div className={className} style={{ position: "relative" }}>
+        <div className={sliceRowClassName} style={{ position: "relative" }}>
           {(!sliceTagsFilter || sliceTagsFilter.length === 0) && (
             <>
               {isExpanded && pinSource === "experiment" && isPinned && (
@@ -785,7 +785,7 @@ export function getRenderLabelColumn({
           }}
         >
           <span
-            className={hasSlices && toggleExpandedMetric ? "ml-2" : undefined}
+            className={toggleExpandedMetric ? "ml-2" : undefined}
             style={
               maxRows
                 ? {
@@ -797,87 +797,50 @@ export function getRenderLabelColumn({
                 : undefined
             }
           >
-            {hasSlices ? (
-              <>
-                {(sliceTagsFilter?.length || 0) > 0 ? (
-                  <span
-                    className="text-muted"
-                    style={{ position: "absolute", left: 4, marginTop: -1 }}
-                  >
-                    <PiMinus size={16} />
-                  </span>
-                ) : toggleExpandedMetric && !row?.labelOnly ? (
-                  <div style={{ position: "absolute", left: 4, marginTop: 3 }}>
-                    <Tooltip
-                      body={
-                        isExpanded
-                          ? "Collapse metric slices"
-                          : "Expand metric slices"
-                      }
-                      tipPosition="top"
-                    >
-                      <IconButton
-                        size="1"
-                        variant="ghost"
-                        radius="full"
-                        onClick={
-                          row?.labelOnly || sliceTagsFilter?.includes("overall")
-                            ? undefined
-                            : () =>
-                                toggleExpandedMetric(
-                                  metric.id,
-                                  location || "goal",
-                                )
-                        }
-                        disabled={
-                          row?.labelOnly || sliceTagsFilter?.includes("overall")
-                        }
-                      >
-                        {isExpanded ? (
-                          <PiCaretCircleDown size={16} />
-                        ) : (
-                          <PiCaretCircleRight size={16} />
-                        )}
-                      </IconButton>
-                    </Tooltip>
-                  </div>
-                ) : null}
-                <span
-                  style={{
-                    lineHeight: "1.1em",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
-                    color: "var(--color-text-high)",
-                  }}
+            {hasSlices &&
+            toggleExpandedMetric &&
+            !row?.labelOnly &&
+            !sliceTagsFilter?.length ? (
+              <div style={{ position: "absolute", left: 4, marginTop: 3 }}>
+                <Tooltip
+                  body={
+                    isExpanded
+                      ? "Collapse metric slices"
+                      : "Expand metric slices"
+                  }
+                  tipPosition="top"
                 >
-                  <Tooltip
-                    body={
-                      <MetricTooltipBody
-                        metric={metric}
-                        row={row}
-                        statsEngine={statsEngine}
-                        hideDetails={hideDetails}
-                      />
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    radius="full"
+                    onClick={
+                      row?.labelOnly || sliceTagsFilter?.includes("overall")
+                        ? undefined
+                        : () =>
+                            toggleExpandedMetric(metric.id, location || "goal")
                     }
-                    tipPosition="right"
-                    className="d-inline-block font-weight-bold metric-label"
-                    flipTheme={false}
-                    usePortal={true}
+                    disabled={
+                      row?.labelOnly || sliceTagsFilter?.includes("overall")
+                    }
                   >
-                    {label}
-                    {metric.managedBy ? (
-                      <HiBadgeCheck
-                        style={{
-                          marginTop: "-2px",
-                          marginLeft: "2px",
-                          color: "var(--blue-11)",
-                        }}
-                      />
-                    ) : null}
-                  </Tooltip>
-                </span>
-              </>
-            ) : (
+                    {isExpanded ? (
+                      <PiCaretCircleDown size={16} />
+                    ) : (
+                      <PiCaretCircleRight size={16} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </div>
+            ) : null}
+            <span
+              style={{
+                lineHeight: "1.1em",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                color: "var(--color-text-high)",
+              }}
+            >
               <Tooltip
                 body={
                   <MetricTooltipBody
@@ -888,22 +851,22 @@ export function getRenderLabelColumn({
                   />
                 }
                 tipPosition="right"
-                className="d-inline-block font-weight-bold metric-label pl-2"
+                className="d-inline-block font-weight-bold metric-label"
                 flipTheme={false}
                 usePortal={true}
               >
-                <span
-                  style={{
-                    lineHeight: "1.1em",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
-                    color: "var(--color-text-high)",
-                  }}
-                >
-                  {label}
-                </span>
+                {label}
+                {metric.managedBy ? (
+                  <HiBadgeCheck
+                    style={{
+                      marginTop: "-2px",
+                      marginLeft: "2px",
+                      color: "var(--blue-11)",
+                    }}
+                  />
+                ) : null}
               </Tooltip>
-            )}
+            </span>
           </span>
         </div>
 
