@@ -51,7 +51,7 @@ import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
   DashboardBlockType,
-  { name: string; icon: ReactElement }
+  { name: string; icon: ReactElement; deprecated?: boolean }
 > = {
   markdown: {
     name: "Markdown",
@@ -80,10 +80,16 @@ export const BLOCK_TYPE_INFO: Record<
   "sql-explorer": {
     name: "SQL Query",
     icon: <PiFileSqlDuotone />,
+    deprecated: true,
   },
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
+    deprecated: true,
+  },
+  "data-visualization": {
+    name: "Data Visualization",
+    icon: <PiChartLineDuotone />,
   },
 };
 
@@ -93,7 +99,10 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     ["experiment-metric", "experiment-dimension", "experiment-time-series"],
   ],
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
-  ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
+  [
+    "Other",
+    ["markdown", "data-visualization", "sql-explorer", "metric-explorer"],
+  ],
 ];
 
 // Block types that are allowed in general dashboards (non-experiment specific)
@@ -101,6 +110,7 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "sql-explorer",
   "metric-explorer",
+  "data-visualization",
 ];
 
 // Helper function to check if a block type is allowed for the given dashboard type
@@ -186,6 +196,18 @@ function AddBlockDropdown({
                 }}
               >
                 {BLOCK_TYPE_INFO[bType].name}
+                {BLOCK_TYPE_INFO[bType].deprecated ? (
+                  <Tooltip body="This feature is deprecated in favor of the Data Visualization block.">
+                    <Text
+                      color="gray"
+                      size="1"
+                      className="ml-2"
+                      style={{ fontStyle: "italic" }}
+                    >
+                      Deprecated
+                    </Text>
+                  </Tooltip>
+                ) : null}
               </DropdownMenuItem>
             ))}
             {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}

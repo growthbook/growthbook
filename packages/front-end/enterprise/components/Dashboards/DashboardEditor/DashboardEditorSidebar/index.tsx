@@ -10,6 +10,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -30,6 +31,7 @@ const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "sql-explorer",
   "metric-explorer",
+  "data-visualization",
 ];
 
 function moveBlocks<T>(
@@ -195,6 +197,18 @@ export default function DashboardEditorSidebar({
                     style={{ color: "var(--color-text-high" }}
                   >
                     {BLOCK_TYPE_INFO[bType].name}
+                    {BLOCK_TYPE_INFO[bType].deprecated ? (
+                      <Tooltip body="This feature is deprecated in favor of the Data Visualization block.">
+                        <Text
+                          color="gray"
+                          size="1"
+                          className="ml-2"
+                          style={{ fontStyle: "italic" }}
+                        >
+                          Deprecated
+                        </Text>
+                      </Tooltip>
+                    ) : null}
                   </Text>
                   <div style={{ flex: 1 }} />
                   <Text color="violet" className="ml-auto show-target instant">
