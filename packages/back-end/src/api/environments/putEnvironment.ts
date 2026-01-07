@@ -1,9 +1,12 @@
 import { PutEnvironmentResponse } from "shared/types/openapi";
 import { putEnvironmentValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
+import { isEqual } from "lodash";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
@@ -49,6 +52,24 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       },
       details: auditDetailsUpdate(environment, updatedEnvironment),
     });
+
+    if (environment.projects) {
+      const existingProjects = environment.projects;
+      const newProjects = updatedEnvironment.projects;
+
+      if (!isEqual(existingProjects, newProjects)) {
+        const connections = await findSDKConnectionsByOrganization(req.context);
+        const affectedConnections = connections.filter(
+          (c) => c.environment === id,
+        );
+
+        await refreshSDKPayloadCache({
+          context: req.context,
+          payloadKeys: [],
+          sdkConnections: affectedConnections,
+        });
+      }
+    }
 
     return {
       environment: updatedEnvironment,

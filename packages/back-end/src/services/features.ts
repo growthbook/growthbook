@@ -12,6 +12,7 @@ import {
 import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  filterProjectsByEnvironmentWithNull,
   isDefined,
   PrerequisiteStateResult,
   validateCondition,
@@ -654,27 +655,51 @@ export async function refreshSDKPayloadCache({
 
     promises.push(async () => {
       try {
-        const contents = await getFeatureDefinitionsResponse({
-          features: featureDefinitions,
-          experiments: experimentsDefinitions || [],
-          holdouts: holdoutFeatureDefinitions || {},
-          dateUpdated: new Date(),
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          includeRedirectExperiments: connection.includeRedirectExperiments,
-          includeRuleIds: connection.includeRuleIds,
-          attributes,
-          secureAttributeSalt,
-          projects: connection.projects || [],
-          capabilities: getConnectionSDKCapabilities(connection),
-          usedSavedGroups: usedSavedGroups || [],
-          savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-          organization: context.org,
-        });
+        const capabilities = getConnectionSDKCapabilities(connection);
+
+        const environmentDoc = context.org?.settings?.environments?.find(
+          (e) => e.id === environment,
+        );
+
+        // null projects have nothing in the payload. They result from environment project scrubbing.
+        const filteredProjects = filterProjectsByEnvironmentWithNull(
+          connection.projects || [],
+          environmentDoc,
+          true,
+        );
+
+        const contents =
+          filteredProjects === null
+            ? {
+                features: {},
+                experiments: [],
+                dateUpdated: cached.dateUpdated,
+                savedGroups: {},
+              }
+            : await getFeatureDefinitionsResponse({
+                features: featureDefinitions,
+                experiments: experimentsDefinitions || [],
+                holdouts: holdoutFeatureDefinitions || {},
+                dateUpdated: new Date(),
+                encryptionKey: connection.encryptPayload
+                  ? connection.encryptionKey
+                  : undefined,
+                includeVisualExperiments: connection.includeVisualExperiments,
+                includeDraftExperiments: connection.includeDraftExperiments,
+                includeExperimentNames: connection.includeExperimentNames,
+                includeRedirectExperiments:
+                  connection.includeRedirectExperiments,
+                includeRuleIds: connection.includeRuleIds,
+                attributes,
+                secureAttributeSalt,
+                projects: filteredProjects,
+                capabilities,
+                usedSavedGroups: usedSavedGroups || [],
+                savedGroupReferencesEnabled:
+                  connection.savedGroupReferencesEnabled &&
+                  capabilities.includes("savedGroupReferences"),
+                organization: context.org,
+              });
 
         await context.models.sdkConnectionCache.upsert(
           connection.key,
