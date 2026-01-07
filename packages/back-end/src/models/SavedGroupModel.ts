@@ -82,11 +82,10 @@ export class SavedGroupModel extends BaseClass {
   protected async afterUpdate(
     _existing: SavedGroupInterface,
     updates: UpdateProps<SavedGroupInterface>,
-    newDoc: SavedGroupInterface,
   ) {
     // If the values, condition, or projects change, we need to invalidate cached feature rules
     if (updates.values || updates.condition || updates.projects) {
-      savedGroupUpdated(this.context, newDoc).catch((e) => {
+      savedGroupUpdated(this.context).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on saved group update",
