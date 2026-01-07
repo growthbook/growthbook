@@ -34,7 +34,11 @@ export default function ExperimentMetricBlock({
     metricIds: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
     metricTagFilter: blockMetricTagFilter,
+    sortBy: blockSortBy,
+    sortDirection: blockSortDirection,
   } = block;
+
+  console.log({ blockSortBy, blockSortDirection });
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
@@ -139,9 +143,9 @@ export default function ExperimentMetricBlock({
     enableExpansion: true,
     enablePinning: false,
     expandedMetrics,
-    sortBy: blockMetricIds && blockMetricIds.length > 0 ? "custom" : null,
-    customMetricOrder:
-      blockMetricIds && blockMetricIds.length > 0 ? blockMetricIds : undefined,
+    sortBy: blockSortBy,
+    sortDirection: blockSortBy !== "custom" ? blockSortDirection : undefined,
+    customMetricOrder: blockSortBy === "custom" ? blockMetricIds : undefined,
   });
 
   // Filter rows based on expansion state when there's no slice filter

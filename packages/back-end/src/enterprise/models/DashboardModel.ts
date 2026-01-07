@@ -366,6 +366,12 @@ export function migrateBlock(
       )
         ? metricSelectorValue
         : "all";
+      const sortBy =
+        "sortBy" in doc && typeof doc.sortBy === "string" ? doc.sortBy : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
       const pinnedSlices =
         "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
           ? doc.pinnedMetricSlices
@@ -380,6 +386,8 @@ export function migrateBlock(
         metricSelector,
         sliceTagsFilter,
         metricTagFilter,
+        sortBy,
+        sortDirection,
       } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-dimension": {
@@ -389,10 +397,18 @@ export function migrateBlock(
           ? dimensionMetricSelectorValue
           : "all";
       const metricTagFilter = doc.metricTagFilter || [];
+      const sortBy =
+        "sortBy" in doc && typeof doc.sortBy === "string" ? doc.sortBy : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
       return {
         ...doc,
         metricSelector: dimensionMetricSelector,
         metricTagFilter,
+        sortBy,
+        sortDirection,
       };
     }
     case "experiment-time-series": {
@@ -401,6 +417,12 @@ export function migrateBlock(
         isMetricSelector(timeSeriesMetricSelectorValue)
           ? timeSeriesMetricSelectorValue
           : "all";
+      const sortBy =
+        "sortBy" in doc && typeof doc.sortBy === "string" ? doc.sortBy : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
       const pinnedSlices =
         "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
           ? doc.pinnedMetricSlices
@@ -416,6 +438,8 @@ export function migrateBlock(
         metricSelector: timeSeriesMetricSelector,
         sliceTagsFilter,
         metricTagFilter,
+        sortBy,
+        sortDirection,
       } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-description":

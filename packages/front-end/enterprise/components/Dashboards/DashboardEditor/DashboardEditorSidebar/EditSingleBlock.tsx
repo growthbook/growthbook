@@ -1,4 +1,12 @@
-import { Flex, Grid, IconButton, Separator, Text, Box, Heading } from "@radix-ui/themes";
+import {
+  Flex,
+  Grid,
+  IconButton,
+  Separator,
+  Text,
+  Box,
+  Heading,
+} from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -848,6 +856,54 @@ export default function EditSingleBlock({
                       />
                     )}
                 </Box>
+                {blockHasFieldOfType(
+                  block,
+                  "sortBy",
+                  (val) => val === null || typeof val === "string",
+                ) && (
+                  <SelectField
+                    label="Sort by"
+                    labelClassName="font-weight-bold"
+                    containerClassName="mb-2"
+                    value={block.sortBy || ""}
+                    onChange={(value) =>
+                      setBlock({
+                        ...block,
+                        sortBy: (value || null) as (typeof block)["sortBy"],
+                      })
+                    }
+                    options={[
+                      { value: "", label: "Default" },
+                      { value: "custom", label: "Metric filter" },
+                    ]}
+                    sort={false}
+                  />
+                )}
+                {blockHasFieldOfType(
+                  block,
+                  "sortDirection",
+                  (val) => val === null || val === "asc" || val === "desc",
+                ) && (
+                  <SelectField
+                    label="Sort direction"
+                    labelClassName="font-weight-bold"
+                    containerClassName="mb-2"
+                    value={block.sortDirection || ""}
+                    onChange={(value) =>
+                      setBlock({
+                        ...block,
+                        sortDirection: (value ||
+                          null) as (typeof block)["sortDirection"],
+                      })
+                    }
+                    options={[
+                      { value: "", label: "Default" },
+                      { value: "asc", label: "Ascending" },
+                      { value: "desc", label: "Descending" },
+                    ]}
+                    sort={false}
+                  />
+                )}
               </>
             )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (

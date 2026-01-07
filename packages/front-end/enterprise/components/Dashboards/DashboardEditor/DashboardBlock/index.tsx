@@ -235,16 +235,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         : [];
     } else if (block.metricSelector === "experiment-goal") {
       baseMetricIds = blockHasExperiment
-            ? (blockExperiment?.goalMetrics ?? [])
+        ? (blockExperiment?.goalMetrics ?? [])
         : [];
     } else if (block.metricSelector === "experiment-secondary") {
       baseMetricIds = blockHasExperiment
-              ? (blockExperiment?.secondaryMetrics ?? [])
+        ? (blockExperiment?.secondaryMetrics ?? [])
         : [];
     } else if (block.metricSelector === "experiment-guardrail") {
       baseMetricIds = blockHasExperiment
-                ? (blockExperiment?.guardrailMetrics ?? [])
-              : [];
+        ? (blockExperiment?.guardrailMetrics ?? [])
+        : [];
     }
 
     let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);

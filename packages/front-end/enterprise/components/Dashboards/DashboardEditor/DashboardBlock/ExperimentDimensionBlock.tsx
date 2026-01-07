@@ -30,10 +30,13 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
-    metricIds,
+    metricIds: blockMetricIds,
     metricSelector,
     metricTagFilter: blockMetricTagFilter,
+    sortBy: blockSortBy,
+    sortDirection: blockSortDirection,
   } = block;
+
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
@@ -131,9 +134,12 @@ export default function ExperimentDimensionBlock({
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
-      sortBy={metricIds && metricIds.length > 0 ? "custom" : null}
+      sortBy={blockSortBy}
+      sortDirection={blockSortDirection}
       customMetricOrder={
-        metricIds && metricIds.length > 0 ? metricIds : undefined
+        blockSortBy === "custom" && blockMetricIds && blockMetricIds.length > 0
+          ? blockMetricIds
+          : undefined
       }
       metricTagFilter={blockMetricTagFilter}
     />
