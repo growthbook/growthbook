@@ -870,11 +870,18 @@ export default function EditSingleBlock({
                       setBlock({
                         ...block,
                         sortBy: (value || null) as (typeof block)["sortBy"],
+                        // Clear sortDirection when switching away from significance/change
+                        sortDirection:
+                          value === "significance" || value === "change"
+                            ? block.sortDirection
+                            : null,
                       })
                     }
                     options={[
                       { value: "", label: "Default" },
                       { value: "custom", label: "Metric filter" },
+                      { value: "significance", label: "Significance" },
+                      { value: "change", label: "Change" },
                     ]}
                     sort={false}
                   />
@@ -883,27 +890,34 @@ export default function EditSingleBlock({
                   block,
                   "sortDirection",
                   (val) => val === null || val === "asc" || val === "desc",
-                ) && (
-                  <SelectField
-                    label="Sort direction"
-                    labelClassName="font-weight-bold"
-                    containerClassName="mb-2"
-                    value={block.sortDirection || ""}
-                    onChange={(value) =>
-                      setBlock({
-                        ...block,
-                        sortDirection: (value ||
-                          null) as (typeof block)["sortDirection"],
-                      })
-                    }
-                    options={[
-                      { value: "", label: "Default" },
-                      { value: "asc", label: "Ascending" },
-                      { value: "desc", label: "Descending" },
-                    ]}
-                    sort={false}
-                  />
-                )}
+                ) &&
+                  blockHasFieldOfType(
+                    block,
+                    "sortBy",
+                    (val) => val === null || typeof val === "string",
+                  ) &&
+                  (block.sortBy === "significance" ||
+                    block.sortBy === "change") && (
+                    <SelectField
+                      label="Sort direction"
+                      labelClassName="font-weight-bold"
+                      containerClassName="mb-2"
+                      value={block.sortDirection || ""}
+                      onChange={(value) =>
+                        setBlock({
+                          ...block,
+                          sortDirection: (value ||
+                            null) as (typeof block)["sortDirection"],
+                        })
+                      }
+                      options={[
+                        { value: "", label: "Default" },
+                        { value: "asc", label: "Ascending" },
+                        { value: "desc", label: "Descending" },
+                      ]}
+                      sort={false}
+                    />
+                  )}
               </>
             )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (

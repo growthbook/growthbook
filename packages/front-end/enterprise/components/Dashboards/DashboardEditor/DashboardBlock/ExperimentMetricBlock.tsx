@@ -38,7 +38,6 @@ export default function ExperimentMetricBlock({
     sortDirection: blockSortDirection,
   } = block;
 
-  console.log({ blockSortBy, blockSortDirection });
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
@@ -145,7 +144,10 @@ export default function ExperimentMetricBlock({
     expandedMetrics,
     sortBy: blockSortBy,
     sortDirection: blockSortBy !== "custom" ? blockSortDirection : undefined,
-    customMetricOrder: blockSortBy === "custom" ? blockMetricIds : undefined,
+    customMetricOrder:
+      blockSortBy === "custom" && blockMetricIds && blockMetricIds.length > 0
+        ? blockMetricIds
+        : undefined,
   });
 
   // Filter rows based on expansion state when there's no slice filter
@@ -219,6 +221,7 @@ export default function ExperimentMetricBlock({
               shouldShowMetricSlices: true,
               getChildRowCounts,
               pinSource: undefined,
+              sliceTagsFilter: blockSliceTagsFilter,
             })}
             dateCreated={snapshot.dateCreated}
             statsEngine={statsEngine}

@@ -152,6 +152,7 @@ export default function ExperimentTimeSeriesBlock({
     shouldShowMetricSlices: true,
     getChildRowCounts,
     pinSource: undefined,
+    sliceTagsFilter: blockSliceTagsFilter,
   });
 
   const selectorLabel =
@@ -193,13 +194,15 @@ export default function ExperimentTimeSeriesBlock({
               const expandedKey = `${metric.id}:${resultGroup}`;
               const isExpanded = !!expandedMetrics[expandedKey];
 
-              // Filter child rows based on expansion state and pinned slices
-              // This matches the filtering logic in ExperimentMetricBlock.tsx and CompactResults.tsx
-              const childRows = rows
+              // Filter child rows based on expansion state or isHiddenByFilter
+              const childRows = filteredRows
                 .filter((r) => r.parentRowId === metric.id)
                 .filter((sliceRow) => {
                   if (!sliceRow.isSliceRow) return false;
-                  return isExpanded; // Include if parent metric is expanded
+                  if (hasSliceFilter) {
+                    return !sliceRow.isHiddenByFilter;
+                  }
+                  return isExpanded;
                 });
 
               return (
@@ -220,22 +223,24 @@ export default function ExperimentTimeSeriesBlock({
                       })}
                     </div>
 
-                    <ExperimentMetricTimeSeriesGraphWrapper
-                      key={metric.id}
-                      experimentId={experiment.id}
-                      phase={snapshot.phase}
-                      experimentStatus={experiment.status}
-                      metric={metric}
-                      differenceType={
-                        analysis?.settings.differenceType || "relative"
-                      }
-                      showVariations={showVariations}
-                      variationNames={variationNames}
-                      statsEngine={statsEngine}
-                      pValueAdjustmentEnabled={!!appliedPValueCorrection}
-                      firstDateToRender={phaseStartDate}
-                      sliceId={row.sliceId}
-                    />
+                    {!row.labelOnly && (
+                      <ExperimentMetricTimeSeriesGraphWrapper
+                        key={metric.id}
+                        experimentId={experiment.id}
+                        phase={snapshot.phase}
+                        experimentStatus={experiment.status}
+                        metric={metric}
+                        differenceType={
+                          analysis?.settings.differenceType || "relative"
+                        }
+                        showVariations={showVariations}
+                        variationNames={variationNames}
+                        statsEngine={statsEngine}
+                        pValueAdjustmentEnabled={!!appliedPValueCorrection}
+                        firstDateToRender={phaseStartDate}
+                        sliceId={row.sliceId}
+                      />
+                    )}
                   </div>
 
                   <div>
