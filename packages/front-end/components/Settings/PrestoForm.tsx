@@ -84,6 +84,19 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
+      <div className="form-group col-md-12">
+        <label>Query User</label>
+        <input
+          type="text"
+          className="form-control"
+          name="user"
+          value={params.user || "growthbook"}
+          onChange={onParamChange}
+        />
+        <small className="form-text text-muted">
+          The user to connect as. Defaults to &quot;growthbook&quot;.
+        </small>
+      </div>
       <div className="col-md-12">
         <SelectField
           label="Authentication Method"

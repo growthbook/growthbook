@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import uniqid from "uniqid";
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { FilterQuery, trusted } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
@@ -137,6 +137,9 @@ export abstract class BaseModel<
   protected useConfigFile(): boolean {
     return false;
   }
+  protected hasPremiumFeature(): boolean {
+    return true;
+  }
   protected getConfigDocuments(): z.infer<T>[] {
     return [];
   }
@@ -270,6 +273,11 @@ export abstract class BaseModel<
     props: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
     return this._createOne(props, writeOptions);
   }
   public dangerousCreateBypassPermission(
@@ -283,6 +291,11 @@ export abstract class BaseModel<
     updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
     return this._updateOne(existing, updates, { writeOptions });
   }
   public async dangerousUpdateBypassPermission(
