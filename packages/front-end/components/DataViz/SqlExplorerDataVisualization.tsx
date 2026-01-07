@@ -142,12 +142,14 @@ export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
   chartId,
+  trackSeriesKeys = false,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
   chartId?: string;
+  trackSeriesKeys?: boolean;
 }) {
-  const { getSeriesColor } = useSeriesDisplaySettings();
+  const { getSeriesColor, registerSeriesKeys } = useSeriesDisplaySettings();
   const anchorYAxisToZero =
     "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
       ? (dataVizConfig.displaySettings.anchorYAxisToZero ?? true)
@@ -696,6 +698,15 @@ export function DataVisualizationDisplay({
     // Use the first dimension's fieldName as the column name
     const columnName = dimensionFields[0];
 
+    // Register all series keys if tracking is enabled
+    if (trackSeriesKeys) {
+      const keys = dimensionCombinations.map((combination) => ({
+        columnName,
+        dimensionValue: combination.join(", "),
+      }));
+      registerSeriesKeys(keys);
+    }
+
     return dimensionCombinations.map((combination, index) => {
       const dimensionKey = combination.join(", ");
 
@@ -719,7 +730,9 @@ export function DataVisualizationDisplay({
     xField,
     dataVizConfig.chartType,
     getSeriesColor,
+    registerSeriesKeys,
     dimensionFields,
+    trackSeriesKeys,
   ]);
 
   const option = useMemo(() => {
@@ -893,12 +906,14 @@ export function SqlExplorerDataVisualization({
   onDataVizConfigChange,
   showPanel = true,
   graphTitle = "Visualization",
+  trackSeriesKeys = false,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   showPanel?: boolean;
   graphTitle?: string;
+  trackSeriesKeys?: boolean;
 }) {
   return (
     <PanelGroup direction="horizontal">
@@ -915,7 +930,11 @@ export function SqlExplorerDataVisualization({
             </Text>
           }
         >
-          <DataVisualizationDisplay rows={rows} dataVizConfig={dataVizConfig} />
+          <DataVisualizationDisplay
+            rows={rows}
+            dataVizConfig={dataVizConfig}
+            trackSeriesKeys={trackSeriesKeys}
+          />
         </AreaWithHeader>
       </Panel>
       {showPanel ? (

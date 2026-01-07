@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
 } from "react";
 import { DashboardInterface, DisplaySettings } from "shared/enterprise";
@@ -21,11 +20,15 @@ export const DashboardSeriesDisplayContext = React.createContext<{
     dimensionValue: string,
     index: number,
   ) => string;
+  registerSeriesKeys: (
+    keys: Array<{ columnName: string; dimensionValue: string }>,
+  ) => void;
   getActiveSeriesKeys: () => Map<string, Set<string>>;
 }>({
   settings: {},
   updateSeriesColor: () => {},
   getSeriesColor: () => "",
+  registerSeriesKeys: () => {},
   getActiveSeriesKeys: () => new Map(),
 });
 
@@ -65,8 +68,7 @@ export default function DashboardSeriesDisplayProvider({
 
   // Track active series keys (keys that are currently being used in charts)
   // This is populated during render via getSeriesColor() calls
-  // Structure: Map<columnName, Set<dimensionValue>>
-  const activeSeriesKeysRef = useRef<Map<string, Set<string>>>(new Map());
+  const activeSeriesKeys = new Map<string, Set<string>>();
 
   // Store latest dashboard ref to avoid stale closures in debounce callbacks
   const latestDashboardRef = useRef<DashboardInterface | undefined>(dashboard);
@@ -290,14 +292,21 @@ export default function DashboardSeriesDisplayProvider({
     [setDashboard, onSave, cleanSeriesDisplaySettings],
   );
 
+  // Register series keys for tracking (called explicitly by components during render)
+  // Not memoized because activeSeriesKeys is recreated each render anyway
+  const registerSeriesKeys = (
+    keys: Array<{ columnName: string; dimensionValue: string }>,
+  ) => {
+    keys.forEach(({ columnName, dimensionValue }) => {
+      if (!activeSeriesKeys.has(columnName)) {
+        activeSeriesKeys.set(columnName, new Set());
+      }
+      activeSeriesKeys.get(columnName)!.add(dimensionValue);
+    });
+  };
+
   const getSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, index: number): string => {
-      // Track active series keys
-      if (!activeSeriesKeysRef.current.has(columnName)) {
-        activeSeriesKeysRef.current.set(columnName, new Set());
-      }
-      activeSeriesKeysRef.current.get(columnName)!.add(dimensionValue);
-
       // Check if this series already has a color in dashboard settings
       const existingSettings = settings[columnName]?.[dimensionValue];
       if (existingSettings?.color) {
@@ -329,13 +338,13 @@ export default function DashboardSeriesDisplayProvider({
   );
 
   // Get the map of active series keys grouped by column name (for filtering)
-  const getActiveSeriesKeys = useCallback(() => {
+  const getActiveSeriesKeys = () => {
     const result = new Map<string, Set<string>>();
-    activeSeriesKeysRef.current.forEach((dimensionValues, columnName) => {
+    activeSeriesKeys.forEach((dimensionValues, columnName) => {
       result.set(columnName, new Set(dimensionValues));
     });
     return result;
-  }, []);
+  };
 
   // Cleanup debounce timers and pending updates on unmount
   useEffect(() => {
@@ -352,15 +361,15 @@ export default function DashboardSeriesDisplayProvider({
     };
   }, []);
 
-  const value = useMemo(
-    () => ({
-      settings,
-      updateSeriesColor,
-      getSeriesColor,
-      getActiveSeriesKeys,
-    }),
-    [settings, updateSeriesColor, getSeriesColor, getActiveSeriesKeys],
-  );
+  // Don't memoize value since getActiveSeriesKeys needs to be recreated each render
+  // to capture the current activeSeriesKeys
+  const value = {
+    settings,
+    updateSeriesColor,
+    getSeriesColor,
+    registerSeriesKeys,
+    getActiveSeriesKeys,
+  };
 
   return (
     <DashboardSeriesDisplayContext.Provider value={value}>

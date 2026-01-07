@@ -1,4 +1,10 @@
-import React, { useContext, useMemo, useRef } from "react";
+import React, {
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Flex, Text, Heading } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import {
@@ -133,6 +139,9 @@ export default function DashboardUpdateDisplay({
   isEditing,
 }: Props) {
   const { datasources } = useDefinitions();
+  const [activeKeys, setActiveKeys] = useState<Map<string, Set<string>>>(
+    new Map(),
+  );
   const {
     projects,
     loading,
@@ -180,6 +189,12 @@ export default function DashboardUpdateDisplay({
   const canRefresh =
     canCreateAnalyses(projects) &&
     !datasourcesInUse.some((ds) => ds && !canRunSqlExplorerQueries(ds));
+
+  // useLayoutEffect means we're sture the activeSeriesKeys is fully populated before we check it
+  useLayoutEffect(() => {
+    setActiveKeys(getActiveSeriesKeys());
+  }, [getActiveSeriesKeys]);
+
   if (loading)
     return (
       <Flex gap="1" align="center">
@@ -187,8 +202,6 @@ export default function DashboardUpdateDisplay({
         <Text>Loading dashboard...</Text>
       </Flex>
     );
-
-  const activeKeys = getActiveSeriesKeys();
 
   return (
     <Flex

@@ -95,6 +95,7 @@ export default function SqlExplorerBlock({
               chartId={
                 blockId ? `sql-explorer-${blockId}-${configId}` : undefined
               }
+              trackSeriesKeys={true}
             />
           </Box>
         </Flex>
