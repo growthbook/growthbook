@@ -131,7 +131,7 @@
     "@swc/jest": "^0.2.23",
     "@types/async": "^3.0.2",
     "@types/async-lock": "^1.4.2",
-    "@types/bluebird": "^3.5.42",
+    "@types/bluebird": "3.5.34",
     "@types/body-parser": "^1.19.6",
     "@types/compression": "^1.7.0",
     "@types/cookie-parser": "^1.4.2",
