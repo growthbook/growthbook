@@ -35,7 +35,7 @@ import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
 import { useSeriesDisplaySettings } from "./DashboardSeriesDisplayProvider";
-
+import EditGlobalColorDropdown from "./DashboardEditor/EditGlobalColorDropdown";
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
 
@@ -513,11 +513,13 @@ export default function DashboardWorkspace({
           >
             <Flex
               align="end"
+              gap="2"
               style={{
                 minHeight: DASHBOARD_TOPBAR_HEIGHT,
                 maxHeight: DASHBOARD_TOPBAR_HEIGHT,
               }}
             >
+              {editSidebarExpanded && <EditGlobalColorDropdown />}
               {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
                 <IconButton
                   mb="1"
