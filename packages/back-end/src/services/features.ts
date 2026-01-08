@@ -687,7 +687,7 @@ async function refreshSDKPayloadCache({
             ? {
                 features: {},
                 experiments: [],
-                dateUpdated: cached.dateUpdated,
+                dateUpdated: new Date(),
                 savedGroups: {},
               }
             : await getFeatureDefinitionsResponse({
