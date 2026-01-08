@@ -42,20 +42,20 @@ describe("experimentQueries", () => {
         ).toBe(baseExpectedCols + 4);
       });
 
-      it("should return 4 columns for mean metric with percentile capping", () => {
+      it("should return 6 columns for mean metric with percentile capping", () => {
         const metric = factMetricFactory.build({
           metricType: "mean",
           numerator: { factTableId: "ft_1" },
           cappingSettings: { type: "percentile", value: 0.99 },
         });
-        // 1 (id) + 2 (base) + 1 (BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS) = 4
+        // 1 (id) + 2 (base) + 1 (BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS) + 2 (BASE_METRIC_FLOAT_COLS_UNCAPPED) = 6
         expect(
           maxColumnsNeededForMetric({
             metric,
             regressionAdjusted: false,
             isBandit: false,
           }),
-        ).toBe(4);
+        ).toBe(6);
       });
     });
   });

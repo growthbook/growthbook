@@ -3,6 +3,7 @@ import {
   isFactMetric,
   isLegacyMetric,
   isPercentileCappedMetric,
+  isAbsoluteCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
@@ -19,12 +20,14 @@ import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
   BASE_METRIC_FLOAT_COLS,
+  BASE_METRIC_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
   RATIO_METRIC_CUPED_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS,
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+  RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
 
 // Gets all columns besides the speciality quantile columns for all metrics
@@ -94,7 +97,30 @@ export function getNonQuantileFloatColumns({
     }
   })();
 
-  const cols = [...baseCols, ...cupedCols, ...percentileCappingCols];
+  const uncappedCols = (() => {
+    if (!isPercentileCappedMetric(metric) && !isAbsoluteCappedMetric(metric)) {
+      return [];
+    }
+    switch (metric.metricType) {
+      case "proportion":
+      case "retention":
+        return [];
+      case "mean":
+      case "dailyParticipation":
+        return BASE_METRIC_FLOAT_COLS_UNCAPPED;
+      case "ratio":
+        return RATIO_METRIC_FLOAT_COLS_UNCAPPED;
+      case "quantile":
+        return [];
+    }
+  })();
+
+  const cols = [
+    ...baseCols,
+    ...cupedCols,
+    ...percentileCappingCols,
+    ...uncappedCols,
+  ];
 
   if (isBandit) {
     cols.push(...BANDIT_CUPED_FLOAT_COLS);
