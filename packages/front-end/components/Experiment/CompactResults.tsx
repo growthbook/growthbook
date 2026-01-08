@@ -82,7 +82,6 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
-  disableTimeSeriesButton?: boolean;
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
@@ -147,7 +146,6 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   hideDetails,
-  disableTimeSeriesButton,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   customMetricSlices,
@@ -414,7 +412,6 @@ const CompactResults: FC<{
           isBandit={isBandit}
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
-          disableTimeSeriesButton={disableTimeSeriesButton}
           isHoldout={experimentType === "holdout"}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -474,7 +471,6 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
@@ -535,7 +531,6 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}

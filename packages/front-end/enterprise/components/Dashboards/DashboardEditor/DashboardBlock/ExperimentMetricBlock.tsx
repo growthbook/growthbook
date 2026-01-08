@@ -228,7 +228,6 @@ export default function ExperimentMetricBlock({
             isTabActive={isTabActive}
             isGoalMetrics={resultGroup === "goal"}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={true}
           />
         ),
       )}

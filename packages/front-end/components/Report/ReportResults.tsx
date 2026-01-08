@@ -316,7 +316,6 @@ export default function ReportResults({
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
-                disableTimeSeriesButton={true}
                 customMetricSlices={
                   report.experimentAnalysisSettings.customMetricSlices
                 }
