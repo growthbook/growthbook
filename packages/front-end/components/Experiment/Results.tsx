@@ -159,7 +159,7 @@ const Results: FC<{
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
     !analysis?.settings ||
-    ((analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine);
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -267,20 +267,18 @@ const Results: FC<{
         </div>
       )}
 
-      {status === "failed" ? (
+      {status === "failed" && !hasData && !snapshotLoading ? (
         <Callout status="error" mx="3" my="4">
           The most recent update failed.{" "}
-          <Link onClick={() => setQueriesModalOpen(true)}>
-            View queries
-          </Link>{" "}
-          to see what went wrong.
+          <Link onClick={() => setQueriesModalOpen(true)}>View queries</Link> to
+          see what went wrong.
         </Callout>
       ) : null}
 
       {(!hasData || !hasValidStatsEngine) &&
-        status !== "failed" &&
-        !snapshot?.unknownVariations?.length &&
+        status !== "failed" && // failed is handled above
         status !== "running" &&
+        !snapshot?.unknownVariations?.length &&
         hasMetrics &&
         !snapshotLoading && (
           <Callout status="info" mx="3" mb="4">
