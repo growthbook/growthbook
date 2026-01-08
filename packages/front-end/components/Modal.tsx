@@ -19,6 +19,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
+import styles from "./Modal.module.scss";
 
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
@@ -71,6 +72,7 @@ type ModalProps = {
   aboveBodyContent?: ReactNode;
   useRadixButton?: boolean;
   borderlessHeader?: boolean;
+  backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
 };
 const Modal: FC<ModalProps> = ({
@@ -120,6 +122,7 @@ const Modal: FC<ModalProps> = ({
   useRadixButton,
   aboveBodyContent = null,
   borderlessHeader = false,
+  backgroundlessHeader = false,
   borderlessFooter = false,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
@@ -180,7 +183,11 @@ const Modal: FC<ModalProps> = ({
     >
       {loading && <LoadingOverlay />}
       {header ? (
-        <div className={clsx("modal-header", headerClassName)}>
+        <div
+          className={clsx("modal-header", headerClassName, {
+            [styles["modal-header-backgroundless"]]: backgroundlessHeader,
+          })}
+        >
           <div>
             <h4 className="modal-title">
               {header === "logo" ? (
