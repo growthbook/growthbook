@@ -26,20 +26,6 @@ export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
   paramsSchema?: ParamsSchema;
 };
 
-// Helper type to create an `ApiRequest` directly from the `typeof` the request validator
-type InferParamsSchema<T> = T extends { paramsSchema?: infer P } ? P : never;
-type InferBodySchema<T> = T extends { bodySchema?: infer B } ? B : never;
-type InferQuerySchema<T> = T extends { querySchema?: infer Q } ? Q : never;
-export type ApiRequestForValidator<
-  TValidator extends ApiRequestValidator<ZodType, ZodType, ZodType>,
-  ResponseType,
-> = ApiRequest<
-  ResponseType,
-  InferParamsSchema<TValidator>,
-  InferBodySchema<TValidator>,
-  InferQuerySchema<TValidator>
->;
-
 function validate<T extends ZodType>(
   schema: T,
   value: unknown,

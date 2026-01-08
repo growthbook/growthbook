@@ -30,18 +30,35 @@ type CustomHandler<
   ParamsSchema extends z.ZodType = z.ZodTypeAny,
   BodySchema extends z.ZodType = z.ZodTypeAny,
   QuerySchema extends z.ZodType = z.ZodTypeAny,
-  ReturnShape = object,
+  ReturnShape extends z.ZodType = z.ZodTypeAny,
 > = {
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
   validator: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema>;
-  zodReturnObject: z.ZodObject;
+  zodReturnObject: ReturnShape;
   summary?: string;
   reqHandler: (
-    req: ApiRequest<ReturnShape, ParamsSchema, BodySchema, QuerySchema>,
-  ) => Promise<ReturnShape>;
+    req: ApiRequest<
+      z.infer<ReturnShape>,
+      ParamsSchema,
+      BodySchema,
+      QuerySchema
+    >,
+    // You'll likely need to add an explicit type annotation for the return shape because of a type inference cycle
+  ) => Promise<z.infer<ReturnShape>>;
 };
+export function defineCustomHandler<
+  ParamsSchema extends z.ZodType,
+  BodySchema extends z.ZodType,
+  QuerySchema extends z.ZodType,
+  ReturnShape extends z.ZodType,
+>(
+  handler: CustomHandler<ParamsSchema, BodySchema, QuerySchema, ReturnShape>,
+): typeof handler {
+  return handler;
+}
+
 const defaultHandlers = {
   get: "handleApiGet",
   create: "handleApiCreate",

@@ -31,7 +31,7 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import { ApiRequestForValidator } from "back-end/src/util/handler";
+import { defineCustomHandler } from "back-end/src/api/ApiModel";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -74,7 +74,7 @@ const BaseClass = MakeModelClass({
     pathBase: "/dashboards",
     includeDefaultCrud: true,
     customHandlers: [
-      {
+      defineCustomHandler({
         pathFragment: "/by-experiment/:experimentId",
         verb: "get",
         operationId: "getDashboardsForExperiment",
@@ -82,10 +82,7 @@ const BaseClass = MakeModelClass({
         zodReturnObject: apiGetDashboardsForExperimentReturn,
         summary: "Get all dashboards for an experiment",
         reqHandler: async (
-          req: ApiRequestForValidator<
-            typeof apiGetDashboardsForExperimentValidator,
-            ApiGetDashboardsForExperimentReturn
-          >,
+          req,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({
           dashboards: (
             await req.context.models.dashboards.findByExperiment(
@@ -93,7 +90,7 @@ const BaseClass = MakeModelClass({
             )
           ).map(req.context.models.dashboards.toApiInterface),
         }),
-      },
+      }),
     ],
   },
 });
