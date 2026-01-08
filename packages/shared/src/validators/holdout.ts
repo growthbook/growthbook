@@ -19,6 +19,8 @@ export const holdoutValidator = z
     linkedFeatures: z.record(z.string(), holdoutLinkedItemValidator),
     environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
+    scheduledAnalysisPeriodStartDate: z.date().optional(),
+    scheduledStopDate: z.date().optional(),
   })
   .strict();
 
