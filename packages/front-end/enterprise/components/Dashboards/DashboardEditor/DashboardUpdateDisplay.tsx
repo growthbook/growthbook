@@ -2,6 +2,7 @@ import React, {
   useContext,
   useLayoutEffect,
   useMemo,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -156,7 +157,7 @@ export default function DashboardUpdateDisplay({
   const pendingColorsRef = useRef<Map<string, string>>(new Map());
 
   // Sync pending colors when settings change from outside
-  useMemo(() => {
+  useEffect(() => {
     Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
       Object.entries(dimensionSettings).forEach(
         ([dimensionValue, seriesSettings]) => {
@@ -190,7 +191,7 @@ export default function DashboardUpdateDisplay({
     canCreateAnalyses(projects) &&
     !datasourcesInUse.some((ds) => ds && !canRunSqlExplorerQueries(ds));
 
-  // useLayoutEffect means we're sture the activeSeriesKeys is fully populated before we check it
+  // useLayoutEffect means we're sure the activeSeriesKeys is fully populated before we check it
   useLayoutEffect(() => {
     setActiveKeys(getActiveSeriesKeys());
   }, [getActiveSeriesKeys]);

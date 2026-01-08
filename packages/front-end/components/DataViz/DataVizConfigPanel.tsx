@@ -186,7 +186,6 @@ export default function DataVizConfigPanel({
                     ...dataVizConfig,
                     chartType: "big-value",
                     format: "shortNumber",
-                    displaySettings: {},
                   };
                   // Remove displaySettings if it exists (big-value doesn't support it)
                   onDataVizConfigChange(
