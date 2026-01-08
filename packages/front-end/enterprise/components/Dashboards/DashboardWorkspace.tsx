@@ -6,6 +6,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
+  DisplaySettings,
   getBlockData,
 } from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
