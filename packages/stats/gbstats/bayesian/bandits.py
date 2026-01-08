@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
 from dataclasses import field
-from typing import List, Optional, cast
+from typing import List, Optional
 
 import numpy as np
 import random
@@ -177,7 +177,7 @@ class Bandits(ABC):
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
-        credible_intervals = [
+        credible_intervals: List[ResponseCI] = [
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.variation_means, np.sqrt(self.posterior_variance))
         ]
@@ -185,7 +185,7 @@ class Bandits(ABC):
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
-            ci=cast(List[ResponseCI], credible_intervals),
+            ci=credible_intervals,
             bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,
