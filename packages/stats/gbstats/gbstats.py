@@ -528,10 +528,10 @@ def analyze_metric_df(
             # get one statistic per row (should be one row for non-post-stratified tests)
             for _, row in d.iterrows():
                 stat_control = variation_statistic_from_metric_row(
-                    row, "baseline", metric, use_uncapped=analysis.use_uncapped_metric
+                    row, "baseline", metric
                 )
                 stat_variation = variation_statistic_from_metric_row(
-                    row, f"v{i}", metric, use_uncapped=analysis.use_uncapped_metric
+                    row, f"v{i}", metric
                 )
                 control_stats.append(stat_control)
                 variation_stats.append(stat_variation)
@@ -648,7 +648,6 @@ def variation_statistic_from_metric_row(
     row: pd.Series,
     prefix: str,
     metric: MetricSettingsForStatsEngine,
-    use_uncapped: bool = False,
 ) -> TestStatistic:
     if metric.statistic_type == "quantile_event":
         if metric.quantile_value is None:
@@ -680,53 +679,31 @@ def variation_statistic_from_metric_row(
         )
     elif metric.statistic_type == "ratio_ra":
         m_statistic_post = base_statistic_from_metric_row(
-            row, prefix, "main", metric.main_metric_type, use_uncapped
+            row, prefix, "main", metric.main_metric_type
         )
         d_statistic_post = base_statistic_from_metric_row(
-            row, prefix, "denominator", metric.denominator_metric_type, use_uncapped
+            row, prefix, "denominator", metric.denominator_metric_type
         )
         m_statistic_pre = base_statistic_from_metric_row(
-            row, prefix, "covariate", metric.main_metric_type, use_uncapped
+            row, prefix, "covariate", metric.main_metric_type
         )
         d_statistic_pre = base_statistic_from_metric_row(
-            row, prefix, "denominator_pre", metric.denominator_metric_type, use_uncapped
+            row, prefix, "denominator_pre", metric.denominator_metric_type
         )
-        if use_uncapped:
-            m_post_m_pre_sum_of_products = row[
-                f"{prefix}_main_covariate_sum_product_uncapped"
-            ]
-            d_post_d_pre_sum_of_products = row[
-                f"{prefix}_denominator_post_denominator_pre_sum_product_uncapped"
-            ]
-            m_pre_d_pre_sum_of_products = row[
-                f"{prefix}_main_pre_denominator_pre_sum_product_uncapped"
-            ]
-            m_post_d_post_sum_of_products = row[
-                f"{prefix}_main_denominator_sum_product_uncapped"
-            ]
-            m_post_d_pre_sum_of_products = row[
-                f"{prefix}_main_post_denominator_pre_sum_product_uncapped"
-            ]
-            m_pre_d_post_sum_of_products = row[
-                f"{prefix}_main_pre_denominator_post_sum_product_uncapped"
-            ]
-        else:
-            m_post_m_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
-            d_post_d_pre_sum_of_products = row[
-                f"{prefix}_denominator_post_denominator_pre_sum_product"
-            ]
-            m_pre_d_pre_sum_of_products = row[
-                f"{prefix}_main_pre_denominator_pre_sum_product"
-            ]
-            m_post_d_post_sum_of_products = row[
-                f"{prefix}_main_denominator_sum_product"
-            ]
-            m_post_d_pre_sum_of_products = row[
-                f"{prefix}_main_post_denominator_pre_sum_product"
-            ]
-            m_pre_d_post_sum_of_products = row[
-                f"{prefix}_main_pre_denominator_post_sum_product"
-            ]
+        m_post_m_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
+        d_post_d_pre_sum_of_products = row[
+            f"{prefix}_denominator_post_denominator_pre_sum_product"
+        ]
+        m_pre_d_pre_sum_of_products = row[
+            f"{prefix}_main_pre_denominator_pre_sum_product"
+        ]
+        m_post_d_post_sum_of_products = row[f"{prefix}_main_denominator_sum_product"]
+        m_post_d_pre_sum_of_products = row[
+            f"{prefix}_main_post_denominator_pre_sum_product"
+        ]
+        m_pre_d_post_sum_of_products = row[
+            f"{prefix}_main_pre_denominator_post_sum_product"
+        ]
         return RegressionAdjustedRatioStatistic(
             n=row[f"{prefix}_users"],
             m_statistic_post=m_statistic_post,
@@ -742,37 +719,29 @@ def variation_statistic_from_metric_row(
             theta=None,
         )
     elif metric.statistic_type == "ratio":
-        m_d_sum_of_products = (
-            row[f"{prefix}_main_denominator_sum_product_uncapped"]
-            if use_uncapped
-            else row[f"{prefix}_main_denominator_sum_product"]
-        )
+        m_d_sum_of_products = row[f"{prefix}_main_denominator_sum_product"]
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(
-                row, prefix, "main", metric.main_metric_type, use_uncapped
+                row, prefix, "main", metric.main_metric_type
             ),
             d_statistic=base_statistic_from_metric_row(
-                row, prefix, "denominator", metric.denominator_metric_type, use_uncapped
+                row, prefix, "denominator", metric.denominator_metric_type
             ),
             m_d_sum_of_products=m_d_sum_of_products,
             n=row[f"{prefix}_users"],
         )
     elif metric.statistic_type == "mean":
         return base_statistic_from_metric_row(
-            row, prefix, "main", metric.main_metric_type, use_uncapped
+            row, prefix, "main", metric.main_metric_type
         )
     elif metric.statistic_type == "mean_ra":
         post_statistic = base_statistic_from_metric_row(
-            row, prefix, "main", metric.main_metric_type, use_uncapped
+            row, prefix, "main", metric.main_metric_type
         )
         pre_statistic = base_statistic_from_metric_row(
-            row, prefix, "covariate", metric.covariate_metric_type, use_uncapped
+            row, prefix, "covariate", metric.covariate_metric_type
         )
-        post_pre_sum_of_products = (
-            row[f"{prefix}_main_covariate_sum_product_uncapped"]
-            if use_uncapped
-            else row[f"{prefix}_main_covariate_sum_product"]
-        )
+        post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         n = row[f"{prefix}_users"]
         # Theta will be overriden with correct value later for A/B tests, needs to be passed in for bandits
         theta = None
@@ -794,7 +763,6 @@ def base_statistic_from_metric_row(
     prefix: str,
     component: str,
     metric_type: Optional[MetricType],
-    use_uncapped: bool = False,
 ) -> Union[ProportionStatistic, SampleMeanStatistic]:
     if metric_type:
         if metric_type == "binomial":
@@ -802,18 +770,11 @@ def base_statistic_from_metric_row(
                 sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
             )
         elif metric_type == "count":
-            if use_uncapped:
-                return SampleMeanStatistic(
-                    sum=row[f"{prefix}_{component}_sum_uncapped"],
-                    sum_squares=row[f"{prefix}_{component}_sum_squares_uncapped"],
-                    n=row[f"{prefix}_count"],
-                )
-            else:
-                return SampleMeanStatistic(
-                    sum=row[f"{prefix}_{component}_sum"],
-                    sum_squares=row[f"{prefix}_{component}_sum_squares"],
-                    n=row[f"{prefix}_count"],
-                )
+            return SampleMeanStatistic(
+                sum=row[f"{prefix}_{component}_sum"],
+                sum_squares=row[f"{prefix}_{component}_sum_squares"],
+                n=row[f"{prefix}_count"],
+            )
         else:
             raise ValueError(f"Unexpected metric_type: {metric_type}")
     else:
@@ -830,7 +791,6 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
-
     # Convert raw SQL result into a dataframe of dimensions
     metric_data = get_metric_dfs(
         rows=rows,
@@ -857,6 +817,7 @@ def process_analysis(
         keep_other=keep_other,
         combine_strata=not analysis.post_stratification_enabled,
     )
+
     result = create_core_and_supplemental_results(
         reduced_metric_data=reduced_metric_data,
         num_variations=num_variations,
@@ -864,6 +825,35 @@ def process_analysis(
         analysis=analysis,
     )
     return result
+
+
+def replace_with_uncapped(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Replaces values in columns with their counterparts ending in '_uncapped'.
+
+    Args:
+        df: Input pandas DataFrame.
+
+    Returns:
+        A DataFrame with updated values and '_uncapped' columns removed.
+    """
+    # Create a copy to avoid SettingWithCopy warnings or mutating the original
+    df = df.copy()
+
+    # Identify all columns that end with the suffix
+    capped_cols = [col for col in df.columns if col.endswith("_uncapped")]
+
+    for capped_col in capped_cols:
+        # Determine the target column name (e.g., 'foo_capped' -> 'foo')
+        original_col = capped_col.replace("_uncapped", "")
+
+        # Check if the original column exists before trying to replace it
+        if original_col in df.columns:
+            df[original_col] = df[capped_col]
+            # Remove the capped column after the swap
+            df.drop(columns=[capped_col], inplace=True)
+
+    return df
 
 
 def create_core_and_supplemental_results(
@@ -882,7 +872,7 @@ def create_core_and_supplemental_results(
 
     cuped_adjusted = metric.statistic_type in ["ratio_ra", "mean_ra"]
     metric_capped = metric.capped
-    analysis_bayesian = analysis.stats_engine == "bayesian"
+    analysis_bayesian = analysis.stats_engine == "bayesian" and metric.prior_proper
     post_stratify = test_post_strat_eligible(metric, analysis)
 
     if cuped_adjusted:
@@ -899,12 +889,14 @@ def create_core_and_supplemental_results(
     else:
         result_cuped_adjusted = None
     if metric_capped:
-        analysis_uncapped = dataclasses.replace(analysis, use_uncapped_metric=True)
+        reduced_metric_data_uncapped = copy.deepcopy(reduced_metric_data)
+        for d in reduced_metric_data_uncapped:
+            d.data = replace_with_uncapped(d.data)
         result_uncapped = analyze_metric_df(
-            metric_data=reduced_metric_data,
+            metric_data=reduced_metric_data_uncapped,
             num_variations=num_variations,
             metric=metric,
-            analysis=analysis_uncapped,
+            analysis=analysis,
         )
     else:
         result_uncapped = None

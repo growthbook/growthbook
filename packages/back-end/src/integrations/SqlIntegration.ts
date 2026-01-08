@@ -1416,17 +1416,14 @@ export default abstract class SqlIntegration
           });
 
         // Build result object by processing all field types
-        const result: Record<string, unknown> = {
+        const result: ExperimentMetricQueryResponseRows[number] = {
           variation: row.variation ?? "",
           ...dimensionData,
           users: parseInt(row.users as string) || 0,
           count: parseInt(row.users as string) || 0,
+          main_sum: parseFloat(row.main_sum as string) || 0,
+          main_sum_squares: parseFloat(row.main_sum_squares as string) || 0,
         };
-
-        // Main case - always present
-        result.main_sum = parseFloat(row.main_sum as string) || 0;
-        result.main_sum_squares =
-          parseFloat(row.main_sum_squares as string) || 0;
 
         // Quantile case
         if (row.quantile !== undefined) {
@@ -1563,7 +1560,7 @@ export default abstract class SqlIntegration
           ),
         );
 
-        return result as ExperimentMetricQueryResponseRows[number];
+        return result;
       }),
       statistics: statistics,
     };
@@ -2873,18 +2870,41 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
-    const uncappedCoalesceMetric = `
-      ${this.ensureFloat(`COALESCE(m${numeratorAlias}.${alias}_value, 0)`)}
-    `;
-    const uncappedCoalesceDenominator = `
-      ${this.ensureFloat(`COALESCE(m${denominatorAlias}.${alias}_denominator, 0)`)}
-    `;
-    const uncappedCoalesceCovariate = `
-      ${this.ensureFloat(`COALESCE(c${numeratorAlias}.${alias}_value, 0)`)}
-    `;
-    const uncappedCoalesceDenominatorCovariate = `
-      ${this.ensureFloat(`COALESCE(c${denominatorAlias}.${alias}_denominator, 0)`)}
-    `;
+    const uncappedMetric = {
+      ...metric,
+      cappingSettings: {
+        type: "" as const,
+        value: 0,
+      },
+    };
+    const uncappedCoalesceMetric = this.capCoalesceValue({
+      valueCol: `m${numeratorAlias}.${alias}_value`,
+      metric: uncappedMetric,
+      capTablePrefix: `cap${numeratorAlias}`,
+      capValueCol: `${alias}_value_cap`,
+      columnRef: metric.numerator,
+    });
+    const uncappedCoalesceDenominator = this.capCoalesceValue({
+      valueCol: `m${denominatorAlias}.${alias}_denominator`,
+      metric: uncappedMetric,
+      capTablePrefix: `cap${denominatorAlias}`,
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: metric.denominator,
+    });
+    const uncappedCoalesceCovariate = this.capCoalesceValue({
+      valueCol: `c${numeratorAlias}.${alias}_value`,
+      metric: uncappedMetric,
+      capTablePrefix: `cap${numeratorAlias}`,
+      capValueCol: `${alias}_value_cap`,
+      columnRef: metric.numerator,
+    });
+    const uncappedCoalesceDenominatorCovariate = this.capCoalesceValue({
+      valueCol: `c${denominatorAlias}.${alias}_denominator`,
+      metric: uncappedMetric,
+      capTablePrefix: `cap${denominatorAlias}`,
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: metric.denominator,
+    });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -3933,11 +3953,9 @@ export default abstract class SqlIntegration
       ? isPercentileCappedMetric(denominator)
       : false;
 
-    const denominatorIsAbsoluteCapped =
-      denominator &&
-      denominator.cappingSettings.type === "absolute" &&
-      !!denominator.cappingSettings.value &&
-      isCappableMetricType(denominator);
+    const denominatorIsAbsoluteCapped = denominator
+      ? isAbsoluteCappedMetric(denominator)
+      : false;
 
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",

@@ -30,7 +30,7 @@ interface BaselineResponse {
   stats: MetricStats;
 }
 
-interface BaseExperimentResults {
+interface TestResult {
   expected?: number;
   uplift?: {
     dist: string;
@@ -41,34 +41,34 @@ interface BaseExperimentResults {
   errorMessage?: string;
 }
 
-interface BayesianExperimentResults extends BaseExperimentResults {
+interface BayesianTestResult extends TestResult {
   chanceToWin?: number;
   risk?: [number, number];
   riskType?: RiskType;
 }
 
-interface FrequentistExperimentResults extends BaseExperimentResults {
+interface FrequentistTestResult extends TestResult {
   pValue?: number;
   pValueErrorMessage?: PValueErrorMessage;
 }
 
 interface BayesianVariationResponse
   extends BaselineResponse,
-    BayesianExperimentResults {
+    BayesianTestResult {
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResultsCupedUnadjusted?: BayesianExperimentResults;
-  supplementalResultsUncapped?: BayesianExperimentResults;
-  supplementalResultsUnstratified?: BayesianExperimentResults;
-  supplementalResultsFlatPrior?: BayesianExperimentResults;
+  supplementalResultsCupedUnadjusted?: BayesianTestResult;
+  supplementalResultsUncapped?: BayesianTestResult;
+  supplementalResultsUnstratified?: BayesianTestResult;
+  supplementalResultsFlatPrior?: BayesianTestResult;
 }
 
 interface FrequentistVariationResponse
   extends BaselineResponse,
-    FrequentistExperimentResults {
+    FrequentistTestResult {
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResultsCupedUnadjusted?: FrequentistExperimentResults;
-  supplementalResultsUncapped?: FrequentistExperimentResults;
-  supplementalResultsUnstratified?: FrequentistExperimentResults;
+  supplementalResultsCupedUnadjusted?: FrequentistTestResult;
+  supplementalResultsUncapped?: FrequentistTestResult;
+  supplementalResultsUnstratified?: FrequentistTestResult;
 }
 
 // Keep in sync with gbstats PowerResponse
@@ -145,7 +145,6 @@ export interface AnalysisSettingsForStatsEngine {
   num_goal_metrics: number;
   one_sided_intervals?: boolean;
   post_stratification_enabled?: boolean;
-  use_uncapped_metric?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
