@@ -206,9 +206,7 @@ export default function ExperimentMetricBlock({
               statsEngine,
               hideDetails: false,
               expandedMetrics,
-              toggleExpandedMetric: isEditing
-                ? toggleExpandedMetric
-                : undefined,
+              toggleExpandedMetric,
               getExperimentMetricById,
               getFactTableById,
               shouldShowMetricSlices: true,

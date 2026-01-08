@@ -20,7 +20,6 @@ export default function ExperimentTimeSeriesBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-  isEditing,
   metrics,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
   const {
@@ -136,12 +135,11 @@ export default function ExperimentTimeSeriesBlock({
 
   const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
-  // Create the render label function
   const renderLabelColumn = getRenderLabelColumn({
     statsEngine,
     hideDetails: false,
     expandedMetrics,
-    toggleExpandedMetric: isEditing ? toggleExpandedMetric : undefined,
+    toggleExpandedMetric,
     getExperimentMetricById,
     getFactTableById,
     shouldShowMetricSlices: true,
