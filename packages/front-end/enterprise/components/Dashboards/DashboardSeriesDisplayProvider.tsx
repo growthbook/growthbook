@@ -74,35 +74,6 @@ export default function DashboardSeriesDisplayProvider({
     latestDashboardRef.current = dashboard;
   }, [dashboard]);
 
-  // Clean up seriesDisplaySettings by removing entries without required color field
-  const cleanSeriesDisplaySettings = useCallback(
-    (
-      settings: Record<string, Record<string, DisplaySettings>> | undefined,
-    ): Record<string, Record<string, DisplaySettings>> | undefined => {
-      if (!settings) return undefined;
-
-      const cleaned: Record<string, Record<string, DisplaySettings>> = {};
-      Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
-        const cleanedDimensions: Record<string, DisplaySettings> = {};
-        Object.entries(dimensionSettings).forEach(
-          ([dimensionValue, displaySettings]) => {
-            // Only include entries that have a color (required field)
-            if (displaySettings?.color) {
-              cleanedDimensions[dimensionValue] = displaySettings;
-            }
-          },
-        );
-        // Only include columns that have at least one valid dimension
-        if (Object.keys(cleanedDimensions).length > 0) {
-          cleaned[columnName] = cleanedDimensions;
-        }
-      });
-
-      return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-    },
-    [],
-  );
-
   // Derive settings from dashboard prop + computed colors (single source of truth)
   // Compute on every render (not memoized) so it always includes latest computedColorsRef
   const settings = (() => {
@@ -156,10 +127,10 @@ export default function DashboardSeriesDisplayProvider({
 
       return {
         ...prevDashboard,
-        seriesDisplaySettings: cleanSeriesDisplaySettings(updated),
+        seriesDisplaySettings: updated,
       };
     });
-  }, [dashboard, setDashboard, cleanSeriesDisplaySettings]);
+  }, [dashboard, setDashboard]);
 
   const updateSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, color: string) => {
@@ -178,11 +149,9 @@ export default function DashboardSeriesDisplayProvider({
           },
         };
 
-        const cleanedSettings = cleanSeriesDisplaySettings(updated);
-
         const updatedDashboard = {
           ...prevDashboard,
-          seriesDisplaySettings: cleanedSettings,
+          seriesDisplaySettings: updated,
         };
 
         // Debounce the save operation to avoid spamming API calls
@@ -203,9 +172,7 @@ export default function DashboardSeriesDisplayProvider({
               // Clean settings before saving to remove any entries without colors
               const cleanedDashboard = {
                 ...currentDashboard,
-                seriesDisplaySettings: cleanSeriesDisplaySettings(
-                  currentDashboard.seriesDisplaySettings,
-                ),
+                seriesDisplaySettings: updated,
               };
               Promise.resolve(onSave(cleanedDashboard)).catch((e) => {
                 console.error("Failed to save series display settings:", e);
@@ -219,7 +186,7 @@ export default function DashboardSeriesDisplayProvider({
         return updatedDashboard;
       });
     },
-    [setDashboard, onSave, cleanSeriesDisplaySettings],
+    [setDashboard, onSave],
   );
 
   // Register series keys for tracking (called explicitly by components during render)
