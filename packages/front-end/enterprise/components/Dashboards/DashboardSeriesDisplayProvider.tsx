@@ -8,6 +8,17 @@ import React, {
 import { DashboardInterface, DisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
+// Helper function to deep clone settings
+function deepCloneSettings(
+  settings: Record<string, Record<string, DisplaySettings>>,
+): Record<string, Record<string, DisplaySettings>> {
+  const cloned: Record<string, Record<string, DisplaySettings>> = {};
+  Object.keys(settings).forEach((columnName) => {
+    cloned[columnName] = { ...settings[columnName] };
+  });
+  return cloned;
+}
+
 export const DashboardSeriesDisplayContext = React.createContext<{
   settings: Record<string, Record<string, DisplaySettings>>;
   updateSeriesColor: (
@@ -47,27 +58,14 @@ export default function DashboardSeriesDisplayProvider({
   onSave?: (dashboard: DashboardInterface) => Promise<void> | void;
   children: ReactNode;
 }) {
-  // Track color assignments during render to avoid race conditions
-  // Updates are applied in useEffect after render to avoid warnings
-  // Key format: `${columnName}:${dimensionValue}`
-  const pendingUpdatesRef = useRef<
-    Map<
-      string,
-      {
-        color: string;
-        existingSettings?: DisplaySettings;
-        columnName: string;
-        dimensionValue: string;
-      }
-    >
-  >(new Map());
+  // Track computed colors that haven't been persisted yet
+  // Key format: `${columnName}:${dimensionValue}` -> color string
+  const computedColorsRef = useRef<Map<string, string>>(new Map());
 
   // Track debounce timers per series key to avoid spamming API calls
-  // Key format: `${columnName}:${dimensionValue}`
   const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Track active series keys (keys that are currently being used in charts)
-  // This is populated during render via getSeriesColor() calls
   const activeSeriesKeys = new Map<string, Set<string>>();
 
   // Store latest dashboard ref to avoid stale closures in debounce callbacks
@@ -105,124 +103,61 @@ export default function DashboardSeriesDisplayProvider({
     [],
   );
 
-  // Track settings state separately to handle updates from both prop and local state
-  const [settingsState, setSettingsState] = React.useState<
-    Record<string, Record<string, DisplaySettings>>
-  >(() => dashboard?.seriesDisplaySettings ?? {});
-
-  // Sync settings state from dashboard prop when it changes
-  // Merge with pending auto-assigned colors to preserve them during sync
-  useEffect(() => {
-    if (dashboard?.seriesDisplaySettings !== undefined) {
-      const merged = { ...dashboard.seriesDisplaySettings };
-      // Preserve auto-assigned colors that haven't been persisted yet
-      pendingUpdatesRef.current.forEach(
-        ({ color, existingSettings, columnName, dimensionValue }) => {
-          if (!merged[columnName]) {
-            merged[columnName] = {};
-          }
-          if (!merged[columnName][dimensionValue]?.color) {
-            merged[columnName][dimensionValue] = {
-              ...(existingSettings ?? {}),
-              color,
-            };
-          }
-        },
-      );
-      setSettingsState(merged);
-    } else if (dashboard) {
-      // Dashboard exists but has no seriesDisplaySettings (legacy dashboard)
-      const merged: Record<string, Record<string, DisplaySettings>> = {};
-      pendingUpdatesRef.current.forEach(
-        ({ color, existingSettings, columnName, dimensionValue }) => {
-          if (!merged[columnName]) {
-            merged[columnName] = {};
-          }
-          merged[columnName][dimensionValue] = {
-            ...(existingSettings ?? {}),
-            color,
-          };
-        },
-      );
-      setSettingsState(merged);
-    }
-  }, [dashboard?.seriesDisplaySettings, dashboard]);
-
-  // Merge settingsState with pending updates so settings reflects both persisted and in-flight changes
-  // Compute directly (not memoized) so it always includes current pendingUpdatesRef state
+  // Derive settings from dashboard prop + computed colors (single source of truth)
+  // Compute on every render (not memoized) so it always includes latest computedColorsRef
   const settings = (() => {
-    const merged: Record<string, Record<string, DisplaySettings>> = {};
-    // Deep clone the settings state
-    Object.keys(settingsState).forEach((columnName) => {
-      merged[columnName] = { ...settingsState[columnName] };
+    const base = dashboard?.seriesDisplaySettings ?? {};
+    const result = deepCloneSettings(base);
+
+    // Add computed colors that haven't been persisted yet
+    computedColorsRef.current.forEach((color, key) => {
+      const [columnName, dimensionValue] = key.split(":");
+      if (!result[columnName]) {
+        result[columnName] = {};
+      }
+      // Only add if not already in base settings (don't override persisted colors)
+      if (!result[columnName][dimensionValue]?.color) {
+        result[columnName][dimensionValue] = { color };
+      }
     });
-    // Include pending updates so settings is immediately available during render
-    pendingUpdatesRef.current.forEach(
-      ({ color, existingSettings, columnName, dimensionValue }) => {
-        if (!merged[columnName]) {
-          merged[columnName] = {};
-        }
-        if (!merged[columnName][dimensionValue]?.color) {
-          merged[columnName][dimensionValue] = {
-            ...(existingSettings ?? {}),
-            color,
-          };
-        }
-      },
-    );
-    return merged;
+
+    return result;
   })();
 
-  // Apply pending color updates after render
+  // Persist computed colors after render
   useEffect(() => {
-    if (pendingUpdatesRef.current.size === 0 || !dashboard) {
+    if (computedColorsRef.current.size === 0 || !dashboard) {
       return;
     }
 
-    const updates = new Map(pendingUpdatesRef.current);
-    pendingUpdatesRef.current.clear();
+    const colorsToPersist = new Map(computedColorsRef.current);
+    computedColorsRef.current.clear();
 
     setDashboard((prevDashboard) => {
       if (!prevDashboard) return prevDashboard;
 
       const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
-      const next: Record<string, Record<string, DisplaySettings>> = {};
-      // Deep clone current settings
-      Object.keys(currentSettings).forEach((columnName) => {
-        next[columnName] = { ...currentSettings[columnName] };
-      });
+      const updated = deepCloneSettings(currentSettings);
       let hasChanges = false;
 
-      updates.forEach(
-        ({ color, existingSettings, columnName, dimensionValue }) => {
-          if (!next[columnName]) {
-            next[columnName] = {};
-          }
-          // Only update if color doesn't already exist (atomic check)
-          if (!next[columnName][dimensionValue]?.color) {
-            next[columnName][dimensionValue] = {
-              ...(existingSettings ?? {}),
-              color,
-            };
-            hasChanges = true;
-          }
-        },
-      );
+      colorsToPersist.forEach((color, key) => {
+        const [columnName, dimensionValue] = key.split(":");
+        if (!updated[columnName]) {
+          updated[columnName] = {};
+        }
+        // Only update if color doesn't already exist (atomic check)
+        if (!updated[columnName][dimensionValue]?.color) {
+          updated[columnName][dimensionValue] = { color };
+          hasChanges = true;
+        }
+      });
 
       if (!hasChanges) return prevDashboard;
 
-      // Clean settings to remove any entries without colors before saving
-      const cleanedSettings = cleanSeriesDisplaySettings(next);
-
-      const updatedDashboard = {
+      return {
         ...prevDashboard,
-        seriesDisplaySettings: cleanedSettings,
+        seriesDisplaySettings: cleanSeriesDisplaySettings(updated),
       };
-
-      // Update local settings state immediately (use cleaned version)
-      setSettingsState(cleanedSettings ?? {});
-
-      return updatedDashboard;
     });
   }, [dashboard, setDashboard, cleanSeriesDisplaySettings]);
 
@@ -230,25 +165,20 @@ export default function DashboardSeriesDisplayProvider({
     (columnName: string, dimensionValue: string, color: string) => {
       setDashboard((prevDashboard) => {
         if (!prevDashboard) return prevDashboard;
+
         const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
-        const next: Record<string, Record<string, DisplaySettings>> = {};
-        // Deep clone current settings
-        Object.keys(currentSettings).forEach((colName) => {
-          next[colName] = { ...currentSettings[colName] };
-        });
-        if (!next[columnName]) {
-          next[columnName] = {};
-        }
-        next[columnName][dimensionValue] = {
-          ...(next[columnName][dimensionValue] ?? {}),
-          color,
+        const updated = {
+          ...currentSettings,
+          [columnName]: {
+            ...currentSettings[columnName],
+            [dimensionValue]: {
+              ...(currentSettings[columnName]?.[dimensionValue] ?? {}),
+              color,
+            },
+          },
         };
 
-        // Clean settings to remove any entries without colors
-        const cleanedSettings = cleanSeriesDisplaySettings(next);
-
-        // Update local settings state for UI feedback
-        setSettingsState(cleanedSettings ?? {});
+        const cleanedSettings = cleanSeriesDisplaySettings(updated);
 
         const updatedDashboard = {
           ...prevDashboard,
@@ -307,30 +237,26 @@ export default function DashboardSeriesDisplayProvider({
 
   const getSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, index: number): string => {
+      const seriesKey = `${columnName}:${dimensionValue}`;
+
       // Check if this series already has a color in dashboard settings
-      const existingSettings = settings[columnName]?.[dimensionValue];
-      if (existingSettings?.color) {
-        return existingSettings.color;
+      const existingColor = settings[columnName]?.[dimensionValue]?.color;
+      if (existingColor) {
+        return existingColor;
       }
 
-      // Check if we've already assigned a color during this render cycle
-      const seriesKey = `${columnName}:${dimensionValue}`;
-      const pendingUpdate = pendingUpdatesRef.current.get(seriesKey);
-      if (pendingUpdate?.color) {
-        return pendingUpdate.color;
+      // Check if we've already computed a color during this render cycle
+      const computedColor = computedColorsRef.current.get(seriesKey);
+      if (computedColor) {
+        return computedColor;
       }
 
       // Select a new color using round-robin (index % palette length)
       const colorIndex = index % CHART_COLOR_PALETTE.length;
       const selectedColor = CHART_COLOR_PALETTE[colorIndex];
 
-      // Track this assignment to apply after render (prevents race conditions)
-      pendingUpdatesRef.current.set(seriesKey, {
-        color: selectedColor,
-        existingSettings,
-        columnName,
-        dimensionValue,
-      });
+      // Track this assignment to persist after render
+      computedColorsRef.current.set(seriesKey, selectedColor);
 
       return selectedColor;
     },
@@ -346,18 +272,18 @@ export default function DashboardSeriesDisplayProvider({
     return result;
   };
 
-  // Cleanup debounce timers and pending updates on unmount
+  // Cleanup debounce timers and computed colors on unmount
   useEffect(() => {
     const timers = saveTimersRef.current;
-    const pendingUpdates = pendingUpdatesRef.current;
+    const computedColors = computedColorsRef.current;
     return () => {
       // Clear all debounce timers
       timers.forEach((timer) => {
         clearTimeout(timer);
       });
       timers.clear();
-      // Clear pending updates to prevent memory leaks
-      pendingUpdates.clear();
+      // Clear computed colors to prevent memory leaks
+      computedColors.clear();
     };
   }, []);
 
