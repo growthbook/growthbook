@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
 import {
   ExperimentMetricBlockInterface,
@@ -15,6 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
@@ -26,11 +27,10 @@ export default function ExperimentMetricBlock({
   ssrPolyfills,
   isEditing,
   metrics,
+  setBlock,
 }: BlockProps<ExperimentMetricBlockInterface>) {
   const {
-    baselineRow,
     columnsFilter,
-    variationIds,
     metricIds: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
     metricTagFilter: blockMetricTagFilter,
@@ -86,31 +86,22 @@ export default function ExperimentMetricBlock({
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
       0,
   }));
-  const indexedVariations = experiment.variations.map((v, i) => ({
-    ...v,
-    index: i,
-  }));
 
-  const variationFilter =
-    variationIds && variationIds.length > 0
-      ? indexedVariations
-          .filter((v) => !variationIds.includes(v.id))
-          .map((v) => v.index)
-      : undefined;
-
-  const [expandedMetrics, setExpandedMetrics] = useState<
-    Record<string, boolean>
-  >({});
-  const toggleExpandedMetric = useCallback(
-    (metricId: string, resultGroup: "goal" | "secondary" | "guardrail") => {
-      const key = `${metricId}:${resultGroup}`;
-      setExpandedMetrics((prev) => ({
-        ...prev,
-        [key]: !prev[key],
-      }));
-    },
-    [],
-  );
+  // Use shared editor hooks for state management
+  const {
+    sortBy,
+    sortDirection,
+    baselineRow,
+    variationFilter,
+    differenceType,
+    expandedMetrics,
+    toggleExpandedMetric,
+    setSortBy,
+    setSortDirection,
+    setBaselineRow,
+    setVariationFilter,
+    setDifferenceType,
+  } = useDashboardEditorHooks(block, setBlock, variations);
 
   const metricIds = metrics?.map((m) => m.id) || [];
   const allowDuplicates = block.metricSelector === "all";
@@ -140,8 +131,13 @@ export default function ExperimentMetricBlock({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    sortBy: blockSortBy === "metricIds" ? "custom" : blockSortBy,
-    sortDirection: blockSortBy !== "metricIds" ? blockSortDirection : undefined,
+    sortBy:
+      blockSortBy === "metricIds"
+        ? "custom"
+        : sortBy === "significance" || sortBy === "change"
+          ? sortBy
+          : null,
+    sortDirection: blockSortBy !== "metricIds" ? sortDirection : undefined,
     customMetricOrder:
       blockSortBy === "metricIds" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds
@@ -191,7 +187,9 @@ export default function ExperimentMetricBlock({
             phase={experiment.phases.length - 1}
             variations={variations}
             variationFilter={variationFilter}
+            setVariationFilter={isEditing ? setVariationFilter : undefined}
             baselineRow={baselineRow}
+            setBaselineRow={isEditing ? setBaselineRow : undefined}
             columnsFilter={columnsFilter}
             status={experiment.status}
             isLatestPhase={true}
@@ -222,12 +220,25 @@ export default function ExperimentMetricBlock({
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
-            differenceType={analysis?.settings?.differenceType || "relative"}
+            differenceType={differenceType}
+            setDifferenceType={isEditing ? setDifferenceType : undefined}
             queryStatusData={queryStatusData}
             isTabActive={isTabActive}
             isGoalMetrics={resultGroup === "goal"}
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={true}
+            sortBy={
+              blockSortBy === "metricIds" ? "custom" : (blockSortBy ?? null)
+            }
+            setSortBy={
+              isEditing && setSortBy
+                ? (value: "significance" | "change" | "custom" | null) => {
+                    setSortBy(value as "significance" | "change" | null);
+                  }
+                : undefined
+            }
+            sortDirection={blockSortDirection ?? null}
+            setSortDirection={isEditing ? setSortDirection : undefined}
           />
         ),
       )}

@@ -14,6 +14,7 @@ import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
 import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
@@ -22,14 +23,13 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
+  isEditing,
+  setBlock,
 }: BlockProps<ExperimentDimensionBlockInterface>) {
   const {
-    baselineRow,
     columnsFilter,
-    variationIds,
     dimensionId,
     dimensionValues,
-    differenceType,
     metricSelector,
     metricIds: blockMetricIds,
     metricTagFilter: blockMetricTagFilter,
@@ -56,17 +56,18 @@ export default function ExperimentDimensionBlock({
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
       0,
   }));
-  const indexedVariations = experiment.variations.map((v, i) => ({
-    ...v,
-    index: i,
-  }));
 
-  const variationFilter =
-    variationIds && variationIds.length > 0
-      ? indexedVariations
-          .filter((v) => !variationIds.includes(v.id))
-          .map((v) => v.index)
-      : undefined;
+  // Use shared editor hooks for state management
+  const {
+    baselineRow,
+    variationFilter,
+    differenceType,
+    setSortBy,
+    setSortDirection,
+    setBaselineRow,
+    setVariationFilter,
+    setDifferenceType,
+  } = useDashboardEditorHooks(block, setBlock, variations);
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -110,7 +111,9 @@ export default function ExperimentDimensionBlock({
       queryStatusData={queryStatusData}
       variations={variations}
       variationFilter={variationFilter}
+      setVariationFilter={isEditing ? setVariationFilter : undefined}
       baselineRow={baselineRow}
+      setBaselineRow={isEditing ? setBaselineRow : undefined}
       columnsFilter={columnsFilter}
       goalMetrics={goalMetrics}
       secondaryMetrics={secondaryMetrics}
@@ -130,14 +133,21 @@ export default function ExperimentDimensionBlock({
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
+      setDifferenceType={isEditing ? setDifferenceType : undefined}
       renderMetricName={(metric) => metric.name}
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
-      sortBy={blockSortBy === "metricIds" ? "custom" : blockSortBy}
-      sortDirection={
-        blockSortBy !== "metricIds" ? blockSortDirection : undefined
+      sortBy={blockSortBy === "metricIds" ? "custom" : (blockSortBy ?? null)}
+      setSortBy={
+        isEditing && setSortBy
+          ? (value: "significance" | "change" | "custom" | null) => {
+              setSortBy(value as "significance" | "change" | null);
+            }
+          : undefined
       }
+      sortDirection={blockSortDirection ?? null}
+      setSortDirection={isEditing ? setSortDirection : undefined}
       customMetricOrder={
         blockSortBy === "metricIds" &&
         blockMetricIds &&
