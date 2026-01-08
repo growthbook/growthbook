@@ -1,4 +1,6 @@
-import "back-end/src/init/aliases";
+// We need to import the aliases here to make the imports work.
+// eslint-disable-next-line no-restricted-imports
+import "../init/aliases";
 import { AES, enc } from "crypto-js";
 import {
   updateDataSource,
