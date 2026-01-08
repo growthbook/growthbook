@@ -103,7 +103,7 @@ import {
 } from "back-end/src/api/features/postFeature";
 import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { findSDKConnectionsByOrganization } from "../models/SdkConnectionModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,

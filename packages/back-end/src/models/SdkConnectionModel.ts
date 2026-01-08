@@ -23,7 +23,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
-import { refreshSDKPayloadCache } from "../services/features";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
