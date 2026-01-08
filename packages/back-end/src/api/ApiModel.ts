@@ -234,12 +234,16 @@ export function getDefaultCrudActionSummary(
 }
 
 export function generateYamlForPath({
+  path,
+  verb,
   validator,
   returnSchema,
   operationId,
   summary = "",
   tags = [],
 }: {
+  path: string;
+  verb: HttpVerb;
   validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   returnSchema: object;
   operationId: string;
@@ -294,7 +298,12 @@ export function generateYamlForPath({
     tags: tags,
     summary,
     operationId,
-    "x-codeSamples": [],
+    "x-codeSamples": [
+      {
+        lang: "cURL",
+        source: `curl -X ${verb.toLocaleUpperCase()} https://api.growthbook.io/api/v1${path} ${requestBody ? "-d '{ ... }' " : ""}-u secret_abc123DEF456`,
+      },
+    ],
     requestBody,
     responses: {
       "200": {

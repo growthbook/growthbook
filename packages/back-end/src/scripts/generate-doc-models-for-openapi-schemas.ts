@@ -166,6 +166,8 @@ async function run() {
                 },
               };
         pathRecord[verb] = generateYamlForPath({
+          path: fullPath,
+          verb,
           validator,
           returnSchema,
           operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
@@ -191,6 +193,8 @@ async function run() {
         const fullPath = apiConfig.pathBase + formatPathVariables(pathFragment);
         const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         pathRecord[verb] = generateYamlForPath({
+          path: fullPath,
+          verb,
           validator,
           returnSchema: z.toJSONSchema(zodReturnObject),
           operationId,

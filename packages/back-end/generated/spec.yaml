@@ -5967,7 +5967,9 @@ paths:
         - Dashboards
       summary: Get a single dashboard
       operationId: getDashboard
-      x-codeSamples: []
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/dashboards/{id} -u secret_abc123DEF456'
       responses:
         '200':
           content:
@@ -6522,7 +6524,9 @@ paths:
         - Dashboards
       summary: Delete a single dashboard
       operationId: deleteDashboard
-      x-codeSamples: []
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/dashboards/{id} -u secret_abc123DEF456'
       responses:
         '200':
           content:
@@ -6546,7 +6550,9 @@ paths:
         - Dashboards
       summary: Update a single dashboard
       operationId: updateDashboard
-      x-codeSamples: []
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X PUT https://api.growthbook.io/api/v1/dashboards/{id} -d ''{ ... }'' -u secret_abc123DEF456'
       requestBody:
         required: true
         content:
@@ -7964,7 +7970,9 @@ paths:
         - Dashboards
       summary: Create a single dashboard
       operationId: createDashboard
-      x-codeSamples: []
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/dashboards -d ''{ ... }'' -u secret_abc123DEF456'
       requestBody:
         required: true
         content:
@@ -8950,7 +8958,9 @@ paths:
         - Dashboards
       summary: Get all dashboards
       operationId: listDashboards
-      x-codeSamples: []
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/dashboards -u secret_abc123DEF456'
       responses:
         '200':
           content:
@@ -9508,7 +9518,9 @@ paths:
         - Dashboards
       summary: Get all dashboards for an experiment
       operationId: getDashboardsForExperiment
-      x-codeSamples: []
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/dashboards/by-experiment/{experimentId} -u secret_abc123DEF456'
       responses:
         '200':
           content:
