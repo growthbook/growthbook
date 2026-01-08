@@ -46,6 +46,7 @@ import { AppFeatures } from "@/types/app-features";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -134,6 +135,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
           projects: [],
         },
       ],
+      approvalFlow: {
+        metrics: [],
+        factTables: [],
+        features: [],
+        experiments: [],
+      },
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disableMultiMetricQueries: false,
@@ -275,6 +282,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 }
               : {}),
           };
+        } else if (k === "approvalFlow") {
+          // Approval flow is nested with arrays, merge existing settings with defaults
+          const existingApprovalFlow = settings?.[k];
+          if (existingApprovalFlow) {
+            newVal[k] = {
+              metrics: existingApprovalFlow.metrics || newVal[k]?.metrics || [],
+              factTables:
+                existingApprovalFlow.factTables ||
+                newVal[k]?.factTables ||
+                [],
+              features:
+                existingApprovalFlow.features || newVal[k]?.features || [],
+              experiments:
+                existingApprovalFlow.experiments ||
+                newVal[k]?.experiments ||
+                [],
+            };
+          }
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
@@ -425,6 +450,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 AI Settings
               </PremiumTooltip>
             </TabsTrigger>
+            <TabsTrigger value="approval-flow"><PremiumTooltip commercialFeature="require-approvals">Approval Flow</PremiumTooltip></TabsTrigger>
           </StickyTabsList>
           <Box mt="4">
             <TabsContent value="experiment">
@@ -489,6 +515,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <>
                 <SavedGroupSettings />
               </>
+            </TabsContent>
+            <TabsContent value="approval-flow">
+              <ApprovalFlowSettings />
             </TabsContent>
           </Box>
         </Tabs>

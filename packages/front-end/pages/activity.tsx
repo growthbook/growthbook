@@ -4,15 +4,24 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { HistoryTableRow } from "@/components/HistoryTable";
 import track from "@/services/track";
+import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/ui/Tabs";
+import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
+import { useApprovalFlows } from "@/hooks/useApprovalFlows";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { Box } from "@radix-ui/themes";
+import { ApprovalFlowInterface } from "@/types/approval-flow";
+import router, { useRouter } from "next/router";
 
 const Activity: FC = () => {
+  const router = useRouter();
   const { data, error } = useApi<{
     events: AuditInterface[];
     experiments: { id: string; name: string }[];
   }>("/activity");
 
   track("Viewed Activity Page");
-
+  const { approvalFlows, isLoading} = useApprovalFlows();
+  const [tab, setTab] = useLocalStorage<"approvals" | "watched">("activityTab", "approvals");
   const [open, setOpen] = useState("");
 
   if (error) {
@@ -22,13 +31,32 @@ const Activity: FC = () => {
     return <LoadingOverlay />;
   }
 
+  const setApprovalFlow = (flow: ApprovalFlowInterface) => {
+    const mapEntityType = {
+      "fact-metric": "fact-metrics",
+      "fact-table": "fact-table",
+    }
+    router.push(
+      `/${mapEntityType[flow.entityType]}/${flow.entityId}?approvalFlowId=${encodeURIComponent(flow.id)}#approvals`,
+    );
+  }
+        
   const nameMap = new Map<string, string>();
   data.experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
-
   return (
-    <div className="container-fluid">
+    <Tabs value={tab} onValueChange={(value) => setTab(value as "approvals" | "watched")}>
+      <TabsList>
+        <TabsTrigger value="approvals">Approvals</TabsTrigger>
+        <TabsTrigger value="activity">Watched</TabsTrigger>
+      </TabsList>
+      <Box p="4">
+      <TabsContent value="approvals">
+        <ApprovalFlowList approvalFlows={approvalFlows} isLoading={isLoading} setApprovalFlow={setApprovalFlow} showEntityType={true} showHistory={false}/>
+      </TabsContent>
+      <TabsContent value="watched">
+      <div className="container-fluid">
       <h3>Activity - Last 7 Days</h3>
       <p>Includes all watched features and experiments.</p>
       {data.events.length > 0 ? (
@@ -74,6 +102,9 @@ const Activity: FC = () => {
         </p>
       )}
     </div>
+      </TabsContent>
+      </Box>
+      </Tabs>
   );
 };
 

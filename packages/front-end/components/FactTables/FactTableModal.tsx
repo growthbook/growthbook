@@ -144,12 +144,24 @@ export default function FactTableModal({
               managedBy: value.managedBy,
               projects: value.projects,
             };
-            await apiCall(`/fact-tables/${existing.id}`, {
+            const res = await apiCall<{
+              requiresApproval?: boolean;
+              approvalFlow?: {
+                id: string;
+              };
+            }>(`/fact-tables/${existing.id}`, {
               method: "PUT",
               body: JSON.stringify(data),
             });
-            track("Edit Fact Table");
-            await mutateDefinitions();
+            
+            if (res.requiresApproval && res.approvalFlow) {
+              track("Create Approval Flow for Fact Table");
+              // Navigate to fact table page where they can see the approval flow
+              router.push(`/fact-tables/${existing.id}?tab=approvals`);
+            } else {
+              track("Edit Fact Table");
+              await mutateDefinitions();
+            }
           } else {
             const ds = getDatasourceById(value.datasource);
             if (!ds) throw new Error("Must select a valid data source");

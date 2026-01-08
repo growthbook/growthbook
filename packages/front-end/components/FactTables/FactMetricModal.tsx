@@ -1,6 +1,6 @@
 import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -72,6 +72,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
 import { DocLink } from "../DocLink";
+import { ApprovalFlowInterface } from "@/types/approval-flow";
 
 export interface Props {
   close?: () => void;
@@ -84,6 +85,8 @@ export interface Props {
   switchToLegacy?: () => void;
   source: string;
   datasource?: string;
+  approvalFlows?: ApprovalFlowInterface[];
+  mutateApprovalFlows?: () => void;
 }
 
 function QuantileSelector({
@@ -1505,6 +1508,8 @@ export default function FactMetricModal({
   switchToLegacy,
   source,
   datasource,
+  approvalFlows,
+  mutateApprovalFlows,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -1521,6 +1526,49 @@ export default function FactMetricModal({
   const showSQLPreview = true;
 
   const [showExperimentSQL, setShowExperimentSQL] = useState(false);
+  const [selectedApprovalFlow, setSelectedApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
+  // get the latest non-closed approval flow for that user
+  const { userId } = useUser();
+  useEffect(() => {
+    if (!approvalFlows || approvalFlows.length === 0) {
+      setSelectedApprovalFlow(null);
+      return;
+    }
+    // Keep the current selection if it still exists in the list
+    if (
+      selectedApprovalFlow &&
+      approvalFlows.some((flow) => flow.id === selectedApprovalFlow.id)
+    ) {
+      return;
+    }
+    const latestNonClosedApprovalFlow = [...approvalFlows]
+      .filter(
+        (f) =>
+          f.status !== "closed" && f.status !== "merged" && f.author === userId,
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
+      )[0];
+    setSelectedApprovalFlow(latestNonClosedApprovalFlow || null);
+  }, [approvalFlows, userId, selectedApprovalFlow]);
+
+  const approvalFlowOptions = useMemo(
+    () =>
+      (approvalFlows || []).map((flow) => ({
+        value: flow.id,
+        label: `${flow.title || "Untitled"} (${flow.status})`,
+      })),
+    [approvalFlows],
+  );
+
+  const existingWithSelectedApprovalFlow = useMemo(() => {
+    if (!selectedApprovalFlow) return existing;
+    return {
+      ...selectedApprovalFlow?.originalEntity,
+      ...selectedApprovalFlow?.proposedChanges,
+    };
+  }, [selectedApprovalFlow]);
 
   const {
     datasources,
@@ -1548,29 +1596,46 @@ export default function FactMetricModal({
   const showSwitchToLegacy =
     filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
-  const defaultValues = getDefaultFactMetricProps({
+  const defaultValues = useMemo(() => {
+    const baseDefaults = getDefaultFactMetricProps({
+      datasources,
+      metricDefaults,
+      existing: existingWithSelectedApprovalFlow,
+      settings,
+      project,
+      initialFactTable: initialFactTable
+        ? getFactTableById(initialFactTable) || undefined
+        : undefined,
+      managedBy: existingWithSelectedApprovalFlow?.managedBy,
+    });
+
+    // Multiple percent values by 100 for the UI
+    // These are corrected in the submit method later
+    return {
+      ...baseDefaults,
+      winRisk: baseDefaults.winRisk * 100,
+      loseRisk: baseDefaults.loseRisk * 100,
+      minPercentChange: baseDefaults.minPercentChange * 100,
+      maxPercentChange: baseDefaults.maxPercentChange * 100,
+      targetMDE: baseDefaults.targetMDE * 100,
+    };
+  }, [
     datasources,
     metricDefaults,
-    existing,
+    existingWithSelectedApprovalFlow,
     settings,
     project,
-    initialFactTable: initialFactTable
-      ? getFactTableById(initialFactTable) || undefined
-      : undefined,
-    managedBy: existing?.managedBy,
-  });
-
-  // Multiple percent values by 100 for the UI
-  // These are corrected in the submit method later
-  defaultValues.winRisk = defaultValues.winRisk * 100;
-  defaultValues.loseRisk = defaultValues.loseRisk * 100;
-  defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
-  defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
-  defaultValues.targetMDE = defaultValues.targetMDE * 100;
+    initialFactTable,
+    getFactTableById,
+  ]);
 
   const form = useForm<CreateFactMetricProps>({
     defaultValues,
   });
+
+  useEffect(() => {
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
@@ -1613,8 +1678,8 @@ export default function FactMetricModal({
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : "";
 
-  const isNew = !existing || duplicate || fromTemplate;
-  const initialType = existing?.metricType;
+  const isNew = !existingWithSelectedApprovalFlow || duplicate || fromTemplate;
+  const initialType = existingWithSelectedApprovalFlow?.metricType;
   useEffect(() => {
     if (isNew) {
       track("Viewed Create Fact Metric Modal", { source });
@@ -1814,26 +1879,52 @@ export default function FactMetricModal({
 
         if (!isNew) {
           // Track auto slices changes
-          const previousSlices = existing.metricAutoSlices || [];
+          const previousSlices = existingWithSelectedApprovalFlow.metricAutoSlices || [];
           const newSlices = values.metricAutoSlices || [];
           if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+            if(selectedApprovalFlow){
+              track("metric-auto-slices-updated-approval-flow", {
+                metricId: existingWithSelectedApprovalFlow.id,
+                previousSlices: previousSlices,
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            } else {
             track("metric-auto-slices-updated", {
-              metricId: existing.id,
+              metricId: existingWithSelectedApprovalFlow.id,
               previousSlices: previousSlices,
               newSlices: newSlices,
               sliceCount: newSlices.length,
             });
           }
+          }
 
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
-          await apiCall(`/fact-metrics/${existing.id}`, {
-            method: "PUT",
-            body: JSON.stringify(updatePayload),
-          });
-          track("Edit Fact Metric", trackProps);
-          await mutateDefinitions();
+          if(selectedApprovalFlow){
+            const response = await apiCall<{ awaitingApproval?: boolean }>(`/approval-flow/${selectedApprovalFlow.id}/proposed-changes`, {
+              method: "PUT",
+              body: JSON.stringify({
+                proposedChanges: updatePayload,
+              }),
+            });
+            mutateApprovalFlows?.();
+          } else {
+            if (!existing?.id) {
+              throw new Error("Missing fact metric id");
+            }
+            const response = await apiCall<{ awaitingApproval?: boolean }>(`/fact-metrics/${existing.id}`, {
+              method: "PUT",
+              body: JSON.stringify(updatePayload),
+            });
+            if(!!response?.awaitingApproval) {
+              track("Awaiting Approval for Fact Metric Update", trackProps);
+            } else {
+              track("Edit Fact Metric", trackProps);
+              await mutateDefinitions();
+            }
+          }
         } else {
           // Track auto slices for new metrics
           const newSlices = values.metricAutoSlices || [];
@@ -1880,6 +1971,27 @@ export default function FactMetricModal({
                 Switch to legacy SQL <FaArrowRight />
               </a>
             </Callout>
+          )}
+          {approvalFlowOptions.length > 0 && (
+            <div className="mb-3">
+              <SelectField
+                label="Approval Flow"
+                value={selectedApprovalFlow?.id || ""}
+                options={[
+                  { label: "No approval flow", value: "" },
+                  ...approvalFlowOptions,
+                ]}
+                onChange={(value) => {
+                  const nextFlow =
+                    approvalFlows?.find((flow) => flow.id === value) || null;
+                  setSelectedApprovalFlow(nextFlow);
+                }}
+                placeholder="Select an approval flow"
+              />
+              <HelperText status="info">
+                Selecting an approval flow loads its proposed changes for editing.
+              </HelperText>
+            </div>
           )}
           <Field
             label="Metric Name"

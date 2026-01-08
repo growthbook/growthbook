@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect,
+useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
@@ -13,7 +14,6 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -47,6 +47,8 @@ import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
+import { useApprovalFlowsEntityId } from "@/hooks/useApprovalFlows";
 import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
@@ -65,6 +67,8 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
+import { ApprovalFlowInterface } from "@/types/approval-flow";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -78,6 +82,7 @@ function FactTableLink({ id }: { id?: string }) {
     </Link>
   );
 }
+
 
 function FilterBadges({
   ids,
@@ -170,7 +175,7 @@ export default function FactMetricPage() {
   const [openDropdown, setOpenDropdown] = useState(false);
   const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
     useState(false);
-
+ 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
     "analysis",
@@ -208,7 +213,29 @@ export default function FactMetricPage() {
     growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
+  // Fetch approval flows for this fact metric
+  const {
+    approvalFlows,
+    isLoading: approvalFlowsLoading,
+    mutate: mutateApprovalFlows,
+  } = useApprovalFlowsEntityId("fact-metric", fmid as string);
   if (!ready) return <LoadingOverlay />;
+  // get the query param from the url to check if we are going to show an approval flow detail
+ const [currentApprovalFlow, setCurrentApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
+  useEffect(() => {
+  const { approvalFlowId } = router.query;
+  if(approvalFlowId && !currentApprovalFlow) {
+    const approvalFlow = approvalFlows.find((flow) => flow.id === approvalFlowId);
+    if(approvalFlow) {
+      setCurrentApprovalFlow(approvalFlow);
+    }
+  }
+  const hash = router.asPath.split("#")[1];
+  if (hash === "approvals") {
+    setTab("approvals");
+  }
+},[approvalFlows, router.query, router.asPath, setTab]);
+
 
   const factMetric = getFactMetricById(fmid as string);
 
@@ -442,6 +469,8 @@ export default function FactMetricPage() {
           existing={factMetric}
           showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
+          approvalFlows={approvalFlows}
+          mutateApprovalFlows={mutateApprovalFlows}
         />
       )}
       {editProjectsOpen && (
@@ -1088,6 +1117,9 @@ export default function FactMetricPage() {
               Bandits
             </TabsTrigger>
           )}
+            <TabsTrigger value="approvals">
+              Change Log
+            </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis">
@@ -1109,6 +1141,24 @@ export default function FactMetricPage() {
             <MetricExperiments metric={factMetric} bandits={true} />
           </TabsContent>
         )}
+        <TabsContent value="approvals">
+          <Box p="4">
+        {!currentApprovalFlow ? (
+              <ApprovalFlowList
+                approvalFlows={approvalFlows}
+                isLoading={approvalFlowsLoading}
+                setApprovalFlow={setCurrentApprovalFlow}
+                />
+            ) : (
+              <ApprovalFlowDetail
+                approvalFlow={currentApprovalFlow}
+                currentState={factMetric}
+                mutate={mutateApprovalFlows}
+                setCurrentApprovalFlow={setCurrentApprovalFlow}
+              />
+            )}
+            </Box>
+        </TabsContent>
       </Tabs>
     </div>
   );

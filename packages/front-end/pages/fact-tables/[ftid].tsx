@@ -36,6 +36,8 @@ import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Callout from "@/ui/Callout";
+import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
+import { useApprovalFlowsEntityId } from "@/hooks/useApprovalFlows";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -50,7 +52,7 @@ export function getMetricsForFactTable(
 
 export default function FactTablePage() {
   const router = useRouter();
-  const { ftid } = router.query;
+  const { ftid, tab: queryTab } = router.query;
 
   const [editOpen, setEditOpen] = useState(false);
   const [editSQLOpen, setEditSQLOpen] = useState(false);
@@ -82,6 +84,13 @@ export default function FactTablePage() {
   const factTable = getFactTableById(ftid as string);
 
   const metrics = getMetricsForFactTable(factMetrics, factTable?.id || "");
+
+  // Fetch approval flows for this fact table
+  const {
+    approvalFlows,
+    isLoading: approvalFlowsLoading,
+    mutate: mutateApprovalFlows,
+  } = useApprovalFlowsEntityId("fact-table", ftid as string);
 
   if (!ready) return <LoadingOverlay />;
 
@@ -448,7 +457,7 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="metrics">
+      <Tabs defaultValue={(queryTab as string) || "metrics"}>
         <TabsList>
           <TabsTrigger value="metrics">
             Metrics{" "}
@@ -467,6 +476,17 @@ export default function FactTablePage() {
               ml="1"
               radius="full"
             />
+          </TabsTrigger>
+          <TabsTrigger value="approvals">
+            Approvals
+            {approvalFlows.length > 0 && (
+              <Badge
+                label={approvalFlows.length + ""}
+                color="red"
+                ml="1"
+                radius="full"
+              />
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -496,6 +516,17 @@ export default function FactTablePage() {
             <div className="appbox p-3 flex-1">
               <FactFilterList factTable={factTable} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="approvals">
+            <ApprovalFlowList
+              approvalFlows={approvalFlows}
+              onUpdate={() => {
+                mutateApprovalFlows();
+                mutateDefinitions();
+              }}
+              loading={approvalFlowsLoading}
+            />
           </TabsContent>
         </Box>
       </Tabs>

@@ -19,7 +19,7 @@ export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, teams } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
   const { projects } = useDefinitions();
@@ -392,6 +392,34 @@ export default function FeatureSettings() {
                                   };
                                 })}
                                 placeholder="All Environments"
+                              />
+                              <Text
+                                as="label"
+                                mt="5"
+                                htmlFor={`approver-teams-${i}`}
+                                className="font-weight-semibold"
+                              >
+                                Approver Teams
+                              </Text>
+                              <MultiSelectField
+                                id={`approver-teams-${i}`}
+                                value={
+                                  form.watch(`requireReviews.${i}.approverTeams`) ||
+                                  []
+                                }
+                                onChange={(approverTeams) => {
+                                  form.setValue(
+                                    `requireReviews.${i}.approverTeams`,
+                                    approverTeams,
+                                  );
+                                }}
+                                options={(teams || []).map((t) => {
+                                  return {
+                                    value: t.id,
+                                    label: t.name,
+                                  };
+                                })}
+                                placeholder="All Teams (anyone can approve)"
                               />
                               <Flex gap="3" mt="5">
                                 <Checkbox
