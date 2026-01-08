@@ -371,16 +371,22 @@ export interface paths {
     /** Get list of custom fields */
     get: operations["getCustomFields"];
   };
-  "/dashboards/:id": {
+  "/dashboards/{id}": {
+    /** Get a single dashboard */
     get: operations["getDashboard"];
-    post: operations["updateDashboard"];
+    /** Update a single dashboard */
+    put: operations["updateDashboard"];
+    /** Delete a single dashboard */
     delete: operations["deleteDashboard"];
   };
-  "/dashboards/": {
+  "/dashboards": {
+    /** Get all dashboards */
     get: operations["listDashboards"];
+    /** Create a single dashboard */
     post: operations["createDashboard"];
   };
-  "/dashboards/by-experiment/:experimentId": {
+  "/dashboards/by-experiment/{experimentId}": {
+    /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
 }
@@ -14320,6 +14326,7 @@ export interface operations {
     };
   };
   getDashboard: {
+    /** Get a single dashboard */
     parameters: {
       path: {
         id: string;
@@ -14502,6 +14509,7 @@ export interface operations {
     };
   };
   updateDashboard: {
+    /** Update a single dashboard */
     parameters: {
       path: {
         id: string;
@@ -14959,6 +14967,7 @@ export interface operations {
     };
   };
   deleteDashboard: {
+    /** Delete a single dashboard */
     parameters: {
       path: {
         id: string;
@@ -14975,6 +14984,7 @@ export interface operations {
     };
   };
   listDashboards: {
+    /** Get all dashboards */
     responses: {
       200: {
         content: {
@@ -15152,6 +15162,7 @@ export interface operations {
     };
   };
   createDashboard: {
+    /** Create a single dashboard */
     requestBody: {
       content: {
         "application/json": {
@@ -15473,6 +15484,7 @@ export interface operations {
     };
   };
   getDashboardsForExperiment: {
+    /** Get all dashboards for an experiment */
     parameters: {
       path: {
         experimentId: string;

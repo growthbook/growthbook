@@ -5954,7 +5954,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CustomField'
-  '/dashboards/:id':
+  '/dashboards/{id}':
     get:
       $skipValidatorGeneration: true
       parameters:
@@ -5965,7 +5965,7 @@ paths:
             type: string
       tags:
         - Dashboards
-      summary: ''
+      summary: Get a single dashboard
       operationId: getDashboard
       x-codeSamples: []
       responses:
@@ -6520,7 +6520,7 @@ paths:
             type: string
       tags:
         - Dashboards
-      summary: ''
+      summary: Delete a single dashboard
       operationId: deleteDashboard
       x-codeSamples: []
       responses:
@@ -6534,7 +6534,7 @@ paths:
                 properties:
                   deletedId:
                     type: string
-    post:
+    put:
       $skipValidatorGeneration: true
       parameters:
         - name: id
@@ -6544,7 +6544,7 @@ paths:
             type: string
       tags:
         - Dashboards
-      summary: ''
+      summary: Update a single dashboard
       operationId: updateDashboard
       x-codeSamples: []
       requestBody:
@@ -7956,13 +7956,13 @@ paths:
                       - dateUpdated
                       - blocks
                     additionalProperties: false
-  /dashboards/:
+  /dashboards:
     post:
       $skipValidatorGeneration: true
       parameters: []
       tags:
         - Dashboards
-      summary: ''
+      summary: Create a single dashboard
       operationId: createDashboard
       x-codeSamples: []
       requestBody:
@@ -8948,7 +8948,7 @@ paths:
       parameters: []
       tags:
         - Dashboards
-      summary: ''
+      summary: Get all dashboards
       operationId: listDashboards
       x-codeSamples: []
       responses:
@@ -9495,7 +9495,7 @@ paths:
                         - dateUpdated
                         - blocks
                       additionalProperties: false
-  '/dashboards/by-experiment/:experimentId':
+  '/dashboards/by-experiment/{experimentId}':
     get:
       $skipValidatorGeneration: true
       parameters:
@@ -9506,7 +9506,7 @@ paths:
             type: string
       tags:
         - Dashboards
-      summary: ''
+      summary: Get all dashboards for an experiment
       operationId: getDashboardsForExperiment
       x-codeSamples: []
       responses:

@@ -71,6 +71,7 @@ const BaseClass = MakeModelClass({
       createBody: apiCreateDashboardBody,
       updateBody: apiUpdateDashboardBody,
     },
+    pathBase: "/dashboards",
     includeDefaultCrud: true,
     customHandlers: [
       {
@@ -79,6 +80,7 @@ const BaseClass = MakeModelClass({
         operationId: "getDashboardsForExperiment",
         validator: apiGetDashboardsForExperimentValidator,
         zodReturnObject: apiGetDashboardsForExperimentReturn,
+        summary: "Get all dashboards for an experiment",
         reqHandler: async (
           req: ApiRequestForValidator<
             typeof apiGetDashboardsForExperimentValidator,

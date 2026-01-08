@@ -10,6 +10,8 @@ import {
   createApiRequestHandler,
 } from "../util/handler";
 
+export const API_MODELS: ModelClass[] = [DashboardModel];
+
 export type ApiBaseSchema = typeof apiBaseSchema;
 
 type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
@@ -35,6 +37,7 @@ type CustomHandler<
   operationId: string;
   validator: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema>;
   zodReturnObject: z.ZodObject;
+  summary?: string;
   reqHandler: (
     req: ApiRequest<ReturnShape, ParamsSchema, BodySchema, QuerySchema>,
   ) => Promise<ReturnShape>;
@@ -76,21 +79,12 @@ export type ApiModelConfig<
     createBody: C;
     updateBody: U;
   };
+  pathBase: string;
   includeDefaultCrud?: boolean;
   crudActions?: CrudAction[];
   crudValidatorOverrides?: Partial<CrudValidatorShapes<T>>;
   customHandlers?: CustomHandler[];
 };
-type ApiModel = {
-  pathBase: string;
-  modelClass: ModelClass;
-};
-export const apiModels = [
-  {
-    pathBase: "/dashboards",
-    modelClass: DashboardModel,
-  },
-];
 
 const crudDefaults: Record<
   CrudAction,
@@ -102,11 +96,11 @@ const crudDefaults: Record<
   },
   create: {
     verb: "post",
-    pathFragment: "/",
+    pathFragment: "",
   },
   list: {
     verb: "get",
-    pathFragment: "/",
+    pathFragment: "",
     plural: true,
   },
   delete: {
@@ -114,7 +108,7 @@ const crudDefaults: Record<
     pathFragment: "/:id",
   },
   update: {
-    verb: "post",
+    verb: "put",
     pathFragment: "/:id",
   },
 };
@@ -138,16 +132,18 @@ export function getCrudConfig<T extends ApiBaseSchema>(
   return actions.map((action) => {
     const { verb, pathFragment, plural } = crudDefaults[action];
     const validator = getCrudValidator(action, apiConfig);
-    const returnKey = plural ? apiConfig.modelPlural : apiConfig.modelSingular;
+    const returnKey =
+      action === "delete"
+        ? "deletedId"
+        : plural
+          ? apiConfig.modelPlural
+          : apiConfig.modelSingular;
     return { action, verb, pathFragment, validator, returnKey, plural };
   });
 }
 
-export function defineRouterForApiModel(modelDef: ApiModel) {
+export function defineRouterForApiConfig(apiConfig: ApiModelConfig) {
   const r = Router();
-  const modelConfig = modelDef.modelClass.getModelConfig();
-  if (!modelConfig.apiConfig) return;
-  const apiConfig = modelConfig.apiConfig;
   const crudConfig = getCrudConfig(apiConfig);
   crudConfig.forEach(({ action, verb, pathFragment, validator, returnKey }) => {
     const handler = createApiRequestHandler(validator)(async (req) => {
@@ -216,6 +212,25 @@ function getDefaultValidator<
       paramsSchema: z.object({ id: z.string() }).strict(),
     },
   }[action];
+}
+
+export function getDefaultCrudActionSummary(
+  action: CrudAction,
+  modelSingular: string,
+  modelPlural: string,
+): string {
+  switch (action) {
+    case "create":
+      return `Create a single ${modelSingular}`;
+    case "delete":
+      return `Delete a single ${modelSingular}`;
+    case "get":
+      return `Get a single ${modelSingular}`;
+    case "list":
+      return `Get all ${modelPlural}`;
+    case "update":
+      return `Update a single ${modelSingular}`;
+  }
 }
 
 export function generateYamlForPath({

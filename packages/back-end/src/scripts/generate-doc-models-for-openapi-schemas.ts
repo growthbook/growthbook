@@ -4,9 +4,10 @@ import { load, dump } from "js-yaml";
 import { capitalizeFirstCharacter } from "shared/util";
 import { z } from "zod";
 import {
-  apiModels,
+  API_MODELS,
   generateYamlForPath,
   getCrudConfig,
+  getDefaultCrudActionSummary,
   HttpVerb,
   httpVerbs,
 } from "back-end/src/api/ApiModel";
@@ -90,7 +91,7 @@ function isValidApi(
 function getOrCreatePathRecord(api: ApiShape, fullPath: string, verb: string) {
   if (api.paths[fullPath] && "$ref" in api.paths[fullPath])
     throw new Error(
-      "Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined",
+      `Unable to add API route at '${verb}' ${fullPath}; this path has a $ref defined`,
     );
   const pathRecord: PathRecord = api.paths[fullPath] || {};
   if (verb in pathRecord) {
@@ -99,6 +100,11 @@ function getOrCreatePathRecord(api: ApiShape, fullPath: string, verb: string) {
     );
   }
   return pathRecord;
+}
+
+// Replace the expressjs :varName from the path with {varName} for docs
+function formatPathVariables(pathFragment: string) {
+  return pathFragment.replace(/:(\w+)/g, "{$1}");
 }
 
 async function run() {
@@ -124,8 +130,8 @@ async function run() {
     .map((fileName) => fileName.replace(".yaml", ""));
 
   // Set up references for ApiModel classes
-  apiModels.forEach((modelDef) => {
-    const modelConfig = modelDef.modelClass.getModelConfig();
+  API_MODELS.forEach((modelClass) => {
+    const modelConfig = modelClass.getModelConfig();
     if (!modelConfig.apiConfig) return;
     const apiConfig = modelConfig.apiConfig;
     const singularCapitalized = capitalizeFirstCharacter(
@@ -137,7 +143,7 @@ async function run() {
     const crudConfig = getCrudConfig(apiConfig);
     crudConfig.forEach(
       ({ action, verb, pathFragment, validator, returnKey, plural }) => {
-        const fullPath = modelDef.pathBase + pathFragment;
+        const fullPath = apiConfig.pathBase + formatPathVariables(pathFragment);
         const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         const returnSchema =
           action === "delete"
@@ -163,20 +169,33 @@ async function run() {
           validator,
           returnSchema,
           operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
+          summary: getDefaultCrudActionSummary(
+            action,
+            apiConfig.modelSingular,
+            apiConfig.modelPlural,
+          ),
           tags: [pluralCapitalized],
         });
         api.paths[fullPath] = pathRecord;
       },
     );
     (apiConfig.customHandlers ?? []).forEach(
-      ({ pathFragment, verb, operationId, validator, zodReturnObject }) => {
-        const fullPath = modelDef.pathBase + pathFragment;
+      ({
+        pathFragment,
+        verb,
+        operationId,
+        validator,
+        summary,
+        zodReturnObject,
+      }) => {
+        const fullPath = apiConfig.pathBase + formatPathVariables(pathFragment);
         const pathRecord = getOrCreatePathRecord(api, fullPath, verb);
         pathRecord[verb] = generateYamlForPath({
           validator,
           returnSchema: z.toJSONSchema(zodReturnObject),
           operationId,
           tags: [pluralCapitalized],
+          summary,
         });
         api.paths[fullPath] = pathRecord;
       },
