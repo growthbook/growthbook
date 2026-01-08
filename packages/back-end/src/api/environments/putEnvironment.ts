@@ -6,7 +6,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
@@ -63,7 +63,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
           (c) => c.environment === id,
         );
 
-        await refreshSDKPayloadCache({
+        queueSDKPayloadRefresh({
           context: req.context,
           payloadKeys: [],
           sdkConnections: affectedConnections,

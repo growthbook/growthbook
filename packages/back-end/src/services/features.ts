@@ -468,7 +468,21 @@ export function isSDKConnectionAffectedByPayloadKey(
   return connection.projects.includes(payloadKey.project);
 }
 
-export async function refreshSDKPayloadCache({
+// This is a synchronous wrapper around refreshSDKPayloadCache
+// We shouldn't need to await the refresh in most cases
+export function queueSDKPayloadRefresh(data: {
+  context: ReqContext | ApiReqContext;
+  payloadKeys: SDKPayloadKey[];
+  sdkConnections?: SDKConnectionInterface[];
+  skipRefreshForProject?: string;
+  treatEmptyProjectAsGlobal?: boolean;
+}) {
+  refreshSDKPayloadCache(data).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload Cache");
+  });
+}
+
+async function refreshSDKPayloadCache({
   context: baseContext,
   payloadKeys,
   skipRefreshForProject,
