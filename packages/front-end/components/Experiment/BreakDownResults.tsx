@@ -265,8 +265,6 @@ const BreakDownResults: FC<{
                     {getRenderLabelColumn({
                       statsEngine,
                       hideDetails,
-                      experimentType,
-                      className: "",
                     })({
                       label: table.metric.name,
                       metric: table.metric,

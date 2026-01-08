@@ -140,7 +140,6 @@ export default function ExperimentTimeSeriesBlock({
   const renderLabelColumn = getRenderLabelColumn({
     statsEngine,
     hideDetails: false,
-    experimentType: undefined,
     expandedMetrics,
     toggleExpandedMetric: isEditing ? toggleExpandedMetric : undefined,
     getExperimentMetricById,

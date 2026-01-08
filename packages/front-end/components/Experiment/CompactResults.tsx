@@ -382,7 +382,6 @@ const CompactResults: FC<{
           renderLabelColumn={getRenderLabelColumn({
             statsEngine,
             hideDetails,
-            experimentType,
             expandedMetrics,
             toggleExpandedMetric,
             getExperimentMetricById,
@@ -442,7 +441,6 @@ const CompactResults: FC<{
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
-              experimentType: undefined,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -502,7 +500,6 @@ const CompactResults: FC<{
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails,
-              experimentType: undefined,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -541,17 +538,14 @@ export default CompactResults;
 export function getRenderLabelColumn({
   statsEngine,
   hideDetails,
-  experimentType: _experimentType,
   expandedMetrics,
   toggleExpandedMetric,
   shouldShowMetricSlices,
   getChildRowCounts,
   sliceTagsFilter,
-  className = "pl-3",
 }: {
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
-  experimentType?: ExperimentType;
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
     metricId: string,
@@ -562,7 +556,6 @@ export function getRenderLabelColumn({
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];
-  className?: string;
 }) {
   return function renderLabelColumn({
     label,
@@ -584,9 +577,8 @@ export function getRenderLabelColumn({
 
     // Slice row
     if (isSliceRow) {
-      const sliceRowClassName = isSliceRow ? "pl-4" : className;
       return (
-        <div className={sliceRowClassName} style={{ position: "relative" }}>
+        <div className="pl-4" style={{ position: "relative" }}>
           <div
             className="ml-2 font-weight-bold"
             style={{
@@ -658,31 +650,23 @@ export function getRenderLabelColumn({
       );
     }
 
-    // Get child row counts
     const childRowCount =
       shouldShowMetricSlices && getChildRowCounts
         ? getChildRowCounts(metric.id)
         : 0;
-
     const hasSlices = childRowCount > 0;
+    const shouldShowExpandButton =
+      toggleExpandedMetric &&
+      hasSlices &&
+      !row?.labelOnly &&
+      !sliceTagsFilter?.length;
 
     // Render non-slice metric
     return (
       <>
-        <div
-          className={className}
-          style={{
-            position: "relative",
-            top:
-              childRowCount > 0 &&
-              toggleExpandedMetric &&
-              (!sliceTagsFilter || sliceTagsFilter.length === 0)
-                ? -6
-                : undefined,
-          }}
-        >
+        <div className="pl-3">
           <span
-            className={toggleExpandedMetric ? "ml-2" : undefined}
+            className="ml-2"
             style={
               maxRows
                 ? {
@@ -694,10 +678,7 @@ export function getRenderLabelColumn({
                 : undefined
             }
           >
-            {hasSlices &&
-            toggleExpandedMetric &&
-            !row?.labelOnly &&
-            !sliceTagsFilter?.length ? (
+            {shouldShowExpandButton ? (
               <div style={{ position: "absolute", left: 4, marginTop: 3 }}>
                 <Tooltip
                   body={

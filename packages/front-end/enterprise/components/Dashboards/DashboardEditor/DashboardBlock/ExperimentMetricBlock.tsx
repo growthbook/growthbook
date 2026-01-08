@@ -205,7 +205,6 @@ export default function ExperimentMetricBlock({
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails: false,
-              experimentType: undefined,
               expandedMetrics,
               toggleExpandedMetric: isEditing
                 ? toggleExpandedMetric
