@@ -22,9 +22,15 @@ import {
   CreateDashboardArgs,
 } from "./DashboardsTab";
 
-const defaultUpdateSchedule = {
-  type: "stale",
-  hours: 6,
+const defaultUpdateSchedules = {
+  stale: {
+    type: "stale",
+    hours: 6,
+  },
+  cron: {
+    type: "cron",
+    cron: "0 0 */2 * *",
+  },
 } as const;
 
 const defaultFormInit = {
@@ -131,6 +137,8 @@ export default function DashboardModal({
       })} (UTC time)`,
     );
   }
+
+  const currentUpdateSchedule = form.watch("updateSchedule");
 
   const hasGeneralDashboardSharing = hasCommercialFeature(
     "share-product-analytics-dashboards",
@@ -242,7 +250,7 @@ export default function DashboardModal({
                 form.setValue("enableAutoUpdates", checked);
                 form.setValue(
                   "updateSchedule",
-                  checked ? defaultUpdateSchedule : undefined,
+                  checked ? defaultUpdateSchedules["stale"] : undefined,
                 );
               }}
             />
@@ -263,10 +271,12 @@ export default function DashboardModal({
                             step={1}
                             min={1}
                             max={168}
-                            disabled={
-                              form.watch("updateSchedule.type") !== "stale"
+                            disabled={currentUpdateSchedule?.type !== "stale"}
+                            value={
+                              currentUpdateSchedule?.type === "stale"
+                                ? currentUpdateSchedule.hours
+                                : 6
                             }
-                            value={form.watch("updateSchedule.hours")}
                             onChange={(e) => {
                               let hours = 6;
                               try {
@@ -289,11 +299,8 @@ export default function DashboardModal({
                               once an hour.
                             </Text>
                             <Field
-                              disabled={
-                                form.watch("updateSchedule.type") !== "cron"
-                              }
+                              disabled={currentUpdateSchedule?.type !== "cron"}
                               {...form.register("updateSchedule.cron")}
-                              placeholder="0 0 */2 * * *"
                               onFocus={(e) => {
                                 updateCronString(e.target.value);
                               }}
@@ -301,7 +308,11 @@ export default function DashboardModal({
                                 updateCronString(e.target.value);
                               }}
                               helpText={
-                                <span className="ml-2">{cronString}</span>
+                                cronString ? (
+                                  <span className="ml-2">{cronString}</span>
+                                ) : (
+                                  "Example: 0 0 */2 * * *"
+                                )
                               }
                             />
                           </>
@@ -310,11 +321,11 @@ export default function DashboardModal({
                     ]}
                     gap="2"
                     descriptionSize="2"
-                    value={form.watch("updateSchedule.type")}
+                    value={currentUpdateSchedule?.type ?? "stale"}
                     setValue={(v) => {
                       form.setValue(
-                        "updateSchedule.type",
-                        v as DashboardUpdateSchedule["type"],
+                        "updateSchedule",
+                        defaultUpdateSchedules[v],
                       );
                     }}
                   />
