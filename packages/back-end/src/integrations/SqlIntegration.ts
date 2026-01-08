@@ -1434,132 +1434,69 @@ export default abstract class SqlIntegration
           );
         }
 
-        // Ratio case
         Object.assign(
           result,
+          // Ratio case
           parsePairedFields(row, "denominator_sum", "denominator_sum_squares"),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_denominator_sum_product"),
-        );
-
-        // CUPED case
-        Object.assign(
-          result,
+          // CUPED case
           parsePairedFields(row, "covariate_sum", "covariate_sum_squares"),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_covariate_sum_product"),
-        );
-
-        // Ratio CUPED case
-        Object.assign(
-          result,
+          // Ratio CUPED case
           parsePairedFields(
             row,
             "denominator_pre_sum",
             "denominator_pre_sum_squares",
           ),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_post_denominator_pre_sum_product"),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_pre_denominator_post_sum_product"),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_pre_denominator_pre_sum_product"),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "denominator_post_denominator_pre_sum_product"),
-        );
-
-        // Capping case
-        Object.assign(result, parseNonFloatField(row, "main_cap_value"));
-        Object.assign(result, parseNonFloatField(row, "denominator_cap_value"));
-
-        // Bandits case
-        Object.assign(result, parseFloatField(row, "theta"));
-
-        // Uncapped main case
-        Object.assign(
-          result,
+          // Capping case
+          parseNonFloatField(row, "main_cap_value"),
+          parseNonFloatField(row, "denominator_cap_value"),
+          // Bandits case
+          parseFloatField(row, "theta"),
+          // Uncapped main case
           parsePairedFields(
             row,
             "main_sum_uncapped",
             "main_sum_squares_uncapped",
           ),
-        );
-
-        // Uncapped ratio case
-        Object.assign(
-          result,
+          // Uncapped ratio case
           parsePairedFields(
             row,
             "denominator_sum_uncapped",
             "denominator_sum_squares_uncapped",
           ),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_denominator_sum_product_uncapped"),
-        );
-
-        // Uncapped CUPED case
-        Object.assign(
-          result,
-          parseFloatField(row, "main_covariate_sum_product_uncapped"),
-        );
-        Object.assign(
-          result,
+          // Uncapped CUPED case
           parsePairedFields(
             row,
             "covariate_sum_uncapped",
             "covariate_sum_squares_uncapped",
           ),
-        );
-
-        // Uncapped CUPED ratio case
-        Object.assign(
-          result,
+          parseFloatField(row, "main_covariate_sum_product_uncapped"),
+          // Uncapped CUPED ratio case
           parsePairedFields(
             row,
             "denominator_pre_sum_uncapped",
             "denominator_pre_sum_squares_uncapped",
           ),
-        );
-        Object.assign(
-          result,
           parseFloatField(
             row,
             "main_post_denominator_pre_sum_product_uncapped",
           ),
-        );
-        Object.assign(
-          result,
           parseFloatField(
             row,
             "main_pre_denominator_post_sum_product_uncapped",
           ),
-        );
-        Object.assign(
-          result,
           parseFloatField(row, "main_pre_denominator_pre_sum_product_uncapped"),
-        );
-        Object.assign(
-          result,
           parseFloatField(
             row,
             "denominator_post_denominator_pre_sum_product_uncapped",
           ),
         );
-
         return result;
       }),
       statistics: statistics,

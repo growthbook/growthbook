@@ -841,17 +841,17 @@ def replace_with_uncapped(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     # Identify all columns that end with the suffix
-    capped_cols = [col for col in df.columns if col.endswith("_uncapped")]
+    uncapped_cols = [col for col in df.columns if col.endswith("_uncapped")]
 
-    for capped_col in capped_cols:
+    for uncapped_col in uncapped_cols:
         # Determine the target column name (e.g., 'foo_capped' -> 'foo')
-        original_col = capped_col.replace("_uncapped", "")
+        original_col = uncapped_col.replace("_uncapped", "")
 
         # Check if the original column exists before trying to replace it
         if original_col in df.columns:
-            df[original_col] = df[capped_col]
+            df[original_col] = df[uncapped_col]
             # Remove the capped column after the swap
-            df.drop(columns=[capped_col], inplace=True)
+            df.drop(columns=[uncapped_col], inplace=True)
 
     return df
 
@@ -952,7 +952,7 @@ def combine_core_and_supplemental_results(
     for d in range(num_dimensions):
         this_dimension_result = core_result[d]
         this_baseline_result = this_dimension_result.variations[0]
-        variations: list[VariationResponse] = []
+        variations: List[VariationResponse] = []
         variations.append(this_baseline_result)
         for i in range(1, num_variations):
             core_variation = core_result[d].variations[i]
