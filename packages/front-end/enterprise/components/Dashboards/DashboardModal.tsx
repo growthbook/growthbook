@@ -57,6 +57,7 @@ export default function DashboardModal({
   type?: "general" | "experiment";
 }) {
   const [cronString, setCronString] = useState("");
+  const [cronError, setCronError] = useState(false);
   const defaultRefreshInterval = getExperimentRefreshFrequency();
   const {
     settings: { updateSchedule },
@@ -132,13 +133,22 @@ export default function DashboardModal({
     }
     setCronString(
       `${cronstrue.toString(cron, {
-        throwExceptionOnParseError: false,
+        throwExceptionOnParseError: true,
         verbose: true,
       })} (UTC time)`,
     );
   }
 
   const currentUpdateSchedule = form.watch("updateSchedule");
+  useEffect(() => {
+    setCronError(false);
+    if (currentUpdateSchedule?.type !== "cron") return;
+    try {
+      updateCronString(currentUpdateSchedule.cron);
+    } catch {
+      setCronError(true);
+    }
+  }, [currentUpdateSchedule]);
 
   const hasGeneralDashboardSharing = hasCommercialFeature(
     "share-product-analytics-dashboards",
@@ -215,7 +225,7 @@ export default function DashboardModal({
       }
       cta={dashboardFirstSave ? "Save" : initial ? "Done" : "Create"}
       submit={() => submit(form.getValues())}
-      ctaEnabled={!!form.watch("title")}
+      ctaEnabled={!!form.watch("title") && !cronError}
       close={close}
       closeCta="Cancel"
     >
@@ -275,7 +285,7 @@ export default function DashboardModal({
                             value={
                               currentUpdateSchedule?.type === "stale"
                                 ? currentUpdateSchedule.hours
-                                : 6
+                                : defaultUpdateSchedules.stale.hours
                             }
                             onChange={(e) => {
                               let hours = 6;
@@ -300,15 +310,21 @@ export default function DashboardModal({
                             </Text>
                             <Field
                               disabled={currentUpdateSchedule?.type !== "cron"}
-                              {...form.register("updateSchedule.cron")}
-                              onFocus={(e) => {
-                                updateCronString(e.target.value);
-                              }}
-                              onBlur={(e) => {
-                                updateCronString(e.target.value);
+                              value={
+                                currentUpdateSchedule?.type === "cron"
+                                  ? currentUpdateSchedule.cron
+                                  : defaultUpdateSchedules.cron.cron
+                              }
+                              onChange={(e) => {
+                                form.setValue("updateSchedule", {
+                                  type: "cron",
+                                  cron: e.target.value,
+                                });
                               }}
                               helpText={
-                                cronString ? (
+                                cronError ? (
+                                  "Invalid cron string"
+                                ) : cronString ? (
                                   <span className="ml-2">{cronString}</span>
                                 ) : (
                                   "Example: 0 0 */2 * * *"
