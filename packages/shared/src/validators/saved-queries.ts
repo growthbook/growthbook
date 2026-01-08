@@ -149,7 +149,6 @@ const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
   filters: z.array(filterConfigurationValidator).optional(),
-  displaySettings: z.object({}).optional(),
 });
 
 const withXAxis = z.object({
