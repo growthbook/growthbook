@@ -24,7 +24,7 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
-import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
+import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 import HoldoutValueModal from "./HoldoutValueModal";
 
