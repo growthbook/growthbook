@@ -138,7 +138,9 @@ export default function AnalysisSettingsSummary({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
+    !analysis?.settings ||
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
@@ -593,39 +595,38 @@ export default function AnalysisSettingsSummary({
               value={numberFormatter.format(totalUnits ?? 0)}
               style={{ whiteSpace: "nowrap" }}
             />
-            {hasData && (
-              <Flex align="center" gap="2">
-                <QueriesLastRun
-                  status={status}
-                  dateCreated={snapshot?.dateCreated}
-                  latestQueryDate={latest?.dateCreated}
-                  nextUpdate={experiment.nextSnapshotAttempt}
-                  autoUpdateEnabled={experiment.autoSnapshots}
-                  showAutoUpdateWidget={true}
-                  queries={
-                    latest &&
-                    (status === "failed" || status === "partially-succeeded")
-                      ? latest.queries.map((q) => q.query)
-                      : undefined
-                  }
-                  onViewQueries={
-                    latest &&
-                    ds &&
-                    permissionsUtil.canRunExperimentQueries(ds) &&
-                    (status === "failed" || status === "partially-succeeded")
-                      ? () => setQueriesModalOpen(true)
-                      : undefined
-                  }
+
+            <Flex align="center" gap="2">
+              <QueriesLastRun
+                status={status}
+                dateCreated={snapshot?.dateCreated}
+                latestQueryDate={latest?.dateCreated}
+                nextUpdate={experiment.nextSnapshotAttempt}
+                autoUpdateEnabled={experiment.autoSnapshots}
+                showAutoUpdateWidget={true}
+                queries={
+                  latest &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? latest.queries.map((q) => q.query)
+                    : undefined
+                }
+                onViewQueries={
+                  latest &&
+                  ds &&
+                  permissionsUtil.canRunExperimentQueries(ds) &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? () => setQueriesModalOpen(true)
+                    : undefined
+                }
+              />
+              {hasData && outdated && status !== "running" ? (
+                <OutdatedBadge
+                  label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
+                  reasons={reasons}
+                  hasData={hasData && hasValidStatsEngine}
                 />
-                {outdated && status !== "running" ? (
-                  <OutdatedBadge
-                    label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
-                    reasons={reasons}
-                    hasData={hasData && hasValidStatsEngine}
-                  />
-                ) : null}
-              </Flex>
-            )}
+              ) : null}
+            </Flex>
 
             {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
               allMetrics.length > 0 && (

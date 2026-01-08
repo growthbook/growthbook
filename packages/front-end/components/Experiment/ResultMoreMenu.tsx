@@ -21,6 +21,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
   forceRefresh,
@@ -119,6 +121,10 @@ export default function ResultMoreMenu({
   const permissionsUtil = usePermissionsUtil();
   const { mutateDefinitions } = useDefinitions();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
+
+  const { latest } = useSnapshot();
+  const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
+  const { status } = queryStatusData;
 
   const canDownloadJupyterNotebook =
     true || (hasData && supportsNotebooks && notebookUrl && notebookFilename);
@@ -331,8 +337,8 @@ export default function ResultMoreMenu({
   }, [forceRefresh]);
 
   const queryStrings = useMemo(
-    () => queries?.map((q) => q.query) ?? [],
-    [queries],
+    () => (queries?.length ?? 0) > 0 ? queries?.map((q) => q.query) ?? [] : latest?.queries?.map((q) => q.query) ?? [],
+    [queries, latest],
   );
 
   return (
@@ -357,7 +363,7 @@ export default function ResultMoreMenu({
         variant="soft"
       >
         <DropdownMenuGroup>
-          {queryStrings.length > 0 && (
+          {queryStrings.length > 0 || status === "failed" || status === "partially-succeeded" ? (
             <DropdownMenuItem onClick={handleViewQueries}>
               View queries
               <Badge
@@ -365,9 +371,10 @@ export default function ResultMoreMenu({
                 radius="full"
                 label={String(queryStrings.length)}
                 ml="2"
+                color={status === "failed" || status === "partially-succeeded" ? "red" : undefined}
               />
             </DropdownMenuItem>
-          )}
+          ) : null}
           {canShowRefreshMenuItem({
             forceRefresh,
             datasource,

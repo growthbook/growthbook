@@ -22,6 +22,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -78,6 +80,8 @@ const Results: FC<{
   setSortDirection,
 }) => {
   const { apiCall } = useAuth();
+
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
   const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
     string[]
@@ -141,6 +145,9 @@ const Results: FC<{
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
+  const { status } = queryStatusData;
+
+  const queryStrings = latest?.queries?.map((q) => q.query) || [];
 
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
@@ -149,11 +156,10 @@ const Results: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
-
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
-    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+    !analysis?.settings ||
+    ((analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine);
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -261,7 +267,18 @@ const Results: FC<{
         </div>
       )}
 
+      {status === "failed" ? (
+        <Callout status="error" mx="3" my="4">
+          The most recent update failed.{" "}
+          <Link onClick={() => setQueriesModalOpen(true)}>
+            View queries
+          </Link>{" "}
+          to see what went wrong.
+        </Callout>
+      ) : null}
+
       {(!hasData || !hasValidStatsEngine) &&
+        status !== "failed" &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
         hasMetrics &&
@@ -494,6 +511,14 @@ const Results: FC<{
           />
         </>
       ) : null}
+      {queriesModalOpen && queryStrings.length > 0 && (
+        <AsyncQueriesModal
+          close={() => setQueriesModalOpen(false)}
+          queries={queryStrings}
+          savedQueries={[]}
+          error={latest?.error}
+        />
+      )}
     </>
   );
 };
