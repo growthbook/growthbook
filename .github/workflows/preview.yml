@@ -54,3 +54,27 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Health check endpoints
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 30
+          
+          echo "Checking app_origin..."
+          APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pr-${{ github.event.number }}-growthbook.fly.dev)
+          echo "App origin returned: $APP_STATUS"
+          if [ "$APP_STATUS" != "200" ]; then
+            echo "❌ App origin health check failed with status $APP_STATUS"
+            exit 1
+          fi
+          echo "✅ App origin health check passed"
+          
+          echo "Checking api_host..."
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pr-${{ github.event.number }}-growthbook.fly.dev:4433)
+          echo "API host returned: $API_STATUS"
+          if [ "$API_STATUS" != "200" ]; then
+            echo "❌ API host health check failed with status $API_STATUS"
+            exit 1
+          fi
+          echo "✅ API host health check passed"
