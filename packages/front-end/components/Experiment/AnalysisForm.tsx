@@ -102,6 +102,9 @@ const AnalysisForm: FC<{
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
+  const hasPostStratificationFeature = hasCommercialFeature(
+    "post-stratification",
+  );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
 
@@ -162,6 +165,7 @@ const AnalysisForm: FC<{
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
+      postStratificationEnabled: experiment.postStratificationEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -604,33 +608,64 @@ const AnalysisForm: FC<{
           disabled={isBandit}
         />
         {!isHoldout && (
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPEDps)
-              </PremiumTooltip>
-            }
-            style={{ width: 200 }}
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            disabled={
-              !hasRegressionAdjustmentFeature ||
-              (isBandit && experiment.status !== "draft")
-            }
-          />
+          <>
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="regression-adjustment">
+                  <GBCuped /> Use CUPED
+                </PremiumTooltip>
+              }
+              style={{ width: 200 }}
+              labelClassName="font-weight-bold"
+              value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              disabled={
+                !hasRegressionAdjustmentFeature ||
+                (isBandit && experiment.status !== "draft")
+              }
+            />
+            {!orgSettings.disablePrecomputedDimensions ? (
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="post-stratification">
+                    Use Post-Stratification
+                  </PremiumTooltip>
+                }
+                style={{ width: 200 }}
+                labelClassName="font-weight-bold"
+                value={form.watch("postStratificationEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("postStratificationEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                disabled={
+                  !hasPostStratificationFeature ||
+                  (isBandit && experiment.status !== "draft")
+                }
+              />
+            ) : null}
+          </>
         )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" &&

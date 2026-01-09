@@ -254,8 +254,8 @@ export default function StatsEngineSettings() {
                 </label>
               </Text>
               <Text size="1">
-                When checked, post-stratification will be used whenever CUPEDps
-                is enabled and pre-computed dimensions are available.
+                When checked, post-stratification will be used by default
+                whenever pre-computed dimensions are available.
               </Text>
             </Flex>
           </Flex>
