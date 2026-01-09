@@ -21,8 +21,8 @@ import {
   isCappableMetricType,
   getFactTableTemplateVariables,
   isPercentileCappedMetric,
-  isAbsoluteCappedMetric,
   parseSliceMetricId,
+  eligibleForUncappedMetric,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -2740,7 +2740,7 @@ export default abstract class SqlIntegration
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);
-    const isAbsoluteCapped = isAbsoluteCappedMetric(metric);
+    const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
     const numeratorSourceIndex =
       factTablesWithIndices.find(
@@ -2902,7 +2902,7 @@ export default abstract class SqlIntegration
       regressionAdjustmentHours,
       overrideConversionWindows,
       isPercentileCapped,
-      isAbsoluteCapped,
+      computeUncappedMetric,
       numeratorSourceIndex,
       denominatorSourceIndex,
       capCoalesceMetric,
@@ -3580,7 +3580,7 @@ export default abstract class SqlIntegration
             return `
            , ${this.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
-              data.isPercentileCapped || data.isAbsoluteCapped
+              data.computeUncappedMetric
                 ? `
                 , SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_main_sum_uncapped 
                 , SUM(POWER(${data.uncappedCoalesceMetric}, 2)) AS ${data.alias}_main_sum_squares_uncapped
@@ -3635,7 +3635,7 @@ export default abstract class SqlIntegration
               data.ratioMetric
                 ? `
                 ${
-                  data.isPercentileCapped || data.isAbsoluteCapped
+                  data.computeUncappedMetric
                     ? `
                     , SUM(${data.uncappedCoalesceDenominator}) AS ${data.alias}_denominator_sum_uncapped 
                     , SUM(POWER(${data.uncappedCoalesceDenominator}, 2)) AS ${data.alias}_denominator_sum_squares_uncapped
@@ -3658,7 +3658,7 @@ export default abstract class SqlIntegration
                   data.regressionAdjusted
                     ? `
                   ${
-                    data.isPercentileCapped || data.isAbsoluteCapped
+                    data.computeUncappedMetric
                       ? `
                       , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
                       , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
@@ -3692,7 +3692,7 @@ export default abstract class SqlIntegration
                 data.regressionAdjusted
                   ? `
                   ${
-                    data.isPercentileCapped || data.isAbsoluteCapped
+                    data.computeUncappedMetric
                       ? `
                       , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_sum_uncapped
                       , SUM(POWER(${data.uncappedCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares_uncapped
@@ -3857,14 +3857,14 @@ export default abstract class SqlIntegration
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);
-    const isAbsoluteCapped = isAbsoluteCappedMetric(metric);
+    const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
     const denominatorIsPercentileCapped = denominator
       ? isPercentileCappedMetric(denominator)
       : false;
 
-    const denominatorIsAbsoluteCapped = denominator
-      ? isAbsoluteCappedMetric(denominator)
+    const denominatorComputeUncappedMetric = denominator
+      ? eligibleForUncappedMetric(denominator)
       : false;
 
     const capCoalesceMetric = this.capCoalesceValue({
@@ -4256,7 +4256,6 @@ export default abstract class SqlIntegration
               ratioMetric,
               regressionAdjusted,
               isPercentileCapped,
-              isAbsoluteCapped,
               capCoalesceMetric,
               capCoalesceCovariate,
               capCoalesceDenominator,
@@ -4277,7 +4276,7 @@ export default abstract class SqlIntegration
     ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
     , COUNT(*) AS users
     ${
-      isPercentileCapped || isAbsoluteCapped
+      computeUncappedMetric
         ? `, SUM(${uncappedCoalesceMetric}) AS main_sum_uncapped
            , SUM(POWER(${uncappedCoalesceMetric}, 2)) AS main_sum_squares_uncapped
            ${
@@ -4294,7 +4293,7 @@ export default abstract class SqlIntegration
       ratioMetric
         ? `
       ${
-        denominatorIsPercentileCapped || denominatorIsAbsoluteCapped
+        denominatorComputeUncappedMetric
           ? `, SUM(${uncappedCoalesceDenominator}) AS denominator_sum_uncapped
              , SUM(POWER(${uncappedCoalesceDenominator}, 2)) AS denominator_sum_squares_uncapped
              , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceDenominator}) AS main_denominator_sum_product_uncapped
@@ -4316,7 +4315,7 @@ export default abstract class SqlIntegration
       regressionAdjusted
         ? `
         ${
-          isPercentileCapped || isAbsoluteCapped
+          computeUncappedMetric
             ? `, SUM(${uncappedCoalesceCovariate}) AS covariate_sum_uncapped
                , SUM(POWER(${uncappedCoalesceCovariate}, 2)) AS covariate_sum_squares_uncapped
                , SUM(${uncappedCoalesceMetric} * ${uncappedCoalesceCovariate}) AS main_covariate_sum_product_uncapped`

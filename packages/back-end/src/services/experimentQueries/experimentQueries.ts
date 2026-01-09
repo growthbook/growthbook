@@ -3,10 +3,10 @@ import {
   isFactMetric,
   isLegacyMetric,
   isPercentileCappedMetric,
-  isAbsoluteCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
   quantileMetricType,
+  eligibleForUncappedMetric,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
@@ -98,7 +98,7 @@ export function getNonQuantileFloatColumns({
   })();
 
   const uncappedCols = (() => {
-    if (!isPercentileCappedMetric(metric) && !isAbsoluteCappedMetric(metric)) {
+    if (!eligibleForUncappedMetric(metric)) {
       return [];
     }
     switch (metric.metricType) {
