@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery, trusted } from "mongoose";
 import { Collection } from "mongodb";
@@ -48,12 +49,17 @@ export const createSchema = <T extends BaseSchema>(schema: T) =>
       dateCreated: true,
       dateUpdated: true,
     })
-    .extend({ id: z.string().optional() })
+    .extend({ id: z.string().optional(), uid: z.string().optional() })
     .strict() as unknown as CreateZodObject<T>;
 
 export type UpdateZodObject<T extends BaseSchema> = z.ZodType<
   UpdateProps<z.infer<T>>
 >;
+
+type Identifiers = {
+  id: string;
+  uid?: string;
+};
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
   schema
@@ -359,6 +365,9 @@ export abstract class BaseModel<
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
+  protected _generateUid() {
+    return uuidv4().replace(/-/g, "");
+  }
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -469,8 +478,15 @@ export abstract class BaseModel<
       props.owner = this.context.userName || "";
     }
 
-    const doc = {
+    const ids: Identifiers = {
       id: this._generateId(),
+    };
+    if ("uid" in this.config.schema.shape) {
+      ids.uid = this._generateUid();
+    }
+
+    const doc = {
+      ...ids,
       ...props,
       organization: this.context.org.id,
       dateCreated: new Date(),
@@ -777,6 +793,18 @@ export abstract class BaseModel<
           logger.error(
             err,
             `Error creating id unique index for ${this.config.collectionName}`,
+          );
+        });
+    }
+
+    // If schema uses uid, create a globally unique index
+    if ("uid" in this.config.schema.shape) {
+      this._dangerousGetCollection()
+        .createIndex({ uid: 1 }, { unique: true })
+        .catch((err) => {
+          logger.error(
+            err,
+            `Error creating uid unique index for ${this.config.collectionName}`,
           );
         });
     }

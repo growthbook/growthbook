@@ -81,6 +81,7 @@
     "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
+    "react/no-unknown-property": ["error", { "ignore": ["jsx", "global"] }],
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
     "import/order": [

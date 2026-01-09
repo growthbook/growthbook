@@ -28,7 +28,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -88,7 +88,7 @@ export const postSDKConnection = async (
     organization: org.id,
   });
 
-  await refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: [],
     sdkConnections: [doc],

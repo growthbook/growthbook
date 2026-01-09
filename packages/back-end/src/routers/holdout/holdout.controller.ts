@@ -42,7 +42,7 @@ import { validateExperimentData } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 /**
  * GET /holdout/:id
@@ -431,7 +431,7 @@ export const editStatus = async (
       },
     });
 
-    await refreshSDKPayloadCache({
+    queueSDKPayloadRefresh({
       context,
       payloadKeys: getAffectedSDKPayloadKeys(
         holdout,
@@ -480,7 +480,7 @@ export const editStatus = async (
       changes: { phases, status: "running" },
     });
 
-    await refreshSDKPayloadCache({
+    queueSDKPayloadRefresh({
       context,
       payloadKeys: getAffectedSDKPayloadKeys(
         holdout,
@@ -499,7 +499,7 @@ export const editStatus = async (
       analysisStartDate: undefined,
     });
 
-    await refreshSDKPayloadCache({
+    queueSDKPayloadRefresh({
       context,
       payloadKeys: getAffectedSDKPayloadKeys(
         holdout,
@@ -576,7 +576,7 @@ export const deleteHoldout = async (
 
   await context.models.holdout.delete(holdout);
 
-  await refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
       holdout,

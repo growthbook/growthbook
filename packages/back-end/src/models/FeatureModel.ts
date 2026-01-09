@@ -25,7 +25,7 @@ import {
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
-  refreshSDKPayloadCache,
+  queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
@@ -582,7 +582,7 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
       [feature],
@@ -603,7 +603,7 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
       [feature],
@@ -626,7 +626,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  await refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: getSDKPayloadKeysByDiff(
       feature,
