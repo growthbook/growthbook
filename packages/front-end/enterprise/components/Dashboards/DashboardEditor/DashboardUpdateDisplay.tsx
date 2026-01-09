@@ -127,7 +127,6 @@ export default function DashboardUpdateDisplay({
     savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
-
   const refreshing = ["running", "queued"].includes(refreshStatus);
   const { numQueries, numFinished } = useMemo(() => {
     const numQueries = allQueries.length;
@@ -148,7 +147,6 @@ export default function DashboardUpdateDisplay({
   const canRefresh =
     canCreateAnalyses(projects) &&
     !datasourcesInUse.some((ds) => ds && !canRunSqlExplorerQueries(ds));
-
   if (loading)
     return (
       <Flex gap="1" align="center">
