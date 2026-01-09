@@ -14,6 +14,7 @@ import {
   Column,
 } from "shared/types/integrations";
 import { DataSourceInterface } from "shared/types/datasource";
+import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
@@ -44,6 +45,106 @@ function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
     ...config,
     id: config.id || `data-viz_${uuidv4()}`,
   }));
+}
+
+/**
+ * Normalizes query results by converting Decimal.js objects to strings/numbers.
+ * This prevents Decimal.js objects from being saved to MongoDB in their internal format.
+ */
+function normalizeQueryResults(
+  results: Record<string, unknown>[] | undefined,
+): Record<string, unknown>[] | undefined {
+  if (!results || !Array.isArray(results)) {
+    return results;
+  }
+
+  return results.map((row) => {
+    const normalizedRow: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      normalizedRow[key] = normalizeValue(value);
+    }
+    return normalizedRow;
+  });
+}
+
+/**
+ * Recursively normalizes a value, converting Decimal.js objects to strings.
+ */
+function normalizeValue(value: unknown): unknown {
+  if (value == null) {
+    return value;
+  }
+
+  // Check if it's a Decimal.js object structure
+  // Decimal.js objects have s (sign), e (exponent), and c (coefficient) properties
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "s" in value &&
+    "e" in value &&
+    "c" in value &&
+    Array.isArray(value.c) &&
+    typeof value.s === "number" &&
+    typeof value.e === "number"
+  ) {
+    try {
+      // Reconstruct the number from Decimal.js internal representation
+      const decimalObj = value as { s: number; e: number; c: number[] };
+
+      // Handle zero case
+      if (
+        decimalObj.c.length === 0 ||
+        (decimalObj.c.length === 1 && decimalObj.c[0] === 0)
+      ) {
+        return "0";
+      }
+
+      // Reconstruct the number string
+      const coefficientStr = decimalObj.c.join("");
+      const exponent = decimalObj.e - (decimalObj.c.length - 1);
+      const sign = decimalObj.s === -1 ? "-" : "";
+
+      let numStr: string;
+      if (exponent >= 0) {
+        numStr = coefficientStr + "0".repeat(exponent);
+      } else {
+        const absExp = Math.abs(exponent);
+        if (absExp <= coefficientStr.length) {
+          const insertPos = coefficientStr.length - absExp;
+          numStr =
+            coefficientStr.slice(0, insertPos) +
+            "." +
+            coefficientStr.slice(insertPos);
+        } else {
+          numStr =
+            "0." + "0".repeat(absExp - coefficientStr.length) + coefficientStr;
+        }
+      }
+
+      // Return as string to preserve precision
+      return sign + numStr;
+    } catch {
+      // If reconstruction fails, return as-is
+      return value;
+    }
+  }
+
+  // Handle arrays recursively
+  if (Array.isArray(value)) {
+    return value.map(normalizeValue);
+  }
+
+  // Handle objects recursively (but skip Date objects)
+  if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+    const normalized: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      normalized[k] = normalizeValue(v);
+    }
+    return normalized;
+  }
+
+  // Return primitives as-is
+  return value;
 }
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
@@ -149,7 +250,12 @@ export async function postSavedQuery(
     sql,
     datasourceId,
     dateLastRan: getValidDate(dateLastRan),
-    results,
+    results: results
+      ? {
+          ...results,
+          results: normalizeQueryResults(results.results) || [],
+        }
+      : results,
     dataVizConfig: ensureDataVizIds(dataVizConfig || []),
     linkedDashboardIds,
   });
@@ -171,13 +277,19 @@ export async function putSavedQuery(
     throw new Error("Your organization's plan does not support saving queries");
   }
 
-  const updateData = {
+  const updateData: UpdateProps<SavedQuery> = {
     ...req.body,
     dateLastRan: req.body.dateLastRan
       ? getValidDate(req.body.dateLastRan)
       : undefined,
     dataVizConfig: req.body.dataVizConfig
       ? ensureDataVizIds(req.body.dataVizConfig)
+      : undefined,
+    results: req.body.results
+      ? {
+          ...req.body.results,
+          results: normalizeQueryResults(req.body.results.results) || [],
+        }
       : undefined,
   };
 
@@ -265,7 +377,7 @@ export async function executeAndSaveQuery(
 
   await context.models.savedQueries.update(savedQuery, {
     results: {
-      results: results,
+      results: normalizeQueryResults(results) || [],
       error,
       duration,
       sql,
