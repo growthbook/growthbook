@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { z } from "zod";
 import {
   OWNER_JOB_TITLES,
   USAGE_INTENTS,
@@ -10,7 +11,6 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
-import { z } from "zod";
 import {
   AccountPlan,
   CommercialFeature,
