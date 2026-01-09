@@ -1,6 +1,6 @@
 import { Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { PiCaretDownLight, PiCircleFill } from "react-icons/pi";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { HexColorPicker, HexColorInput } from "react-colorful";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
@@ -16,10 +16,8 @@ export default function EditGlobalColorDropdown() {
   const { settings, updateSeriesColor, getActiveSeriesKeys } = useContext(
     DashboardSeriesDisplayContext,
   );
-  const [activeKeys, setActiveKeys] = useState<Map<string, Set<string>>>(
-    new Map(),
-  );
   const pendingColorsRef = useRef<Map<string, string>>(new Map());
+  const activeKeys = getActiveSeriesKeys();
 
   // Sync pending colors when settings change from outside
   useEffect(() => {
@@ -34,11 +32,6 @@ export default function EditGlobalColorDropdown() {
       );
     });
   }, [settings]);
-
-  // Update activeKeys after render when charts have populated activeSeriesKeys
-  useEffect(() => {
-    setActiveKeys(getActiveSeriesKeys());
-  }, [getActiveSeriesKeys]);
 
   if (activeKeys.size === 0) {
     return null;
