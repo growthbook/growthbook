@@ -1,7 +1,7 @@
 import { ReqContext } from "back-end/types/request";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
-import { refreshSDKPayloadCache } from "./features";
+import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
 export async function savedGroupUpdated(
@@ -13,7 +13,7 @@ export async function savedGroupUpdated(
   // Saved groups can be nested recursively and may be referenced cross-project
   // To be safe, refresh all cache entries across all environments/projects
   // TODO: Optimize this later if performance becomes an issue
-  await refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
     treatEmptyProjectAsGlobal: true,
