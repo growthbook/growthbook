@@ -10,7 +10,10 @@ import {
   DropdownMenu,
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
-import { DashboardSeriesDisplayContext } from "../DashboardSeriesDisplayProvider";
+import {
+  DashboardSeriesDisplayContext,
+  SERIES_KEY_DELIMITER,
+} from "../DashboardSeriesDisplayProvider";
 
 export default function EditGlobalColorDropdown() {
   const { settings, updateSeriesColor, getActiveSeriesKeys } = useContext(
@@ -24,7 +27,7 @@ export default function EditGlobalColorDropdown() {
     Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
       Object.entries(dimensionSettings).forEach(
         ([dimensionValue, seriesSettings]) => {
-          const key = `${columnName}:${dimensionValue}`;
+          const key = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
           if (!pendingColorsRef.current.has(key)) {
             pendingColorsRef.current.set(key, seriesSettings.color);
           }
@@ -73,7 +76,7 @@ export default function EditGlobalColorDropdown() {
                       settings[columnName]?.[dimensionValue];
                     if (!seriesSettings) return null;
 
-                    const key = `${columnName}:${dimensionValue}`;
+                    const key = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
                     // Initialize pending color if not set
                     if (!pendingColorsRef.current.has(key)) {
                       pendingColorsRef.current.set(key, seriesSettings.color);

@@ -8,6 +8,10 @@ import React, {
 import { DisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
+// Delimiter used to create composite keys for series (columnName + dimensionValue)
+// Using ||| to avoid conflicts with colons that may appear in dimension values
+export const SERIES_KEY_DELIMITER = "|||";
+
 // Helper function to deep clone settings
 function deepCloneSettings(
   settings: Record<string, Record<string, DisplaySettings>>,
@@ -73,7 +77,7 @@ export default function DashboardSeriesDisplayProvider({
     setSeriesDisplaySettings(dashboard?.seriesDisplaySettings);
   }, [dashboard?.seriesDisplaySettings]);
   // Track computed colors that haven't been persisted yet
-  // Key format: `${columnName}:${dimensionValue}` -> color string
+  // Key format: `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}` -> color string
   const computedColorsRef = useRef<Map<string, string>>(new Map());
 
   // Track debounce timers per series key to avoid spamming API calls
@@ -104,7 +108,7 @@ export default function DashboardSeriesDisplayProvider({
 
     // Add computed colors that haven't been persisted yet
     computedColorsRef.current.forEach((color, key) => {
-      const [columnName, dimensionValue] = key.split(":");
+      const [columnName, dimensionValue] = key.split(SERIES_KEY_DELIMITER);
       if (!result[columnName]) {
         result[columnName] = {};
       }
@@ -132,7 +136,7 @@ export default function DashboardSeriesDisplayProvider({
       let hasChanges = false;
 
       colorsToPersist.forEach((color, key) => {
-        const [columnName, dimensionValue] = key.split(":");
+        const [columnName, dimensionValue] = key.split(SERIES_KEY_DELIMITER);
         if (!updated[columnName]) {
           updated[columnName] = {};
         }
@@ -192,7 +196,7 @@ export default function DashboardSeriesDisplayProvider({
 
         // Debounce the save operation to avoid spamming API calls
         if (onSave && dashboard?.id && dashboard.id !== "new") {
-          const seriesKey = `${columnName}:${dimensionValue}`;
+          const seriesKey = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
           // Clear any existing timer for this seriesKey
           const existingTimer = saveTimersRef.current.get(seriesKey);
           if (existingTimer) {
@@ -236,7 +240,7 @@ export default function DashboardSeriesDisplayProvider({
 
   const getSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, index: number): string => {
-      const seriesKey = `${columnName}:${dimensionValue}`;
+      const seriesKey = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
 
       // Check if this series already has a color in dashboard settings
       const existingColor = settings[columnName]?.[dimensionValue]?.color;
