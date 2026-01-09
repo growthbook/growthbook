@@ -523,7 +523,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
-                await savePrompts();
+                // Only save prompts if the prompt form has changes
+                if (promptForm.formState.isDirty) {
+                  await savePrompts();
+                }
               }}
               setError={setSubmitError}
             >

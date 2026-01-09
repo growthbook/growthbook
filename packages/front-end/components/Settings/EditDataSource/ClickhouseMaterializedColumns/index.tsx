@@ -19,7 +19,7 @@ import Table, {
 } from "@/ui/Table";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import AddEditMaterializedColumnsModal from "./AddEditMaterializedColumnsModal";
 
 type ClickhouseMaterializedColumnsProps = Omit<

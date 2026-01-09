@@ -21,6 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
+import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
   forceRefresh,
@@ -83,8 +84,6 @@ export function canShowReenableIncrementalRefresh({
 export default function ResultMoreMenu({
   experiment,
   editMetrics,
-  queries,
-  queryError,
   hasData,
   supportsNotebooks,
   notebookUrl,
@@ -97,11 +96,11 @@ export default function ResultMoreMenu({
   dimension,
   datasource,
   project,
+  legacyQueries,
+  legacyQueryError,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
-  queries?: Queries;
-  queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
   notebookUrl: string;
@@ -114,14 +113,18 @@ export default function ResultMoreMenu({
   dimension?: string;
   datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
+  legacyQueries?: Queries;
+  legacyQueryError?: string;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { mutateDefinitions } = useDefinitions();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
+  const { latest, snapshot } = useSnapshot();
+
   const canDownloadJupyterNotebook =
-    true || (hasData && supportsNotebooks && notebookUrl && notebookFilename);
+    hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
@@ -145,7 +148,9 @@ export default function ResultMoreMenu({
 
   const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
     ? "Full refresh"
-    : "Re-run all queries";
+    : !hasData
+      ? "Force update"
+      : "Re-run all queries";
 
   const dimensionName = dimension
     ? getDimensionById(dimension)?.name ||
@@ -330,10 +335,21 @@ export default function ResultMoreMenu({
     setDropdownOpen(false);
   }, [forceRefresh]);
 
-  const queryStrings = useMemo(
-    () => queries?.map((q) => q.query) ?? [],
-    [queries],
-  );
+  const { queryStrings, error } = useMemo(() => {
+    // Use props if provided (for reports), otherwise use snapshot context (for experiments)
+    if (legacyQueries !== undefined || legacyQueryError !== undefined) {
+      return {
+        queryStrings: legacyQueries?.map((q) => q.query) || [],
+        error: legacyQueryError,
+      };
+    }
+    const usingSnapshot = latest?.status === "error" && !!snapshot;
+    const error = usingSnapshot ? snapshot?.error : latest?.error;
+    const queryStrings = usingSnapshot
+      ? (snapshot?.queries || []).map((q) => q.query)
+      : (latest?.queries || []).map((q) => q.query);
+    return { queryStrings, error };
+  }, [snapshot, latest, legacyQueries, legacyQueryError]);
 
   return (
     <>
@@ -357,7 +373,7 @@ export default function ResultMoreMenu({
         variant="soft"
       >
         <DropdownMenuGroup>
-          {queryStrings.length > 0 && (
+          {queryStrings.length > 0 ? (
             <DropdownMenuItem onClick={handleViewQueries}>
               View queries
               <Badge
@@ -365,9 +381,10 @@ export default function ResultMoreMenu({
                 radius="full"
                 label={String(queryStrings.length)}
                 ml="2"
+                color={error ? "red" : undefined}
               />
             </DropdownMenuItem>
-          )}
+          ) : null}
           {canShowRefreshMenuItem({
             forceRefresh,
             datasource,
@@ -421,7 +438,11 @@ export default function ResultMoreMenu({
                 Re-enable incremental refresh
               </DropdownMenuItem>
             )}
-          <DropdownMenuSeparator />
+          {(canEdit && editMetrics && !isBandit) ||
+          canDownloadJupyterNotebook ||
+          results ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {canEdit && editMetrics && !isBandit && (
             <>
               <DropdownMenuItem
@@ -432,7 +453,9 @@ export default function ResultMoreMenu({
               >
                 Add / remove metrics
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {canDownloadJupyterNotebook || results ? (
+                <DropdownMenuSeparator />
+              ) : null}
             </>
           )}
           {canDownloadJupyterNotebook && (
@@ -452,7 +475,7 @@ export default function ResultMoreMenu({
           close={() => setQueriesModalOpen(false)}
           queries={queryStrings}
           savedQueries={[]}
-          error={queryError}
+          error={error}
         />
       )}
     </>

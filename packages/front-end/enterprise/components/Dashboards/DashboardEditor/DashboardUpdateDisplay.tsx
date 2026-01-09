@@ -9,7 +9,7 @@ import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
+import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 function DashboardStatusSummary({

@@ -19,9 +19,13 @@ import {
 } from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
 import { useSeriesDisplaySettings } from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
-import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
-import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
-import BigValueChart from "../SqlExplorer/BigValueChart";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "@/components/ResizablePanels";
+import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 import PivotTable from "./PivotTable";
 

@@ -11,7 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import SavedGroupTargetingDisplay from "../SavedGroupTargetingDisplay";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
