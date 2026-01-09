@@ -15,8 +15,8 @@ RUN \
 FROM python:${PYTHON_MAJOR}-slim AS nodebuild
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
-# Set node max memory
-ENV NODE_OPTIONS="--max-old-space-size=8192"
+# Set node max memory (leave 1GB for OS and other processes)
+ENV NODE_OPTIONS="--max-old-space-size=7168"
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential ca-certificates && \
   mkdir -p /etc/apt/keyrings && \
