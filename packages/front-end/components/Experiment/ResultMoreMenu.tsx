@@ -331,12 +331,11 @@ export default function ResultMoreMenu({
   }, [forceRefresh]);
 
   const { queryStrings, error } = useMemo(() => {
-    const error = snapshot ? snapshot?.error : latest?.error;
-    const queryStrings = snapshot
-      ? snapshot.queries?.map((q) => q.query) || []
-      : latest
-        ? latest.queries?.map((q) => q.query) || []
-        : [];
+    const usingSnapshot = latest?.status === "error" && !!snapshot;
+    const error = usingSnapshot ? snapshot?.error : latest?.error;
+    const queryStrings = usingSnapshot
+      ? (snapshot?.queries || []).map((q) => q.query)
+      : (latest?.queries || []).map((q) => q.query);
     return { queryStrings, error };
   }, [snapshot, latest]);
 
