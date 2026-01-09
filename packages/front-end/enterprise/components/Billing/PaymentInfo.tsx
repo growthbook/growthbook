@@ -18,7 +18,7 @@ import Badge from "@/ui/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { StripeProvider } from "../Billing/StripeProvider";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
 export default function PaymentInfo() {

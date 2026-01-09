@@ -22,7 +22,11 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
 import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
-import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
+import {
+  BLOCK_SUBGROUPS,
+  BLOCK_TYPE_INFO,
+  isBlockTypeAllowed,
+} from "@/enterprise/components/Dashboards/DashboardEditor";
 import EditSingleBlock from "./EditSingleBlock";
 
 // Block types that are allowed in general dashboards (non-experiment specific)

@@ -111,16 +111,6 @@
       }
     },
     {
-      "files": [
-        "./packages/back-end/src/**/*.ts*",
-        "./packages/back-end/types/**/*.ts*",
-        "./packages/front-end/**/*.ts*"
-      ],
-      "rules": {
-        "no-restricted-imports": ["error", { "patterns": ["..*"] }]
-      }
-    },
-    {
       "files": ["./packages/front-end/**/*.ts*"],
       "excludedFiles": ["./packages/front-end/ui/**/*.ts*"],
       "rules": {
@@ -147,6 +137,15 @@
                   "Table",
                   "Tabs"
                 ]
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["..*"]
+              },
+              {
+                "group": ["*back-end*", "**/sdk-{js,react}*"],
+                "message": "front-end can only import from shared or itself."
               }
             ]
           }
@@ -226,6 +225,11 @@
       ]
     },
     {
+      "files": ["./packages/back-end/**/*"],
+      "excludedFiles": [
+        "./packages/back-end/src/util/http.util.ts",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -236,40 +240,11 @@
                 "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
                 "importNames": ["default"]
               }
-            ]
-          }
-        ]
-      },
-      "files": ["./packages/back-end/**/*"],
-      "excludedFiles": [
-        "./packages/back-end/src/util/http.util.ts",
-        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
-      ]
-    },
-    // #region Ensure packages import from shared mostly
-    {
-      "files": ["./packages/front-end/**/*"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
+            ],
             "patterns": [
               {
-                "group": ["*back-end*", "**/sdk-{js,react}*"],
-                "message": "front-end can only import from shared or itself."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["./packages/back-end/**/*"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
+                "group": ["..*"]
+              },
               {
                 "group": ["*front-end*", "**/sdk-{js,react}*"],
                 "message": "back-end can only import from shared or itself."
@@ -311,6 +286,5 @@
         ]
       }
     }
-    // #endregion
   ]
 }
