@@ -45,10 +45,10 @@ import variationInputStyles from "@/components/Features/VariationsInput.module.s
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import ExperimentMetricsSelector from "../Experiment/ExperimentMetricsSelector";
-import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
-import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
-import MultiSelectField from "../Forms/MultiSelectField";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
