@@ -16,9 +16,9 @@ FROM python:${PYTHON_MAJOR}-slim AS nodebuild
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 # Set node max memory (leave 1GB for OS and other processes) - updated 2026-01-09
-ENV NODE_OPTIONS="--max-old-space-size=7168"
+ENV NODE_OPTIONS="--max-old-space-size=6144"
 # Force cache bust for NODE_OPTIONS change
-RUN echo "NODE_OPTIONS=$NODE_OPTIONS (7GB heap for 8GB total system memory)"
+RUN echo "NODE_OPTIONS=$NODE_OPTIONS (6GB heap for 8GB total system memory)"
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential ca-certificates && \
   mkdir -p /etc/apt/keyrings && \
