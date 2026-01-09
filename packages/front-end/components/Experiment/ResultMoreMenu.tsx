@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { Queries } from "shared/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -95,6 +96,8 @@ export default function ResultMoreMenu({
   dimension,
   datasource,
   project,
+  legacyQueries,
+  legacyQueryError,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
@@ -110,6 +113,8 @@ export default function ResultMoreMenu({
   dimension?: string;
   datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
+  legacyQueries?: Queries;
+  legacyQueryError?: string;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -331,13 +336,20 @@ export default function ResultMoreMenu({
   }, [forceRefresh]);
 
   const { queryStrings, error } = useMemo(() => {
+    // Use props if provided (for reports), otherwise use snapshot context (for experiments)
+    if (legacyQueries !== undefined || legacyQueryError !== undefined) {
+      return {
+        queryStrings: legacyQueries?.map((q) => q.query) || [],
+        error: legacyQueryError,
+      };
+    }
     const usingSnapshot = latest?.status === "error" && !!snapshot;
     const error = usingSnapshot ? snapshot?.error : latest?.error;
     const queryStrings = usingSnapshot
       ? (snapshot?.queries || []).map((q) => q.query)
       : (latest?.queries || []).map((q) => q.query);
     return { queryStrings, error };
-  }, [snapshot, latest]);
+  }, [snapshot, latest, legacyQueries, legacyQueryError]);
 
   return (
     <>
