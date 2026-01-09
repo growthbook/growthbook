@@ -590,11 +590,13 @@ export default function AnalysisSettingsSummary({
           }}
         >
           <Flex align="center" gap="4">
-            <Metadata
-              label={unitDisplayName}
-              value={numberFormatter.format(totalUnits ?? 0)}
-              style={{ whiteSpace: "nowrap" }}
-            />
+            {snapshot ? (
+              <Metadata
+                label={unitDisplayName}
+                value={numberFormatter.format(totalUnits ?? 0)}
+                style={{ whiteSpace: "nowrap" }}
+              />
+            ) : null}
 
             <Flex align="center" gap="2">
               <QueriesLastRun
@@ -612,8 +614,6 @@ export default function AnalysisSettingsSummary({
                 }
                 onViewQueries={
                   latest &&
-                  ds &&
-                  permissionsUtil.canRunExperimentQueries(ds) &&
                   (status === "failed" || status === "partially-succeeded")
                     ? () => setQueriesModalOpen(true)
                     : undefined
