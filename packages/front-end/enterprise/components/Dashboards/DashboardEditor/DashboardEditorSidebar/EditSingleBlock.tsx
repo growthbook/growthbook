@@ -5,7 +5,6 @@ import {
   Separator,
   Text,
   Box,
-  Heading,
 } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
@@ -18,7 +17,7 @@ import {
   BLOCK_CONFIG_ITEM_TYPES,
   filterMetricsBySelector,
 } from "shared/enterprise";
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "shared/validators";
@@ -26,6 +25,7 @@ import {
   PiCopySimple,
   PiPencilSimpleFill,
   PiTrashSimpleFill,
+  PiPlus,
 } from "react-icons/pi";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { FormatOptionLabelMeta } from "react-select";
@@ -62,6 +62,7 @@ import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
+import Link from "@/ui/Link";
 import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
@@ -201,6 +202,32 @@ export default function EditSingleBlock({
     showDeleteSavedQueryConfirmation,
     setShowDeleteSavedQueryConfirmation,
   ] = useState(false);
+  const [showMetricTags, setShowMetricTags] = useState(
+    blockHasFieldOfType(block, "metricTagFilter", isStringArray) &&
+      (block.metricTagFilter?.length || 0) > 0,
+  );
+  const prevMetricTagFilterRef = useRef(
+    blockHasFieldOfType(block, "metricTagFilter", isStringArray)
+      ? block.metricTagFilter?.length || 0
+      : 0,
+  );
+
+  // Convert back to link when tags are cleared
+  useEffect(() => {
+    if (!blockHasFieldOfType(block, "metricTagFilter", isStringArray)) {
+      return;
+    }
+    
+    const prevLength = prevMetricTagFilterRef.current;
+    const currentLength = block.metricTagFilter?.length || 0;
+    
+    // If going from non-empty to empty, hide the field
+    if (prevLength > 0 && currentLength === 0) {
+      setShowMetricTags(false);
+    }
+    
+    prevMetricTagFilterRef.current = currentLength;
+  }, [block]);
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
   const { defaultSnapshot, dimensionless, updateAllSnapshots } = useContext(
@@ -784,120 +811,142 @@ export default function EditSingleBlock({
                   sort={false}
                   autoFocus
                 />
-                <Box px="3" pt="3" mb="2" className="bg-highlight rounded">
-                  <Heading size="2" weight="bold" mb="3">
-                    Filters
-                  </Heading>
-                  <MultiSelectField
-                    label="Metrics"
-                    labelClassName="font-weight-bold"
-                    value={block.metricIds ?? []}
-                    onChange={(value) =>
-                      setBlock({ ...block, metricIds: value })
-                    }
-                    options={[
-                      ...(metricOptions.groups.length > 0
-                        ? [
-                            {
-                              label: "Metric Groups",
-                              options: metricOptions.groups.map((group) => ({
-                                label: group.name,
-                                value: group.id,
-                                isOrphaned: group.isOrphaned,
-                              })),
-                            },
-                          ]
-                        : []),
-                      ...(metricOptions.metrics.length > 0
-                        ? [
-                            {
-                              label: "Metrics",
-                              options: metricOptions.metrics.map((metric) => ({
-                                label: metric.name,
-                                value: metric.id,
-                                isOrphaned: metric.isOrphaned,
-                              })),
-                            },
-                          ]
-                        : []),
-                    ]}
-                    sort={false}
-                    formatOptionLabel={(
-                      option: SingleValue & { isOrphaned?: boolean },
-                      meta: FormatOptionLabelMeta<SingleValue>,
-                    ) =>
-                      formatMetricOptionLabel(
-                        option,
-                        getExperimentMetricById,
-                        getMetricGroupById,
-                        meta?.context !== "value",
-                      )
-                    }
-                    formatGroupLabel={(group) => (
-                      <div className="pb-1 pt-2">{group.label}</div>
-                    )}
-                  />
-                  {blockHasFieldOfType(
-                    block,
-                    "metricTagFilter",
-                    isStringArray,
-                  ) &&
-                    metricTagOptions.length > 0 && (
-                      <MultiSelectField
-                        label="Tags"
-                        labelClassName="font-weight-bold"
-                        value={block.metricTagFilter}
-                        onChange={(value) =>
-                          setBlock({ ...block, metricTagFilter: value })
-                        }
-                        options={metricTagOptions.map((tag) => ({
-                          label: tag.label,
-                          value: tag.value,
-                          isOrphaned: tag.isOrphaned,
-                        }))}
-                        formatOptionLabel={(option) =>
-                          formatMetricTagOptionLabel(option)
-                        }
-                      />
-                    )}
-                  {blockHasFieldOfType(
-                    block,
-                    "sliceTagsFilter",
-                    isStringArray,
-                  ) &&
-                    sliceOptions.length > 0 && (
-                      <MultiSelectField
-                        label="Slices"
-                        labelClassName="font-weight-bold"
-                        value={block.sliceTagsFilter}
-                        onChange={(value) =>
-                          setBlock({ ...block, sliceTagsFilter: value })
-                        }
-                        options={sliceOptions.map(({ value, isOrphaned }) => ({
-                          label: value,
-                          value,
-                          isOrphaned,
-                        }))}
-                        sort={false}
-                        formatOptionLabel={(
-                          option: SingleValue & { isOrphaned?: boolean },
-                          meta: FormatOptionLabelMeta<SingleValue>,
-                        ) => {
-                          const fullOption = sliceOptions.find(
-                            (o) => o.value === option.value,
-                          );
-                          if (!fullOption) {
-                            return option.label;
+
+                <MultiSelectField
+                  label="Metrics"
+                  labelClassName="font-weight-bold"
+                  placeholder="All Metrics"
+                  customStyles={{
+                    // normal font color for placeholder
+                    placeholder: (base) => ({
+                      ...base,
+                      color: "var(--text-color-main)",
+                    }),
+                  }}
+                  value={block.metricIds ?? []}
+                  onChange={(value) =>
+                    setBlock({ ...block, metricIds: value })
+                  }
+                  options={[
+                    ...(metricOptions.groups.length > 0
+                      ? [
+                          {
+                            label: "Metric Groups",
+                            options: metricOptions.groups.map((group) => ({
+                              label: group.name,
+                              value: group.id,
+                              isOrphaned: group.isOrphaned,
+                            })),
+                          },
+                        ]
+                      : []),
+                    ...(metricOptions.metrics.length > 0
+                      ? [
+                          {
+                            label: "Metrics",
+                            options: metricOptions.metrics.map((metric) => ({
+                              label: metric.name,
+                              value: metric.id,
+                              isOrphaned: metric.isOrphaned,
+                            })),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  sort={false}
+                  formatOptionLabel={(
+                    option: SingleValue & { isOrphaned?: boolean },
+                    meta: FormatOptionLabelMeta<SingleValue>,
+                  ) =>
+                    formatMetricOptionLabel(
+                      option,
+                      getExperimentMetricById,
+                      getMetricGroupById,
+                      meta?.context !== "value",
+                    )
+                  }
+                  formatGroupLabel={(group) => (
+                    <div className="pb-1 pt-2">{group.label}</div>
+                  )}
+                />
+                {blockHasFieldOfType(
+                  block,
+                  "metricTagFilter",
+                  isStringArray,
+                ) &&
+                  (metricTagOptions.length > 0 ||
+                    (block.metricTagFilter?.length || 0) > 0) && (
+                    <>
+                      {(block.metricTagFilter?.length || 0) > 0 ||
+                      showMetricTags ? (
+                        <MultiSelectField
+                          label="Tags"
+                          labelClassName="font-weight-bold"
+                          placeholder="Type to search..."
+                          value={block.metricTagFilter}
+                          onChange={(value) =>
+                            setBlock({ ...block, metricTagFilter: value })
                           }
-                          return formatSliceOptionLabel(
-                            fullOption,
-                            meta,
-                            block.sliceTagsFilter,
-                          );
-                        }}
-                      />
-                    )}
-                </Box>
+                          options={metricTagOptions.map((tag) => ({
+                            label: tag.label,
+                            value: tag.value,
+                            isOrphaned: tag.isOrphaned,
+                          }))}
+                          formatOptionLabel={(option) =>
+                            formatMetricTagOptionLabel(option)
+                          }
+                        />
+                      ) : (
+                        <a
+                          role="button"
+                          onClick={() => setShowMetricTags(true)}
+                          className="d-inline-block mb-2"
+                        >
+                          <PiPlus />
+                          <Text weight="medium" className="ml-1">Tags</Text>
+                        </a>
+                      )}
+                    </>
+                  )}
+
+                {blockHasFieldOfType(
+                  block,
+                  "sliceTagsFilter",
+                  isStringArray,
+                ) &&
+                  sliceOptions.length > 0 && (
+                    <MultiSelectField
+                      label="Slices"
+                      labelClassName="font-weight-bold"
+                      placeholder="Type to search..."
+                      value={block.sliceTagsFilter}
+                      onChange={(value) =>
+                        setBlock({ ...block, sliceTagsFilter: value })
+                      }
+                      options={sliceOptions.map(({ value, isOrphaned }) => ({
+                        label: value,
+                        value,
+                        isOrphaned,
+                      }))}
+                      sort={false}
+                      formatOptionLabel={(
+                        option: SingleValue & { isOrphaned?: boolean },
+                        meta: FormatOptionLabelMeta<SingleValue>,
+                      ) => {
+                        const fullOption = sliceOptions.find(
+                          (o) => o.value === option.value,
+                        );
+                        if (!fullOption) {
+                          return option.label;
+                        }
+                        return formatSliceOptionLabel(
+                          fullOption,
+                          meta,
+                          block.sliceTagsFilter,
+                        );
+                      }}
+                    />
+                  )}
                 {blockHasFieldOfType(
                   block,
                   "sortBy",
