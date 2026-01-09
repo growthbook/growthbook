@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { DisplaySettings } from "shared/enterprise";
@@ -11,17 +12,6 @@ import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 // Delimiter used to create composite keys for series (columnName + dimensionValue)
 // Using ||| to avoid conflicts with colons that may appear in dimension values
 export const SERIES_KEY_DELIMITER = "|||";
-
-// Helper function to deep clone settings
-function deepCloneSettings(
-  settings: Record<string, Record<string, DisplaySettings>>,
-): Record<string, Record<string, DisplaySettings>> {
-  const cloned: Record<string, Record<string, DisplaySettings>> = {};
-  Object.keys(settings).forEach((columnName) => {
-    cloned[columnName] = { ...settings[columnName] };
-  });
-  return cloned;
-}
 
 export const DashboardSeriesDisplayContext = React.createContext<{
   settings: Record<string, Record<string, DisplaySettings>>;
@@ -76,111 +66,89 @@ export default function DashboardSeriesDisplayProvider({
   useEffect(() => {
     setSeriesDisplaySettings(dashboard?.seriesDisplaySettings);
   }, [dashboard?.seriesDisplaySettings]);
-  // Track computed colors that haven't been persisted yet
-  // Key format: `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}` -> color string
-  const computedColorsRef = useRef<Map<string, string>>(new Map());
-
-  // Track debounce timers per series key to avoid spamming API calls
-  const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  // Track timer for computed colors save
-  const computedColorsSaveTimerRef = useRef<NodeJS.Timeout | undefined>(
-    undefined,
-  );
 
   // Track active series keys (keys that are currently being used in charts)
   const activeSeriesKeys = new Map<string, Set<string>>();
 
-  // Store latest settings ref for debounced save callbacks
-  const latestSettingsRef = useRef<
-    Record<string, Record<string, DisplaySettings>>
-  >(seriesDisplaySettings ?? {});
-  const dashboardIdRef = useRef<string | undefined>(dashboard?.id);
+  // Single debounce timer for all saves (both computed and manual)
+  const saveTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  // Refs to avoid stale closures in debounced callbacks
+  const onSaveRef = useRef(onSave);
+  const dashboardIdRef = useRef(dashboard?.id);
+
+  // Update refs when props change
   useEffect(() => {
-    latestSettingsRef.current = seriesDisplaySettings ?? {};
+    onSaveRef.current = onSave;
     dashboardIdRef.current = dashboard?.id;
-  }, [seriesDisplaySettings, dashboard?.id]);
+  }, [onSave, dashboard?.id]);
 
-  // Derive settings from seriesDisplaySettings prop + computed colors (single source of truth)
-  // Compute on every render (not memoized) so it always includes latest computedColorsRef
-  const settings = (() => {
-    const base = seriesDisplaySettings ?? {};
-    const result = deepCloneSettings(base);
+  const settings = useMemo(
+    () => seriesDisplaySettings ?? {},
+    [seriesDisplaySettings],
+  );
 
-    // Add computed colors that haven't been persisted yet
-    computedColorsRef.current.forEach((color, key) => {
-      const [columnName, dimensionValue] = key.split(SERIES_KEY_DELIMITER);
-      if (!result[columnName]) {
-        result[columnName] = {};
-      }
-      // Only add if not already in base settings (don't override persisted colors)
-      if (!result[columnName][dimensionValue]?.color) {
-        result[columnName][dimensionValue] = { color };
-      }
-    });
-
-    return result;
-  })();
-
-  // Persist computed colors after render and trigger save if needed
-  useEffect(() => {
-    if (computedColorsRef.current.size === 0) {
+  // Debounced save function - shared for both computed and manual color updates
+  const debouncedSave = useCallback(() => {
+    if (
+      !onSaveRef.current ||
+      !dashboardIdRef.current ||
+      dashboardIdRef.current === "new"
+    ) {
       return;
     }
 
-    const colorsToPersist = new Map(computedColorsRef.current);
-    computedColorsRef.current.clear();
+    // Clear any existing timer
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
 
-    setSeriesDisplaySettings((prevSettings) => {
-      const currentSettings = prevSettings ?? {};
-      const updated = deepCloneSettings(currentSettings);
-      let hasChanges = false;
-
-      colorsToPersist.forEach((color, key) => {
-        const [columnName, dimensionValue] = key.split(SERIES_KEY_DELIMITER);
-        if (!updated[columnName]) {
-          updated[columnName] = {};
+    // Set a new timer to save after changes stop
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = undefined;
+      // Read current state when timer fires (avoid stale closures)
+      setSeriesDisplaySettings((currentSettings) => {
+        const currentDashboardId = dashboardIdRef.current;
+        if (
+          currentSettings &&
+          currentDashboardId &&
+          currentDashboardId !== "new" &&
+          onSaveRef.current
+        ) {
+          Promise.resolve(onSaveRef.current(currentSettings)).catch((e) => {
+            console.error("Failed to save series display settings:", e);
+          });
         }
-        // Only update if color doesn't already exist (atomic check)
-        if (!updated[columnName][dimensionValue]?.color) {
-          updated[columnName][dimensionValue] = { color };
-          hasChanges = true;
-        }
+        return currentSettings; // Don't modify state, just read it
       });
+    }, 750); // 750ms debounce delay
+  }, []);
 
-      if (!hasChanges) return prevSettings;
+  // Save when seriesDisplaySettings changes (debounced)
+  useEffect(() => {
+    // Only save if we have settings and dashboard exists
+    if (seriesDisplaySettings && dashboard?.id && dashboard.id !== "new") {
+      debouncedSave();
+    }
 
-      // Update latest settings ref for potential saves
-      latestSettingsRef.current = updated;
-
-      // If we added new colors and dashboard exists, trigger a debounced save
-      if (hasChanges && onSave && dashboard?.id && dashboard.id !== "new") {
-        // Clear any existing timer
-        if (computedColorsSaveTimerRef.current) {
-          clearTimeout(computedColorsSaveTimerRef.current);
-        }
-
-        // Debounce the save to avoid spamming when multiple colors are computed
-        computedColorsSaveTimerRef.current = setTimeout(() => {
-          computedColorsSaveTimerRef.current = undefined;
-          const currentSettings = latestSettingsRef.current;
-          const currentDashboardId = dashboardIdRef.current;
-          if (currentDashboardId && currentDashboardId !== "new") {
-            Promise.resolve(onSave(currentSettings)).catch((e) => {
-              console.error("Failed to save computed colors:", e);
-            });
-          }
-        }, 1000);
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = undefined;
       }
-
-      return updated;
-    });
-  }, [setSeriesDisplaySettings, onSave, dashboard?.id]);
+    };
+  }, [seriesDisplaySettings, debouncedSave, dashboard?.id]);
 
   const updateSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, color: string) => {
       setSeriesDisplaySettings((prevSettings) => {
         const currentSettings = prevSettings ?? {};
-        const updated = {
+        // Only update if color is actually different
+        if (currentSettings[columnName]?.[dimensionValue]?.color === color) {
+          return prevSettings;
+        }
+
+        return {
           ...currentSettings,
           [columnName]: {
             ...currentSettings[columnName],
@@ -190,43 +158,14 @@ export default function DashboardSeriesDisplayProvider({
             },
           },
         };
-
-        // Update the latest settings ref for debounced saves
-        latestSettingsRef.current = updated;
-
-        // Debounce the save operation to avoid spamming API calls
-        if (onSave && dashboard?.id && dashboard.id !== "new") {
-          const seriesKey = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
-          // Clear any existing timer for this seriesKey
-          const existingTimer = saveTimersRef.current.get(seriesKey);
-          if (existingTimer) {
-            clearTimeout(existingTimer);
-          }
-
-          // Set a new timer to save after user stops changing the color
-          // Use refs to read the latest values when the debounce fires (avoid stale closures)
-          const timer = setTimeout(() => {
-            saveTimersRef.current.delete(seriesKey);
-            const currentSettings = latestSettingsRef.current;
-            const currentDashboardId = dashboardIdRef.current;
-            if (currentDashboardId && currentDashboardId !== "new") {
-              Promise.resolve(onSave(currentSettings)).catch((e) => {
-                console.error("Failed to save series display settings:", e);
-              });
-            }
-          }, 750); // 750ms debounce delay
-
-          saveTimersRef.current.set(seriesKey, timer);
-        }
-
-        return updated;
       });
     },
-    [setSeriesDisplaySettings, onSave, dashboard?.id],
+    [setSeriesDisplaySettings],
   );
 
   // Register series keys for tracking (called explicitly by components during render)
-  // Not memoized because activeSeriesKeys is recreated each render anyway
+  // Not memoized because activeSeriesKeys is recreated each render intentionally
+  // This allows us to clean up series keys that are no longer being used by the dashboard
   const registerSeriesKeys = (
     keys: Array<{ columnName: string; dimensionValue: string }>,
   ) => {
@@ -240,30 +179,36 @@ export default function DashboardSeriesDisplayProvider({
 
   const getSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, index: number): string => {
-      const seriesKey = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
-
       // Check if this series already has a color in dashboard settings
       const existingColor = settings[columnName]?.[dimensionValue]?.color;
       if (existingColor) {
         return existingColor;
       }
 
-      // Check if we've already computed a color during this render cycle
-      const computedColor = computedColorsRef.current.get(seriesKey);
-      if (computedColor) {
-        return computedColor;
-      }
-
       // Select a new color using round-robin (index % palette length)
       const colorIndex = index % CHART_COLOR_PALETTE.length;
       const selectedColor = CHART_COLOR_PALETTE[colorIndex];
 
-      // Track this assignment to persist after render
-      computedColorsRef.current.set(seriesKey, selectedColor);
+      // Update state directly - React will batch these updates
+      setSeriesDisplaySettings((prevSettings) => {
+        const currentSettings = prevSettings ?? {};
+        // Only add if color doesn't already exist
+        if (currentSettings[columnName]?.[dimensionValue]?.color) {
+          return prevSettings;
+        }
+
+        return {
+          ...currentSettings,
+          [columnName]: {
+            ...currentSettings[columnName],
+            [dimensionValue]: { color: selectedColor },
+          },
+        };
+      });
 
       return selectedColor;
     },
-    [settings],
+    [settings, setSeriesDisplaySettings],
   );
 
   // Get the map of active series keys grouped by column name (for filtering)
@@ -274,26 +219,6 @@ export default function DashboardSeriesDisplayProvider({
     });
     return result;
   };
-
-  // Cleanup debounce timers and computed colors on unmount
-  useEffect(() => {
-    const timers = saveTimersRef.current;
-    const computedColors = computedColorsRef.current;
-    const computedColorsTimer = computedColorsSaveTimerRef.current;
-    return () => {
-      // Clear all debounce timers
-      timers.forEach((timer) => {
-        clearTimeout(timer);
-      });
-      timers.clear();
-      // Clear computed colors save timer
-      if (computedColorsTimer) {
-        clearTimeout(computedColorsTimer);
-      }
-      // Clear computed colors to prevent memory leaks
-      computedColors.clear();
-    };
-  }, []);
 
   // Get current seriesDisplaySettings (for use in save operations)
   const getSeriesDisplaySettings = useCallback(() => {
