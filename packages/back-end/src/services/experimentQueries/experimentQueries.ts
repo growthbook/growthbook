@@ -109,7 +109,10 @@ export function getNonQuantileFloatColumns({
       case "dailyParticipation":
         return BASE_METRIC_FLOAT_COLS_UNCAPPED;
       case "ratio":
-        return RATIO_METRIC_FLOAT_COLS_UNCAPPED;
+        return [
+          ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
+          ...RATIO_METRIC_FLOAT_COLS_UNCAPPED,
+        ];
       case "quantile":
         return [];
     }
