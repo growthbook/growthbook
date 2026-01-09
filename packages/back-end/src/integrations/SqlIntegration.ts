@@ -1384,20 +1384,6 @@ export default abstract class SqlIntegration
         : {};
     };
 
-    // Helper function to parse paired fields (base + squares)
-    const parsePairedFields = (
-      row: Record<string, unknown>,
-      base: string,
-      squares: string,
-    ): Record<string, number> => {
-      return row[base] !== undefined
-        ? {
-            [base]: parseFloat(row[base] as string) || 0,
-            [squares]: parseFloat(row[squares] as string) || 0,
-          }
-        : {};
-    };
-
     // Helper function to parse non-float fields (cap values)
     const parseNonFloatField = (
       row: Record<string, unknown>,
@@ -1437,17 +1423,16 @@ export default abstract class SqlIntegration
         Object.assign(
           result,
           // Ratio case
-          parsePairedFields(row, "denominator_sum", "denominator_sum_squares"),
+          parseFloatField(row, "denominator_sum"),
+          parseFloatField(row, "denominator_sum_squares"),
           parseFloatField(row, "main_denominator_sum_product"),
           // CUPED case
-          parsePairedFields(row, "covariate_sum", "covariate_sum_squares"),
+          parseFloatField(row, "covariate_sum"),
+          parseFloatField(row, "covariate_sum_squares"),
           parseFloatField(row, "main_covariate_sum_product"),
           // Ratio CUPED case
-          parsePairedFields(
-            row,
-            "denominator_pre_sum",
-            "denominator_pre_sum_squares",
-          ),
+          parseFloatField(row, "denominator_pre_sum"),
+          parseFloatField(row, "denominator_pre_sum_squares"),
           parseFloatField(row, "main_post_denominator_pre_sum_product"),
           parseFloatField(row, "main_pre_denominator_post_sum_product"),
           parseFloatField(row, "main_pre_denominator_pre_sum_product"),
@@ -1458,31 +1443,19 @@ export default abstract class SqlIntegration
           // Bandits case
           parseFloatField(row, "theta"),
           // Uncapped main case
-          parsePairedFields(
-            row,
-            "main_sum_uncapped",
-            "main_sum_squares_uncapped",
-          ),
+          parseFloatField(row, "main_sum_uncapped"),
+          parseFloatField(row, "main_sum_squares_uncapped"),
           // Uncapped ratio case
-          parsePairedFields(
-            row,
-            "denominator_sum_uncapped",
-            "denominator_sum_squares_uncapped",
-          ),
+          parseFloatField(row, "denominator_sum_uncapped"),
+          parseFloatField(row, "denominator_sum_squares_uncapped"),
           parseFloatField(row, "main_denominator_sum_product_uncapped"),
           // Uncapped CUPED case
-          parsePairedFields(
-            row,
-            "covariate_sum_uncapped",
-            "covariate_sum_squares_uncapped",
-          ),
+          parseFloatField(row, "covariate_sum_uncapped"),
+          parseFloatField(row, "covariate_sum_squares_uncapped"),
           parseFloatField(row, "main_covariate_sum_product_uncapped"),
           // Uncapped CUPED ratio case
-          parsePairedFields(
-            row,
-            "denominator_pre_sum_uncapped",
-            "denominator_pre_sum_squares_uncapped",
-          ),
+          parseFloatField(row, "denominator_pre_sum_uncapped"),
+          parseFloatField(row, "denominator_pre_sum_squares_uncapped"),
           parseFloatField(
             row,
             "main_post_denominator_pre_sum_product_uncapped",
