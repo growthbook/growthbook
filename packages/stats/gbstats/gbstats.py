@@ -850,8 +850,6 @@ def replace_with_uncapped(df: pd.DataFrame) -> pd.DataFrame:
         # Check if the original column exists before trying to replace it
         if original_col in df.columns:
             df[original_col] = df[uncapped_col]
-            # Remove the capped column after the swap
-            df.drop(columns=[uncapped_col], inplace=True)
 
     return df
 
