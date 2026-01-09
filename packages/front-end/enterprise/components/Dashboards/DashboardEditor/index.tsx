@@ -23,7 +23,7 @@ import {
 import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { withErrorBoundary } from "@sentry/react";
+import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
