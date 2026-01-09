@@ -36,6 +36,7 @@ import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
 import customFieldsRouter from "./custom-fields/custom-fields.router";
+import { API_MODELS, defineRouterForApiConfig } from "./ApiModel";
 
 const router = Router();
 let openapiSpec: string;
@@ -133,6 +134,14 @@ router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
 router.use("/custom-fields", customFieldsRouter);
+API_MODELS.forEach((modelClass) => {
+  const apiConfig = modelClass.getModelConfig().apiConfig;
+  if (!apiConfig) return;
+  const r = defineRouterForApiConfig(apiConfig);
+  if (r) {
+    router.use(apiConfig.pathBase, r);
+  }
+});
 
 // 404 route
 router.use(function (req, res) {

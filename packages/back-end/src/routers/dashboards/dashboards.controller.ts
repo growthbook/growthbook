@@ -106,17 +106,6 @@ export async function createDashboard(
     userId,
   } = req.body;
 
-  if (experimentId) {
-    if (updateSchedule) {
-      throw new Error(
-        "Cannot specify an update schedule for experiment dashboards",
-      );
-    }
-  } else {
-    if (enableAutoUpdates && !updateSchedule) {
-      throw new Error("Must define an update schedule to enable auto updates");
-    }
-  }
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
   );
