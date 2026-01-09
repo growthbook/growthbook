@@ -26,7 +26,7 @@ import {
 } from "back-end/src/services/organizations";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -208,7 +208,7 @@ export const putEnvironment = async (
           (c) => c.environment === id,
         );
 
-        await refreshSDKPayloadCache({
+        queueSDKPayloadRefresh({
           context,
           payloadKeys: [],
           sdkConnections: affectedConnections,
