@@ -1,6 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { Queries } from "shared/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -85,8 +84,6 @@ export function canShowReenableIncrementalRefresh({
 export default function ResultMoreMenu({
   experiment,
   editMetrics,
-  queries,
-  queryError,
   hasData,
   supportsNotebooks,
   notebookUrl,
@@ -102,8 +99,6 @@ export default function ResultMoreMenu({
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
-  queries?: Queries;
-  queryError?: string;
   hasData?: boolean;
   supportsNotebooks?: boolean;
   notebookUrl: string;
@@ -122,7 +117,7 @@ export default function ResultMoreMenu({
   const { mutateDefinitions } = useDefinitions();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
-  const { latest } = useSnapshot();
+  const { latest, snapshot } = useSnapshot();
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
   const { status } = queryStatusData;
 
@@ -336,10 +331,11 @@ export default function ResultMoreMenu({
     setDropdownOpen(false);
   }, [forceRefresh]);
 
-  const queryStrings = useMemo(
-    () => (queries?.length ?? 0) > 0 ? queries?.map((q) => q.query) ?? [] : latest?.queries?.map((q) => q.query) ?? [],
-    [queries, latest],
-  );
+  const queryStrings = snapshot
+    ? snapshot.queries.map((q) => q.query)
+    : latest
+      ? latest.queries.map((q) => q.query)
+      : [];
 
   return (
     <>
@@ -363,7 +359,9 @@ export default function ResultMoreMenu({
         variant="soft"
       >
         <DropdownMenuGroup>
-          {queryStrings.length > 0 || status === "failed" || status === "partially-succeeded" ? (
+          {queryStrings.length > 0 ||
+          status === "failed" ||
+          status === "partially-succeeded" ? (
             <DropdownMenuItem onClick={handleViewQueries}>
               View queries
               <Badge
@@ -371,7 +369,6 @@ export default function ResultMoreMenu({
                 radius="full"
                 label={String(queryStrings.length)}
                 ml="2"
-                color={status === "failed" || status === "partially-succeeded" ? "red" : undefined}
               />
             </DropdownMenuItem>
           ) : null}
@@ -459,7 +456,7 @@ export default function ResultMoreMenu({
           close={() => setQueriesModalOpen(false)}
           queries={queryStrings}
           savedQueries={[]}
-          error={queryError}
+          error={snapshot ? snapshot?.error : latest?.error}
         />
       )}
     </>

@@ -711,12 +711,6 @@ export default function AnalysisSettingsSummary({
               editMetrics={editMetrics}
               notebookUrl={`/experiments/notebook/${snapshot?.id}`}
               notebookFilename={experiment.trackingKey}
-              queries={
-                latest && latest.status !== "error" && latest.queries
-                  ? latest.queries
-                  : snapshot?.queries
-              }
-              queryError={snapshot?.error}
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={useMemo(() => {
