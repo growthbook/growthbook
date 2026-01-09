@@ -144,23 +144,10 @@ function DashboardsTab({
     DashboardInterface | undefined
   >(undefined);
   const [dashboardFirstSave, setDashboardFirstSave] = useState(false);
-  const dashboardFromList =
+  const dashboard =
     dashboardId === "new"
       ? temporaryDashboard
       : dashboards.find((d) => d.id === dashboardId);
-
-  // Manage dashboard state locally for view mode
-  const [localDashboard, setLocalDashboard] = useState<
-    DashboardInterface | undefined
-  >(dashboardFromList);
-
-  // Update local dashboard when the dashboard from list changes
-  useEffect(() => {
-    setLocalDashboard(dashboardFromList);
-  }, [dashboardFromList]);
-
-  // Use the local dashboard for rendering
-  const dashboard = localDashboard;
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
@@ -254,15 +241,10 @@ function DashboardsTab({
         dashboardId,
         data: {
           blocks: newBlocks,
-          // Include seriesDisplaySettings from local dashboard if it exists
-          ...(localDashboard?.seriesDisplaySettings &&
-          Object.keys(localDashboard.seriesDisplaySettings).length > 0
-            ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
-            : {}),
         },
       });
     },
-    [blocks, submitDashboard, dashboardId, localDashboard],
+    [blocks, submitDashboard, dashboardId],
   );
 
   const createOrPromptUpgrade = () => {
@@ -287,14 +269,13 @@ function DashboardsTab({
     >
       <DashboardSeriesDisplayProvider
         dashboard={dashboard}
-        setDashboard={setLocalDashboard}
-        onSave={async (updatedDashboard) => {
-          if (updatedDashboard?.id && dashboardId) {
+        onSave={async (updatedSettings) => {
+          if (dashboard?.id && dashboardId) {
             await submitDashboard({
               method: "PUT",
-              dashboardId: updatedDashboard.id,
+              dashboardId: dashboard.id,
               data: {
-                seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+                seriesDisplaySettings: updatedSettings,
               },
             });
           }

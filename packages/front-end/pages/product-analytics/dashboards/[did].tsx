@@ -26,25 +26,12 @@ function SingleDashboardPage() {
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
   }>(`/dashboards/${did}`);
-  const dashboardFromApi = data?.dashboard;
+  const dashboard = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
   const { hasCommercialFeature, userId } = useUser();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
-
-  // Manage dashboard state locally for view mode
-  const [localDashboard, setLocalDashboard] = useState<
-    DashboardInterface | undefined
-  >(dashboardFromApi);
-
-  // Update local dashboard when API data changes
-  useEffect(() => {
-    setLocalDashboard(dashboardFromApi);
-  }, [dashboardFromApi]);
-
-  // Use the local dashboard for rendering, fallback to dashboardFromApi to avoid race condition
-  const dashboard = localDashboard || dashboardFromApi;
 
   const canUpdateDashboards = permissionsUtil.canCreateAnalyses(
     dashboard?.projects,
@@ -118,15 +105,10 @@ function SingleDashboardPage() {
         dashboardId: dashboard.id,
         data: {
           blocks: newBlocks,
-          // Include seriesDisplaySettings from local dashboard if it exists
-          ...(localDashboard?.seriesDisplaySettings &&
-          Object.keys(localDashboard.seriesDisplaySettings).length > 0
-            ? { seriesDisplaySettings: localDashboard.seriesDisplaySettings }
-            : {}),
         },
       });
     },
-    [blocks, submitDashboard, dashboard, localDashboard],
+    [blocks, submitDashboard, dashboard],
   );
 
   if (!hasCommercialFeature("product-analytics-dashboards")) {
@@ -182,14 +164,13 @@ function SingleDashboardPage() {
       >
         <DashboardSeriesDisplayProvider
           dashboard={dashboard}
-          setDashboard={setLocalDashboard}
-          onSave={async (updatedDashboard) => {
-            if (updatedDashboard?.id) {
+          onSave={async (updatedSettings) => {
+            if (dashboard?.id) {
               await submitDashboard({
                 method: "PUT",
-                dashboardId: updatedDashboard.id,
+                dashboardId: dashboard.id,
                 data: {
-                  seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+                  seriesDisplaySettings: updatedSettings,
                 },
               });
             }

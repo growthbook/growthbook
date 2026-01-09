@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { DashboardInterface, DisplaySettings } from "shared/enterprise";
+import { DisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
 // Helper function to deep clone settings
@@ -21,6 +21,9 @@ function deepCloneSettings(
 
 export const DashboardSeriesDisplayContext = React.createContext<{
   settings: Record<string, Record<string, DisplaySettings>>;
+  getSeriesDisplaySettings: () =>
+    | Record<string, Record<string, DisplaySettings>>
+    | undefined;
   updateSeriesColor: (
     columnName: string,
     dimensionValue: string,
@@ -37,6 +40,7 @@ export const DashboardSeriesDisplayContext = React.createContext<{
   getActiveSeriesKeys: () => Map<string, Set<string>>;
 }>({
   settings: {},
+  getSeriesDisplaySettings: () => undefined,
   updateSeriesColor: () => {},
   getSeriesColor: () => "",
   registerSeriesKeys: () => {},
@@ -45,39 +49,57 @@ export const DashboardSeriesDisplayContext = React.createContext<{
 
 export default function DashboardSeriesDisplayProvider({
   dashboard,
-  setDashboard,
   onSave,
   children,
 }: {
-  dashboard: DashboardInterface | undefined;
-  setDashboard: (
-    updater: (
-      prev: DashboardInterface | undefined,
-    ) => DashboardInterface | undefined,
-  ) => void;
-  onSave?: (dashboard: DashboardInterface) => Promise<void> | void;
+  dashboard:
+    | {
+        id?: string;
+        seriesDisplaySettings?: Record<string, Record<string, DisplaySettings>>;
+      }
+    | undefined;
+  onSave?: (
+    seriesDisplaySettings: Record<string, Record<string, DisplaySettings>>,
+  ) => Promise<void> | void;
   children: ReactNode;
 }) {
+  // Manage seriesDisplaySettings state internally
+  const [seriesDisplaySettings, setSeriesDisplaySettings] = React.useState<
+    Record<string, Record<string, DisplaySettings>> | undefined
+  >(dashboard?.seriesDisplaySettings);
+
+  // Sync state when dashboard prop changes
+  useEffect(() => {
+    setSeriesDisplaySettings(dashboard?.seriesDisplaySettings);
+  }, [dashboard?.seriesDisplaySettings]);
   // Track computed colors that haven't been persisted yet
   // Key format: `${columnName}:${dimensionValue}` -> color string
   const computedColorsRef = useRef<Map<string, string>>(new Map());
 
   // Track debounce timers per series key to avoid spamming API calls
   const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  // Track timer for computed colors save
+  const computedColorsSaveTimerRef = useRef<NodeJS.Timeout | undefined>(
+    undefined,
+  );
 
   // Track active series keys (keys that are currently being used in charts)
   const activeSeriesKeys = new Map<string, Set<string>>();
 
-  // Store latest dashboard ref to avoid stale closures in debounce callbacks
-  const latestDashboardRef = useRef<DashboardInterface | undefined>(dashboard);
+  // Store latest settings ref for debounced save callbacks
+  const latestSettingsRef = useRef<
+    Record<string, Record<string, DisplaySettings>>
+  >(seriesDisplaySettings ?? {});
+  const dashboardIdRef = useRef<string | undefined>(dashboard?.id);
   useEffect(() => {
-    latestDashboardRef.current = dashboard;
-  }, [dashboard]);
+    latestSettingsRef.current = seriesDisplaySettings ?? {};
+    dashboardIdRef.current = dashboard?.id;
+  }, [seriesDisplaySettings, dashboard?.id]);
 
-  // Derive settings from dashboard prop + computed colors (single source of truth)
+  // Derive settings from seriesDisplaySettings prop + computed colors (single source of truth)
   // Compute on every render (not memoized) so it always includes latest computedColorsRef
   const settings = (() => {
-    const base = dashboard?.seriesDisplaySettings ?? {};
+    const base = seriesDisplaySettings ?? {};
     const result = deepCloneSettings(base);
 
     // Add computed colors that haven't been persisted yet
@@ -95,19 +117,17 @@ export default function DashboardSeriesDisplayProvider({
     return result;
   })();
 
-  // Persist computed colors after render
+  // Persist computed colors after render and trigger save if needed
   useEffect(() => {
-    if (computedColorsRef.current.size === 0 || !dashboard) {
+    if (computedColorsRef.current.size === 0) {
       return;
     }
 
     const colorsToPersist = new Map(computedColorsRef.current);
     computedColorsRef.current.clear();
 
-    setDashboard((prevDashboard) => {
-      if (!prevDashboard) return prevDashboard;
-
-      const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
+    setSeriesDisplaySettings((prevSettings) => {
+      const currentSettings = prevSettings ?? {};
       const updated = deepCloneSettings(currentSettings);
       let hasChanges = false;
 
@@ -123,21 +143,39 @@ export default function DashboardSeriesDisplayProvider({
         }
       });
 
-      if (!hasChanges) return prevDashboard;
+      if (!hasChanges) return prevSettings;
 
-      return {
-        ...prevDashboard,
-        seriesDisplaySettings: updated,
-      };
+      // Update latest settings ref for potential saves
+      latestSettingsRef.current = updated;
+
+      // If we added new colors and dashboard exists, trigger a debounced save
+      if (hasChanges && onSave && dashboard?.id && dashboard.id !== "new") {
+        // Clear any existing timer
+        if (computedColorsSaveTimerRef.current) {
+          clearTimeout(computedColorsSaveTimerRef.current);
+        }
+
+        // Debounce the save to avoid spamming when multiple colors are computed
+        computedColorsSaveTimerRef.current = setTimeout(() => {
+          computedColorsSaveTimerRef.current = undefined;
+          const currentSettings = latestSettingsRef.current;
+          const currentDashboardId = dashboardIdRef.current;
+          if (currentDashboardId && currentDashboardId !== "new") {
+            Promise.resolve(onSave(currentSettings)).catch((e) => {
+              console.error("Failed to save computed colors:", e);
+            });
+          }
+        }, 1000);
+      }
+
+      return updated;
     });
-  }, [dashboard, setDashboard]);
+  }, [setSeriesDisplaySettings, onSave, dashboard?.id]);
 
   const updateSeriesColor = useCallback(
     (columnName: string, dimensionValue: string, color: string) => {
-      setDashboard((prevDashboard) => {
-        if (!prevDashboard) return prevDashboard;
-
-        const currentSettings = prevDashboard.seriesDisplaySettings ?? {};
+      setSeriesDisplaySettings((prevSettings) => {
+        const currentSettings = prevSettings ?? {};
         const updated = {
           ...currentSettings,
           [columnName]: {
@@ -149,13 +187,11 @@ export default function DashboardSeriesDisplayProvider({
           },
         };
 
-        const updatedDashboard = {
-          ...prevDashboard,
-          seriesDisplaySettings: updated,
-        };
+        // Update the latest settings ref for debounced saves
+        latestSettingsRef.current = updated;
 
         // Debounce the save operation to avoid spamming API calls
-        if (onSave && updatedDashboard.id && updatedDashboard.id !== "new") {
+        if (onSave && dashboard?.id && dashboard.id !== "new") {
           const seriesKey = `${columnName}:${dimensionValue}`;
           // Clear any existing timer for this seriesKey
           const existingTimer = saveTimersRef.current.get(seriesKey);
@@ -164,17 +200,13 @@ export default function DashboardSeriesDisplayProvider({
           }
 
           // Set a new timer to save after user stops changing the color
-          // Read from latestDashboardRef to avoid stale closure issues
+          // Use refs to read the latest values when the debounce fires (avoid stale closures)
           const timer = setTimeout(() => {
             saveTimersRef.current.delete(seriesKey);
-            const currentDashboard = latestDashboardRef.current;
-            if (currentDashboard?.id && currentDashboard.id !== "new") {
-              // Clean settings before saving to remove any entries without colors
-              const cleanedDashboard = {
-                ...currentDashboard,
-                seriesDisplaySettings: updated,
-              };
-              Promise.resolve(onSave(cleanedDashboard)).catch((e) => {
+            const currentSettings = latestSettingsRef.current;
+            const currentDashboardId = dashboardIdRef.current;
+            if (currentDashboardId && currentDashboardId !== "new") {
+              Promise.resolve(onSave(currentSettings)).catch((e) => {
                 console.error("Failed to save series display settings:", e);
               });
             }
@@ -183,10 +215,10 @@ export default function DashboardSeriesDisplayProvider({
           saveTimersRef.current.set(seriesKey, timer);
         }
 
-        return updatedDashboard;
+        return updated;
       });
     },
-    [setDashboard, onSave],
+    [setSeriesDisplaySettings, onSave, dashboard?.id],
   );
 
   // Register series keys for tracking (called explicitly by components during render)
@@ -243,21 +275,32 @@ export default function DashboardSeriesDisplayProvider({
   useEffect(() => {
     const timers = saveTimersRef.current;
     const computedColors = computedColorsRef.current;
+    const computedColorsTimer = computedColorsSaveTimerRef.current;
     return () => {
       // Clear all debounce timers
       timers.forEach((timer) => {
         clearTimeout(timer);
       });
       timers.clear();
+      // Clear computed colors save timer
+      if (computedColorsTimer) {
+        clearTimeout(computedColorsTimer);
+      }
       // Clear computed colors to prevent memory leaks
       computedColors.clear();
     };
   }, []);
 
+  // Get current seriesDisplaySettings (for use in save operations)
+  const getSeriesDisplaySettings = useCallback(() => {
+    return seriesDisplaySettings;
+  }, [seriesDisplaySettings]);
+
   // Don't memoize value since getActiveSeriesKeys needs to be recreated each render
   // to capture the current activeSeriesKeys
   const value = {
     settings,
+    getSeriesDisplaySettings,
     updateSeriesColor,
     getSeriesColor,
     registerSeriesKeys,

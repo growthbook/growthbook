@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -50,15 +50,6 @@ export default function NewDashboardPage() {
     createTemporaryDashboard(userId, project),
   );
 
-  const [localDashboard, setLocalDashboard] = useState<
-    DashboardInterface | undefined
-  >(dashboard);
-
-  // Sync localDashboard with dashboard when it changes
-  useEffect(() => {
-    setLocalDashboard(dashboard);
-  }, [dashboard]);
-
   const handleSubmitDashboard: SubmitDashboard<UpdateDashboardArgs> =
     useCallback(
       async (args) => {
@@ -80,9 +71,7 @@ export default function NewDashboardPage() {
               updateSchedule:
                 args.data.updateSchedule || dashboard.updateSchedule,
               userId: args.data.userId,
-              seriesDisplaySettings:
-                args.data.seriesDisplaySettings ??
-                localDashboard?.seriesDisplaySettings,
+              seriesDisplaySettings: args.data.seriesDisplaySettings,
             }),
           });
           setDashboard(res.dashboard);
@@ -103,15 +92,13 @@ export default function NewDashboardPage() {
               updateSchedule:
                 args.data.updateSchedule ?? dashboard.updateSchedule,
               userId: args.data.userId,
-              seriesDisplaySettings:
-                args.data.seriesDisplaySettings ??
-                localDashboard?.seriesDisplaySettings,
+              seriesDisplaySettings: args.data.seriesDisplaySettings,
             }),
           });
           setDashboard(res.dashboard);
         }
       },
-      [apiCall, dashboard, localDashboard],
+      [apiCall, dashboard],
     );
 
   const handleClose = useCallback(() => {
@@ -145,16 +132,15 @@ export default function NewDashboardPage() {
       mutateDefinitions={mutateDashboards}
     >
       <DashboardSeriesDisplayProvider
-        dashboard={localDashboard}
-        setDashboard={setLocalDashboard}
-        onSave={async (updatedDashboard) => {
+        dashboard={dashboard}
+        onSave={async (updatedSettings) => {
           // Only save if dashboard has been created (not "new")
-          if (updatedDashboard?.id && updatedDashboard.id !== "new") {
+          if (dashboard?.id && dashboard.id !== "new") {
             await handleSubmitDashboard({
               method: "PUT",
-              dashboardId: updatedDashboard.id,
+              dashboardId: dashboard.id,
               data: {
-                seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+                seriesDisplaySettings: updatedSettings,
               },
             });
           }

@@ -6,7 +6,6 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
-  DisplaySettings,
   getBlockData,
 } from "shared/enterprise";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -36,6 +35,7 @@ import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
 import { useSeriesDisplaySettings } from "./DashboardSeriesDisplayProvider";
 import EditGlobalColorDropdown from "./DashboardEditor/EditGlobalColorDropdown";
+import { filterSeriesDisplaySettings } from "./seriesDisplaySettingsUtils";
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
 
@@ -81,7 +81,8 @@ export default function DashboardWorkspace({
     }
   }, [dashboard]);
   const { metricGroups } = useDefinitions();
-  const { getActiveSeriesKeys } = useSeriesDisplaySettings();
+  const { getActiveSeriesKeys, getSeriesDisplaySettings } =
+    useSeriesDisplaySettings();
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -89,86 +90,26 @@ export default function DashboardWorkspace({
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
 
-  // Manage dashboard state locally for edit mode
-  const [localDashboard, setLocalDashboard] =
-    useState<DashboardInterface>(dashboard);
-
-  // Update local dashboard when prop changes
-  useEffect(() => {
-    setLocalDashboard(dashboard);
-  }, [dashboard]);
-
   const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
     () => async (args) => {
       setSaving(true);
       setSaveError(undefined);
       try {
-        // Exclude seriesDisplaySettings from localDashboard to prevent double saves
-        // onSave in the provider handles color changes exclusively
-        const { seriesDisplaySettings: _, ...localDashboardWithoutSettings } =
-          localDashboard;
-
-        // If blocks are being updated, filter seriesDisplaySettings to only include active keys
-        let seriesDisplaySettings = args.data.seriesDisplaySettings;
-        if (args.data.blocks !== undefined) {
-          const activeKeys = getActiveSeriesKeys();
-          const currentSettings = localDashboard.seriesDisplaySettings ?? {};
-          // Filter to only include active column/dimension combinations
-          const filtered: Record<string, Record<string, DisplaySettings>> = {};
-          Object.entries(currentSettings).forEach(
-            ([columnName, dimensionSettings]) => {
-              const activeDimensions = activeKeys.get(columnName);
-              if (activeDimensions && activeDimensions.size > 0) {
-                const filteredDimensions: Record<string, DisplaySettings> = {};
-                Object.entries(dimensionSettings).forEach(
-                  ([dimensionValue, displaySettings]) => {
-                    // Only include if it's an active dimension and has a color
-                    if (
-                      activeDimensions.has(dimensionValue) &&
-                      displaySettings?.color
-                    ) {
-                      filteredDimensions[dimensionValue] = displaySettings;
-                    }
-                  },
-                );
-                if (Object.keys(filteredDimensions).length > 0) {
-                  filtered[columnName] = filteredDimensions;
-                }
-              }
-            },
-          );
-          seriesDisplaySettings =
-            Object.keys(filtered).length > 0 ? filtered : undefined;
-        } else if (seriesDisplaySettings) {
-          // Clean settings to remove entries without colors
-          const cleaned: Record<string, Record<string, DisplaySettings>> = {};
-          Object.entries(seriesDisplaySettings).forEach(
-            ([columnName, dimensionSettings]) => {
-              const cleanedDimensions: Record<string, DisplaySettings> = {};
-              Object.entries(dimensionSettings).forEach(
-                ([dimensionValue, displaySettings]) => {
-                  if (displaySettings?.color) {
-                    cleanedDimensions[dimensionValue] = displaySettings;
-                  }
-                },
-              );
-              if (Object.keys(cleanedDimensions).length > 0) {
-                cleaned[columnName] = cleanedDimensions;
-              }
-            },
-          );
-          seriesDisplaySettings =
-            Object.keys(cleaned).length > 0 ? cleaned : undefined;
-        }
+        const filteredSettings = filterSeriesDisplaySettings(
+          // Use args if available - the only time that happens is via the Undo Changes button, otherwise use the get the current settings
+          args.data.seriesDisplaySettings || getSeriesDisplaySettings(),
+          // Only filter by active keys when blocks are being updated (for cleanup on removal)
+          // Otherwise, just clean entries without colors
+          args.data.blocks !== undefined ? getActiveSeriesKeys() : undefined,
+        );
 
         await submitDashboard({
           ...args,
           data: {
-            ...localDashboardWithoutSettings,
+            ...dashboard,
             ...args.data,
-            // Include filtered seriesDisplaySettings if blocks changed, otherwise use explicit value
-            ...(seriesDisplaySettings !== undefined
-              ? { seriesDisplaySettings }
+            ...(filteredSettings !== undefined
+              ? { seriesDisplaySettings: filteredSettings }
               : {}),
           },
         });
@@ -178,7 +119,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, localDashboard, getActiveSeriesKeys],
+    [submitDashboard, dashboard, getActiveSeriesKeys, getSeriesDisplaySettings],
   );
 
   const [blocks, setBlocks] = useState<
@@ -317,13 +258,7 @@ export default function DashboardWorkspace({
             await submitDashboard({
               method: "PUT",
               dashboardId: dashboard.id,
-              data: {
-                ...data,
-                ...(Object.keys(localDashboard.seriesDisplaySettings ?? {})
-                  .length > 0 && {
-                  seriesDisplaySettings: localDashboard.seriesDisplaySettings,
-                }),
-              },
+              data,
             });
             close();
           }}

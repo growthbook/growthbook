@@ -96,10 +96,6 @@ export default function DashboardsPage() {
 
   const dashboard = filteredDashboards.find((d) => d.id === dashboardId);
 
-  const [localDashboard, setLocalDashboard] = useState<
-    DashboardInterface | undefined
-  >(dashboard);
-
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
@@ -158,15 +154,14 @@ export default function DashboardsPage() {
     <>
       {isEditing && dashboard && (
         <DashboardSeriesDisplayProvider
-          dashboard={localDashboard}
-          setDashboard={setLocalDashboard}
-          onSave={async (updatedDashboard) => {
-            if (updatedDashboard?.id) {
+          dashboard={dashboard}
+          onSave={async (updatedSettings) => {
+            if (dashboard?.id) {
               await submitDashboard({
                 method: "PUT",
-                dashboardId: updatedDashboard.id,
+                dashboardId: dashboard.id,
                 data: {
-                  seriesDisplaySettings: updatedDashboard.seriesDisplaySettings,
+                  seriesDisplaySettings: updatedSettings,
                 },
               });
             }
