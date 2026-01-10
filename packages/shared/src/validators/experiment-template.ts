@@ -47,7 +47,6 @@ export const experimentTemplateInterface = z
     }),
 
     customMetricSlices: z.array(customMetricSlice).optional(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentTemplateInterface = z.infer<

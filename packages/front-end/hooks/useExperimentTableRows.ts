@@ -12,7 +12,6 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  generatePinnedSliceKey,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -60,15 +59,13 @@ export interface UseExperimentTableRowsParams {
   pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   shouldShowMetricSlices?: boolean;
-  enablePinning?: boolean;
-  pinnedMetricSlices?: string[];
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
 }
 
 export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
-  getChildRowCounts: (metricId: string) => { total: number; pinned: number };
+  getChildRowCounts: (metricId: string) => number;
 }
 
 export function useExperimentTableRows({
@@ -79,7 +76,6 @@ export function useExperimentTableRows({
   metricOverrides,
   ssrPolyfills,
   customMetricSlices,
-  pinnedMetricSlices,
   metricTagFilter,
   metricsFilter,
   sliceTagsFilter,
@@ -92,7 +88,6 @@ export function useExperimentTableRows({
   settingsForSnapshotMetrics,
   shouldShowMetricSlices = true,
   enableExpansion: _enableExpansion = true,
-  enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
@@ -116,15 +111,51 @@ export function useExperimentTableRows({
     useMemo(() => {
       const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
 
-      // Filter by metric groups if filter is active
-      let filteredGoalMetrics = goalMetrics;
-      let filteredSecondaryMetrics = secondaryMetrics;
-      let filteredGuardrailMetrics = guardrailMetrics;
+      // Check for selector IDs in metricsFilter (they constrain which categories to show)
+      const hasGoalSelector =
+        metricsFilter?.includes("experiment-goal") ?? false;
+      const hasSecondarySelector =
+        metricsFilter?.includes("experiment-secondary") ?? false;
+      const hasGuardrailSelector =
+        metricsFilter?.includes("experiment-guardrail") ?? false;
 
-      if (metricsFilter && metricsFilter.length > 0) {
+      // Filter out selector IDs from the actual metric filter
+      const actualMetricFilter =
+        metricsFilter?.filter(
+          (id) =>
+            ![
+              "experiment-goal",
+              "experiment-secondary",
+              "experiment-guardrail",
+            ].includes(id),
+        ) ?? [];
+
+      // Determine which categories to include based on selector IDs
+      // If no selectors are present, include all categories (equivalent to "all")
+      const includeGoals =
+        hasGoalSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeSecondaries =
+        hasSecondarySelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeGuardrails =
+        hasGuardrailSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+
+      // Filter by metric groups if filter is active
+      let filteredGoalMetrics: string[] = [];
+      let filteredSecondaryMetrics: string[] = [];
+      let filteredGuardrailMetrics: string[] = [];
+
+      if (
+        actualMetricFilter.length > 0 ||
+        hasGoalSelector ||
+        hasSecondarySelector ||
+        hasGuardrailSelector
+      ) {
         // Create a set of allowed metric IDs from expanded groups and individual metrics
         const allowedMetricIds = new Set<string>();
-        metricsFilter.forEach((id) => {
+        actualMetricFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
             if (group) {
@@ -138,39 +169,62 @@ export function useExperimentTableRows({
         });
 
         // Filter metrics by group or allowed metric IDs
-        filteredGoalMetrics = goalMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            return group?.metrics?.some((metricId) =>
-              allowedMetricIds.has(metricId),
-            );
-          }
-          return false;
-        });
-        filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            return group?.metrics?.some((metricId) =>
-              allowedMetricIds.has(metricId),
-            );
-          }
-          return false;
-        });
-        filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            return group?.metrics?.some((metricId) =>
-              allowedMetricIds.has(metricId),
-            );
-          }
-          return false;
-        });
+        // Only include categories that are selected via selector IDs
+        if (includeGoals) {
+          filteredGoalMetrics = goalMetrics.filter((id) => {
+            // If no actual metric filter, include all goal metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within goal category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+
+        if (includeSecondaries) {
+          filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
+            // If no actual metric filter, include all secondary metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within secondary category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+
+        if (includeGuardrails) {
+          filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
+            // If no actual metric filter, include all guardrail metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within guardrail category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+      } else {
+        // No filter at all - include all metrics
+        filteredGoalMetrics = goalMetrics;
+        filteredSecondaryMetrics = secondaryMetrics;
+        filteredGuardrailMetrics = guardrailMetrics;
       }
 
       const expandedGoals = expandMetricGroups(
@@ -233,7 +287,6 @@ export function useExperimentTableRows({
         settingsForSnapshotMetrics,
         shouldShowMetricSlices,
         customMetricSlices,
-        pinnedMetricSlices: enablePinning ? pinnedMetricSlices : undefined,
         expandedMetrics,
         getExperimentMetricById,
         getFactTableById,
@@ -381,12 +434,10 @@ export function useExperimentTableRows({
     getExperimentMetricById,
     getFactTableById,
     metricTagFilter,
-    pinnedMetricSlices,
     expandedMetrics,
     shouldShowMetricSlices,
     sliceTagsFilter,
     customMetricSlices,
-    enablePinning,
     sortBy,
     sortDirection,
     customMetricOrder,
@@ -398,11 +449,7 @@ export function useExperimentTableRows({
     const childRows = rows.filter(
       (row) => row.parentRowId === metricId && !row.isHiddenByFilter,
     );
-    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
-    return {
-      total: childRows.length,
-      pinned: pinnedChildRows.length,
-    };
+    return childRows.length;
   };
 
   return {
@@ -419,7 +466,6 @@ export function generateRowsForMetric({
   settingsForSnapshotMetrics,
   shouldShowMetricSlices,
   customMetricSlices,
-  pinnedMetricSlices,
   expandedMetrics,
   getExperimentMetricById,
   getFactTableById,
@@ -437,7 +483,6 @@ export function generateRowsForMetric({
       levels: string[];
     }>;
   }>;
-  pinnedMetricSlices?: string[];
   expandedMetrics?: Record<string, boolean>;
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
   getFactTableById: (id: string) => FactTableInterface | null;
@@ -546,19 +591,6 @@ export function generateRowsForMetric({
     let hasMatchingSlice = false;
 
     sliceData.forEach((slice) => {
-      // Generate pinned key from all slice levels
-      const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
-        column: dl.column,
-        datatype: dl.datatype,
-        levels: dl.levels,
-      }));
-      const pinnedKey = generatePinnedSliceKey(
-        metricId,
-        pinnedSliceLevels,
-        resultGroup,
-      );
-      const isPinned = !!pinnedMetricSlices?.includes(pinnedKey);
-
       // Check if slice matches filter
       let sliceMatches = true;
       if (sliceTagsFilter && sliceTagsFilter.length > 0) {
@@ -599,11 +631,11 @@ export function generateRowsForMetric({
         }
       }
 
-      // Show if: (expanded or pinned) AND matches filter (no special treatment for pinned when filter is active)
+      // Show if: expanded AND matches filter (when filter is active)
       const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
       const shouldShowLevel = hasFilter
-        ? (isExpanded || isPinned) && sliceMatches
-        : isExpanded || isPinned;
+        ? isExpanded && sliceMatches
+        : isExpanded;
 
       const label = slice.sliceLevels
         .map((dl, _index) => {
@@ -653,7 +685,6 @@ export function generateRowsForMetric({
         // Only use isHiddenByFilter when there's actually a filter active
         // When no filter, expansion state is handled by rendering logic
         isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
-        isPinned: isPinned,
       };
 
       // Skip "other" slice rows with no data

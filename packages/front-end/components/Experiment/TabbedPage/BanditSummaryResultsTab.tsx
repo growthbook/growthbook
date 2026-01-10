@@ -151,7 +151,6 @@ export default function BanditSummaryResultsTab({
                   ? getRenderLabelColumn({
                       statsEngine: "bayesian",
                       hideDetails: isPublic,
-                      className: "",
                     })({
                       label: metric.name,
                       metric,

@@ -4,7 +4,6 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
-  isMetricSelector,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
@@ -218,29 +217,67 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   }
   const blockHasMetrics = blockHasFieldOfType(
     block,
-    "metricSelector",
-    isMetricSelector,
+    "metricIds",
+    (val): val is string[] => Array.isArray(val),
   );
-  if (blockHasMetrics) {
-    const allMetricIds =
-      block.metricSelector === "custom"
-        ? (block.metricIds ?? [])
-        : block.metricSelector === "experiment-goal"
-          ? blockHasExperiment
-            ? (blockExperiment?.goalMetrics ?? [])
-            : []
-          : block.metricSelector === "experiment-secondary"
-            ? blockHasExperiment
-              ? (blockExperiment?.secondaryMetrics ?? [])
-              : []
-            : block.metricSelector === "experiment-guardrail"
-              ? blockHasExperiment
-                ? (blockExperiment?.guardrailMetrics ?? [])
-                : []
-              : [];
-    const blockMetrics = expandMetricGroups(allMetricIds, metricGroups).map(
-      getExperimentMetricById,
+  if (blockHasMetrics && blockHasExperiment) {
+    // TypeScript needs help here - blockHasMetrics narrows the type but TS can't infer it
+    const blockWithMetrics = block as Extract<T, { metricIds: string[] }>;
+    const blockMetricIds = blockWithMetrics.metricIds;
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
     );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
+
+    let baseMetricIds: string[] = [];
+    if (hasGoalSelector || hasSecondarySelector || hasGuardrailSelector) {
+      // If any selector is present, include metrics from those categories
+      if (hasGoalSelector) {
+        baseMetricIds.push(...(blockExperiment?.goalMetrics ?? []));
+      }
+      if (hasSecondarySelector) {
+        baseMetricIds.push(...(blockExperiment?.secondaryMetrics ?? []));
+      }
+      if (hasGuardrailSelector) {
+        baseMetricIds.push(...(blockExperiment?.guardrailMetrics ?? []));
+      }
+    } else {
+      // No selectors - include all metrics (equivalent to "all")
+      baseMetricIds = [
+        ...(blockExperiment?.goalMetrics ?? []),
+        ...(blockExperiment?.secondaryMetrics ?? []),
+        ...(blockExperiment?.guardrailMetrics ?? []),
+      ];
+    }
+
+    let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
+
+    // Filter by actual metric IDs (excluding selector IDs)
+    const actualMetricIds = blockMetricIds.filter(
+      (id) =>
+        ![
+          "experiment-goal",
+          "experiment-secondary",
+          "experiment-guardrail",
+        ].includes(id),
+    );
+    if (actualMetricIds.length > 0) {
+      const filteredMetricIds = expandMetricGroups(
+        actualMetricIds,
+        metricGroups,
+      );
+      const filteredMetricIdsSet = new Set(filteredMetricIds);
+      expandedMetricIds = expandedMetricIds.filter((id) =>
+        filteredMetricIdsSet.has(id),
+      );
+    }
+
+    const blockMetrics = expandedMetricIds
+      .map(getExperimentMetricById)
+      .filter(isDefined);
     objectProps = { ...objectProps, metrics: blockMetrics };
   }
 
@@ -291,11 +328,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingBlock, isFocused]);
 
+  // Blocks with metrics don't need configuration - empty metricIds means "all metrics"
+  // Selector IDs (experiment-goal, experiment-secondary, experiment-guardrail) are also valid
   const blockNeedsConfiguration =
-    (blockHasMetrics &&
-      (!isMetricSelector(block.metricSelector) ||
-        (block.metricSelector === "custom" &&
-          (block.metricIds ?? []).length === 0))) ||
     (blockHasFieldOfType(block, "dimensionId", isString) &&
       block.dimensionId.length === 0) ||
     (blockHasSavedQuery &&

@@ -68,7 +68,7 @@ export default function PValueColumn({
       {...otherProps}
     >
       {!baseline?.value || !stats?.value ? (
-        <em className="text-gray font-weight-normal">no data</em>
+        <em className="text-muted small">No data</em>
       ) : hideScaledImpact ? (
         <NoScaledImpact />
       ) : !rowResults.enoughData ? (

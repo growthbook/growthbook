@@ -154,7 +154,6 @@ const AnalysisForm: FC<{
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       customMetricSlices: experiment.customMetricSlices || [],
-      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -753,10 +752,6 @@ const AnalysisForm: FC<{
               customMetricSlices={form.watch("customMetricSlices") || []}
               setCustomMetricSlices={(slices) =>
                 form.setValue("customMetricSlices", slices)
-              }
-              pinnedMetricSlices={form.watch("pinnedMetricSlices") || []}
-              setPinnedMetricSlices={(slices) =>
-                form.setValue("pinnedMetricSlices", slices)
               }
             />
 

@@ -387,7 +387,7 @@ export default function BanditSummaryTable({
                           meanText
                         ) : (
                           <em className="text-muted">
-                            <small>not enough data</small>
+                            <small>Not enough data</small>
                           </em>
                         )}
                       </span>

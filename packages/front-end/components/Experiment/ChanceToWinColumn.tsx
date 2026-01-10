@@ -49,7 +49,7 @@ export default function ChanceToWinColumn({
   return (
     <td className={clsx("chance align-middle", className)} {...otherProps}>
       {!baseline?.value || !stats?.value ? (
-        <em className="text-muted font-weight-normal">no data</em>
+        <em className="text-muted small">No data</em>
       ) : hideScaledImpact ? (
         <NoScaledImpact />
       ) : !rowResults.enoughData ? (

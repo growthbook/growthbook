@@ -615,27 +615,6 @@ export function parseSliceMetricId(
   };
 }
 
-/**
- * Generates a pinned slice key for a metric with slice levels
- */
-export function generatePinnedSliceKey(
-  metricId: string,
-  sliceLevels: SliceLevelsData[],
-  location: "goal" | "secondary" | "guardrail",
-): string {
-  // Convert SliceLevelsData to SliceLevel format, handling boolean "null" values
-  const sliceLevelsForString = sliceLevels.map((dl) => {
-    // For boolean "null" slices, use empty array to generate ?dim:col= format
-    const isBooleanNull = dl.levels[0] === "null" && dl.datatype === "boolean";
-
-    const levels = isBooleanNull ? [] : dl.levels;
-    return { column: dl.column, datatype: dl.datatype, levels };
-  });
-
-  const sliceKeyParts = generateSliceStringFromLevels(sliceLevelsForString);
-  return `${metricId}?${sliceKeyParts}&location=${location}`;
-}
-
 export function getMetricLink(id: string): string {
   if (isFactMetricId(id)) return `/fact-metrics/${id}`;
   return `/metric/${id}`;

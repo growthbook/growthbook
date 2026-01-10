@@ -103,7 +103,6 @@ export default function ResultsTab({
 
   const [allowManualDatasource, setAllowManualDatasource] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-  const [analysisModal, setAnalysisModal] = useState(false);
 
   const router = useRouter();
 
@@ -169,7 +168,11 @@ export default function ResultsTab({
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"
           ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
-            <Link type="button" onClick={() => setAnalysisModal(true)} mr="2">
+            <Link
+              type="button"
+              onClick={() => setAnalysisSettingsOpen(true)}
+              mr="2"
+            >
               Edit Settings
             </Link>
           ) : null}
@@ -267,7 +270,7 @@ export default function ResultsTab({
       </Box>
 
       <div className="appbox">
-        {analysisSettingsOpen && (
+        {analysisSettingsOpen ? (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
@@ -279,20 +282,7 @@ export default function ResultsTab({
             editVariationIds={false}
             source={"results-tab"}
           />
-        )}
-        {analysisModal && (
-          <AnalysisForm
-            cancel={() => setAnalysisModal(false)}
-            envs={envs}
-            experiment={experiment}
-            mutate={mutate}
-            phase={experiment.phases.length - 1}
-            editDates={true}
-            editVariationIds={false}
-            editMetrics={true}
-            source={"results-tab"}
-          />
-        )}
+        ) : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
