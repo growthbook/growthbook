@@ -16,10 +16,26 @@ router.post(
         id: z.string(),
         color: z.string(),
         description: z.string(),
+        label: z.string(),
       })
       .strict(),
   }),
   tagController.postTag,
+);
+
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        color: z.string(),
+        description: z.string(),
+        label: z.string(),
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  tagController.putTag,
 );
 
 router.delete(
