@@ -135,10 +135,10 @@ export default function PrerequisiteInput(props: Props) {
         }
 
         const handleCondsChange = (value: string, name: string) => {
-          const newConds = [...conds];
+          const newConds = [...conds[0]];
           newConds[i] = { ...newConds[i] };
           newConds[i][name] = value;
-          setConds(newConds);
+          setConds([newConds]);
         };
 
         const handleFieldChange = (

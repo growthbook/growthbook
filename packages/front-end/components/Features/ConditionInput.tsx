@@ -226,7 +226,12 @@ export default function ConditionInput(props: Props) {
                 [
                   {
                     field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                    operator:
+                      prop?.datatype === "boolean"
+                        ? "$true"
+                        : prop?.disableEqualityConditions
+                          ? "$regex"
+                          : "$eq",
                     value: "",
                   },
                 ],

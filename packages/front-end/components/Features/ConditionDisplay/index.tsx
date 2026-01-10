@@ -28,10 +28,10 @@ function operatorToText({
   switch (operator) {
     case "$eq":
     case "$veq":
-      return `is equal to`;
+      return `=`;
     case "$ne":
     case "$vne":
-      return `is not equal to`;
+      return `≠`;
     case "$includes":
       return `includes`;
     case "$notIncludes":
@@ -42,16 +42,16 @@ function operatorToText({
       return `is not empty`;
     case "$lt":
     case "$vlt":
-      return `is less than`;
+      return `<`;
     case "$lte":
     case "$vlte":
-      return `is less than or equal to`;
+      return `≤`;
     case "$gt":
     case "$vgt":
-      return `is greater than`;
+      return `>`;
     case "$gte":
     case "$vgte":
-      return `is greater than or equal to`;
+      return `≥`;
     case "$exists":
       return isPrerequisite ? `is live` : `is not NULL`;
     case "$notExists":
@@ -483,7 +483,7 @@ export default function ConditionDisplay({
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
         const cond = jsonToConds(p.condition);
-        if (!cond) {
+        if (!cond || cond.length > 1) {
           let jsonFormattedCondition = p.condition;
           try {
             const parsed = JSON.parse(p.condition);
@@ -501,16 +501,14 @@ export default function ConditionDisplay({
           );
           return;
         }
-        return cond.map((c) =>
-          c.map(({ field, operator, value }) => {
-            return {
-              field,
-              operator,
-              value,
-              parentId: p.id,
-            };
-          }),
-        );
+        return cond[0]?.map(({ field, operator, value }) => {
+          return {
+            field,
+            operator,
+            value,
+            parentId: p.id,
+          };
+        });
       })
       .filter(isDefined);
 
@@ -520,7 +518,7 @@ export default function ConditionDisplay({
         [],
       ) || [];
 
-    const prereqParts = getConditionOrParts({
+    const prereqParts = getConditionParts({
       conditions: prereqConds,
       savedGroups,
       renderPrerequisite: true,
