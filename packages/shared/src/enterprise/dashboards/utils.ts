@@ -26,15 +26,6 @@ import { DataVizConfig } from "../../../validators";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
-// Legacy: metricSelectors - kept for backward compatibility with legacy blocks
-// New blocks should use metricIds with selector IDs directly (e.g., "experiment-goal")
-export const metricSelectors = [
-  "all",
-  "experiment-goal",
-  "experiment-secondary",
-  "experiment-guardrail",
-] as const;
-
 // BlockConfig item types for sql-explorer blocks
 export const BLOCK_CONFIG_ITEM_TYPES = {
   RESULTS_TABLE: "results_table",
@@ -67,12 +58,6 @@ export function isDifferenceType(
   value: string,
 ): value is (typeof differenceTypes)[number] {
   return (differenceTypes as readonly string[]).includes(value);
-}
-
-export function isMetricSelector(
-  value: string,
-): value is (typeof metricSelectors)[number] {
-  return (metricSelectors as readonly string[]).includes(value);
 }
 
 export function blockHasFieldOfType<Field extends string, T>(
@@ -190,7 +175,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "all",
+    metricIds: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
@@ -207,7 +192,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "all",
+    metricIds: [],
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -225,7 +210,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "all",
+    metricIds: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     sliceTagsFilter: [],
@@ -283,50 +268,6 @@ export function createDashboardBlocksFromTemplate(
   return blockInitialValues.map(({ type, ...initialValues }) =>
     CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
   );
-}
-
-// Filters experiment metrics based on metricSelector.
-// Returns filtered goalMetrics, secondaryMetrics, and guardrailMetrics arrays.
-export function filterMetricsBySelector({
-  goalMetrics,
-  secondaryMetrics,
-  guardrailMetrics,
-  metricSelector,
-}: {
-  goalMetrics: string[];
-  secondaryMetrics: string[];
-  guardrailMetrics: string[];
-  metricSelector: (typeof metricSelectors)[number];
-}): {
-  goalMetrics: string[];
-  secondaryMetrics: string[];
-  guardrailMetrics: string[];
-} {
-  if (metricSelector === "experiment-goal") {
-    return {
-      goalMetrics,
-      secondaryMetrics: [],
-      guardrailMetrics: [],
-    };
-  } else if (metricSelector === "experiment-secondary") {
-    return {
-      goalMetrics: [],
-      secondaryMetrics,
-      guardrailMetrics: [],
-    };
-  } else if (metricSelector === "experiment-guardrail") {
-    return {
-      goalMetrics: [],
-      secondaryMetrics: [],
-      guardrailMetrics,
-    };
-  }
-  // If selector === "all", use all metrics (no filtering)
-  return {
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
-  };
 }
 
 // Filters and groups experiment metrics based on selected metric IDs.

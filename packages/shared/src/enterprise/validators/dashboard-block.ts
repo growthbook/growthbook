@@ -4,11 +4,7 @@ import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
 } from "../../validators/metric-analysis";
-import {
-  differenceTypes,
-  metricSelectors,
-  pinSources,
-} from "../dashboards/utils";
+import { differenceTypes, pinSources } from "../dashboards/utils";
 
 const baseBlockInterface = z
   .object({
@@ -97,7 +93,7 @@ const experimentMetricBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-metric"),
     experimentId: z.string(),
-    metricIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(differenceTypes),
@@ -126,7 +122,12 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
   .omit({ sliceTagsFilter: true })
   .extend({
     metricSelector: z
-      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .enum([
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+        "custom",
+      ] as [string, ...string[]])
       .optional(),
     pinSource: z.enum(pinSources).optional(),
     pinnedMetricSlices: z.array(z.string()).optional(),
@@ -139,7 +140,7 @@ const experimentDimensionBlockInterface = baseBlockInterface
     experimentId: z.string(),
     dimensionId: z.string(),
     dimensionValues: z.array(z.string()),
-    metricIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(differenceTypes),
@@ -166,7 +167,12 @@ export type ExperimentDimensionBlockInterface = z.infer<
 const legacyExperimentDimensionBlockInterface =
   experimentDimensionBlockInterface.extend({
     metricSelector: z
-      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .enum([
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+        "custom",
+      ] as [string, ...string[]])
       .optional(),
   });
 
@@ -175,7 +181,7 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     type: z.literal("experiment-time-series"),
     experimentId: z.string(),
     metricId: z.string().optional(), // Deprecated
-    metricIds: z.array(z.string()).optional(),
+    metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
     sliceTagsFilter: z.array(z.string()),
@@ -191,7 +197,12 @@ export type ExperimentTimeSeriesBlockInterface = z.infer<
 const legacyExperimentTimeSeriesBlockInterface =
   experimentTimeSeriesBlockInterface.omit({ sliceTagsFilter: true }).extend({
     metricSelector: z
-      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .enum([
+        "experiment-goal",
+        "experiment-secondary",
+        "experiment-guardrail",
+        "custom",
+      ] as [string, ...string[]])
       .optional(),
     pinSource: z.enum(pinSources).optional(),
     pinnedMetricSlices: z.array(z.string()).optional(),

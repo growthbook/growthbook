@@ -246,7 +246,7 @@ export default function EditSingleBlock({
     }
 
     const blockMetricIds =
-      block && "metricIds" in block ? block.metricIds || [] : [];
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
     const hasGoalSelector = blockMetricIds.includes("experiment-goal");
     const hasSecondarySelector = blockMetricIds.includes(
       "experiment-secondary",
@@ -287,7 +287,7 @@ export default function EditSingleBlock({
   // Generate metric options
   const metricOptions = useMemo(() => {
     const blockMetricIds =
-      block && "metricIds" in block ? block.metricIds || [] : [];
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
     return getMetricOptions({
       availableMetricsFilters,
       selectedMetricIds: blockMetricIds,
@@ -297,7 +297,7 @@ export default function EditSingleBlock({
   // Check if metric filters exist
   const hasMetricFilters = useMemo(() => {
     if (!block || !("metricIds" in block)) return false;
-    const blockMetricIds = block.metricIds || [];
+    const blockMetricIds = block.metricIds;
     return blockMetricIds.length > 0;
   }, [block]);
 
@@ -341,7 +341,7 @@ export default function EditSingleBlock({
     if (!experiment) return [];
 
     const blockMetricIds =
-      block && "metricIds" in block ? block.metricIds || [] : [];
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
     const hasGoalSelector = blockMetricIds.includes("experiment-goal");
     const hasSecondarySelector = blockMetricIds.includes(
       "experiment-secondary",
@@ -394,7 +394,7 @@ export default function EditSingleBlock({
     if (!experiment) return [];
 
     const blockMetricIds =
-      block && "metricIds" in block ? block.metricIds || [] : [];
+      block && "metricIds" in block ? (block.metricIds ?? []) : [];
     const hasGoalSelector = blockMetricIds.includes("experiment-goal");
     const hasSecondarySelector = blockMetricIds.includes(
       "experiment-secondary",

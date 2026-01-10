@@ -221,8 +221,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     (val): val is string[] => Array.isArray(val),
   );
   if (blockHasMetrics && blockHasExperiment) {
-    // Determine base metric IDs based on selector IDs in metricIds
-    const blockMetricIds = block.metricIds || [];
+    // TypeScript needs help here - blockHasMetrics narrows the type but TS can't infer it
+    const blockWithMetrics = block as Extract<T, { metricIds: string[] }>;
+    const blockMetricIds = blockWithMetrics.metricIds;
     const hasGoalSelector = blockMetricIds.includes("experiment-goal");
     const hasSecondarySelector = blockMetricIds.includes(
       "experiment-secondary",

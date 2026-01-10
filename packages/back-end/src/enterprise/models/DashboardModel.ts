@@ -10,8 +10,6 @@ import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
   LegacyDashboardBlockInterface,
-  isMetricSelector,
-  metricSelectors,
   convertPinnedSlicesToSliceTags,
 } from "shared/enterprise";
 import omit from "lodash/omit";
@@ -362,19 +360,15 @@ export function migrateBlock(
     case "experiment-metric": {
       // Check if this is a legacy block with metricSelector
       const legacyDoc = doc as LegacyDashboardBlockInterface;
-      const metricSelectorValue =
-        "metricSelector" in legacyDoc ? legacyDoc.metricSelector : "all";
-      const metricSelector: (typeof metricSelectors)[number] = isMetricSelector(
-        metricSelectorValue || "all",
-      )
-        ? metricSelectorValue || "all"
-        : "all";
+      const metricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
 
       // Convert metricSelector to metricIds
-      const existingMetricIds = doc.metricIds || [];
+      const existingMetricIds = doc.metricIds ?? [];
       const migratedMetricIds = [...existingMetricIds];
-      // Add selector ID to metricIds if it's not "all"
-      if (metricSelector !== "all") {
+      // Add selector ID to metricIds if it's not "custom"
+      if (metricSelector !== "custom") {
         if (!migratedMetricIds.includes(metricSelector)) {
           migratedMetricIds.unshift(metricSelector);
         }
@@ -408,7 +402,7 @@ export function migrateBlock(
       const metricTagFilter = doc.metricTagFilter || [];
       return {
         ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
-        metricIds: migratedMetricIds.length > 0 ? migratedMetricIds : undefined,
+        metricIds: migratedMetricIds,
         sliceTagsFilter,
         metricTagFilter,
         sortBy,
@@ -418,18 +412,15 @@ export function migrateBlock(
     case "experiment-dimension": {
       // Check if this is a legacy block with metricSelector
       const legacyDoc = doc as LegacyDashboardBlockInterface;
-      const dimensionMetricSelectorValue =
-        "metricSelector" in legacyDoc ? legacyDoc.metricSelector : "all";
-      const dimensionMetricSelector: (typeof metricSelectors)[number] =
-        isMetricSelector(dimensionMetricSelectorValue || "all")
-          ? dimensionMetricSelectorValue || "all"
-          : "all";
+      const dimensionMetricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
 
       // Convert metricSelector to metricIds
-      const existingMetricIds = doc.metricIds || [];
+      const existingMetricIds = doc.metricIds ?? [];
       const migratedMetricIds = [...existingMetricIds];
-      // Add selector ID to metricIds if it's not "all"
-      if (dimensionMetricSelector !== "all") {
+      // Add selector ID to metricIds if it's not "custom"
+      if (dimensionMetricSelector !== "custom") {
         if (!migratedMetricIds.includes(dimensionMetricSelector)) {
           migratedMetricIds.unshift(dimensionMetricSelector);
         }
@@ -454,30 +445,27 @@ export function migrateBlock(
           ? doc.sortDirection
           : null;
       return {
-        ...omit(doc, ["metricSelector"]),
-        metricIds: migratedMetricIds.length > 0 ? migratedMetricIds : undefined,
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
+        metricIds: migratedMetricIds,
         metricTagFilter,
         sortBy,
         sortDirection,
-      };
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-time-series": {
       // Check if this is a legacy block with metricSelector
       const legacyDoc = doc as LegacyDashboardBlockInterface;
-      const timeSeriesMetricSelectorValue =
-        "metricSelector" in legacyDoc ? legacyDoc.metricSelector : "all";
-      const timeSeriesMetricSelector: (typeof metricSelectors)[number] =
-        isMetricSelector(timeSeriesMetricSelectorValue || "all")
-          ? timeSeriesMetricSelectorValue || "all"
-          : "all";
+      const timeSeriesMetricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
 
       // Convert metricSelector to metricIds
       const existingMetricIds = doc.metricId
         ? [doc.metricId]
-        : doc.metricIds || [];
+        : (doc.metricIds ?? []);
       const migratedMetricIds = [...existingMetricIds];
-      // Add selector ID to metricIds if it's not "all"
-      if (timeSeriesMetricSelector !== "all") {
+      // Add selector ID to metricIds if it's not "custom"
+      if (timeSeriesMetricSelector !== "custom") {
         if (!migratedMetricIds.includes(timeSeriesMetricSelector)) {
           migratedMetricIds.unshift(timeSeriesMetricSelector);
         }
@@ -516,7 +504,7 @@ export function migrateBlock(
           "metricId",
           "metricSelector",
         ]),
-        metricIds: migratedMetricIds.length > 0 ? migratedMetricIds : undefined,
+        metricIds: migratedMetricIds,
         sliceTagsFilter,
         metricTagFilter,
         sortBy,
