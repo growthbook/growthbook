@@ -815,7 +815,7 @@ export default function EditSingleBlock({
                         color: "var(--text-color-main)",
                       }),
                     }}
-                    value={(block as { metricIds?: string[] }).metricIds ?? []}
+                    value={block.metricIds}
                     onChange={(value) => {
                       // Ensure selector IDs are always ordered first: experiment-goal, experiment-secondary, experiment-guardrail
                       const selectorOrder = [
@@ -847,13 +847,11 @@ export default function EditSingleBlock({
                       setBlock({
                         ...block,
                         metricIds: orderedMetricIds,
-                      } as typeof block);
+                      });
                     }}
                     options={[
                       ...((experiment?.goalMetrics?.length ?? 0) > 0 ||
-                      (block as { metricIds?: string[] }).metricIds?.includes(
-                        "experiment-goal",
-                      )
+                      block.metricIds.includes("experiment-goal")
                         ? [
                             {
                               label: "Goal Metrics",
@@ -862,9 +860,7 @@ export default function EditSingleBlock({
                           ]
                         : []),
                       ...((experiment?.secondaryMetrics?.length ?? 0) > 0 ||
-                      (block as { metricIds?: string[] }).metricIds?.includes(
-                        "experiment-secondary",
-                      )
+                      block.metricIds.includes("experiment-secondary")
                         ? [
                             {
                               label: "Secondary Metrics",
@@ -873,9 +869,7 @@ export default function EditSingleBlock({
                           ]
                         : []),
                       ...((experiment?.guardrailMetrics?.length ?? 0) > 0 ||
-                      (block as { metricIds?: string[] }).metricIds?.includes(
-                        "experiment-guardrail",
-                      )
+                      block.metricIds.includes("experiment-guardrail")
                         ? [
                             {
                               label: "Guardrail Metrics",
