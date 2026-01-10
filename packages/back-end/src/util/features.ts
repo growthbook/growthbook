@@ -9,7 +9,7 @@ import {
   isDefined,
   recursiveWalk,
 } from "shared/util";
-import { GroupMap } from "shared/types/groups";
+import { GroupMap } from "shared/types/saved-group";
 import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
 import { FeatureDefinitionWithProject } from "shared/types/sdk";

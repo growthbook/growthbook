@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {

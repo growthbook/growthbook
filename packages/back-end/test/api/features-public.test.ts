@@ -87,10 +87,6 @@ jest.mock("back-end/src/models/ApiKeyModel", () => ({
   lookupOrganizationByApiKey: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/savedGroups", () => ({
-  getSavedGroupMap: jest.fn(),
-}));
-
 describe("getFeaturesPublic test holdout", () => {
   const expectedFeatureResponseWithHoldout = {
     status: 200,
