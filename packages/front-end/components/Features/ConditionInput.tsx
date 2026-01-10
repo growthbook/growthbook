@@ -171,7 +171,12 @@ export default function ConditionInput(props: Props) {
     <div className="form-group my-4">
       <Flex gap="2">
         <Box flexGrow={"1"}>
-          <label className={props.labelClassName || ""}>{title}</label>
+          <label
+            className={props.labelClassName || ""}
+            style={{ marginBottom: 0 }}
+          >
+            {title}
+          </label>
         </Box>
         <Box>
           <a
@@ -217,7 +222,7 @@ export default function ConditionInput(props: Props) {
         {attributeSchema.length > 0 && (
           <a
             href="#"
-            className="or-button"
+            className="or-button font-weight-bold"
             onClick={(e) => {
               e.preventDefault();
               const prop = attributeSchema[0];
@@ -290,7 +295,7 @@ function ConditionAndGroupInput({
   const attributeSchema = useAttributeSchema(false, props.project);
 
   return (
-    <div className="form-group my-4">
+    <div className="form-group my-2">
       <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
