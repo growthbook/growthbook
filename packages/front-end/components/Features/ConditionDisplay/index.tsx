@@ -229,25 +229,39 @@ function getConditionOrParts({
       keyPrefix,
     });
   }
-  return [
-    <div key={keyPrefix + "or-start"}>
-      {initialAnd ? "AND " : ""}
-      {"("}
-    </div>,
-    ...conditions.map((condGroup, i) => (
-      <div key={keyPrefix + "or-group-" + i} className="d-flex flex-column">
-        {i > 0 && <Text weight="medium">OR</Text>}
-        {getConditionParts({
-          conditions: condGroup,
-          savedGroups,
-          initialAnd: false,
-          renderPrerequisite,
-          keyPrefix: `${keyPrefix}or-${i}-`,
-        })}
-      </div>
-    )),
-    <div key={keyPrefix + "or-end"}>{")"}</div>,
-  ];
+
+  const parts: ReactNode[] = [];
+
+  if (initialAnd) {
+    parts.push(<div key={keyPrefix + "and-start"}>AND {"["}</div>);
+  }
+
+  conditions.forEach((condGroup, i) => {
+    if (i > 0) {
+      parts.push(
+        <div key={keyPrefix + "or-sep-" + i}>
+          <Text weight="medium">OR</Text>
+        </div>,
+      );
+    }
+    parts.push(<div key={keyPrefix + "or-start-" + i}>{"("}</div>);
+    parts.push(
+      ...getConditionParts({
+        conditions: condGroup,
+        savedGroups,
+        initialAnd: false,
+        renderPrerequisite,
+        keyPrefix: `${keyPrefix}or-${i}-`,
+      }),
+    );
+    parts.push(<div key={keyPrefix + "or-end-" + i}>{")"}</div>);
+  });
+
+  if (initialAnd) {
+    parts.push(<div key={keyPrefix + "and-end"}>{"]"}</div>);
+  }
+
+  return parts;
 }
 
 function getConditionParts({
@@ -454,25 +468,6 @@ export default function ConditionDisplay({
     }
   }, [condition]);
 
-  if (condition && jsonFormattedCondition) {
-    const conds = jsonToConds(condition);
-    // Could not parse into simple conditions
-    if (conds === null || !attributes.size) {
-      parts.push(
-        <div className="w-100" key={partId++}>
-          <InlineCode language="json" code={jsonFormattedCondition} />
-        </div>,
-      );
-    } else {
-      const conditionParts = getConditionOrParts({
-        conditions: conds,
-        savedGroups,
-        keyPrefix: `${partId++}-condition-`,
-      });
-      parts.push(...conditionParts);
-    }
-  }
-
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
       <SavedGroupTargetingDisplay
@@ -533,6 +528,26 @@ export default function ConditionDisplay({
       keyPrefix: `${partId++}-prereq-`,
     });
     parts.push(...prereqParts);
+  }
+
+  if (condition && jsonFormattedCondition) {
+    const conds = jsonToConds(condition);
+    // Could not parse into simple conditions
+    if (conds === null || !attributes.size) {
+      parts.push(
+        <div className="w-100" key={partId++}>
+          <InlineCode language="json" code={jsonFormattedCondition} />
+        </div>,
+      );
+    } else {
+      const conditionParts = getConditionOrParts({
+        conditions: conds,
+        savedGroups,
+        keyPrefix: `${partId++}-condition-`,
+        initialAnd: parts.length > 0,
+      });
+      parts.push(...conditionParts);
+    }
   }
 
   return (
