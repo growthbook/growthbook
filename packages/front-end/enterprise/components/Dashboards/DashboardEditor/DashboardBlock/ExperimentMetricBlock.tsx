@@ -3,7 +3,6 @@ import { v4 as uuid4 } from "uuid";
 import {
   ExperimentMetricBlockInterface,
   blockHasFieldOfType,
-  filterAndGroupExperimentMetrics,
 } from "shared/enterprise";
 import { isString } from "shared/util";
 import { groupBy } from "lodash";
@@ -26,7 +25,6 @@ export default function ExperimentMetricBlock({
   analysis,
   ssrPolyfills,
   isEditing,
-  metrics,
   setBlock,
 }: BlockProps<ExperimentMetricBlockInterface>) {
   const {
@@ -46,8 +44,7 @@ export default function ExperimentMetricBlock({
   const blockId = useMemo(() => blockInherentId ?? uuid4(), [blockInherentId]);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups, getExperimentMetricById, getFactTableById } =
-    useDefinitions();
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
@@ -103,27 +100,16 @@ export default function ExperimentMetricBlock({
     setDifferenceType,
   } = useDashboardEditorHooks(block, setBlock, variations);
 
-  const metricIds = metrics?.map((m) => m.id) || [];
-  const allowDuplicates = block.metricSelector === "all";
-  const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-    filterAndGroupExperimentMetrics({
-      goalMetrics: experiment.goalMetrics,
-      secondaryMetrics: experiment.secondaryMetrics,
-      guardrailMetrics: experiment.guardrailMetrics,
-      metricGroups: ssrPolyfills?.metricGroups || metricGroups,
-      selectedMetricIds: metricIds,
-      allowDuplicates,
-    });
-
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
     metricTagFilter: blockMetricTagFilter,
+    metricsFilter: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
     statsEngine,
     pValueCorrection,
@@ -140,7 +126,14 @@ export default function ExperimentMetricBlock({
     sortDirection: blockSortBy !== "metricIds" ? sortDirection : undefined,
     customMetricOrder:
       blockSortBy === "metricIds" && blockMetricIds && blockMetricIds.length > 0
-        ? blockMetricIds
+        ? blockMetricIds.filter(
+            (id) =>
+              ![
+                "experiment-goal",
+                "experiment-secondary",
+                "experiment-guardrail",
+              ].includes(id),
+          )
         : undefined,
   });
 
@@ -166,15 +159,6 @@ export default function ExperimentMetricBlock({
 
   const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
-  const selectorLabel =
-    block.metricSelector !== "all"
-      ? {
-          "experiment-goal": "Goal Metrics",
-          "experiment-secondary": "Secondary Metrics",
-          "experiment-guardrail": "Guardrail Metrics",
-        }[block.metricSelector]
-      : null;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
       {Object.entries(rowGroups).map(([resultGroup, rows]) =>
@@ -198,10 +182,7 @@ export default function ExperimentMetricBlock({
             rows={rows}
             tableRowAxis="metric"
             resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
-            labelHeader={
-              selectorLabel ||
-              `${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`
-            }
+            labelHeader={`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             renderLabelColumn={getRenderLabelColumn({
               statsEngine,
               hideDetails: false,

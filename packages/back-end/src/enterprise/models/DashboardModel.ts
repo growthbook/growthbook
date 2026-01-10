@@ -360,12 +360,26 @@ export function migrateBlock(
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
     case "experiment-metric": {
-      const metricSelectorValue = doc.metricSelector || "all";
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const metricSelectorValue =
+        "metricSelector" in legacyDoc ? legacyDoc.metricSelector : "all";
       const metricSelector: (typeof metricSelectors)[number] = isMetricSelector(
-        metricSelectorValue,
+        metricSelectorValue || "all",
       )
-        ? metricSelectorValue
+        ? metricSelectorValue || "all"
         : "all";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricIds || [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "all"
+      if (metricSelector !== "all") {
+        if (!migratedMetricIds.includes(metricSelector)) {
+          migratedMetricIds.unshift(metricSelector);
+        }
+      }
+
       const sortByRaw =
         "sortBy" in doc && typeof doc.sortBy === "string"
           ? (doc.sortBy as string)
@@ -393,8 +407,8 @@ export function migrateBlock(
           : doc.sliceTagsFilter || [];
       const metricTagFilter = doc.metricTagFilter || [];
       return {
-        ...omit(doc, ["pinnedMetricSlices", "pinSource"]),
-        metricSelector,
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
+        metricIds: migratedMetricIds.length > 0 ? migratedMetricIds : undefined,
         sliceTagsFilter,
         metricTagFilter,
         sortBy,
@@ -402,11 +416,25 @@ export function migrateBlock(
       } as DashboardBlockInterface | CreateDashboardBlockInterface;
     }
     case "experiment-dimension": {
-      const dimensionMetricSelectorValue = doc.metricSelector || "all";
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const dimensionMetricSelectorValue =
+        "metricSelector" in legacyDoc ? legacyDoc.metricSelector : "all";
       const dimensionMetricSelector: (typeof metricSelectors)[number] =
-        isMetricSelector(dimensionMetricSelectorValue)
-          ? dimensionMetricSelectorValue
+        isMetricSelector(dimensionMetricSelectorValue || "all")
+          ? dimensionMetricSelectorValue || "all"
           : "all";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricIds || [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "all"
+      if (dimensionMetricSelector !== "all") {
+        if (!migratedMetricIds.includes(dimensionMetricSelector)) {
+          migratedMetricIds.unshift(dimensionMetricSelector);
+        }
+      }
+
       const metricTagFilter = doc.metricTagFilter || [];
       const sortByRaw =
         "sortBy" in doc && typeof doc.sortBy === "string"
@@ -426,19 +454,35 @@ export function migrateBlock(
           ? doc.sortDirection
           : null;
       return {
-        ...doc,
-        metricSelector: dimensionMetricSelector,
+        ...omit(doc, ["metricSelector"]),
+        metricIds: migratedMetricIds.length > 0 ? migratedMetricIds : undefined,
         metricTagFilter,
         sortBy,
         sortDirection,
       };
     }
     case "experiment-time-series": {
-      const timeSeriesMetricSelectorValue = doc.metricSelector || "all";
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const timeSeriesMetricSelectorValue =
+        "metricSelector" in legacyDoc ? legacyDoc.metricSelector : "all";
       const timeSeriesMetricSelector: (typeof metricSelectors)[number] =
-        isMetricSelector(timeSeriesMetricSelectorValue)
-          ? timeSeriesMetricSelectorValue
+        isMetricSelector(timeSeriesMetricSelectorValue || "all")
+          ? timeSeriesMetricSelectorValue || "all"
           : "all";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricId
+        ? [doc.metricId]
+        : doc.metricIds || [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "all"
+      if (timeSeriesMetricSelector !== "all") {
+        if (!migratedMetricIds.includes(timeSeriesMetricSelector)) {
+          migratedMetricIds.unshift(timeSeriesMetricSelector);
+        }
+      }
+
       const sortByRaw =
         "sortBy" in doc && typeof doc.sortBy === "string"
           ? (doc.sortBy as string)
@@ -466,9 +510,13 @@ export function migrateBlock(
           : doc.sliceTagsFilter || [];
       const metricTagFilter = doc.metricTagFilter || [];
       return {
-        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricId"]),
-        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
-        metricSelector: timeSeriesMetricSelector,
+        ...omit(doc, [
+          "pinnedMetricSlices",
+          "pinSource",
+          "metricId",
+          "metricSelector",
+        ]),
+        metricIds: migratedMetricIds.length > 0 ? migratedMetricIds : undefined,
         sliceTagsFilter,
         metricTagFilter,
         sortBy,

@@ -3,7 +3,6 @@ import { v4 as uuid4 } from "uuid";
 import {
   ExperimentDimensionBlockInterface,
   blockHasFieldOfType,
-  filterMetricsBySelector,
 } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
 import {
@@ -30,7 +29,6 @@ export default function ExperimentDimensionBlock({
     columnsFilter,
     dimensionId,
     dimensionValues,
-    metricSelector,
     metricIds: blockMetricIds,
     metricTagFilter: blockMetricTagFilter,
     sortBy: blockSortBy,
@@ -93,13 +91,12 @@ export default function ExperimentDimensionBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-    filterMetricsBySelector({
-      goalMetrics: experiment.goalMetrics,
-      secondaryMetrics: experiment.secondaryMetrics,
-      guardrailMetrics: experiment.guardrailMetrics,
-      metricSelector: metricSelector,
-    });
+  // Use all metrics - filtering is handled by metricIds in the hook
+  const { goalMetrics, secondaryMetrics, guardrailMetrics } = {
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+  };
 
   return (
     <BreakDownResults
@@ -152,10 +149,18 @@ export default function ExperimentDimensionBlock({
         blockSortBy === "metricIds" &&
         blockMetricIds &&
         blockMetricIds.length > 0
-          ? blockMetricIds
+          ? blockMetricIds.filter(
+              (id) =>
+                ![
+                  "experiment-goal",
+                  "experiment-secondary",
+                  "experiment-guardrail",
+                ].includes(id),
+            )
           : undefined
       }
       metricTagFilter={blockMetricTagFilter}
+      metricsFilter={blockMetricIds}
     />
   );
 }

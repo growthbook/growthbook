@@ -25,6 +25,9 @@ import {
 import { DataVizConfig } from "../../../validators";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+
+// Legacy: metricSelectors - kept for backward compatibility with legacy blocks
+// New blocks should use metricIds with selector IDs directly (e.g., "experiment-goal")
 export const metricSelectors = [
   "all",
   "experiment-goal",

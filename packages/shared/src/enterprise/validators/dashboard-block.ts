@@ -97,7 +97,6 @@ const experimentMetricBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-metric"),
     experimentId: z.string(),
-    metricSelector: z.enum(metricSelectors),
     metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
@@ -124,7 +123,7 @@ export type ExperimentMetricBlockInterface = z.infer<
   typeof experimentMetricBlockInterface
 >;
 const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
-  .omit({ metricSelector: true, sliceTagsFilter: true })
+  .omit({ sliceTagsFilter: true })
   .extend({
     metricSelector: z
       .enum([...metricSelectors, "custom"] as [string, ...string[]])
@@ -140,7 +139,6 @@ const experimentDimensionBlockInterface = baseBlockInterface
     experimentId: z.string(),
     dimensionId: z.string(),
     dimensionValues: z.array(z.string()),
-    metricSelector: z.enum(metricSelectors),
     metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
@@ -166,7 +164,7 @@ export type ExperimentDimensionBlockInterface = z.infer<
   typeof experimentDimensionBlockInterface
 >;
 const legacyExperimentDimensionBlockInterface =
-  experimentDimensionBlockInterface.omit({ metricSelector: true }).extend({
+  experimentDimensionBlockInterface.extend({
     metricSelector: z
       .enum([...metricSelectors, "custom"] as [string, ...string[]])
       .optional(),
@@ -177,7 +175,6 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     type: z.literal("experiment-time-series"),
     experimentId: z.string(),
     metricId: z.string().optional(), // Deprecated
-    metricSelector: z.enum(metricSelectors),
     metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
@@ -192,16 +189,14 @@ export type ExperimentTimeSeriesBlockInterface = z.infer<
   typeof experimentTimeSeriesBlockInterface
 >;
 const legacyExperimentTimeSeriesBlockInterface =
-  experimentTimeSeriesBlockInterface
-    .omit({ metricSelector: true, sliceTagsFilter: true })
-    .extend({
-      metricSelector: z
-        .enum([...metricSelectors, "custom"] as [string, ...string[]])
-        .optional(),
-      pinSource: z.enum(pinSources).optional(),
-      pinnedMetricSlices: z.array(z.string()).optional(),
-      sliceTagsFilter: z.array(z.string()).nullable().optional(),
-    });
+  experimentTimeSeriesBlockInterface.omit({ sliceTagsFilter: true }).extend({
+    metricSelector: z
+      .enum([...metricSelectors, "custom"] as [string, ...string[]])
+      .optional(),
+    pinSource: z.enum(pinSources).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+    sliceTagsFilter: z.array(z.string()).nullable().optional(),
+  });
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({

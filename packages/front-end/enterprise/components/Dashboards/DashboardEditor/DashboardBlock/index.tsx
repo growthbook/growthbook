@@ -4,7 +4,6 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
-  isMetricSelector,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
@@ -218,40 +217,55 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   }
   const blockHasMetrics = blockHasFieldOfType(
     block,
-    "metricSelector",
-    isMetricSelector,
+    "metricIds",
+    (val): val is string[] => Array.isArray(val),
   );
-  if (blockHasMetrics) {
-    // Determine base metric IDs based on metricSelector
+  if (blockHasMetrics && blockHasExperiment) {
+    // Determine base metric IDs based on selector IDs in metricIds
+    const blockMetricIds = block.metricIds || [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
+
     let baseMetricIds: string[] = [];
-    if (block.metricSelector === "all") {
-      // "all" includes all metrics from all categories
-      baseMetricIds = blockHasExperiment
-        ? [
-            ...(blockExperiment?.goalMetrics ?? []),
-            ...(blockExperiment?.secondaryMetrics ?? []),
-            ...(blockExperiment?.guardrailMetrics ?? []),
-          ]
-        : [];
-    } else if (block.metricSelector === "experiment-goal") {
-      baseMetricIds = blockHasExperiment
-        ? (blockExperiment?.goalMetrics ?? [])
-        : [];
-    } else if (block.metricSelector === "experiment-secondary") {
-      baseMetricIds = blockHasExperiment
-        ? (blockExperiment?.secondaryMetrics ?? [])
-        : [];
-    } else if (block.metricSelector === "experiment-guardrail") {
-      baseMetricIds = blockHasExperiment
-        ? (blockExperiment?.guardrailMetrics ?? [])
-        : [];
+    if (hasGoalSelector || hasSecondarySelector || hasGuardrailSelector) {
+      // If any selector is present, include metrics from those categories
+      if (hasGoalSelector) {
+        baseMetricIds.push(...(blockExperiment?.goalMetrics ?? []));
+      }
+      if (hasSecondarySelector) {
+        baseMetricIds.push(...(blockExperiment?.secondaryMetrics ?? []));
+      }
+      if (hasGuardrailSelector) {
+        baseMetricIds.push(...(blockExperiment?.guardrailMetrics ?? []));
+      }
+    } else {
+      // No selectors - include all metrics (equivalent to "all")
+      baseMetricIds = [
+        ...(blockExperiment?.goalMetrics ?? []),
+        ...(blockExperiment?.secondaryMetrics ?? []),
+        ...(blockExperiment?.guardrailMetrics ?? []),
+      ];
     }
 
     let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
 
-    if (block.metricIds && block.metricIds.length > 0) {
+    // Filter by actual metric IDs (excluding selector IDs)
+    const actualMetricIds = blockMetricIds.filter(
+      (id) =>
+        ![
+          "experiment-goal",
+          "experiment-secondary",
+          "experiment-guardrail",
+        ].includes(id),
+    );
+    if (actualMetricIds.length > 0) {
       const filteredMetricIds = expandMetricGroups(
-        block.metricIds,
+        actualMetricIds,
         metricGroups,
       );
       const filteredMetricIdsSet = new Set(filteredMetricIds);
@@ -313,8 +327,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingBlock, isFocused]);
 
+  // Blocks with metrics don't need configuration - empty metricIds means "all metrics"
+  // Selector IDs (experiment-goal, experiment-secondary, experiment-guardrail) are also valid
   const blockNeedsConfiguration =
-    (blockHasMetrics && !isMetricSelector(block.metricSelector)) ||
     (blockHasFieldOfType(block, "dimensionId", isString) &&
       block.dimensionId.length === 0) ||
     (blockHasSavedQuery &&

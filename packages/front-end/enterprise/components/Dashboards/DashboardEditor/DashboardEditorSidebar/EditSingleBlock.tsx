@@ -1,21 +1,11 @@
-import {
-  Flex,
-  Grid,
-  IconButton,
-  Separator,
-  Text,
-  Box,
-} from "@radix-ui/themes";
+import { Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
   blockHasFieldOfType,
   isDifferenceType,
-  isMetricSelector,
-  metricSelectors,
   BLOCK_CONFIG_ITEM_TYPES,
-  filterMetricsBySelector,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -26,6 +16,7 @@ import {
   PiPencilSimpleFill,
   PiTrashSimpleFill,
   PiPlus,
+  PiTable,
 } from "react-icons/pi";
 import { UNSUPPORTED_METRIC_EXPLORER_TYPES } from "shared/constants";
 import { FormatOptionLabelMeta } from "react-select";
@@ -62,7 +53,6 @@ import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import Link from "@/ui/Link";
 import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
@@ -74,37 +64,21 @@ type RequiredField = {
   field: string;
   validation: (val: unknown) => boolean;
 };
-const METRIC_SELECTOR = {
-  field: "metricSelector",
-  validation: isMetricSelector,
-};
 const REQUIRED_FIELDS: {
   [k in DashboardBlockType]?: Array<RequiredField>;
 } = {
-  "experiment-metric": [METRIC_SELECTOR],
   "experiment-dimension": [
     {
       field: "dimensionId",
       validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
     },
-    METRIC_SELECTOR,
   ],
-  "experiment-time-series": [METRIC_SELECTOR],
   "sql-explorer": [
     {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
     },
   ],
-};
-
-const metricSelectorLabels: {
-  [k in (typeof metricSelectors)[number]]: string;
-} = {
-  all: "All Metrics",
-  "experiment-goal": "All Goal Metrics",
-  "experiment-secondary": "All Secondary Metrics",
-  "experiment-guardrail": "All Guardrail Metrics",
 };
 
 interface Props {
@@ -217,15 +191,15 @@ export default function EditSingleBlock({
     if (!blockHasFieldOfType(block, "metricTagFilter", isStringArray)) {
       return;
     }
-    
+
     const prevLength = prevMetricTagFilterRef.current;
     const currentLength = block.metricTagFilter?.length || 0;
-    
+
     // If going from non-empty to empty, hide the field
     if (prevLength > 0 && currentLength === 0) {
       setShowMetricTags(false);
     }
-    
+
     prevMetricTagFilterRef.current = currentLength;
   }, [block]);
 
@@ -264,27 +238,42 @@ export default function EditSingleBlock({
       .map((m) => ({ label: m.name, value: m.id }));
   }, [block, factMetrics, projects]);
 
-  // Extract available metrics and groups for filtering, filtered by metricSelector
+  // Extract available metrics and groups for filtering
+  // Check if any selector IDs are in metricIds to determine which metrics to show
   const availableMetricsFilters = useMemo(() => {
     if (!experiment) {
       return { groups: [], metrics: [] };
     }
 
-    // Filter input metrics based on metricSelector before calling getAvailableMetricsFilters
-    const selector = blockHasFieldOfType(
-      block,
-      "metricSelector",
-      isMetricSelector,
-    )
-      ? block.metricSelector
-      : "all";
-    const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-      filterMetricsBySelector({
-        goalMetrics: experiment.goalMetrics,
-        secondaryMetrics: experiment.secondaryMetrics,
-        guardrailMetrics: experiment.guardrailMetrics,
-        metricSelector: selector,
-      });
+    const blockMetricIds =
+      block && "metricIds" in block ? block.metricIds || [] : [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
+
+    // If no selectors are present, show all metrics
+    const showAll =
+      !hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector;
+
+    const { goalMetrics, secondaryMetrics, guardrailMetrics } = showAll
+      ? {
+          goalMetrics: experiment.goalMetrics,
+          secondaryMetrics: experiment.secondaryMetrics,
+          guardrailMetrics: experiment.guardrailMetrics,
+        }
+      : {
+          goalMetrics: hasGoalSelector ? experiment.goalMetrics : [],
+          secondaryMetrics: hasSecondarySelector
+            ? experiment.secondaryMetrics
+            : [],
+          guardrailMetrics: hasGuardrailSelector
+            ? experiment.guardrailMetrics
+            : [],
+        };
 
     return getAvailableMetricsFilters({
       goalMetrics,
@@ -350,25 +339,36 @@ export default function EditSingleBlock({
   // Generate available slice tags for blocks that support slice filtering
   const availableSliceTags = useMemo(() => {
     if (!experiment) return [];
-    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
-      return [];
-    }
 
-    // Filter input metrics based on metricSelector
-    const selector = blockHasFieldOfType(
-      block,
-      "metricSelector",
-      isMetricSelector,
-    )
-      ? block.metricSelector
-      : "all";
-    const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-      filterMetricsBySelector({
-        goalMetrics: experiment.goalMetrics,
-        secondaryMetrics: experiment.secondaryMetrics,
-        guardrailMetrics: experiment.guardrailMetrics,
-        metricSelector: selector,
-      });
+    const blockMetricIds =
+      block && "metricIds" in block ? block.metricIds || [] : [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
+
+    // If no selectors are present, show all metrics
+    const showAll =
+      !hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector;
+
+    const { goalMetrics, secondaryMetrics, guardrailMetrics } = showAll
+      ? {
+          goalMetrics: experiment.goalMetrics,
+          secondaryMetrics: experiment.secondaryMetrics,
+          guardrailMetrics: experiment.guardrailMetrics,
+        }
+      : {
+          goalMetrics: hasGoalSelector ? experiment.goalMetrics : [],
+          secondaryMetrics: hasSecondarySelector
+            ? experiment.secondaryMetrics
+            : [],
+          guardrailMetrics: hasGuardrailSelector
+            ? experiment.guardrailMetrics
+            : [],
+        };
 
     return getAvailableSliceTags({
       goalMetrics,
@@ -392,25 +392,36 @@ export default function EditSingleBlock({
   // Generate available metric tags for blocks that support metric tag filtering
   const availableMetricTags = useMemo(() => {
     if (!experiment) return [];
-    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
-      return [];
-    }
 
-    // Filter input metrics based on metricSelector
-    const selector = blockHasFieldOfType(
-      block,
-      "metricSelector",
-      isMetricSelector,
-    )
-      ? block.metricSelector
-      : "all";
-    const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-      filterMetricsBySelector({
-        goalMetrics: experiment.goalMetrics,
-        secondaryMetrics: experiment.secondaryMetrics,
-        guardrailMetrics: experiment.guardrailMetrics,
-        metricSelector: selector,
-      });
+    const blockMetricIds =
+      block && "metricIds" in block ? block.metricIds || [] : [];
+    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
+    const hasSecondarySelector = blockMetricIds.includes(
+      "experiment-secondary",
+    );
+    const hasGuardrailSelector = blockMetricIds.includes(
+      "experiment-guardrail",
+    );
+
+    // If no selectors are present, show all metrics
+    const showAll =
+      !hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector;
+
+    const { goalMetrics, secondaryMetrics, guardrailMetrics } = showAll
+      ? {
+          goalMetrics: experiment.goalMetrics,
+          secondaryMetrics: experiment.secondaryMetrics,
+          guardrailMetrics: experiment.guardrailMetrics,
+        }
+      : {
+          goalMetrics: hasGoalSelector ? experiment.goalMetrics : [],
+          secondaryMetrics: hasSecondarySelector
+            ? experiment.secondaryMetrics
+            : [],
+          guardrailMetrics: hasGuardrailSelector
+            ? experiment.guardrailMetrics
+            : [],
+        };
 
     return getAvailableMetricTags({
       goalMetrics,
@@ -789,224 +800,301 @@ export default function EditSingleBlock({
                 )}
               />
             )}
-            {blockHasFieldOfType(block, "metricSelector", isMetricSelector) && (
-              <>
-                <SelectField
-                  required
-                  markRequired
-                  label="Metrics"
-                  labelClassName="font-weight-bold"
-                  value={block.metricSelector}
-                  containerClassName="mb-0"
-                  onChange={(value) =>
-                    setBlock({
-                      ...block,
-                      metricSelector: value as (typeof metricSelectors)[number],
-                    })
-                  }
-                  options={metricSelectors.map((selector) => ({
-                    value: selector,
-                    label: metricSelectorLabels[selector],
-                  }))}
-                  sort={false}
-                  autoFocus
-                />
+            {(block.type === "experiment-metric" ||
+              block.type === "experiment-dimension" ||
+              block.type === "experiment-time-series") &&
+              "metricIds" in block && (
+                <>
+                  <MultiSelectField
+                    label="Metrics"
+                    labelClassName="font-weight-bold"
+                    placeholder="All Metrics"
+                    customStyles={{
+                      placeholder: (base) => ({
+                        ...base,
+                        color: "var(--text-color-main)",
+                      }),
+                    }}
+                    value={(block as { metricIds?: string[] }).metricIds ?? []}
+                    onChange={(value) => {
+                      // Ensure selector IDs are always ordered first: experiment-goal, experiment-secondary, experiment-guardrail
+                      const selectorOrder = [
+                        "experiment-goal",
+                        "experiment-secondary",
+                        "experiment-guardrail",
+                      ];
+                      const selectorIds: string[] = [];
+                      const otherIds: string[] = [];
 
-                <MultiSelectField
-                  label="Metrics"
-                  labelClassName="font-weight-bold"
-                  placeholder="All Metrics"
-                  customStyles={{
-                    // normal font color for placeholder
-                    placeholder: (base) => ({
-                      ...base,
-                      color: "var(--text-color-main)",
-                    }),
-                  }}
-                  value={block.metricIds ?? []}
-                  onChange={(value) =>
-                    setBlock({ ...block, metricIds: value })
-                  }
-                  options={[
-                    ...(metricOptions.groups.length > 0
-                      ? [
-                          {
-                            label: "Metric Groups",
-                            options: metricOptions.groups.map((group) => ({
-                              label: group.name,
-                              value: group.id,
-                              isOrphaned: group.isOrphaned,
-                            })),
-                          },
-                        ]
-                      : []),
-                    ...(metricOptions.metrics.length > 0
-                      ? [
-                          {
-                            label: "Metrics",
-                            options: metricOptions.metrics.map((metric) => ({
-                              label: metric.name,
-                              value: metric.id,
-                              isOrphaned: metric.isOrphaned,
-                            })),
-                          },
-                        ]
-                      : []),
-                  ]}
-                  sort={false}
-                  formatOptionLabel={(
-                    option: SingleValue & { isOrphaned?: boolean },
-                    meta: FormatOptionLabelMeta<SingleValue>,
-                  ) =>
-                    formatMetricOptionLabel(
-                      option,
-                      getExperimentMetricById,
-                      getMetricGroupById,
-                      meta?.context !== "value",
-                    )
-                  }
-                  formatGroupLabel={(group) => (
-                    <div className="pb-1 pt-2">{group.label}</div>
-                  )}
-                />
-                {blockHasFieldOfType(
-                  block,
-                  "metricTagFilter",
-                  isStringArray,
-                ) &&
-                  (metricTagOptions.length > 0 ||
-                    (block.metricTagFilter?.length || 0) > 0) && (
-                    <>
-                      {(block.metricTagFilter?.length || 0) > 0 ||
-                      showMetricTags ? (
-                        <MultiSelectField
-                          label="Tags"
-                          labelClassName="font-weight-bold"
-                          placeholder="Type to search..."
-                          value={block.metricTagFilter}
-                          onChange={(value) =>
-                            setBlock({ ...block, metricTagFilter: value })
-                          }
-                          options={metricTagOptions.map((tag) => ({
-                            label: tag.label,
-                            value: tag.value,
-                            isOrphaned: tag.isOrphaned,
-                          }))}
-                          formatOptionLabel={(option) =>
-                            formatMetricTagOptionLabel(option)
-                          }
-                        />
-                      ) : (
-                        <a
-                          role="button"
-                          onClick={() => setShowMetricTags(true)}
-                          className="d-inline-block mb-2"
-                        >
-                          <PiPlus />
-                          <Text weight="medium" className="ml-1">Tags</Text>
-                        </a>
-                      )}
-                    </>
-                  )}
-
-                {blockHasFieldOfType(
-                  block,
-                  "sliceTagsFilter",
-                  isStringArray,
-                ) &&
-                  sliceOptions.length > 0 && (
-                    <MultiSelectField
-                      label="Slices"
-                      labelClassName="font-weight-bold"
-                      placeholder="Type to search..."
-                      value={block.sliceTagsFilter}
-                      onChange={(value) =>
-                        setBlock({ ...block, sliceTagsFilter: value })
-                      }
-                      options={sliceOptions.map(({ value, isOrphaned }) => ({
-                        label: value,
-                        value,
-                        isOrphaned,
-                      }))}
-                      sort={false}
-                      formatOptionLabel={(
-                        option: SingleValue & { isOrphaned?: boolean },
-                        meta: FormatOptionLabelMeta<SingleValue>,
-                      ) => {
-                        const fullOption = sliceOptions.find(
-                          (o) => o.value === option.value,
-                        );
-                        if (!fullOption) {
-                          return option.label;
+                      // Separate selector IDs from other IDs, preserving original order of other items
+                      value.forEach((id) => {
+                        if (selectorOrder.includes(id)) {
+                          selectorIds.push(id);
+                        } else {
+                          otherIds.push(id);
                         }
-                        return formatSliceOptionLabel(
-                          fullOption,
-                          meta,
-                          block.sliceTagsFilter,
+                      });
+
+                      // Sort only selector IDs by the specified order
+                      selectorIds.sort((a, b) => {
+                        const indexA = selectorOrder.indexOf(a);
+                        const indexB = selectorOrder.indexOf(b);
+                        return indexA - indexB;
+                      });
+
+                      // Combine: selector IDs first (in order), then everything else (preserving original order)
+                      const orderedMetricIds = [...selectorIds, ...otherIds];
+                      setBlock({
+                        ...block,
+                        metricIds: orderedMetricIds,
+                      } as typeof block);
+                    }}
+                    options={[
+                      ...((experiment?.goalMetrics?.length ?? 0) > 0 ||
+                      (block as { metricIds?: string[] }).metricIds?.includes(
+                        "experiment-goal",
+                      )
+                        ? [
+                            {
+                              label: "Goal Metrics",
+                              value: "experiment-goal",
+                            },
+                          ]
+                        : []),
+                      ...((experiment?.secondaryMetrics?.length ?? 0) > 0 ||
+                      (block as { metricIds?: string[] }).metricIds?.includes(
+                        "experiment-secondary",
+                      )
+                        ? [
+                            {
+                              label: "Secondary Metrics",
+                              value: "experiment-secondary",
+                            },
+                          ]
+                        : []),
+                      ...((experiment?.guardrailMetrics?.length ?? 0) > 0 ||
+                      (block as { metricIds?: string[] }).metricIds?.includes(
+                        "experiment-guardrail",
+                      )
+                        ? [
+                            {
+                              label: "Guardrail Metrics",
+                              value: "experiment-guardrail",
+                            },
+                          ]
+                        : []),
+                      ...(metricOptions.groups.length > 0
+                        ? [
+                            {
+                              label: "Metric Groups",
+                              options: metricOptions.groups.map((group) => ({
+                                label: group.name,
+                                value: group.id,
+                                isOrphaned: group.isOrphaned,
+                              })),
+                            },
+                          ]
+                        : []),
+                      ...(metricOptions.metrics.length > 0
+                        ? [
+                            {
+                              label: "Metrics",
+                              options: metricOptions.metrics.map((metric) => ({
+                                label: metric.name,
+                                value: metric.id,
+                                isOrphaned: metric.isOrphaned,
+                              })),
+                            },
+                          ]
+                        : []),
+                    ]}
+                    sort={false}
+                    formatOptionLabel={(
+                      option: SingleValue & { isOrphaned?: boolean },
+                      meta: FormatOptionLabelMeta<SingleValue>,
+                    ) => {
+                      // Handle experiment groups
+                      const selectorIds = [
+                        "experiment-goal",
+                        "experiment-secondary",
+                        "experiment-guardrail",
+                      ];
+                      if (selectorIds.includes(option.value)) {
+                        const selectorLabels: Record<string, string> = {
+                          "experiment-goal": "Goal Metrics",
+                          "experiment-secondary": "Secondary Metrics",
+                          "experiment-guardrail": "Guardrail Metrics",
+                        };
+                        const isInDropdown = meta?.context === "menu";
+                        return (
+                          <Flex align="center">
+                            {!isInDropdown && (
+                              <PiTable
+                                className="mr-1"
+                                style={{
+                                  fontSize: "1.2em",
+                                  lineHeight: "1em",
+                                  marginTop: "-2px",
+                                }}
+                              />
+                            )}
+                            <span>
+                              {selectorLabels[option.value] || option.label}
+                            </span>
+                          </Flex>
                         );
-                      }}
-                    />
-                  )}
-                {blockHasFieldOfType(
-                  block,
-                  "sortBy",
-                  (val) => val === null || typeof val === "string",
-                ) &&
-                  sortByOptions.length > 1 && (
-                    <SelectField
-                      label="Sort by"
-                      labelClassName="font-weight-bold"
-                      containerClassName="mb-2"
-                      value={block.sortBy || ""}
-                      onChange={(value) =>
-                        setBlock({
-                          ...block,
-                          sortBy: (value || null) as (typeof block)["sortBy"],
-                          // Clear sortDirection when switching away from significance/change
-                          sortDirection:
-                            value === "significance" || value === "change"
-                              ? block.sortDirection
-                              : null,
-                        })
                       }
-                      options={sortByOptions}
-                      sort={false}
-                    />
-                  )}
-                {blockHasFieldOfType(
-                  block,
-                  "sortDirection",
-                  (val) => val === null || val === "asc" || val === "desc",
-                ) &&
-                  blockHasFieldOfType(
+                      // Regular metric options
+                      return formatMetricOptionLabel(
+                        option,
+                        getExperimentMetricById,
+                        getMetricGroupById,
+                        meta?.context !== "menu", // Show icon when NOT in dropdown mode
+                      );
+                    }}
+                    formatGroupLabel={(group) => (
+                      <div className="pb-1 pt-2">{group.label}</div>
+                    )}
+                  />
+                  {blockHasFieldOfType(
+                    block,
+                    "metricTagFilter",
+                    isStringArray,
+                  ) &&
+                    (metricTagOptions.length > 0 ||
+                      (block.metricTagFilter?.length || 0) > 0) && (
+                      <>
+                        {(block.metricTagFilter?.length || 0) > 0 ||
+                        showMetricTags ? (
+                          <MultiSelectField
+                            label="Tags"
+                            labelClassName="font-weight-bold"
+                            placeholder="Type to search..."
+                            value={block.metricTagFilter}
+                            onChange={(value) =>
+                              setBlock({ ...block, metricTagFilter: value })
+                            }
+                            options={metricTagOptions.map((tag) => ({
+                              label: tag.label,
+                              value: tag.value,
+                              isOrphaned: tag.isOrphaned,
+                            }))}
+                            formatOptionLabel={(option) =>
+                              formatMetricTagOptionLabel(option)
+                            }
+                          />
+                        ) : (
+                          <a
+                            role="button"
+                            onClick={() => setShowMetricTags(true)}
+                            className="d-inline-block mb-2"
+                          >
+                            <PiPlus />
+                            <Text weight="medium" className="ml-1">
+                              Tags
+                            </Text>
+                          </a>
+                        )}
+                      </>
+                    )}
+                  {blockHasFieldOfType(
+                    block,
+                    "sliceTagsFilter",
+                    isStringArray,
+                  ) &&
+                    sliceOptions.length > 0 && (
+                      <MultiSelectField
+                        label="Slices"
+                        labelClassName="font-weight-bold"
+                        placeholder="Type to search..."
+                        value={block.sliceTagsFilter}
+                        onChange={(value) =>
+                          setBlock({ ...block, sliceTagsFilter: value })
+                        }
+                        options={sliceOptions.map(({ value, isOrphaned }) => ({
+                          label: value,
+                          value,
+                          isOrphaned,
+                        }))}
+                        sort={false}
+                        formatOptionLabel={(
+                          option: SingleValue & { isOrphaned?: boolean },
+                          meta: FormatOptionLabelMeta<SingleValue>,
+                        ) => {
+                          const fullOption = sliceOptions.find(
+                            (o) => o.value === option.value,
+                          );
+                          if (!fullOption) {
+                            return option.label;
+                          }
+                          return formatSliceOptionLabel(
+                            fullOption,
+                            meta,
+                            block.sliceTagsFilter,
+                          );
+                        }}
+                      />
+                    )}
+                  {blockHasFieldOfType(
                     block,
                     "sortBy",
                     (val) => val === null || typeof val === "string",
                   ) &&
-                  (block.sortBy === "significance" ||
-                    block.sortBy === "change") && (
-                    <SelectField
-                      label="Sort direction"
-                      labelClassName="font-weight-bold"
-                      containerClassName="mb-2"
-                      value={block.sortDirection || ""}
-                      onChange={(value) =>
-                        setBlock({
-                          ...block,
-                          sortDirection: (value ||
-                            null) as (typeof block)["sortDirection"],
-                        })
-                      }
-                      options={[
-                        { value: "", label: "Default" },
-                        { value: "asc", label: "Ascending" },
-                        { value: "desc", label: "Descending" },
-                      ]}
-                      sort={false}
-                    />
-                  )}
-              </>
-            )}
+                    sortByOptions.length > 1 && (
+                      <SelectField
+                        label="Sort by"
+                        labelClassName="font-weight-bold"
+                        containerClassName="mb-2"
+                        value={block.sortBy || ""}
+                        onChange={(value) =>
+                          setBlock({
+                            ...block,
+                            sortBy: (value || null) as (typeof block)["sortBy"],
+                            // Clear sortDirection when switching away from significance/change
+                            sortDirection:
+                              value === "significance" || value === "change"
+                                ? block.sortDirection
+                                : null,
+                          })
+                        }
+                        options={sortByOptions}
+                        sort={false}
+                      />
+                    )}
+                  {blockHasFieldOfType(
+                    block,
+                    "sortDirection",
+                    (val) => val === null || val === "asc" || val === "desc",
+                  ) &&
+                    blockHasFieldOfType(
+                      block,
+                      "sortBy",
+                      (val) => val === null || typeof val === "string",
+                    ) &&
+                    (block.sortBy === "significance" ||
+                      block.sortBy === "change") && (
+                      <SelectField
+                        label="Sort direction"
+                        labelClassName="font-weight-bold"
+                        containerClassName="mb-2"
+                        value={block.sortDirection || ""}
+                        onChange={(value) =>
+                          setBlock({
+                            ...block,
+                            sortDirection: (value ||
+                              null) as (typeof block)["sortDirection"],
+                          })
+                        }
+                        options={[
+                          { value: "", label: "Default" },
+                          { value: "asc", label: "Ascending" },
+                          { value: "desc", label: "Descending" },
+                        ]}
+                        sort={false}
+                      />
+                    )}
+                </>
+              )}
             {blockHasFieldOfType(block, "dimensionId", isString) && (
               <SelectField
                 required

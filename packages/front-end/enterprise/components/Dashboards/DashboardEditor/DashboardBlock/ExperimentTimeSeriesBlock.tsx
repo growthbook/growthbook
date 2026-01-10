@@ -1,8 +1,5 @@
 import React, { useMemo, useCallback, useState } from "react";
-import {
-  ExperimentTimeSeriesBlockInterface,
-  filterAndGroupExperimentMetrics,
-} from "shared/enterprise";
+import { ExperimentTimeSeriesBlockInterface } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
@@ -20,7 +17,6 @@ export default function ExperimentTimeSeriesBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-  metrics,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
   const {
     variationIds,
@@ -32,8 +28,7 @@ export default function ExperimentTimeSeriesBlock({
   } = block;
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups, getExperimentMetricById, getFactTableById } =
-    useDefinitions();
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
@@ -77,27 +72,16 @@ export default function ExperimentTimeSeriesBlock({
     [],
   );
 
-  const metricIds = metrics?.map((m) => m.id) || [];
-  const allowDuplicates = block.metricSelector === "all";
-  const { goalMetrics, secondaryMetrics, guardrailMetrics } =
-    filterAndGroupExperimentMetrics({
-      goalMetrics: experiment.goalMetrics,
-      secondaryMetrics: experiment.secondaryMetrics,
-      guardrailMetrics: experiment.guardrailMetrics,
-      metricGroups: ssrPolyfills?.metricGroups || metricGroups,
-      selectedMetricIds: metricIds,
-      allowDuplicates,
-    });
-
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
     metricTagFilter: blockMetricTagFilter,
+    metricsFilter: blockMetricIds,
     sliceTagsFilter: blockSliceTagsFilter,
     statsEngine,
     pValueCorrection,
@@ -109,7 +93,14 @@ export default function ExperimentTimeSeriesBlock({
     sortDirection: blockSortBy !== "metricIds" ? blockSortDirection : undefined,
     customMetricOrder:
       blockSortBy === "metricIds" && blockMetricIds && blockMetricIds.length > 0
-        ? blockMetricIds
+        ? blockMetricIds.filter(
+            (id) =>
+              ![
+                "experiment-goal",
+                "experiment-secondary",
+                "experiment-guardrail",
+              ].includes(id),
+          )
         : undefined,
   });
 
@@ -147,23 +138,13 @@ export default function ExperimentTimeSeriesBlock({
     sliceTagsFilter: blockSliceTagsFilter,
   });
 
-  const selectorLabel =
-    block.metricSelector !== "all"
-      ? {
-          "experiment-goal": "Goal Metrics",
-          "experiment-secondary": "Secondary Metrics",
-          "experiment-guardrail": "Guardrail Metrics",
-        }[block.metricSelector]
-      : null;
-
   return (
     <>
       {Object.entries(rowGroups).map(([resultGroup, rows]) =>
         !rows.length ? null : (
           <div key={resultGroup} className="mb-4">
             <h4 className="mb-3">
-              {selectorLabel ||
-                `${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
+              {`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             </h4>
             {rows.map((row) => {
               // Only render parent rows (not slice rows) for time series
