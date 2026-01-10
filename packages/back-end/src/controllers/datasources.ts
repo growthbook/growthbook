@@ -76,8 +76,8 @@ import {
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
-import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
-import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,

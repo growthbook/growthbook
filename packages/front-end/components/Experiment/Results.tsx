@@ -21,6 +21,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -78,6 +80,8 @@ const Results: FC<{
 }) => {
   const { apiCall } = useAuth();
 
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -96,6 +100,9 @@ const Results: FC<{
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
+  const { status } = queryStatusData;
+
+  const queryStrings = latest?.queries?.map((q) => q.query) || [];
 
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
@@ -104,10 +111,9 @@ const Results: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
-
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
+    !analysis?.settings ||
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
@@ -216,9 +222,18 @@ const Results: FC<{
         </div>
       )}
 
+      {status === "failed" && !hasData && !snapshotLoading ? (
+        <Callout status="error" mx="3" my="4">
+          The most recent update failed.{" "}
+          <Link onClick={() => setQueriesModalOpen(true)}>View queries</Link> to
+          see what went wrong.
+        </Callout>
+      ) : null}
+
       {(!hasData || !hasValidStatsEngine) &&
-        !snapshot?.unknownVariations?.length &&
+        status !== "failed" && // failed is handled above
         status !== "running" &&
+        !snapshot?.unknownVariations?.length &&
         hasMetrics &&
         !snapshotLoading && (
           <Callout status="info" mx="3" mb="4">
@@ -447,6 +462,14 @@ const Results: FC<{
           />
         </>
       ) : null}
+      {queriesModalOpen && queryStrings.length > 0 && (
+        <AsyncQueriesModal
+          close={() => setQueriesModalOpen(false)}
+          queries={queryStrings}
+          savedQueries={[]}
+          error={latest?.error}
+        />
+      )}
     </>
   );
 };

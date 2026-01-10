@@ -4,7 +4,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Badge from "@/ui/Badge";
 import Button, { Props as ButtonProps } from "@/ui/Button";
-import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
+import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 
 interface Props {
   className?: string;

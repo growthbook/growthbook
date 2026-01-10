@@ -53,11 +53,11 @@ import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import { BLOCK_TYPE_INFO } from "..";
 import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
-} from "../../DashboardSnapshotProvider";
+} from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 
 type RequiredField = {

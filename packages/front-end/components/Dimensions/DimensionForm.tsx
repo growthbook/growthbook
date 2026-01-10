@@ -11,7 +11,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
-import SelectOwner from "../Owner/SelectOwner";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 const DimensionForm: FC<{
   close: () => void;

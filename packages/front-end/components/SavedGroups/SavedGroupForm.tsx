@@ -26,7 +26,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
-import SelectOwner from "../Owner/SelectOwner";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
   close: () => void;

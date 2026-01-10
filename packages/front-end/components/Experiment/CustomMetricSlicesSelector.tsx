@@ -21,7 +21,7 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 interface MetricWithStringColumns extends FactMetricInterface {
   stringColumns: Array<{
