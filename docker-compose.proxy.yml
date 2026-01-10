@@ -4,6 +4,8 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - mongodata:/data/db
 
   growthbook:
     image: "growthbook/growthbook:latest"
@@ -36,3 +38,4 @@ services:
 
 volumes:
   uploads:
+  mongodata:
