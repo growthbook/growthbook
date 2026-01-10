@@ -206,6 +206,50 @@ function MultiValueDisplay({
   );
 }
 
+function getConditionOrParts({
+  conditions,
+  savedGroups,
+  initialAnd = false,
+  renderPrerequisite = false,
+  keyPrefix = "",
+}: {
+  conditions: ConditionWithParentId[][];
+  savedGroups?: SavedGroupInterface[];
+  initialAnd?: boolean;
+  renderPrerequisite?: boolean;
+  keyPrefix?: string;
+}) {
+  if (conditions.length === 0) return [];
+  if (conditions.length === 1) {
+    return getConditionParts({
+      conditions: conditions[0],
+      savedGroups,
+      initialAnd,
+      renderPrerequisite,
+      keyPrefix,
+    });
+  }
+  return [
+    <div key={keyPrefix + "or-start"}>
+      {initialAnd ? "AND " : ""}
+      {"("}
+    </div>,
+    ...conditions.map((condGroup, i) => (
+      <div key={keyPrefix + "or-group-" + i} className="d-flex flex-column">
+        {i > 0 && <Text weight="medium">OR</Text>}
+        {getConditionParts({
+          conditions: condGroup,
+          savedGroups,
+          initialAnd: false,
+          renderPrerequisite,
+          keyPrefix: `${keyPrefix}or-${i}-`,
+        })}
+      </div>
+    )),
+    <div key={keyPrefix + "or-end"}>{")"}</div>,
+  ];
+}
+
 function getConditionParts({
   conditions,
   savedGroups,
@@ -420,7 +464,7 @@ export default function ConditionDisplay({
         </div>,
       );
     } else {
-      const conditionParts = getConditionParts({
+      const conditionParts = getConditionOrParts({
         conditions: conds,
         savedGroups,
         keyPrefix: `${partId++}-condition-`,
@@ -443,7 +487,7 @@ export default function ConditionDisplay({
   if (prerequisites) {
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
-        let cond = jsonToConds(p.condition);
+        const cond = jsonToConds(p.condition);
         if (!cond) {
           let jsonFormattedCondition = p.condition;
           try {
@@ -462,15 +506,16 @@ export default function ConditionDisplay({
           );
           return;
         }
-        cond = cond.map(({ field, operator, value }) => {
-          return {
-            field,
-            operator,
-            value,
-            parentId: p.id,
-          };
-        });
-        return cond;
+        return cond.map((c) =>
+          c.map(({ field, operator, value }) => {
+            return {
+              field,
+              operator,
+              value,
+              parentId: p.id,
+            };
+          }),
+        );
       })
       .filter(isDefined);
 
@@ -480,7 +525,7 @@ export default function ConditionDisplay({
         [],
       ) || [];
 
-    const prereqParts = getConditionParts({
+    const prereqParts = getConditionOrParts({
       conditions: prereqConds,
       savedGroups,
       renderPrerequisite: true,
