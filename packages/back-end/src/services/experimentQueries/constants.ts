@@ -31,6 +31,20 @@ export const RATIO_METRIC_CUPED_FLOAT_COLS = [
   "denominator_post_denominator_pre_sum_product",
 ];
 
+export const BASE_METRIC_FLOAT_COLS_UNCAPPED = BASE_METRIC_FLOAT_COLS.map(
+  (col) => col + "_uncapped",
+);
+
+export const RATIO_METRIC_FLOAT_COLS_UNCAPPED = RATIO_METRIC_FLOAT_COLS.map(
+  (col) => col + "_uncapped",
+);
+
+export const BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED =
+  BASE_METRIC_CUPED_FLOAT_COLS.map((col) => col + "_uncapped");
+
+export const RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED =
+  RATIO_METRIC_CUPED_FLOAT_COLS.map((col) => col + "_uncapped");
+
 export const BANDIT_CUPED_FLOAT_COLS = ["theta"];
 
 // Percentile capping columns
@@ -48,4 +62,8 @@ export const ALL_NON_QUANTILE_METRIC_FLOAT_COLS = [
   ...BANDIT_CUPED_FLOAT_COLS,
   ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+  ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
+  ...RATIO_METRIC_FLOAT_COLS_UNCAPPED,
+  ...BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
+  ...RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
 ];

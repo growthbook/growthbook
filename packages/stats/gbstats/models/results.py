@@ -1,11 +1,11 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from pydantic.dataclasses import dataclass
 import pandas as pd
 
-from gbstats.bayesian.tests import RiskType
-from gbstats.frequentist.tests import PValueErrorMessage
-from gbstats.models.tests import Uplift
+from gbstats.models.tests import ResponseCI
+from gbstats.bayesian.tests import BayesianTestResult
+from gbstats.frequentist.tests import TestResult, PValueErrorMessage
 
 
 # Data classes for return to the back end
@@ -13,7 +13,7 @@ from gbstats.models.tests import Uplift
 class SingleVariationResult:
     users: Optional[float]
     cr: Optional[float]
-    ci: Optional[List[float]]
+    ci: Optional[ResponseCI]
 
 
 @dataclass
@@ -60,29 +60,57 @@ class PowerResponse:
     scalingFactor: Optional[float]
 
 
-ResponseCI = Tuple[Optional[float], Optional[float]]
+@dataclass
+class FrequentistTestResult(TestResult):
+    pValue: Optional[float]
+    pValueErrorMessage: Optional[PValueErrorMessage]
 
 
 @dataclass
-class BaseVariationResponse(BaselineResponse):
-    expected: float
-    uplift: Uplift
-    ci: ResponseCI
-    errorMessage: Optional[str]
+class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
     power: Optional[PowerResponse]
 
 
 @dataclass
-class BayesianVariationResponse(BaseVariationResponse):
-    chanceToWin: float
-    risk: Tuple[float, float]
-    riskType: RiskType
+class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResponse):
+    power: Optional[PowerResponse] = None
+
+
+VariationResponseIndividual = Union[
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
+    BaselineResponse,
+]
 
 
 @dataclass
-class FrequentistVariationResponse(BaseVariationResponse):
-    pValue: Optional[float]
-    pValueErrorMessage: Optional[PValueErrorMessage]
+class DimensionResponseIndividual:
+    dimension: str
+    srm: float
+    variations: List[VariationResponseIndividual]
+
+    def to_df(self) -> pd.DataFrame:
+        df = pd.DataFrame(self.variations)
+        df["dimension"] = self.dimension
+        df["srm"] = self.srm
+        return df
+
+
+@dataclass
+class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
+    power: Optional[PowerResponse]
+    supplementalResultsCupedUnadjusted: Optional[BayesianTestResult]
+    supplementalResultsUncapped: Optional[BayesianTestResult]
+    supplementalResultsFlatPrior: Optional[BayesianTestResult]
+    supplementalResultsUnstratified: Optional[BayesianTestResult]
+
+
+@dataclass
+class FrequentistVariationResponse(FrequentistTestResult, BaselineResponse):
+    power: Optional[PowerResponse] = None
+    supplementalResultsCupedUnadjusted: Optional[FrequentistTestResult] = None
+    supplementalResultsUncapped: Optional[FrequentistTestResult] = None
+    supplementalResultsUnstratified: Optional[FrequentistTestResult] = None
 
 
 VariationResponse = Union[

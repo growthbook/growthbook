@@ -6,7 +6,8 @@ from gbstats.models.statistics import (
     compute_theta,
     compute_theta_regression_adjusted_ratio,
 )
-from gbstats.models.results import Uplift
+from gbstats.models.tests import Uplift
+from tests.frequentist.test_tests import _round_result_dict
 from scipy.stats import t
 
 import pandas as pd
@@ -45,8 +46,6 @@ from gbstats.models.settings import (
 )
 from gbstats.devtools.simulation import CreateRow
 from gbstats.gbstats import (
-    get_metric_dfs,
-    variation_statistic_from_metric_row,
     process_single_metric,
 )
 
@@ -85,20 +84,6 @@ def round_if_not_none(x: Optional[float], decimals: int):
 
 
 round_ = partial(round_if_not_none, decimals=DECIMALS)
-
-
-def _round_result_dict(result_dict):
-    for k, v in result_dict.items():
-        if k == "error_message":
-            pass
-        elif k == "uplift":
-            v = {
-                kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
-            }
-        else:
-            v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
-        result_dict[k] = v
-    return result_dict
 
 
 def compute_dof(stats: List[Tuple[TestStatistic, TestStatistic]]) -> float:
@@ -330,9 +315,9 @@ class TestPostStratification(TestCase):
             expected=expected,
             ci=ci,  # type: ignore
             uplift=uplift,
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
 
     def setUp(self):
@@ -1560,9 +1545,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_count_rel,
                 stddev=self.standard_error_count_rel,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_abs,
@@ -1572,9 +1557,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_count_abs,
                 stddev=self.standard_error_count_abs,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         self.assertEqual(
             _round_result_dict(asdict(result_true_rel)),
@@ -1596,14 +1581,14 @@ class TestPostStratification(TestCase):
         halfwidth_abs = (
             float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_ratio_abs
         )
-        ci_rel = [
+        ci_rel = (
             self.point_estimate_ratio_rel - halfwidth_rel,
             self.point_estimate_ratio_rel + halfwidth_rel,
-        ]
-        ci_abs = [
+        )
+        ci_abs = (
             self.point_estimate_ratio_abs - halfwidth_abs,
             self.point_estimate_ratio_abs + halfwidth_abs,
-        ]
+        )
 
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_ratio_rel,
@@ -1613,9 +1598,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_ratio_rel,
                 stddev=self.standard_error_ratio_rel,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_ratio_abs,
@@ -1625,9 +1610,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_ratio_abs,
                 stddev=self.standard_error_ratio_abs,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         self.assertEqual(
             _round_result_dict(asdict(result_true_rel)),
@@ -1649,14 +1634,14 @@ class TestPostStratification(TestCase):
         halfwidth_abs = (
             float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_count_reg_abs
         )
-        ci_rel = [
+        ci_rel = (
             self.point_estimate_count_reg_rel - halfwidth_rel,
             self.point_estimate_count_reg_rel + halfwidth_rel,
-        ]
-        ci_abs = [
+        )
+        ci_abs = (
             self.point_estimate_count_reg_abs - halfwidth_abs,
             self.point_estimate_count_reg_abs + halfwidth_abs,
-        ]
+        )
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_count_reg_rel,
             ci=ci_rel,
@@ -1665,9 +1650,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_count_reg_rel,
                 stddev=self.standard_error_count_reg_rel,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_reg_abs,
@@ -1677,9 +1662,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_count_reg_abs,
                 stddev=self.standard_error_count_reg_abs,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
 
         self.assertEqual(
@@ -1702,14 +1687,14 @@ class TestPostStratification(TestCase):
         halfwidth_abs = (
             float(t.ppf(1 - 0.5 * self.alpha, dof)) * self.standard_error_ratio_reg_abs
         )
-        ci_rel = [
+        ci_rel = (
             self.point_estimate_ratio_reg_rel - halfwidth_rel,
             self.point_estimate_ratio_reg_rel + halfwidth_rel,
-        ]
-        ci_abs = [
+        )
+        ci_abs = (
             self.point_estimate_ratio_reg_abs - halfwidth_abs,
             self.point_estimate_ratio_reg_abs + halfwidth_abs,
-        ]
+        )
         result_true_rel = FrequentistTestResult(
             expected=self.point_estimate_ratio_reg_rel,
             ci=ci_rel,
@@ -1718,9 +1703,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_ratio_reg_rel,
                 stddev=self.standard_error_ratio_reg_rel,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_ratio_reg_abs,
@@ -1730,9 +1715,9 @@ class TestPostStratification(TestCase):
                 mean=self.point_estimate_ratio_reg_abs,
                 stddev=self.standard_error_ratio_reg_abs,
             ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
+            errorMessage=None,
+            pValue=None,
+            pValueErrorMessage=None,
         )
         self.assertEqual(
             _round_result_dict(asdict(result_true_rel)),
