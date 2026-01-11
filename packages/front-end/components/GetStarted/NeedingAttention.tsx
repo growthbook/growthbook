@@ -41,8 +41,6 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import LinkButton from "@/ui/LinkButton";
 import styles from "./NeedingAttention.module.scss";
 
-const NUM_ITEMS = 4;
-
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   feature: FeatureInterface;
   safeRollout: SafeRolloutInterface | undefined;
@@ -165,18 +163,20 @@ const NeedingAttention = (): React.ReactElement | null => {
     const recentlyUsed = {};
     historyData?.events.filter((event) => {
       // break out if we get
-      if (Object.keys(recentlyUsed).length >= NUM_ITEMS) {
+      if (Object.keys(recentlyUsed).length >= 4) {
         return false;
       }
       if (!recentlyUsed[event.entity.id]) {
         switch (event.entity?.object) {
           case "feature":
+            if (!features.find((f) => f.id == event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "feature",
               id: event.entity.id,
             };
             break;
           case "experiment":
+            if (!experiments.find((e) => e.id !== event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "experiment",
               id: event.entity.id,
@@ -200,7 +200,13 @@ const NeedingAttention = (): React.ReactElement | null => {
       }
     });
     return recentlyUsed;
-  }, [historyData?.events, getDatasourceById, getMetricById]);
+  }, [
+    historyData?.events,
+    features,
+    experiments,
+    getDatasourceById,
+    getMetricById,
+  ]);
 
   const featuresAndRevisions = revisionsData?.revisions.reduce<
     FeaturesAndRevisions[]
