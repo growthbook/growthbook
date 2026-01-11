@@ -1,4 +1,4 @@
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureWithoutValues } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -15,10 +15,10 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ProjectBadges from "@/components/ProjectBadges";
 export interface Props {
-  features: FeatureInterface[];
+  features: FeatureWithoutValues[];
 }
 type FeaturesAndRevisions = FeatureRevisionInterface & {
-  feature: FeatureInterface;
+  feature: FeatureWithoutValues;
 };
 export default function FeaturesDraftTable({ features }: Props) {
   const draftAndReviewData = useApi<{

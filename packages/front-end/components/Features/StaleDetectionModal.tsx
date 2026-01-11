@@ -8,7 +8,7 @@ export default function StaleDetectionModal({
   mutate,
 }: {
   close: () => void;
-  feature: FeatureInterface;
+  feature: Pick<FeatureInterface, "id" | "neverStale">;
   mutate: () => void;
 }) {
   const { apiCall } = useAuth();

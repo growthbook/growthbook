@@ -19,8 +19,8 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   useEnvironments,
-  useFeaturesList,
   useAttributeSchema,
+  useFeaturesListWithValues,
 } from "@/services/features";
 import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -995,7 +995,7 @@ export default function ImportFromStatsig() {
   const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesListWithValues();
   const {
     mutateDefinitions,
     savedGroups,

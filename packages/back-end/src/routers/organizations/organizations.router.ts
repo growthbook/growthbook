@@ -69,6 +69,11 @@ router.put(
   organizationsController.putSetupEventTracker,
 );
 
+router.get(
+  "/organization/feature-exp-usage",
+  organizationsController.getFeatureExpUsage,
+);
+
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
 router.post("/keys", organizationsController.postApiKey);

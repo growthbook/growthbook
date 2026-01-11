@@ -6,7 +6,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
-  FeatureRule,
+  FeatureRuleWithoutValues,
+  FeatureWithoutValues,
 } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import {
@@ -26,7 +27,7 @@ import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   getFeatureDefaultValue,
-  getRules,
+  getRulesWithoutValues,
   useFeaturesList,
   useRealtimeData,
   useEnvironments,
@@ -53,6 +54,7 @@ import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useAuth } from "@/services/auth";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -69,16 +71,17 @@ export default function FeaturesPage() {
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
-    useState<FeatureInterface | null>(null);
+    useState<FeatureWithoutValues | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
+
+  const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
   const environments = useEnvironments();
   const {
     features: allFeatures,
-    experiments,
     loading,
     error,
     mutate,
@@ -168,9 +171,12 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {featureItems.map((feature: ComputedFeatureInterface) => {
-                let rules: FeatureRule[] = [];
+                let rules: FeatureRuleWithoutValues[] = [];
                 environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id))),
+                  (e) =>
+                    (rules = rules.concat(
+                      getRulesWithoutValues(feature, e.id),
+                    )),
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
@@ -352,8 +358,14 @@ export default function FeaturesPage() {
                         }) ? (
                           <button
                             className="dropdown-item"
-                            onClick={() => {
-                              setFeatureToDuplicate(feature);
+                            onClick={async () => {
+                              // We need the full feature (with values) to duplicate
+                              // Awaiting here is not ideal since there is no UI feedback that something is happening
+                              // We can fix later (duplicating is not super common)
+                              const data = await apiCall<{
+                                feature: FeatureInterface;
+                              }>(`/feature/${feature.id}/data`);
+                              setFeatureToDuplicate(data.feature);
                               setModalOpen(true);
                             }}
                           >
@@ -475,7 +487,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...allFeatures, feature],
-              linkedExperiments: experiments,
               hasArchived,
             });
           }}
