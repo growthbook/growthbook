@@ -2,7 +2,7 @@ import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/groups";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -85,7 +85,7 @@ function hasMultiValues(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  savedGroups?: SavedGroupInterface[],
+  savedGroups?: SavedGroupWithoutValues[],
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
@@ -272,7 +272,7 @@ function getConditionParts({
   keyPrefix = "",
 }: {
   conditions: ConditionWithParentId[];
-  savedGroups?: SavedGroupInterface[];
+  savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
