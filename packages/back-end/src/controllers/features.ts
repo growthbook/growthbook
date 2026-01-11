@@ -64,7 +64,7 @@ import {
   createFeature,
   deleteFeature,
   editFeatureRule,
-  getAllFeaturesWithLinkedExperiments,
+  getAllFeatures,
   getFeature,
   hasArchivedFeatures,
   migrateDraft,
@@ -2686,13 +2686,10 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
-  const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
-    context,
-    {
-      project,
-      includeArchived,
-    },
-  );
+  const features = await getAllFeatures(context, {
+    projects: project ? [project] : undefined,
+    includeArchived,
+  });
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
@@ -2701,7 +2698,6 @@ export async function getFeatures(
   res.status(200).json({
     status: 200,
     features,
-    linkedExperiments: experiments,
     hasArchived,
   });
 }

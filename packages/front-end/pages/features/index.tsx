@@ -78,7 +78,6 @@ export default function FeaturesPage() {
   const environments = useEnvironments();
   const {
     features: allFeatures,
-    experiments,
     loading,
     error,
     mutate,
@@ -475,7 +474,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...allFeatures, feature],
-              linkedExperiments: experiments,
               hasArchived,
             });
           }}

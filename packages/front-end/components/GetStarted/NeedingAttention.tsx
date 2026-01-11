@@ -151,7 +151,7 @@ const NeedingAttention = (): React.ReactElement | null => {
   const { data: revisionsData } = draftAndReviewData;
   const { data: historyData } = useApi<{
     status: number;
-    events: AuditInterface[];
+    events: Omit<AuditInterface, "details">[];
   }>(`/user/history`);
 
   const getRecentlyUsedFeatures = useCallback((): {
@@ -275,7 +275,7 @@ const NeedingAttention = (): React.ReactElement | null => {
         let avatar = <PiFlag />;
         switch (type) {
           case "feature":
-            label = features.find((f) => f.id === id)?.id || label;
+            label = id || label;
             url = `/features/${id}`;
             avatar = <PiFlagBold />;
             break;

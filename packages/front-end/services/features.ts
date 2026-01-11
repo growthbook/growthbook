@@ -214,7 +214,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "defaultValue"],
+    searchFields: ["id^3", "description"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
@@ -442,28 +442,24 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
-    linkedExperiments: ExperimentInterfaceStringDates[];
     hasArchived: boolean;
   }>(url);
 
-  const { features, experiments, hasArchived } = useMemo(() => {
+  const { features, hasArchived } = useMemo(() => {
     if (data) {
       return {
         features: data.features,
-        experiments: data.linkedExperiments,
         hasArchived: data.hasArchived,
       };
     }
     return {
       features: [],
-      experiments: [],
       hasArchived: false,
     };
   }, [data]);
 
   return {
     features,
-    experiments,
     loading: !data,
     error,
     mutate,
