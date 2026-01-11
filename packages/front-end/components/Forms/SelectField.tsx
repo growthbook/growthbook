@@ -154,6 +154,17 @@ export const ReactSelectProps = {
   isSearchable: true,
 };
 
+const multilineStyles = {
+  singleValue: (styles: Record<string, unknown>) => ({
+    ...styles,
+    whiteSpace: "normal",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    lineHeight: "1.1",
+  }),
+};
+
 const SelectField: FC<SelectFieldProps> = ({
   value,
   options,
@@ -197,19 +208,6 @@ const SelectField: FC<SelectFieldProps> = ({
 
   const selectRef = useRef(null);
 
-  const multilineStyles = useMultilineLabels
-    ? {
-        singleValue: (styles: Record<string, unknown>) => ({
-          ...styles,
-          whiteSpace: "normal",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          lineHeight: "1.1",
-        }),
-      }
-    : {};
-
   if (!options.length && createable) {
     return (
       <Field
@@ -246,7 +244,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 {...ReactSelectProps}
                 styles={{
                   ...ReactSelectProps.styles,
-                  ...multilineStyles,
+                  ...(useMultilineLabels ? multilineStyles : {}),
                 }}
                 id={id}
                 ref={ref}
@@ -309,7 +307,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 {...ReactSelectProps}
                 styles={{
                   ...ReactSelectProps.styles,
-                  ...multilineStyles,
+                  ...(useMultilineLabels ? multilineStyles : {}),
                 }}
                 id={id}
                 ref={ref}
