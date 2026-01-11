@@ -56,7 +56,8 @@ export default function PrerequisiteInput(props: Props) {
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value, parentValueMap) !== null);
+    const conds = jsonToConds(value, parentValueMap);
+    setSimpleAllowed(conds !== null && conds.length <= 1);
   }, [value, parentValueMap]);
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
@@ -125,7 +126,7 @@ export default function PrerequisiteInput(props: Props) {
 
   return (
     <>
-      {conds.map(({ field, operator, value }, i) => {
+      {conds[0]?.map(({ field, operator, value }, i) => {
         const attribute = parentValueMap.get(field);
 
         if (!attribute) {
@@ -134,10 +135,10 @@ export default function PrerequisiteInput(props: Props) {
         }
 
         const handleCondsChange = (value: string, name: string) => {
-          const newConds = [...conds];
+          const newConds = [...conds[0]];
           newConds[i] = { ...newConds[i] };
           newConds[i][name] = value;
-          setConds(newConds);
+          setConds([newConds]);
         };
 
         const handleFieldChange = (

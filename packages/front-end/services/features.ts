@@ -945,13 +945,36 @@ export function getUnreachableRuleIndex(
 export function jsonToConds(
   json: string,
   attributes?: Map<string, AttributeData>,
-): null | Condition[] {
+  isNested: boolean = false,
+): null | Condition[][] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
-  if (json.match(/\$(or|nor|all|type)/)) return null;
+  if (json.match(/\$(nor|all|type)/)) return null;
 
   try {
     const parsed = JSON.parse(json);
+
+    if ("$or" in parsed && Array.isArray(parsed["$or"])) {
+      if (isNested) return null;
+
+      // If there are any other top-level keys, return null
+      if (Object.keys(parsed).length > 1) return null;
+
+      const ret: Condition[][] = [];
+      for (const part of parsed["$or"]) {
+        const conds = jsonToConds(JSON.stringify(part), attributes, true);
+
+        // If any of the sub conditions could not be parsed
+        if (!conds) return null;
+        // No conditions, skip
+        if (!conds.length) continue;
+        // Nested $or - not supported
+        if (conds.length > 1) return null;
+
+        ret.push(conds[0]);
+      }
+      return ret;
+    }
 
     const conds: Condition[] = [];
     let valid = true;
@@ -1160,7 +1183,7 @@ export function jsonToConds(
       });
     });
     if (!valid) return null;
-    return conds;
+    return [conds];
   } catch (e) {
     return null;
   }
@@ -1176,78 +1199,98 @@ function parseValue(
 }
 
 export function condToJson(
-  conds: Condition[],
+  conds: Condition[][],
   attributes: Map<string, AttributeData>,
 ) {
-  const obj = {};
-  conds.forEach(({ field, operator, value }) => {
-    // Special handling for $savedGroups since it's not a real attribute
-    if (field === "$savedGroups") {
-      const ids = value
-        .split(",")
-        .map((x) => x.trim())
-        .filter((x) => !!x);
-      if (!ids.length) return;
-
-      if (operator === "$nin") {
-        obj["$not"] = obj["$not"] || {};
-        obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
-        obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
-      } else if (operator === "$in") {
-        obj["$savedGroups"] = obj["$savedGroups"] || [];
-        obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
-      }
-      return;
-    }
-
-    obj[field] = obj[field] || {};
-    if (operator === "$notRegex") {
-      obj[field]["$not"] = { $regex: value };
-    } else if (operator === "$notExists") {
-      obj[field]["$exists"] = false;
-    } else if (operator === "$exists") {
-      obj[field]["$exists"] = true;
-    } else if (operator === "$true") {
-      obj[field]["$eq"] = true;
-    } else if (operator === "$false") {
-      obj[field]["$eq"] = false;
-    } else if (operator === "$includes") {
-      obj[field]["$elemMatch"] = {
-        $eq: parseValue(value, attributes.get(field)?.datatype),
-      };
-    } else if (operator === "$notIncludes") {
-      obj[field]["$not"] = {
-        $elemMatch: { $eq: parseValue(value, attributes.get(field)?.datatype) },
-      };
-    } else if (operator === "$empty") {
-      obj[field]["$size"] = 0;
-    } else if (operator === "$notEmpty") {
-      obj[field]["$size"] = { $gt: 0 };
-    } else if (operator === "$in" || operator === "$nin") {
-      // Allow for the empty list
-      if (value === "") {
-        obj[field][operator] = [];
-      } else {
-        obj[field][operator] = value
+  const or: unknown[] = [];
+  conds.forEach((cond) => {
+    const obj = {};
+    cond.forEach(({ field, operator, value }) => {
+      // Special handling for $savedGroups since it's not a real attribute
+      if (field === "$savedGroups") {
+        const ids = value
           .split(",")
           .map((x) => x.trim())
-          .map((x) => parseValue(x, attributes.get(field)?.datatype));
+          .filter((x) => !!x);
+        if (!ids.length) return;
+
+        if (operator === "$nin") {
+          obj["$not"] = obj["$not"] || {};
+          obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
+          obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
+        } else if (operator === "$in") {
+          obj["$savedGroups"] = obj["$savedGroups"] || [];
+          obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
+        }
+        return;
       }
-    } else if (operator === "$inGroup" || operator === "$notInGroup") {
-      obj[field][operator] = value;
-    } else {
-      obj[field][operator] = parseValue(value, attributes.get(field)?.datatype);
+
+      obj[field] = obj[field] || {};
+      if (operator === "$notRegex") {
+        obj[field]["$not"] = { $regex: value };
+      } else if (operator === "$notExists") {
+        obj[field]["$exists"] = false;
+      } else if (operator === "$exists") {
+        obj[field]["$exists"] = true;
+      } else if (operator === "$true") {
+        obj[field]["$eq"] = true;
+      } else if (operator === "$false") {
+        obj[field]["$eq"] = false;
+      } else if (operator === "$includes") {
+        obj[field]["$elemMatch"] = {
+          $eq: parseValue(value, attributes.get(field)?.datatype),
+        };
+      } else if (operator === "$notIncludes") {
+        obj[field]["$not"] = {
+          $elemMatch: {
+            $eq: parseValue(value, attributes.get(field)?.datatype),
+          },
+        };
+      } else if (operator === "$empty") {
+        obj[field]["$size"] = 0;
+      } else if (operator === "$notEmpty") {
+        obj[field]["$size"] = { $gt: 0 };
+      } else if (operator === "$in" || operator === "$nin") {
+        // Allow for the empty list
+        if (value === "") {
+          obj[field][operator] = [];
+        } else {
+          obj[field][operator] = value
+            .split(",")
+            .map((x) => x.trim())
+            .map((x) => parseValue(x, attributes.get(field)?.datatype));
+        }
+      } else if (operator === "$inGroup" || operator === "$notInGroup") {
+        obj[field][operator] = value;
+      } else {
+        obj[field][operator] = parseValue(
+          value,
+          attributes.get(field)?.datatype,
+        );
+      }
+    });
+
+    // Simplify {$eg: ""} rules
+    Object.keys(obj).forEach((key) => {
+      if (Object.keys(obj[key]).length === 1 && "$eq" in obj[key]) {
+        obj[key] = obj[key]["$eq"];
+      }
+    });
+
+    if (Object.keys(obj).length) {
+      or.push(obj);
     }
   });
 
-  // Simplify {$eg: ""} rules
-  Object.keys(obj).forEach((key) => {
-    if (Object.keys(obj[key]).length === 1 && "$eq" in obj[key]) {
-      obj[key] = obj[key]["$eq"];
-    }
-  });
+  // No conditions
+  if (!or.length) return "{}";
 
-  return stringify(obj);
+  // Single or condition
+  if (or.length === 1) {
+    return stringify(or[0]);
+  }
+
+  return stringify({ $or: or });
 }
 
 function getAttributeDataType(type: SDKAttributeType) {
@@ -1627,22 +1670,24 @@ export function getAttributesWithVersionStringMismatches(
 
   const mismatchedAttributes = new Set<string>();
 
-  conds.forEach(({ field, operator }) => {
-    const attribute = attributes.get(field);
-    if (
-      attribute &&
-      attribute.format === "version" &&
-      STRING_OPERATORS.includes(operator)
-    ) {
-      mismatchedAttributes.add(field);
-    } else if (
-      attribute &&
-      attribute.format !== "version" &&
-      STRING_VERSION_OPERATORS.includes(operator)
-    ) {
-      mismatchedAttributes.add(field);
-    }
-  });
+  conds.forEach((cond) =>
+    cond.forEach(({ field, operator }) => {
+      const attribute = attributes.get(field);
+      if (
+        attribute &&
+        attribute.format === "version" &&
+        STRING_OPERATORS.includes(operator)
+      ) {
+        mismatchedAttributes.add(field);
+      } else if (
+        attribute &&
+        attribute.format !== "version" &&
+        STRING_VERSION_OPERATORS.includes(operator)
+      ) {
+        mismatchedAttributes.add(field);
+      }
+    }),
+  );
 
   return mismatchedAttributes.size > 0
     ? Array.from(mismatchedAttributes)
