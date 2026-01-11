@@ -40,6 +40,7 @@ export type SelectFieldProps = Omit<
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
   forceUndefinedValueToNull?: boolean;
+  useMultilineLabels?: boolean;
 };
 
 export function useSelectOptions(
@@ -176,6 +177,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isOptionDisabled,
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
+  useMultilineLabels = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -194,6 +196,19 @@ const SelectField: FC<SelectFieldProps> = ({
   const fieldProps = otherProps as any;
 
   const selectRef = useRef(null);
+
+  const multilineStyles = useMultilineLabels
+    ? {
+        singleValue: (styles: Record<string, unknown>) => ({
+          ...styles,
+          whiteSpace: "normal",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          lineHeight: "1.1",
+        }),
+      }
+    : {};
 
   if (!options.length && createable) {
     return (
@@ -229,6 +244,10 @@ const SelectField: FC<SelectFieldProps> = ({
             {createable ? (
               <CreatableSelect
                 {...ReactSelectProps}
+                styles={{
+                  ...ReactSelectProps.styles,
+                  ...multilineStyles,
+                }}
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
@@ -288,6 +307,10 @@ const SelectField: FC<SelectFieldProps> = ({
             ) : (
               <ReactSelect
                 {...ReactSelectProps}
+                styles={{
+                  ...ReactSelectProps.styles,
+                  ...multilineStyles,
+                }}
                 id={id}
                 ref={ref}
                 isClearable={isClearable}
