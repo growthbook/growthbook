@@ -121,6 +121,8 @@ export function MultiValuesDisplay({
           <Badge
             key={i}
             color="gray"
+            className="text-ellipsis d-inline-block"
+            style={{ maxWidth: 300 }}
             label={
               isSavedGroup && group ? (
                 <Link
@@ -281,6 +283,8 @@ function getConditionParts({
     let fieldEl: ReactNode = (
       <Badge
         color="gray"
+        className="text-ellipsis d-inline-block"
+        style={{ maxWidth: 300 }}
         label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
       />
     );
@@ -292,6 +296,8 @@ function getConditionParts({
         fieldEl = (
           <Badge
             color="gray"
+            className="text-ellipsis d-inline-block"
+            style={{ maxWidth: 300 }}
             label={
               <Text style={{ color: "var(--slate-12)" }}>
                 {field.substring(6)}
@@ -381,6 +387,8 @@ function getConditionParts({
               return group ? (
                 <Badge
                   color="gray"
+                  className="text-ellipsis d-inline-block"
+                  style={{ maxWidth: 300 }}
                   label={
                     <Link
                       href={`/saved-groups/${group.id}`}
@@ -395,6 +403,8 @@ function getConditionParts({
               ) : (
                 <Badge
                   color="gray"
+                  className="text-ellipsis d-inline-block"
+                  style={{ maxWidth: 300 }}
                   label={
                     <Text
                       style={{ color: "var(--slate-12)", whiteSpace: "pre" }}
@@ -408,6 +418,8 @@ function getConditionParts({
           ) : (
             <Badge
               color="gray"
+              className="text-ellipsis d-inline-block"
+              style={{ maxWidth: 300 }}
               label={
                 <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
                   {getValue(operator, value, savedGroups)}
@@ -427,6 +439,8 @@ function ParentIdLink({ parentId }: { parentId: string }) {
   return (
     <Badge
       color="gray"
+      className="text-ellipsis d-inline-block"
+      style={{ maxWidth: 300 }}
       label={
         <Link
           href={`/features/${parentId}`}
