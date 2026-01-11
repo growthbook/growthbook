@@ -31,10 +31,7 @@ function isValidWatchEntityType(type: string): boolean {
     return false;
   }
 }
-export async function getHistoryByUser(
-  req: AuthRequest<unknown, unknown, { limit?: string }>,
-  res: Response,
-) {
+export async function getHistoryByUser(req: AuthRequest<null>, res: Response) {
   const { org, userId } = getContextFromReq(req);
   const events = await findRecentAuditByUserIdAndOrganization(userId, org.id);
   res.status(200).json({
