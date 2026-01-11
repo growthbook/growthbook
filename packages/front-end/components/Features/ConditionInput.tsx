@@ -233,6 +233,7 @@ export default function ConditionInput(props: Props) {
       <Flex align="center" mt="2">
         {attributeSchema.length > 0 && (
           <Link
+            className="or-button"
             onClick={() => {
               const prop = attributeSchema[0];
               setConds([
