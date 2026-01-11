@@ -66,6 +66,7 @@ import {
   editFeatureRule,
   getAllFeatures,
   getFeature,
+  getFeatureMetaInfoByIds,
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
@@ -2210,9 +2211,18 @@ export async function getDraftandReviewRevisions(
     "changes-requested",
     "pending-review",
   ]);
+
+  const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
+  const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);
+  const featureMetaMap = new Map(featureMeta.map((f) => [f.id, f]));
+  const revisionsWithMeta = revisions.map((r) => ({
+    ...r,
+    featureMeta: featureMetaMap.get(r.featureId),
+  }));
+
   res.status(200).json({
     status: 200,
-    revisions,
+    revisions: revisionsWithMeta,
   });
 }
 

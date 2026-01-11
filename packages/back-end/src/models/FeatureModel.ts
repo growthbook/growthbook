@@ -11,6 +11,7 @@ import {
 import {
   FeatureEnvironment,
   FeatureInterface,
+  FeatureMetaInfo,
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
@@ -1159,4 +1160,34 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
     { _id: 1 },
   );
   return !!feature;
+}
+
+export async function getFeatureMetaInfoByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<FeatureMetaInfo[]> {
+  if (!ids.length) return [];
+
+  const features = await FeatureModel.find(
+    { organization: context.org.id, id: { $in: ids } },
+    {
+      id: 1,
+      project: 1,
+      archived: 1,
+      dateCreated: 1,
+      tags: 1,
+      owner: 1,
+      valueType: 1,
+    },
+  );
+
+  return features.map((f) => ({
+    id: f.id,
+    project: f.project,
+    archived: f.archived,
+    dateCreated: f.dateCreated,
+    tags: f.tags,
+    owner: f.owner,
+    valueType: f.valueType,
+  }));
 }
