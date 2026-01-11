@@ -15,7 +15,6 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     // convert deleteMissing to boolean
     const deleteMissing = deleteMissingString === "true";
 
-    // Only query for feature names for the specific repo/branch using projection
     const existingFeatures = await getExistingFeaturesForRepoBranch({
       repo,
       branch,
