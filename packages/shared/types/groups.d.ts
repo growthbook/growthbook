@@ -27,3 +27,6 @@ export interface SavedGroupInterface {
   useEmptyListGroup?: boolean;
 }
 export type SavedGroupType = "condition" | "list";
+
+// Omit large values array for performance on the front-end
+export type SavedGroupWithoutValues = Omit<SavedGroupInterface, "values">;
