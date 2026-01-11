@@ -214,7 +214,7 @@ function getConditionOrParts({
   keyPrefix = "",
 }: {
   conditions: ConditionWithParentId[][];
-  savedGroups?: SavedGroupInterface[];
+  savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
