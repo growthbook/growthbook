@@ -7,7 +7,10 @@ import {
   truncateString,
 } from "shared/util";
 import Link from "next/link";
-import { SavedGroupInterface } from "shared/types/groups";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/groups";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { isEmpty } from "lodash";
 import { Box } from "@radix-ui/themes";
@@ -31,7 +34,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
-  groups: SavedGroupInterface[];
+  groups: SavedGroupWithoutValues[];
   mutate: () => void;
 }
 
@@ -91,7 +94,7 @@ export default function IdLists({ groups, mutate }: Props) {
   );
 
   const referencingSavedGroupsByGroup = useMemo(() => {
-    const result: Record<string, SavedGroupInterface[]> = {};
+    const result: Record<string, SavedGroupWithoutValues[]> = {};
     filteredIdLists.forEach((targetGroup) => {
       result[targetGroup.id] = conditionGroups.filter((sg) => {
         if (!sg.condition) return false;
