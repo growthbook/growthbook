@@ -114,31 +114,21 @@ function shouldShowEditorField(
     baselineRow: ["experiment-metric", "experiment-dimension"],
     variationIds: ["experiment-metric", "experiment-dimension"],
   };
-
-  // Handle special field names starting with "_" for non-block fields
-  // These map to specific block types that should show the field
   const SPECIAL_FIELDS_BY_BLOCK_TYPE: Record<string, DashboardBlockType[]> = {
     _toggleSortByMetricIds: ["experiment-metric", "experiment-dimension"],
   };
 
   if (!block) return true;
-
-  // Check special fields first
-  if (fieldName.startsWith("_")) {
-    const allowedTypes = SPECIAL_FIELDS_BY_BLOCK_TYPE[fieldName];
-    if (allowedTypes) {
-      return allowedTypes.includes(block.type);
-    }
-    return false;
+  if (SPECIAL_FIELDS_BY_BLOCK_TYPE[fieldName]) {
+    return SPECIAL_FIELDS_BY_BLOCK_TYPE[fieldName].includes(block.type);
   }
-
-  // Check skipped fields
   if (
     !(SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE?.[fieldName] || []).includes(
       block.type,
     )
-  )
+  ) {
     return true;
+  }
   return false;
 }
 
@@ -807,7 +797,7 @@ export default function EditSingleBlock({
                     Metric
                   </Text>
                 }
-                labelClassName="mb-0"
+                labelClassName="font-weight-bold"
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
@@ -1213,6 +1203,7 @@ export default function EditSingleBlock({
                 <SelectField
                   sort={false}
                   label="Baseline"
+                  labelClassName="font-weight-bold"
                   containerClassName="mb-0"
                   value={block.baselineRow.toString()}
                   onChange={(value) =>
@@ -1254,6 +1245,7 @@ export default function EditSingleBlock({
                 <MultiSelectField
                   sort={false}
                   label="Variations"
+                  labelClassName="font-weight-bold"
                   placeholder="Showing all variations"
                   value={block.variationIds}
                   containerClassName="mb-0"
@@ -1293,6 +1285,7 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"
+                labelClassName="font-weight-bold"
                 placeholder="Showing all values"
                 value={block.dimensionValues}
                 containerClassName="mb-0"
@@ -1416,7 +1409,7 @@ export default function EditSingleBlock({
                   <>
                     <SelectField
                       required
-                      labelClassName="flex-grow-1"
+                      labelClassName="font-weight-bold flex-grow-1"
                       containerClassName="mb-0"
                       value={savedQuery?.id || ""}
                       forceUndefinedValueToNull
