@@ -191,14 +191,16 @@ export default function ResultsTab({
                     : "Disabled"
                 }
               />
-              <Metadata
-                label="Post-Stratification"
-                value={
-                  analysis?.settings?.postStratificationEnabled
-                    ? "Enabled"
-                    : "Disabled"
-                }
-              />
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Metadata
+                  label="Post-Stratification"
+                  value={
+                    analysis?.settings?.postStratificationEnabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+              ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
                   label="Sequential"

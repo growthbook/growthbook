@@ -15,6 +15,7 @@ import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
@@ -176,7 +177,7 @@ export default function StatsEngineSettings() {
       <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
-            Variance Reduction (CUPEDps)
+            Variance Reduction (CUPED + Post-stratification)
           </PremiumTooltip>
         </Heading>
         <Flex direction="column" gap="3">
@@ -195,7 +196,7 @@ export default function StatsEngineSettings() {
             <Box>
               <Text size="2" className="font-weight-semibold">
                 <label htmlFor="toggle-regressionAdjustmentEnabled">
-                  Use CUPEDps by default on all experiments
+                  Use CUPED by default on all experiments
                 </label>
               </Text>
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
@@ -250,12 +251,14 @@ export default function StatsEngineSettings() {
             <Flex direction="column">
               <Text size="2" className="font-weight-semibold">
                 <label htmlFor="toggle-postStratification">
-                  Enable post-stratification
+                  Use post-stratification by default on all experiments
                 </label>
               </Text>
               <Text size="1">
                 When checked, post-stratification will be used by default
-                whenever pre-computed dimensions are available.
+                whenever{" "}
+                <Link href="#experiment-settings">pre-computed dimensions</Link>{" "}
+                are available.
               </Text>
             </Flex>
           </Flex>

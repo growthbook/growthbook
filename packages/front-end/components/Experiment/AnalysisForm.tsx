@@ -100,6 +100,12 @@ const AnalysisForm: FC<{
     experiment,
   });
 
+  // Get parent settings (without experiment scope) for displaying defaults
+  const { settings: parentScopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+  });
+
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
@@ -166,7 +172,7 @@ const AnalysisForm: FC<{
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
-      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+      postStratificationEnabled: experiment.postStratificationEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -604,7 +610,7 @@ const AnalysisForm: FC<{
           onChange={(v) => {
             form.setValue("statsEngine", v);
           }}
-          parentSettings={scopedSettings}
+          parentSettings={parentScopedSettings}
           allowUndefined={!isBandit}
           disabled={isBandit}
         />
@@ -646,11 +652,24 @@ const AnalysisForm: FC<{
                 }
                 style={{ width: 200 }}
                 labelClassName="font-weight-bold"
-                value={form.watch("postStratificationEnabled") ? "on" : "off"}
+                value={
+                  form.watch("postStratificationEnabled") === undefined
+                    ? ""
+                    : form.watch("postStratificationEnabled")
+                      ? "on"
+                      : "off"
+                }
                 onChange={(v) => {
-                  form.setValue("postStratificationEnabled", v === "on");
+                  form.setValue(
+                    "postStratificationEnabled",
+                    v === "" ? undefined : v === "on",
+                  );
                 }}
                 options={[
+                  {
+                    label: "Organization default",
+                    value: "",
+                  },
                   {
                     label: "On",
                     value: "on",
@@ -660,6 +679,27 @@ const AnalysisForm: FC<{
                     value: "off",
                   },
                 ]}
+                formatOptionLabel={({ value, label }) => {
+                  if (value === "") {
+                    return <em className="text-muted">{label}</em>;
+                  }
+                  return label;
+                }}
+                sort={false}
+                helpText={
+                  <span>
+                    (
+                    {parentScopedSettings.postStratificationEnabled.meta
+                      ?.scopeApplied &&
+                      parentScopedSettings.postStratificationEnabled.meta
+                        ?.scopeApplied + " "}
+                    default:{" "}
+                    {parentScopedSettings.postStratificationEnabled.value
+                      ? "On"
+                      : "Off"}
+                    )
+                  </span>
+                }
                 disabled={
                   !hasPostStratificationFeature ||
                   (isBandit && experiment.status !== "draft")

@@ -5,7 +5,7 @@ from pydantic.dataclasses import dataclass
 import numpy as np
 import operator
 from functools import reduce, cached_property
-from gbstats.models.results import RealizedSettings
+from gbstats.models.results import EffectMomentsResult, RealizedSettings, TestResult
 from gbstats.utils import multinomial_covariance
 
 
@@ -48,31 +48,6 @@ class BaseConfig:
     total_users: Optional[int] = None
     alpha: float = 0.05
     post_stratify: bool = False
-
-
-# Results
-@dataclass
-class EffectMomentsResult:
-    point_estimate: float
-    standard_error: float
-    pairwise_sample_size: int
-    error_message: Optional[str]
-    post_stratification_applied: bool
-
-
-@dataclass
-class Uplift:
-    dist: str
-    mean: float
-    stddev: float
-
-
-@dataclass
-class TestResult:
-    expected: float
-    ci: List[float]
-    uplift: Uplift
-    error_message: Optional[str]
 
 
 @staticmethod

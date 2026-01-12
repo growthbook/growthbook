@@ -7,8 +7,9 @@ import { SettingsResolver } from "../types";
  * but we expose it as `postStratificationEnabled` (when true, post-strat is ON).
  *
  * Resolution order:
- * 1. If experiment has an explicit `postStratificationEnabled` value, use that
- * 2. Otherwise, use the org default: `!postStratificationDisabled` (enabled by default)
+ * 1. If pre-computed dimensions are turned off, return false
+ * 2. If experiment has an explicit `postStratificationEnabled` value, use that
+ * 3. Otherwise, use the org default: `!postStratificationDisabled` (enabled by default)
  */
 const postStratificationEnabledResolver = (): SettingsResolver<boolean> => {
   return (ctx) => {
@@ -20,6 +21,19 @@ const postStratificationEnabledResolver = (): SettingsResolver<boolean> => {
     // Check if experiment has an explicit setting
     const experimentPostStratificationEnabled =
       ctx.scopes?.experiment?.postStratificationEnabled;
+
+    // Check if pre-computed dimensions are turned off
+    const precomputedDimensionsEnabled =
+      !ctx.scopes?.organization?.settings?.disablePrecomputedDimensions;
+    if (!precomputedDimensionsEnabled) {
+      return {
+        value: false,
+        meta: {
+          scopeApplied: "organization",
+          reason: "pre-computed dimensions are turned off",
+        },
+      };
+    }
 
     if (experimentPostStratificationEnabled !== undefined) {
       return {

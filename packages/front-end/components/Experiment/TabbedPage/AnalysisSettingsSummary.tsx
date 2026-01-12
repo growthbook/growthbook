@@ -120,6 +120,9 @@ export default function AnalysisSettingsSummary({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
+  const hasPostStratificationFeature = hasCommercialFeature(
+    "post-stratification",
+  );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -261,6 +264,7 @@ export default function AnalysisSettingsSummary({
     orgSettings,
     statsEngine,
     hasRegressionAdjustmentFeature,
+    hasPostStratificationFeature,
     hasSequentialFeature,
     phase,
     unjoinableMetrics,
@@ -407,6 +411,7 @@ export default function AnalysisSettingsSummary({
     orgSettings: org,
     statsEngine: engine,
     hasRegressionAdjustmentFeature,
+    hasPostStratificationFeature,
     hasSequentialFeature,
     phase: currentPhase,
     unjoinableMetrics: unjoinable,
@@ -418,6 +423,7 @@ export default function AnalysisSettingsSummary({
     orgSettings: OrganizationSettings;
     statsEngine: StatsEngine;
     hasRegressionAdjustmentFeature: boolean;
+    hasPostStratificationFeature: boolean;
     hasSequentialFeature: boolean;
     phase?: number;
     unjoinableMetrics?: Set<string>;
@@ -525,6 +531,19 @@ export default function AnalysisSettingsSummary({
       )
     ) {
       reasons.push("CUPED settings changed");
+    }
+
+    const experimentPostStratificationEnabled =
+      !hasPostStratificationFeature || org.disablePrecomputedDimensions
+        ? false
+        : (exp.postStratificationEnabled ?? !org.postStratificationDisabled);
+    if (
+      isDifferent(
+        experimentPostStratificationEnabled,
+        !!analysisSettings?.postStratificationEnabled,
+      )
+    ) {
+      reasons.push("Post-stratification settings changed");
     }
 
     const experimentSequentialEnabled =

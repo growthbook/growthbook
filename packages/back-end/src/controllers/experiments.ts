@@ -1493,6 +1493,7 @@ export async function postExperiment(
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
+    "postStratificationEnabled",
     "hasVisualChangesets",
     "hasURLRedirects",
     "sequentialTestingEnabled",
