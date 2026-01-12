@@ -264,7 +264,17 @@ export const CREATE_BLOCK_TYPE: {
       dataType: "sql",
       savedQueryId: "",
     },
-    dataVizConfig: [],
+    dataVizConfig: [
+      {
+        chartType: "bar",
+        xAxis: {
+          fieldName: "",
+          type: "string",
+          sort: "none",
+        },
+        yAxis: [],
+      },
+    ],
     ...(initialValues || {}),
   }),
 };
