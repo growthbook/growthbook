@@ -157,6 +157,7 @@ export const ReactSelectProps = {
 const multilineStyles = {
   singleValue: (styles: Record<string, unknown>) => ({
     ...styles,
+    color: "var(--text-color-main)",
     whiteSpace: "normal",
     display: "-webkit-box",
     WebkitLineClamp: 2,
