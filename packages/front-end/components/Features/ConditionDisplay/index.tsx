@@ -121,7 +121,18 @@ export function MultiValuesDisplay({
           isSavedGroup && group
             ? displayMap?.[v] || group.groupName
             : displayMap?.[v] || v;
-        return (
+        return isSavedGroup && group ? (
+          <Link
+            key={i}
+            href={`/saved-groups/${group.id}`}
+            target="_blank"
+            size="1"
+            color="violet"
+            title="Manage Saved Group"
+          >
+            <Badge color="gray" label={displayValue} /> <PiArrowSquareOut />
+          </Link>
+        ) : (
           <Badge
             key={i}
             color="gray"
@@ -129,19 +140,7 @@ export function MultiValuesDisplay({
             style={{ maxWidth: 300 }}
             title={displayValue}
             label={
-              isSavedGroup && group ? (
-                <Link
-                  href={`/saved-groups/${group.id}`}
-                  target="_blank"
-                  size="1"
-                  color="violet"
-                  title="Manage Saved Group"
-                >
-                  {displayValue} <PiArrowSquareOut />
-                </Link>
-              ) : (
-                <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
-              )
+              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
             }
           />
         );
@@ -395,22 +394,16 @@ function getConditionParts({
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
             group ? (
-              <Badge
-                color="gray"
-                className="text-ellipsis d-inline-block"
-                style={{ maxWidth: 300 }}
+              <Link
+                href={`/saved-groups/${group.id}`}
+                target="_blank"
+                size="1"
+                color="violet"
                 title="Manage Saved Group"
-                label={
-                  <Link
-                    href={`/saved-groups/${group.id}`}
-                    target="_blank"
-                    size="1"
-                    color="violet"
-                  >
-                    {group.groupName} <PiArrowSquareOut />
-                  </Link>
-                }
-              />
+              >
+                <Badge color="gray" label={group.groupName} />{" "}
+                <PiArrowSquareOut />
+              </Link>
             ) : (
               <Badge
                 color="gray"
