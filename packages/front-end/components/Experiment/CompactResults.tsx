@@ -1,5 +1,5 @@
 import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -44,6 +44,8 @@ import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import { ExperimentTab } from "./TabbedPage";
+import Link from "@/ui/Link";
+import MetricDetailsModal from "./MetricDetailsModal";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -194,6 +196,10 @@ const CompactResults: FC<{
     }));
   };
 
+  const [openMetricIdDetailsModal, setOpenMetricIdDetailsModal] = useState<
+    string | null
+  >(null);
+
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
     goalMetrics,
@@ -338,6 +344,27 @@ const CompactResults: FC<{
     });
   }, [rows, hasSliceFilter, expandedMetrics]);
 
+  // Derive helper values for MetricDetailsModal
+  const selectedMetricRow = useMemo(() => {
+    if (!openMetricIdDetailsModal) return null;
+    // Use unfiltered rows so we can find any metric, not just expanded ones
+    return rows.find(
+      (row) => row.metric.id === openMetricIdDetailsModal && !row.isSliceRow,
+    );
+  }, [openMetricIdDetailsModal, rows]);
+
+  const variationNames = useMemo(
+    () => variations.map((v) => v.name),
+    [variations],
+  );
+
+  const showVariations = useMemo(() => {
+    if (!variationFilter || variationFilter.length === 0) {
+      return variations.map(() => true);
+    }
+    return variations.map((_, i) => variationFilter.includes(i));
+  }, [variationFilter, variations]);
+
   return (
     <>
       {!mainTableOnly && (
@@ -405,6 +432,7 @@ const CompactResults: FC<{
             shouldShowMetricSlices: true,
             getChildRowCounts,
             sliceTagsFilter,
+            onMetricLabelClick: setOpenMetricIdDetailsModal,
           })}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
@@ -465,6 +493,7 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
+              onMetricLabelClick: setOpenMetricIdDetailsModal,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -525,6 +554,7 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
+              onMetricLabelClick: setOpenMetricIdDetailsModal,
             })}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
@@ -546,6 +576,37 @@ const CompactResults: FC<{
       ) : (
         <></>
       )}
+
+      {openMetricIdDetailsModal && selectedMetricRow && (
+        <MetricDetailsModal
+          metric={selectedMetricRow.metric}
+          row={selectedMetricRow}
+          statsEngine={statsEngine}
+          open={true}
+          close={() => setOpenMetricIdDetailsModal(null)}
+          experimentId={experimentId}
+          phase={phase}
+          experimentStatus={status}
+          differenceType={differenceType}
+          variationNames={variationNames}
+          showVariations={showVariations}
+          pValueAdjustmentEnabled={!!pValueCorrection}
+          firstDateToRender={new Date(startDate)}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
+          allRows={rows}
+          baselineRow={baselineRow}
+          metricOverrides={metricOverrides}
+          variations={variations}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+        />
+      )}
     </>
   );
 };
@@ -564,6 +625,7 @@ export function getRenderLabelColumn({
   pinSource,
   sliceTagsFilter,
   className = "pl-3",
+  onMetricLabelClick,
 }: {
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
@@ -586,20 +648,26 @@ export function getRenderLabelColumn({
   pinSource?: "experiment" | "custom" | "none";
   sliceTagsFilter?: string[];
   className?: string;
+  onMetricLabelClick?: (metricId: string) => void;
 }) {
   return function renderLabelColumn({
     label,
+    onClickLabel: _onClickLabel,
     metric,
     row,
     maxRows,
     location,
   }: {
     label: string | ReactElement;
+    onClickLabel?: () => void;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;
     location?: "goal" | "secondary" | "guardrail";
   }) {
+    const onClickLabel = onMetricLabelClick
+      ? () => onMetricLabelClick(metric.id)
+      : undefined;
     const expandedKey = `${metric.id}:${location}`;
     const isExpanded = !!expandedMetrics?.[expandedKey];
 
@@ -831,20 +899,7 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Tooltip
-                body={
-                  <MetricTooltipBody
-                    metric={metric}
-                    row={row}
-                    statsEngine={statsEngine}
-                    hideDetails={hideDetails}
-                  />
-                }
-                tipPosition="right"
-                className="d-inline-block font-weight-bold metric-label"
-                flipTheme={false}
-                usePortal={true}
-              >
+              <Link weight="bold" color="dark" onClick={onClickLabel}>
                 {label}
                 {metric.managedBy ? (
                   <HiBadgeCheck
@@ -855,7 +910,7 @@ export function getRenderLabelColumn({
                     }}
                   />
                 ) : null}
-              </Tooltip>
+              </Link>
             </span>
           </span>
         </div>

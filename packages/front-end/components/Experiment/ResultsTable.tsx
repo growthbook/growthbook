@@ -123,6 +123,7 @@ export type ResultsTableProps = {
   mutate?: () => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
+  skipLabelRow?: boolean;
 };
 
 const ROW_HEIGHT = 46;
@@ -145,7 +146,6 @@ export enum RowError {
 
 export default function ResultsTable({
   id,
-  experimentId,
   isLatestPhase,
   phase,
   status,
@@ -160,7 +160,6 @@ export default function ResultsTable({
   setVariationFilter,
   baselineRow = 0,
   startDate,
-  endDate,
   renderLabelColumn,
   resultGroup,
   dateCreated,
@@ -186,6 +185,7 @@ export default function ResultsTable({
   mutate,
   setDifferenceType,
   totalMetricsCount,
+  skipLabelRow,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -339,9 +339,6 @@ export default function ResultsTable({
       return sorted;
     }, [variations, baselineRow]);
 
-  const showVariations = orderedVariations.map(
-    (v) => !variationFilter?.includes(v.index),
-  );
   const filteredVariations = orderedVariations.filter(
     (v) => !variationFilter?.includes(v.index),
   );
@@ -733,60 +730,80 @@ export default function ResultsTable({
                   {!row.isHiddenByFilter && (
                     <>
                       {/* Render the main results tbody */}
-                      <tbody
-                        className={clsx("results-group-row", {
-                          "slice-row": row.isSliceRow,
-                        })}
-                        key={i}
-                      >
-                        {(() => {
-                          const drawRowProps = {
-                            labelColSpan: includedLabelColumns.length,
-                            renderLabel: includedLabelColumns.length > 0,
-                            renderGraph: columnsToDisplay.includes("CI Graph"),
-                            renderLastColumn: columnsToDisplay.includes("Lift"),
-                            label: columnsToDisplay.includes(
-                              "Metric & Variation Names",
-                            ) ? (
-                              renderLabelColumn({
-                                label: row.label,
-                                metric: row.metric,
-                                row,
-                                location: resultGroup,
-                              })
-                            ) : (
-                              <></>
-                            ),
-                            graphCellWidth: columnsToDisplay.includes(
-                              "CI Graph",
-                            )
-                              ? graphCellWidth
-                              : 0,
-                            id,
-                            domain,
-                            ssrPolyfills,
-                          };
+                      {(() => {
+                        const drawRowProps = {
+                          labelColSpan: includedLabelColumns.length,
+                          renderLabel: includedLabelColumns.length > 0,
+                          renderGraph: columnsToDisplay.includes("CI Graph"),
+                          renderLastColumn: columnsToDisplay.includes("Lift"),
+                          label: columnsToDisplay.includes(
+                            "Metric & Variation Names",
+                          ) ? (
+                            renderLabelColumn({
+                              label: row.label,
+                              metric: row.metric,
+                              row,
+                              location: resultGroup,
+                            })
+                          ) : (
+                            <></>
+                          ),
+                          graphCellWidth: columnsToDisplay.includes("CI Graph")
+                            ? graphCellWidth
+                            : 0,
+                          id,
+                          domain,
+                          ssrPolyfills,
+                        };
 
-                          if (row.labelOnly) {
-                            return drawLabelRow({
-                              ...drawRowProps,
-                              rowHeight: LABEL_ONLY_ROW_HEIGHT,
-                            });
-                          }
+                        if (row.labelOnly) {
+                          return (
+                            <tbody
+                              className={clsx("results-group-row", {
+                                "slice-row": row.isSliceRow,
+                              })}
+                              key={i}
+                            >
+                              {drawLabelRow({
+                                ...drawRowProps,
+                                rowHeight: LABEL_ONLY_ROW_HEIGHT,
+                              })}
+                            </tbody>
+                          );
+                        }
 
-                          if (!compactResults) {
-                            return drawEmptyRow({
-                              ...drawRowProps,
-                              className: "results-label-row",
-                              rowHeight: METRIC_LABEL_ROW_HEIGHT,
-                            });
-                          }
+                        if (
+                          !compactResults &&
+                          drawRowProps.renderLabel &&
+                          !skipLabelRow
+                        ) {
+                          return (
+                            <tbody
+                              className={clsx("results-group-row", {
+                                "slice-row": row.isSliceRow,
+                              })}
+                              key={i}
+                            >
+                              {drawEmptyRow({
+                                ...drawRowProps,
+                                className: "results-label-row",
+                                rowHeight: METRIC_LABEL_ROW_HEIGHT,
+                              })}
+                            </tbody>
+                          );
+                        }
 
-                          return null;
-                        })()}
+                        return null;
+                      })()}
 
-                        {!row.labelOnly &&
-                          orderedVariations.map((v, j) => {
+                      {!row.labelOnly && (
+                        <tbody
+                          className={clsx("results-group-row", {
+                            "slice-row": row.isSliceRow,
+                          })}
+                          key={`${i}-variations`}
+                        >
+                          {orderedVariations.map((v, j) => {
                             const stats = row.variations[v.index] || {
                               value: 0,
                               cr: 0,
@@ -1182,7 +1199,8 @@ export default function ResultsTable({
                               </tr>
                             );
                           })}
-                      </tbody>
+                        </tbody>
+                      )}
                     </>
                   )}
                 </React.Fragment>
