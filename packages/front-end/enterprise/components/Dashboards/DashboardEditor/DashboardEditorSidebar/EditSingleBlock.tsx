@@ -689,7 +689,7 @@ export default function EditSingleBlock({
         />
       )}
       {block && (
-        <Flex direction="column" py="5" px="4" gap="2" width="100%">
+        <Flex direction="column" py="5" px="4" gap="5" width="100%">
           <Text weight="medium" size="4">
             <Avatar
               radius="small"
@@ -705,44 +705,48 @@ export default function EditSingleBlock({
 
           <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
-              <>
-                <Text weight="medium">Experiment Info</Text>
+              <Box>
+                <Box mb="3">
+                  <Text weight="bold">Experiment Info</Text>
+                </Box>
+                <Checkbox
+                  size="sm"
+                  value={
+                    [
+                      block.showDescription,
+                      block.showHypothesis,
+                      block.showVariationImages,
+                    ].some((val) => val === true)
+                      ? [
+                          block.showDescription,
+                          block.showHypothesis,
+                          block.showVariationImages,
+                        ].some((val) => val === false)
+                        ? "indeterminate"
+                        : true
+                      : false
+                  }
+                  setValue={(value) => {
+                    setBlock({
+                      ...block,
+                      showDescription: value,
+                      showHypothesis: value,
+                      showVariationImages: value,
+                      variationIds: value ? [] : undefined,
+                    });
+                  }}
+                  label="Select All"
+                  mb="2"
+                />
                 <Grid columns="2">
-                  <Checkbox
-                    size="sm"
-                    value={
-                      [
-                        block.showDescription,
-                        block.showHypothesis,
-                        block.showVariationImages,
-                      ].some((val) => val === true)
-                        ? [
-                            block.showDescription,
-                            block.showHypothesis,
-                            block.showVariationImages,
-                          ].some((val) => val === false)
-                          ? "indeterminate"
-                          : true
-                        : false
-                    }
-                    setValue={(value) => {
-                      setBlock({
-                        ...block,
-                        showDescription: value,
-                        showHypothesis: value,
-                        showVariationImages: value,
-                        variationIds: value ? [] : undefined,
-                      });
-                    }}
-                    label="Select All"
-                  />
                   <Checkbox
                     size="sm"
                     value={block.showDescription}
                     setValue={(value) => {
                       setBlock({ ...block, showDescription: value });
                     }}
-                    label={<Text weight="regular">Description</Text>}
+                    label="Description"
+                    weight="regular"
                   />
                   <Checkbox
                     size="sm"
@@ -750,7 +754,8 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showHypothesis: value });
                     }}
-                    label={<Text weight="regular">Hypothesis</Text>}
+                    label="Hypothesis"
+                    weight="regular"
                   />
                   <Checkbox
                     size="sm"
@@ -762,14 +767,17 @@ export default function EditSingleBlock({
                         variationIds: value ? [] : undefined,
                       });
                     }}
-                    label={<Text weight="regular">Variation Info</Text>}
+                    label="Variation Info"
+                    weight="regular"
                   />
                 </Grid>
-              </>
+              </Box>
             )}
             {block.type === "experiment-traffic" && (
-              <>
-                <Text weight="medium">Traffic Visualizations</Text>
+              <Box>
+                <Box mb="3">
+                  <Text weight="bold">Traffic Visualizations</Text>
+                </Box>
                 <Grid columns="2">
                   <Checkbox
                     size="sm"
@@ -777,7 +785,8 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showTable: value });
                     }}
-                    label={<Text weight="regular">Show Table</Text>}
+                    label="Show Table"
+                    weight="regular"
                   />
                   <Checkbox
                     size="sm"
@@ -785,18 +794,15 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showTimeseries: value });
                     }}
-                    label={<Text weight="regular">Show Timeseries</Text>}
+                    label="Show Timeseries"
+                    weight="regular"
                   />
                 </Grid>
-              </>
+              </Box>
             )}
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
-                label={
-                  <Text as="label" size="3" weight="medium">
-                    Metric
-                  </Text>
-                }
+                label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.factMetricId}
                 containerClassName="mb-0"
@@ -1547,7 +1553,7 @@ export default function EditSingleBlock({
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
           </Flex>
-          <Flex mt="6" gap="3" align="center" justify="center">
+          <Flex mt="5" gap="3" align="center" justify="center">
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
               variant="outline"
