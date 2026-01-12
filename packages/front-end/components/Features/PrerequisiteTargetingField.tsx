@@ -30,6 +30,7 @@ import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -309,146 +310,153 @@ export default function PrerequisiteTargetingField({
 
             return (
               <Box key={i} className="appbox bg-light px-3 py-3" mb="4">
-                <Flex justify="between" align="center" mb="2">
-                  <label style={{ marginBottom: 0 }}>Feature</label>
-                  <IconButton
-                    type="button"
-                    color="red"
-                    variant="ghost"
-                    mt="3"
-                    ml="1"
-                    onClick={() => {
-                      setValue([...value.slice(0, i), ...value.slice(i + 1)]);
-                    }}
-                  >
-                    <PiXBold size={16} />
-                  </IconButton>
-                </Flex>
-
                 <Box mb="2">
-                  <SelectField
-                    useMultilineLabels={true}
-                    placeholder="Select feature"
-                    options={groupedFeatureOptions}
-                    value={v.id}
-                    onChange={(v) => {
-                      const meta = featureOptions.find(
-                        (o) => o.value === v,
-                      )?.meta;
-                      if (meta?.disabled) return;
-                      setValue([
-                        ...value.slice(0, i),
-                        {
-                          id: v,
-                          condition: "",
-                        },
-                        ...value.slice(i + 1),
-                      ]);
-                    }}
-                    key={`parentId-${i}`}
-                    sort={false}
-                    formatOptionLabel={({ value, label }) => {
-                      const option = featureOptions.find(
-                        (o) => o.value === value,
-                      );
-                      const meta = option?.meta;
-                      const projectName = option?.projectName;
-                      return (
-                        <div
-                          className={clsx({
-                            "cursor-disabled": !!meta?.disabled,
-                          })}
-                        >
-                          <span
-                            className="mr-2"
-                            style={{ opacity: meta?.disabled ? 0.5 : 1 }}
+                  <label style={{ marginBottom: 0 }}>Feature</label>
+                </Box>
+
+                <Flex align="start" gap="2" mb="2">
+                  <Box style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <SelectField
+                      useMultilineLabels={true}
+                      placeholder="Select feature"
+                      options={groupedFeatureOptions}
+                      value={v.id}
+                      onChange={(v) => {
+                        const meta = featureOptions.find(
+                          (o) => o.value === v,
+                        )?.meta;
+                        if (meta?.disabled) return;
+                        setValue([
+                          ...value.slice(0, i),
+                          {
+                            id: v,
+                            condition: "",
+                          },
+                          ...value.slice(i + 1),
+                        ]);
+                      }}
+                      key={`parentId-${i}`}
+                      sort={false}
+                      formatOptionLabel={({ value, label }) => {
+                        const option = featureOptions.find(
+                          (o) => o.value === value,
+                        );
+                        const meta = option?.meta;
+                        const projectName = option?.projectName;
+                        return (
+                          <div
+                            className={clsx({
+                              "cursor-disabled": !!meta?.disabled,
+                            })}
+                          >
+                            <span
+                              className="mr-2"
+                              style={{ opacity: meta?.disabled ? 0.5 : 1 }}
+                            >
+                              {label}
+                            </span>
+                            {projectName ? (
+                              <OverflowText
+                                maxWidth={150}
+                                className="text-muted small float-right text-right"
+                              >
+                                project: <strong>{projectName}</strong>
+                              </OverflowText>
+                            ) : (
+                              <em
+                                className="text-muted small float-right position-relative"
+                                style={{ top: 3, opacity: 0.5 }}
+                              >
+                                no project
+                              </em>
+                            )}
+                            {meta?.wouldBeCyclic && (
+                              <Tooltip
+                                body="Selecting this feature would create a cyclic dependency."
+                                className="mr-2"
+                              >
+                                <FaRecycle
+                                  className="text-muted position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {meta?.conditional && (
+                              <Tooltip
+                                body={
+                                  <>
+                                    This feature is in a{" "}
+                                    <span className="text-warning-orange font-weight-bold">
+                                      Schrödinger state
+                                    </span>
+                                    {environments.length > 1 &&
+                                      " in some environments"}
+                                    .
+                                    {!hasSDKWithPrerequisites && (
+                                      <>
+                                        {" "}
+                                        None of your SDK Connections in this
+                                        project support evaluating Schrödinger
+                                        states.
+                                      </>
+                                    )}
+                                  </>
+                                }
+                                className="mr-2"
+                              >
+                                <FaRegCircleQuestion
+                                  className="text-warning-orange position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {meta?.cyclic && (
+                              <Tooltip
+                                body="This feature has a cyclic dependency."
+                                className="mr-2"
+                              >
+                                <FaExclamationCircle
+                                  className="text-danger position-relative"
+                                  style={{ zIndex: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                          </div>
+                        );
+                      }}
+                      formatGroupLabel={({ label }) => {
+                        return (
+                          <div
+                            className={clsx("pt-2 pb-1 text-muted", {
+                              "border-top":
+                                label === "In other projects" &&
+                                featureOptionsInProject.length > 0,
+                            })}
                           >
                             {label}
-                          </span>
-                          {projectName ? (
-                            <OverflowText
-                              maxWidth={150}
-                              className="text-muted small float-right text-right"
-                            >
-                              project: <strong>{projectName}</strong>
-                            </OverflowText>
-                          ) : (
-                            <em
-                              className="text-muted small float-right position-relative"
-                              style={{ top: 3, opacity: 0.5 }}
-                            >
-                              no project
-                            </em>
-                          )}
-                          {meta?.wouldBeCyclic && (
-                            <Tooltip
-                              body="Selecting this feature would create a cyclic dependency."
-                              className="mr-2"
-                            >
-                              <FaRecycle
-                                className="text-muted position-relative"
-                                style={{ zIndex: 1 }}
-                              />
-                            </Tooltip>
-                          )}
-                          {meta?.conditional && (
-                            <Tooltip
-                              body={
-                                <>
-                                  This feature is in a{" "}
-                                  <span className="text-warning-orange font-weight-bold">
-                                    Schrödinger state
-                                  </span>
-                                  {environments.length > 1 &&
-                                    " in some environments"}
-                                  .
-                                  {!hasSDKWithPrerequisites && (
-                                    <>
-                                      {" "}
-                                      None of your SDK Connections in this
-                                      project support evaluating Schrödinger
-                                      states.
-                                    </>
-                                  )}
-                                </>
-                              }
-                              className="mr-2"
-                            >
-                              <FaRegCircleQuestion
-                                className="text-warning-orange position-relative"
-                                style={{ zIndex: 1 }}
-                              />
-                            </Tooltip>
-                          )}
-                          {meta?.cyclic && (
-                            <Tooltip
-                              body="This feature has a cyclic dependency."
-                              className="mr-2"
-                            >
-                              <FaExclamationCircle
-                                className="text-danger position-relative"
-                                style={{ zIndex: 1 }}
-                              />
-                            </Tooltip>
-                          )}
-                        </div>
-                      );
-                    }}
-                    formatGroupLabel={({ label }) => {
-                      return (
-                        <div
-                          className={clsx("pt-2 pb-1 text-muted", {
-                            "border-top":
-                              label === "In other projects" &&
-                              featureOptionsInProject.length > 0,
-                          })}
-                        >
-                          {label}
-                        </div>
-                      );
-                    }}
-                  />
-                </Box>
+                          </div>
+                        );
+                      }}
+                    />
+                  </Box>
+                  <Box px="1" pt="3" style={{ width: 16 }}>
+                    <RadixTooltip content="Remove prerequisite">
+                      <IconButton
+                        type="button"
+                        color="red"
+                        variant="ghost"
+                        onClick={() => {
+                          setValue([
+                            ...value.slice(0, i),
+                            ...value.slice(i + 1),
+                          ]);
+                        }}
+                      >
+                        <PiXBold size={16} />
+                      </IconButton>
+                    </RadixTooltip>
+                  </Box>
+                </Flex>
 
                 <PrereqStatesRows
                   parentFeature={parentFeature}

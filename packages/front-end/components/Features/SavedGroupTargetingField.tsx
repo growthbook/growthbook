@@ -7,6 +7,7 @@ import {
 } from "react-icons/pi";
 import React from "react";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -114,12 +115,12 @@ export default function SavedGroupTargetingField({
         )}
         {value.map((v, i) => {
           return (
-            <Flex key={i} gap="2" align="center" mb="4">
+            <Flex key={i} gap="2" align="start" mb="4">
               <Box style={{ flexShrink: 0 }}>
                 <ConditionLabel label={i === 0 ? "In" : "AND"} />
               </Box>
               <Flex
-                align="center"
+                align="start"
                 gap="2"
                 wrap="wrap"
                 style={{ flex: "1 1 0", minWidth: 0 }}
@@ -180,19 +181,22 @@ export default function SavedGroupTargetingField({
                   />
                 </Box>
               </Flex>
-              <IconButton
-                type="button"
-                color="red"
-                variant="ghost"
-                ml="1"
-                onClick={() => {
-                  const newValue = [...value];
-                  newValue.splice(i, 1);
-                  setValue(newValue);
-                }}
-              >
-                <PiXBold size={16} />
-              </IconButton>
+              <Box px="1" pt="3" style={{ width: 16 }}>
+                <Tooltip content="Remove condition">
+                  <IconButton
+                    type="button"
+                    color="red"
+                    variant="ghost"
+                    onClick={() => {
+                      const newValue = [...value];
+                      newValue.splice(i, 1);
+                      setValue(newValue);
+                    }}
+                  >
+                    <PiXBold size={16} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Flex>
           );
         })}

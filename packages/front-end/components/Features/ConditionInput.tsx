@@ -14,6 +14,7 @@ import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
 import {
   Condition,
   condToJson,
@@ -287,6 +288,7 @@ export default function ConditionInput(props: Props) {
               }
               setConds(newAndGroups);
             }}
+            orGroupsCount={conds.length}
             project={props.project}
             labelClassName={props.labelClassName}
             emptyText={props.emptyText}
@@ -342,10 +344,12 @@ export default function ConditionInput(props: Props) {
 function ConditionAndGroupInput({
   conds,
   setConds,
+  orGroupsCount,
   ...props
 }: {
   conds: Condition[];
   setConds: (conds: Condition[]) => void;
+  orGroupsCount: number;
   project: string;
   labelClassName?: string;
   emptyText?: string;
@@ -550,22 +554,31 @@ function ConditionAndGroupInput({
                     />
                   </Box>
                 </Flex>
-                {(conds.length > 1 || !props.require) && (
-                  <IconButton
-                    type="button"
-                    color="red"
-                    variant="ghost"
-                    mt="3"
-                    ml="1"
-                    onClick={() => {
-                      const newConds = [...conds];
-                      newConds.splice(i, 1);
-                      setConds(newConds);
-                    }}
-                  >
-                    <PiXBold size={16} />
-                  </IconButton>
-                )}
+                <Box px="1" pt="3" style={{ width: 16 }}>
+                  {(conds.length > 1 ||
+                    (conds.length === 1 && orGroupsCount > 1) ||
+                    !props.require) && (
+                    <Tooltip content="Remove condition">
+                      <IconButton
+                        type="button"
+                        color="red"
+                        variant="ghost"
+                        onClick={() => {
+                          // If this is the last condition in the AND group, delete the entire OR group
+                          if (conds.length === 1) {
+                            setConds([]);
+                          } else {
+                            const newConds = [...conds];
+                            newConds.splice(i, 1);
+                            setConds(newConds);
+                          }
+                        }}
+                      >
+                        <PiXBold size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
               </Flex>
             );
           }
@@ -951,22 +964,31 @@ function ConditionAndGroupInput({
                   </Box>
                 ) : null}
               </Flex>
-              {(conds.length > 1 || !props.require) && (
-                <IconButton
-                  type="button"
-                  color="red"
-                  variant="ghost"
-                  mt="3"
-                  ml="1"
-                  onClick={() => {
-                    const newConds = [...conds];
-                    newConds.splice(i, 1);
-                    setConds(newConds);
-                  }}
-                >
-                  <PiXBold size={16} />
-                </IconButton>
-              )}
+              <Box px="1" pt="3" style={{ width: 16 }}>
+                {(conds.length > 1 ||
+                  (conds.length === 1 && orGroupsCount > 1) ||
+                  !props.require) && (
+                  <Tooltip content="Remove condition">
+                    <IconButton
+                      type="button"
+                      color="red"
+                      variant="ghost"
+                      onClick={() => {
+                        // If this is the last condition in the AND group, delete the entire OR group
+                        if (conds.length === 1) {
+                          setConds([]);
+                        } else {
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }
+                      }}
+                    >
+                      <PiXBold size={16} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
             </Flex>
           );
         })}

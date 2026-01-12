@@ -122,8 +122,9 @@ export default function PrerequisiteInput(props: Props) {
                   <code>"value"</code> refers to the prerequisite&apos;s
                   evaluated value.
                   <Tooltip
-                    className="ml-3 text-info hover-underline"
+                    className="ml-2 text-info hover-underline"
                     body={<code>{`{"value": {"$gt": 3}}`}</code>}
+                    flipTheme={false}
                   >
                     <RxInfoCircled className="mr-1" />
                     Example
@@ -230,7 +231,7 @@ export default function PrerequisiteInput(props: Props) {
                   : [];
 
         return (
-          <Box key={i} mb="4">
+          <Box key={i}>
             <Flex align="center" gap="2" mb="2">
               <ConditionLabel label="PASS IF" width={60} />
               {!advanced && (
@@ -278,9 +279,9 @@ export default function PrerequisiteInput(props: Props) {
                 "$false",
                 "$empty",
                 "$notEmpty",
-              ].includes(operator) ? (
-                <Box style={{ minWidth: 200, flex: "1 1 0" }} />
-              ) : ["$in", "$nin"].includes(operator) ? (
+              ].includes(operator) ? null : ["$in", "$nin"].includes(
+                  operator,
+                ) ? (
                 <Flex
                   direction="column"
                   align="end"
