@@ -461,6 +461,9 @@ export async function createReportSnapshot({
   });
   const statsEngine =
     report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
+  const postStratificationEnabled =
+    report.experimentAnalysisSettings.postStratificationEnabled ||
+    settings.postStratificationEnabled.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
 
@@ -500,13 +503,14 @@ export async function createReportSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
-  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
-    report.experimentAnalysisSettings,
+    experiment: report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
-    report.experimentAnalysisSettings.dimension,
-  );
+    postStratificationEnabled,
+    dimension: report.experimentAnalysisSettings.dimension,
+  });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     ...defaultAnalysisSettings,

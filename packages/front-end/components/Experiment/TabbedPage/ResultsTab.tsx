@@ -191,6 +191,15 @@ export default function ResultsTab({
                     : "Disabled"
                 }
               />
+              <Metadata
+                label="Post-Stratification"
+                value={
+                  // TODO use whether it was actually applied or not
+                  analysis?.settings?.postStratificationEnabled
+                    ? "Enabled"
+                    : "Disabled"
+                }
+              />
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
                   label="Sequential"
