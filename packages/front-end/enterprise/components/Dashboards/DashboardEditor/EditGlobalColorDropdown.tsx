@@ -13,7 +13,7 @@ import {
 import {
   DashboardSeriesDisplayContext,
   SERIES_KEY_DELIMITER,
-} from "../DashboardSeriesDisplayProvider";
+} from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 
 export default function EditGlobalColorDropdown() {
   const { settings, updateSeriesColor, getActiveSeriesKeys } = useContext(
