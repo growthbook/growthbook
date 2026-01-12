@@ -39,9 +39,11 @@ export default function SavedGroupTargetingField({
     return (
       <Box>
         <label>Target by Saved Groups</label>
-        <Text color="gray" style={{ fontStyle: "italic" }} mt="2">
-          You do not have any saved groups.
-        </Text>
+        <Box>
+          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+            You do not have any saved groups.
+          </Text>
+        </Box>
       </Box>
     );
 
