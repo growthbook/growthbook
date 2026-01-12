@@ -179,6 +179,7 @@ const SlicesSection: FC<SlicesSectionProps> = ({
         noStickyHeader={true}
         noTooltip={false}
         isBandit={false}
+        showTimeSeriesButton={true}
         isHoldout={false}
       />
     </div>

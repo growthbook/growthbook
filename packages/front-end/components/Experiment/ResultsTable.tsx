@@ -56,10 +56,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import TimeSeriesButton from "@/components/TimeSeriesButton";
 import AlignedGraph from "./AlignedGraph";
+import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
+import styles from "./ResultsTable.module.scss";
 import BaselineChooserColumnLabel from "./BaselineChooserColumnLabel";
 import DifferenceTypeChooserChangeColumnLabel from "./DifferenceTypeChooserChangeColumnLabel";
 import VariationChooserColumnLabel from "./VariationChooserColumnLabel";
@@ -108,6 +111,7 @@ export type ResultsTableProps = {
   isBandit?: boolean;
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  showTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   sortBy?: "significance" | "change" | "custom" | null;
@@ -146,6 +150,7 @@ export enum RowError {
 
 export default function ResultsTable({
   id,
+  experimentId,
   isLatestPhase,
   phase,
   status,
@@ -160,6 +165,7 @@ export default function ResultsTable({
   setVariationFilter,
   baselineRow = 0,
   startDate,
+  endDate: _endDate,
   renderLabelColumn,
   resultGroup,
   dateCreated,
@@ -172,6 +178,7 @@ export default function ResultsTable({
   noTooltip,
   isBandit,
   ssrPolyfills,
+  showTimeSeriesButton = false,
   columnsFilter,
   isHoldout,
   sortBy,
@@ -297,6 +304,22 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
+
+  const [visibleTimeSeriesRowIds, setVisibleTimeSeriesRowIds] = useState<
+    string[]
+  >([]);
+  const toggleVisibleTimeSeriesRowId = (rowId: string) => {
+    setVisibleTimeSeriesRowIds((prev) =>
+      prev.includes(rowId)
+        ? prev.filter((id) => id !== rowId)
+        : [...prev, rowId],
+    );
+  };
+
+  // Ensure we close all of them if dimension changes
+  useEffect(() => {
+    setVisibleTimeSeriesRowIds([]);
+  }, [tableRowAxis]);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -715,6 +738,13 @@ export default function ResultsTable({
 
               const rowId = `${row.metric.id}-${i}`;
 
+              const timeSeriesButton = showTimeSeriesButton ? (
+                <TimeSeriesButton
+                  onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
+                  isActive={visibleTimeSeriesRowIds.includes(rowId)}
+                />
+              ) : null;
+
               const includedLabelColumns = columnsToDisplay.filter((col) =>
                 [
                   "Metric & Variation Names",
@@ -788,6 +818,12 @@ export default function ResultsTable({
                                 ...drawRowProps,
                                 className: "results-label-row",
                                 rowHeight: METRIC_LABEL_ROW_HEIGHT,
+                                lastColumnContent:
+                                  timeSeriesButton !== null ? (
+                                    <Flex justify="end" mr="1">
+                                      {timeSeriesButton}
+                                    </Flex>
+                                  ) : undefined,
                               })}
                             </tbody>
                           );
@@ -1190,6 +1226,11 @@ export default function ResultsTable({
                                           "pr-3",
                                         )}
                                         ssrPolyfills={ssrPolyfills}
+                                        additionalButton={
+                                          compactResults
+                                            ? timeSeriesButton
+                                            : undefined
+                                        }
                                       />
                                     ) : (
                                       <td></td>
@@ -1199,6 +1240,50 @@ export default function ResultsTable({
                               </tr>
                             );
                           })}
+
+                          {!row.labelOnly &&
+                            visibleTimeSeriesRowIds.includes(rowId) && (
+                              <tr
+                                style={
+                                  !row.isSliceRow
+                                    ? { backgroundColor: "var(--slate-a2)" }
+                                    : undefined
+                                }
+                              >
+                                <td
+                                  colSpan={columnsToDisplay.length}
+                                  style={{ padding: 0 }}
+                                >
+                                  <div className={styles.expandAnimation}>
+                                    <div className={styles.timeSeriesCell}>
+                                      <ExperimentMetricTimeSeriesGraphWrapper
+                                        experimentId={experimentId}
+                                        phase={phase}
+                                        experimentStatus={status}
+                                        metric={row.metric}
+                                        differenceType={differenceType}
+                                        variationNames={orderedVariations.map(
+                                          (v) => v.name,
+                                        )}
+                                        showVariations={orderedVariations.map(
+                                          (v) =>
+                                            !variationFilter?.includes(v.index),
+                                        )}
+                                        statsEngine={statsEngine}
+                                        pValueAdjustmentEnabled={
+                                          !!appliedPValueCorrection &&
+                                          rows.length > 1
+                                        }
+                                        firstDateToRender={getValidDate(
+                                          startDate,
+                                        )}
+                                        sliceId={row.sliceId}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                         </tbody>
                       )}
                     </>
