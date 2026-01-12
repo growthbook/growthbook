@@ -213,7 +213,8 @@ export default function EditSingleBlock({
 
   const [columnsCollapsibleOpen, setColumnsCollapsibleOpen] = useState(
     block && blockHasFieldOfType(block, "columnsFilter", isStringArray)
-      ? block.columnsFilter.length < RESULTS_TABLE_COLUMNS.length
+      ? block.columnsFilter.length < RESULTS_TABLE_COLUMNS.length &&
+          block.columnsFilter.length > 0
       : false,
   );
 
