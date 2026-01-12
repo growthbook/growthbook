@@ -700,21 +700,20 @@ export default function EditSingleBlock({
       )}
       {block && (
         <Flex direction="column" py="5" px="4" gap="2" width="100%">
-          <span>
-            <Text weight="medium" size="4">
-              <Avatar
-                radius="small"
-                color="indigo"
-                variant="soft"
-                mr="2"
-                size="sm"
-              >
-                {BLOCK_TYPE_INFO[block.type].icon}
-              </Avatar>
-              {BLOCK_TYPE_INFO[block.type].name}
-            </Text>
-          </span>
-          <Flex gap="4" direction="column" flexGrow="1">
+          <Text weight="medium" size="4">
+            <Avatar
+              radius="small"
+              color="indigo"
+              variant="soft"
+              mr="2"
+              size="sm"
+            >
+              {BLOCK_TYPE_INFO[block.type].icon}
+            </Avatar>
+            {BLOCK_TYPE_INFO[block.type].name}
+          </Text>
+
+          <Flex gap="5" direction="column" flexGrow="1">
             {block.type === "experiment-metadata" && (
               <>
                 <Text weight="medium">Experiment Info</Text>
@@ -859,6 +858,7 @@ export default function EditSingleBlock({
                       label="Metrics"
                       labelClassName="font-weight-bold"
                       placeholder="All Metrics"
+                      containerClassName="mb-0"
                       customStyles={{
                         placeholder: (base) => ({
                           ...base,
@@ -1022,7 +1022,7 @@ export default function EditSingleBlock({
                         }}
                         label="Sort results by order of metrics"
                         weight="regular"
-                        containerClassName="mb-0"
+                        containerClassName="mt-3 mb-0"
                       />
                     )}
                   </Box>
@@ -1038,6 +1038,7 @@ export default function EditSingleBlock({
                         showMetricTags ? (
                           <MultiSelectField
                             label="Tags"
+                            containerClassName="mb-0"
                             labelClassName="font-weight-bold"
                             placeholder="Type to search..."
                             value={block.metricTagFilter}
@@ -1054,8 +1055,7 @@ export default function EditSingleBlock({
                             }
                           />
                         ) : (
-                          <a
-                            role="button"
+                          <Link
                             onClick={() => setShowMetricTags(true)}
                             className="d-inline-block mb-2"
                           >
@@ -1063,7 +1063,7 @@ export default function EditSingleBlock({
                             <Text weight="medium" className="ml-1">
                               Tags
                             </Text>
-                          </a>
+                          </Link>
                         )}
                       </>
                     )}
@@ -1077,6 +1077,7 @@ export default function EditSingleBlock({
                         label="Slices"
                         labelClassName="font-weight-bold"
                         placeholder="Type to search..."
+                        containerClassName="mb-0"
                         value={block.sliceTagsFilter}
                         onChange={(value) =>
                           setBlock({ ...block, sliceTagsFilter: value })
@@ -1115,7 +1116,7 @@ export default function EditSingleBlock({
                       <SelectField
                         label="Sort by"
                         labelClassName="font-weight-bold"
-                        containerClassName="mb-2"
+                        containerClassName="mb-0"
                         value={block.sortBy || ""}
                         onChange={(value) =>
                           setBlock({
@@ -1148,7 +1149,7 @@ export default function EditSingleBlock({
                       <SelectField
                         label="Sort direction"
                         labelClassName="font-weight-bold"
-                        containerClassName="mb-2"
+                        containerClassName="mb-0"
                         value={block.sortDirection || ""}
                         onChange={(value) =>
                           setBlock({
@@ -1304,7 +1305,7 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
               <Collapsible
                 trigger={
-                  <Link className="font-weight-bold mb-2">
+                  <Link className="font-weight-bold">
                     <Text>
                       <PiCaretRightFill className="chevron mr-1" />
                       Show / Hide columns
@@ -1316,24 +1317,25 @@ export default function EditSingleBlock({
                 onClosing={() => setColumnsCollapsibleOpen(false)}
                 transitionTime={100}
               >
+                <Checkbox
+                  size="sm"
+                  value={
+                    block.columnsFilter.length === 0 ||
+                    block.columnsFilter.length === RESULTS_TABLE_COLUMNS.length
+                      ? true
+                      : "indeterminate"
+                  }
+                  setValue={() => {
+                    setBlock({
+                      ...block,
+                      columnsFilter: [],
+                    });
+                  }}
+                  label="Select All"
+                  mt="2"
+                  mb="2"
+                />
                 <Grid columns="2">
-                  <Checkbox
-                    size="sm"
-                    value={
-                      block.columnsFilter.length === 0 ||
-                      block.columnsFilter.length ===
-                        RESULTS_TABLE_COLUMNS.length
-                        ? true
-                        : "indeterminate"
-                    }
-                    setValue={() => {
-                      setBlock({
-                        ...block,
-                        columnsFilter: [],
-                      });
-                    }}
-                    label="Select All"
-                  />
                   {RESULTS_TABLE_COLUMNS.map((colName) => (
                     <Checkbox
                       key={colName}
@@ -1342,7 +1344,8 @@ export default function EditSingleBlock({
                         block.columnsFilter.length === 0 ||
                         block.columnsFilter.includes(colName)
                       }
-                      label={<Text weight="regular">{colName}</Text>}
+                      label={colName}
+                      weight="regular"
                       setValue={(value) =>
                         setBlock({
                           ...block,
@@ -1551,7 +1554,7 @@ export default function EditSingleBlock({
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
           </Flex>
-          <Flex mt="2" gap="3" align="center" justify="center">
+          <Flex mt="6" gap="3" align="center" justify="center">
             <Button
               style={{ flexBasis: "45%", flexGrow: 1 }}
               variant="outline"
