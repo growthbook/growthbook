@@ -1,10 +1,10 @@
 import { z } from "zod";
 import normal from "@stdlib/stats/base/dists/normal";
+import { eachDayOfInterval, formatISO, subDays } from "date-fns";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { eachDayOfInterval, formatISO, subDays } from "date-fns";
 import { sequentialDiscriminant, sequentialRho } from "shared/power";
 import { MetricPowerResponseFromStatsEngine } from "shared/types/stats";
 import {

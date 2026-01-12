@@ -11,13 +11,13 @@
     "build:clean": "rimraf dist",
     "build:typescript": "tsc",
     "dev": "swc src -w --out-dir dist",
-    "build": "yarn build:clean && yarn build:typescript",
+    "build": "pnpm build:clean && pnpm build:typescript",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit",
     "generate-sdk-report": "node -r @swc-node/register ./src/sdk-versioning/sdk-report.ts ./src/sdk-versioning/CAPABILITIES.md",
-    "gen-event-webhook-for-docs": "npx -y tsx ./scripts/gen-event-webhook-doc.ts",
-    "gen-sdk-resources-for-docs": "npx -y tsx ./scripts/gen-sdk-resources.ts"
+    "gen-event-webhook-for-docs": "pnpm exec tsx ./scripts/gen-event-webhook-doc.ts",
+    "gen-sdk-resources-for-docs": "pnpm exec tsx ./scripts/gen-sdk-resources.ts"
   },
   "dependencies": {
     "@dqbd/tiktoken": "^1.0.21",
@@ -32,6 +32,7 @@
     "lodash": "^4.17.21",
     "node-gyp": "10.3.1",
     "openid-client": "5.4.3",
+    "shared": "workspace:*",
     "sql-formatter": "^11.0.2",
     "stripe": "17.7.0",
     "uniqid": "^5.4.0",

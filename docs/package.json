@@ -6,7 +6,7 @@
     "dev": "docusaurus start --port 3200 --no-open",
     "docusaurus": "docusaurus",
     "start": "docusaurus start --port 3200",
-    "gen": "cd .. && yarn workspace shared gen-event-webhook-for-docs",
+    "gen": "cd .. && pnpm --filter shared gen-event-webhook-for-docs",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -15,7 +15,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "gen-sdk-resources": "cd .. && yarn workspace shared gen-sdk-resources-for-docs"
+    "gen-sdk-resources": "cd .. && pnpm --filter shared gen-sdk-resources-for-docs"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -42,8 +42,11 @@
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
     "@docusaurus/types": "^3.9.2",
+    "@types/node": "^22.15.19",
+    "@types/react": "^19.1.4",
     "docusaurus-plugin-llms": "^0.1.4",
-    "docusaurus-plugin-module-alias": "^0.0.2"
+    "docusaurus-plugin-module-alias": "^0.0.2",
+    "typescript": "^5.7.3"
   },
   "browserslist": {
     "production": [

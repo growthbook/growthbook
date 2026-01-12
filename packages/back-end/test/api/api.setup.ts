@@ -53,7 +53,7 @@ export const setupApp = () => {
       await queueInit();
       // This seems to help:
       setTimeout(resolve, 100);
-    });
+    }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
       await getAgendaInstance().stop();
