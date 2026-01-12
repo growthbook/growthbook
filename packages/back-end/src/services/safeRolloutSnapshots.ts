@@ -252,6 +252,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
     postStratificationEnabled:
       hasPostStratificationFeature &&
+      !organization.settings?.disablePrecomputedDimensions &&
       !organization.settings?.postStratificationDisabled,
     sequentialTesting:
       hasSequentialTestingFeature &&

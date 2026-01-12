@@ -462,7 +462,7 @@ export async function createReportSnapshot({
   const statsEngine =
     report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
   const postStratificationEnabled =
-    report.experimentAnalysisSettings.postStratificationEnabled ||
+    report.experimentAnalysisSettings.postStratificationEnabled ??
     settings.postStratificationEnabled.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
