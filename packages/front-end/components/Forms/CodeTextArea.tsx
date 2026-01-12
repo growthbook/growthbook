@@ -329,8 +329,8 @@ export default function CodeTextArea({
       render={(id) => {
         return (
           <>
-            <style jsx>{`
-              .code-editor-fullscreen {
+            <style>{`
+              #${editorUid}.code-editor-fullscreen {
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -342,7 +342,7 @@ export default function CodeTextArea({
                 display: flex;
                 flex-direction: column;
               }
-              .code-editor-fullscreen .editor-container {
+              #${editorUid}.code-editor-fullscreen .editor-container {
                 flex: 1;
                 overflow: hidden;
               }
@@ -392,16 +392,20 @@ export default function CodeTextArea({
                 }}
               >
                 {fieldProps.disabled && (
-                  <style jsx>{`
+                  <style>{`
                     #${editorUid}.ace-editor-disabled .ace_content {
-                      background-color: ${theme === "light"
-                        ? "rgba(180, 180, 180, 0.20)"
-                        : "rgba(110, 110, 110, 0.25)"};
+                      background-color: ${
+                        theme === "light"
+                          ? "rgba(180, 180, 180, 0.20)"
+                          : "rgba(110, 110, 110, 0.25)"
+                      };
                     }
                     #${editorUid}.ace-editor-disabled .ace_gutter {
-                      background-color: ${theme === "light"
-                        ? "rgba(180, 180, 180, 0.10)"
-                        : "rgba(110, 110, 110, 0.15)"} !important;
+                      background-color: ${
+                        theme === "light"
+                          ? "rgba(180, 180, 180, 0.10)"
+                          : "rgba(110, 110, 110, 0.15)"
+                      } !important;
                     }
                   `}</style>
                 )}
