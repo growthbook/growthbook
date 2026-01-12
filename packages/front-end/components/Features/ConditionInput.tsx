@@ -5,10 +5,12 @@ import { some } from "lodash";
 import { RxLoop } from "react-icons/rx";
 import {
   PiArrowSquareOut,
+  PiBracketsCurly,
   PiPlusBold,
   PiPlusCircleBold,
   PiXBold,
 } from "react-icons/pi";
+import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
@@ -20,6 +22,8 @@ import {
   useAttributeSchema,
   getDefaultOperator,
   getFormatEquivalentOperator,
+  formatJSON,
+  LARGE_FILE_SIZE,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -75,6 +79,10 @@ export default function ConditionInput(props: Props) {
   const [conds, setConds] = useState(
     () => jsonToConds(props.defaultValue, attributes) || [],
   );
+  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
+  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
+    defaultCodeEditorToggledOn,
+  );
 
   const attributeSchema = useAttributeSchema(false, props.project);
 
@@ -98,6 +106,58 @@ export default function ConditionInput(props: Props) {
         ["secureString", "secureString[]"].includes(a.datatype),
       ),
     );
+
+    const formatted = formatJSON(value);
+
+    const codeEditorToggleButton = (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          setCodeEditorToggledOn(!codeEditorToggledOn);
+        }}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        <PiBracketsCurly />{" "}
+        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
+      </Link>
+    );
+
+    const formatJSONButton = (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          if (formatted && formatted !== value) {
+            setValue(formatted);
+          }
+        }}
+        style={{
+          whiteSpace: "nowrap",
+          opacity: !formatted || formatted === value ? 0.5 : 1,
+          cursor: !formatted || formatted === value ? "default" : "pointer",
+        }}
+      >
+        <FaMagic /> Format JSON
+      </Link>
+    );
+
+    const combinedHelpText = (
+      <>
+        <Flex justify="between" align="center">
+          <div>JSON format using MongoDB query syntax.</div>
+          <Flex gap="3">
+            {codeEditorToggleButton}
+            {formatJSONButton}
+          </Flex>
+        </Flex>
+        {hasSecureAttributes && (
+          <Callout status="warning" mt="2">
+            Secure attribute hashing not guaranteed to work for complicated
+            rules
+          </Callout>
+        )}
+      </>
+    );
+
     return (
       <Box my="4">
         <Flex gap="2" mb="2">
@@ -121,23 +181,31 @@ export default function ConditionInput(props: Props) {
           )}
         </Flex>
         <Box className="appbox bg-light px-3 py-3">
-          <CodeTextArea
-            labelClassName={props.labelClassName}
-            language="json"
-            value={value}
-            setValue={setValue}
-            helpText={
-              <>
-                <div>JSON format using MongoDB query syntax.</div>
-                {hasSecureAttributes && (
-                  <Callout status="warning" mt="2">
-                    Secure attribute hashing not guaranteed to work for
-                    complicated rules
-                  </Callout>
-                )}
-              </>
-            }
-          />
+          {codeEditorToggledOn ? (
+            <CodeTextArea
+              labelClassName={props.labelClassName}
+              language="json"
+              value={value}
+              setValue={setValue}
+              helpText={combinedHelpText}
+              resizable={true}
+              showCopyButton={true}
+              showFullscreenButton={true}
+            />
+          ) : (
+            <Field
+              labelClassName={props.labelClassName}
+              containerClassName="mb-0"
+              placeholder=""
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+              }}
+              textarea
+              minRows={1}
+              helpText={combinedHelpText}
+            />
+          )}
         </Box>
       </Box>
     );

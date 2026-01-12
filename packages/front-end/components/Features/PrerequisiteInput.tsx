@@ -4,10 +4,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
+import { FaMagic } from "react-icons/fa";
 import { PrerequisiteStateResult } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
-import { condToJson, jsonToConds } from "@/services/features";
+import { condToJson, jsonToConds, formatJSON } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -64,6 +65,26 @@ export default function PrerequisiteInput(props: Props) {
   }, [value, parentValueMap]);
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
+    const formatted = formatJSON(value);
+
+    const formatJSONButton = (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          if (formatted && formatted !== value) {
+            setValue(formatted);
+          }
+        }}
+        style={{
+          whiteSpace: "nowrap",
+          opacity: !formatted || formatted === value ? 0.5 : 1,
+          cursor: !formatted || formatted === value ? "default" : "pointer",
+        }}
+      >
+        <FaMagic /> Format JSON
+      </Link>
+    );
+
     return (
       <Box>
         <Text weight="medium" size="2" mb="2" style={{ display: "block" }}>
@@ -79,19 +100,22 @@ export default function PrerequisiteInput(props: Props) {
             <>
               <Flex justify="between" align="center">
                 <Text>JSON format using MongoDB query syntax.</Text>
-                {simpleAllowed && (
-                  <Link
-                    onClick={() => {
-                      const newConds = jsonToConds(value, parentValueMap);
-                      // TODO: show error
-                      if (newConds === null) return;
-                      setConds(newConds);
-                      setAdvanced(false);
-                    }}
-                  >
-                    <RxLoop /> Simple mode
-                  </Link>
-                )}
+                <Flex gap="3">
+                  {formatJSONButton}
+                  {simpleAllowed && (
+                    <Link
+                      onClick={() => {
+                        const newConds = jsonToConds(value, parentValueMap);
+                        // TODO: show error
+                        if (newConds === null) return;
+                        setConds(newConds);
+                        setAdvanced(false);
+                      }}
+                    >
+                      <RxLoop /> Simple mode
+                    </Link>
+                  )}
+                </Flex>
               </Flex>
               <Box mt="2">
                 <Text color="gray" size="2">
