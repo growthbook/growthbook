@@ -7,7 +7,7 @@ import {
   getSDKCapabilityVersion,
   SDKCapability,
 } from "shared/sdk-versioning";
-import type { SDKLanguage } from "shared/types/sdk-connection.js";
+import type { SDKLanguage } from "shared/types/sdk-connection";
 
 function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {
   return capabilities.map((c) => {
@@ -239,12 +239,10 @@ const baseSDKInfo = {
     ],
     capabilities: [
       ...defaultCapabilities,
-      {
-        encryption: "≥ v0.0.1",
-      },
-      {
-        looseUnmarshalling: "≥ v0.0.1",
-      },
+      ...defineSDKCapabilityVersion(
+        "rust",
+        getSDKCapabilities("rust", getLatestSDKVersion("rust")),
+      ),
     ],
   },
   java: {

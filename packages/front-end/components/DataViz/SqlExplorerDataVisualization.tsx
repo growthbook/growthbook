@@ -10,13 +10,18 @@ import {
   dimensionAxisConfiguration,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
+import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
-import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
-import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
-import BigValueChart from "../SqlExplorer/BigValueChart";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "@/components/ResizablePanels";
+import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 import PivotTable from "./PivotTable";
 
@@ -136,10 +141,18 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
 export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
+  chartId,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
+  chartId?: string;
 }) {
+  const anchorYAxisToZero =
+    "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
+      ? (dataVizConfig.displaySettings.anchorYAxisToZero ?? true)
+      : true;
+  const chartsContext = useDashboardCharts();
+
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
@@ -757,7 +770,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
-        scale: true,
+        scale: !anchorYAxisToZero,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -766,7 +779,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
-        scale: true,
+        scale: !anchorYAxisToZero,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
@@ -786,16 +799,17 @@ export function DataVisualizationDisplay({
     };
   }, [
     dataset,
-    series,
-    xField,
-    yField,
+    dataVizConfig.title,
+    anchorYAxisToZero,
+    textColor,
+    dimensionFields.length,
     xConfig?.type,
     xConfig?.dateAggregationUnit,
+    xField,
     yConfig?.aggregation,
-    dimensionFields,
-    dataVizConfig.title,
-    textColor,
     yConfig?.type,
+    yField,
+    series,
   ]);
 
   if (dataVizConfig.chartType === "big-value") {
@@ -849,6 +863,11 @@ export function DataVisualizationDisplay({
           key={JSON.stringify(option)}
           option={option}
           style={{ width: "100%", minHeight: "350px", height: "80%" }}
+          onChartReady={(chart) => {
+            if (chartId && chartsContext && chart) {
+              chartsContext.registerChart(chartId, chart);
+            }
+          }}
         />
       </Flex>
     );

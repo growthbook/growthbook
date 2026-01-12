@@ -41,8 +41,9 @@ import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import DashboardModal from "../DashboardModal";
-import DashboardShareModal from "../DashboardShareModal";
+import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
+import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
+import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
@@ -398,7 +399,7 @@ function DashboardEditor({
   };
 
   return (
-    <div>
+    <DashboardChartsProvider>
       {editDashboard && (
         <DashboardModal
           mode="edit"
@@ -694,7 +695,7 @@ function DashboardEditor({
           {isEditing && <div style={{ height: 350 }} />}
         </div>
       </div>
-    </div>
+    </DashboardChartsProvider>
   );
 }
 

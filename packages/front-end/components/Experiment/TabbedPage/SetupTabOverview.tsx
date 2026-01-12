@@ -25,9 +25,9 @@ import Link from "@/ui/Link";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
-import EditDescriptionModal from "../EditDescriptionModal";
-import HoldoutTimeline from "../holdout/HoldoutTimeline";
-import EditHypothesisModal from "../EditHypothesisModal";
+import EditDescriptionModal from "@/components/Experiment/EditDescriptionModal";
+import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
+import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

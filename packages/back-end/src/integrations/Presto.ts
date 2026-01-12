@@ -10,7 +10,7 @@ import {
 import { QueryStatistics } from "shared/types/query";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { getKerberosHeader } from "../util/kerberos.util";
+import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -39,7 +39,7 @@ export default class Presto extends SqlIntegration {
     const configOptions: ClientOptions = {
       host: this.params.host,
       port: this.params.port,
-      user: "growthbook",
+      user: this.params.user || "growthbook",
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,

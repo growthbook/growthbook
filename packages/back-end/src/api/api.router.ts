@@ -7,7 +7,7 @@ import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
-import { IS_CLOUD, SENTRY_DSN } from "../util/secrets";
+import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import snapshotsRouter from "./snapshots/snapshots.router";

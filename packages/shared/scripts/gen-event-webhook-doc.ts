@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
   notificationEvents,
   notificationEventPayload,
-} from "../src/validators/index.js";
+} from "shared/validators";
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "../../../docs");
 

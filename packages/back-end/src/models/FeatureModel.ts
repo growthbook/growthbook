@@ -25,7 +25,7 @@ import {
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
-  refreshSDKPayloadCache,
+  queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
@@ -48,7 +48,7 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "../enterprise/sandbox/sandbox-eval";
+import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -582,10 +582,13 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+  });
 
   await logFeatureCreatedEvent(context, feature);
 
@@ -600,10 +603,13 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+  });
 
   await logFeatureDeletedEvent(context, feature);
 
@@ -620,20 +626,15 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getSDKPayloadKeysByDiff(
+    payloadKeys: getSDKPayloadKeysByDiff(
       feature,
       updatedFeature,
       getEnvironmentIdsFromOrg(context.org),
     ),
-    null,
-    undefined,
-    safeRolloutMap,
     skipRefreshForProject,
-  );
+  });
 
   // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
   if (
