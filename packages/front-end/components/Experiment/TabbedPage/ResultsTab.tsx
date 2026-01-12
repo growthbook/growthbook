@@ -194,7 +194,6 @@ export default function ResultsTab({
               <Metadata
                 label="Post-Stratification"
                 value={
-                  // TODO use whether it was actually applied or not
                   analysis?.settings?.postStratificationEnabled
                     ? "Enabled"
                     : "Disabled"
