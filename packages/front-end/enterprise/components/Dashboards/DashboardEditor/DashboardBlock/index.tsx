@@ -24,7 +24,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { ErrorBoundary } from "@sentry/react";
+import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -43,7 +43,7 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
-import { BLOCK_TYPE_INFO } from "..";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";

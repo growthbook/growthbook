@@ -8,14 +8,9 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import {
-  findSDKConnectionsByIds,
-  findSDKConnectionsByOrganization,
-} from "back-end/src/models/SdkConnectionModel";
+import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import {
-  findAllSdkWebhooksByConnection,
   findAllSdkWebhooksByConnectionIds,
   findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
@@ -117,40 +112,12 @@ async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
   job.schedule(new Date());
   await job.save();
 }
-export async function queueWebhooksForSdkConnection(
-  context: ReqContext,
-  connection: SDKConnectionInterface,
-) {
-  const webhooks = await findAllSdkWebhooksByConnection(context, connection.id);
-  for (const webhook of webhooks) {
-    if (webhook) await queueSingleSdkWebhookJob(webhook);
-  }
-}
-export async function queueWebhooksBySdkPayloadKeys(
+export async function queueWebhooksByConnections(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
+  connections: SDKConnectionInterface[],
 ) {
-  if (!payloadKeys.length) return;
-  const connections = await findSDKConnectionsByOrganization(context);
-
-  if (!connections) return;
-  const sdkKeys: string[] = [];
-  for (let i = 0; i < connections.length; i++) {
-    const connection = connections[i];
-    // Skip if this SDK Connection isn't affected by the changes
-    if (
-      payloadKeys.some((key) => {
-        return (
-          key.environment === connection.environment &&
-          (!connection.projects.length ||
-            connection.projects.includes(key.project))
-        );
-      })
-    ) {
-      sdkKeys.push(connection.id);
-    }
-  }
-
+  if (!connections.length) return;
+  const sdkKeys = connections.map((c) => c.id);
   const webhooks = await findAllSdkWebhooksByConnectionIds(context, sdkKeys);
   for (const webhook of webhooks) {
     if (webhook) await queueSingleSdkWebhookJob(webhook);
@@ -402,53 +369,6 @@ export async function fireSdkWebhook(
       context: webhookContext,
     }),
   );
-}
-
-export async function getSDKConnectionsByPayloadKeys(
-  context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
-) {
-  if (!payloadKeys.length) return [];
-
-  const connections = await findSDKConnectionsByOrganization(context);
-  if (!connections) return [];
-
-  return connections.filter((c) => {
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === c.environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      c.projects,
-      environmentDoc,
-      true,
-    );
-    if (!filteredProjects) {
-      return false;
-    }
-
-    // Skip if this SDK Connection isn't affected by the changes
-    if (
-      !payloadKeys.some(
-        (key) =>
-          key.environment === c.environment &&
-          (!filteredProjects.length || filteredProjects.includes(key.project)),
-      )
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
-
-export async function fireGlobalSdkWebhooksByPayloadKeys(
-  context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[],
-) {
-  const connections = await getSDKConnectionsByPayloadKeys(
-    context,
-    payloadKeys,
-  );
-  await fireGlobalSdkWebhooks(context, connections);
 }
 
 export async function fireGlobalSdkWebhooks(

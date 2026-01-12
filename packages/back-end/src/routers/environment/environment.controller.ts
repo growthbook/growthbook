@@ -12,7 +12,6 @@ import {
   updateEnvsValidator,
 } from "shared/validators";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -27,6 +26,7 @@ import {
 } from "back-end/src/services/organizations";
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -208,18 +208,11 @@ export const putEnvironment = async (
           (c) => c.environment === id,
         );
 
-        for (const connection of affectedConnections) {
-          const isUsingProxy = !!(
-            connection.proxy.enabled && connection.proxy.host
-          );
-          await triggerSingleSDKWebhookJobs(
-            context,
-            connection,
-            {},
-            connection.proxy,
-            isUsingProxy,
-          );
-        }
+        queueSDKPayloadRefresh({
+          context,
+          payloadKeys: [],
+          sdkConnections: affectedConnections,
+        });
       }
     }
 

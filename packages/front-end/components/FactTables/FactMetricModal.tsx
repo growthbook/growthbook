@@ -69,8 +69,8 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
-import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
-import { DocLink } from "../DocLink";
+import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
+import { DocLink } from "@/components/DocLink";
 
 export interface Props {
   close?: () => void;

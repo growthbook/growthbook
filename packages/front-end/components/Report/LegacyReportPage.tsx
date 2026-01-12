@@ -413,8 +413,8 @@ export default function LegacyReportPage({
                       }
                       notebookUrl={`/report/${report.id}/notebook`}
                       notebookFilename={report.title}
-                      queries={report.queries}
-                      queryError={report.error}
+                      legacyQueries={report.queries}
+                      legacyQueryError={report.error}
                       results={report.results?.dimensions}
                       variations={variations}
                       metrics={getAllMetricIdsFromExperiment(

@@ -14,9 +14,9 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MultiSelectField from "../Forms/MultiSelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import SelectOwner from "../Owner/SelectOwner";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import SelectOwner from "@/components/Owner/SelectOwner";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {

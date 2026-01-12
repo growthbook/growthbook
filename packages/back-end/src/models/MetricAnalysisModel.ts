@@ -7,7 +7,7 @@ import {
   getCollection,
   removeMongooseFields,
   ToInterface,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "metricanalyses";
