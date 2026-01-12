@@ -2840,7 +2840,7 @@ export async function createExperimentSnapshot({
     experiment,
   });
   const statsEngine = settings.statsEngine.value;
-
+  const postStratificationEnabled = settings.postStratificationEnabled.value;
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
@@ -2873,13 +2873,14 @@ export async function createExperimentSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
-  const analysisSettings = getDefaultExperimentAnalysisSettings(
+  const analysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
     experiment,
-    org,
+    organization: org,
     regressionAdjustmentEnabled,
+    postStratificationEnabled,
     dimension,
-  );
+  });
 
   const queryRunner = await createSnapshot({
     experiment,
@@ -2955,14 +2956,16 @@ export async function postSnapshot(
     });
     const statsEngine = settings.statsEngine.value;
     const metricDefaults = settings.metricDefaults.value;
+    const postStratificationEnabled = settings.postStratificationEnabled.value;
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
       statsEngine,
       experiment,
-      org,
-      false,
+      organization: org,
+      regressionAdjustmentEnabled: false,
+      postStratificationEnabled,
       dimension,
-    );
+    });
 
     const metricMap = await getMetricMap(context);
 

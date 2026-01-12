@@ -10,6 +10,11 @@ from gbstats.models.tests import Uplift
 
 # Data classes for return to the back end
 @dataclass
+class RealizedSettings:
+    postStratificationApplied: bool
+
+
+@dataclass
 class SingleVariationResult:
     users: Optional[float]
     cr: Optional[float]
@@ -70,6 +75,7 @@ class BaseVariationResponse(BaselineResponse):
     ci: ResponseCI
     errorMessage: Optional[str]
     power: Optional[PowerResponse]
+    realizedSettings: RealizedSettings
 
 
 @dataclass

@@ -97,6 +97,7 @@ const AnalysisForm: FC<{
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -165,7 +166,7 @@ const AnalysisForm: FC<{
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
-      postStratificationEnabled: experiment.postStratificationEnabled,
+      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??

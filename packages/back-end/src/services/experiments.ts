@@ -373,13 +373,21 @@ export async function getManualSnapshotData(
   };
 }
 
-export function getDefaultExperimentAnalysisSettings(
-  statsEngine: StatsEngine,
-  experiment: ExperimentInterface | ExperimentReportAnalysisSettings,
-  organization: OrganizationInterface,
-  regressionAdjustmentEnabled?: boolean,
-  dimension?: string,
-): ExperimentSnapshotAnalysisSettings {
+export function getDefaultExperimentAnalysisSettings({
+  statsEngine,
+  experiment,
+  organization,
+  regressionAdjustmentEnabled,
+  postStratificationEnabled,
+  dimension,
+}: {
+  statsEngine: StatsEngine;
+  experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
+  organization: OrganizationInterface;
+  regressionAdjustmentEnabled?: boolean;
+  postStratificationEnabled?: boolean;
+  dimension?: string;
+}): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
@@ -389,6 +397,7 @@ export function getDefaultExperimentAnalysisSettings(
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
+
   return {
     statsEngine,
     dimensions: dimension ? [dimension] : [],
@@ -398,8 +407,7 @@ export function getDefaultExperimentAnalysisSettings(
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
     postStratificationEnabled:
-      hasPostStratificationFeature &&
-      !(organization.settings?.postStratificationDisabled ?? false),
+      hasPostStratificationFeature && postStratificationEnabled,
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -1404,6 +1412,8 @@ export async function createSnapshot({
       statsEngine: defaultAnalysisSettings.statsEngine,
       regressionAdjustmentEnabled:
         defaultAnalysisSettings.regressionAdjusted ?? false,
+      postStratificationEnabled:
+        defaultAnalysisSettings.postStratificationEnabled ?? true,
       settingsForSnapshotMetrics,
       metricMap,
       factTableMap,
