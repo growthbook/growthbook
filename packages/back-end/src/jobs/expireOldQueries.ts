@@ -19,7 +19,7 @@ import {
 } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { MetricAnalysisModel } from "../models/MetricAnalysisModel";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {

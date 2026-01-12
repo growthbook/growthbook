@@ -23,7 +23,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
-import { refreshSDKPayloadCache } from "../services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -254,7 +254,7 @@ export async function createSDKConnection(
     await addCloudSDKMapping(connection);
   }
 
-  refreshSDKPayloadCache({
+  queueSDKPayloadRefresh({
     context,
     payloadKeys: [],
     sdkConnections: [connection],
@@ -366,7 +366,7 @@ export async function editSDKConnection(
   );
 
   if (needsProxyUpdate) {
-    refreshSDKPayloadCache({
+    queueSDKPayloadRefresh({
       context,
       payloadKeys: [],
       sdkConnections: [

@@ -14,7 +14,7 @@ import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Metadata from "@/ui/Metadata";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
-import OverflowText from "../Experiment/TabbedPage/OverflowText";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 const numberFormatter = Intl.NumberFormat();
 export interface Props {

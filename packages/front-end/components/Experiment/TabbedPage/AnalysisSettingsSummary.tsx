@@ -138,7 +138,9 @@ export default function AnalysisSettingsSummary({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
+    !analysis?.settings ||
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
 
@@ -588,44 +590,43 @@ export default function AnalysisSettingsSummary({
           }}
         >
           <Flex align="center" gap="4">
-            <Metadata
-              label={unitDisplayName}
-              value={numberFormatter.format(totalUnits ?? 0)}
-              style={{ whiteSpace: "nowrap" }}
-            />
-            {hasData && (
-              <Flex align="center" gap="2">
-                <QueriesLastRun
-                  status={status}
-                  dateCreated={snapshot?.dateCreated}
-                  latestQueryDate={latest?.dateCreated}
-                  nextUpdate={experiment.nextSnapshotAttempt}
-                  autoUpdateEnabled={experiment.autoSnapshots}
-                  showAutoUpdateWidget={true}
-                  queries={
-                    latest &&
-                    (status === "failed" || status === "partially-succeeded")
-                      ? latest.queries.map((q) => q.query)
-                      : undefined
-                  }
-                  onViewQueries={
-                    latest &&
-                    ds &&
-                    permissionsUtil.canRunExperimentQueries(ds) &&
-                    (status === "failed" || status === "partially-succeeded")
-                      ? () => setQueriesModalOpen(true)
-                      : undefined
-                  }
+            {snapshot ? (
+              <Metadata
+                label={unitDisplayName}
+                value={numberFormatter.format(totalUnits ?? 0)}
+                style={{ whiteSpace: "nowrap" }}
+              />
+            ) : null}
+
+            <Flex align="center" gap="2">
+              <QueriesLastRun
+                status={status}
+                dateCreated={snapshot?.dateCreated}
+                latestQueryDate={latest?.dateCreated}
+                nextUpdate={experiment.nextSnapshotAttempt}
+                autoUpdateEnabled={experiment.autoSnapshots}
+                showAutoUpdateWidget={true}
+                queries={
+                  latest &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? latest.queries.map((q) => q.query)
+                    : undefined
+                }
+                onViewQueries={
+                  latest &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? () => setQueriesModalOpen(true)
+                    : undefined
+                }
+              />
+              {hasData && outdated && status !== "running" ? (
+                <OutdatedBadge
+                  label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
+                  reasons={reasons}
+                  hasData={hasData && hasValidStatsEngine}
                 />
-                {outdated && status !== "running" ? (
-                  <OutdatedBadge
-                    label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
-                    reasons={reasons}
-                    hasData={hasData && hasValidStatsEngine}
-                  />
-                ) : null}
-              </Flex>
-            )}
+              ) : null}
+            </Flex>
 
             {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
               allMetrics.length > 0 && (
@@ -710,12 +711,6 @@ export default function AnalysisSettingsSummary({
               editMetrics={editMetrics}
               notebookUrl={`/experiments/notebook/${snapshot?.id}`}
               notebookFilename={experiment.trackingKey}
-              queries={
-                latest && latest.status !== "error" && latest.queries
-                  ? latest.queries
-                  : snapshot?.queries
-              }
-              queryError={snapshot?.error}
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={useMemo(() => {

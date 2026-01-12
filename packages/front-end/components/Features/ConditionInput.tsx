@@ -12,7 +12,9 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import format from "date-fns/format";
 import Link from "next/link";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
+  Condition,
   condToJson,
   jsonToConds,
   useAttributeMap,
@@ -46,8 +48,6 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups, getSavedGroupById } = useDefinitions();
-
   const attributes = useAttributeMap(props.project);
 
   const title = props.title || "Target by Attributes";
@@ -61,13 +61,8 @@ export default function ConditionInput(props: Props) {
   const [conds, setConds] = useState(
     () => jsonToConds(props.defaultValue, attributes) || [],
   );
-  const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema(false, props.project);
-
-  const usingDisabledEqualityAttributes = conds.some(
-    (cond) => !!attributes.get(cond.field)?.disableEqualityConditions,
-  );
 
   useEffect(() => {
     if (advanced) return;
@@ -79,18 +74,9 @@ export default function ConditionInput(props: Props) {
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
 
-  const savedGroupOperators = [
-    {
-      label: "is in the saved group",
-      value: "$inGroup",
-    },
-    {
-      label: "is not in the saved group",
-      value: "$notInGroup",
-    },
-  ];
-
-  const listOperators = ["$in", "$nin"];
+  const usingDisabledEqualityAttributes = conds.some((cond) =>
+    cond.some((c) => !!attributes.get(c.field)?.disableEqualityConditions),
+  );
 
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
@@ -100,7 +86,28 @@ export default function ConditionInput(props: Props) {
     );
     return (
       <div className="form-group my-4">
-        <label className={props.labelClassName || ""}>{title}</label>
+        <Flex gap="2">
+          <Box flexGrow={"1"}>
+            <label className={props.labelClassName || ""}>{title}</label>
+          </Box>
+          {simpleAllowed && attributes.size > 0 && (
+            <Box>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const newConds = jsonToConds(value, attributes);
+                  // TODO: show error
+                  if (newConds === null) return;
+                  setConds(newConds);
+                  setAdvanced(false);
+                }}
+              >
+                <RxLoop /> Simple mode
+              </a>
+            </Box>
+          )}
+        </Flex>
         <div className="appbox bg-light px-3 py-3">
           <CodeTextArea
             labelClassName={props.labelClassName}
@@ -111,23 +118,6 @@ export default function ConditionInput(props: Props) {
               <>
                 <div className="d-flex">
                   <div>JSON format using MongoDB query syntax.</div>
-                  {simpleAllowed && attributes.size && (
-                    <div className="ml-auto">
-                      <span
-                        className="link-purple cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const newConds = jsonToConds(value, attributes);
-                          // TODO: show error
-                          if (newConds === null) return;
-                          setConds(newConds);
-                          setAdvanced(false);
-                        }}
-                      >
-                        <RxLoop /> Simple mode
-                      </span>
-                    </div>
-                  )}
                 </div>
                 {hasSecureAttributes && (
                   <div className="mt-1 text-warning-orange">
@@ -143,7 +133,7 @@ export default function ConditionInput(props: Props) {
     );
   }
 
-  if (!conds.length) {
+  if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
@@ -155,16 +145,18 @@ export default function ConditionInput(props: Props) {
               e.preventDefault();
               const prop = attributeSchema[0];
               setConds([
-                {
-                  field: prop?.property || "",
-                  operator:
-                    prop?.datatype === "boolean"
-                      ? "$true"
-                      : prop?.disableEqualityConditions
-                        ? "$regex"
-                        : "$eq",
-                  value: "",
-                },
+                [
+                  {
+                    field: prop?.property || "",
+                    operator:
+                      prop?.datatype === "boolean"
+                        ? "$true"
+                        : prop?.disableEqualityConditions
+                          ? "$regex"
+                          : "$eq",
+                    value: "",
+                  },
+                ],
               ]);
             }}
           >
@@ -175,10 +167,135 @@ export default function ConditionInput(props: Props) {
       </div>
     );
   }
-
   return (
     <div className="form-group my-4">
-      <label className={props.labelClassName || ""}>{title}</label>
+      <Flex gap="2">
+        <Box flexGrow={"1"}>
+          <label
+            className={props.labelClassName || ""}
+            style={{ marginBottom: 0 }}
+          >
+            {title}
+          </label>
+        </Box>
+        <Box>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvanced(true);
+            }}
+          >
+            <RxLoop /> Advanced mode
+          </a>
+        </Box>
+      </Flex>
+
+      {conds.map((andGroup, i) => (
+        <Box key={i}>
+          {i > 0 && <Text>OR</Text>}
+          <ConditionAndGroupInput
+            conds={andGroup}
+            setConds={(newConds) => {
+              const newAndGroups = [...conds];
+
+              // Empty array means delete the AND group
+              if (newConds.length === 0) {
+                newAndGroups.splice(i, 1);
+              } else {
+                newAndGroups[i] = newConds;
+              }
+              setConds(newAndGroups);
+            }}
+            project={props.project}
+            labelClassName={props.labelClassName}
+            emptyText={props.emptyText}
+            title={props.title}
+            require={props.require}
+            allowNestedSavedGroups={props.allowNestedSavedGroups}
+            excludeSavedGroupId={props.excludeSavedGroupId}
+          />
+        </Box>
+      ))}
+
+      <div className="d-flex align-items-center">
+        {attributeSchema.length > 0 && (
+          <a
+            href="#"
+            className="or-button font-weight-bold"
+            onClick={(e) => {
+              e.preventDefault();
+              const prop = attributeSchema[0];
+              setConds([
+                ...conds,
+                [
+                  {
+                    field: prop?.property || "",
+                    operator:
+                      prop?.datatype === "boolean"
+                        ? "$true"
+                        : prop?.disableEqualityConditions
+                          ? "$regex"
+                          : "$eq",
+                    value: "",
+                  },
+                ],
+              ]);
+            }}
+          >
+            <FaPlusCircle className="mr-1" />
+            OR
+          </a>
+        )}
+      </div>
+
+      {usingDisabledEqualityAttributes && (
+        <Callout status="warning" mt="4">
+          Be careful not to include Personally Identifiable Information (PII) in
+          your targeting conditions.
+        </Callout>
+      )}
+    </div>
+  );
+}
+
+function ConditionAndGroupInput({
+  conds,
+  setConds,
+  ...props
+}: {
+  conds: Condition[];
+  setConds: (conds: Condition[]) => void;
+  project: string;
+  labelClassName?: string;
+  emptyText?: string;
+  title?: string;
+  require?: boolean;
+  allowNestedSavedGroups?: boolean;
+  excludeSavedGroupId?: string;
+}) {
+  const { savedGroups, getSavedGroupById } = useDefinitions();
+
+  const attributes = useAttributeMap(props.project);
+  const [rawTextMode, setRawTextMode] = useState(false);
+
+  const savedGroupOperators = [
+    {
+      label: "is in the saved group",
+      value: "$inGroup",
+    },
+    {
+      label: "is not in the saved group",
+      value: "$notInGroup",
+    },
+  ];
+
+  const listOperators = ["$in", "$nin"];
+
+  const attributeSchema = useAttributeSchema(false, props.project);
+
+  return (
+    <div className="form-group my-2">
       <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
@@ -772,32 +889,22 @@ export default function ConditionInput(props: Props) {
                   ...conds,
                   {
                     field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                    operator:
+                      prop?.datatype === "boolean"
+                        ? "$true"
+                        : prop?.disableEqualityConditions
+                          ? "$regex"
+                          : "$eq",
                     value: "",
                   },
                 ]);
               }}
             >
               <FaPlusCircle className="mr-1" />
-              Add another condition
+              AND
             </span>
           )}
-          <span
-            className="ml-auto link-purple cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setAdvanced(true);
-            }}
-          >
-            <RxLoop /> Advanced mode
-          </span>
         </div>
-        {usingDisabledEqualityAttributes && (
-          <Callout status="warning" mt="4">
-            Be careful not to include Personally Identifiable Information (PII)
-            in your targeting conditions.
-          </Callout>
-        )}
       </div>
     </div>
   );
