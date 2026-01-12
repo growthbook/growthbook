@@ -2,7 +2,7 @@ import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/groups";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,10 +28,10 @@ function operatorToText({
   switch (operator) {
     case "$eq":
     case "$veq":
-      return `is equal to`;
+      return `=`;
     case "$ne":
     case "$vne":
-      return `is not equal to`;
+      return `≠`;
     case "$includes":
       return `includes`;
     case "$notIncludes":
@@ -42,16 +42,16 @@ function operatorToText({
       return `is not empty`;
     case "$lt":
     case "$vlt":
-      return `is less than`;
+      return `<`;
     case "$lte":
     case "$vlte":
-      return `is less than or equal to`;
+      return `≤`;
     case "$gt":
     case "$vgt":
-      return `is greater than`;
+      return `>`;
     case "$gte":
     case "$vgte":
-      return `is greater than or equal to`;
+      return `≥`;
     case "$exists":
       return isPrerequisite ? `is live` : `is not NULL`;
     case "$notExists":
@@ -85,7 +85,7 @@ function hasMultiValues(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  savedGroups?: SavedGroupInterface[],
+  savedGroups?: SavedGroupWithoutValues[],
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
@@ -206,6 +206,64 @@ function MultiValueDisplay({
   );
 }
 
+function getConditionOrParts({
+  conditions,
+  savedGroups,
+  initialAnd = false,
+  renderPrerequisite = false,
+  keyPrefix = "",
+}: {
+  conditions: ConditionWithParentId[][];
+  savedGroups?: SavedGroupWithoutValues[];
+  initialAnd?: boolean;
+  renderPrerequisite?: boolean;
+  keyPrefix?: string;
+}) {
+  if (conditions.length === 0) return [];
+  if (conditions.length === 1) {
+    return getConditionParts({
+      conditions: conditions[0],
+      savedGroups,
+      initialAnd,
+      renderPrerequisite,
+      keyPrefix,
+    });
+  }
+
+  const parts: ReactNode[] = [];
+
+  if (initialAnd) {
+    parts.push(<div key={keyPrefix + "and-start"}>AND {"["}</div>);
+  }
+
+  conditions.forEach((condGroup, i) => {
+    if (i > 0) {
+      parts.push(
+        <div key={keyPrefix + "or-sep-" + i}>
+          <Text weight="medium">OR</Text>
+        </div>,
+      );
+    }
+    parts.push(<div key={keyPrefix + "or-start-" + i}>{"("}</div>);
+    parts.push(
+      ...getConditionParts({
+        conditions: condGroup,
+        savedGroups,
+        initialAnd: false,
+        renderPrerequisite,
+        keyPrefix: `${keyPrefix}or-${i}-`,
+      }),
+    );
+    parts.push(<div key={keyPrefix + "or-end-" + i}>{")"}</div>);
+  });
+
+  if (initialAnd) {
+    parts.push(<div key={keyPrefix + "and-end"}>{"]"}</div>);
+  }
+
+  return parts;
+}
+
 function getConditionParts({
   conditions,
   savedGroups,
@@ -214,7 +272,7 @@ function getConditionParts({
   keyPrefix = "",
 }: {
   conditions: ConditionWithParentId[];
-  savedGroups?: SavedGroupInterface[];
+  savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
@@ -410,25 +468,6 @@ export default function ConditionDisplay({
     }
   }, [condition]);
 
-  if (condition && jsonFormattedCondition) {
-    const conds = jsonToConds(condition);
-    // Could not parse into simple conditions
-    if (conds === null || !attributes.size) {
-      parts.push(
-        <div className="w-100" key={partId++}>
-          <InlineCode language="json" code={jsonFormattedCondition} />
-        </div>,
-      );
-    } else {
-      const conditionParts = getConditionParts({
-        conditions: conds,
-        savedGroups,
-        keyPrefix: `${partId++}-condition-`,
-      });
-      parts.push(...conditionParts);
-    }
-  }
-
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
       <SavedGroupTargetingDisplay
@@ -443,8 +482,8 @@ export default function ConditionDisplay({
   if (prerequisites) {
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
-        let cond = jsonToConds(p.condition);
-        if (!cond) {
+        const cond = jsonToConds(p.condition);
+        if (!cond || cond.length > 1) {
           let jsonFormattedCondition = p.condition;
           try {
             const parsed = JSON.parse(p.condition);
@@ -462,7 +501,7 @@ export default function ConditionDisplay({
           );
           return;
         }
-        cond = cond.map(({ field, operator, value }) => {
+        return cond[0]?.map(({ field, operator, value }) => {
           return {
             field,
             operator,
@@ -470,7 +509,6 @@ export default function ConditionDisplay({
             parentId: p.id,
           };
         });
-        return cond;
       })
       .filter(isDefined);
 
@@ -488,6 +526,26 @@ export default function ConditionDisplay({
       keyPrefix: `${partId++}-prereq-`,
     });
     parts.push(...prereqParts);
+  }
+
+  if (condition && jsonFormattedCondition) {
+    const conds = jsonToConds(condition);
+    // Could not parse into simple conditions
+    if (conds === null || !attributes.size) {
+      parts.push(
+        <div className="w-100" key={partId++}>
+          <InlineCode language="json" code={jsonFormattedCondition} />
+        </div>,
+      );
+    } else {
+      const conditionParts = getConditionOrParts({
+        conditions: conds,
+        savedGroups,
+        keyPrefix: `${partId++}-condition-`,
+        initialAnd: parts.length > 0,
+      });
+      parts.push(...conditionParts);
+    }
   }
 
   return (

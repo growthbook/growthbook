@@ -41,7 +41,6 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
-import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -492,10 +491,20 @@ export default function PrerequisiteTargetingField({
             </DocLink>
           </div>
 
-          <Button
-            variant="ghost"
-            disabled={!hasPrerequisitesCommercialFeature}
-            onClick={() => {
+          <div
+            className={clsx(
+              "d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer",
+              {
+                "opacity-50 cursor-not-allowed":
+                  !hasPrerequisitesCommercialFeature,
+              },
+            )}
+            onClick={(e) => {
+              if (!hasPrerequisitesCommercialFeature) {
+                e.preventDefault();
+                return;
+              }
+              e.preventDefault();
               setValue([
                 ...value,
                 {
@@ -507,18 +516,28 @@ export default function PrerequisiteTargetingField({
           >
             <FaPlusCircle className="mr-1" />
             Add prerequisite
-          </Button>
+          </div>
         </>
       ) : (
         <div>
           <div className="font-italic text-muted mr-3">
             No prerequisite targeting applied.
           </div>
-          <Button
-            variant="ghost"
-            style={{ paddingLeft: "0px !important" }}
-            disabled={!hasPrerequisitesCommercialFeature}
-            onClick={() => {
+          <div
+            className={clsx(
+              "d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer",
+              {
+                "opacity-50 cursor-not-allowed":
+                  !hasPrerequisitesCommercialFeature,
+              },
+            )}
+            style={{ paddingLeft: 0 }}
+            onClick={(e) => {
+              if (!hasPrerequisitesCommercialFeature) {
+                e.preventDefault();
+                return;
+              }
+              e.preventDefault();
               setValue([
                 ...value,
                 {
@@ -530,7 +549,7 @@ export default function PrerequisiteTargetingField({
           >
             <FaPlusCircle className="mr-1" />
             Add prerequisite targeting
-          </Button>
+          </div>
         </div>
       )}
     </div>
