@@ -23,7 +23,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { ErrorBoundary } from "@sentry/react";
+import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";

@@ -1,9 +1,11 @@
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, beforeEach, vi, expect } from "vitest";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { RadixTheme } from "@/services/RadixTheme";
 
 vi.mock("@/services/DefinitionsContext", () => ({
   useDefinitions: vi.fn(),
@@ -45,7 +47,15 @@ describe("ConditionInput", () => {
   it("properly handles operator update when attribute changes", async () => {
     // Setup
     render(
-      <ConditionInput defaultValue="{}" onChange={mockOnChange} project="" />,
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -144,7 +154,15 @@ describe("ConditionInput", () => {
   it("properly handles equal operator update when attribute changes", async () => {
     // Setup
     render(
-      <ConditionInput defaultValue="{}" onChange={mockOnChange} project="" />,
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -217,6 +235,47 @@ describe("ConditionInput", () => {
         const outputCondition = JSON.parse(lastCall[0]);
         // Ensure it uses string comparison operator
         expect(outputCondition).toEqual({ user_id: "321" });
+      }
+    });
+  });
+
+  it("adds a new OR condition when the + OR button is clicked", async () => {
+    // Setup
+    const { container } = render(
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
+    });
+    const addButton = screen.getByText("Add attribute targeting");
+    fireEvent.click(addButton);
+    await waitFor(() => {
+      expect(screen.getByText("IF")).toBeInTheDocument();
+    });
+
+    // Click the + OR button
+    const addOrButton = container.querySelector(".or-button") as Element;
+    expect(addOrButton).toBeDefined();
+    fireEvent.click(addOrButton);
+
+    // Assert condition is correct
+    await waitFor(() => {
+      const lastCall =
+        mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1];
+      if (lastCall) {
+        const outputCondition = JSON.parse(lastCall[0]);
+        // Ensure it uses string comparison operator
+        expect(outputCondition).toEqual({
+          $or: [{ user_id: "" }, { user_id: "" }],
+        });
       }
     });
   });
