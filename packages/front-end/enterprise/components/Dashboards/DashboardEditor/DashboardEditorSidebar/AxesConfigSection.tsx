@@ -12,7 +12,6 @@ import {
   yAxisAggregationType,
   BigValueFormat,
   xAxisConfiguration,
-  SavedQuery,
 } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
 import {
@@ -27,19 +26,17 @@ interface Props {
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DataVisualizationBlockInterface>
   >;
-  savedQuery: SavedQuery;
+  rows: Record<string, unknown>[];
+  axisKeys: string[];
 }
 
 export default function AxesConfigSection({
   block,
   setBlock,
-  savedQuery,
+  rows,
+  axisKeys,
 }: Props) {
   const dataVizConfig = block.dataVizConfig?.[0];
-  const rows = useMemo(
-    () => savedQuery.results?.results || [],
-    [savedQuery.results?.results],
-  );
 
   const getInferredFieldType = useCallback(
     (fieldName: string): xAxisConfiguration["type"] => {
@@ -48,10 +45,6 @@ export default function AxesConfigSection({
     },
     [rows],
   );
-
-  const axisKeys = useMemo(() => {
-    return Object.keys(rows[0] || {});
-  }, [rows]);
 
   const xAxisConfigs = useMemo(
     () => (dataVizConfig ? getXAxisConfig(dataVizConfig) : []),

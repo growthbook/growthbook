@@ -1,11 +1,12 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DataVisualizationBlockInterface,
 } from "shared/enterprise";
-import { SavedQuery } from "shared/validators";
+import { DataVizConfig, SavedQuery } from "shared/validators";
 import useApi from "@/hooks/useApi";
+import DataVizDimensionPanel from "@/components/DataViz/DataVizDimensionPanel";
 import ChartTypeConfigSection from "./ChartTypeConfigSection";
 import DataSourceConfigSection from "./DataSourceConfigSection";
 import AxesConfigSection from "./AxesConfigSection";
@@ -45,6 +46,35 @@ export default function DataVisualizationSettings({
     [savedQueryId, savedQueriesData?.savedQueries],
   );
 
+  const rows = useMemo(
+    () => savedQuery?.results?.results || [],
+    [savedQuery?.results?.results],
+  );
+
+  const axisKeys = useMemo(() => {
+    return Object.keys(rows[0] || {});
+  }, [rows]);
+
+  const currentDataVizConfig = useMemo(
+    () => block.dataVizConfig?.[0] ?? {},
+    [block.dataVizConfig],
+  );
+
+  const onDataVizConfigChange = useCallback(
+    (newConfig: Partial<DataVizConfig>) => {
+      setBlock({
+        ...block,
+        dataVizConfig: [
+          {
+            ...currentDataVizConfig,
+            ...newConfig,
+          } as DataVizConfig,
+        ],
+      });
+    },
+    [block, setBlock, currentDataVizConfig],
+  );
+
   return (
     <Flex direction="column" gap="3" my="3">
       <ChartTypeConfigSection block={block} setBlock={setBlock} />
@@ -59,11 +89,19 @@ export default function DataVisualizationSettings({
       {block.dataSourceConfig?.dataType === "sql" &&
         savedQuery &&
         savedQuery.results?.results && (
-          <AxesConfigSection
-            block={block}
-            setBlock={setBlock}
-            savedQuery={savedQuery}
-          />
+          <>
+            <AxesConfigSection
+              block={block}
+              setBlock={setBlock}
+              rows={rows}
+              axisKeys={axisKeys}
+            />
+            <DataVizDimensionPanel
+              dataVizConfig={block.dataVizConfig?.[0] ?? {}}
+              onDataVizConfigChange={onDataVizConfigChange}
+              axisKeys={axisKeys}
+            />
+          </>
         )}
     </Flex>
   );
