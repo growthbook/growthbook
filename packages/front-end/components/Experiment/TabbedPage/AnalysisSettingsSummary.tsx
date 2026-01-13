@@ -19,6 +19,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -536,7 +537,9 @@ export default function AnalysisSettingsSummary({
     const experimentPostStratificationEnabled =
       !hasPostStratificationFeature || org.disablePrecomputedDimensions
         ? false
-        : (exp.postStratificationEnabled ?? !org.postStratificationDisabled);
+        : (exp.postStratificationEnabled ??
+          org.postStratificationEnabled ??
+          DEFAULT_POST_STRATIFICATION_ENABLED);
     if (
       isDifferent(
         experimentPostStratificationEnabled,

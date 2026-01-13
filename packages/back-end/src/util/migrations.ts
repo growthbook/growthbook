@@ -519,6 +519,18 @@ export function upgradeOrganizationDoc(
     }));
   }
 
+  // Migrate postStratificationDisabled to postStratificationEnabled
+  // If postStratificationEnabled is undefined OR true, it means ON
+  // Only if postStratificationEnabled is explicitly false should it be OFF
+  if (org.settings?.postStratificationDisabled !== undefined) {
+    // Convert from inverted logic: disabled=true -> enabled=false
+    if (org.settings.postStratificationEnabled === undefined) {
+      org.settings.postStratificationEnabled =
+        !org.settings.postStratificationDisabled;
+    }
+    delete org.settings.postStratificationDisabled;
+  }
+
   return org;
 }
 

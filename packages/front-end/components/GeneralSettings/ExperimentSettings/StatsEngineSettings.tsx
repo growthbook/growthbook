@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -30,7 +31,7 @@ interface FormValues {
   sequentialTestingEnabled: boolean;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
-  postStratificationDisabled: boolean;
+  postStratificationEnabled: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
@@ -242,9 +243,12 @@ export default function StatsEngineSettings() {
           <Flex align="start" gap="3">
             <Checkbox
               id="toggle-postStratification"
-              value={!form.watch("postStratificationDisabled")}
+              value={
+                form.watch("postStratificationEnabled") ??
+                DEFAULT_POST_STRATIFICATION_ENABLED
+              }
               setValue={(v) => {
-                form.setValue("postStratificationDisabled", !v);
+                form.setValue("postStratificationEnabled", v);
               }}
               disabled={hasFileConfig()}
             />

@@ -3,6 +3,7 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -253,7 +254,8 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
     postStratificationEnabled:
       hasPostStratificationFeature &&
       !organization.settings?.disablePrecomputedDimensions &&
-      !organization.settings?.postStratificationDisabled,
+      (organization.settings?.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,
