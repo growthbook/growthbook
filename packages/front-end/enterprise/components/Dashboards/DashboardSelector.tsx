@@ -13,6 +13,7 @@ export interface DashboardSelectorProps {
   canCreate?: boolean;
   onCreateNew?: () => void;
   style?: React.CSSProperties;
+  showIcon?: boolean;
   disabled?: boolean;
 }
 
@@ -24,6 +25,7 @@ export default function DashboardSelector({
   canCreate = false,
   onCreateNew,
   style,
+  showIcon = true,
   disabled = false,
 }: DashboardSelectorProps) {
   return (
@@ -62,7 +64,7 @@ export default function DashboardSelector({
           {dashboards.length > 0 && <SelectSeparator />}
           <SelectItem value="__create__">
             <Flex align="center">
-              <PiPlus className="rt-SelectItemIndicator" />
+              {showIcon && <PiPlus className="rt-SelectItemIndicator" />}
               <Text weight="regular">Create new dashboard</Text>
             </Flex>
           </SelectItem>

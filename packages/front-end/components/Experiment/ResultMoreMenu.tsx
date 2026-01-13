@@ -131,6 +131,7 @@ export default function ResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
 
   const isExperimentIncludedInIncrementalRefresh = experiment
     ? getIsExperimentIncludedInIncrementalRefresh(
@@ -465,7 +466,8 @@ export default function ResultMoreMenu({
           )}
           {results &&
             onAddToDashboard &&
-            hasCommercialFeature("dashboards") && (
+            hasCommercialFeature("dashboards") &&
+            !isHoldout && (
               <DropdownMenuItem
                 onClick={() => {
                   onAddToDashboard();

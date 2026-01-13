@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DifferenceType } from "shared/types/stats";
@@ -6,10 +7,11 @@ import {
   DashboardInterface,
   getBlockData,
   CREATE_BLOCK_TYPE,
-  DashboardBlockInterface,
-  DashboardBlockInterfaceOrData,
-  blockHasFieldOfType,
+  DashboardEditLevel,
+  DashboardShareLevel,
 } from "shared/enterprise";
+import { PiArrowSquareOut } from "react-icons/pi";
+import cronstrue from "cronstrue";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Metadata from "@/ui/Metadata";
@@ -21,15 +23,12 @@ import SelectField from "@/components/Forms/SelectField";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import {
-  DashboardEditLevel,
-  DashboardShareLevel,
-} from "shared/enterprise";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/ui/LinkButton";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { getExperimentRefreshFrequency } from "@/services/env";
+import { autoUpdateDisabledMessage } from "@/enterprise/components/Dashboards/DashboardsTab";
 
 // Type for block comparison - only includes fields we compare
 type BlockComparisonFields = {
@@ -45,69 +44,34 @@ type BlockComparisonFields = {
   baselineRow?: number;
 };
 
-// Utility function to compare arrays order-agnostically
-function arraysEqual(a: string[], b: string[]): boolean {
+// Compare arrays order-agnostically
+function arraysMatch(
+  a: string[] | undefined,
+  b: string[] | undefined,
+): boolean {
+  if (!a || !b) return false;
   if (a.length !== b.length) return false;
   const sortedA = [...a].sort();
   const sortedB = [...b].sort();
   return sortedA.every((val, idx) => val === sortedB[idx]);
 }
 
-// Utility function to check if two blocks have nearly matching configuration
+// Check if two blocks have nearly matching configuration
 function blocksNearlyMatch(
   block1: BlockComparisonFields,
   block2: BlockComparisonFields,
 ): boolean {
-  // Must be the same block type
   if (block1.type !== block2.type) return false;
-
-  // For dimension blocks, check dimensionId
-  const hasDimension1 = blockHasFieldOfType(
-    block1 as DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-    "dimensionId",
-    (v): v is string => typeof v === "string",
-  );
-  const hasDimension2 = blockHasFieldOfType(
-    block2 as DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-    "dimensionId",
-    (v): v is string => typeof v === "string",
-  );
-  if (hasDimension1 && hasDimension2) {
-    if (block1.dimensionId !== block2.dimensionId) return false;
-  } else if (hasDimension1 !== hasDimension2) {
+  if (block1.dimensionId !== block2.dimensionId) return false;
+  if (!arraysMatch(block1.sliceTagsFilter, block2.sliceTagsFilter))
     return false;
-  }
-
-  // Compare filter arrays (order-agnostic)
-  const sliceTags1 = block1.sliceTagsFilter || [];
-  const sliceTags2 = block2.sliceTagsFilter || [];
-  if (!arraysEqual(sliceTags1, sliceTags2)) return false;
-
-  const metricIds1 = block1.metricIds || [];
-  const metricIds2 = block2.metricIds || [];
-  if (!arraysEqual(metricIds1, metricIds2)) return false;
-
-  const metricTag1 = block1.metricTagFilter || [];
-  const metricTag2 = block2.metricTagFilter || [];
-  if (!arraysEqual(metricTag1, metricTag2)) return false;
-
-  const variationIds1 = block1.variationIds || [];
-  const variationIds2 = block2.variationIds || [];
-  if (!arraysEqual(variationIds1, variationIds2)) return false;
-
-  // Compare other fields
-  const differenceType1 = block1.differenceType;
-  const differenceType2 = block2.differenceType;
-  if (differenceType1 !== differenceType2) return false;
-
-  const sortBy1 = block1.sortBy;
-  const sortBy2 = block2.sortBy;
-  if (sortBy1 !== sortBy2) return false;
-
-  const sortDirection1 = block1.sortDirection;
-  const sortDirection2 = block2.sortDirection;
-  if (sortDirection1 !== sortDirection2) return false;
-
+  if (!arraysMatch(block1.metricIds, block2.metricIds)) return false;
+  if (!arraysMatch(block1.metricTagFilter, block2.metricTagFilter))
+    return false;
+  if (!arraysMatch(block1.variationIds, block2.variationIds)) return false;
+  if (block1.differenceType !== block2.differenceType) return false;
+  if (block1.sortBy !== block2.sortBy) return false;
+  if (block1.sortDirection !== block2.sortDirection) return false;
   return true;
 }
 
@@ -142,14 +106,21 @@ export default function MigrateResultsToDashboardModal({
 }: MigrateResultsToDashboardModalProps) {
   const { getDimensionById, metricGroups } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const { userId, hasCommercialFeature } = useUser();
+  const {
+    userId,
+    hasCommercialFeature,
+    settings: { updateSchedule },
+  } = useUser();
   const { apiCall } = useAuth();
+  const defaultRefreshInterval = getExperimentRefreshFrequency();
 
   const {
     dashboards,
     loading: loadingDashboards,
     mutateDashboards,
   } = useExperimentDashboards(experiment.id);
+
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   const filteredDashboards = useMemo(() => {
     return dashboards.filter((dash) => {
@@ -167,68 +138,6 @@ export default function MigrateResultsToDashboardModal({
 
   const defaultDashboard = filteredDashboards.find((dash) => dash.isDefault);
 
-  const [dashboardId, setDashboardId] = useState<string>("");
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [blockType, setBlockType] = useState<
-    "experiment-metric" | "experiment-time-series" | "experiment-dimension"
-  >(dimension ? "experiment-dimension" : "experiment-metric");
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedDashboardId, setSavedDashboardId] = useState<string | null>(null);
-  const [wasCreatingNew, setWasCreatingNew] = useState(false);
-
-  // Dashboard creation fields
-  const [newDashboardTitle, setNewDashboardTitle] = useState("");
-  const [newDashboardShareLevel, setNewDashboardShareLevel] =
-    useState<DashboardShareLevel>("published");
-  const [newDashboardEditLevel, setNewDashboardEditLevel] =
-    useState<DashboardEditLevel>("private");
-  const [newDashboardEnableAutoUpdates, setNewDashboardEnableAutoUpdates] =
-    useState(false);
-
-  const canCreate = permissionsUtil.canCreateReport(experiment);
-
-  // Initialize dashboardId with default or first available
-  useEffect(() => {
-    if (!dashboardId && filteredDashboards.length > 0) {
-      setDashboardId(defaultDashboard?.id ?? filteredDashboards[0].id);
-    }
-  }, [dashboardId, filteredDashboards, defaultDashboard]);
-
-  useEffect(() => {
-    if (!open) {
-      setError(null);
-      setIsCreatingNew(false);
-      setNewDashboardTitle("");
-      setNewDashboardShareLevel("published");
-      setNewDashboardEditLevel("private");
-      setNewDashboardEnableAutoUpdates(false);
-      setSavedDashboardId(null);
-      setWasCreatingNew(false);
-    }
-  }, [open]);
-
-  const handleCreateNew = () => {
-    if (!hasCommercialFeature("dashboards")) {
-      setShowUpgradeModal(true);
-      return;
-    }
-    if (canCreate) {
-      setIsCreatingNew(true);
-      setDashboardId("__create__");
-    }
-  };
-
-  const handleDashboardSelect = (value: string) => {
-    if (value === "__create__") {
-      handleCreateNew();
-    } else {
-      setIsCreatingNew(false);
-      setDashboardId(value);
-    }
-  };
-
   const dimensionName = dimension
     ? getDimensionById(dimension)?.name ||
       dimension?.split(":")?.[1] ||
@@ -236,24 +145,151 @@ export default function MigrateResultsToDashboardModal({
     : "None";
 
   // Generate default block name based on block type
-  const defaultBlockName = useMemo(() => {
-    if (blockType === "experiment-dimension") {
-      return dimensionName !== "None"
-        ? `Dimension Results: ${dimensionName}`
-        : "Dimension Results";
-    }
-    if (blockType === "experiment-time-series") {
-      return "Timeseries Results";
-    }
-    return "Metric Results";
-  }, [blockType, dimensionName]);
+  const getDefaultBlockName = useCallback(
+    (
+      blockType:
+        | "experiment-metric"
+        | "experiment-time-series"
+        | "experiment-dimension",
+    ) => {
+      if (blockType === "experiment-dimension") {
+        return dimensionName !== "None"
+          ? `Dimension Results: ${dimensionName}`
+          : "Dimension Results";
+      }
+      if (blockType === "experiment-time-series") {
+        return "Timeseries Results";
+      }
+      return "Metric Results";
+    },
+    [dimensionName],
+  );
 
-  const [blockName, setBlockName] = useState(defaultBlockName);
+  const getDefaultFormValues = useCallback((): {
+    dashboardId: string;
+    isCreatingNew: boolean;
+    blockType:
+      | "experiment-metric"
+      | "experiment-time-series"
+      | "experiment-dimension";
+    blockName: string;
+    newDashboardTitle: string;
+    newDashboardShareLevel: DashboardShareLevel;
+    newDashboardEditLevel: DashboardEditLevel;
+    newDashboardEnableAutoUpdates: boolean;
+  } => {
+    const initialBlockType:
+      | "experiment-metric"
+      | "experiment-time-series"
+      | "experiment-dimension" = dimension
+      ? "experiment-dimension"
+      : "experiment-metric";
+    return {
+      dashboardId: "",
+      isCreatingNew: false,
+      blockType: initialBlockType,
+      blockName: getDefaultBlockName(initialBlockType),
+      newDashboardTitle: "Untitled Dashboard",
+      newDashboardShareLevel: "published" as DashboardShareLevel,
+      newDashboardEditLevel: "private" as DashboardEditLevel,
+      newDashboardEnableAutoUpdates: false,
+    };
+  }, [dimension, getDefaultBlockName]);
 
-  // Update block name when block type or dimension changes
+  const defaultFormValues = getDefaultFormValues();
+
+  const form = useForm<{
+    dashboardId: string;
+    isCreatingNew: boolean;
+    blockType:
+      | "experiment-metric"
+      | "experiment-time-series"
+      | "experiment-dimension";
+    blockName: string;
+    newDashboardTitle: string;
+    newDashboardShareLevel: DashboardShareLevel;
+    newDashboardEditLevel: DashboardEditLevel;
+    newDashboardEnableAutoUpdates: boolean;
+  }>({
+    defaultValues: defaultFormValues,
+  });
+
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedDashboardId, setSavedDashboardId] = useState<string | null>(null);
+  const [wasCreatingNew, setWasCreatingNew] = useState(false);
+
+  const canCreate = permissionsUtil.canCreateReport(experiment);
+
+  const dashboardId = form.watch("dashboardId");
+  const isCreatingNew = form.watch("isCreatingNew");
+  const blockType = form.watch("blockType");
+  const blockName = form.watch("blockName");
+  const defaultBlockName = useMemo(
+    () => getDefaultBlockName(blockType),
+    [blockType, getDefaultBlockName],
+  );
+
+  const refreshInterval = useMemo(() => {
+    if (!updateSchedule) return `every ${defaultRefreshInterval} hours`;
+    if (updateSchedule.type === "never") return;
+    if (updateSchedule.type === "stale")
+      return updateSchedule.hours
+        ? `every ${updateSchedule.hours} hours`
+        : undefined;
+    if (updateSchedule.cron) {
+      const cronString = cronstrue.toString(updateSchedule.cron, {
+        verbose: false,
+      });
+      return cronString.charAt(0).toLowerCase() + cronString.slice(1);
+    }
+  }, [updateSchedule, defaultRefreshInterval]);
+
+  // Initialize dashboardId with default or first available
   useEffect(() => {
-    setBlockName(defaultBlockName);
-  }, [defaultBlockName]);
+    if (!dashboardId && filteredDashboards.length > 0) {
+      form.setValue(
+        "dashboardId",
+        defaultDashboard?.id ?? filteredDashboards[0].id,
+      );
+    }
+  }, [dashboardId, filteredDashboards, defaultDashboard, form]);
+
+  // Update block name when block type changes
+  useEffect(() => {
+    form.setValue("blockName", defaultBlockName);
+  }, [defaultBlockName, form]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!open) {
+      setError(null);
+      setSavedDashboardId(null);
+      setWasCreatingNew(false);
+      form.reset(getDefaultFormValues());
+    }
+  }, [open, form, getDefaultFormValues]);
+
+  const handleCreateNew = () => {
+    if (!hasCommercialFeature("dashboards")) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (canCreate) {
+      form.setValue("isCreatingNew", true);
+      form.setValue("dashboardId", "__create__");
+    }
+  };
+
+  const handleDashboardSelect = (value: string) => {
+    if (value === "__create__") {
+      handleCreateNew();
+    } else {
+      form.setValue("isCreatingNew", false);
+      form.setValue("dashboardId", value);
+    }
+  };
 
   const metricTagCount = metricTagFilter?.length || 0;
   const metricsCount = metricsFilter?.length || 0;
@@ -277,7 +313,7 @@ export default function MigrateResultsToDashboardModal({
           (!variationFilter || !variationFilter.includes(index)),
       );
     const totalVariations = experiment.variations.length - 1;
-    
+
     if (
       visibleIndices.length === 0 ||
       visibleIndices.length === totalVariations
@@ -372,7 +408,7 @@ export default function MigrateResultsToDashboardModal({
   const handleSubmit = async () => {
     if (isSubmitting) return;
     if (!isCreatingNew && !dashboardId) return;
-    if (isCreatingNew && !newDashboardTitle.trim()) {
+    if (isCreatingNew && !form.watch("newDashboardTitle").trim()) {
       setError("Dashboard name is required");
       return;
     }
@@ -427,17 +463,20 @@ export default function MigrateResultsToDashboardModal({
       if (isCreatingNew) {
         // Create new dashboard with the block included
         const blocks = [getBlockData(newBlock)];
+        const formValues = form.getValues();
         res = await apiCall<{
           status: number;
           dashboard: DashboardInterface;
         }>(`/dashboards`, {
           method: "POST",
           body: JSON.stringify({
-            title: newDashboardTitle,
-            shareLevel: newDashboardShareLevel,
-            editLevel: newDashboardEditLevel,
-            enableAutoUpdates: newDashboardEnableAutoUpdates,
+            title: formValues.newDashboardTitle,
+            shareLevel: formValues.newDashboardShareLevel,
+            editLevel: formValues.newDashboardEditLevel,
+            enableAutoUpdates: formValues.newDashboardEnableAutoUpdates,
             experimentId: experiment.id,
+            projects: experiment.project ? [experiment.project] : [],
+            userId: userId,
             blocks,
           }),
         });
@@ -511,12 +550,11 @@ export default function MigrateResultsToDashboardModal({
         secondaryCTA={
           savedDashboardId ? (
             <LinkButton
-              href={`/${experiment.type === "multi-armed-bandit" ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
+              href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
               external={true}
               variant="outline"
             >
-              View Dashboard{" "}
-              <PiArrowSquareOut />
+              View Dashboard <PiArrowSquareOut />
             </LinkButton>
           ) : undefined
         }
@@ -525,8 +563,10 @@ export default function MigrateResultsToDashboardModal({
             ? false
             : Boolean(
                 isCreatingNew
-                  ? newDashboardTitle.trim()
-                  : dashboardId && dashboardId !== "__create__" && dashboardId !== "",
+                  ? form.watch("newDashboardTitle").trim()
+                  : dashboardId &&
+                      dashboardId !== "__create__" &&
+                      dashboardId !== "",
               ) && !isSubmitting
         }
         loading={isSubmitting}
@@ -542,8 +582,8 @@ export default function MigrateResultsToDashboardModal({
             </Callout>
             <Text>
               {wasCreatingNew
-                ? "Your new dashboard has been created. Close this window to return to the experiment results."
-                : "The results view has been added to the dashboard. Close this window to return to the experiment results."}
+                ? `Your new dashboard has been created. Close this window to return to the ${isBandit ? "bandit" : "experiment"} results.`
+                : `The results view has been added to the dashboard. Close this window to return to the ${isBandit ? "bandit" : "experiment"} results.`}
             </Text>
           </Box>
         ) : (
@@ -572,24 +612,44 @@ export default function MigrateResultsToDashboardModal({
                   setValue={handleDashboardSelect}
                   canCreate={canCreate}
                   onCreateNew={handleCreateNew}
-                  disabled={loadingDashboards || filteredDashboards.length === 0}
+                  showIcon={false}
+                  disabled={
+                    loadingDashboards || filteredDashboards.length === 0
+                  }
                 />
               </Box>
 
               {isCreatingNew && (
                 <Box className="bg-highlight rounded" mt="4" p="3">
-                  <Text weight="bold" size="2" mb="3" style={{ display: "block" }}>
+                  <Text
+                    weight="bold"
+                    size="2"
+                    mb="3"
+                    style={{ display: "block" }}
+                  >
                     New Dashboard Settings
                   </Text>
                   <Flex direction="column" gap="3">
                     <Field
-                      label="Dashboard Name"
-                      value={newDashboardTitle}
-                      onChange={(e) => setNewDashboardTitle(e.target.value)}
-                      placeholder="Enter dashboard name"
-                      labelClassName="font-weight-bold"
-                      containerClassName="mb-0"
+                      label="Name"
+                      {...form.register("newDashboardTitle")}
+                      placeholder="Dashboard name"
                     />
+                    {refreshInterval && (
+                      <Checkbox
+                        label="Auto-update dashboard data"
+                        description={`An automatic data refresh will occur ${refreshInterval}.`}
+                        disabled={updateSchedule?.type === "never"}
+                        disabledMessage={autoUpdateDisabledMessage}
+                        value={form.watch("newDashboardEnableAutoUpdates")}
+                        setValue={(checked) =>
+                          form.setValue(
+                            "newDashboardEnableAutoUpdates",
+                            checked,
+                          )
+                        }
+                      />
+                    )}
                     <SelectField
                       label="View access"
                       options={[
@@ -599,19 +659,22 @@ export default function MigrateResultsToDashboardModal({
                           value: "private",
                         },
                       ]}
-                      value={newDashboardShareLevel}
+                      value={form.watch("newDashboardShareLevel")}
                       onChange={(value) => {
-                        setNewDashboardShareLevel(value as DashboardShareLevel);
+                        form.setValue(
+                          "newDashboardShareLevel",
+                          value as DashboardShareLevel,
+                        );
                         if (value === "private") {
-                          setNewDashboardEditLevel("private");
+                          form.setValue("newDashboardEditLevel", "private");
                         }
                       }}
-                      labelClassName="font-weight-bold"
-                      containerClassName="mb-0"
                     />
                     <SelectField
                       label="Edit access"
-                      disabled={newDashboardShareLevel === "private"}
+                      disabled={
+                        form.watch("newDashboardShareLevel") === "private"
+                      }
                       options={[
                         {
                           label:
@@ -623,18 +686,13 @@ export default function MigrateResultsToDashboardModal({
                           value: "private",
                         },
                       ]}
-                      value={newDashboardEditLevel}
+                      value={form.watch("newDashboardEditLevel")}
                       onChange={(value) =>
-                        setNewDashboardEditLevel(value as DashboardEditLevel)
+                        form.setValue(
+                          "newDashboardEditLevel",
+                          value as DashboardEditLevel,
+                        )
                       }
-                      labelClassName="font-weight-bold"
-                      containerClassName="mb-0"
-                    />
-                    <Checkbox
-                      label="Auto-update dashboard data"
-                      value={newDashboardEnableAutoUpdates}
-                      setValue={setNewDashboardEnableAutoUpdates}
-                      weight="regular"
                     />
                   </Flex>
                 </Box>
@@ -643,8 +701,7 @@ export default function MigrateResultsToDashboardModal({
               <Box mt="4">
                 <Field
                   label="Dashboard Block Name"
-                  value={blockName}
-                  onChange={(e) => setBlockName(e.target.value)}
+                  {...form.register("blockName")}
                   placeholder={defaultBlockName}
                   labelClassName="font-weight-bold"
                   containerClassName="mb-0"
@@ -664,7 +721,8 @@ export default function MigrateResultsToDashboardModal({
                     gap="0"
                     value={blockType}
                     setValue={(value) =>
-                      setBlockType(
+                      form.setValue(
+                        "blockType",
                         value as
                           | "experiment-metric"
                           | "experiment-time-series"
@@ -703,11 +761,19 @@ export default function MigrateResultsToDashboardModal({
                   <Metadata label="Metrics" value={String(metricsCount)} />
                 )}
                 {metricTagCount > 0 && (
-                  <Metadata label="Metric Tags" value={String(metricTagCount)} />
+                  <Metadata
+                    label="Metric Tags"
+                    value={String(metricTagCount)}
+                  />
                 )}
-                {baselineText && <Metadata label="Baseline" value={baselineText} />}
+                {baselineText && (
+                  <Metadata label="Baseline" value={baselineText} />
+                )}
                 <Metadata label="Variations" value={variationsText} />
-                <Metadata label="Difference Type" value={differenceTypeDisplay} />
+                <Metadata
+                  label="Difference Type"
+                  value={differenceTypeDisplay}
+                />
                 <Metadata
                   label="Sort by"
                   value={
