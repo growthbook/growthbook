@@ -168,6 +168,19 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     isString,
   );
 
+  // For data-visualization blocks, savedQueryId is nested in dataSourceConfig
+  const dataVisualizationSavedQueryId =
+    block.type === "data-visualization" &&
+    block.dataSourceConfig?.dataType === "sql" &&
+    isString(block.dataSourceConfig.savedQueryId)
+      ? block.dataSourceConfig.savedQueryId
+      : undefined;
+
+  const actualSavedQueryId =
+    blockHasSavedQuery && block.savedQueryId
+      ? block.savedQueryId
+      : dataVisualizationSavedQueryId;
+
   const [editTitle, setEditTitle] = useState(false);
 
   // Type guards for sql-explorer blocks
@@ -188,11 +201,15 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
 
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
   const shouldFetchSavedQuery = () =>
-    blockHasSavedQuery && !savedQueriesMap.has(block.savedQueryId);
+    !!(
+      actualSavedQueryId &&
+      actualSavedQueryId.length > 0 &&
+      !savedQueriesMap.has(actualSavedQueryId)
+    );
   const { data: savedQueryData, isLoading: savedQueryLoading } = useApi<{
     status: number;
     savedQuery: SavedQuery;
-  }>(`/saved-queries/${blockHasSavedQuery ? block.savedQueryId : ""}`, {
+  }>(`/saved-queries/${actualSavedQueryId || ""}`, {
     shouldRun: shouldFetchSavedQuery,
   });
 
@@ -246,10 +263,10 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     objectProps = { ...objectProps, metrics: blockMetrics };
   }
 
-  const blockSavedQuery = blockHasSavedQuery
-    ? (savedQueriesMap.get(block.savedQueryId) ?? savedQueryData?.savedQuery)
+  const blockSavedQuery = actualSavedQueryId
+    ? (savedQueriesMap.get(actualSavedQueryId) ?? savedQueryData?.savedQuery)
     : undefined;
-  if (blockHasSavedQuery) {
+  if (actualSavedQueryId && blockSavedQuery) {
     objectProps = {
       ...objectProps,
       savedQuery: blockSavedQuery,
@@ -310,6 +327,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         : isSqlExplorerWithBlockConfig(block)
           ? !block.blockConfig || block.blockConfig.length === 0
           : true)) ||
+    (block.type === "data-visualization" &&
+      block.dataSourceConfig?.dataType === "sql" &&
+      (!dataVisualizationSavedQueryId ||
+        dataVisualizationSavedQueryId.length === 0 ||
+        !blockSavedQuery)) ||
     (blockHasFactMetric &&
       (block.factMetricId.length === 0 || !blockFactMetric)) ||
     (blockHasMetricAnalysis &&
@@ -543,6 +565,10 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       metricAnalysisLoading ||
       dashboardContextLoading ||
       (blockHasSavedQuery && savedQueryLoading) ||
+      (block.type === "data-visualization" &&
+        block.dataSourceConfig?.dataType === "sql" &&
+        dataVisualizationSavedQueryId &&
+        savedQueryLoading) ||
       (blockHasMetricAnalysis && metricAnalysisLoading) ? (
         <BlockLoadingSnapshot />
       ) : blockNeedsConfiguration ? (
