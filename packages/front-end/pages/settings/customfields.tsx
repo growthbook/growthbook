@@ -16,7 +16,6 @@ const CustomFieldsPage = (): React.ReactElement => {
                   experiments and feature flags that can be required or
                   optional."
           commercialFeature="custom-metadata"
-          reason="Custom Fields landing page no access"
           learnMoreLink="https://docs.growthbook.io/using/growthbook-best-practices#custom-fields"
         />
       </div>

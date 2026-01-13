@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union, List
+from dataclasses import replace
+from typing import Optional, Union, List, Tuple
 
 import numpy as np
 import scipy.stats
@@ -7,7 +8,7 @@ from pydantic.dataclasses import dataclass
 from gbstats.utils import variance_of_ratios
 
 
-@dataclass
+@dataclass(frozen=True)
 class Statistic(ABC):
     n: int
 
@@ -39,7 +40,7 @@ class Statistic(ABC):
         return self.variance <= 0.0
 
 
-@dataclass
+@dataclass(frozen=True)
 class SampleMeanStatistic(Statistic):
     sum: float
     sum_squares: float
@@ -57,8 +58,10 @@ class SampleMeanStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        if not isinstance(other, SampleMeanStatistic):
-            raise TypeError("Can add only another SampleMeanStatistic instance")
+        if not isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]):
+            raise TypeError(
+                "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+            )
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -66,7 +69,7 @@ class SampleMeanStatistic(Statistic):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProportionStatistic(Statistic):
     sum: float
 
@@ -85,8 +88,11 @@ class ProportionStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        if not isinstance(other, ProportionStatistic):
-            raise TypeError("Can add only another ProportionStatistic instance")
+        if not isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]):
+            raise TypeError(
+                "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+            )
+
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -94,7 +100,7 @@ class ProportionStatistic(Statistic):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class RatioStatistic(Statistic):
     m_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic: Union[SampleMeanStatistic, ProportionStatistic]
@@ -126,20 +132,46 @@ class RatioStatistic(Statistic):
 
     @property
     def covariance(self):
-        if self.n <= 1:
-            return 0
-        return (
-            self.m_d_sum_of_products
-            - self.m_statistic.sum * self.d_statistic.sum / self.n
-        ) / (self.n - 1)
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.m_statistic,
+            stat_b=self.d_statistic,
+            sum_of_products=self.m_d_sum_of_products,
+        )
+
+    def __add__(self, other):
+        if not isinstance(other, RatioStatistic):
+            raise TypeError("Can add only another RatioStatistic instance")
+        return RatioStatistic(
+            n=self.n + other.n,
+            m_statistic=self.m_statistic + other.m_statistic,
+            d_statistic=self.d_statistic + other.d_statistic,
+            m_d_sum_of_products=self.m_d_sum_of_products + other.m_d_sum_of_products,
+        )
 
 
-@dataclass
+@dataclass(frozen=True)
 class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     post_pre_sum_of_products: float
     theta: Optional[float]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.post_statistic, type(self.pre_statistic)):
+            raise TypeError("post_statistic and pre_statistic must be of the same type")
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedStatistic):
+            raise TypeError("Can add only another RegressionAdjustedStatistic instance")
+        return RegressionAdjustedStatistic(
+            n=self.n + other.n,
+            post_statistic=self.post_statistic + other.post_statistic,
+            pre_statistic=self.pre_statistic + other.pre_statistic,
+            post_pre_sum_of_products=self.post_pre_sum_of_products
+            + other.post_pre_sum_of_products,
+            theta=None,
+        )
 
     @property
     def mean(self) -> float:
@@ -173,12 +205,30 @@ class RegressionAdjustedStatistic(Statistic):
 
     @property
     def covariance(self) -> float:
-        if self.n <= 1:
-            return 0
-        return (
-            self.post_pre_sum_of_products
-            - self.post_statistic.sum * self.pre_statistic.sum / self.n
-        ) / (self.n - 1)
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.post_statistic,
+            stat_b=self.pre_statistic,
+            sum_of_products=self.post_pre_sum_of_products,
+        )
+
+
+def compute_covariance(
+    n: int,
+    stat_a: Union[SampleMeanStatistic, ProportionStatistic],
+    stat_b: Union[SampleMeanStatistic, ProportionStatistic],
+    sum_of_products: float,
+) -> float:
+
+    if n <= 1:
+        return 0
+
+    if isinstance(stat_a, ProportionStatistic) and isinstance(
+        stat_b, ProportionStatistic
+    ):
+        return sum_of_products / n - stat_a.sum * stat_b.sum / n**2
+    else:
+        return (sum_of_products - stat_a.sum * stat_b.sum / n) / (n - 1)
 
 
 def compute_theta(
@@ -221,7 +271,253 @@ def create_joint_statistic(
     )
 
 
-@dataclass
+@dataclass(frozen=True)
+class RegressionAdjustedRatioStatistic(Statistic):
+    m_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
+    d_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
+    m_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
+    d_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
+    m_post_m_pre_sum_of_products: float
+    d_post_d_pre_sum_of_products: float
+    m_pre_d_pre_sum_of_products: float
+    m_post_d_post_sum_of_products: float
+    m_post_d_pre_sum_of_products: float
+    m_pre_d_post_sum_of_products: float
+    theta: Optional[float]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.m_statistic_post, type(self.m_statistic_pre)):
+            raise TypeError(
+                "m_statistic_post and m_statistic_pre must be of the same type"
+            )
+        if not isinstance(self.d_statistic_post, type(self.d_statistic_pre)):
+            raise TypeError(
+                "d_statistic_post and d_statistic_pre must be of the same type"
+            )
+
+    def __add__(self, other):
+        if not isinstance(other, RegressionAdjustedRatioStatistic):
+            raise TypeError(
+                "Can add only another RegressionAdjustedRatioStatistic instance"
+            )
+        return RegressionAdjustedRatioStatistic(
+            n=self.n + other.n,
+            m_statistic_post=self.m_statistic_post + other.m_statistic_post,
+            d_statistic_post=self.d_statistic_post + other.d_statistic_post,
+            m_statistic_pre=self.m_statistic_pre + other.m_statistic_pre,
+            d_statistic_pre=self.d_statistic_pre + other.d_statistic_pre,
+            m_post_m_pre_sum_of_products=self.m_post_m_pre_sum_of_products
+            + other.m_post_m_pre_sum_of_products,
+            d_post_d_pre_sum_of_products=self.d_post_d_pre_sum_of_products
+            + other.d_post_d_pre_sum_of_products,
+            m_pre_d_pre_sum_of_products=self.m_pre_d_pre_sum_of_products
+            + other.m_pre_d_pre_sum_of_products,
+            m_post_d_post_sum_of_products=self.m_post_d_post_sum_of_products
+            + other.m_post_d_post_sum_of_products,
+            m_post_d_pre_sum_of_products=self.m_post_d_pre_sum_of_products
+            + other.m_post_d_pre_sum_of_products,
+            m_pre_d_post_sum_of_products=self.m_pre_d_post_sum_of_products
+            + other.m_pre_d_post_sum_of_products,
+            theta=None,
+        )
+
+    @property
+    def mean(self) -> float:
+        if self.d_statistic_post.sum == 0 or self.d_statistic_pre.sum == 0:
+            return 0
+        theta = self.theta if self.theta else 0
+        return self.mean_post - theta * self.mean_pre
+
+    @property
+    def mean_post(self) -> float:
+        if self.d_statistic_post.sum == 0:
+            return 0
+        return self.m_statistic_post.sum / self.d_statistic_post.sum
+
+    @property
+    def mean_pre(self) -> float:
+        if self.d_statistic_pre.sum == 0:
+            return 0
+        return self.m_statistic_pre.sum / self.d_statistic_pre.sum
+
+    @property
+    def unadjusted_mean(self) -> float:
+        """
+        Return the mean that has no regression adjustments.
+        Must be over-ridden if regular `mean` function is adjusted,
+        as it is for RegressionAdjustedStatistic
+        """
+        return self.mean_post
+
+    @property
+    def sum(self):
+        raise NotImplementedError(
+            "RatioStatistic does not have a unique `sum` property"
+        )
+
+    @property
+    def variance(self) -> float:
+        return self.nabla.T.dot(self.lambda_matrix).dot(self.nabla)
+
+    @property
+    def var_pre(self) -> float:
+        return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 2:4]).dot(self.nabla[2:4])
+
+    @property
+    def covariance(self) -> float:
+        return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 0:2]).dot(self.nabla[0:2])
+
+    @property
+    def cov_m_pre_d_pre(self) -> float:
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.m_statistic_pre,
+            stat_b=self.d_statistic_pre,
+            sum_of_products=self.m_pre_d_pre_sum_of_products,
+        )
+
+    @property
+    def cov_m_post_d_post(self) -> float:
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.m_statistic_post,
+            stat_b=self.d_statistic_post,
+            sum_of_products=self.m_post_d_post_sum_of_products,
+        )
+
+    @property
+    def cov_m_post_m_pre(self) -> float:
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.m_statistic_post,
+            stat_b=self.m_statistic_pre,
+            sum_of_products=self.m_post_m_pre_sum_of_products,
+        )
+
+    @property
+    def cov_d_post_d_pre(self) -> float:
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.d_statistic_post,
+            stat_b=self.d_statistic_pre,
+            sum_of_products=self.d_post_d_pre_sum_of_products,
+        )
+
+    @property
+    def cov_m_post_d_pre(self) -> float:
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.m_statistic_post,
+            stat_b=self.d_statistic_pre,
+            sum_of_products=self.m_post_d_pre_sum_of_products,
+        )
+
+    @property
+    def cov_d_post_m_pre(self) -> float:
+        return compute_covariance(
+            n=self.n,
+            stat_a=self.d_statistic_post,
+            stat_b=self.m_statistic_pre,
+            sum_of_products=self.m_pre_d_post_sum_of_products,
+        )
+
+    @property
+    def betahat(self) -> np.ndarray:
+        return np.array(
+            [self.mean_m_post, self.mean_d_post, self.mean_m_pre, self.mean_d_pre]
+        )
+
+    @property
+    def lambda_matrix(self) -> np.ndarray:
+        return np.array(
+            [
+                [
+                    self.var_m_post,
+                    self.cov_m_post_d_post,
+                    self.cov_m_post_m_pre,
+                    self.cov_m_post_d_pre,
+                ],
+                [
+                    self.cov_m_post_d_post,
+                    self.var_d_post,
+                    self.cov_d_post_m_pre,
+                    self.cov_d_post_d_pre,
+                ],
+                [
+                    self.cov_m_post_m_pre,
+                    self.cov_d_post_m_pre,
+                    self.var_m_pre,
+                    self.cov_m_pre_d_pre,
+                ],
+                [
+                    self.cov_m_post_d_pre,
+                    self.cov_d_post_d_pre,
+                    self.cov_m_pre_d_pre,
+                    self.var_d_pre,
+                ],
+            ]
+        )
+
+    # vector of partial derivatives for the absolute case
+    @property
+    def nabla(self) -> np.ndarray:
+        theta = self.theta if self.theta else 0
+        if self.betahat[1] == 0 or self.betahat[3] == 0:
+            return np.zeros((4,))
+        return np.array(
+            [
+                1 / self.betahat[1],
+                -self.betahat[0] / self.betahat[1] ** 2,
+                -theta / self.betahat[3],
+                theta * self.betahat[2] / self.betahat[3] ** 2,
+            ]
+        )
+
+    @property
+    def mean_m_post(self) -> float:
+        return self.m_statistic_post.mean
+
+    @property
+    def mean_m_pre(self) -> float:
+        return self.m_statistic_pre.mean
+
+    @property
+    def mean_d_post(self) -> float:
+        return self.d_statistic_post.mean
+
+    @property
+    def mean_d_pre(self) -> float:
+        return self.d_statistic_pre.mean
+
+    @property
+    def var_m_post(self) -> float:
+        return self.m_statistic_post.variance
+
+    @property
+    def var_m_pre(self) -> float:
+        return self.m_statistic_pre.variance
+
+    @property
+    def var_d_post(self) -> float:
+        return self.d_statistic_post.variance
+
+    @property
+    def var_d_pre(self) -> float:
+        return self.d_statistic_pre.variance
+
+
+def compute_theta_regression_adjusted_ratio(
+    a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
+) -> float:
+    # set theta equal to 1, so the partial derivatives are unaffected by theta
+    a_one = replace(a, theta=1)
+    b_one = replace(b, theta=1)
+    if a_one.var_pre + b_one.var_pre == 0:
+        return 0
+    return -(a_one.covariance + b_one.covariance) / (a_one.var_pre + b_one.var_pre)
+
+
+@dataclass(frozen=True)
 class QuantileStatistic(Statistic):
     n: int  # number of events here
     n_star: int  # sample size used when evaluating quantile_lower and quantile_upper
@@ -263,7 +559,7 @@ class QuantileStatistic(Statistic):
             return max(self.variance_init, float(1e-5))
 
 
-@dataclass
+@dataclass(frozen=True)
 class QuantileClusteredStatistic(QuantileStatistic):
     main_sum: float  # numerator sum
     main_sum_squares: float
@@ -305,9 +601,7 @@ class QuantileClusteredStatistic(QuantileStatistic):
             * self.n_clusters
             / (self.n_clusters - 1)
         )
-        num = (
-            sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
-        )
+        num = sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
         den = self.n_clusters * mu_n**2
         return num / den
 
@@ -319,6 +613,15 @@ TestStatistic = Union[
     RatioStatistic,
     QuantileStatistic,
     QuantileClusteredStatistic,
+    RegressionAdjustedRatioStatistic,
+]
+
+SummableStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+    RatioStatistic,
+    RegressionAdjustedRatioStatistic,
 ]
 
 BanditStatistic = Union[
@@ -351,3 +654,46 @@ class BanditPeriodDataRatio:
 class BanditPeriodDataCuped:
     stats: List[RegressionAdjustedStatistic]
     weights: List[float]
+
+
+def create_theta_adjusted_statistics(
+    stat_a: TestStatistic, stat_b: TestStatistic
+) -> Tuple[TestStatistic, TestStatistic]:
+    if (
+        isinstance(stat_b, RegressionAdjustedStatistic)
+        and isinstance(stat_a, RegressionAdjustedStatistic)
+        and (stat_a.theta is None or stat_b.theta is None)
+    ):
+        theta = compute_theta(stat_a, stat_b)
+        if theta == 0:
+            # revert to non-RA under the hood if no variance in a time period
+            stat_a = stat_a.post_statistic
+            stat_b = stat_b.post_statistic
+        else:
+            # override statistic with theta initialized
+            stat_a = replace(stat_a, theta=theta)
+            stat_b = replace(stat_b, theta=theta)
+    elif (
+        isinstance(stat_b, RegressionAdjustedRatioStatistic)
+        and isinstance(stat_a, RegressionAdjustedRatioStatistic)
+        and (stat_a.theta is None or stat_b.theta is None)
+    ):
+        theta = compute_theta_regression_adjusted_ratio(stat_a, stat_b)
+        if abs(theta) < 1e-8:
+            # revert to non-RA under the hood if no variance in a time period
+            stat_a = RatioStatistic(
+                n=stat_a.n,
+                m_statistic=stat_a.m_statistic_post,
+                d_statistic=stat_a.d_statistic_post,
+                m_d_sum_of_products=stat_a.m_post_d_post_sum_of_products,
+            )
+            stat_b = RatioStatistic(
+                n=stat_b.n,
+                m_statistic=stat_b.m_statistic_post,
+                d_statistic=stat_b.d_statistic_post,
+                m_d_sum_of_products=stat_b.m_post_d_post_sum_of_products,
+            )
+        else:
+            stat_a = replace(stat_a, theta=theta)
+            stat_b = replace(stat_b, theta=theta)
+    return stat_a, stat_b

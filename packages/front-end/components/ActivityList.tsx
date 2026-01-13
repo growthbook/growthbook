@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { AuditInterface } from "back-end/types/audit";
+import { AuditInterface } from "shared/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -64,7 +64,8 @@ const ActivityList: FC<{
                     <div className="mb-1">
                       <strong>
                         {("name" in event.user && event.user.name) ||
-                          ("apiKey" in event.user && "API Key")}
+                          ("apiKey" in event.user && "API Key") ||
+                          ("system" in event.user && "System")}
                       </strong>{" "}
                       {eventActionMapping[event.event] || "modified"}{" "}
                       <strong>

@@ -8,12 +8,16 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink';
 import Pill from '@site/src/components/Pill';
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
-# Lambda@Edge Edge App & SDK <Pill>alpha</Pill>
+# Lambda@Edge Edge App & SDK <Pill>beta</Pill>
 
-:::caution alpha
+<SdkResources sdk="edgeLambda" />
 
-Our Lambda@Edge implementation is in **alpha**. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-proxy/issues).
+:::caution Beta
+
+Our Lambda@Edge implementation is in **beta**. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-proxy/issues).
 
 :::
 
@@ -22,7 +26,6 @@ Our Lambda@Edge implementation is in **alpha**. If you experience any issues, le
 GrowthBook currently supports two levels of integration with most edge workers, including Lambda@Edge:
 
 1. Our turnkey Edge App
-
    - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
    - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
    - Perform custom feature flagging and experimentation logic.
@@ -37,7 +40,7 @@ GrowthBook currently supports two levels of integration with most edge workers, 
 
 ## Worker Configuration
 
-:::tip
+:::tip Get up to speed with Lambda@Edge
 
 This tutorial assumes some familiarity with building and deploying AWS Lambda@Edge applications. You can get up to speed by following the AWS [Tutorial: Create a basic Lambda@Edge function <ExternalLink />](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html) guide.
 
@@ -55,7 +58,11 @@ Our Edge App runs as a smart proxy layer between your application and your end u
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` to "edge" or "everywhere".
+
+Additionally if your redirect is cross-domain (e.g. redirection from "public.mysite.io" to "newsite.io"), you must also set `RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS`.
+
+See [environment variables](#environment-variables) for more information.
 
 :::
 
@@ -278,7 +285,7 @@ You have the option to manually persist this cookie at any time, for example whe
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
-:::note
+:::note Sticky Bucketing and consent
 
 If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
 
@@ -378,3 +385,7 @@ For key-val stored payloads (1), we eliminate network requests from edge to Grow
 5. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="edgeLambda" />

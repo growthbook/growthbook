@@ -3,12 +3,13 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
+import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -31,8 +32,9 @@ import SavedGroupTargetingField, {
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
-import RadioGroup, { RadioOptions } from "@/components/Radix/RadioGroup";
-import Checkbox from "@/components/Radix/Checkbox";
+import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -77,15 +79,13 @@ export default function EditTargetingModal({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    experiment.project
+    experiment.project,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
@@ -176,7 +176,10 @@ export default function EditTargetingModal({
       body: JSON.stringify(value),
     });
     mutate();
-    track("edit-experiment-targeting");
+    track("edit-experiment-targeting", {
+      type: changeType,
+      action: releasePlan,
+    });
   });
 
   if (safeToEdit) {
@@ -244,30 +247,36 @@ export default function EditTargetingModal({
       }}
       secondaryCTA={
         step === lastStepNumber ? (
-          <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
-            <div className="d-flex m-0 px-2 py-1 alert alert-warning align-items-center">
-              <div>
-                <strong>Warning:</strong> Changes made will apply to linked
-                Feature Flags, Visual Changes, and URL Redirects immediately
-                upon publishing
-              </div>
-              <label
-                htmlFor="confirm-changes"
-                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-1 d-flex align-items-center justify-content-md-center"
-                style={{ height: 35 }}
-              >
-                <strong className="mr-2 user-select-none text-dark">
-                  Confirm
-                </strong>
-                <input
-                  id="confirm-changes"
-                  type="checkbox"
-                  checked={changesConfirmed}
-                  onChange={(e) => setChangesConfirmed(e.target.checked)}
-                />
-              </label>
-            </div>
-          </div>
+          <Box style={{ minWidth: 520 }}>
+            <Callout status="warning" contentsAs="div">
+              <Flex align="center" justify="between" gap="3">
+                <Text>
+                  <Text weight="bold">Warning:</Text> Changes made will apply to
+                  linked Feature Flags, Visual Changes, and URL Redirects
+                  immediately upon publishing
+                </Text>
+                <Box>
+                  <label
+                    htmlFor="confirm-changes"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Text weight="bold">Confirm</Text>
+                    <input
+                      id="confirm-changes"
+                      type="checkbox"
+                      checked={changesConfirmed}
+                      onChange={(e) => setChangesConfirmed(e.target.checked)}
+                    />
+                  </label>
+                </Box>
+              </Flex>
+            </Callout>
+          </Box>
         ) : undefined
       }
     >
@@ -497,13 +506,11 @@ function TargetingForm({
 
       {(!hasLinkedChanges || safeToEdit) && <hr className="my-4" />}
       {!hasLinkedChanges && (
-        <>
-          <div className="alert alert-info">
-            Changes made below are only metadata changes and will have no impact
-            on actual experiment delivery unless you link a GrowthBook-managed
-            Linked Feature or Visual Change to this experiment.
-          </div>
-        </>
+        <Callout status="info" mb="4">
+          Changes made below are only metadata changes and will have no impact
+          on actual experiment delivery unless you link a GrowthBook-managed
+          Linked Feature or Visual Change to this experiment.
+        </Callout>
       )}
 
       {["targeting", "advanced"].includes(changeType) && (
@@ -574,8 +581,8 @@ function TargetingForm({
             changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
-              ? "Variation Weights"
-              : "Traffic Percentage & Variation Weights"
+                ? "Variation Weights"
+                : "Traffic Percentage & Variation Weights"
           }
           startEditingSplits={true}
         />

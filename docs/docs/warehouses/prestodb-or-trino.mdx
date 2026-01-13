@@ -5,17 +5,17 @@ sidebar_label: Prestodb or Trino
 slug: prestodb-or-trino
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 When you create a connection from GrowthBook to Prestodb or Trino, you there are a few connection options.
 
-<img
-  src="/images/integrations/presto/presto-trino-connection-settings.png"
-  alt="Connecting to Prestodb or Trino in GrowthBook"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+![Connecting to Prestodb or Trino in GrowthBook](/images/integrations/presto/presto-trino-connection-settings.png)
+</MaxWidthImage>
 
-:::note
+:::note GrowthBook uses the presto-client-node library to connect to Prestodb or Trino.
 
-GrowthBook uses the presto-client-node library to connect to Prestodb or Trino. You can find more information about the library [here](https://www.npmjs.com/package/presto-client).
+Find more information about the library [here](https://www.npmjs.com/package/presto-client).
 
 :::
 

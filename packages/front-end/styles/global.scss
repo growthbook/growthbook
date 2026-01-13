@@ -1,4 +1,5 @@
 @use "colors";
+@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -17,6 +18,9 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
+  &.no-scroll {
+    overflow: hidden;
+  }
 }
 
 .text-main {
@@ -212,7 +216,7 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
-.dark .btn-outline-primary {
+.dark-theme .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple-light,
     #fff,
@@ -266,12 +270,6 @@ pre {
   color: #8fb3a8;
   margin-left: 8px;
   cursor: not-allowed !important;
-  .toggle-switch.teal + label {
-    background: #cfe6de;
-  }
-  .toggle-switch.teal input:checked + label {
-    background: #cfe6de;
-  }
 }
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
@@ -312,6 +310,10 @@ pre {
   }
 }
 
+.opacity50 {
+  opacity: 0.5;
+}
+
 .experiment-row-tooltip-wrapper {
   z-index: 820;
   &.tooltip-animate-appear .experiment-row-tooltip {
@@ -335,11 +337,7 @@ pre {
   font-size: 12px;
   color: var(--text-color-table);
   pointer-events: all;
-  transition: 250ms all;
-
-  .opacity50 {
-    opacity: 0.5;
-  }
+  transition: 150ms all;
 
   .arrow {
     position: absolute;
@@ -386,7 +384,7 @@ pre {
       font-size: 14px;
       font-weight: bold;
       &.won {
-        background-color: #09ac17;
+        background-color: #09ac68;
         color: #fff;
       }
       &.lost {
@@ -548,15 +546,17 @@ pre {
 
 .main.experiment,
 .main.bandit,
+.main.holdout,
 .public.experiment,
-.public.bandit {
+.public.bandit,
+.public.holdout {
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
     }
   }
   .experiment-tabs {
-    background-color: var(--background-color);
+    background-color: var(--color-background);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
     // also, make sure shared reports & shared experiments look good
     top: 55px;
@@ -603,9 +603,11 @@ pre {
     }
     &.pinned {
       position: sticky;
-      z-index: 830;
+      z-index: 930;
       // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
@@ -614,8 +616,28 @@ pre {
       }
     }
   }
+  .analysis-settings-top {
+    background-color: var(--color-panel-translucent);
+  }
 }
+.tabwrap.sticky {
+  position: sticky;
+  z-index: 830;
 
+  &.pinned {
+    background-color: var(--color-surface-solid);
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
+    .header-tabs .tab-wrapper {
+      overflow: hidden;
+    }
+    .rt-BaseTabList {
+      box-shadow: none !important;
+    }
+  }
+}
 .analysis-settings-bar {
   .col,
   .col-auto {
@@ -623,7 +645,7 @@ pre {
   }
 }
 
-.dimension-header-label {
+.slice-header-label {
   margin-top: 30px;
   padding: 0 10px;
 }
@@ -638,13 +660,40 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    tr:not(.noborder) {
-      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+    &.slice-row {
+      background-color: var(--slate-a2);
+    }
+    tr {
+      &:not(.slice-header-row) {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+      }
 
-      &:not(.results-label-row) {
-        td:not(.graph-cell):not(:last-child) {
-          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+      &.slice-collapsed {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.last-slice-header {
+          box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
         }
+      }
+      &.slice-expanded {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &.last-before-slice-header {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+      }
+
+      &:not(.results-label-row):not(.slice-header-row) {
+        td:not(.graph-cell):not(:last-child) {
+          box-shadow: rgba(102, 102, 102, 0.05) -1px 0 inset;
+        }
+      }
+
+      td:first-of-type {
+        padding-left: var(--space-1);
       }
     }
   }
@@ -668,9 +717,9 @@ pre {
           position: static;
         }
       }
-      background-color: var(--surface-background-color);
+      background-color: var(--color-panel-solid);
       z-index: 800;
-      box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      box-shadow: 0 -1px 0 var(--slate-9) inset;
 
       &.graph-cell {
         z-index: 801;
@@ -682,7 +731,7 @@ pre {
       }
 
       &.label {
-        color: var(--text-link-hover-color);
+        color: var(--color-text-mid);
         font-size: 13px;
         padding-bottom: 5px;
       }
@@ -711,10 +760,9 @@ pre {
     font-size: 14px;
   }
   .result-number-sub {
-    font-size: 12px;
-    font-style: italic;
-    line-height: 14px;
-    margin-top: 3px;
+    font-size: 11px;
+    line-height: 13px;
+    margin-top: 2px;
   }
   .plusminus {
     font-size: 12px;
@@ -739,25 +787,25 @@ pre {
     }
   }
   .won {
-    color: #09ac17;
+    color: var(--jade-11);
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-success-color);
-      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+      background: var(--jade-a3); //rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
-    color: #ce3729;
+    color: var(--red-11); //#bb1f37;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-danger-color);
-      background: linear-gradient(-40deg, #ce372930, #ce372916);
+      background: var(--red-a3); //#ce372930;
     }
   }
   //&.draw {
@@ -787,6 +835,11 @@ main.main {
   &.public.experiment {
     .experiment-results th.axis-col {
       top: 95px;
+    }
+  }
+  .select-dropdown-underline {
+    .gb-select__control {
+      background-color: inherit !important;
     }
   }
 }
@@ -890,14 +943,16 @@ main.main {
     }
   }
 }
-.dark .bg-white textarea.form-control,
-.dark .tab-content input.form-control {
+.dark-theme .bg-white textarea.form-control,
+.dark-theme .tab-content input.form-control {
   background-color: var(--black-a3);
 }
 
 .hover-show {
   .show-target {
-    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    &:not(.instant) {
+      transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    }
     opacity: 0;
   }
   &:hover {
@@ -910,7 +965,7 @@ main.main {
   opacity: 0.5;
   transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
   &:hover {
-    opacity: 1;
+    opacity: 1 !important;
   }
 }
 .hover-underline {
@@ -930,7 +985,7 @@ main.main {
 
 .link-purple {
   color: var(--violet-a11);
-  text-decoration: none;
+  text-decoration: var(--violet-a5);
   &:hover {
     color: var(--violet-a10);
     text-decoration: underline;
@@ -939,7 +994,7 @@ main.main {
 
 .modal {
   .modal-header {
-    background-color: var(--surface-background-color-alt);
+    background-color: var(--slate-a2);
   }
   .rbt-token {
     background-color: rgba(colors.$highlight-purple, 0.1);
@@ -958,7 +1013,7 @@ main.main {
   margin: 0 auto;
 }
 .gbtable {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid); //var(--surface-background-color);
   margin-bottom: 0;
   thead {
     th {
@@ -976,9 +1031,54 @@ main.main {
         font-size: 13px;
       }
     }
+    &.sticky-top th {
+      background-color: #fdfefe;
+    }
   }
   td {
     vertical-align: middle;
+  }
+
+  .dark-theme &.decision-criteria-table {
+    tbody {
+      tr {
+        background-color: #1b2339;
+        td {
+          color: var(--text-color-main);
+        }
+      }
+    }
+    .hover-highlight:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
+}
+.dark-theme .gbtable {
+  thead {
+    th {
+      background-color: #262d42;
+    }
+  }
+  td {
+    vertical-align: middle;
+  }
+}
+
+.query-table {
+  thead {
+    th {
+      background-color: var(--slate-2);
+    }
+  }
+}
+
+.dark-theme .query-table {
+  thead {
+    th {
+      // hard coded to match slate-a2 on the background color
+      // opaque to prevent table header from showing through
+      background-color: rgba(36, 43, 61, 1);
+    }
   }
 }
 
@@ -1142,7 +1242,7 @@ main.main {
     border-color: var(--border-color-300);
   }
 }
-.dark .buttontabs {
+.dark-theme .buttontabs {
   .nav-button-item {
     &.active {
       color: colors.$highlight-purple-light;
@@ -1157,7 +1257,7 @@ main.main {
   background-color: rgba(255, 255, 255, 1);
   padding: 7px 9px;
 }
-.dark .dropdown-circle {
+.dark-theme .dropdown-circle {
   background-color: rgba(255, 255, 255, 0.1);
 }
 .shiftdown-1 {
@@ -1255,14 +1355,21 @@ main.main {
 
 .box,
 .appbox {
-  background-color: var(--surface-background-color);
-  border: 1px solid var(--border-color-200);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--slate-a3);
   margin-bottom: 1em;
   border-radius: 5px;
-  &.appbox {
+  .appbox {
     overflow-x: auto;
+    border: 1px solid var(--slate-a4);
   }
 
+  &.nobg {
+    background-color: initial;
+    .appbox {
+      background-color: var(--color-panel-solid);
+    }
+  }
   td {
     vertical-align: middle;
   }
@@ -1281,6 +1388,10 @@ main.main {
       opacity: 1;
     }
   }
+}
+.dark-theme .appbox:not(.nobg) .appbox,
+.dark-theme .box:not(.nobg) .appbox {
+  background-color: var(--white-a1);
 }
 
 .appbox--align-top {
@@ -1309,10 +1420,15 @@ main.main {
   opacity: 0.5;
 }
 
+// Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
+.Collapsible__contentInner {
+  border: 1px solid transparent;
+}
+
 .Collapsible__trigger {
   &:hover {
     cursor: pointer;
-    color: var(--text-link-color);
+    //color: var(--text-link-color);
     .hover-label {
       color: var(--text-link-color) !important;
     }
@@ -1374,6 +1490,10 @@ main.main {
   font-size: 13px;
   text-transform: initial;
   font-weight: normal;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -1384,7 +1504,7 @@ main.main {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--surface-background-color);
+      background-color: var(--slate-1);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1394,13 +1514,19 @@ main.main {
   }
 
   .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
+    color: var(--slate-12);
+    background-color: var(--slate-1);
     padding: 15px;
     border-radius: 5px;
 
+    .text-muted {
+      color: var(--slate-a11) !important;
+    }
     *:last-child {
       margin-bottom: 0;
+    }
+    .gbtable {
+      background-color: var(--surface-background-color);
     }
   }
 
@@ -1409,6 +1535,14 @@ main.main {
     color: var(--text-color-premium);
   }
 
+  &.tooltip-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+  &.tooltip-hidden {
+    opacity: 0;
+    visibility: hidden;
+  }
   &[data-popper-placement^="top"] > .arrow {
     bottom: -4px;
     margin-left: -4px;
@@ -1500,7 +1634,7 @@ main.main {
       max-width: 500px;
 
       label {
-        color: var(--form-input-group-color);
+        color: var(--color-text-high);
       }
     }
   }
@@ -1566,82 +1700,6 @@ main.main {
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
     border: 1px inset var(--border-color-300);
-  }
-}
-
-.toggle-switch {
-  display: inline-block;
-  margin-right: 5px;
-  vertical-align: middle;
-  height: 25px;
-  width: 50px;
-  position: relative;
-
-  input[type="checkbox"] {
-    height: 0;
-    width: 0;
-    visibility: hidden;
-  }
-
-  label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    cursor: pointer;
-    text-indent: -9999px;
-    width: 50px;
-    height: 25px;
-    background: var(--form-switch-background);
-    display: block;
-    border-radius: 100px;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  label:after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 21px;
-    height: 21px;
-    background: var(--surface-background-color);
-    border-radius: 90px;
-    transition: 0.3s;
-  }
-
-  input:checked + label:after {
-    left: calc(100% - 2px);
-    transform: translateX(-100%);
-  }
-
-  input:checked + label {
-    background: var(--form-switch-background-active);
-  }
-  &.toggle-featureValue input:checked + label {
-    background: colors.$blue;
-  }
-
-  label:active:after {
-    width: 30px;
-  }
-
-  &.disabled {
-    label {
-      cursor: not-allowed;
-    }
-    label:active:after {
-      width: 21px;
-    }
-  }
-
-  &.teal {
-    label {
-      background: #cfe6de;
-    }
-    input:checked + label {
-      background: colors.$teal;
-    }
   }
 }
 
@@ -1947,9 +2005,10 @@ main.main {
 }
 
 .variation {
-  $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
-    colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
-    colors.$variant-7;
+  $colors:
+    colors.$variant-0, colors.$variant-1, colors.$variant-2, colors.$variant-3,
+    colors.$variant-4, colors.$variant-5, colors.$variant-6, colors.$variant-7,
+    colors.$variant-8;
 
   &.with-variation-label {
     .label {
@@ -1959,15 +2018,16 @@ main.main {
       justify-content: center;
       width: 24px;
       height: 24px;
-      color: colors.$variant-null;
+      line-height: 24px;
+      color: var(--slate-11);
       font-weight: 600;
-      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
+      border: 1.5px solid var(--slate-a11);
       border-radius: 20px;
-      margin-right: 4px;
+      margin-right: var(--space-2);
     }
 
     .name {
-      color: colors.$variant-null;
+      color: var(--slate-11);
       margin-right: 4px;
     }
 
@@ -1976,7 +2036,7 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         .label {
-          border-color: transparentize($color, 0.35);
+          border-color: $color;
           color: $color;
         }
 
@@ -1988,7 +2048,7 @@ main.main {
   }
 
   &.with-variation-border-bottom {
-    border-bottom: 7px solid colors.$variant-null;
+    border-bottom: 7px solid var(--slate-11);
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
@@ -1998,9 +2058,30 @@ main.main {
       }
     }
   }
+  &.with-small-border {
+    border-top: 4px solid var(--slate-11);
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        border-top: 4px solid $color;
+      }
+    }
+  }
+  &.with-variation-color {
+    background-color: var(--slate-11);
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        background-color: $color;
+      }
+    }
+  }
 
   &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 colors.$variant-null inset;
+    box-shadow: -3px 0 0 var(--slate-11) inset;
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
@@ -2307,7 +2388,7 @@ li.metrics a span img {
 .experiment-details,
 .metric {
   .tab-content {
-    background-color: var(--surface-background-color);
+    //background-color: var(--surface-background-color);
     padding: 1rem;
     &:not(.noborder) {
       border: 1px solid var(--border-color-200);
@@ -2624,7 +2705,8 @@ html {
     font-size: 10px;
   }
 }
-.select-dropdown-underline {
+.select-dropdown-underline,
+.select-dropdown-no-underline {
   position: relative !important;
   top: 1px !important;
 
@@ -2635,6 +2717,7 @@ html {
     height: 24px !important;
     min-height: initial !important;
     cursor: pointer !important;
+    background-color: inherit !important;
     .gb-select__value-container {
       position: relative !important;
       top: -1px !important;
@@ -2656,16 +2739,16 @@ html {
       .gb-select__input-container {
         margin: 0 !important;
         padding: 0 !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
         .gb-select__input {
-          max-width: 220px !important;
+          max-width: 250px !important;
         }
       }
       .gb-select__single-value {
         margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
         color: var(--text-dark) !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
       }
     }
     .gb-select__indicators {
@@ -2695,6 +2778,16 @@ html {
     }
   }
 }
+.select-dropdown-no-underline {
+  .gb-select__control {
+    border-bottom: 0 transparent !important;
+
+    &:hover {
+      border-bottom: 0 transparent !important;
+    }
+  }
+}
+
 .phase-selector {
   .gb-select__control {
     background-color: transparent !important;
@@ -2730,13 +2823,9 @@ html {
   position: relative;
   .gb-multi-select__menu-portal {
     position: absolute !important;
-    top: -8px;
-    left: 290px;
-    @media (max-width: 520px) {
-      top: auto;
-      bottom: 0;
-      left: 0;
-    }
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 
@@ -2827,11 +2916,8 @@ html {
     }
   }
   .secondary-box {
-    background: linear-gradient(
-        0deg,
-        rgba(124, 69, 234, 0.06),
-        rgba(124, 69, 234, 0.06)
-      ),
+    background:
+      linear-gradient(0deg, rgba(124, 69, 234, 0.06), rgba(124, 69, 234, 0.06)),
       #ffffff;
     box-shadow: 0px 1px 3px rgba(23, 18, 33, 0.08);
     border-radius: 3px;
@@ -3000,7 +3086,8 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 var(--border-color-300),
+  box-shadow:
+    0 4px 8px 0 var(--border-color-300),
     0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {
@@ -3136,12 +3223,15 @@ td.disabled {
 .form-group.error input[type="text"] {
   border-color: colors.$danger !important;
 }
+.gb-select-wrapper.warning .gb-select__control {
+  border-color: var(--amber-11) !important;
+}
 
 .gb-select--is-disabled,
 .gb-multi-select--is-disabled {
   .gb-select__control,
   .gb-multi-select__control {
-    background-color: var(--disabled-background) !important;
+    background-color: var(--slate-a2) !important;
   }
   .gb-select__single-value,
   .gb-multi-select__single-value {
@@ -3178,7 +3268,8 @@ td.disabled {
 }
 .form-control:disabled {
   cursor: not-allowed;
-  background-color: var(--disabled-background) !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--slate-a3) !important;
 }
 input:disabled {
   cursor: not-allowed;
@@ -3385,10 +3476,11 @@ input:disabled {
 }
 
 .custom-file-label {
-  background-color: unset;
+  background-color: var(--color-surface);
   display: flex;
   align-items: center;
   height: 2.625rem;
+  border-color: var(--border-color-300);
 
   &::after {
     display: flex;
@@ -3416,4 +3508,187 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
+}
+
+// CSS style alternative to <TabsTrigger> for when a custom container is necessary
+.tab-trigger-container {
+  position: relative !important;
+  &.active::before {
+    box-sizing: border-box;
+    content: "";
+    height: 2px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--accent-indicator);
+  }
+}
+
+// Ace Editor theme overrides
+.ace_editor {
+  background-color: var(--color-background) !important;
+}
+.ace_editor .ace_gutter {
+  background: var(--color-panel-solid) !important;
+}
+.ace_editor.ace_autocomplete {
+  width: 500px !important;
+  background-color: var(--color-surface-solid) !important;
+}
+
+/* Radix-style pagination for ReactPaginate */
+.pagination-radix-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0;
+  margin: 0;
+  flex-direction: row;
+}
+.pagination-radix-container li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+.pagination-page {
+  margin: 0;
+}
+.pagination-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-active .pagination-link {
+  background: var(--violet-9);
+  color: white;
+  font-weight: 600;
+}
+.pagination-active .pagination-link:hover {
+  background: var(--violet-10);
+}
+.pagination-arrow-container {
+  margin: 0;
+}
+.pagination-link-arrow {
+  display: flex;
+  align-items: left;
+  justify-content: left;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link-arrow:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-disabled .pagination-link-arrow {
+  color: var(--gray-6);
+  cursor: not-allowed;
+}
+.pagination-disabled .pagination-link-arrow:hover {
+  background: transparent;
+  color: var(--gray-6);
+}
+.pagination-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--gray-9);
+  font-size: 14px;
+}
+.pagination-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-area-radix {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.needs-attentions-table {
+  thead th {
+    font-weight: 600;
+  }
+  tbody td {
+    font-weight: 400;
+  }
+}
+.rounded-table {
+  border-radius: 0.33rem;
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--slate-a6);
+}
+.border-violet {
+  border-color: var(--violet-a7);
+}
+
+.dashboard-disabled {
+  opacity: 50%;
+  pointer-events: none;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.hover-border-violet {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0);
+  border-radius: 2px;
+  &:hover {
+    border-color: var(--violet-11);
+  }
+}
+
+// For absolute or fixed containers that should position themselves after the sidebar
+.sidebarLeft {
+  left: variables.$sidebarwidth;
+}
+// Conditionally add these classes based on the SidebarOpenProvider
+@media (max-width: 1180px) {
+  .sidebarLeftOpen {
+    left: variables.$sidebarwidth !important;
+  }
+  .sidebarLeftClosed {
+    left: 0 !important;
+  }
 }

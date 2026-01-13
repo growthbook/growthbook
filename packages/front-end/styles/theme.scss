@@ -4,7 +4,7 @@
   color-scheme: light;
   --text-color-enterprise: #{colors.$dark-blue};
   --background-color: #{colors.$main-background};
-  --surface-background-color: #{colors.$white};
+  --surface-background-color: #{colors.$white}; //rgba(255, 255, 255, 0.85);
   --surface-background-color-alt: #{darken(colors.$white, 3%)};
   --background-primary-light: #f3eff7;
   --background-highlight: rgba(156, 117, 235, 0.06);
@@ -128,8 +128,11 @@
   color-scheme: dark;
   --text-color-enterprise: #{colors.$white};
   --background-color: #{colors.$main-background-dark};
-  --surface-background-color: #{colors.$surface-background-dark};
-  --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
+  --surface-background-color: #{colors.$surface-background-dark}; //rgba(0, 0, 0, 0.25);
+  --surface-background-color-alt: #{lighten(
+      colors.$surface-background-dark,
+      4%
+    )};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
   --table-row-highlight-background-color: #{lighten(
       colors.$surface-background-dark,
@@ -251,20 +254,16 @@
   --step-color: #baa7ff;
 }
 
-.theme--light,
 .light-theme {
   @include light-theme();
 }
 
-.theme--dark,
 .dark-theme {
   @include dark-theme();
 }
 
 // OS default
-:root:not(.theme--light):not(.theme--dark):not(.dark-theme):not(.light-theme) {
-  @include light-theme();
-
+:root:not(.dark-theme):not(.light-theme) {
   @media (prefers-color-scheme: light) {
     @include light-theme();
   }

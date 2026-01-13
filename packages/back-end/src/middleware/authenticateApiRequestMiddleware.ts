@@ -1,20 +1,17 @@
 import { Request, Response, NextFunction } from "express";
-import { hasPermission } from "shared/permissions";
-import { licenseInit } from "enterprise";
+import { hasPermission, roleToPermissionMap } from "shared/permissions";
+import { EventUserApiKey } from "shared/types/events/event-types";
+import { OrganizationInterface, Permission } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { TeamInterface } from "shared/types/team";
+import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import { getOrganizationById } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
-import { EventUserApiKey } from "back-end/src/events/event-types";
 import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
-import { OrganizationInterface, Permission } from "back-end/types/organization";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "back-end/src/util/organization.util";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
-import { TeamInterface } from "back-end/types/team";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
@@ -25,7 +22,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
   res: Response & { log: Request["log"] },
-  next: NextFunction
+  next: NextFunction,
 ) {
   // Get secret key from Authorization header and store in req
   const authHeader = req.headers.authorization;
@@ -65,7 +62,7 @@ export default function authenticateApiRequestMiddleware(
       }
       if (!secret) {
         throw new Error(
-          "Must use a Secret API Key for this request, SDK Endpoint key given instead."
+          "Must use a Secret API Key for this request, SDK Endpoint key given instead.",
         );
       }
       req.apiKey = id || "";
@@ -82,7 +79,7 @@ export default function authenticateApiRequestMiddleware(
       if (xOrganizationHeader) {
         if (!req.user?.superAdmin) {
           throw new Error(
-            "Only super admins can use the x-organization header"
+            "Only super admins can use the x-organization header",
           );
         } else {
           asOrg = xOrganizationHeader;
@@ -94,11 +91,11 @@ export default function authenticateApiRequestMiddleware(
       if (!org) {
         if (xOrganizationHeader) {
           throw new Error(
-            `Could not find organization from x-organization header: ${xOrganizationHeader}`
+            `Could not find organization from x-organization header: ${xOrganizationHeader}`,
           );
         } else {
           throw new Error(
-            "Could not find organization attached to this API key"
+            "Could not find organization attached to this API key",
           );
         }
       }
@@ -135,7 +132,7 @@ export default function authenticateApiRequestMiddleware(
       req.checkPermissions = (
         permission: Permission,
         project?: string | (string | undefined)[] | undefined,
-        envs?: string[] | Set<string>
+        envs?: string[] | Set<string>,
       ) => {
         let checkProjects: (string | undefined)[];
         if (Array.isArray(project)) {
@@ -187,7 +184,7 @@ function doesUserHavePermission(
   teams: TeamInterface[],
   superAdmin: boolean | undefined,
   project?: string,
-  envs?: string[]
+  envs?: string[],
 ): boolean {
   try {
     const userId = apiKeyPartial.userId;
@@ -199,7 +196,7 @@ function doesUserHavePermission(
     const userPermissions = getUserPermissions(
       { id: userId, superAdmin },
       org,
-      teams
+      teams,
     );
 
     // Check if the user has the permission
@@ -244,7 +241,7 @@ export function verifyApiKeyPermission({
         teams,
         superAdmin,
         project,
-        environments
+        environments,
       )
     ) {
       throw new Error("API key user does not have this level of access");
@@ -258,7 +255,7 @@ export function verifyApiKeyPermission({
     // This will check a valid role is provided.
     const rolePermissions = roleToPermissionMap(
       apiKey.role as string,
-      organization
+      organization,
     );
 
     // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check

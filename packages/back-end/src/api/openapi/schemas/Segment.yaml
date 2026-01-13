@@ -18,12 +18,21 @@ properties:
     type: string
   name:
     type: string
+  description:
+    type: string
   query:
     type: string
   dateCreated:
     type: string
   dateUpdated:
     type: string
+  managedBy:
+    type: string
+    description: Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+      - config
   type:
     enum:
       - SQL
@@ -31,6 +40,10 @@ properties:
   factTableId:
     type: string
   filters:
+    type: array
+    items:
+      type: string
+  projects:
     type: array
     items:
       type: string

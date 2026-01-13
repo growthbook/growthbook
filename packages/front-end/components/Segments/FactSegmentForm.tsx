@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { SegmentInterface } from "back-end/types/segment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { SegmentInterface } from "shared/types/segment";
 import { GBArrowLeft } from "@/components/Icons";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -13,7 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import SelectOwner from "../Owner/SelectOwner";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 type Props = {
   goBack: () => void;
@@ -36,21 +36,36 @@ export default function FactSegmentForm({
     getFactTableById,
     mutateDefinitions,
     projects,
+    project,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
 
+  // If the segment is externally managed, automatically set it as read-only, even if the user has create/update permissions
+  let isReadOnly = !!current?.managedBy;
+
+  // If the segment is not externally managed, check the user's permissions
+  if (isReadOnly === false) {
+    if (current?.id) {
+      // if the current segment has an id, this is an update
+      isReadOnly = !permissionsUtil.canUpdateSegment(current, {});
+    } else {
+      // otherwise, the user is trying to create a new segment
+      isReadOnly = !permissionsUtil.canCreateSegment({ projects: [project] });
+    }
+  }
+
   // Build a list of unique data source ids that have atleast 1 fact table built on it
   const uniqueDatasourcesWithFactTables = Array.from(
-    new Set(factTables.map((ft) => ft.datasource))
+    new Set(factTables.map((ft) => ft.datasource)),
   );
 
   // Filter the list of datasources to only show those that have atleast 1 fact built on it
   const datasourceOptions = filteredDatasources.filter((filteredDs) =>
-    uniqueDatasourcesWithFactTables.includes(filteredDs.id)
+    uniqueDatasourcesWithFactTables.includes(filteredDs.id),
   );
 
   const currentOwner = memberUsernameOptions.find(
-    (member) => member.display === current?.owner
+    (member) => member.display === current?.owner,
   );
 
   const form = useForm({
@@ -87,7 +102,7 @@ export default function FactSegmentForm({
   const projectOptions = useProjectOptions(
     (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
     form.watch("projects") || [],
-    filteredProjects.length ? filteredProjects : undefined
+    filteredProjects.length ? filteredProjects : undefined,
   );
 
   return (
@@ -96,6 +111,7 @@ export default function FactSegmentForm({
       close={close}
       open={true}
       size={"lg"}
+      ctaEnabled={!isReadOnly}
       cta={current?.factTableId ? "Update Segment" : "Create Segment"}
       header={current?.factTableId ? "Edit Segment" : "Create Segment"}
       submit={form.handleSubmit(async (value) => {
@@ -108,7 +124,7 @@ export default function FactSegmentForm({
           !value.projects.length
         ) {
           throw new Error(
-            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
           );
         }
 
@@ -121,7 +137,7 @@ export default function FactSegmentForm({
           current?.projects?.length
         ) {
           throw new Error(
-            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
           );
         }
 
@@ -153,13 +169,24 @@ export default function FactSegmentForm({
             </a>
           </div>
         ) : null}
-        <Field label="Name" required {...form.register("name")} />
+        <Field
+          label="Name"
+          required
+          {...form.register("name")}
+          disabled={isReadOnly}
+        />
         <SelectOwner
           resourceType="factSegment"
           value={form.watch("owner")}
+          disabled={isReadOnly}
           onChange={(v) => form.setValue("owner", v)}
         />
-        <Field label="Description" {...form.register("description")} textarea />
+        <Field
+          label="Description"
+          {...form.register("description")}
+          textarea
+          disabled={isReadOnly}
+        />
         <SelectField
           label="Data Source"
           required
@@ -176,7 +203,7 @@ export default function FactSegmentForm({
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
           className="portal-overflow-ellipsis"
-          disabled={!!current?.id}
+          disabled={!!current?.id || isReadOnly}
           helpText="This list has been filtered to only show data sources that have at least one Fact Table built on top of it"
         />
         {projects?.length > 0 && (
@@ -195,6 +222,7 @@ export default function FactSegmentForm({
               placeholder="All projects"
               value={form.watch("projects")}
               options={projectOptions}
+              disabled={isReadOnly}
               onChange={(v) => form.setValue("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Assign this segment to specific projects"
@@ -206,6 +234,7 @@ export default function FactSegmentForm({
             <div className="col-auto">
               <SelectField
                 label={"Fact Table"}
+                disabled={isReadOnly}
                 value={form.watch("factTableId")}
                 onChange={(factTableId) =>
                   form.setValue("factTableId", factTableId)
@@ -250,11 +279,12 @@ export default function FactSegmentForm({
                     label: f.name,
                     value: f.id,
                   }))}
+                  disabled={isReadOnly}
                   placeholder="All Rows"
                   closeMenuOnSelect={true}
                   formatOptionLabel={({ value, label }) => {
                     const filter = factTable?.filters.find(
-                      (f) => f.id === value
+                      (f) => f.id === value,
                     );
                     if (filter) {
                       return (
@@ -277,6 +307,7 @@ export default function FactSegmentForm({
         <SelectField
           label="Identifier"
           required
+          disabled={isReadOnly}
           value={form.watch("userIdType")}
           onChange={(v) => form.setValue("userIdType", v)}
           placeholder="Select an identifier"

@@ -1,0 +1,17 @@
+{
+  "versions": [
+    {
+      "version": "0.1.0",
+      "capabilities": [
+        "savedGroupReferences",
+        "redirects",
+        "prerequisites",
+        "stickyBucketing",
+        "semverTargeting",
+        "bucketingV2",
+        "encryption",
+        "looseUnmarshalling"
+      ]
+    }
+  ]
+}

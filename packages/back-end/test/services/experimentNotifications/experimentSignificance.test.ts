@@ -1,4 +1,8 @@
 import { Promise as BluebirdPromise } from "bluebird";
+import { ensureAndReturn } from "shared/util";
+import { Permissions } from "shared/permissions";
+import { ReqContext } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
 import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
@@ -9,7 +13,6 @@ import {
 } from "back-end/src/services/organizations";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
-import { ensureAndReturn } from "back-end/src/util/types";
 import {
   metrics,
   snapshots,
@@ -100,11 +103,31 @@ const testCases = [
 ];
 
 describe("Experiment Significance notifications", () => {
-  const { isReady } = setupApp();
+  const { isReady, setReqContext } = setupApp();
 
   beforeAll(async () => {
     await isReady;
-    await metrics.map(insertMetric);
+
+    const globalContext = {
+      org: { id: "org1" },
+      permissions: new Permissions({
+        global: {
+          permissions: { createMetrics: true },
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      }),
+    } as ReqContext;
+
+    setReqContext(globalContext);
+
+    await Promise.all(
+      metrics.map(async (metric) => {
+        await insertMetric(globalContext, metric as unknown as MetricInterface);
+      }),
+    );
+
     await experiments.map(async (exp) => {
       await ExperimentModel.create(exp);
     });
@@ -116,15 +139,15 @@ describe("Experiment Significance notifications", () => {
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
         getLatestSnapshot.mockReturnValue(beforeSnapshot);
         getConfidenceLevelsForOrg.mockReturnValue(
-          params.getConfidenceLevelsForOrg
+          params.getConfidenceLevelsForOrg,
         );
         getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
         getPValueThresholdForOrg.mockReturnValue(
-          params.getPValueThresholdForOrg
+          params.getPValueThresholdForOrg,
         );
 
         const experiment = ensureAndReturn(
-          await ExperimentModel.findOne({ id: currentSnapshot.experiment })
+          await ExperimentModel.findOne({ id: currentSnapshot.experiment }),
         );
 
         const results = await computeExperimentChanges({
@@ -137,9 +160,9 @@ describe("Experiment Significance notifications", () => {
         });
 
         expect(results).toEqual(
-          expected.map((r) => expect.objectContaining(r))
+          expected.map((r) => expect.objectContaining(r)),
         );
-      }
+      },
     );
   });
 });

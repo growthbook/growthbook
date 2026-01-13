@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
 import {
   getContextForAgendaJobByOrgId,
@@ -16,21 +16,21 @@ import {
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
 export function canAutoAssignExperiment(
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ): boolean {
   if (!experiment.targetURLRegex) return false;
 
   return (
     experiment.variations.filter(
       (v: LegacyVariation) =>
-        (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0)
+        (v.dom && v.dom.length > 0) || (v.css && v.css.length > 0),
     ).length > 0
   );
 }
 
 export async function getExperimentConfig(
   req: Request<{ key: string }>,
-  res: Response<ExperimentOverridesResponse | ErrorResponse>
+  res: Response<ExperimentOverridesResponse | ErrorResponse>,
 ) {
   const { key } = req.params;
 
@@ -97,7 +97,7 @@ const baseScript = fs
 
 export async function getExperimentsScript(
   req: Request<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   res.setHeader("Content-Type", "text/javascript");
   const { key } = req.params;
@@ -151,7 +151,7 @@ export async function getExperimentsScript(
           if (v.dom) {
             v.dom.forEach((dom) => {
               commands.push(
-                "mutate.declarative(" + JSON.stringify(dom) + ").revert"
+                "mutate.declarative(" + JSON.stringify(dom) + ").revert",
               );
             });
           }
@@ -174,7 +174,7 @@ export async function getExperimentsScript(
 
       if (!data.weights) {
         data.weights = Array(exp.variations.length).fill(
-          1 / exp.variations.length
+          1 / exp.variations.length,
         );
       }
 
@@ -219,8 +219,8 @@ export async function getExperimentsScript(
               .map((v) => `()=>${v}`)
               .join(",")}],${JSON.stringify(options)})`;
           })
-          .join("\n")
-      )
+          .join("\n"),
+      ),
     );
   } catch (e) {
     req.log.error(e, "Failed to get visual editor script");

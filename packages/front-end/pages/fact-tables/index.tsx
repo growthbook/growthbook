@@ -5,7 +5,6 @@ import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { MdInfoOutline } from "react-icons/md";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -21,11 +20,11 @@ import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Toggle from "@/components/Forms/Toggle";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Switch from "@/ui/Switch";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import {
   createInitialResources,
   getInitialDatasourceResources,
@@ -33,6 +32,7 @@ import {
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { GBInfo } from "@/components/Icons";
 
 export default function FactTablesPage() {
   const {
@@ -52,14 +52,14 @@ export default function FactTablesPage() {
     (d) =>
       d.properties?.queryLanguage === "sql" &&
       d.id !== demoDataSourceId &&
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const [autoGenerateError, setAutoGenerateError] = useState<string | null>(
-    null
+    null,
   );
   const initialFactTableData = useMemo(() => {
     if (factTables.length > 0) return null;
@@ -103,7 +103,7 @@ export default function FactTablesPage() {
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
-        isProjectListValidForProject(t.projects, project)
+        isProjectListValidForProject(t.projects, project),
       )
     : factTables;
 
@@ -116,15 +116,19 @@ export default function FactTablesPage() {
     (table) => {
       const sortedUserIdTypes = [...table.userIdTypes];
       sortedUserIdTypes.sort();
+      const numAutoSlices = table.columns.filter(
+        (col) => col.isAutoSliceColumn && !col.deleted,
+      ).length;
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
         numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
+        numAutoSlices,
         userIdTypes: sortedUserIdTypes,
       };
     },
-    [getDatasourceById]
+    [getDatasourceById],
   );
 
   const tagsFilter = useTagsFilter("facttables");
@@ -133,7 +137,7 @@ export default function FactTablesPage() {
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [tagsFilter.tags]
+    [tagsFilter.tags],
   );
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
@@ -188,7 +192,7 @@ export default function FactTablesPage() {
                   textDecorationStyle: "dotted",
                 }}
               >
-                SQL cost savings <MdInfoOutline />
+                SQL cost savings <GBInfo />
               </span>
             </Tooltip>
           </p>
@@ -328,13 +332,12 @@ export default function FactTablesPage() {
                 </div>
                 {hasArchivedFactTables && (
                   <div className="col-auto text-muted">
-                    <Toggle
+                    <Switch
                       value={showArchived}
-                      setValue={setShowArchived}
+                      onChange={setShowArchived}
                       id="show-archived"
-                      label="show archived"
+                      label="Show archived"
                     />
-                    Show archived
                   </div>
                 )}
                 <div className="col-auto">
@@ -397,6 +400,7 @@ export default function FactTablesPage() {
                 <th>Projects</th>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numMetrics">Metrics</SortableTH>
+                <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="owner">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -407,6 +411,26 @@ export default function FactTablesPage() {
                 <tr
                   key={f.id}
                   onClick={(e) => {
+                    // If clicking on a link or button, default to browser behavior
+                    if (
+                      e.target instanceof HTMLElement &&
+                      e.target.closest("a, button")
+                    ) {
+                      return;
+                    }
+
+                    // If cmd/ctrl/shift+click, open in new tab
+                    if (
+                      e.metaKey ||
+                      e.ctrlKey ||
+                      e.shiftKey ||
+                      e.button === 1
+                    ) {
+                      window.open(`/fact-tables/${f.id}`, "_blank");
+                      return;
+                    }
+
+                    // Otherwise, navigate to the fact table
                     e.preventDefault();
                     router.push(`/fact-tables/${f.id}`);
                   }}
@@ -414,7 +438,11 @@ export default function FactTablesPage() {
                 >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
+                    <OfficialBadge
+                      type="fact table"
+                      managedBy={f.managedBy}
+                      leftGap={true}
+                    />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
@@ -425,13 +453,9 @@ export default function FactTablesPage() {
                       <ProjectBadges
                         resourceType="fact table"
                         projectIds={f.projects}
-                        className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges
-                        resourceType="fact table"
-                        className="badge-ellipsis short align-middle"
-                      />
+                      <ProjectBadges resourceType="fact table" />
                     )}
                   </td>
                   <td>
@@ -442,6 +466,7 @@ export default function FactTablesPage() {
                     ))}
                   </td>
                   <td>{f.numMetrics}</td>
+                  <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
                   <td>{f.owner}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
@@ -450,7 +475,7 @@ export default function FactTablesPage() {
 
               {!items.length && isFiltered && (
                 <tr>
-                  <td colSpan={6} align={"center"}>
+                  <td colSpan={10} align={"center"}>
                     No matching fact tables.{" "}
                     <a
                       href="#"

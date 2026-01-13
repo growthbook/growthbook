@@ -33,7 +33,7 @@ import mongoose from "mongoose";
  *  - logger: still exists but is marked as deprecated.
  */
 export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
-  uri: string
+  uri: string,
 ): ResultDeprecatedKeysMigrationV3to4 => {
   const unsupportedV3FieldsInV4 = [
     "autoReconnect",
@@ -141,7 +141,7 @@ type ResultDeprecatedKeysMigrationV3to4 = {
 
 export type ToInterface<T> = (doc: Document | (MongooseDocument & T)) => T;
 export function removeMongooseFields<T>(
-  doc: Document | (MongooseDocument & T)
+  doc: Document | (MongooseDocument & T),
 ): T {
   if (doc.toJSON) {
     doc = doc.toJSON({ flattenMaps: true });
@@ -154,6 +154,6 @@ export function removeMongooseFields<T>(
   return result;
 }
 
-export function getCollection(name: string) {
-  return mongoose.connection.db.collection(name);
+export function getCollection<T extends Document>(name: string) {
+  return mongoose.connection.db.collection<T>(name);
 }

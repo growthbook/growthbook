@@ -3,7 +3,7 @@ import {
   DiscussionParentType,
   DiscussionInterface,
   Comment,
-} from "back-end/types/discussion";
+} from "shared/types/discussion";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -42,7 +42,7 @@ const DiscussionThread: FC<{
   }
 
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
-    `/discussion/${type}/${id}`
+    `/discussion/${type}/${id}`,
   );
 
   if (error) {
@@ -109,7 +109,7 @@ const DiscussionThread: FC<{
                                   `/discussion/${type}/${id}/${i}`,
                                   {
                                     method: "DELETE",
-                                  }
+                                  },
                                 );
                                 mutate();
                               }}

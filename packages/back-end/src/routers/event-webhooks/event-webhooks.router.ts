@@ -1,12 +1,12 @@
 import express from "express";
-import z from "zod";
-import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { zodNotificationEventNamesEnum } from "back-end/src/events/base-types";
+import { z } from "zod";
 import {
+  zodNotificationEventNamesEnum,
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "back-end/src/validators/event-webhook";
+} from "shared/validators";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();
@@ -41,7 +41,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.createEventWebHook
+  eventWebHooksController.createEventWebHook,
 );
 
 /**
@@ -57,7 +57,7 @@ router.get(
       })
       .strict(),
   }),
-  eventWebHooksController.getEventWebHookLogs
+  eventWebHooksController.getEventWebHookLogs,
 );
 
 /**
@@ -73,7 +73,7 @@ router.get(
       })
       .strict(),
   }),
-  eventWebHooksController.getEventWebHook
+  eventWebHooksController.getEventWebHook,
 );
 
 /**
@@ -89,7 +89,7 @@ router.delete(
       })
       .strict(),
   }),
-  eventWebHooksController.deleteEventWebHook
+  eventWebHooksController.deleteEventWebHook,
 );
 
 /**
@@ -119,7 +119,7 @@ router.put(
       })
       .strict(),
   }),
-  eventWebHooksController.putEventWebHook
+  eventWebHooksController.putEventWebHook,
 );
 
 router.post(
@@ -133,7 +133,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.testWebHookParams
+  eventWebHooksController.testWebHookParams,
 );
 
 router.post(
@@ -145,7 +145,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.createTestEventWebHook
+  eventWebHooksController.createTestEventWebHook,
 );
 
 router.post(
@@ -157,7 +157,14 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.toggleEventWebHook
+  eventWebHooksController.toggleEventWebHook,
+);
+
+router.post(`/webhook-secrets`, eventWebHooksController.createWebhookSecret);
+router.put(`/webhook-secrets/:id`, eventWebHooksController.updateWebhookSecret);
+router.delete(
+  `/webhook-secrets/:id`,
+  eventWebHooksController.deleteWebhookSecret,
 );
 
 export { router as eventWebHooksRouter };

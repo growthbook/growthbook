@@ -1,12 +1,12 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CustomFieldSection,
   CustomFieldsInterface,
   CustomFieldTypes,
   CreateCustomFieldProps,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region POST /custom-fields
 
@@ -30,9 +30,10 @@ type CreateCustomFieldResponse =
  */
 export const postCustomField = async (
   req: CreateCustomFieldRequest,
-  res: Response<CreateCustomFieldResponse>
+  res: Response<CreateCustomFieldResponse>,
 ) => {
   const {
+    id,
     name,
     description,
     placeholder,
@@ -49,12 +50,22 @@ export const postCustomField = async (
   if (!context.permissions.canManageCustomFields()) {
     context.permissions.throwPermissionError();
   }
+
+  if (!id) {
+    throw new Error("Must specify field key");
+  }
+
+  if (!id.match(/^[a-z0-9_-]+$/)) {
+    throw new Error(
+      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
+    );
+  }
   const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists:
   if (existingFields) {
     const existingCustomField = existingFields.fields.find(
-      (field) => field.name === name && field.section === section
+      (field) => field.name === name && field.section === section,
     );
     if (existingCustomField) {
       throw new Error("Custom field name already exists for this section");
@@ -62,6 +73,7 @@ export const postCustomField = async (
   }
 
   const updated = await context.models.customFields.addCustomField({
+    id,
     name,
     description,
     placeholder,
@@ -111,7 +123,7 @@ type ReorderCustomFieldsResponse =
  */
 export const postReorderCustomFields = async (
   req: ReorderCustomFieldsRequest,
-  res: Response<ReorderCustomFieldsResponse>
+  res: Response<ReorderCustomFieldsResponse>,
 ) => {
   const { oldId, newId } = req.body;
 
@@ -130,7 +142,7 @@ export const postReorderCustomFields = async (
 
   const customField = await context.models.customFields.reorderCustomFields(
     oldId,
-    newId
+    newId,
   );
 
   if (!customField) {
@@ -178,7 +190,7 @@ type PutCustomFieldResponse = {
  */
 export const putCustomField = async (
   req: PutCustomFieldRequest,
-  res: Response<PutCustomFieldResponse>
+  res: Response<PutCustomFieldResponse>,
 ) => {
   const {
     name,
@@ -215,7 +227,7 @@ export const putCustomField = async (
       index: !!index,
       projects,
       section,
-    }
+    },
   );
 
   if (!newCustomFields) {
@@ -245,7 +257,7 @@ type DeleteCustomFieldRequest = AuthRequest<
  */
 export const deleteCustomField = async (
   req: DeleteCustomFieldRequest,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   req.checkPermissions("manageCustomFields");
 

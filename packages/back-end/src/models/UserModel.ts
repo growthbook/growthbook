@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { Document } from "mongodb";
-import { UserInterface } from "back-end/types/user";
+import { UserInterface } from "shared/types/user";
 import {
   usingOpenId,
   validatePasswordFormat,
@@ -12,6 +12,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const userSchema = new mongoose.Schema({
   id: {
@@ -47,7 +48,7 @@ export async function markUserAsVerified(id: string) {
       $set: {
         verified: true,
       },
-    }
+    },
   );
 }
 
@@ -58,7 +59,7 @@ export async function getAllUsers(): Promise<UserInterface[]> {
 
 export async function getAllUsersFiltered(
   page: number,
-  search?: string
+  search?: string,
 ): Promise<UserInterface[]> {
   const query: {
     $or?: [{ name: unknown }, { email: unknown }];
@@ -102,7 +103,7 @@ export async function getUserById(id: string): Promise<UserInterface | null> {
 }
 
 export async function getUserByEmail(
-  email: string
+  email: string,
 ): Promise<UserInterface | null> {
   const user = await getCollection(COLLECTION).findOne({ email });
   return user ? toInterface(user) : null;
@@ -153,12 +154,12 @@ export async function createUser({
       superAdmin,
       dateCreated: new Date(),
       agreedToTerms,
-    })
+    }),
   );
 }
 
 export async function findVerifiedEmails(
-  emails: string[] | undefined
+  emails: string[] | undefined,
 ): Promise<string[]> {
   let users: Document[] = [];
   if (emails) {
@@ -187,13 +188,13 @@ export async function resetMinTokenDate(userId: string) {
       $set: {
         minTokenDate: new Date(),
       },
-    }
+    },
   );
 }
 
 export async function updateUser(
   id: string,
-  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>
+  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>,
 ) {
   await UserModel.updateOne(
     {
@@ -201,7 +202,7 @@ export async function updateUser(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
@@ -210,24 +211,21 @@ export async function hasUser() {
   return !!doc;
 }
 
-export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
-  const users = await UserModel.aggregate([
-    {
-      $lookup: {
-        from: "organizations",
-        localField: "id",
-        foreignField: "members.id",
-        as: "orgs",
-      },
-    },
-    {
-      $match: {
-        "orgs.0": { $exists: true },
-      },
-    },
-  ]).allowDiskUse(true);
+export async function getUserIdsAndEmailsForAllUsersInDb() {
+  if (IS_CLOUD) {
+    throw new Error(
+      "getUserIdsAndEmailsForAllUsersInDb() is not supported on cloud",
+    );
+  }
 
-  return users.map((u) => u.email);
+  const users = await getCollection(COLLECTION)
+    .find({}, { projection: { email: 1, id: 1 } })
+    .toArray();
+
+  return users.map((u) => ({
+    id: u.id,
+    email: u.email,
+  }));
 }
 
 export async function getEmailFromUserId(userId: string) {

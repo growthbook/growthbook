@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -12,7 +12,7 @@ import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTarget
 
 export default function ForceValueFields({
   feature,
-  environment,
+  environments,
   defaultValues,
   version,
   revisions,
@@ -24,7 +24,7 @@ export default function ForceValueFields({
   setScheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
-  environment: string;
+  environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
   version: number;
   revisions?: FeatureRevisionInterface[];
@@ -56,6 +56,8 @@ export default function ForceValueFields({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
         />
       </div>
 
@@ -88,7 +90,7 @@ export default function ForceValueFields({
         feature={feature}
         revisions={revisions}
         version={version}
-        environments={[environment]}
+        environments={environments}
         setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
       />
       {isCyclic && (

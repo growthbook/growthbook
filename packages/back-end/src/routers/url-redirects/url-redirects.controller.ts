@@ -1,11 +1,11 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateURLRedirectProps,
   URLRedirectInterface,
   UpdateURLRedirectProps,
-} from "back-end/types/url-redirect";
+} from "shared/types/url-redirect";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 
 export const postURLRedirect = async (
   req: AuthRequest<
@@ -13,7 +13,7 @@ export const postURLRedirect = async (
     null,
     { circularDependencyCheck?: string }
   >,
-  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>
+  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const { circularDependencyCheck } = req.query;
@@ -34,7 +34,7 @@ export const putURLRedirect = async (
     { id: string },
     { circularDependencyCheck?: string }
   >,
-  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>
+  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const { circularDependencyCheck } = req.query;
@@ -42,7 +42,7 @@ export const putURLRedirect = async (
   const urlRedirect = await context.models.urlRedirects.updateById(
     req.params.id,
     req.body,
-    { checkCircularDependencies: circularDependencyCheck === "true" }
+    { checkCircularDependencies: circularDependencyCheck === "true" },
   );
 
   res.status(200).json({
@@ -53,7 +53,7 @@ export const putURLRedirect = async (
 
 export const deleteURLRedirect = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 

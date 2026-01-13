@@ -1,5 +1,6 @@
-import { ExperimentType } from "back-end/src/validators/experiments";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { SafeRolloutSnapshotInterface } from "../validators/safe-rollout-snapshot";
+import { ExperimentType } from "../validators/experiments";
 
 type MultipleExposureHealthStatus =
   | "not-enough-traffic"
@@ -18,7 +19,7 @@ type MultipleExposureHealthData = {
  *
  * @param multipleExposuresCount - Number of users exposed to multiple variations
  * @param totalUsersCount - Total number of users exposed to any variation
- * @param minCountThreshold - Minimum number of multiple exposures required to be considered significant
+ * @param minCountThreshold - Minimum number of total users required to be considered enough data
  * @param minPercentThreshold - Minimum percentage of multiple exposures required to be considered unhealthy
  */
 export function getMultipleExposureHealthData({
@@ -34,7 +35,7 @@ export function getMultipleExposureHealthData({
 }): MultipleExposureHealthData {
   const multipleExposureDecimal = multipleExposuresCount / totalUsersCount;
 
-  const hasEnoughData = multipleExposuresCount >= minCountThreshold;
+  const hasEnoughData = totalUsersCount >= minCountThreshold;
 
   const isUnhealthy = multipleExposureDecimal >= minPercentThreshold;
 
@@ -96,22 +97,59 @@ export function getSRMHealthData({
 
 export function getSRMValue(
   experimentType: ExperimentType,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): number | undefined {
   switch (experimentType) {
     case "multi-armed-bandit":
-      return snapshot.banditResult?.srm;
+      // get SRM from bandit result if available (only old bandit snapshots have SRM
+      // on the banditResult object)
+      return (
+        snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm
+      );
 
-    case "standard":
-      return snapshot.health?.traffic?.overall?.srm;
+    case "holdout":
+    case "standard": {
+      const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
+
+      if (healthQuerySRM !== undefined) {
+        return healthQuerySRM;
+      }
+      // fall back to main results SRM for no dimension split snapshots
+      // and without health query SRM
+      // if no dimension && only one overall result (e.g. no dim splits)
+      if (
+        snapshot.type === "standard" &&
+        snapshot.analyses?.[0]?.results?.length === 1
+      ) {
+        return snapshot.analyses?.[0]?.results?.[0]?.srm;
+      }
+      return undefined;
+    }
 
     default: {
       const _exhaustiveCheck: never = experimentType;
       // eslint-disable-next-line no-console
       console.error(
-        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`
+        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`,
       );
       return undefined;
     }
   }
+}
+
+export function getSafeRolloutSRMValue(
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface,
+): number | undefined {
+  const healthQuerySRM = safeRolloutSnapshot.health?.traffic?.overall?.srm;
+  if (healthQuerySRM !== undefined) {
+    return healthQuerySRM;
+  }
+
+  // fall back to main results SRM for no dimension split snapshots
+  // and without health query SRM
+  // if no dimension && only one overall result (e.g. no dim splits)
+  if (safeRolloutSnapshot.analyses?.[0]?.results?.length === 1) {
+    return safeRolloutSnapshot.analyses?.[0]?.results?.[0]?.srm;
+  }
+  return undefined;
 }

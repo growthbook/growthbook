@@ -1,8 +1,8 @@
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { PValueCorrection } from "back-end/types/stats";
+import { PValueCorrection } from "shared/types/stats";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { GBSequential } from "@/components/Icons";
 import { hasFileConfig } from "@/services/env";
@@ -94,21 +94,18 @@ export default function FrequentistTab({
           </PremiumTooltip>
         </h5>
         <div className="form-group mb-0 mr-2">
-          <div className="d-flex">
-            <label className="mr-1" htmlFor="toggle-sequentialTestingEnabled">
-              Apply sequential testing by default
-            </label>
-            <Toggle
-              id={"toggle-sequentialTestingEnabled"}
-              value={form.watch("sequentialTestingEnabled")}
-              setValue={(value) => {
-                form.setValue("sequentialTestingEnabled", value);
-              }}
-              disabled={
-                !hasCommercialFeature("sequential-testing") || hasFileConfig()
-              }
-            />
-          </div>
+          <Switch
+            id={"toggle-sequentialTestingEnabled"}
+            value={form.watch("sequentialTestingEnabled")}
+            label="Apply sequential testing by default"
+            onChange={(value) => {
+              form.setValue("sequentialTestingEnabled", value);
+            }}
+            disabled={
+              !hasCommercialFeature("sequential-testing") || hasFileConfig()
+            }
+            mb="1"
+          />
           {form.watch("sequentialTestingEnabled") &&
             form.watch("statsEngine") === "bayesian" && (
               <div className="d-flex">

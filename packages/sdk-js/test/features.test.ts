@@ -48,7 +48,7 @@ describe("features", () => {
     await growthbook.setEncryptedFeatures(
       encryptedFeatures,
       keyString,
-      webcrypto.subtle
+      webcrypto.subtle,
     );
 
     expect(growthbook.getFeatures()).toEqual({
@@ -107,8 +107,8 @@ describe("features", () => {
       growthbook.setEncryptedFeatures(
         encryptedFeatures,
         keyString,
-        webcrypto.subtle
-      )
+        webcrypto.subtle,
+      ),
     ).rejects.toThrow("Failed to decrypt");
 
     growthbook.destroy();
@@ -125,8 +125,8 @@ describe("features", () => {
       growthbook.setEncryptedFeatures(
         encryptedFeatures,
         keyString,
-        webcrypto.subtle
-      )
+        webcrypto.subtle,
+      ),
     ).rejects.toThrow();
 
     growthbook.destroy();
@@ -144,7 +144,7 @@ describe("features", () => {
     (globalThis.crypto as any) = undefined;
 
     await expect(
-      growthbook.setEncryptedFeatures(encryptedFeatures, keyString)
+      growthbook.setEncryptedFeatures(encryptedFeatures, keyString),
     ).rejects.toThrow("No SubtleCrypto implementation found");
 
     growthbook.destroy();
@@ -229,7 +229,7 @@ describe("features", () => {
         key: "my-test",
         variations: [0, 1],
         hashAttribute: "foo",
-      }).hashValue
+      }).hashValue,
     ).toEqual("baz");
 
     growthbook.setAttributeOverrides({});
@@ -242,7 +242,7 @@ describe("features", () => {
         key: "my-test",
         variations: [0, 1],
         hashAttribute: "foo",
-      }).hashValue
+      }).hashValue,
     ).toEqual("bar");
 
     growthbook.destroy();
@@ -265,8 +265,8 @@ describe("features", () => {
         Object.entries({
           feature2: 1,
           feature3: 1,
-        })
-      )
+        }),
+      ),
     );
 
     expect(growthbook.feature("feature1").value).toEqual(0);

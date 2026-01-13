@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
 import { date } from "shared/dates";
@@ -13,7 +13,7 @@ import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -63,14 +63,14 @@ const IdeasPage = (): React.ReactElement => {
           blown Experiment.
         </p>
         {canCreateIdeas ? (
-          <button
-            className="btn btn-success btn-lg"
+          <Button
+            mt="3"
             onClick={() => {
               setCurrent({});
             }}
           >
             <FaPlus /> Add your first Idea
-          </button>
+          </Button>
         ) : null}
         {current && (
           <IdeaForm

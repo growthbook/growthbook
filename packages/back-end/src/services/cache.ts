@@ -7,7 +7,7 @@ export class MemoryCache<T, K> {
 
   public constructor(
     expensiveOperation: ExpensiveOperation<T, K>,
-    ttl: number = 30
+    ttl: number = 30,
   ) {
     this.store = new Map();
     this.ttl = ttl * 1000;

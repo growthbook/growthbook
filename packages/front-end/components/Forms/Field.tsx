@@ -25,9 +25,11 @@ export type SelectOptions =
 
 export type BaseFieldProps = {
   label?: ReactNode;
+  markRequired?: boolean;
   error?: ReactNode;
   helpText?: ReactNode;
   containerClassName?: string;
+  containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
   // eslint-disable-next-line
@@ -95,9 +97,11 @@ const Field = forwardRef(
       error,
       helpText,
       containerClassName,
+      containerStyle,
       inputGroupClassName,
       labelClassName,
       label,
+      markRequired,
       prepend,
       append,
       render,
@@ -112,10 +116,10 @@ const Field = forwardRef(
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
-    ref: any
+    ref: any,
   ) => {
     const [fieldId] = useState(
-      () => id || `field_${Math.floor(Math.random() * 1000000)}`
+      () => id || `field_${Math.floor(Math.random() * 1000000)}`,
     );
 
     const cn = clsx("form-control", className);
@@ -126,7 +130,7 @@ const Field = forwardRef(
     } else if (textarea) {
       component = (
         <TextareaAutosize
-          {...((otherProps as unknown) as TextareaAutosizeProps)}
+          {...(otherProps as unknown as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
           className={cn}
@@ -155,7 +159,7 @@ const Field = forwardRef(
     } else if (options || optionGroups) {
       component = (
         <select
-          {...((otherProps as unknown) as DetailedHTMLProps<
+          {...(otherProps as unknown as DetailedHTMLProps<
             SelectHTMLAttributes<HTMLSelectElement>,
             HTMLSelectElement
           >)}
@@ -212,13 +216,15 @@ const Field = forwardRef(
           "form-group",
           containerClassName,
           { "mb-0": !label },
-          render ? customClassName : ""
+          render ? customClassName : "",
         )}
+        style={containerStyle}
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (
             <label htmlFor={fieldId} className={clsx(labelClassName)}>
               {label}
+              {markRequired && <span className="text-danger ml-1">*</span>}
             </label>
           )}
           {otherProps.currentLength !== undefined && otherProps.maxLength ? (
@@ -232,7 +238,7 @@ const Field = forwardRef(
         {helpText && <small className="form-text text-muted">{helpText}</small>}
       </div>
     );
-  }
+  },
 );
 Field.displayName = "Field";
 

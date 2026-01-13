@@ -4,17 +4,18 @@ import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -68,6 +69,7 @@ const metricSchema = new mongoose.Schema({
   maxPercentChange: Number,
   minPercentChange: Number,
   minSampleSize: Number,
+  targetMDE: Number,
   regressionAdjustmentOverride: Boolean,
   regressionAdjustmentEnabled: Boolean,
   regressionAdjustmentDays: Number,
@@ -136,7 +138,7 @@ metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",
-  metricSchema
+  metricSchema,
 );
 const COLLECTION = "metrics";
 
@@ -144,29 +146,70 @@ const toInterface: ToInterface<MetricInterface> = (doc) => {
   return upgradeMetricDoc(removeMongooseFields(doc));
 };
 
-export async function insertMetric(metric: Partial<MetricInterface>) {
+export async function insertMetric(
+  context: ReqContext | ApiReqContext,
+  metric: Partial<MetricInterface>,
+) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
+
+  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    throw new Error(
+      "Cannot mark a metric as managed by the API outside of the API.",
+    );
+  }
+
+  if (metric.managedBy === "admin") {
+    throw new Error(
+      "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
+    );
+  }
+
+  if (!context.permissions.canCreateMetric(metric)) {
+    context.permissions.throwPermissionError();
+  }
+
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(metrics: InsertMetricProps[]) {
+export async function insertMetrics(
+  context: ReqContext | ApiReqContext,
+  metrics: InsertMetricProps[],
+) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
+  }
+  for (const metric of metrics) {
+    if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+      throw new Error(
+        "Cannot mark a metric as managed by the API outside of the API.",
+      );
+    }
+    if (metric.managedBy === "admin") {
+      throw new Error(
+        "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
+      );
+    }
+    if (!context.permissions.canCreateMetric(metric)) {
+      context.permissions.throwPermissionError();
+    }
   }
   return (await MetricModel.insertMany(metrics)).map(toInterface);
 }
 
 export async function deleteMetricById(
   context: ReqContext | ApiReqContext,
-  metric: LegacyMetricInterface | MetricInterface
+  metric: LegacyMetricInterface | MetricInterface,
 ) {
   if (metric.managedBy === "config") {
     throw new Error("Cannot delete a metric managed by config.yml");
   }
   if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("Cannot delete a metric managed by the API");
+  }
+  if (!context.permissions.canDeleteMetric(metric)) {
+    context.permissions.throwPermissionError();
   }
 
   // delete references:
@@ -176,7 +219,7 @@ export async function deleteMetricById(
       metric: metric.id,
       organization: context.org.id,
     },
-    { metric: "" }
+    { metric: "" },
   );
 
   // Experiments
@@ -214,7 +257,7 @@ export async function deleteAllMetricsForAProject({
 }
 
 export async function getMetricMap(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): Promise<Map<string, ExperimentMetricInterface>> {
   const metricMap = new Map<string, ExperimentMetricInterface>();
   const allMetrics = await getMetricsByOrganization(context);
@@ -232,7 +275,7 @@ export async function getMetricMap(
 
 async function findMetrics(
   context: ReqContext | ApiReqContext,
-  additionalQuery?: Partial<MetricInterface>
+  additionalQuery?: Partial<MetricInterface>,
 ) {
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
@@ -275,7 +318,7 @@ async function findMetrics(
         // This is never needed when finding multiple metrics
         // This field can get quite large, so it's best to exclude it
         projection: { analysis: 0 },
-      }
+      },
     )
     .toArray();
   docs.forEach((doc) => {
@@ -287,19 +330,19 @@ async function findMetrics(
   });
 
   return metrics.filter((m) =>
-    context.permissions.canReadMultiProjectResource(m.projects)
+    context.permissions.canReadMultiProjectResource(m.projects),
   );
 }
 
 export async function getMetricsByOrganization(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) {
   return findMetrics(context);
 }
 
 export async function getMetricsByDatasource(
   context: ReqContext | ApiReqContext,
-  datasource: string
+  datasource: string,
 ) {
   return findMetrics(context, { datasource });
 }
@@ -319,7 +362,7 @@ export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
 export async function getMetricById(
   context: ReqContext | ApiReqContext,
   id: string,
-  includeAnalysis: boolean = false
+  includeAnalysis: boolean = false,
 ) {
   // If using config.yml, immediately return the from there if found
   if (usingFileConfig()) {
@@ -361,7 +404,7 @@ export async function getMetricById(
 
 export async function getMetricsByIds(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
 
@@ -396,13 +439,13 @@ export async function getMetricsByIds(
     });
   }
   return metrics.filter((m) =>
-    context.permissions.canReadMultiProjectResource(m.projects)
+    context.permissions.canReadMultiProjectResource(m.projects),
   );
 }
 
 export async function findRunningMetricsByQueryId(
   orgIds: string[],
-  queryIds: string[]
+  queryIds: string[],
 ) {
   const docs = await getCollection(COLLECTION)
     .find({
@@ -420,20 +463,20 @@ export async function findRunningMetricsByQueryId(
 
 export async function removeProjectFromMetrics(
   project: string,
-  organization: string
+  organization: string,
 ) {
   await MetricModel.updateMany(
     { organization, projects: project },
     {
       $pull: { projects: project },
       $set: { dateUpdated: new Date() },
-    }
+    },
   );
 }
 
 export async function getMetricsUsingSegment(
   context: ReqContext | ApiReqContext,
-  segment: string
+  segment: string,
 ) {
   return findMetrics(context, { segment });
 }
@@ -453,13 +496,13 @@ const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
 ];
 
 function addDateUpdatedToUpdates(
-  updates: Partial<MetricInterface>
+  updates: Partial<MetricInterface>,
 ): Partial<MetricInterface> {
   // If any field requires dateUpdated to be set
   if (
     Object.keys(updates).some(
       (k: keyof MetricInterface) =>
-        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k)
+        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k),
     )
   ) {
     return { ...updates, dateUpdated: new Date() };
@@ -471,7 +514,7 @@ function addDateUpdatedToUpdates(
 
 export async function updateMetricQueriesAndStatus(
   metric: MetricInterface,
-  updates: Partial<Pick<MetricInterface, "queries" | "analysisError">>
+  updates: Partial<Pick<MetricInterface, "queries" | "analysisError">>,
 ) {
   await MetricModel.updateOne(
     {
@@ -480,19 +523,19 @@ export async function updateMetricQueriesAndStatus(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
 export async function updateMetric(
   context: ReqContext | ApiReqContext,
   metric: MetricInterface,
-  updates: Partial<MetricInterface>
+  updates: Partial<MetricInterface>,
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
   const safeUpdates = Object.keys(updates).every((k: keyof MetricInterface) =>
-    FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
+    FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
   );
   if (!safeUpdates) {
     if (metric.managedBy === "config") {
@@ -500,6 +543,9 @@ export async function updateMetric(
     }
     if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
       throw new Error("Cannot update. Metric managed by the API");
+    }
+    if (!context.permissions.canUpdateMetric(metric, updates)) {
+      context.permissions.throwPermissionError();
     }
   }
 
@@ -510,7 +556,7 @@ export async function updateMetric(
       {
         $set: updates,
       },
-      { upsert: true }
+      { upsert: true },
     );
   } else {
     await MetricModel.updateOne(
@@ -520,7 +566,7 @@ export async function updateMetric(
       },
       {
         $set: updates,
-      }
+      },
     );
   }
 
@@ -529,14 +575,14 @@ export async function updateMetric(
 
 export async function removeSegmentFromAllMetrics(
   organization: string,
-  segment: string
+  segment: string,
 ) {
   const updates = addDateUpdatedToUpdates({ segment: "" });
   await MetricModel.updateMany(
     { organization, segment },
     {
       $set: updates,
-    }
+    },
   );
 }
 
@@ -546,6 +592,33 @@ export async function removeTagInMetrics(organization: string, tag: string) {
     {
       $set: { dateUpdated: new Date() },
       $pull: { tags: tag },
-    }
+    },
   );
 }
+
+export async function generateMetricEmbeddings(
+  context: ReqContext | ApiReqContext,
+  metricsToGenerateEmbeddings: MetricInterface[],
+) {
+  const batchSize = 15;
+  for (let i = 0; i < metricsToGenerateEmbeddings.length; i += batchSize) {
+    const batch = metricsToGenerateEmbeddings.slice(i, i + batchSize);
+    const input = batch.map((m) => getTextForEmbedding(m));
+    const embeddings = await generateEmbeddings({ context, input });
+
+    for (let j = 0; j < batch.length; j++) {
+      const m = batch[j];
+      // save the embeddings back to the experiment:
+      try {
+        await context.models.vectors.addOrUpdateMetricVector(m.id, {
+          embeddings: embeddings[j],
+        });
+      } catch (error) {
+        throw new Error("Error updating embeddings");
+      }
+    }
+  }
+}
+const getTextForEmbedding = (metric: MetricInterface): string => {
+  return `Name: ${metric.name}\nDescription: ${metric.description}`;
+};

@@ -1,8 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { CustomField } from "back-end/types/custom-fields";
-import { MdDragIndicator } from "react-icons/md";
+import { CustomField } from "shared/types/custom-fields";
+import { RiDraggable } from "react-icons/ri";
 import { GBEdit } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -34,14 +34,14 @@ export function SortableCustomFieldRow(props: SortableProps) {
   const draggedRowStyle = { background: "rgba(127, 207, 250, 0.3)" };
   const handleStyle = {
     fontSize: 20,
-    color: "rgba(0,0,0,0.2)",
+    color: "var(--slate-a6)",
     cursor: `${isDragging ? "grabbing" : "grab"}`,
   };
 
   return (
     <tr ref={setNodeRef} style={style}>
       {isDragging ? (
-        <td colSpan={9} style={draggedRowStyle}>
+        <td colSpan={10} style={draggedRowStyle}>
           &nbsp;
         </td>
       ) : (
@@ -49,11 +49,12 @@ export function SortableCustomFieldRow(props: SortableProps) {
           <td style={{ width: "30px", padding: "0.5rem" }}>
             <div className="d-flex flex-column">
               <div style={handleStyle} {...attributes} {...listeners}>
-                <MdDragIndicator />
+                <RiDraggable />
               </div>
             </div>
           </td>
           <td className="text-gray font-weight-bold">{customField.name}</td>
+          <td className="text-gray">{customField.id}</td>
           <td className="text-gray">{customField.description}</td>
           <td className="text-gray">
             {customField.type}
@@ -129,11 +130,12 @@ export function StaticCustomFieldRow({
       <td style={{ width: "30px", padding: "0.5rem" }}>
         <div className="d-flex flex-column">
           <div style={handleStyle}>
-            <MdDragIndicator />
+            <RiDraggable />
           </div>
         </div>
       </td>
       <td className="text-gray font-weight-bold">{customField.name}</td>
+      <td className="text-gray">{customField.id}</td>
       <td className="text-gray">{customField.description}</td>
       <td className="text-gray">
         {customField.type}

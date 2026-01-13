@@ -1,13 +1,13 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
   FeatureRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
@@ -17,8 +17,8 @@ import {
 } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import clsx from "clsx";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
@@ -35,44 +35,41 @@ import {
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
-import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import LinkButton from "@/ui/LinkButton";
+import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import EmptyState from "@/components/EmptyState";
+import ProjectBadges from "@/components/ProjectBadges";
+import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
+import { useExperiments } from "@/hooks/useExperiments";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+const HEADER_HEIGHT_PX = 55;
 
 export default function FeaturesPage() {
   const router = useRouter();
+  const { organization } = useUser();
+  const { data: sdkConnectionData } = useSDKConnections();
+  const permissionsUtils = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -87,11 +84,12 @@ export default function FeaturesPage() {
     mutate,
     hasArchived,
   } = useFeaturesList(true, showArchived);
+  const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
     !!router?.query?.mockdata,
-    showGraphs
+    showGraphs,
   );
 
   const staleFeatures = useMemo(() => {
@@ -102,72 +100,46 @@ export default function FeaturesPage() {
     allFeatures.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
-        feature
+        feature,
       );
       const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
         feature,
         features: allFeatures,
-        experiments,
+        experiments: allExperiments,
         environments: envs,
       });
     });
     return staleFeatures;
-  }, [allFeatures, experiments, environments]);
-
-  // Searching
-  const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: typeof allFeatures) => {
-      if (!showArchived) {
-        items = items.filter((f) => !f.archived);
-      }
-
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [showArchived, tagsFilter.tags]
-  );
+  }, [allFeatures, allExperiments, environments]);
 
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
+        <Box>
+          <Box className="mb-2 align-items-center">
+            <Flex justify="between" mb="3" gap="3" align="center">
+              <Box className="relative" width="40%">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <FeatureSearchFilters
+                features={allFeatures}
+                searchInputProps={searchInputProps}
+                setSearchValue={setSearchValue}
+                syntaxFilters={syntaxFilters}
+                hasArchived={hasArchived}
               />
-            </div>
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
-            <div className="col-auto">
-              <Link
-                href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
-                target="_blank"
-              >
-                <Tooltip body={searchTermFilterExplainations}></Tooltip>
-              </Link>
-            </div>
-          </div>
+            </Flex>
+          </Box>
 
           <table className="table gbtable appbox">
             <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
+              className="sticky-top shadow-sm"
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
                 <th></th>
@@ -180,11 +152,7 @@ export default function FeaturesPage() {
                   </th>
                 ))}
                 <th>Prerequisites</th>
-                <th>
-                  Default
-                  <br />
-                  Value
-                </th>
+                <th>Default</th>
                 <th>Rules</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -202,7 +170,7 @@ export default function FeaturesPage() {
               {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                  (e) => (rules = rules.concat(getRules(feature, e.id))),
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
@@ -224,7 +192,7 @@ export default function FeaturesPage() {
                   feature.prerequisites?.length || 0;
                 const prerequisiteRules = rules.reduce(
                   (acc, rule) => acc + (rule.prerequisites?.length || 0),
-                  0
+                  0,
                 );
                 const totalPrerequisites =
                   topLevelPrerequisites + prerequisiteRules;
@@ -266,7 +234,16 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          feature.projectName ?? <em>None</em>
+                          <>
+                            {feature.project ? (
+                              <ProjectBadges
+                                resourceType="feature"
+                                projectIds={[feature.projectId]}
+                              />
+                            ) : (
+                              <></>
+                            )}
+                          </>
                         )}
                       </td>
                     )}
@@ -274,14 +251,16 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        {featureHasEnvironment(feature, en) && (
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={en.id}
-                            mutate={mutate}
-                          />
-                        )}
+                      <td key={en.id}>
+                        <Flex align="center" justify="center">
+                          {featureHasEnvironment(feature, en) && (
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={en.id}
+                              mutate={mutate}
+                            />
+                          )}
+                        </Flex>
                       </td>
                     ))}
                     <td>
@@ -357,7 +336,7 @@ export default function FeaturesPage() {
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(
-                                feature.project
+                                feature.project,
                               )
                             )
                               setFeatureToToggleStaleDetection(feature);
@@ -403,60 +382,17 @@ export default function FeaturesPage() {
               }}
             />
           )}
-        </div>
+        </Box>
       )
     );
   };
 
-  const { searchInputProps, items, SortableTH } = useFeatureSearch({
-    allFeatures,
-    filterResults,
-    environments,
-  });
-
-  const searchTermFilterExplainations = (
-    <>
-      <p>This search field supports advanced syntax search, including:</p>
-      <ul>
-        <li>
-          <strong>key</strong>: The feature&apos;s key (name)
-        </li>
-        <li>
-          <strong>owner</strong>: The creator of the feature (eg: owner:abby)
-        </li>
-        <li>
-          <strong>rules</strong>: Matches based on the number of rules (eg:
-          rules:&gt;2)
-        </li>
-        <li>
-          <strong>tag</strong>: Features tagged with this tag
-        </li>
-        <li>
-          <strong>project</strong>: The feature&apos;s project
-        </li>
-        <li>
-          <strong>version</strong>: The feature&apos;s revision number
-        </li>
-        <li>
-          <strong>experiment</strong>: The feature is linked to the specified
-          experiment
-        </li>
-        <li>
-          <strong>created</strong>:The feature&apos;s creation date, in UTC.
-          Date entered is parsed so supports most formats.
-        </li>
-        <li>
-          <strong>on</strong>: Shows features that are on for a specific
-          environment (on:production)
-        </li>
-        <li>
-          <strong>off</strong>: Shows features that are off for a specific
-          environment (off:dev)
-        </li>
-      </ul>
-      <p>Click to see all syntax fields supported in our docs.</p>
-    </>
-  );
+  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
+    useFeatureSearch({
+      allFeatures,
+      environments,
+      staleFeatures,
+    });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -472,6 +408,16 @@ export default function FeaturesPage() {
     if (modalOpen) return;
     setFeatureToDuplicate(null);
   }, [modalOpen]);
+  // watch to see if we should include archived features or not:
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived"),
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   if (error) {
     return (
@@ -484,14 +430,33 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
   // Ignore the demo datasource
-  const hasFeatures = allFeatures.length > 0;
+  const hasFeatures = allFeatures.some(
+    (f) =>
+      f.project !==
+      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
+  );
+
+  const canUseSetupFlow =
+    permissionsUtils.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
+    }) &&
+    permissionsUtils.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
+
+  const showSetUpFlow =
+    !hasFeatures &&
+    canUseSetupFlow &&
+    sdkConnectionData &&
+    !sdkConnectionData.connections.length;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = hasArchived;
 
   const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,
@@ -504,7 +469,9 @@ export default function FeaturesPage() {
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
+            const url = `/features/${feature.id}${
+              hasFeatures ? "?new" : "?first&new"
+            }`;
             router.push(url);
             mutate({
               features: [...allFeatures, feature],
@@ -522,11 +489,11 @@ export default function FeaturesPage() {
           mutate={mutate}
         />
       )}
-      <div className="row mb-3">
+      <div className="row my-3">
         <div className="col">
           <h1>Features</h1>
         </div>
-        {allFeatures.length > 0 &&
+        {!showSetUpFlow &&
           permissionsUtil.canViewFeatureModal(project) &&
           canCreateFeatures && (
             <div className="col-auto">
@@ -543,54 +510,45 @@ export default function FeaturesPage() {
             </div>
           )}
       </div>
-      <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
-      </p>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
       </div>
       {!hasFeatures ? (
         <>
-          <div
-            className="appbox d-flex flex-column align-items-center"
-            style={{ padding: "70px 305px 60px 305px" }}
-          >
-            <h1>Change your App&apos;s Behavior</h1>
-            <p style={{ fontSize: "17px" }}>
-              Use Feature Flags to change your app&apos;s behavior. For example,
-              turn a sales banner on or off, or enable a new feature for Beta
-              users only.
-            </p>
-            <div className="row">
-              <Link href="/getstarted/feature-flag-guide">
-                {" "}
-                <button className="btn btn-outline-primary mr-2">
-                  Setup Instructions
-                </button>
-              </Link>
-
-              {permissionsUtil.canViewFeatureModal(project) &&
+          <EmptyState
+            title="Change your App's Behavior"
+            description="Use Feature Flags to change your app's behavior. For example, turn a sales banner on or off, or enable new features for Beta users only."
+            leftButton={
+              <LinkButton
+                external
+                href="https://docs.growthbook.io/features/basics"
+                variant="outline"
+              >
+                View Docs
+              </LinkButton>
+            }
+            rightButton={
+              showSetUpFlow ? (
+                <LinkButton href="/setup?exitLocation=features">
+                  Connect your SDK
+                </LinkButton>
+              ) : (
+                permissionsUtil.canViewFeatureModal(project) &&
                 canCreateFeatures && (
-                  <button
-                    className="btn btn-primary float-right"
+                  <Button
                     onClick={() => {
                       setModalOpen(true);
                       track("Viewed Feature Modal", {
                         source: "feature-list",
                       });
                     }}
-                    type="button"
                   >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
                     Add Feature
-                  </button>
-                )}
-            </div>
-          </div>
+                  </Button>
+                )
+              )
+            }
+          />
         </>
       ) : (
         <Tabs defaultValue="all-features" persistInURL={true}>

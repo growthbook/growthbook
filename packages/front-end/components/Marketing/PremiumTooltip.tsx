@@ -1,7 +1,7 @@
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
@@ -10,7 +10,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature?: CommercialFeature;
-  children: ReactNode;
+  children?: ReactNode;
   body?: string | JSX.Element | null;
   premiumText?: string | JSX.Element;
   tipMinWidth?: string;
@@ -61,7 +61,7 @@ export default function PremiumTooltip({
               <p
                 className={clsx(
                   body ? "mb-2" : "mb-0",
-                  !hasFeature ? "premium" : ""
+                  !hasFeature ? "premium" : "",
                 )}
               >
                 <GBPremiumBadge className="mr-1" />
@@ -101,14 +101,13 @@ export default function PremiumTooltip({
       body={
         <>
           {!hasFeature && (
-            <p
-              className={clsx(
-                body ? "mb-2" : "mb-0",
-                !hasFeature ? "text-indigo font-weight-bold" : ""
-              )}
+            <Text
+              as="p"
+              mb={body ? "2" : "0"}
+              className={clsx(!hasFeature ? "font-weight-bold" : "")}
             >
               {tooltipText}
-            </p>
+            </Text>
           )}
           {body}
         </>
@@ -131,6 +130,7 @@ export default function PremiumTooltip({
             commercialFeature={commercialFeature}
             premiumText={tooltipText}
             useTip={false}
+            mx="2"
           />
         )}
       </Flex>

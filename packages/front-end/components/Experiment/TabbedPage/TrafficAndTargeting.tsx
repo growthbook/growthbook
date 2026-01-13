@@ -1,5 +1,4 @@
-import { MdInfoOutline } from "react-icons/md";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -8,6 +7,7 @@ import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { GBInfo } from "@/components/Icons";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -38,6 +38,7 @@ export default function TrafficAndTargeting({
     : "";
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -58,12 +59,39 @@ export default function TrafficAndTargeting({
             <div className="row">
               <div className="col-4">
                 <div className="h5">Traffic</div>
-                <div>
-                  {Math.floor(phase.coverage * 100)}% included
-                  {experiment.type !== "multi-armed-bandit" && (
-                    <>, {formatTrafficSplit(phase.variationWeights, 2)} split</>
-                  )}
-                </div>
+                {!isHoldout && (
+                  <div>
+                    {Math.floor(phase.coverage * 100)}% included
+                    {experiment.type !== "multi-armed-bandit" && (
+                      <>
+                        , {formatTrafficSplit(phase.variationWeights, 2)} split
+                      </>
+                    )}
+                  </div>
+                )}
+                {isHoldout && (
+                  <>
+                    <div>
+                      {Math.floor(
+                        phase.coverage * phase.variationWeights[0] * 100,
+                      )}
+                      % in holdout
+                    </div>
+                    <div>
+                      {Math.floor(
+                        phase.coverage * phase.variationWeights[0] * 100,
+                      )}
+                      % not in holdout (for measurement)
+                    </div>
+                    <div>
+                      {Math.floor(
+                        (1 - phase.coverage * phase.variationWeights[0] * 2) *
+                          100,
+                      )}
+                      % not in holdout (not for measurement)
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="col-4">
@@ -74,7 +102,7 @@ export default function TrafficAndTargeting({
                     popperStyle={{ lineHeight: 1.5 }}
                     body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
                   >
-                    <MdInfoOutline className="text-info" />
+                    <GBInfo />
                   </Tooltip>
                 </div>
                 <div>
@@ -84,44 +112,46 @@ export default function TrafficAndTargeting({
                   ) : (
                     " "
                   )}
-                  {
+                  {!isHoldout ? (
                     <HashVersionTooltip>
                       <small className="text-muted ml-1">
                         (V{experiment.hashVersion || 2} hashing)
                       </small>
                     </HashVersionTooltip>
-                  }
+                  ) : null}
                 </div>
-                {experiment.disableStickyBucketing ? (
+                {!isHoldout && experiment.disableStickyBucketing ? (
                   <div className="mt-1">
                     Sticky bucketing: <em>disabled</em>
                   </div>
                 ) : null}
               </div>
 
-              <div className="col-4">
-                <div className="h5">
-                  Namespace{" "}
-                  <Tooltip
-                    popperStyle={{ lineHeight: 1.5 }}
-                    body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
-                  >
-                    <MdInfoOutline className="text-info" />
-                  </Tooltip>
+              {!isHoldout && (
+                <div className="col-4">
+                  <div className="h5">
+                    Namespace{" "}
+                    <Tooltip
+                      popperStyle={{ lineHeight: 1.5 }}
+                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
+                    >
+                      <GBInfo />
+                    </Tooltip>
+                  </div>
+                  <div>
+                    {hasNamespace ? (
+                      <>
+                        {namespaceName}{" "}
+                        <span className="text-muted">
+                          ({percentFormatter.format(namespaceRange)})
+                        </span>
+                      </>
+                    ) : (
+                      <em>Global (all users)</em>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  {hasNamespace ? (
-                    <>
-                      {namespaceName}{" "}
-                      <span className="text-muted">
-                        ({percentFormatter.format(namespaceRange)})
-                      </span>
-                    </>
-                  ) : (
-                    <em>Global (all users)</em>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -162,16 +192,18 @@ export default function TrafficAndTargeting({
                 </div>
               </div>
 
-              <div className="col-4">
-                <div className="h5">Prerequisite Targeting</div>
-                <div>
-                  {phase.prerequisites?.length ? (
-                    <ConditionDisplay prerequisites={phase.prerequisites} />
-                  ) : (
-                    <em>None</em>
-                  )}
+              {!isHoldout && (
+                <div className="col-4">
+                  <div className="h5">Prerequisite Targeting</div>
+                  <div>
+                    {phase.prerequisites?.length ? (
+                      <ConditionDisplay prerequisites={phase.prerequisites} />
+                    ) : (
+                      <em>None</em>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </>

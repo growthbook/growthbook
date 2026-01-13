@@ -1,12 +1,12 @@
 import { DBSQLClient } from "@databricks/sql";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { QueryResponse } from "shared/types/integrations";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT } from "back-end/src/util/secrets";
-import { QueryResponse } from "back-end/src/types/Integration";
 
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
-  sql: string
+  sql: string,
 ): Promise<QueryResponse<T[]>> {
   // Because of how Databrick's SDK is written, it may reject or resolve multiple times
   // So we have a quick boolean check to make sure we only do it the first time
@@ -48,9 +48,9 @@ export async function runDatabricksQuery<T>(
             // This is required to have the results returned immediately
             maxRows: 1000,
           });
-          const result = ((await queryOperation.fetchAll({
+          const result = (await queryOperation.fetchAll({
             progress: false,
-          })) as unknown) as Promise<T[]>;
+          })) as unknown as Promise<T[]>;
 
           // As soon as we have the reuslt, return it
           if (!finished) {

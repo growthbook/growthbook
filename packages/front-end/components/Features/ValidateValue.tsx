@@ -1,8 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import React, { useMemo } from "react";
-import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { FaCheck } from "react-icons/fa";
 import { validateJSONFeatureValue } from "shared/util";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
 export default function ValidateValue({
   value,
@@ -41,14 +42,13 @@ export default function ValidateValue({
     );
   }
   return (
-    <div className={`alert-danger rounded p-2 mt-2 ${className}`}>
-      <FaExclamationTriangle className="text-danger" /> Value fails validation
-      with JSON schema
-      <ul className="mb-0">
+    <Callout status="error" mb="2" mt="3">
+      Value fails validation with JSON schema.
+      <ul className="mb-0 mt-1">
         {errors?.map((msg, i) => (
           <li key={i}>{msg}</li>
         ))}
       </ul>
-    </div>
+    </Callout>
   );
 }

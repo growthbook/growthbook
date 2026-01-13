@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 import {
   GithubIntegrationInterface,
   CreateGithubIntegrationInput,
-} from "back-end/types/github";
-import { OrganizationInterface } from "back-end/types/organization";
+} from "shared/types/github";
+import { OrganizationInterface } from "shared/types/organization";
 import { fetchRepositories } from "back-end/src/services/github";
 import { doesTokenExist } from "./GithubUserTokenModel";
 
@@ -31,23 +31,23 @@ githubIntegrationSchema.index({ tokenId: 1 }, { unique: true });
 
 const GithubIntegrationModel = mongoose.model<GithubIntegrationDocument>(
   "GithubIntegration",
-  githubIntegrationSchema
+  githubIntegrationSchema,
 );
 
 const toInterface = (
-  doc: GithubIntegrationDocument
+  doc: GithubIntegrationDocument,
 ): GithubIntegrationInterface =>
   omit(doc.toJSON<GithubIntegrationDocument>(), ["__v", "_id"]);
 
 export const getGithubIntegrationByOrg = async (
-  orgId: OrganizationInterface["id"]
+  orgId: OrganizationInterface["id"],
 ) => {
   const doc = await GithubIntegrationModel.findOne({ organization: orgId });
   return doc ? toInterface(doc) : null;
 };
 
 export const createGithubIntegration = async (
-  input: CreateGithubIntegrationInput
+  input: CreateGithubIntegrationInput,
 ) => {
   if (!(await doesTokenExist(input.tokenId)))
     throw new Error("Token does not exist");

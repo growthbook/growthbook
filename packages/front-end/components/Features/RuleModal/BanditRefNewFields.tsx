@@ -3,10 +3,10 @@ import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
@@ -30,6 +30,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
@@ -41,7 +42,6 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
-  environment,
   environments,
   revisions,
   version,
@@ -67,8 +67,7 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   revisions?: FeatureRevisionInterface[];
   version?: number;
   prerequisiteValue: FeaturePrerequisite[];
@@ -92,7 +91,7 @@ export default function BanditRefNewFields({
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const { datasources, getDatasourceById } = useDefinitions();
@@ -117,7 +116,7 @@ export default function BanditRefNewFields({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const settings = useOrgSettings();
@@ -241,7 +240,7 @@ export default function BanditRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : environments ?? []}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -298,7 +297,7 @@ export default function BanditRefNewFields({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>
@@ -323,7 +322,7 @@ export default function BanditRefNewFields({
             exposureQueryId={exposureQueryId}
             project={project}
             forceSingleGoalMetric={true}
-            noPercentileGoalMetrics={true}
+            noQuantileGoalMetrics={true}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}
@@ -351,6 +350,20 @@ export default function BanditRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />

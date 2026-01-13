@@ -1,9 +1,12 @@
-import { PutEnvironmentResponse } from "back-end/types/openapi";
+import { PutEnvironmentResponse } from "shared/types/openapi";
+import { putEnvironmentValidator } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
+import { isEqual } from "lodash";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { putEnvironmentValidator } from "back-end/src/validators/openapi";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { OrganizationInterface } from "back-end/types/organization";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { validatePayload } from "./validations";
 
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
@@ -25,7 +28,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     if (
       !req.context.permissions.canUpdateEnvironment(
         environment,
-        updatedEnvironment
+        updatedEnvironment,
       )
     )
       req.context.permissions.throwPermissionError();
@@ -34,7 +37,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       settings: {
         ...org.settings,
         environments: environments.map((env) =>
-          env.id === id ? updatedEnvironment : env
+          env.id === id ? updatedEnvironment : env,
         ),
       },
     };
@@ -50,8 +53,26 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       details: auditDetailsUpdate(environment, updatedEnvironment),
     });
 
+    if (environment.projects) {
+      const existingProjects = environment.projects;
+      const newProjects = updatedEnvironment.projects;
+
+      if (!isEqual(existingProjects, newProjects)) {
+        const connections = await findSDKConnectionsByOrganization(req.context);
+        const affectedConnections = connections.filter(
+          (c) => c.environment === id,
+        );
+
+        queueSDKPayloadRefresh({
+          context: req.context,
+          payloadKeys: [],
+          sdkConnections: affectedConnections,
+        });
+      }
+    }
+
     return {
       environment: updatedEnvironment,
     };
-  }
+  },
 );

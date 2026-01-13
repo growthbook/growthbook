@@ -33,7 +33,8 @@ interface Props {
     | "feature"
     | "featureList"
     | "metric"
-    | "metricList";
+    | "metricList"
+    | "learnings";
   variables?: Record<string, unknown>;
 }
 

@@ -1,39 +1,45 @@
-import { FC, useEffect, useMemo, useState } from "react";
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
-import { UseFormReturn } from "react-hook-form";
+import { FC, useEffect, useState } from "react";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import Switch from "@/ui/Switch";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
+  currentCustomFields: Record<string, string>;
   section: CustomFieldSection;
+  setCustomFields: (customFields: Record<string, string>) => void;
   project?: string;
   className?: string;
-}> = ({ customFields, project, className, form, section }) => {
+}> = ({
+  customFields,
+  currentCustomFields = {},
+  project,
+  className,
+  section,
+  setCustomFields,
+}) => {
   const availableFields = filterCustomFieldsForSectionAndProject(
     customFields,
     section,
-    project
+    project,
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
-  const customFieldStrings = form.watch("customFields");
-  const currentCustomFields = useMemo(() => {
+
+  // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
+  if (typeof currentCustomFields === "string") {
     try {
-      return customFieldStrings ? customFieldStrings : {};
+      currentCustomFields = JSON.parse(currentCustomFields);
     } catch (e) {
-      // this should never be reachable as we control the JSON that is being parsed
-      return {};
+      currentCustomFields = {};
     }
-  }, [customFieldStrings]);
+  }
 
   useEffect(() => {
     if (!loadedDefaults) {
-      // here we are setting the defaults values in the form, otherwise
+      // here we are setting the default values in the form, otherwise
       // boolean/toggles or inputs with default values will not be saved.
       if (availableFields) {
         availableFields.forEach((v) => {
@@ -49,15 +55,14 @@ const CustomFieldInput: FC<{
             }
           }
         });
-        form.setValue("customFields", currentCustomFields);
+        setCustomFields(currentCustomFields);
         setLoadedDefaults(true);
       }
     }
-  }, [availableFields, form, loadedDefaults, currentCustomFields]);
+  }, [availableFields, loadedDefaults, currentCustomFields, setCustomFields]);
 
   const updateCustomField = (name, value) => {
-    currentCustomFields[name] = value;
-    form.setValue("customFields", currentCustomFields);
+    setCustomFields({ ...currentCustomFields, [name]: value });
   };
 
   const getMultiSelectValue = (value) => {
@@ -85,14 +90,15 @@ const CustomFieldInput: FC<{
                 <div key={i}>
                   {v.type === "boolean" ? (
                     <div className="mb-3 mt-3">
-                      <Toggle
+                      <Switch
                         id="bool"
+                        mr="3"
                         value={
                           currentCustomFields?.[v.id]
                             ? currentCustomFields[v.id] === "true"
                             : false
                         }
-                        setValue={(t) => {
+                        onChange={(t) => {
                           updateCustomField(v.id, "" + JSON.stringify(t));
                         }}
                       />

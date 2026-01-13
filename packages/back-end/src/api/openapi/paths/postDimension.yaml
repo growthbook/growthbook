@@ -1,0 +1,28 @@
+parameters: []
+tags:
+  - dimensions
+summary: Create a single dimension
+operationId: postDimension
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/dimensions \
+        -d '{"name":"User Country", "datasourceId":"ds_123abc", "identifierType":"user", "query":"SELECT country FROM users"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostDimensionPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - dimension
+          properties:
+            dimension:
+              $ref: "../schemas/Dimension.yaml"

@@ -2,7 +2,7 @@ import { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights } from "shared/experiments";
@@ -60,7 +60,7 @@ const NewPhaseForm: FC<{
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
     (total: number, weight: number) => total + weight,
-    0
+    0,
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
@@ -81,7 +81,7 @@ const NewPhaseForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(value),
-      }
+      },
     );
     mutate();
     refreshWatching();

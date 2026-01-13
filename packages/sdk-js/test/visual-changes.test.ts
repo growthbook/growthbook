@@ -106,12 +106,12 @@ describe("isURLTargeted", () => {
         includeNoMatch,
         excludeMatch,
         excludeNoMatch,
-      ])
+      ]),
     ).toEqual(false);
 
     // One include rule matches, no exclude rule matches
     expect(
-      isURLTargeted(URL, [includeMatch, includeNoMatch, excludeNoMatch])
+      isURLTargeted(URL, [includeMatch, includeNoMatch, excludeNoMatch]),
     ).toEqual(true);
 
     // No include rule matches, no exclude rule matches
@@ -119,7 +119,7 @@ describe("isURLTargeted", () => {
 
     // No include rule matches, one exclude rule matches
     expect(
-      isURLTargeted(URL, [includeNoMatch, excludeNoMatch, excludeMatch])
+      isURLTargeted(URL, [includeNoMatch, excludeNoMatch, excludeMatch]),
     ).toEqual(false);
 
     // Only exclude rules, none matches
@@ -151,10 +151,10 @@ describe("isURLTargeted", () => {
 
     expect(isURLTargeted("https://example.com/search", rules)).toEqual(true);
     expect(isURLTargeted("https://example.com/search?bad=true", rules)).toEqual(
-      false
+      false,
     );
     expect(
-      isURLTargeted("https://example.com/search?good=true", rules)
+      isURLTargeted("https://example.com/search?good=true", rules),
     ).toEqual(true);
   });
 
@@ -168,9 +168,9 @@ describe("isURLTargeted", () => {
             include: true,
             pattern,
           },
-        ])
+        ]),
       ).toEqual(expected);
-    }
+    },
   );
 });
 
@@ -215,7 +215,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>"
+      "<style>h1 { color: red; }</style>",
     );
 
     // Changes are undone when the URL changes to something that no longer matches
@@ -229,7 +229,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>"
+      "<style>h1 { color: red; }</style>",
     );
 
     // Changes are undone when the GrowthBook instance is destroyed
@@ -284,7 +284,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>"
+      "<style>h1 { color: red; }</style>",
     );
 
     gb.destroy();
@@ -436,7 +436,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>foo</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: green; }</style>"
+      "<style>h1 { color: green; }</style>",
     );
 
     // Now, changes to the experiment will apply immediately
@@ -464,7 +464,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>really new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: blue; }</style>"
+      "<style>h1 { color: blue; }</style>",
     );
 
     gb.destroy();
@@ -510,7 +510,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>"
+      "<style>h1 { color: red; }</style>",
     );
 
     // Changes are undone when the experiment is removed from the instance
@@ -572,7 +572,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>"
+      "<style>h1 { color: red; }</style>",
     );
 
     // Blocked again
@@ -661,7 +661,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>" + "<script>/* something */</script>"
+      "<style>h1 { color: red; }</style>" + "<script>/* something */</script>",
     );
     gb.destroy();
     await sleep();
@@ -704,7 +704,7 @@ describe("Auto experiments", () => {
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
-      "<style>h1 { color: red; }</style>"
+      "<style>h1 { color: red; }</style>",
     );
     gb4.destroy();
     await sleep();
@@ -727,7 +727,7 @@ describe("Auto experiments", () => {
     expect(document.body.innerHTML).toEqual("<h1>new</h1>");
     expect(document.head.innerHTML).toEqual(
       "<style>h1 { color: red; }</style>" +
-        '<script nonce="123">/* something */</script>'
+        '<script nonce="123">/* something */</script>',
     );
     gb5.destroy();
   });

@@ -3,18 +3,16 @@ import { useForm } from "react-hook-form";
 import {
   DefaultMemberRole,
   MemberRoleWithProjects,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import RoleSelector from "./RoleSelector";
-import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
 type InviteResult = {
   email: string;
@@ -28,7 +26,14 @@ interface Props {
 }
 
 const InviteModal = ({ mutate, close, defaultRole }: Props) => {
-  const { license, seatsInUse, organization, effectiveAccountPlan } = useUser();
+  const {
+    license,
+    seatsInUse,
+    organization,
+    effectiveAccountPlan,
+    freeSeats,
+    canSubscribe,
+  } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -44,26 +49,19 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
-    []
+    [],
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const {
-    freeSeats,
-    canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
-      ? "Whoops! You reached your free seat limit."
-      : ""
+    isCloud() && canSubscribe && seatsInUse >= freeSeats,
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      license.seats <= seatsInUse
+      (license.seats || 0) <= seatsInUse,
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -72,7 +70,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       <UpgradeModal
         close={close}
         source="invite team"
-        reason={showUpgradeModal}
+        commercialFeature={null}
       />
     );
   }
@@ -105,9 +103,9 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     if (
       isCloud() &&
       canSubscribe &&
-      activeAndInvitedUsers + value.email.length > freeSeats
+      seatsInUse + value.email.length > freeSeats
     ) {
-      setShowUpgradeModal("Whoops! You reached your free seat limit.");
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -115,7 +113,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      license.seats < seatsInUse + value.email.length
+      (license.seats || 0) < seatsInUse + value.email.length
     ) {
       setShowContactSupport(true);
       return;
@@ -248,7 +246,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
               const parsedEmails: string[] = [];
               emails.forEach((em) => {
                 parsedEmails.push(
-                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0),
                 );
               });
               // dedup:
@@ -261,11 +259,8 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           <RoleSelector
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
-            showUpgradeModal={() =>
-              setShowUpgradeModal("To enable advanced permissioning,")
-            }
+            showUpgradeModal={() => setShowUpgradeModal(true)}
           />
-          <InviteModalSubscriptionInfo />
         </>
       )}
     </Modal>

@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useMemo } from "react";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { OrganizationSettings } from "back-end/types/organization";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaGitAlt, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useUser } from "@/services/UserContext";
@@ -15,7 +15,7 @@ const generatePlatformUrl = (
   repo: string,
   branch: string,
   filePath: string,
-  lineNumber: number
+  lineNumber: number,
 ) => {
   return `${platformUrl}/${repo}/blob/${branch}/${filePath}#L${lineNumber}`;
 };
@@ -42,7 +42,7 @@ export default function FeaturesStats({
       return allCodeRefs;
     }
     return allCodeRefs.filter((codeRef) =>
-      codeRefsBranchesToFilter.includes(codeRef.branch)
+      codeRefsBranchesToFilter.includes(codeRef.branch),
     );
   }, [allCodeRefs, codeRefsBranchesToFilter]);
 
@@ -56,7 +56,6 @@ export default function FeaturesStats({
               codebase, with direct links from GrowthBook to the platform of
               your choice."
             commercialFeature="code-references"
-            reason="Code ref on features no access"
             learnMoreLink="https://docs.growthbook.io/features/code-references"
           />
         </div>
@@ -68,7 +67,7 @@ export default function FeaturesStats({
       <>
         <div className="contents container-fluid pagecontents">
           <div
-            className="appbox bg-white"
+            className="appbox"
             style={{
               height: "18rem",
               display: "flex",
@@ -133,7 +132,7 @@ export default function FeaturesStats({
                           codeRef.branch,
                           ref.filePath,
                           ref.startingLineNumber +
-                            ((ref.lines.split("\n").length / 2) | 0)
+                            ((ref.lines.split("\n").length / 2) | 0),
                         )}
                       >
                         <FaExternalLinkAlt className="mr-2 cursor-pointer" />

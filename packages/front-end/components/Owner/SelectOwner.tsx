@@ -1,8 +1,8 @@
 import { Text } from "@radix-ui/themes";
-import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import useMembers from "@/hooks/useMembers";
-import UserAvatar from "../Avatar/UserAvatar";
-import SelectField from "../Forms/SelectField";
+import metaDataStyles from "@/ui/Metadata.module.scss";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import SelectField from "@/components/Forms/SelectField";
 
 interface Props {
   value: string;
@@ -17,8 +17,10 @@ interface Props {
     | "metric"
     | "factMetric"
     | "archetype"
-    | "factTable";
+    | "factTable"
+    | "dashboard";
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export default function SelectOwner({
@@ -26,6 +28,7 @@ export default function SelectOwner({
   onChange,
   placeholder = "",
   resourceType,
+  disabled = false,
 }: Props) {
   const { memberUsernameOptions, memberUserNameAndIdOptions } = useMembers();
 
@@ -35,6 +38,7 @@ export default function SelectOwner({
     "experimentTemplate",
     "factTable",
     "archetype",
+    "dashboard",
   ].includes(resourceType)
     ? "id"
     : "name";
@@ -53,6 +57,7 @@ export default function SelectOwner({
         label: member.display,
       }))}
       value={value}
+      disabled={disabled}
       placeholder={placeholder}
       onChange={(v) => onChange(v)}
       formatOptionLabel={({ label }) => {

@@ -1,171 +1,592 @@
-import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
-import React, { useEffect, useState } from "react";
-import { BsXCircle } from "react-icons/bs";
-import { FaX } from "react-icons/fa6";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import React, { useMemo, useCallback } from "react";
+import { Flex, Box, Heading } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { parseSliceQueryString, isMetricGroupId } from "shared/experiments";
+import clsx from "clsx";
+import { FormatOptionLabelMeta } from "react-select";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import { SingleValue } from "@/components/Forms/SelectField";
+import { Popover } from "@/ui/Popover";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import HelperText from "@/ui/HelperText";
+import { useUser } from "@/services/UserContext";
+import MetricName from "@/components/Metrics/MetricName";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultsMetricFilter({
-  metricTags = [],
-  metricFilter = {},
-  setMetricFilter,
+  availableMetricTags = [],
+  metricTagFilter = [],
+  setMetricTagFilter,
+  availableMetricsFilters = { groups: [], metrics: [] },
+  metricsFilter = [],
+  setMetricsFilter,
+  availableSliceTags = [],
+  sliceTagsFilter = [],
+  setSliceTagsFilter,
   showMetricFilter,
   setShowMetricFilter,
+  dimension,
 }: {
-  metricTags?: string[];
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter: (filter: ResultsMetricFilters) => void;
+  availableMetricTags?: string[];
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  availableMetricsFilters?: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
+  metricsFilter?: string[];
+  setMetricsFilter?: (filters: string[]) => void;
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
   showMetricFilter: boolean;
   setShowMetricFilter: (show: boolean) => void;
+  dimension?: string;
 }) {
-  const [_metricFilter, _setMetricFilter] = useState(metricFilter);
-  const _filteringApplied =
-    _metricFilter?.tagOrder?.length || _metricFilter?.filterByTag;
-  const filteringApplied =
-    metricFilter?.tagOrder?.length || metricFilter?.filterByTag;
+  const { hasCommercialFeature } = useUser();
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
+  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
 
-  useEffect(() => {
-    // reset inputs on close
-    if (!showMetricFilter) {
-      _setMetricFilter(metricFilter);
+  const filteringApplied =
+    metricTagFilter?.length > 0 ||
+    metricsFilter?.length > 0 ||
+    sliceTagsFilter?.length > 0;
+
+  const activeFilterCount =
+    (metricTagFilter?.length || 0) +
+    (metricsFilter?.length || 0) +
+    (sliceTagsFilter?.length || 0);
+
+  type SliceChunk = {
+    column: string;
+    value: string | null;
+    datatype: FactTableColumnType;
+    isOther: boolean;
+    isSelectAll?: boolean;
+  };
+
+  const sliceOptions = useMemo(() => {
+    // Create a map of available tags by ID for quick lookup
+    const availableTagMap = new Map(
+      availableSliceTags.map((tag) => [tag.id, tag]),
+    );
+
+    // Get all unique tag IDs from both available and selected
+    const allTagIds = Array.from(
+      new Set([
+        ...availableSliceTags.map((tag) => tag.id),
+        ...(sliceTagsFilter || []),
+      ]),
+    );
+
+    const options = allTagIds.map((tagId) => {
+      const availableTag = availableTagMap.get(tagId);
+      const isOrphaned = !availableTag;
+
+      // Handle "select all" format: dim:column (no equals sign)
+      if (!tagId.includes("=")) {
+        const columnMatch = tagId.match(/^dim:(.+)$/);
+        if (columnMatch) {
+          const column = decodeURIComponent(columnMatch[1]);
+          const datatype =
+            availableTag?.datatypes?.[column] ||
+            ("string" as FactTableColumnType);
+          return {
+            value: tagId,
+            parsedChunks: [
+              {
+                column,
+                value: null,
+                datatype,
+                isSelectAll: true,
+                isOther: false,
+              },
+            ],
+            isOrphaned,
+          };
+        }
+      }
+
+      // Parse regular slice tag using parseSliceQueryString
+      const sliceLevels = parseSliceQueryString(tagId);
+      const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
+        const value = sl?.levels?.[0] || "";
+        const datatype =
+          availableTag?.datatypes?.[sl?.column] ||
+          sl.datatype ||
+          ("string" as FactTableColumnType);
+
+        return {
+          column: sl.column,
+          value: value || null,
+          datatype,
+          isOther: !value,
+        };
+      });
+
+      return {
+        value: tagId,
+        parsedChunks,
+        isOrphaned,
+      };
+    });
+
+    // Add "overall" option at the top if there are any slices available or selected
+    const hasAnySlices =
+      availableSliceTags.length > 0 || (sliceTagsFilter?.length || 0) > 0;
+    if (hasAnySlices) {
+      return [
+        {
+          value: "overall",
+          parsedChunks: [
+            {
+              column: "Overall",
+              value: null,
+              datatype: "string" as FactTableColumnType,
+              isSelectAll: false,
+              isOther: false,
+            },
+          ],
+          isOrphaned: false,
+        },
+        ...options,
+      ];
     }
-  }, [showMetricFilter, metricFilter, _setMetricFilter]);
+
+    return options;
+  }, [availableSliceTags, sliceTagsFilter]);
+
+  const isSliceCoveredBySelectAll = useCallback(
+    (sliceId: string, selectedSliceTags: string[]): boolean => {
+      // "Select all" options themselves should never be considered covered
+      if (sliceId.startsWith("dim:") && !sliceId.includes("=")) {
+        return false;
+      }
+
+      // Get all "select all" tags from selected filters (format: dim:column)
+      const selectAllTags = selectedSliceTags.filter(
+        (tag) => tag.startsWith("dim:") && !tag.includes("="),
+      );
+
+      if (selectAllTags.length === 0) return false;
+
+      // Parse the slice ID to get its columns
+      const sliceLevels = parseSliceQueryString(sliceId);
+      const sliceColumns = sliceLevels.map((sl) => sl.column);
+
+      // Check if any of the slice's columns has a "select all" filter
+      return sliceColumns.some((column) => {
+        const selectAllTag = `dim:${encodeURIComponent(column)}`;
+        return selectAllTags.includes(selectAllTag);
+      });
+    },
+    [],
+  );
+
+  const formatSliceOptionLabel = useCallback(
+    (
+      option: {
+        value: string;
+        parsedChunks: SliceChunk[];
+        isOrphaned?: boolean;
+      },
+      meta: FormatOptionLabelMeta<SingleValue>,
+    ) => {
+      if (option.value === "overall") {
+        return (
+          <>
+            Overall <span className="text-muted">(Totals)</span>
+          </>
+        );
+      }
+
+      if (option.parsedChunks[0]?.isSelectAll) {
+        const chunk = option.parsedChunks[0];
+        return (
+          <span
+            style={
+              option.isOrphaned ? { textDecoration: "line-through" } : undefined
+            }
+          >
+            {chunk.column} <span className="text-muted">(All Slices)</span>
+          </span>
+        );
+      }
+
+      const isCoveredBySelectAll = isSliceCoveredBySelectAll(
+        option.value,
+        sliceTagsFilter,
+      );
+
+      // Regular slices: all chunks are non-select-all
+      return (
+        <span
+          className={clsx(meta?.context === "menu" && "pl-3")}
+          style={{
+            opacity: isCoveredBySelectAll ? 0.3 : 1,
+            ...(option.isOrphaned && { textDecoration: "line-through" }),
+          }}
+        >
+          {option.parsedChunks.map((chunk, index) => (
+            <React.Fragment key={index}>
+              {index > 0 && ", "}
+              {chunk.isOther ? (
+                <>
+                  {chunk.column}:{" "}
+                  <span
+                    style={{
+                      fontVariant: "small-caps",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {chunk.datatype === "boolean" ? "null" : "other"}
+                  </span>
+                </>
+              ) : (
+                `${chunk.column}: ${chunk.value}`
+              )}
+            </React.Fragment>
+          ))}
+        </span>
+      );
+    },
+    [sliceTagsFilter, isSliceCoveredBySelectAll],
+  );
+
+  const metricOptions = useMemo(() => {
+    const availableGroupIds = new Set(
+      availableMetricsFilters.groups.map((g) => g.id),
+    );
+    const availableMetricIds = new Set(
+      availableMetricsFilters.metrics.map((m) => m.id),
+    );
+
+    // Get all unique metric IDs from both available and selected
+    const allMetricIds = Array.from(
+      new Set([
+        ...availableMetricsFilters.groups.map((g) => g.id),
+        ...availableMetricsFilters.metrics.map((m) => m.id),
+        ...(metricsFilter || []),
+      ]),
+    );
+
+    const groups = allMetricIds
+      .filter((id) => isMetricGroupId(id))
+      .map((id) => {
+        const availableGroup = availableMetricsFilters.groups.find(
+          (g) => g.id === id,
+        );
+        return {
+          id,
+          name: availableGroup?.name || id,
+          isOrphaned: !availableGroupIds.has(id),
+        };
+      });
+
+    const metrics = allMetricIds
+      .filter((id) => !isMetricGroupId(id))
+      .map((id) => {
+        const availableMetric = availableMetricsFilters.metrics.find(
+          (m) => m.id === id,
+        );
+        return {
+          id,
+          name: availableMetric?.name || id,
+          isOrphaned: !availableMetricIds.has(id),
+        };
+      });
+
+    return { groups, metrics };
+  }, [availableMetricsFilters, metricsFilter]);
+
+  const metricTagOptions = useMemo(() => {
+    const availableTagSet = new Set(availableMetricTags);
+    const allTagIds = Array.from(
+      new Set([...availableMetricTags, ...(metricTagFilter || [])]),
+    );
+
+    return allTagIds.map((tag) => ({
+      value: tag,
+      label: tag,
+      isOrphaned: !availableTagSet.has(tag),
+    }));
+  }, [availableMetricTags, metricTagFilter]);
+
+  const formatMetricOptionLabel = useCallback(
+    (option: { value: string; label: string; isOrphaned?: boolean }) => {
+      const isGroup = isMetricGroupId(option.value);
+      const metrics = isGroup
+        ? (() => {
+            const group = getMetricGroupById(option.value);
+            if (!group) return undefined;
+            return group.metrics.map((metricId) => {
+              const metric = getExperimentMetricById(metricId);
+              return { metric, joinable: true };
+            });
+          })()
+        : undefined;
+      return (
+        <span
+          style={
+            option.isOrphaned ? { textDecoration: "line-through" } : undefined
+          }
+        >
+          <MetricName
+            id={option.value}
+            isGroup={isGroup}
+            metrics={metrics}
+            officialBadgePosition="left"
+          />
+        </span>
+      );
+    },
+    [getExperimentMetricById, getMetricGroupById],
+  );
+
+  const formatMetricTagOptionLabel = useCallback(
+    (option: { value: string; label: string; isOrphaned?: boolean }) => {
+      return (
+        <span
+          style={
+            option.isOrphaned ? { textDecoration: "line-through" } : undefined
+          }
+        >
+          {option.label}
+        </span>
+      );
+    },
+    [],
+  );
 
   return (
-    <div
-      className="col position-relative d-flex align-items-end px-0 font-weight-normal"
-      style={{ maxWidth: 20 }}
-    >
-      <Tooltip
-        body={
-          filteringApplied
-            ? "Metric filters applied"
-            : "No metric filters applied"
+    <Flex align="center" gap="3" className="position-relative">
+      <Popover
+        side="top"
+        align="start"
+        open={showMetricFilter}
+        onOpenChange={setShowMetricFilter}
+        triggerAsChild={true}
+        trigger={
+          <Button color="violet" variant="ghost" size="sm" icon={<PiPlus />}>
+            <Flex align="center" gap="1">
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <Badge
+                  color="indigo"
+                  variant="solid"
+                  radius="full"
+                  label={String(activeFilterCount)}
+                  style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                />
+              )}
+            </Flex>
+          </Button>
         }
-        usePortal={true}
-        shouldDisplay={!showMetricFilter}
-      >
-        <a
-          role="button"
-          onClick={() => setShowMetricFilter(!showMetricFilter)}
-          className={`d-inline-block px-1 ${
-            filteringApplied ? "btn-link-filter-on" : "btn-link-filter-off"
-          }`}
-          style={{ transform: "scale(1.1)", marginRight: -4 }}
-        >
-          {filteringApplied ? (
-            <MdFilterAlt className="position-relative" style={{ bottom: 1 }} />
-          ) : (
-            <MdOutlineFilterAltOff
-              className="position-relative"
-              style={{ bottom: 1 }}
-            />
-          )}
-        </a>
-      </Tooltip>
-      <Tooltip
-        tipPosition="bottom"
-        usePortal={true}
-        style={{ position: "absolute" }}
-        popperStyle={{ marginLeft: 17, marginTop: -2 }}
-        state={showMetricFilter}
-        body={
-          <div style={{ width: 280 }}>
-            <a
-              role="button"
-              style={{
-                top: 3,
-                right: 5,
-              }}
-              className="position-absolute text-gray cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowMetricFilter(false);
-              }}
-            >
-              <BsXCircle size={16} />
-            </a>
-
-            <div>
-              <label className="my-2">
-                <h5 className="mb-0">Order metrics by tag</h5>
-              </label>
-              <MultiSelectField
-                customClassName="multiselect-unfixed"
-                value={_metricFilter?.tagOrder || []}
-                options={metricTags.map((tag) => ({ label: tag, value: tag }))}
-                onChange={(v) => {
-                  _setMetricFilter({
-                    ..._metricFilter,
-                    tagOrder: v,
-                    filterByTag:
-                      v.length > 0 ? _metricFilter?.filterByTag : false,
-                  });
-                  return;
-                }}
-              />
-              <small>Drag &amp; drop tags to change display order</small>
-            </div>
-
-            <label className="mt-3 mb-2">
-              <h5 className="mb-0">Filter metrics</h5>
-            </label>
-            <div>
-              <Toggle
-                id="filterByTag"
-                value={
-                  _metricFilter?.tagOrder?.length
-                    ? !!_metricFilter.filterByTag
-                    : false
-                }
-                setValue={(v) => {
-                  _setMetricFilter({
-                    ..._metricFilter,
-                    filterByTag: v,
-                  });
-                }}
-                disabled={!_metricFilter?.tagOrder?.length}
-              />
-              {!_metricFilter?.tagOrder?.length ? (
-                <small className="text-muted ml-2">No tags selected</small>
-              ) : null}
-            </div>
-
-            <div className="d-flex mt-3">
-              {_filteringApplied ? (
-                <button
-                  className="btn btn-sm btn-link px-0"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    _setMetricFilter({});
-                  }}
+        content={
+          <Flex direction="column" justify="between" style={{ width: 550 }}>
+            <Box>
+              <Flex align="center" justify="between" mb="2">
+                <Heading size="2" weight="medium">
+                  <Flex align="center" gap="1">
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Badge
+                        color="indigo"
+                        variant="solid"
+                        radius="full"
+                        label={String(activeFilterCount)}
+                        style={{ minWidth: 18, height: 18 }}
+                      />
+                    )}
+                  </Flex>
+                </Heading>
+                {filteringApplied ? (
+                  <Link
+                    color="red"
+                    className="font-weight-bold position-relative"
+                    style={{ top: -4 }}
+                    onClick={async () => {
+                      setMetricTagFilter?.([]);
+                      setMetricsFilter?.([]);
+                      setSliceTagsFilter?.([]);
+                    }}
+                  >
+                    Clear all
+                  </Link>
+                ) : null}
+              </Flex>
+              {sliceOptions.length > 0 && hasMetricSlicesFeature && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
                 >
-                  <FaX className="mr-1" />
-                  Clear filters
-                </button>
-              ) : null}
-              <div className="flex-1" />
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMetricFilter(_metricFilter);
-                  setShowMetricFilter(false);
-                }}
-                disabled={
-                  JSON.stringify(_metricFilter) === JSON.stringify(metricFilter)
-                }
-              >
-                Apply
-              </button>
-            </div>
-          </div>
+                  <Box style={{ width: 80 }}>
+                    <Heading size="2" weight="medium" mb="0">
+                      {dimension && (sliceTagsFilter?.length || 0) > 0 ? (
+                        <Tooltip body="Slice filters are ignored when a unit dimension is set">
+                          <HelperText status="warning">Slices</HelperText>
+                        </Tooltip>
+                      ) : (
+                        "Slices"
+                      )}
+                    </Heading>
+                  </Box>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={sliceTagsFilter || []}
+                    options={sliceOptions.map(({ value, isOrphaned }) => ({
+                      label: value,
+                      value,
+                      isOrphaned,
+                    }))}
+                    formatOptionLabel={(option, meta) => {
+                      const fullOption = sliceOptions.find(
+                        (o) => o.value === option.value,
+                      );
+                      if (!fullOption || !fullOption.parsedChunks) {
+                        return option.label;
+                      }
+                      return formatSliceOptionLabel(fullOption, meta);
+                    }}
+                    onChange={(v) => {
+                      setSliceTagsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Flex>
+              )}
+              {(metricOptions.groups.length > 0 ||
+                metricOptions.metrics.length > 0) && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 80 }}
+                  >
+                    Metrics
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={metricsFilter || []}
+                    options={[
+                      ...(hasMetricGroupsFeature &&
+                      metricOptions.groups.length > 0
+                        ? [
+                            {
+                              label: "Metric Groups",
+                              options: metricOptions.groups.map((group) => ({
+                                label: group.name,
+                                value: group.id,
+                                isOrphaned: group.isOrphaned,
+                              })),
+                            },
+                          ]
+                        : []),
+                      ...(metricOptions.metrics.length > 0
+                        ? [
+                            {
+                              label: "Metrics",
+                              options: metricOptions.metrics.map((metric) => ({
+                                label: metric.name,
+                                value: metric.id,
+                                isOrphaned: metric.isOrphaned,
+                              })),
+                            },
+                          ]
+                        : []),
+                    ]}
+                    formatOptionLabel={(option) =>
+                      formatMetricOptionLabel(option)
+                    }
+                    formatGroupLabel={(group) => (
+                      <div className="pb-1 pt-2">{group.label}</div>
+                    )}
+                    onChange={(v) => {
+                      setMetricsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Flex>
+              )}
+              {metricTagOptions.length > 0 && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 80 }}
+                  >
+                    Tags
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={metricTagFilter || []}
+                    options={metricTagOptions.map((tag) => ({
+                      label: tag.label,
+                      value: tag.value,
+                      isOrphaned: tag.isOrphaned,
+                    }))}
+                    formatOptionLabel={(option) =>
+                      formatMetricTagOptionLabel(option)
+                    }
+                    onChange={(v) => {
+                      setMetricTagFilter?.(v);
+                      return;
+                    }}
+                  />
+                </Flex>
+              )}
+            </Box>
+          </Flex>
         }
-      >
-        <></>
-      </Tooltip>
-    </div>
+      />
+
+      {filteringApplied ? (
+        <Link
+          color="red"
+          className="font-weight-bold"
+          onClick={async () => {
+            setMetricTagFilter?.([]);
+            setMetricsFilter?.([]);
+            setSliceTagsFilter?.([]);
+          }}
+        >
+          Clear
+        </Link>
+      ) : null}
+    </Flex>
   );
 }

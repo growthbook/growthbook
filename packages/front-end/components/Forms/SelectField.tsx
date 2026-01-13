@@ -17,7 +17,7 @@ export function isSingleValue(option: Option): option is SingleValue {
 }
 export type FormatOptionLabelType = (
   value: SingleValue,
-  meta: FormatOptionLabelMeta<SingleValue>
+  meta: FormatOptionLabelMeta<SingleValue>,
 ) => ReactNode;
 
 export type SelectFieldProps = Omit<
@@ -25,6 +25,7 @@ export type SelectFieldProps = Omit<
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
 > & {
   value: string;
+  markRequired?: boolean;
   placeholder?: string;
   options: (SingleValue | GroupedValue)[];
   initialOption?: string;
@@ -38,12 +39,14 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  forceUndefinedValueToNull?: boolean;
+  useMultilineLabels?: boolean;
 };
 
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
   initialOption?: string,
-  sort?: boolean
+  sort?: boolean,
 ) {
   return useMemo(() => {
     const m = new Map<string, SingleValue>();
@@ -74,7 +77,6 @@ export function useSelectOptions(
       clone.unshift(o);
       m.set("", o);
     }
-
     return [m, clone] as const;
   }, [options, initialOption]);
 }
@@ -122,10 +124,17 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
-    option: (styles, { isFocused }) => {
+    option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,
         color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+        ...(isDisabled
+          ? {
+              opacity: 0.5,
+              color: "var(--text-color-muted)",
+              cursor: "not-allowed",
+            }
+          : {}),
       };
     },
     input: (styles) => {
@@ -143,6 +152,18 @@ export const ReactSelectProps = {
   },
   menuPosition: "fixed" as const,
   isSearchable: true,
+};
+
+const multilineStyles = {
+  singleValue: (styles: Record<string, unknown>) => ({
+    ...styles,
+    color: "var(--text-color-main)",
+    whiteSpace: "normal",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    lineHeight: "1.1",
+  }),
 };
 
 const SelectField: FC<SelectFieldProps> = ({
@@ -166,6 +187,9 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  // forces re-render when input is undefined
+  forceUndefinedValueToNull = false,
+  useMultilineLabels = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -213,12 +237,16 @@ const SelectField: FC<SelectFieldProps> = ({
             className={clsx(
               "gb-select-wrapper position-relative",
               disabled ? "disabled" : "",
-              className
+              className,
             )}
           >
             {createable ? (
               <CreatableSelect
                 {...ReactSelectProps}
+                styles={{
+                  ...ReactSelectProps.styles,
+                  ...(useMultilineLabels ? multilineStyles : {}),
+                }}
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
@@ -229,7 +257,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 options={sorted}
                 formatCreateLabel={formatCreateLabel}
                 isValidNewOption={(value) => {
-                  if (!otherProps.pattern) return true;
+                  if (!otherProps.pattern) return !!value;
                   return new RegExp(otherProps.pattern).test(value);
                 }}
                 autoFocus={autoFocus}
@@ -269,7 +297,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
@@ -279,6 +306,10 @@ const SelectField: FC<SelectFieldProps> = ({
             ) : (
               <ReactSelect
                 {...ReactSelectProps}
+                styles={{
+                  ...ReactSelectProps.styles,
+                  ...(useMultilineLabels ? multilineStyles : {}),
+                }}
                 id={id}
                 ref={ref}
                 isClearable={isClearable}
@@ -290,12 +321,13 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={selected}
+                value={
+                  forceUndefinedValueToNull ? (selected ?? null) : selected
+                }
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,

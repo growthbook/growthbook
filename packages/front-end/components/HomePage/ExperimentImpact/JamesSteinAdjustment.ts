@@ -1,7 +1,7 @@
 export function jamesSteinAdjustment(
   effects: number[],
   se: number,
-  useMean: boolean = false
+  useMean: boolean = false,
 ) {
   const Ne = effects.length;
   const priorMean = useMean ? effects.reduce((a, b) => a + b, 0) / Ne : 0;

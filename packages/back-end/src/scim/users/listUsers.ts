@@ -13,7 +13,7 @@ export const COUNT_DEFAULT = 20;
 
 export async function listUsers(
   req: ScimListRequest,
-  res: Response<ScimListResponse>
+  res: Response<ScimListResponse>,
 ) {
   const { startIndex, count, filter: filterQuery } = req.query;
 
@@ -46,7 +46,7 @@ export async function listUsers(
 
   const resources = filteredUsers.slice(
     correctedStartIndex,
-    correctedStartIndex + queryOptions.count
+    correctedStartIndex + queryOptions.count,
   );
 
   return res.status(200).json({

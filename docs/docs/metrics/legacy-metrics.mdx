@@ -11,7 +11,7 @@ import Anchor from '@site/src/components/Anchor'
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
 
-:::info
+:::warning Legacy Metrics
 This page describes Legacy Metrics. We highly recommend using **Fact Tables** to define metrics instead. [Check out the docs](/app/metrics)
 :::
 
@@ -28,7 +28,7 @@ Metrics can have different units and statistical distributions. Below are the on
 
 For experiment analysis, each of these metric types uses some aggregation (often defaulting to `SUM`) per user and then takes an average with respect to the total number of users. In the case of SQL metrics, the only meaningful difference between count, duration, and revenue is how we render the units in the metric and experiment results pages.
 
-:::note
+:::info USD by default
 Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** → **General** → **Metric Settings**
 :::
 
@@ -90,59 +90,7 @@ You can use the following user configurable variables within SQL templates:
 - **eventName** - The event name associated with this metric. This can then be referenced in your sql template as `{{eventName}}`. Depending upon how your data is structured you can then incorporate it as part of the table name, if each event has its own table, or as part of a where clause limiting the rows returned to where a certain column equals the eventName.
 - **valueColumn** - The column in your datawarehouse table with the metric data. This can then be referenced in your sql template as `{{valueColumn}}`. For example you might have `{{valueColumn}} as value` to extract out the value from the table.
 
-You can also use any of the in-built variables that Growthbook automatically sets:
-
-- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
-- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date startDateISO "yyyyMMdd"}}`)
-- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
-- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date endDateISO "yyyyMMdd"}}`)
-- **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
-
-You can also use any of the in-built helper functions:
-
-- **camelcase [str]** - ex. `{{camelcase "My database"}}` compiles to `myDatabase`.
-- **dotcase [str]** - ex. `{{dotcase "My database"}}` compiles to `my.database`.
-- **kebabcase [str]** - ex. `{{kebabcase "My database"}}` compiles to `my-database`.
-- **lowercase [str]** - ex. `{{lowercase "My database"}}` compiles to `my database`.
-- **pascalcase [str]** - ex. `{{pascalcase "My database"}}` compiles to `MyDatabase`.
-- **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
-- **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
-- **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
-  <Anchor id="dateformat"/>
-- **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
-
-<ul>
-
-| code | meaning   |
-| ---- | --------- |
-| yyyy | year      |
-| MM   | month     |
-| dd   | day       |
-| HH   | hour      |
-| mm   | minutes   |
-| ss   | seconds   |
-| t    | timestamp |
-
-</ul>
-
-For example you could have the following reusable sql template that could be used for many metrics, with only needing to change the valueColumn and eventName variables that will appear within the UI form:
-
-```sql
-SELECT
-  user_id as user_id,
-  received_at as timestamp,
-  {{valueColumn}} as value
-FROM
-  database.{{snakecase eventName}}
-WHERE
-  received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
-```
-
-:::note
-
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `{{ 'startDate' }}` instead of `{{ startDate }}`).
-
-:::
+Read more about [SQL Templates](/app/sql-templates) and all the different variables that are available.
 
 #### Denominator (Ratio / Funnel Metrics)
 
@@ -365,7 +313,7 @@ When using GrowthBook with certain event trackers, we may be able to generate me
 
 If you are using one of the supported event trackers and would like to see what metrics we can create for you, head to the `Metrics` page in GrowthBook and select the `Discover Metrics` button.
 
-:::note
+:::info Auto Generate Metrics limitations
 When querying your datasource to identify unique events, we're currently only looking at events in the last 7 days.
 :::
 

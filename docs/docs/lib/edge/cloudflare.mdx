@@ -7,16 +7,18 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink';
-import Pill from '@site/src/components/Pill';
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
-# Cloudflare Workers Edge App & SDK <Pill>beta</Pill>
+# Cloudflare Workers Edge App & SDK
+
+<SdkResources sdk="edgeCloudflare" />
 
 ## Overview
 
 GrowthBook currently supports two levels of integration with most edge workers, including Cloudflare:
 
 1. Our turnkey Edge App
-
    - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
    - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
    - Perform custom feature flagging and experimentation logic.
@@ -35,7 +37,7 @@ Regardless of your use case, our Cloudflare integration makes easy to synchroniz
 
 ## Worker Configuration
 
-:::tip
+:::tip Get up to speed with Cloudflare Workers
 
 This tutorial assumes some familiarity with building and deploying Cloudflare Worker applications. You can quickly get up to speed by following the Cloudflare Workers [Getting Started <ExternalLink />](https://developers.cloudflare.com/workers/get-started/guide/) guide.
 
@@ -51,7 +53,11 @@ Our Edge App runs as a smart proxy layer between your application and your end u
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` to "edge" or "everywhere".
+
+Additionally if your redirect is cross-domain (e.g. redirection from "public.mysite.io" to "newsite.io"), you must also set `RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS`.
+
+See [environment variables](#environment-variables) for more information.
 
 :::
 
@@ -252,7 +258,7 @@ You have the option to manually persist this cookie at any time, for example whe
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
-:::note
+:::note Sticky Bucketing and consent
 
 If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
 
@@ -389,3 +395,7 @@ Under the hood, the webhook is being configured with the following properties. I
 - **Method** is being set to `PUT`
 - An **Authorization Header** is being added with your API Token
 - The **Payload format** is being set to `SDK Payload only`
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="edgeCloudflare" />

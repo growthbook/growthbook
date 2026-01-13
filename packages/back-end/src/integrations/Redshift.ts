@@ -1,16 +1,15 @@
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { FormatDialect } from "shared/types/sql";
+import { QueryResponse } from "shared/types/integrations";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
-import { QueryResponse } from "back-end/src/types/Integration";
-import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
   params!: PostgresConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "redshift";
@@ -47,6 +46,13 @@ export default class Redshift extends SqlIntegration {
   }
   hllCardinality(col: string): string {
     return `HLL_CARDINALITY(${col})`;
+  }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
+      .split(".")
+      .map((p) => `'${p}'`)
+      .join(", ")}, TRUE)`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
   approxQuantile(value: string, quantile: string | number): string {
     // approx behaves differently in redshift

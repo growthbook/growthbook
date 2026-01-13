@@ -1,24 +1,26 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import React, { RefObject } from "react";
+import React, { RefObject, useEffect, useState } from "react";
+import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuth } from "@/services/auth";
 
 export default function ReportResults({
   report,
@@ -43,6 +45,62 @@ export default function ReportResults({
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
   showDetails?: boolean;
 }) {
+  const { apiCall } = useAuth();
+
+  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
+    string[]
+  >(report.experimentAnalysisSettings.pinnedMetricSlices || []);
+  useEffect(
+    () =>
+      setOptimisticPinnedLevels(
+        report.experimentAnalysisSettings.pinnedMetricSlices || [],
+      ),
+    [report.experimentAnalysisSettings.pinnedMetricSlices],
+  );
+
+  const togglePinnedMetricSlice = async (
+    metricId: string,
+    sliceLevels: SliceLevelsData[],
+    location?: "goal" | "secondary" | "guardrail",
+  ) => {
+    if (!canEdit || !mutateReport) return;
+
+    const key = generatePinnedSliceKey(
+      metricId,
+      sliceLevels,
+      location || "goal",
+    );
+    const newPinned = optimisticPinnedLevels.includes(key)
+      ? optimisticPinnedLevels.filter((id) => id !== key)
+      : [...optimisticPinnedLevels, key];
+    setOptimisticPinnedLevels(newPinned);
+
+    try {
+      const response = await apiCall<{
+        updatedReport: ExperimentSnapshotReportInterface;
+      }>(`/report/${report.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          experimentAnalysisSettings: {
+            ...report.experimentAnalysisSettings,
+            pinnedMetricSlices: newPinned,
+          },
+        }),
+      });
+      if (
+        response?.updatedReport?.experimentAnalysisSettings?.pinnedMetricSlices
+      ) {
+        setOptimisticPinnedLevels(
+          response.updatedReport.experimentAnalysisSettings.pinnedMetricSlices,
+        );
+      }
+      mutateReport();
+    } catch (error) {
+      setOptimisticPinnedLevels(
+        report.experimentAnalysisSettings.pinnedMetricSlices || [],
+      );
+    }
+  };
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
@@ -55,14 +113,22 @@ export default function ReportResults({
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
           ?.variationWeights?.[i] ||
         1 / (report.experimentMetadata?.variations?.length || 2),
-    })
+    }),
   );
+  // find analysis matching the difference type
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(
+        snapshot,
+        snapshot.analyses.find(
+          (a) =>
+            a.settings.differenceType ===
+            report.experimentAnalysisSettings.differenceType,
+        )?.settings,
+      ) ?? undefined)
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],
-    snapshot?.error
+    snapshot?.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
@@ -76,10 +142,10 @@ export default function ReportResults({
         m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
   const _orgSettings = useOrgSettings();
@@ -118,7 +184,7 @@ export default function ReportResults({
         setEditAnalysisOpen={setEditAnalysisOpen}
         runQueriesButtonRef={runQueriesButtonRef}
       />
-      <div className="bg-white border pt-3 mb-5">
+      <div className="appbox pt-3 mb-5">
         {snapshotError ? (
           <div className="mx-3 mb-3">
             <Callout status="error">
@@ -174,6 +240,7 @@ export default function ReportResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
+                experimentId={snapshot.experiment}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -195,14 +262,13 @@ export default function ReportResults({
                 }
                 dimensionId={snapshot.dimension ?? ""}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 reportDate={snapshot.dateCreated}
                 status={"stopped"}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={
-                  analysis?.settings?.regressionAdjusted
-                }
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
                 differenceType={
@@ -216,13 +282,16 @@ export default function ReportResults({
               />
             ) : showCompactResults ? (
               <CompactResults
+                experimentId={snapshot.experiment}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 status={"stopped"}
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
                 secondaryMetrics={
@@ -237,9 +306,6 @@ export default function ReportResults({
                 id={report.id}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
-                regressionAdjustmentEnabled={
-                  report.experimentAnalysisSettings.regressionAdjustmentEnabled
-                }
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
                 differenceType={
@@ -250,6 +316,14 @@ export default function ReportResults({
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
+                disableTimeSeriesButton={true}
+                customMetricSlices={
+                  report.experimentAnalysisSettings.customMetricSlices
+                }
+                pinnedMetricSlices={optimisticPinnedLevels}
+                togglePinnedMetricSlice={
+                  canEdit ? togglePinnedMetricSlice : undefined
+                }
               />
             ) : (
               <div className="mx-3 mb-3">

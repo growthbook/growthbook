@@ -1,4 +1,4 @@
-import { Namespaces, NamespaceUsage } from "back-end/types/organization";
+import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
 import { findGaps } from "@/services/features";
@@ -70,8 +70,8 @@ export default function NamespaceTableRow({
           {percentFormatter.format(
             findGaps(usage, namespace.name).reduce(
               (sum, range) => sum + (range.end - range.start),
-              0
-            )
+              0,
+            ),
           )}
         </td>
         <td>
@@ -114,14 +114,14 @@ export default function NamespaceTableRow({
         </td>
       </tr>
       <tr
-        className="bg-white"
+        className="appbox"
         style={{
           display: open ? "" : "none",
         }}
       >
         <td
           colSpan={6}
-          className="px-4 bg-light"
+          className="px-4"
           style={{
             boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",
           }}

@@ -5,7 +5,8 @@
 
 .button {
   position: relative;
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
+  color: var(--text-color-main);
 }
 
 .buttonLeft {

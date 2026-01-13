@@ -5,11 +5,11 @@ id: sso
 slug: sso
 ---
 
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+
 # Enterprise SSO
 
-:::note
-
-SSO is available as part of our Enterprise plan.
+:::info SSO is available as part of our Enterprise plan
 
 :::
 
@@ -30,7 +30,7 @@ JSON encoded and then set to the environment variable `SSO_CONFIG`.
 - **SSO_CONFIG** - A JSON-encoded string that configures SSO (using OpenID Connect). It should be an object with the following keys:
 - `clientId` (string)
 - `clientSecret` (string)
-- `emailDomain` (string, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
+- `emailDomains` (array of strings, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
 - `metadata` (object)
 - `issuer` (string)
 - `authorization_endpoint` (string)
@@ -48,7 +48,7 @@ For SSO, make sure the following callback URL is whitelisted:
 
 For the best SSO user experience, enable offline access and refresh tokens in your Identity Provider.
 
-:::info Note
+:::info Configuring SSO
 
 With all the SSO providers listed below, replace the all caps values with values from the provider, JSON encode the object, and set to the `SSO_CONFIG` environment variable for GrowthBook.
 
@@ -62,7 +62,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "additionalScope": "offline_access",
     "metadata": {
         "issuer": "BASE_URL",
@@ -85,7 +85,8 @@ With all the SSO providers listed below, replace the all caps values with values
     <ol>
       <li>
         <strong>Create an OIDC Web application:</strong> <br />
-        <img src="/images/guides/SSO-Okta-1.png"  alt="" />
+          ![Create an OIDC Web application](/images/guides/SSO-Okta-1.png)
+      
       </li>
       <li>
         Allow refresh tokens and specify callback URLs. If you are using the cloud, you can use the following values:
@@ -94,11 +95,13 @@ With all the SSO providers listed below, replace the all caps values with values
           <li><strong>Sign-out redirect URIs</strong> (optional) - <code>https://app.growthbook.io</code></li>
         </ul>
         <p>If you are self-hosting, replace with <code>https://app.growthbook.io</code> with the value from your <code>APP_ORIGIN</code></p>
-        <img src="/images/guides/SSO-Okta-2.png"  alt="" />
+        ![Okta settings](/images/guides/SSO-Okta-2.png)
       </li>
       <li>
         <strong>Require PKCE as additional verification</strong>(optional)<br />
-        <img src="/images/guides/SSO-Okta-3.png"  alt="" /><br />
+        <MaxWidthImage>
+        ![Require PKCE](/images/guides/SSO-Okta-3.png)
+        </MaxWidthImage>
         <div>
           You will need the following in order to configure SSO in GrowthBook:
           <ul>
@@ -125,7 +128,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "metadata": {
         "issuer": "https://accounts.google.com",
         "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
@@ -151,7 +154,7 @@ With all the SSO providers listed below, replace the all caps values with values
 {
     "clientId": "CLIENT_ID",
     "clientSecret": "CLIENT_SECRET",
-    "emailDomain": "EMAIL_DOMAIN",
+    "emailDomains": ["EMAIL_DOMAIN"],
     "additionalScope": "offline_access",
     "metadata": {
         "issuer": "https://TENANT.auth0.com/",
@@ -172,8 +175,10 @@ With all the SSO providers listed below, replace the all caps values with values
 }
 ```
 
-:::note
+:::note Enabling offline access and OIDC compliance
+
 When setting up Auth0, please ensure that you've enabled offline access, and check the `OIDC Compliant` checkbox.
+
 :::
 
 ### Azure AD
@@ -182,7 +187,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 {
   "clientId": "CLIENT_ID",
   "clientSecret": "CLIENT_SECRET",
-  "emailDomain": "EMAIL_DOMAIN",
+  "emailDomains": ["EMAIL_DOMAIN"],
   "additionalScope": "offline_access",
   "metadata": {
     "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token",
@@ -196,7 +201,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 }
 ```
 
-:::note
+:::note Registering an Application in Azure
 
 In Azure, register an Application, instead of Enterprise, as we use OpenID Connect, not SAML.
 
@@ -208,19 +213,19 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
     <ol>
       <li>
         Register an Application (we use OpenID Connect, so choose regular app, not Enterprise)
-        <img src="/images/guides/SSO-Azure-1.png" alt="" />
+        <MaxWidthImage>![Register an Application](/images/guides/SSO-Azure-1.png)</MaxWidthImage>
       </li>
       <li>
         Enter the redirect URL as APP_HOST/oauth/callback
-        <img src="/images/guides/SSO-Azure-2.png" alt="" />
+        <MaxWidthImage>![Redirect URL](/images/guides/SSO-Azure-2.png)</MaxWidthImage>
       </li>
       <li>
         Take note of your Application Id (CLIENT_ID) and Directory Id (TENANT_ID). You will need it later
-        <img src="/images/guides/SSO-Azure-3.png" alt="" />
+        <MaxWidthImage>![Application Id](/images/guides/SSO-Azure-3.png)</MaxWidthImage>
       </li>
       <li>
         Generate a new Client Secret<br />
-        <img src="/images/guides/SSO-Azure-4.png" alt="" />
+       <MaxWidthImage> ![Client Secret](/images/guides/SSO-Azure-4.png)</MaxWidthImage>
       </li>
       <li>
         Take note of the Secret Value (CLIENT_SECRET). You will need it in the next step
@@ -269,11 +274,11 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
     <ol>
       <li>
         Create a new OIDC Web application. Browse to the Applications section of OneLogin from the top nav, then choose "Add App" from the top right.
-        <img src="/images/guides/SSO-Onelogin-1.png" alt="" />
+        ![Create a new OIDC Web application](/images/guides/SSO-Onelogin-1.png)
       </li>
       <li>
         When the list of applications opens, search for <strong>"openid connect"</strong>. Select the option named <strong>"OpenID Connect (OIDC)"</strong>.
-        <img src="/images/guides/SSO-Onelogin-2.png" alt="" />
+        ![Select OpenID Connect](/images/guides/SSO-Onelogin-2.png)
       </li>
       <li>
         Add the name "GrowthBook" (or whatever you would like to name it), an optional description and click save. The first save may not look like anything has happened, but you should see more options on the left menu when successful.
@@ -285,12 +290,12 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
           <li><strong>Redirect URIs</strong>: <pre>https://app.growthbook.io/oauth/callback</pre></li>
           <li><strong>Post Logout Redirect URIs</strong>: <pre>https://app.growthbook.io</pre></li>
         </ul>
-        <img src="/images/guides/SSO-Onelogin-3.png" alt="" />
+        ![OneLogin settings](/images/guides/SSO-Onelogin-3.png)
         You can optionally add images for the application from the info if you like. <strong>Click Save</strong>.
       </li>
       <li>
         Click on the "SSO" item from the left nav menu. Here you need to record the <strong>Client ID</strong> and <strong>Client Secret</strong> and <strong>Issuer URL</strong>
-        <img src="/images/guides/SSO-Onelogin-4.png" alt="" />
+        ![OneLogin SSO settings](/images/guides/SSO-Onelogin-4.png)
         You can leave the other settings as default (Application Type: Web, and Authentication Method: Basic). Click save if you haven't already.
       </li>
       <li>
@@ -339,17 +344,17 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
       </li>
       <li>
         Choose a custom application by clicking 'select' under `custom application`, then click next then next again to confirm.
-        <img src="/images/guides/SSO-jumpcloud-1.png" alt="" />
-        <img src="/images/guides/SSO-jumpcloud-2.png" alt="" />
+        ![JumpCloud custom application, page 1](/images/guides/SSO-jumpcloud-1.png)
+        ![JumpCloud custom application, page 2](/images/guides/SSO-jumpcloud-2.png)
       </li>
       <li>
         You will then be asked what features you want to enable. Select `Manage Single Sign-On (SSO)`. Then, in the radio buttons, select <strong>"Configure SSO with OIDC"</strong>.
-        <img src="/images/guides/SSO-jumpcloud-3.png" alt="" />
+        ![JumpCloud SSO configuration](/images/guides/SSO-jumpcloud-3.png)
       </li>
       <li>
         Add the name "GrowthBook" (or whatever you would like to name it), an optional description and click `next`. When you've confirmed the details, click `Configure Application`.
-        <img src="/images/guides/SSO-jumpcloud-4.png" alt="" />
-        <img src="/images/guides/SSO-jumpcloud-5.png" alt="" />
+        ![JumpCloud SSO configuration with general info fields](/images/guides/SSO-jumpcloud-4.png)
+        ![JumpCloud SSO configuration confirmation screen](/images/guides/SSO-jumpcloud-5.png)
       </li>
       <li>
         This will open a window letting you add additional configuration options for the GrowthBook application. Here are the settings you should set:
@@ -360,12 +365,12 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
           <li><strong>Login URL</strong>: <pre>https://app.growthbook.io</pre></li>
           <li><strong>Attribute Mapping</strong>: Select both email and profile. The defaults for the fields that appear are all that is required.</li>
         </ul>
-        <img src="/images/guides/SSO-jumpcloud-6.png" alt="" />
+        ![JumpCloud SSO OpenID Connect](/images/guides/SSO-jumpcloud-6.png)
         Once you have made the above settings, click 'Activate' from the bottom bar.
       </li>
       <li>
         You'll then be presented with a modal giving you the client id and client secret. Here you need to record the <strong>Client ID</strong> and <strong>Client Secret</strong>
-        <img src="/images/guides/SSO-jumpcloud-7.png" alt="" />
+        <MaxWidthImage maxWidth={600}>![JumpCloud SSO client id and secret](/images/guides/SSO-jumpcloud-7.png)</MaxWidthImage>
       </li>
       <li>
         For self-hosted instances, construct the JSON configuration for GrowthBook. Replace CLIENT_ID, CLIENT_SECRET, and EMAIL_DOMAIN, as into the JSON object above.

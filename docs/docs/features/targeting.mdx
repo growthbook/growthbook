@@ -94,7 +94,7 @@ Use [2-character ISO country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alp
 How to implement country code targeting:
 
 - Create an attribute and set the **Data Type** to `String`
-- Change the **String Format** to `ISO Country Code (2 digit)`
+- Change the **String Format** to `ISO Country Code (2 letter)`
 - Save the attribute
 
 Now, when setting targeting rules, you'll get a dropdown to directly select a country to target.
@@ -171,7 +171,7 @@ The JSON structure is inspired by the MongoDB Query syntax. Multiple conditions 
         "$regex": "@gmail.com$"
       }
     },
-    "hobies": {
+    "hobbies": {
       "$all": ["hiking","tennis","chess"]
     },
     "tags": {

@@ -1,12 +1,11 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getFeatureDefinitions } from "back-end/src/services/features";
-import { CRON_ENABLED } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findAllLegacySdkWebhooks,
@@ -53,7 +52,7 @@ export default function (ag: Agenda) {
     if (!webhook.featuresOnly) {
       const { overrides, expIdMapping } = await getExperimentOverrides(
         context,
-        webhook.project
+        webhook.project,
       );
       body.overrides = overrides;
       body.experiments = expIdMapping;
@@ -78,7 +77,7 @@ export default function (ag: Agenda) {
       {
         maxTimeMs: 30000,
         maxContentSize: 1000,
-      }
+      },
     );
 
     if (!res.responseWithoutBody.ok) {
@@ -118,16 +117,15 @@ export default function (ag: Agenda) {
       job.attrs.data.retryCount++;
       job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
-    }
+    },
   );
 }
 
 export async function queueLegacySdkWebhooks(
   context: ReqContext,
   payloadKeys: SDKPayloadKey[],
-  isFeature?: boolean
+  isFeature?: boolean,
 ) {
-  if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
   const webhooks = await findAllLegacySdkWebhooks(context);
@@ -140,7 +138,7 @@ export async function queueLegacySdkWebhooks(
       !payloadKeys.some(
         (key) =>
           key.project === (webhook.project || "") &&
-          key.environment === (webhook.environment || "production")
+          key.environment === (webhook.environment || "production"),
       )
     ) {
       continue;

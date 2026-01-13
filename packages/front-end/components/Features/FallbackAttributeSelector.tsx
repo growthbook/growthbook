@@ -8,7 +8,7 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -16,7 +16,7 @@ import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
@@ -157,16 +157,15 @@ export default function FallbackAttributeSelector({
                             Enable Sticky Bucketing for org <FaQuestionCircle />
                           </div>
                         </PremiumTooltip>
-                        <Toggle
+                        <Switch
                           id="orgStickyBucketingToggle"
                           value={!!orgStickyBucketing}
-                          setValue={setOrgStickyBucketingToggle}
+                          onChange={setOrgStickyBucketingToggle}
                           disabled={
                             !hasStickyBucketFeature ||
                             !hasSDKWithStickyBucketing
                           }
-                          className="ml-2"
-                          style={{ width: 70 }}
+                          ml="2"
                         />
                       </div>
                     </div>
@@ -209,14 +208,16 @@ export function StickyBucketingTooltip() {
 export function StickyBucketingToggleWarning({
   hasSDKWithStickyBucketing,
   showIcon = true,
+  skipMargin = false,
 }: {
   hasSDKWithStickyBucketing: boolean;
   showIcon?: boolean;
+  skipMargin?: boolean;
 }) {
   return (
     <>
       {!hasSDKWithStickyBucketing ? (
-        <div className="mt-1 mb-1 text-warning-orange">
+        <div className={`${skipMargin ? "" : "mt-1 mb-1"} text-warning-orange`}>
           {showIcon && <FaExclamationCircle className="mr-1" />}
           At least one SDK Connection with a compatible SDK is required to use
           Sticky Bucketing.
@@ -228,7 +229,7 @@ export function StickyBucketingToggleWarning({
           </DocLink>
         </div>
       ) : (
-        <div className="mt-1 mb-2 text-muted">
+        <div className={`${skipMargin ? "" : "mt-1 mb-2"} text-muted`}>
           <div>
             {showIcon && <FaExclamationCircle className="mr-1" />}
             Ensure that Sticky Bucketing is correctly integrated with your SDK

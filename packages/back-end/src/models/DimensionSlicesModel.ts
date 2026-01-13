@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { queriesSchema } from "./QueryModel";
 
 const dimensionSlicesSchema = new mongoose.Schema({
@@ -37,7 +37,7 @@ type DimensionSlicesDocument = mongoose.Document & DimensionSlicesInterface;
 
 const DimensionSlicesModel = mongoose.model<DimensionSlicesInterface>(
   "DimensionSlices",
-  dimensionSlicesSchema
+  dimensionSlicesSchema,
 );
 
 function toInterface(doc: DimensionSlicesDocument): DimensionSlicesInterface {
@@ -47,7 +47,7 @@ function toInterface(doc: DimensionSlicesDocument): DimensionSlicesInterface {
 
 export async function updateDimensionSlices(
   dimensionSlices: DimensionSlicesInterface,
-  updates: Partial<DimensionSlicesInterface>
+  updates: Partial<DimensionSlicesInterface>,
 ): Promise<DimensionSlicesInterface> {
   const organization = dimensionSlices.organization;
   const id = dimensionSlices.id;
@@ -58,7 +58,7 @@ export async function updateDimensionSlices(
     },
     {
       $set: updates,
-    }
+    },
   );
   return {
     ...dimensionSlices,
@@ -67,30 +67,11 @@ export async function updateDimensionSlices(
 }
 export async function getDimensionSlicesById(
   organization: string,
-  id: string
+  id: string,
 ): Promise<DimensionSlicesInterface | null> {
   const doc = await DimensionSlicesModel.findOne({ organization, id });
 
   return doc ? toInterface(doc) : null;
-}
-
-export async function getLatestDimensionSlices(
-  organization: string,
-  datasource: string,
-  exposureQueryId: string
-): Promise<DimensionSlicesInterface | null> {
-  const doc = await DimensionSlicesModel.find(
-    { organization, datasource, exposureQueryId },
-    null,
-    {
-      sort: { runStarted: -1 },
-      limit: 1,
-    }
-  ).exec();
-  if (doc[0]) {
-    return toInterface(doc[0]);
-  }
-  return null;
 }
 
 export async function createDimensionSlices({

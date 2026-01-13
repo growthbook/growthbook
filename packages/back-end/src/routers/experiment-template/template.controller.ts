@@ -1,19 +1,19 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { orgHasPremiumFeature } from "enterprise";
-import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   createTemplateValidator,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
-} from "./template.validators";
+} from "shared/validators";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 
 export const getTemplates = async (
   req: AuthRequest,
-  res: Response<{ status: 200; templates: ExperimentTemplateInterface[] }>
+  res: Response<{ status: 200; templates: ExperimentTemplateInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -49,7 +49,7 @@ export const postTemplate = async (
   res: Response<
     CreateTemplateResponse | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
@@ -88,12 +88,12 @@ export const postTemplate = async (
  */
 export const deleteTemplate = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
   const template = await context.models.experimentTemplates.getById(
-    req.params.id
+    req.params.id,
   );
   if (!template) {
     throw new Error("Could not find template with that id");
@@ -117,13 +117,13 @@ export const deleteTemplate = async (
  */
 export const putTemplate = async (
   req: AuthRequest<UpdateTemplateProps, { id: string }>,
-  res: Response<{ status: 200; template: ExperimentTemplateInterface }>
+  res: Response<{ status: 200; template: ExperimentTemplateInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const templateUpdates = req.body;
 
   const existingTemplate = await context.models.experimentTemplates.getById(
-    req.params.id
+    req.params.id,
   );
   if (!existingTemplate) {
     throw new Error("Could not find template with that id");
@@ -131,7 +131,7 @@ export const putTemplate = async (
   if (
     !context.permissions.canUpdateExperimentTemplate(
       existingTemplate,
-      templateUpdates
+      templateUpdates,
     )
   ) {
     context.permissions.throwPermissionError();
@@ -139,7 +139,7 @@ export const putTemplate = async (
 
   const updatedTemplate = await context.models.experimentTemplates.updateById(
     req.params.id,
-    templateUpdates
+    templateUpdates,
   );
 
   res.status(200).json({

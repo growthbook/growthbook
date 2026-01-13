@@ -1,5 +1,5 @@
 import { FC, useMemo, useState } from "react";
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
@@ -14,9 +14,9 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MultiSelectField from "../Forms/MultiSelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import SelectOwner from "../Owner/SelectOwner";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import SelectOwner from "@/components/Owner/SelectOwner";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
@@ -40,16 +40,30 @@ const SegmentForm: FC<{
     factTables,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
+
+  // If the segment is externally managed, automatically set it as read-only, even if the user has create/update permissions
+  let isReadOnly = !!current?.managedBy;
+
+  // If the segment is not externally managed, check the user's permissions
+  if (isReadOnly === false) {
+    if (current?.id) {
+      // if the current segment has an id, this is an update
+      isReadOnly = !permissionsUtil.canUpdateSegment(current, {});
+    } else {
+      // otherwise, the user is trying to create a new segment
+      isReadOnly = !permissionsUtil.canCreateSegment({ projects: [project] });
+    }
+  }
   const filteredDatasources = datasources
     .filter((d) => d.properties?.segments)
     .filter(
       (d) =>
         d.id === current.datasource ||
-        isProjectListValidForProject(d.projects, project)
+        isProjectListValidForProject(d.projects, project),
     );
 
   const currentOwner = memberUsernameOptions.find(
-    (member) => member.display === current.owner
+    (member) => member.display === current.owner,
   );
   const form = useForm({
     defaultValues: {
@@ -67,7 +81,7 @@ const SegmentForm: FC<{
   });
   const [sqlOpen, setSqlOpen] = useState(false);
   const [createFactSegment, setCreateFactSegment] = useState(
-    () => current?.type === "FACT"
+    () => current?.type === "FACT",
   );
 
   const userIdType = form.watch("userIdType");
@@ -87,7 +101,7 @@ const SegmentForm: FC<{
   const projectOptions = useProjectOptions(
     (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
     form.watch("projects"),
-    filteredProjects.length ? filteredProjects : undefined
+    filteredProjects.length ? filteredProjects : undefined,
   );
 
   const dsProps = datasource?.properties;
@@ -115,6 +129,10 @@ const SegmentForm: FC<{
       {sqlOpen && datasource && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          sqlObjectInfo={{
+            objectType: "Segment",
+            objectName: form.watch("name"),
+          }}
           datasourceId={datasource.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
           requiredColumns={requiredColumns}
@@ -127,6 +145,7 @@ const SegmentForm: FC<{
         close={close}
         open={true}
         size={"lg"}
+        ctaEnabled={!isReadOnly}
         cta={current.id ? "Update Segment" : "Create Segment"}
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
@@ -142,7 +161,7 @@ const SegmentForm: FC<{
             !value.projects.length
           ) {
             throw new Error(
-              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
             );
           }
 
@@ -155,7 +174,7 @@ const SegmentForm: FC<{
             current.projects?.length
           ) {
             throw new Error(
-              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
             );
           }
 
@@ -181,18 +200,29 @@ const SegmentForm: FC<{
             </a>
           </div>
         ) : null}
-        <Field label="Name" required {...form.register("name")} />
+        <Field
+          label="Name"
+          required
+          {...form.register("name")}
+          disabled={isReadOnly}
+        />
         <SelectOwner
           resourceType="segment"
+          disabled={isReadOnly}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
-        <Field label="Description" {...form.register("description")} textarea />
+        <Field
+          label="Description"
+          {...form.register("description")}
+          textarea
+          disabled={isReadOnly}
+        />
         <SelectField
           label="Data Source"
           required
           value={form.watch("datasource")}
-          disabled={!!current.id}
+          disabled={!!current.id || isReadOnly}
           onChange={(v) => {
             form.setValue("datasource", v);
             // When a new data source is selected, update the projects so they equal the data source's project list
@@ -210,6 +240,7 @@ const SegmentForm: FC<{
           <SelectField
             label="Identifier Type"
             required
+            disabled={isReadOnly}
             value={userIdType}
             onChange={(v) => form.setValue("userIdType", v)}
             options={(datasource?.settings?.userIdTypes || []).map((t) => {
@@ -235,6 +266,7 @@ const SegmentForm: FC<{
               }
               placeholder="All projects"
               value={form.watch("projects")}
+              disabled={isReadOnly}
               options={projectOptions}
               onChange={(v) => form.setValue("projects", v)}
               customClassName="label-overflow-ellipsis"
@@ -250,6 +282,7 @@ const SegmentForm: FC<{
               <button
                 className="btn btn-outline-primary"
                 type="button"
+                disabled={isReadOnly}
                 onClick={(e) => {
                   e.preventDefault();
                   setSqlOpen(true);
@@ -266,6 +299,7 @@ const SegmentForm: FC<{
             {...form.register("sql")}
             textarea
             minRows={3}
+            disabled={isReadOnly}
             placeholder={"event.properties.$browser === 'Chrome'"}
             helpText={
               <>

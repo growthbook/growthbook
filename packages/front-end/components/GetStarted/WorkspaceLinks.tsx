@@ -10,14 +10,26 @@ import {
 import { IconType } from "react-icons";
 import Link from "next/link";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { useMemo } from "react";
+import { FaFirefoxBrowser } from "react-icons/fa";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {
+  CHROME_EXTENSION_LINK,
+  FIREFOX_EXTENSION_LINK,
+  getBrowserDevice,
+} from "@/components/OpenVisualEditorLink";
 import styles from "./WorkspaceLinks.module.scss";
 
 export default function WorkspaceLinks() {
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
+
+  const { browser } = useMemo(() => {
+    const ua = navigator.userAgent;
+    return getBrowserDevice(ua);
+  }, []);
 
   return (
     <>
@@ -27,12 +39,21 @@ export default function WorkspaceLinks() {
         text="Teams & Permissions"
         disabled={!permissionsUtils.canManageTeam()}
       />
-      <StyledLink
-        Icon={PiGoogleChromeLogo}
-        url="https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
-        text="Install Chrome DevTools Extension"
-        external
-      />
+      {browser === "firefox" ? (
+        <StyledLink
+          Icon={FaFirefoxBrowser}
+          url={FIREFOX_EXTENSION_LINK}
+          text="Install Firefox DevTools Extension"
+          external
+        />
+      ) : (
+        <StyledLink
+          Icon={PiGoogleChromeLogo}
+          url={CHROME_EXTENSION_LINK}
+          text="Install Chrome DevTools Extension"
+          external
+        />
+      )}
       <StyledLink
         Icon={PiFolders}
         url="/projects"

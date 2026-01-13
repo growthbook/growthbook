@@ -1,8 +1,9 @@
 import React, { FC, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
-import { FeatureInterface } from "back-end/types/feature";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { FeatureInterface } from "shared/types/feature";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -12,14 +13,15 @@ import {
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
   label?: string;
   canEdit?: boolean;
   mutate?: () => void;
-  addBox?: boolean;
   className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
@@ -27,7 +29,6 @@ const CustomFieldDisplay: FC<{
   label = "Additional Fields",
   canEdit = true,
   mutate,
-  addBox = false,
   className = "",
   section,
   target,
@@ -36,7 +37,7 @@ const CustomFieldDisplay: FC<{
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
-    target.project
+    target.project,
   );
   const customFieldsMap = new Map();
   const defaultFields: Record<string, string> = {};
@@ -46,8 +47,8 @@ const CustomFieldDisplay: FC<{
         v.type === "boolean"
           ? JSON.stringify(!!v.defaultValue)
           : v.type === "multiselect"
-          ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
-          : "" + (v?.defaultValue ? v.defaultValue : "");
+            ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
+            : "" + (v?.defaultValue ? v.defaultValue : "");
       customFieldsMap.set(v.id, v);
     });
   }
@@ -86,7 +87,7 @@ const CustomFieldDisplay: FC<{
     Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
       fid,
       cValue ?? "",
-    ])
+    ]),
   );
   const getMultiSelectValue = (value: string) => {
     try {
@@ -123,8 +124,10 @@ const CustomFieldDisplay: FC<{
     });
   });
 
+  if (!hasCustomFieldAccess) return null;
+
   return (
-    <div className="mb-4">
+    <Box>
       {editModal && (
         <Modal
           trackingEventModalType="edit-custom-fields"
@@ -142,9 +145,12 @@ const CustomFieldDisplay: FC<{
           {hasCustomFieldAccess ? (
             <CustomFieldInput
               customFields={customFields}
-              form={form}
               section={section}
               project={target.project}
+              setCustomFields={(value) => {
+                form.setValue("customFields", value);
+              }}
+              currentCustomFields={form.watch("customFields") || {}}
             />
           ) : (
             <div className="text-center">
@@ -156,29 +162,33 @@ const CustomFieldDisplay: FC<{
         </Modal>
       )}
       {displayFieldsObj && (
-        <div className={`${addBox ? "appbox px-4 py-3" : ""} ${className}`}>
-          <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-            <h4 className="m-0">{label ? label : ""}</h4>
-            <div className="flex-1" />
-            {canEdit && hasCustomFieldAccess ? (
-              <>
-                <button
-                  className="btn p-0 link-purple"
-                  onClick={() => {
-                    setEditModal(true);
-                  }}
-                >
-                  Edit
-                </button>
-              </>
-            ) : (
-              <></>
-            )}
-          </div>
-          <DataList data={displayFieldsObj} maxColumns={3} />
-        </div>
+        <Frame className={className} my="3">
+          <Box>
+            <Flex justify="between" align="center">
+              <Heading as="h4" size="3">
+                {label ? label : ""}
+              </Heading>
+              <div className="flex-1" />
+              {canEdit && hasCustomFieldAccess ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditModal(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </>
+              ) : (
+                <></>
+              )}
+            </Flex>
+            <DataList data={displayFieldsObj} maxColumns={3} />
+          </Box>
+        </Frame>
       )}
-    </div>
+    </Box>
   );
 };
 

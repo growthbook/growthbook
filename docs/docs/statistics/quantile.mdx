@@ -7,13 +7,15 @@ slug: quantile
 
 # Quantile Testing
 
-:::note
-Quantile Testing is a GrowthBook Pro and Enterprise feature. It is incompatible with Mixpanel or MySQL integrations.
+:::note Quantile Testing is a GrowthBook Pro and Enterprise feature.
+It is incompatible with Mixpanel or MySQL integrations.
 :::
 
 ## What is a quantile test?
 
-Quantile tests compare quantiles across variations. In contrast, standard GrowthBook A/B tests compare means across variations. For example, suppose that treatment increases user spend. Suppose that 90% of users in control spend at most \$50 per visit, and 90% of users in treatment spend at most \$55 per visit. Then the quantile treatment effect at the 90th percentile (i.e., P90) is \$55 - \$50 = \$5. Quantiles are commonly used in many applications where very large or small values are of interest (webpage latency, birth weight, blood pressure).
+Quantile tests, also known as percentile tests, compare quantiles across variations. In contrast, standard GrowthBook A/B tests compare means across variations. For example, suppose that treatment increases user spend. Suppose that 90% of users in control spend at most \$50 per visit, and 90% of users in treatment spend at most \$55 per visit. Then the quantile treatment effect at the 90th percentile (i.e., P90) is \$55 - \$50 = \$5. Quantiles are commonly used in many applications where very large or small values are of interest (webpage latency, birth weight, blood pressure).
+
+Quantile m
 
 ## When should I run quantile tests?
 

@@ -1,4 +1,4 @@
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import { Collection } from "mongodb";
 import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
 
@@ -27,10 +27,11 @@ const BaseModel = MakeModelClass({
     deleteEvent: "metric.delete",
   },
   readonlyFields: ["readonlyField"],
+  indexesToRemove: ["my_old_index"],
 });
 
 // This one is called in the constructor and therefore needs to be instantiated before that call.
-const addIndexesMock = jest.fn();
+const updateIndexesMock = jest.fn();
 
 class TestModel extends BaseModel<WriteOptions> {
   public canReadMock: jest.Mock;
@@ -82,8 +83,8 @@ class TestModel extends BaseModel<WriteOptions> {
     return this.canDeleteMock(...args);
   }
 
-  protected addIndexes(...args) {
-    return addIndexesMock(...args);
+  protected updateIndexes(...args) {
+    return updateIndexesMock(...args);
   }
 
   protected migrate(...args) {
@@ -121,15 +122,15 @@ class TestModel extends BaseModel<WriteOptions> {
 
 const auditLogMock = jest.fn();
 
-const defaultContext = ({
+const defaultContext = {
   org: { id: "a" },
   auditLog: auditLogMock,
-} as unknown) as Context;
+} as unknown as Context;
 
 describe("BaseModel", () => {
   it("adds indexes", () => {
     new TestModel(defaultContext);
-    expect(addIndexesMock).toHaveBeenCalled();
+    expect(updateIndexesMock).toHaveBeenCalled();
   });
 
   it("can find by id", async () => {
@@ -385,24 +386,23 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(false);
     expect(model.create({ name: "foo", id: "aabb" })).rejects.toEqual(
-      new Error("You do not have access to create this resource")
+      new Error("You do not have access to create this resource"),
     );
   });
 
   it("raises an error when attempting to create an invalid document", () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
-    expect(model.create({ id: "aabb" })).rejects.toEqual(
-      new ZodError([
+    expect(model.create({ id: "aabb" })).rejects.toMatchObject({
+      issues: [
         {
-          code: "invalid_type",
           expected: "string",
-          received: "undefined",
+          code: "invalid_type",
           path: ["name"],
-          message: "Required",
+          message: "Invalid input: expected string, received undefined",
         },
-      ])
-    );
+      ],
+    });
   });
 
   it("allows creation of a document with a readonly field", async () => {
@@ -416,7 +416,7 @@ describe("BaseModel", () => {
 
     await model.create(
       { name: "foo", id: "aabb", readonlyField: "bla" },
-      { option: true }
+      { option: true },
     );
 
     const expectedModel = expect.objectContaining({
@@ -453,10 +453,10 @@ describe("BaseModel", () => {
           dateCreated: new Date(),
           dateUpdated: new Date(),
         },
-        { name: "gni" }
-      )
+        { name: "gni" },
+      ),
     ).rejects.toEqual(
-      new Error("You do not have access to update this resource")
+      new Error("You do not have access to update this resource"),
     );
   });
 
@@ -472,10 +472,10 @@ describe("BaseModel", () => {
           dateCreated: new Date(),
           dateUpdated: new Date(),
         },
-        { readonlyField: "gni" }
-      )
+        { readonlyField: "gni" },
+      ),
     ).rejects.toEqual(
-      new Error("Cannot update readonly fields: readonlyField")
+      new Error("Cannot update readonly fields: readonlyField"),
     );
   });
 
@@ -506,20 +506,20 @@ describe("BaseModel", () => {
 
     expect(updateOneMock).toHaveBeenCalledWith(
       { id: "aabb", organization: "a" },
-      { $set: expectedSet }
+      { $set: expectedSet },
     );
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
       existing,
       { name: "gni" },
       expectedSet,
-      { option: true }
+      { option: true },
     );
     expect(model.afterUpdateMock).toHaveBeenCalledWith(
       existing,
       { name: "gni" },
       expectedSet,
-      { option: true }
+      { option: true },
     );
     expect(model.afterCreateOrUpdateMock).toHaveBeenCalledWith(expectedSet, {
       option: true,
@@ -536,9 +536,9 @@ describe("BaseModel", () => {
         organization: "a",
         dateCreated: new Date(),
         dateUpdated: new Date(),
-      })
+      }),
     ).rejects.toEqual(
-      new Error("You do not have access to delete this resource")
+      new Error("You do not have access to delete this resource"),
     );
   });
 });

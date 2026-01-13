@@ -80,18 +80,14 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 
 export async function deleteDemoDatasource(
   orgId: string | undefined,
-  apiCall: AuthContextValue["apiCall"]
+  apiCall: AuthContextValue["apiCall"],
 ) {
   if (!orgId) throw new Error("Missing organization id");
-  const demoDataSourceProjectId = getDemoDatasourceProjectIdForOrganization(
-    orgId
-  );
-  await apiCall(
-    `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
-    {
-      method: "DELETE",
-    }
-  );
+  const demoDataSourceProjectId =
+    getDemoDatasourceProjectIdForOrganization(orgId);
+  await apiCall(`/projects/${demoDataSourceProjectId}?deleteResources=true`, {
+    method: "DELETE",
+  });
 }
 
 export function DeleteDemoDatasourceButton({
@@ -106,7 +102,7 @@ export function DeleteDemoDatasourceButton({
   const { mutateDefinitions, setProject, project } = useDefinitions();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id
+    organization.id,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -119,7 +115,7 @@ export function DeleteDemoDatasourceButton({
       displayName="Sample Data"
       title="Sample Data"
       text="Delete Sample Data"
-      outline={false}
+      useRadix={true}
       onClick={async () => {
         track("Delete Sample Project", {
           source,
@@ -184,7 +180,7 @@ export const DemoDataSourcePageContainer = () => {
         setError(e.message);
       } else {
         setError(
-          "An unknown error occurred when creating the demo datasource project"
+          "An unknown error occurred when creating the demo datasource project",
         );
       }
     }
@@ -212,7 +208,7 @@ export const DemoDataSourcePageContainer = () => {
         setError(e.message);
       } else {
         setError(
-          "An unknown error occurred when deleting the demo datasource project"
+          "An unknown error occurred when deleting the demo datasource project",
         );
       }
     }

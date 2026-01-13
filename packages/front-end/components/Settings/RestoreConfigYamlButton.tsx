@@ -1,16 +1,16 @@
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import {
   MetricCappingSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
@@ -49,13 +49,8 @@ export default function RestoreConfigYamlButton({
   settings?: OrganizationSettings;
   mutate: () => void;
 }) {
-  const {
-    datasources,
-    metrics,
-    dimensions,
-    mutateDefinitions,
-    segments,
-  } = useDefinitions();
+  const { datasources, metrics, dimensions, mutateDefinitions, segments } =
+    useDefinitions();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -215,7 +210,7 @@ export default function RestoreConfigYamlButton({
         Object.keys(origConfig.datasources).forEach((k) => {
           sanitizeSecrets(
             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            origConfig.datasources[k] as DataSourceInterfaceWithParams
+            origConfig.datasources[k] as DataSourceInterfaceWithParams,
           );
         });
       }
@@ -231,7 +226,7 @@ export default function RestoreConfigYamlButton({
         dump(newConfig, { skipInvalid: true }),
         "",
         "",
-        { context: 10 }
+        { context: 10 },
       );
 
       setDiffHTML(html(patch, {}));

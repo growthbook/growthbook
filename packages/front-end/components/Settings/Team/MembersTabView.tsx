@@ -17,6 +17,7 @@ import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEma
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 export const MembersTabView: FC = () => {
   const {
@@ -24,6 +25,7 @@ export const MembersTabView: FC = () => {
     enterpriseSSO,
     organization,
     hasCommercialFeature,
+    teams,
   } = useUser();
 
   const { project, projects } = useDefinitions();
@@ -39,7 +41,7 @@ export const MembersTabView: FC = () => {
 
   // Will be set when redirected here after Stripe Checkout
   const checkoutSessionId = String(
-    router.query["subscription-success-session"] || ""
+    router.query["subscription-success-session"] || "",
   );
 
   const [justSubscribedForPro, setJustSubscribedForPro] = useState(false);
@@ -140,6 +142,18 @@ export const MembersTabView: FC = () => {
         canDeleteMembers={true}
         canInviteMembers={true}
       />
+      {!teams?.length || !organization.customRoles?.length ? (
+        <PremiumCallout
+          commercialFeature="teams"
+          id="member-list-team-promo"
+          docSection="team"
+          dismissable={true}
+          mb="5"
+        >
+          <strong>Teams and Custom Roles</strong> can make permission management
+          easier at scale.
+        </PremiumCallout>
+      ) : null}
       {organization &&
         organization.invites &&
         organization.invites.length > 0 && (

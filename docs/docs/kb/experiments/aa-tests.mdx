@@ -56,7 +56,7 @@ We allow this 5% chance, also known as the "false positive rate", because we wan
 
 For an A/A test, this means that even if your experiment set up is perfect and everything is balanced, you still have a chance of seeing a statistically significant result due to randomness. Even if you run your A/A test for months, you can still see some imbalance just due to bad luck in the randomization.
 
-:::note
+:::info False positive rate
 
 If you run an A/A test with one Metric and use GrowthBook's default 95% and 5% thresholds, you have a 10% chance of seeing a "statistically significant" result even when there is no real difference between the variations.
 
@@ -78,7 +78,7 @@ If you found some issues with your set up and want to re-run your A/A test, or i
 
 You have two options:
 
-- Create an entirely new experiment. This may be the best and cleanest option since you ensure you are using a new tracking key, new set up, and are unlikely to have any issues carrying over from the old experiemnt.
+- Create an entirely new experiment. This may be the best and cleanest option since you ensure you are using a new tracking key, new set up, and are unlikely to have any issues carrying over from the old experiment.
 - Restart the existing experiment with a new phase. This is the easiest approach, and will likely work in most cases. You can do this as follows:
 
 Use the "Make Changes" flow in the A/A experiment page.

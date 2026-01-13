@@ -1,5 +1,5 @@
-import { OrganizationInterface } from "back-end/types/organization";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { OrganizationInterface } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
 
 /**
  * Verifies if the provided API key is for a user in the organization.
@@ -8,7 +8,7 @@ import { ApiKeyInterface } from "back-end/types/apikey";
  */
 export const isApiKeyForUserInOrganization = (
   { userId }: Partial<ApiKeyInterface>,
-  organization: Partial<OrganizationInterface>
+  organization: Partial<OrganizationInterface>,
 ): boolean => {
   if (!userId) return false;
 
@@ -19,7 +19,7 @@ export const isApiKeyForUserInOrganization = (
 };
 
 export const roleForApiKey = (
-  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">
+  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">,
 ): string | null => {
   // This role stuff is only for secret keys, not SDK keys
   if (!apiKey.secret) return null;

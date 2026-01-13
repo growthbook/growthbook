@@ -1,9 +1,9 @@
 import { useState, FC } from "react";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
-import Toggle from "@/components/Forms/Toggle";
+import Checkbox from "@/ui/Checkbox";
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -18,13 +18,13 @@ const EditOrganization: FC<{
   const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
   const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
   const [legacyEnterprise, setLegacyEnterprise] = useState(
-    currentOrg.enterprise || false
+    currentOrg.enterprise || false,
   );
   const [verifiedDomain, setVerifiedDomain] = useState(
-    currentOrg.verifiedDomain || ""
+    currentOrg.verifiedDomain || "",
   );
   const [autoApproveMembers, setAutoApproveMembers] = useState(
-    currentOrg.autoApproveMembers || false
+    currentOrg.autoApproveMembers || false,
   );
 
   const { apiCall } = useAuth();
@@ -89,7 +89,7 @@ const EditOrganization: FC<{
                   e.preventDefault();
                   if (
                     confirm(
-                      "Are you sure you want to disable this organization? Users will not be able to use this organization"
+                      "Are you sure you want to disable this organization? Users will not be able to use this organization",
                     )
                   ) {
                     await apiCall<{
@@ -173,10 +173,9 @@ const EditOrganization: FC<{
           </span>
         </div>
         <div className="mt-3">
-          Auto approve members with email domain
-          <Toggle
-            className="ml-2"
+          <Checkbox
             id="autoApproveMembers"
+            label="Auto approve members with email domain"
             value={autoApproveMembers}
             setValue={setAutoApproveMembers}
           />
@@ -210,10 +209,9 @@ const EditOrganization: FC<{
                 </div>
               </div>
               <div className="mt-3">
-                Enable Enterprise
-                <Toggle
-                  className="ml-2"
+                <Checkbox
                   id="legacyEnterpriseToggle"
+                  label="Enable Enterprise"
                   value={legacyEnterprise}
                   setValue={setLegacyEnterprise}
                 />

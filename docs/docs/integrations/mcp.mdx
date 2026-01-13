@@ -1,0 +1,382 @@
+---
+title: Official GrowthBook MCP Server
+description: Connect local AI tools like Cursor, VS Code, Windsurf, Cline, and Claude to GrowthBook using the Model Context Protocol (MCP). Create feature flags, see experiments, and more without leaving your editor.
+keywords: [MCP, AI]
+sidebar_label: MCP Server
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+[Model Context Protocol](https://modelcontextprotocol.io/introduction) (MCP) is a standard for integrating AI tools and agents with developer platforms like GrowthBook. This guide shows you how to connect your AI tools to GrowthBook's MCP server and which tools are available for use.
+
+<video style={{aspectRatio: "16/9", width: "100%"}} autoPlay muted playsInline>
+    <source src="/videos/mcp-example-c.mp4" type="video/mp4"></source>
+</video>
+
+## Prerequisites
+
+- **Node.js**: Check if you have it by running `node -v`. Install it from [nodejs.org](https://nodejs.org/)
+- **GrowthBook API Key**: To create a new key, go to **Settings** &rarr; **API Keys** &rarr; **New Secret Key**. Use this key in the next step.
+
+## Installation
+
+We cover how to connect the GrowthBook MCP server for the most popular tools below, but the installation steps are similar for most AI tools.
+
+Configuration includes 4 environment variables. Here's what they mean:
+
+| Variable Name | Status   | Description                                                                                           |
+| ------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| GB_API_KEY    | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
+| GB_EMAIL      | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
+| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
+| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+
+<br />
+
+:::tip On GrowthBook Cloud?
+You only need to configure `GB_API_KEY` and `GB_EMAIL`.
+:::
+
+### Cursor
+
+1. Open **Cursor Settings** &rarr; **MCP**
+2. Click **Add new global MCP server**
+3. Add an entry for the GrowthBook MCP, following the pattern below:
+
+<Tabs groupId="operating-systems">
+  <TabItem value="macos" label="macOS">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem value="wsl" label="WSL">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "wsl",
+      "args": ["npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem value="linux" label="Linux">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+3. Save the settings.
+
+You should now see a green active status after the server successfully connects!
+
+![GrowthBook MCP in Cursor](/images/integrations/mcp/mcp-cursor.png)
+
+### VS Code
+
+1. Open **User Settings (JSON)**
+2. Add an MCP entry:
+
+<Tabs groupId="operating-systems">
+<TabItem value="macos" label="macOS">
+
+```json
+{
+  "servers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```json
+{
+  "servers": {
+    "growthbook": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="wsl" label="WSL">
+
+```json
+{
+  "servers": {
+    "growthbook": {
+      "command": "wsl",
+      "args": ["npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="linux" label="Linux">
+
+```json
+{
+  "servers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+3. Save your settings. In your file, a **Start** button will appear. Click it to the start the server.
+
+In CoPilot Chat, you'll see a tool icon, indicating the server is connected successfully. GrowthBook MCP is now ready to use in VS Code.
+
+![GrowthBook MCP in VS Code Copilot](/images/integrations/mcp/mcp-vscode.png)
+
+### Claude Desktop
+
+1. **Open Settings** &rarr; **Developer**
+2. Click **Edit Config**
+3. Open `claude_desktop_config.json`
+4. Add the following configuration:
+
+<Tabs groupId="operating-systems">
+  <TabItem value="macos" label="macOS">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  
+  ```json
+  {
+    "mcpServers": {
+      "growthbook": {
+        "command": "cmd",
+        "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+        "env": {
+          "GB_API_KEY": "YOUR_API_KEY",
+          "GB_API_URL": "YOUR_API_URL",
+          "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+          "GB_EMAIL": "YOUR_EMAIL"
+        }
+      }
+    }
+  }
+  ```
+
+  </TabItem>
+  <TabItem value="wsl" label="WSL">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "wsl",
+      "args": ["npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+  <TabItem value="linux" label="Linux">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "YOUR_API_URL",
+        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
+        "GB_EMAIL": "YOUR_EMAIL"
+      }
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+5. Save the config and restart Claude
+
+A hammer icon will appear in the chat window, indicating that your GrowthBook MCP server is connected and available for use!
+
+<MaxWidthImage border>
+  ![GrowthBook MCP in Claude](/images/integrations/mcp/mcp-claude.png)
+</MaxWidthImage>
+
+## Tools
+
+### Feature Flags
+
+- `create_feature_flag`: Create, add, or wrap an element with a feature flag. Accepts key, type, default value, and other metadata.
+- `get_feature_flags`: List feature flags in your GrowthBook instance.
+- `get_single_feature_flag`: Fetch details for a specific feature flag by ID.
+- `get_stale_safe_rollouts`: List safe rollout rules that have been rolled back or released. This tools is helpful for removing stale flags from your codebase.
+- `create_force_rule`: Create a feature flag with a targeting condition (e.g., `country = CA`).
+- `generate_flag_types`: Generate TypeScript types for feature flags.
+
+### Experiments
+
+- `get_experiments`: List experiments in GrowthBook.
+- `get_experiment`: Fetch details for a specific experiment by ID.
+- `get_attributes`: List user attributes tracked in GrowthBook (useful for targeting).
+- `create_experiment`: Creates a feature-flag linked experiment. Note that this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
+- `get_defaults`: Get default values for experiments including hypothesis, description, datasource, and assignment query. (Runs automatically when the create experiment tool is called.)
+- `create_defaults`: Set custom default values for experiments that will be used when creating new experiments.
+- `clear_user_defaults`: Clear user-defined defaults and revert to automatic defaults.
+
+### Environments
+
+- `get_environments`: List all environments (e.g., production, staging) configured in GrowthBook.
+
+### Projects
+
+- `get_projects`: List all projects in your GrowthBook instance.
+
+### SDK Connections
+
+- `get_sdk_connections`: List SDK connections (how GrowthBook connects to your apps).
+- `create_sdk_connection`: Create a new SDK connection for your app, specifying language and environment.
+
+### Metrics
+
+- `get_metrics`: List fact and legacy metrics (useful for better understanding experiments).
+- `get_metric`: Fetch a specific fact or legacy metric by ID.
+
+### Documentation Search
+
+- `search_growthbook_docs`: Search the GrowthBook documentation for information on how to use a feature, by keyword or question.
+
+## Next steps
+
+Now that you're connected, start using GrowthBook's MCP tools directly from your editor to:
+
+- Add new flags to your code and GrowthBook
+- Generate type definitions for your flags for [typesafe feature flagging](https://github.com/growthbook/examples/tree/main/vanilla-typescript)
+- Remove stale flags from your code automatically
+- Search the GrowthBooks docs without leaving the editor
+- Check out the [GrowthBook MCP Server code on GitHub](https://github.com/growthbook/growthbook-mcp)
+
+[Join our community Slack for additional tips and tricks](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)

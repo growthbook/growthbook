@@ -2,6 +2,17 @@ tags:
   - code-references
 summary: Submit list of code references
 operationId: postCodeRefs
+parameters:
+  - name: deleteMissing
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - "true"
+        - "false"
+    default: "false"
+    description: Whether to delete code references that are no longer present in the submitted data
 x-codeSamples:
   - lang: "cURL"
     source: |

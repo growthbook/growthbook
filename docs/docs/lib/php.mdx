@@ -5,9 +5,14 @@ sidebar_label: PHP
 slug: php
 ---
 
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+
 # PHP
 
 The GrowthBook PHP SDK requires PHP version 7.1 or greater.
+
+<SdkResources sdk="php" />
 
 ## Installation
 
@@ -30,7 +35,8 @@ $growthbook = Growthbook\Growthbook::create()
 
 // Load feature flags from the GrowthBook API
 // Make sure to use caching in production! (see 'Loading Features' below)
-$growthbook->loadFeatures("sdk-abc123", "https://cdn.growthbook.io");
+// Note: Prior to version 1.7.0, this method was called `loadFeatures` instead of `initialize`
+$growthbook->initialize("sdk-abc123", "https://cdn.growthbook.io");
 
 // Feature gating
 if ($growthbook->isOn("my-feature")) {
@@ -65,11 +71,11 @@ foreach($impressions as $impression) {
 
 ### Loading Features
 
-There are 2 ways to load features into the SDK. You can use `loadFeatures` with a Client Key and API Host. Or, you can manually fetch and cache feature flags and pass them in with the `withFeatures` method.
+There are 2 ways to load features into the SDK. You can use `initialize` with a Client Key and API Host. Or, you can manually fetch and cache feature flags and pass them in with the `withFeatures` method.
 
-#### loadFeatures method
+#### initialize method
 
-The `loadFeatures` method can fetch features from the GrowthBook API for you.
+The `initialize` method can fetch features from the GrowthBook API for you.
 
 By default, there is no caching enabled. You can enable it by passing any PSR16-compatible instance into the `withCache` method.
 
@@ -93,7 +99,7 @@ To load features, we require a PSR-17 (HttpClient) and PSR-18 (RequestFactoryInt
 
 We will auto-discover most HTTP libraries without any configuration required, but if you prefer to specify it explicitly, you can use the `withHttpClient` method. Note - you'll need to specify both an `HttpClient` and a `RequestFactoryInterface` implementation.
 
-The `loadFeatures` method takes 3 arguments:
+The `initialize` method takes 3 arguments:
 
 - `$clientKey` (required) - Get this from your SDK Connection in GrowthBook.
 - `$apiHost` (optional) - Defaults to `https://cdn.growthbook.io`. If self-hosting GrowthBook, set this to your API host.
@@ -102,6 +108,10 @@ The `loadFeatures` method takes 3 arguments:
 #### withFeatures method
 
 If you prefer to have full control over the fetching/caching behavior, you can use the `withFeatures` method instead to pass an associative array of features into the SDK.
+
+#### withSavedGroups method
+
+If you're using saved groups and not using the `initialize` method, you'll need to call `withSavedGroups` to provide the saved groups data to the SDK.
 
 ```php
 // From the GrowthBook API, a custom cache layer, or somewhere else
@@ -113,6 +123,11 @@ $features = json_decode($featuresJSON, true);
 // Pass into the Growthbook instance
 $growthbook = Growthbook\Growthbook::create()
   ->withFeatures($features);
+
+// Optionally, if using saved groups
+$savedGroupsJSON = '{"myGroup": [1, 2, 3]}';
+$savedGroups = json_decode($savedGroupsJSON, true);
+$growthbook = $growthbook->withSavedGroups($savedGroups);
 ```
 
 ## The Growthbook Class
@@ -162,7 +177,7 @@ $attributes = [
 
 If you want to update attributes later, please note that the `withAttributes` method completely overwrites the attributes object. You can use `array_merge` if you only want to update a subset of fields:
 
-```ts
+```php
 // Only update the url attribute
 $growthbook->withAttributes(array_merge(
   $growthbook->getAttributes(),
@@ -273,7 +288,7 @@ mixpanel.track("Experiment Viewed", <?=json_encode([
 
 GrowthBook can output log messages to help you debug your feature flags and experiments.
 
-We support any PSR-3 comaptible logger. We implement a fluent interface (`withLogger`) as well as the standard LoggerAware interface (`setLogger`).
+We support any PSR-3 compatible logger. We implement a fluent interface (`withLogger`) as well as the standard LoggerAware interface (`setLogger`).
 
 ```php
 // Fluent interface
@@ -301,11 +316,73 @@ In addition, you can use `$growthbook->getFeature("feature-key")` to get back a 
 - **experiment** - Information about the experiment (if any) which was used to assign the value to the user
 - **experimentResult** - The result of the experiment (if any) which was used to assign the value to the user
 
+## Sticky Bucketing
+
+By default GrowthBook does not persist assigned experiment variations for a user. We rely on deterministic hashing to ensure that the same user attributes always map to the same experiment variation. However, there are cases where this isn't good enough. For example, if you change targeting conditions in the middle of an experiment, users may stop being shown a variation even if they were previously bucketed into it.
+
+Sticky Bucketing is a solution to these issues. You can provide a Sticky Bucket Service to the GrowthBook instance to persist previously seen variations and ensure that the user experience remains consistent for your users.
+
+A sample `InMemoryStickyBucketService` implementation is provided for reference, but in production you will definitely want to implement your own version using a database, cookies, or similar for persistence.
+
+Sticky Bucket documents contain three fields
+
+- `attributeName` - The name of the attribute used to identify the user (e.g. `id`, `cookie_id`, etc.)
+- `attributeValue` - The value of the attribute (e.g. `123`)
+- `assignments` - A dictionary of persisted experiment assignments. For example: `{"exp1__0":"control"}`
+
+The attributeName/attributeValue combo is the primary key.
+
+Here's an example implementation using a theoretical `db` object:
+
+```php
+class InMemoryStickyBucketService extends StickyBucketService
+{
+    /** @var array<string, StickyAssignmentDocument>  */
+    public array $docs = [];
+
+    /**
+     * @param string $attributeName
+     * @param mixed $attributeValue
+     * @return StickyAssignmentDocument|null
+     */
+    public function getAssignments(string $attributeName, $attributeValue): ?StickyAssignmentDocument
+    {
+        return $this->docs[$this->getKey($attributeName, $attributeValue)] ?? null;
+    }
+
+    /**
+     * @param StickyAssignmentDocument $doc
+     * @return void
+     */
+    public function saveAssignments(StickyAssignmentDocument $doc): void
+    {
+        $this->docs[$this->getKey($doc->getAttributeName(), $doc->getAttributeValue())] = $doc;
+    }
+
+    /**
+     * @return void
+     */
+    public function destroy(): void
+    {
+        $this->docs = [];
+    }
+}
+
+// Fluent interface
+$growthbook = Growthbook\Growthbook::create()
+  ->withStickyBucketing(new InMemoryStickyBucketService());
+
+// Using the constructor
+$growthbook = new Growthbook([
+  'stickyBucketService' => new InMemoryStickyBucketService()
+]);
+```
+
 ## Inline Experiments
 
 Instead of declaring all features up-front and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `$growthbook->runInlineExperiment` method:
 
-```js
+```php
 $exp = Growthbook\InlineExperiment::create(
   "my-experiment",
   ["red", "blue", "green"]
@@ -372,3 +449,7 @@ echo($result->hashValue); // e.g. "123"
 The `inExperiment` flag will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).
 
 The `hashUsed` flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="php" />

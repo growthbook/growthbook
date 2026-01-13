@@ -8,19 +8,16 @@ import {
   ReactElement,
 } from "react";
 import clsx from "clsx";
-import Modal from "./Modal";
-import DeleteButton from "./DeleteButton/DeleteButton";
 
 const Carousel: FC<{
-  deleteImage?: (i: number) => Promise<void>;
   children: ReactNode;
   maxChildHeight?: number;
-}> = ({ children, deleteImage, maxChildHeight }) => {
+  onClick?: (i: number) => void;
+}> = ({ children, maxChildHeight, onClick }) => {
   const [active, setActive] = useState(0);
-  const [modalOpen, setModalOpen] = useState(false);
 
   const num = Children.count(children);
-  if (!modalOpen && maxChildHeight) {
+  if (maxChildHeight) {
     children = Children.map(children, (child) => {
       return cloneElement(child as ReactElement, {
         style: {
@@ -33,46 +30,8 @@ const Carousel: FC<{
 
   const current = active >= num ? num - 1 : active;
 
-  let currentChild: null | ReactElement = null;
-  if (modalOpen) {
-    const orig = Children.toArray(children)[current];
-    if (orig && isValidElement(orig)) {
-      currentChild = cloneElement(orig as ReactElement<HTMLDivElement>, {
-        style: { ...orig.props.style, height: "100%" },
-      });
-    }
-  }
-
   return (
     <div className="carousel slide my-2">
-      {modalOpen && currentChild && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header={"Screenshot"}
-          close={() => setModalOpen(false)}
-          bodyClassName="d-flex justify-content-center align-items-center"
-          size="max"
-          sizeY="max"
-        >
-          {currentChild}
-          {deleteImage && (
-            <DeleteButton
-              displayName="Screenshot"
-              onClick={async () => {
-                await deleteImage(current);
-                setModalOpen(false);
-              }}
-              outline={true}
-              style={{
-                position: "absolute",
-                top: 20,
-                right: 20,
-              }}
-            />
-          )}
-        </Modal>
-      )}
       <div className="carousel-inner">
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
@@ -81,7 +40,9 @@ const Carousel: FC<{
               className={clsx("carousel-item cursor-pointer", {
                 active: i === current,
               })}
-              onClick={() => setModalOpen(true)}
+              onClick={() => {
+                if (onClick) onClick(i);
+              }}
               key={i}
             >
               {child}

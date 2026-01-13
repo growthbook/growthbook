@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
-import { ProjectInterface } from "back-end/types/project";
+import React, { useEffect, useMemo, useState } from "react";
+import { ProjectInterface } from "shared/types/project";
 import PQueue from "p-queue";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import {
   FaCheck,
@@ -11,9 +11,23 @@ import {
 } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Modal from "@/components/Modal";
+import Button from "@/components/Button";
+import Checkbox from "@/ui/Checkbox";
+import { ApiCallType, useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useEnvironments, useFeaturesList } from "@/services/features";
+import { useUser } from "@/services/UserContext";
+import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { isCloud } from "@/services/env";
 import {
   FeatureVariationsMap,
   getLDEnvironments,
@@ -23,18 +37,8 @@ import {
   getTypeAndVariations,
   transformLDFeatureFlag,
   transformLDProjectsToGBProject,
-} from "@/services/importing";
-import Field from "@/components/Forms/Field";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
-import Button from "@/components/Button";
-import { ApiCallType, useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments, useFeaturesList } from "@/services/features";
-import { useUser } from "@/services/UserContext";
-import { useSessionStorage } from "@/hooks/useSessionStorage";
-import LoadingSpinner from "@/components/LoadingSpinner";
+} from "@/services/importing/launchdarkly/launchdarkly-importing";
+import track from "@/services/track";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -93,7 +97,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       rules: Object.fromEntries(
         Object.entries(envSettings1)
           .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules])
+          .map(([e, v]) => [e, v.rules]),
       ),
     },
     {
@@ -104,7 +108,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       rules: Object.fromEntries(
         Object.entries(envSettings2)
           .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules])
+          .map(([e, v]) => [e, v.rules]),
       ),
     },
   ];
@@ -129,6 +133,11 @@ function FeatureDiff({
       oldValue={a}
       newValue={b}
       compareMethod={DiffMethod.LINES}
+      styles={{
+        contentText: {
+          wordBreak: "break-all",
+        },
+      }}
     />
   );
 }
@@ -139,7 +148,10 @@ async function buildImportedData(
   existingProjects: Map<string, ProjectInterface>,
   existingEnvs: Set<string>,
   features: FeatureInterface[],
-  callback: (data: ImportData) => void
+  callback: (data: ImportData) => void,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<void> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
 
@@ -161,9 +173,9 @@ async function buildImportedData(
   };
 
   // Get projects
-  const ldProjects = await getLDProjects(apiToken);
+  const ldProjects = await getLDProjects(apiToken, useBackendProxy, apiCall);
   const projects: ProjectImport[] = transformLDProjectsToGBProject(
-    ldProjects
+    ldProjects,
   ).map((p) => {
     const existing = existingProjects.get(p.name);
     if (existing) {
@@ -215,7 +227,12 @@ async function buildImportedData(
     // Get environments for each project
     queue.add(async () => {
       try {
-        const ldEnvs = await getLDEnvironments(apiToken, p.key);
+        const ldEnvs = await getLDEnvironments(
+          apiToken,
+          p.key,
+          useBackendProxy,
+          apiCall,
+        );
         ldEnvs.items.forEach((env) => {
           envs[env.key] = envs[env.key] || { name: env.name, projects: [] };
           envs[env.key].projects.push(p.key);
@@ -230,7 +247,12 @@ async function buildImportedData(
     // Get feature flags for the project
     queue.add(async () => {
       try {
-        const ldFeatures = await getLDFeatureFlags(apiToken, p.key);
+        const ldFeatures = await getLDFeatureFlags(
+          apiToken,
+          p.key,
+          useBackendProxy,
+          apiCall,
+        );
         // Build a map of feature key to type and variations
         // This is required for prerequisites
         const featureVarMap: FeatureVariationsMap = new Map();
@@ -253,12 +275,18 @@ async function buildImportedData(
           importedFeatureIds.add(f.key);
           queue.add(async () => {
             try {
-              const def = await getLDFeatureFlag(apiToken, p.key, f.key);
+              const def = await getLDFeatureFlag(
+                apiToken,
+                p.key,
+                f.key,
+                useBackendProxy,
+                apiCall,
+              );
               try {
                 const feature = transformLDFeatureFlag(
                   def,
                   p.key,
-                  featureVarMap
+                  featureVarMap,
                 );
 
                 // Check if anything substantial has changed
@@ -314,7 +342,7 @@ async function runImport(
   data: ImportData,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall: ApiCallType<any>,
-  callback: (data: ImportData) => void
+  callback: (data: ImportData) => void,
 ) {
   // We will mutate this shared object and sync it back to the component periodically
   data = cloneDeep(data);
@@ -347,7 +375,7 @@ async function runImport(
                 name: p.project?.name,
                 description: p.project?.description,
               }),
-            }
+            },
           );
           p.status = "completed";
           p.project = res.project;
@@ -421,7 +449,7 @@ async function runImport(
                   ...f.feature,
                   project: projectId,
                 }),
-              }
+              },
             );
             f.status = "completed";
             f.existing = res.feature;
@@ -455,10 +483,10 @@ function ImportStatusDisplay({
   const color = ["failed", "invalid"].includes(data.status)
     ? "danger"
     : data.status === "completed"
-    ? "success"
-    : data.status === "skipped"
-    ? "secondary"
-    : "purple";
+      ? "success"
+      : data.status === "skipped"
+        ? "secondary"
+        : "info";
 
   return (
     <Tooltip
@@ -595,10 +623,13 @@ function ImportHeader({
   name: string;
   items: { status: ImportStatus }[];
 }) {
-  const countsByStatus = items.reduce((acc, item) => {
-    acc[item.status] = (acc[item.status] || 0) + 1;
-    return acc;
-  }, {} as Record<ImportStatus, number>);
+  const countsByStatus = items.reduce(
+    (acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<ImportStatus, number>,
+  );
 
   return (
     <div className="bg-light p-3 border-bottom">
@@ -641,9 +672,20 @@ function ImportHeader({
 export default function ImportFromLaunchDarkly() {
   const [token, setToken] = useSessionStorage("ldApiToken", "");
   const [intervalCap, setIntervalCap] = useState(50);
+  const [useBackendProxy, setUseBackendProxy] = useLocalStorage(
+    "launchdarkly_use_backend_proxy",
+    false,
+  );
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
+
+  // Force useBackendProxy to false for cloud users
+  useEffect(() => {
+    if (isCloud() && useBackendProxy) {
+      setUseBackendProxy(false);
+    }
+  }, [useBackendProxy, setUseBackendProxy]);
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
   const { projects, mutateDefinitions } = useDefinitions();
@@ -652,19 +694,19 @@ export default function ImportFromLaunchDarkly() {
 
   const existingEnvironments = useMemo(
     () => new Set(environments.map((e) => e.id)),
-    [environments]
+    [environments],
   );
   const existingProjects = useMemo(
     () => new Map(projects.map((p) => [p.name, p])),
-    [projects]
+    [projects],
   );
   const { apiCall } = useAuth();
 
   const step = ["init", "loading", "error"].includes(data.status)
     ? 1
     : data.status === "ready"
-    ? 2
-    : 3;
+      ? 2
+      : 3;
 
   return (
     <div>
@@ -695,12 +737,33 @@ export default function ImportFromLaunchDarkly() {
                   onChange={(e) => setIntervalCap(parseInt(e.target.value))}
                 />
               </div>
+              {!isCloud() && (
+                <div className="col-auto" style={{ maxWidth: 180 }}>
+                  <label className="form-label d-block">Backend Proxy</label>
+                  <Checkbox
+                    label="Proxy through API"
+                    value={useBackendProxy}
+                    setValue={setUseBackendProxy}
+                    size="lg"
+                    weight="regular"
+                    mt="2"
+                  />
+                  <div className="text-muted small mt-1">
+                    Workaround for HTTP origin requests
+                  </div>
+                </div>
+              )}
             </div>
             <Button
               type="button"
               color={step === 1 ? "primary" : "outline-primary"}
               onClick={async () => {
                 if (!token) return;
+
+                track("LaunchDarkly import fetch started", {
+                  source: "launchdarkly",
+                  step: 1,
+                });
 
                 setData({
                   status: "fetching",
@@ -713,7 +776,9 @@ export default function ImportFromLaunchDarkly() {
                     existingProjects,
                     existingEnvironments,
                     features,
-                    (d) => setData(d)
+                    (d) => setData(d),
+                    isCloud() ? false : useBackendProxy,
+                    apiCall,
                   );
                 } catch (e) {
                   setData({
@@ -731,6 +796,11 @@ export default function ImportFromLaunchDarkly() {
               color={step === 2 ? "primary" : "outline-primary"}
               disabled={step < 2}
               onClick={async () => {
+                track("LaunchDarkly import started", {
+                  source: "launchdarkly",
+                  step: 2,
+                });
+
                 await runImport(data, apiCall, (d) => setData(d));
                 mutateDefinitions();
                 mutateFeatures();

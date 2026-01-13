@@ -1,13 +1,13 @@
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import React, { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
-import Link from "@/components/Radix/Link";
-import Button from "@/components/Radix/Button";
-import LinkButton from "@/components/Radix/LinkButton";
+import Link from "@/ui/Link";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -20,13 +20,14 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import EmptyState from "@/components/EmptyState";
 
 interface Props {
   setOpenTemplateModal: (
-    template: Partial<ExperimentTemplateInterface>
+    template: Partial<ExperimentTemplateInterface>,
   ) => void;
   setOpenDuplicateTemplateModal: (
-    template: ExperimentTemplateInterface
+    template: ExperimentTemplateInterface,
   ) => void;
 }
 
@@ -62,7 +63,7 @@ export const TemplatesPage = ({
 
   const filteredTemplates = project
     ? allTemplates.filter((t) =>
-        isProjectListValidForProject(t.project ? [t.project] : [], project)
+        isProjectListValidForProject(t.project ? [t.project] : [], project),
       )
     : allTemplates;
 
@@ -76,7 +77,7 @@ export const TemplatesPage = ({
         usage: templateExperimentMap[templ.id]?.length ?? 0,
       };
     },
-    [templateExperimentMap, allTemplates]
+    [templateExperimentMap, allTemplates],
   );
 
   const { items, SortableTH } = useSearch({
@@ -105,7 +106,6 @@ export const TemplatesPage = ({
           description="Save time configuring experiment details, and ensure consistency
             across your team and projects."
           commercialFeature="templates"
-          reason="Experiment Templates No Access"
           learnMoreLink="https://docs.growthbook.io/running-experiments/experiment-templates"
         />
       </>
@@ -219,25 +219,24 @@ export const TemplatesPage = ({
         <UpgradeModal
           close={() => setShowUpgradeModal(false)}
           source="templates"
-          reason="Create reusable experiment templates"
+          commercialFeature="templates"
         />
       )}
-      <div className="appbox p-5 text-center">
-        <h1>Create Reusable Experiment Templates</h1>
-        <Text size="3">
-          Save time configuring experiment details, and ensure consistency
-          across your team and projects.
-        </Text>
-        <div className="mt-3">
+      <EmptyState
+        title="Create Reusable Experiment Templates"
+        description="Save time configuring experiment details, and ensure consistency
+          across your team and projects."
+        leftButton={
           <LinkButton
             href="https://docs.growthbook.io/running-experiments/experiment-templates"
             variant="outline"
-            mr="3"
             external={true}
           >
             View docs
           </LinkButton>
-          {canCreate ? (
+        }
+        rightButton={
+          canCreate ? (
             <Button onClick={() => setOpenTemplateModal({})}>
               Create Template
             </Button>
@@ -249,9 +248,9 @@ export const TemplatesPage = ({
             >
               Upgrade Plan
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      ></EmptyState>
     </>
   );
 };

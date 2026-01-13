@@ -1,9 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -13,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import ProjectBadges from "@/components/ProjectBadges";
 export interface Props {
   features: FeatureInterface[];
 }
@@ -68,7 +69,7 @@ export default function FeaturesDraftTable({ features }: Props) {
       }
       return result;
     },
-    []
+    [],
   );
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
@@ -203,7 +204,16 @@ export default function FeaturesDraftTable({ features }: Props) {
                           <span className="text-danger">Invalid project</span>
                         </Tooltip>
                       ) : (
-                        projectName ?? <em>None</em>
+                        <>
+                          {featureAndRevision.project ? (
+                            <ProjectBadges
+                              resourceType="feature"
+                              projectIds={[featureAndRevision.project]}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </>
                       )}
                     </td>
                   }

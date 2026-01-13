@@ -1,15 +1,17 @@
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { upperFirst } from "lodash";
 import { useAuth } from "@/services/auth";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import Modal from "../Modal";
-import Link from "../Radix/Link";
+import Link from "@/ui/Link";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Modal from "@/components/Modal";
 
 interface Props {
   source: string;
   close: () => void;
   experimentId: string;
+  experimentType?: string;
   initialValue?: string;
   mutate: () => void;
 }
@@ -19,6 +21,7 @@ export default function EditDescriptionModal({
   close,
   experimentId,
   initialValue,
+  experimentType = "experiment",
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
@@ -65,8 +68,9 @@ export default function EditDescriptionModal({
       <MarkdownInput
         value={form.watch("description")}
         setValue={(value) => form.setValue("description", value)}
-        placeholder="Add a description to keep your team informed about the purpose
-                  and parameters of your experiment"
+        placeholder={`Add a description to keep your team informed about the purpose and parameters of your ${upperFirst(
+          experimentType || "experiment",
+        )}.`}
       />
     </Modal>
   );

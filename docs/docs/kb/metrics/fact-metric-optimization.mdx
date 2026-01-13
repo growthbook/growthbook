@@ -3,6 +3,8 @@ title: Savings from Fact Metric Optimization
 slug: fact-metric-optimization
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 Fact Tables can dramatically reduce the number of rows scanned by an experiment analysis in GrowthBook. This article explains how Fact Tables work and how they can optimize your queries.
 
 ## How do Fact Tables Optimize Queries?
@@ -14,15 +16,15 @@ Fact Tables allow you to define multiple metrics on top of one shared table in y
 
 Here's the analyses we run **without fact tables**. As you can see, each experiment assignment source is scanned and joined to the metric source for each experiment. Furthermore, each metric is scanned separately, even if they come from the same underlying table in your data warehouse.
 
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/metrics/fact-metric-before-optimization.png" alt="Analysis Without Fact Tables" style={{ width: 650 }} />
-</div>
+<MaxWidthImage maxWidth={650}>
+![Analysis Without Fact Tables](/images/metrics/fact-metric-before-optimization.png)
+</MaxWidthImage>
 
 **With fact tables**, we only need to scan the experiment assignment source once per Fact Table and join it once to a single scan of the Fact Table, even if you have 10 metrics defined on that fact table. We then store the metrics in a wide format in the join User Metric table and then aggregate them all in one query.
 
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/metrics/fact-metric-after-optimization.png" alt="Analysis With Fact Tables" style={{ width: 650 }} />
-</div>
+<MaxWidthImage maxWidth={650}>
+![Analysis With Fact Tables](/images/metrics/fact-metric-after-optimization.png)
+</MaxWidthImage>
 
 ## How Many Fewer Rows are Scanned?
 

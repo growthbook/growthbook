@@ -4,10 +4,9 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   SavedGroupTargeting,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -31,26 +30,32 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
+import HelperText from "@/ui/HelperText";
 
 export default function ExperimentRefNewFields({
   step,
   source,
   feature,
   project,
-  environment,
   environments,
   defaultValues,
   revisions,
@@ -78,14 +83,15 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  setCustomFields,
   isTemplate = false,
+  holdoutHashAttribute,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   revisions?: FeatureRevisionInterface[];
   version?: number;
@@ -112,7 +118,9 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
+  holdoutHashAttribute?: string;
 }) {
   const form = useFormContext();
 
@@ -130,10 +138,13 @@ export default function ExperimentRefNewFields({
   const availableTemplates = allTemplates
     .slice()
     .sort((a, b) =>
-      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
     .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], currentProject)
+      isProjectListValidForProject(
+        t.project ? [t.project] : [],
+        currentProject,
+      ),
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
@@ -152,11 +163,11 @@ export default function ExperimentRefNewFields({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === datasource?.id
+    (s) => s.datasource === datasource?.id,
   );
 
   const settings = useOrgSettings();
@@ -166,6 +177,12 @@ export default function ExperimentRefNewFields({
     hasCommercialFeature("templates") &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    project,
+  );
 
   return (
     <>
@@ -189,15 +206,14 @@ export default function ExperimentRefNewFields({
                   const template = templatesMap.get(t);
                   if (!template) return;
 
-                  const templateAsExperimentRule = convertTemplateToExperimentRule(
-                    {
+                  const templateAsExperimentRule =
+                    convertTemplateToExperimentRule({
                       template,
                       defaultValue: feature
                         ? getFeatureDefaultValue(feature)
                         : "",
                       attributeSchema,
-                    }
-                  );
+                    });
                   form.reset(templateAsExperimentRule, {
                     keepDefaultValues: true,
                   });
@@ -256,6 +272,17 @@ export default function ExperimentRefNewFields({
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
+
+          {hasCommercialFeature("custom-metadata") &&
+            !!customFields?.length && (
+              <CustomFieldInput
+                customFields={customFields}
+                currentCustomFields={form.watch("customFields")}
+                setCustomFields={setCustomFields ? setCustomFields : () => {}}
+                section={"experiment"}
+                project={project}
+              />
+            )}
         </>
       ) : null}
 
@@ -276,6 +303,13 @@ export default function ExperimentRefNewFields({
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
+            {!!holdoutHashAttribute &&
+              form.watch("hashAttribute") !== holdoutHashAttribute && (
+                <HelperText status="warning" size="sm" mb="4">
+                  The hash attribute of this experiment does not match the hash
+                  attribute of the holdout this experiment will belong to.
+                </HelperText>
+              )}
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}
@@ -354,59 +388,32 @@ export default function ExperimentRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : environments ?? []}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
           />
           {isCyclic && (
-            <div className="alert alert-danger">
-              <FaExclamationTriangle /> A prerequisite (
-              <code>{cyclicFeatureId}</code>) creates a circular dependency.
-              Remove this prerequisite to continue.
-            </div>
+            <Callout status="error">
+              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+              dependency. Remove this prerequisite to continue.
+            </Callout>
           )}
 
-          {!isTemplate && source === "rule" && (
-            <>
-              <hr />
-              <div className="mt-4 mb-3">
-                <Toggle
-                  value={form.watch("autoStart")}
-                  setValue={(v) => form.setValue("autoStart", v)}
-                  id="auto-start-new-experiment"
-                />{" "}
-                <label
-                  htmlFor="auto-start-new-experiment"
-                  className="text-dark"
-                >
-                  Start Experiment Immediately
-                </label>
-                <div>
-                  <small className="form-text text-muted">
-                    If On, the Experiment will start serving traffic as soon as
-                    the feature is published. Leave Off if you want to make
-                    additional changes before starting.
-                  </small>
-                </div>
-                {!noSchedule &&
-                !form.watch("autoStart") &&
-                setScheduleToggleEnabled ? (
-                  <div>
-                    <hr />
-                    <ScheduleInputs
-                      defaultValue={defaultValues?.scheduleRules || []}
-                      onChange={(value) =>
-                        form.setValue("scheduleRules", value)
-                      }
-                      scheduleToggleEnabled={!!scheduleToggleEnabled}
-                      setScheduleToggleEnabled={setScheduleToggleEnabled}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </>
-          )}
+          {!isTemplate &&
+          source === "rule" &&
+          !noSchedule &&
+          setScheduleToggleEnabled ? (
+            <div className="mt-4 mb-3">
+              <hr className="mb-4" />
+              <ScheduleInputs
+                defaultValue={defaultValues?.scheduleRules || []}
+                onChange={(value) => form.setValue("scheduleRules", value)}
+                scheduleToggleEnabled={!!scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+              />
+            </div>
+          ) : null}
         </>
       ) : null}
       {step === 3 ? (
@@ -473,7 +480,7 @@ export default function ExperimentRefNewFields({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>
@@ -511,6 +518,20 @@ export default function ExperimentRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />

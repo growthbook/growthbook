@@ -1,19 +1,22 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "back-end/types/team";
+import { TeamInterface } from "shared/types/team";
 import {
+  DemographicData,
   Invite,
   Member,
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrgMemberInfo,
   Role,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { ApiOrganization } from "shared/types/openapi";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
-import { ApiOrganization } from "back-end/types/openapi";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
@@ -52,9 +55,22 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
+  demographicData: {
+    ownerJobTitle: {
+      type: String,
+      enum: Object.keys(OWNER_JOB_TITLES),
+    },
+    ownerUsageIntents: [
+      {
+        type: String,
+        enum: Object.keys(USAGE_INTENTS),
+      },
+    ],
+  },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
+  isVercelIntegration: Boolean,
   members: [
     {
       ...baseMemberFields,
@@ -120,11 +136,6 @@ const organizationSchema = new mongoose.Schema({
       team: String,
       token: String,
     },
-    vercel: {
-      token: String,
-      configurationId: String,
-      teamId: String,
-    },
   },
   settings: {},
   getStartedChecklistItems: [String],
@@ -132,13 +143,14 @@ const organizationSchema = new mongoose.Schema({
   deactivatedRoles: [],
   disabled: Boolean,
   setupEventTracker: String,
+  trackingDisabled: Boolean,
 });
 
 organizationSchema.index({ "members.id": 1 });
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
-  organizationSchema
+  organizationSchema,
 );
 const COLLECTION = "organizations";
 
@@ -149,20 +161,27 @@ export async function createOrganization({
   email,
   userId,
   name,
+  demographicData,
   url = "",
   verifiedDomain = "",
   externalId = "",
+  isVercelIntegration = false,
+  restrictLoginMethod,
 }: {
   email: string;
   userId: string;
   name: string;
+  demographicData?: DemographicData;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
+  isVercelIntegration?: boolean;
+  restrictLoginMethod?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
+    demographicData,
     name,
     url,
     verifiedDomain,
@@ -189,6 +208,7 @@ export async function createOrganization({
         },
       ],
       killswitchConfirmation: true,
+      runHealthTrafficQuery: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
@@ -208,16 +228,32 @@ export async function createOrganization({
         { property: "utmTerm", datatype: "string" },
         { property: "utmContent", datatype: "string" },
       ],
+      disablePrecomputedDimensions: false,
     },
     getStartedChecklistItems: [],
+    isVercelIntegration,
+    ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
+}
+
+export async function getOrganizationIdsWithTrackingDisabled(
+  organizationIds: string[],
+) {
+  const orgs = await OrganizationModel.find(
+    {
+      id: { $in: organizationIds },
+      trackingDisabled: true,
+    },
+    { id: 1, _id: 0 },
+  );
+  return new Set(orgs.map((org) => org.id));
 }
 
 export async function findAllOrganizations(
   page: number,
   search: string,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const regex = new RegExp(search, "i");
 
@@ -245,14 +281,27 @@ export async function findAllOrganizations(
   return { organizations: docs.map(toInterface), total };
 }
 
+export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
+  const docs = await OrganizationModel.find({
+    id: { $in: orgIds },
+  });
+  return docs.map(toInterface);
+}
+
 export async function findOrganizationById(id: string) {
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
 
+type DeletableKeys = Extract<
+  keyof OrganizationInterface,
+  "restrictLoginMethod"
+>;
+
 export async function updateOrganization(
   id: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
+  unset?: Partial<Record<DeletableKeys, 1>>,
 ) {
   await OrganizationModel.updateOne(
     {
@@ -260,51 +309,26 @@ export async function updateOrganization(
     },
     {
       $set: update,
-    }
-  );
-}
-
-export async function updateOrganizationByStripeId(
-  stripeCustomerId: string,
-  update: Partial<OrganizationInterface>
-) {
-  await OrganizationModel.updateOne(
-    {
-      stripeCustomerId,
+      ...(unset ? { $unset: unset } : {}),
     },
-    {
-      $set: update,
-    }
   );
 }
 
-export async function findOrganizationByStripeCustomerId(id: string) {
-  const doc = await OrganizationModel.findOne({
-    stripeCustomerId: id,
-  });
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function getAllInviteEmailsInDb() {
+export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
+    throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
   }
-
-  const organizations = await OrganizationModel.find(
+  return await OrganizationModel.find(
     {},
-    { "invites.email": 1 }
-  );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
+    {
+      id: 1,
+      "invites.email": 1,
+      "members.id": 1,
+      "members.role": 1,
+      "members.projectRoles.role": 1,
+      "members.teams": 1,
     },
-    []
   );
-
-  return inviteEmails;
 }
 
 export async function getSelfHostedOrganization() {
@@ -380,7 +404,7 @@ export async function getOrganizationsWithNorthStars() {
 
 export async function removeProjectFromProjectRoles(
   project: string,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ) {
   if (!org) return;
 
@@ -422,7 +446,7 @@ export async function findOrganizationsByDomain(domain: string) {
 
 export async function setOrganizationMessages(
   orgId: string,
-  messages: OrganizationMessage[]
+  messages: OrganizationMessage[],
 ): Promise<void> {
   await OrganizationModel.updateOne(
     {
@@ -431,12 +455,12 @@ export async function setOrganizationMessages(
     { messages },
     {
       runValidators: true,
-    }
+    },
   );
 }
 
 export function toOrganizationApiInterface(
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): ApiOrganization {
   const { id, externalId, name, ownerEmail, dateCreated } = org;
   return {
@@ -451,7 +475,7 @@ export function toOrganizationApiInterface(
 export async function updateMember(
   org: OrganizationInterface,
   userId: string,
-  updates: Partial<Member>
+  updates: Partial<Member>,
 ) {
   if (updates.id) throw new Error("Cannot update member id");
 
@@ -497,7 +521,7 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
   // Validate custom role id format
   if (!/^[a-zA-Z0-9_]+$/.test(role.id)) {
     throw new Error(
-      "Role id must only include letters, numbers, and underscores."
+      "Role id must only include letters, numbers, and underscores.",
     );
   }
 
@@ -510,7 +534,7 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
 export async function editCustomRole(
   org: OrganizationInterface,
   id: string,
-  updates: Omit<Role, "id">
+  updates: Omit<Role, "id">,
 ) {
   // Validation
   updates = customRoleValidator.omit({ id: true }).parse(updates);
@@ -544,12 +568,12 @@ function usingRole(member: MemberRoleWithProjects, role: string): boolean {
 export async function removeCustomRole(
   org: OrganizationInterface,
   teams: TeamInterface[],
-  id: string
+  id: string,
 ) {
   // Make sure the id isn't the org's default
   if (org.settings?.defaultRole?.role === id) {
     throw new Error(
-      "Cannot delete role. This role is set as the organization's default role."
+      "Cannot delete role. This role is set as the organization's default role.",
     );
   }
   // Make sure no members, invites, pending members, or teams are using the role
@@ -558,12 +582,12 @@ export async function removeCustomRole(
   }
   if (org.pendingMembers?.some((m) => usingRole(m, id))) {
     throw new Error(
-      "Role is currently being used by at least one pending member"
+      "Role is currently being used by at least one pending member",
     );
   }
   if (org.invites?.some((m) => usingRole(m, id))) {
     throw new Error(
-      "Role is currently being used by at least one invited member"
+      "Role is currently being used by at least one invited member",
     );
   }
   if (teams.some((team) => usingRole(team, id))) {
@@ -571,7 +595,7 @@ export async function removeCustomRole(
   }
 
   const newCustomRoles = (org.customRoles || []).filter(
-    (role) => role.id !== id
+    (role) => role.id !== id,
   );
 
   if (newCustomRoles.length === (org.customRoles || []).length) {
@@ -591,7 +615,7 @@ export async function removeCustomRole(
 
 export async function deactivateRoleById(
   org: OrganizationInterface,
-  id: string
+  id: string,
 ) {
   if (
     !RESERVED_ROLE_IDS.includes(id) &&
@@ -614,7 +638,7 @@ export async function activateRoleById(org: OrganizationInterface, id: string) {
   }
 
   const newDeactivatedRoles = org.deactivatedRoles.filter(
-    (role) => role !== id
+    (role) => role !== id,
   );
 
   await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
@@ -627,6 +651,6 @@ export async function addGetStartedChecklistItem(id: string, item: string) {
     },
     {
       $addToSet: { getStartedChecklistItems: item },
-    }
+    },
   );
 }

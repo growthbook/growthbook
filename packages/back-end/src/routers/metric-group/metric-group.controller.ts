@@ -1,16 +1,16 @@
 import type { Response } from "express";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateMetricGroupProps,
   MetricGroupInterface,
-} from "back-end/types/metric-groups";
+} from "shared/types/metric-groups";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { removeMetricFromExperiments } from "back-end/src/models/ExperimentModel";
 
 export const getMetricGroups = async (
   req: AuthRequest,
-  res: Response<{ status: 200; metricGroups: MetricGroupInterface[] }>
+  res: Response<{ status: 200; metricGroups: MetricGroupInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -23,7 +23,7 @@ export const getMetricGroups = async (
 
 export const postMetricGroup = async (
   req: AuthRequest<CreateMetricGroupProps>,
-  res: Response<{ status: 200; metricGroup: MetricGroupInterface }>
+  res: Response<{ status: 200; metricGroup: MetricGroupInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -59,7 +59,7 @@ export const postMetricGroup = async (
 
 export const putMetricGroup = async (
   req: AuthRequest<CreateMetricGroupProps, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -79,7 +79,7 @@ export const putMetricGroup = async (
 
   const datasourceDoc = await getDataSourceById(
     context,
-    data?.datasource || metricGroup.datasource
+    data?.datasource || metricGroup.datasource,
   );
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
@@ -93,7 +93,7 @@ export const putMetricGroup = async (
 
 export const deleteMetricGroup = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -120,7 +120,7 @@ export const deleteMetricGroup = async (
 // reorder metrics within a group
 export const putMetricGroupReorder = async (
   req: AuthRequest<{ from: number; to: number }, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -154,7 +154,7 @@ export const putMetricGroupReorder = async (
 // remove a metric from a group
 export const removeMetricFromGroup = async (
   req: AuthRequest<null, { id: string; metricId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 

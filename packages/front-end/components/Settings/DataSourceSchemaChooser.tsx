@@ -1,4 +1,4 @@
-import { DataSourceType, SchemaFormat } from "back-end/types/datasource";
+import { DataSourceType, SchemaFormat } from "shared/types/datasource";
 import clsx from "clsx";
 import { FaArrowRight } from "react-icons/fa";
 import { useState } from "react";
@@ -113,7 +113,7 @@ export default function DataSourceSchemaChooser({
                       helpText={helpText}
                     />
                   </div>
-                )
+                ),
               )}
             </>
           )}

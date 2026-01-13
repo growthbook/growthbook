@@ -5,9 +5,11 @@ sidebar_label: Prerequisite Features
 slug: /features/prerequisites
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Prerequisite Features
 
-<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto"}} src="https://www.youtube-nocookie.com/embed/5W7JfvHVI3E?si=CGkhcxHMDUwU-ENM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto"}} src="https://www.youtube-nocookie.com/embed/5W7JfvHVI3E?si=CGkhcxHMDUwU-ENM" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
 
 Prerequisite features allow you to control the state of other features, rules, and experiments based on the state of a prerequisite feature.
 
@@ -27,7 +29,9 @@ Top-level prerequisites are defined per dependent feature. They function similar
 **Top-level Prerequisites** is a GrowthBook Pro and Enterprise feature.
 :::
 
-<img src="/images/features/feature-top-level-prerequisites.png" alt="Top-level prerequisites" width="700" />
+<MaxWidthImage maxWidth={700}>
+  ![Top-level prerequisites](/images/features/feature-top-level-prerequisites.png)
+</MaxWidthImage>
 
 Add one or more top-level prerequisites by clicking the "Add Prerequisite Feature" button on the feature page and then selecting the feature you want to use as a prerequisite.
 
@@ -55,6 +59,13 @@ Prerequisites with a Schrödinger state must be evaluated at runtime in the SDK.
 
 - JavaScript: `0.34.0+`
 - React: `0.24.0+`
+- Python: `1.1.0+`
+- C#: `1.1.0+`
+- Golang: `0.2.0+`
+- Java: `0.9.7+`
+- Kotlin: `1.1.60+`
+- Swift: `1.0.56+`
+- Ruby: `1.3.0+`
 
 :::
 
@@ -73,14 +84,15 @@ Inline prerequisite targeting allows finer-grained control over prerequisite beh
 
 To create an inline prerequisite within a feature, simply add prerequisiting targeting to an existing rule or create a new rule with prerequisite targeting. You can specify one or more prerequisite features within the same project and give each a custom evaluation condition. A similar flow exists while editing the targeting rules of an experiment.
 
-<img src="/images/features/feature-inline-prerequisite-targeting.png" alt="Inline prerequisite targeting" width="700" />
+<MaxWidthImage maxWidth={700}>
+  ![Inline prerequisite targeting](/images/features/feature-inline-prerequisite-targeting.png)
+</MaxWidthImage>
 
 ### Inline prerequisite states and values
 
 The same **deterministic** and **Schrödinger** states apply to inline prerequisites as they do to top-level prerequisites ([see above](#prerequisite-states-and-values)). Below is a summary of how they apply to inline prerequisites:
 
 - **Deterministic** states (**live** and **not live**) are calculated using your evaluation condition, which is **_not_** limited to `is true`. As before, no run-time evaluation of prerequisites is required in the SDK.
-
   - **Live** prerequisites which pass the evaluation condition will allow their dependent rules or experiments to be enabled.
   - **Live** prerequisites which fail the evaluation condition will still block their dependent rules or experiments.
   - **Not live** prerequisites will generally block the dependent rule or experiment, unless the evaluation condition specifically checks for this (e.g. `is not live`)
@@ -96,4 +108,6 @@ There are a few limitations and guardrails within GrowthBook when configuring pr
 3. If you don't have an SDK which supports prerequisite evaluation, then you cannot select a prerequisite that is in a Schrödinger state.
 4. Once a feature has been used as a prerequisite for other features or experiments, you are blocked from deleting, archiving, or changing its projects. To perform these actions, you must first remove the feature from all dependent features and experiments. You can see a list of dependencies on the feature page:
 
-<img src="/images/features/feature-prerequisite-dependents.png" alt="Prerequisite dependents" width="700" />
+<MaxWidthImage maxWidth={700}>
+  ![Prerequisite dependents](/images/features/feature-prerequisite-dependents.png)
+</MaxWidthImage>

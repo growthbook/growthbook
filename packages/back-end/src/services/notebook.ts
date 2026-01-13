@@ -2,36 +2,39 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
+import { Queries } from "shared/types/query";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "shared/types/experiment-snapshot";
+import { ExperimentInterface } from "shared/types/experiment";
+import type { DataForStatsEngine } from "shared/types/stats";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getReportById } from "back-end/src/models/ReportModel";
-import { Queries } from "back-end/types/query";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
-  DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
 } from "./stats";
 
 async function getQueryData(
+  context: ReqContext,
   queries: Queries,
-  organization: string,
-  map?: QueryMap
+  map?: QueryMap,
 ): Promise<QueryMap> {
   const docs = await getQueriesByIds(
-    organization,
-    queries.map((q) => q.query)
+    context,
+    queries.map((q) => q.query),
   );
 
   const res: QueryMap = map || new Map();
@@ -46,7 +49,7 @@ async function getQueryData(
 
 export async function generateReportNotebook(
   context: ReqContext | ApiReqContext,
-  reportId: string
+  reportId: string,
 ): Promise<string> {
   const report = await getReportById(context.org.id, reportId);
   if (!report) {
@@ -56,11 +59,17 @@ export async function generateReportNotebook(
   if (report.type === "experiment") {
     // Get metrics
     const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
+    const metricGroups = await context.models.metricGroups.getAll();
 
-    const {
-      snapshotSettings,
-      analysisSettings,
-    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromReportArgs(
+        report.args,
+        metricMap,
+        factTableMap,
+        undefined,
+        metricGroups,
+      );
     return generateNotebook({
       context,
       queryPointers: report.queries,
@@ -78,7 +87,7 @@ export async function generateReportNotebook(
 
 export async function generateExperimentNotebook(
   context: ReqContext,
-  snapshotId: string
+  snapshotId: string,
 ): Promise<string> {
   // Get snapshot
   const snapshot = await findSnapshotById(context.org.id, snapshotId);
@@ -137,22 +146,43 @@ export async function generateNotebook({
   // Get datasource
   const datasource = await getDataSourceById(
     context,
-    snapshotSettings.datasourceId
+    snapshotSettings.datasourceId,
   );
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
   if (!datasource.settings?.notebookRunQuery) {
     throw new Error(
-      "Must define a runQuery function for this data source before exporting as a notebook."
+      "Must define a runQuery function for this data source before exporting as a notebook.",
     );
   }
 
   // Get metrics
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  // Get experiment data to expand slice metrics
+  let experiment: ExperimentInterface | null = null;
+  if (snapshotSettings.experimentId) {
+    experiment = await getExperimentById(
+      context,
+      snapshotSettings.experimentId,
+    );
+  }
+
+  // Expand slice metrics if we have experiment data
+  if (experiment) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
   // Get queries
-  const queries = await getQueryData(queryPointers, context.org.id);
+  const queries = await getQueryData(context, queryPointers);
 
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();
@@ -166,15 +196,15 @@ export async function generateNotebook({
     Math.max(
       hoursBetween(
         snapshotSettings.startDate,
-        snapshotSettings.endDate || createdAt
+        snapshotSettings.endDate || createdAt,
       ),
-      1
+      1,
     ) / 24;
 
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
-    snapshotSettings
+    snapshotSettings,
   );
 
   const data: DataForStatsEngine = {
@@ -186,7 +216,7 @@ export async function generateNotebook({
           name: variationNames[i] || v.id,
         })),
         snapshotSettings.coverage ?? 1,
-        phaseLengthDays
+        phaseLengthDays,
       ),
     ],
     metrics: metricSettings,
@@ -216,7 +246,7 @@ print(create_notebook(
       run_query=data['run_query'],
     ),
 ))`,
-    {}
+    {},
   );
 
   if (!result) {

@@ -1,32 +1,87 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import {
+  DecisionCriteriaData,
   ExperimentInterfaceStringDates,
+  ExperimentResultStatusData,
   ExperimentResultsType,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { Flex } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
+import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
+import { AppFeatures } from "@/types/app-features";
+import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  runningExperimentStatus?: ExperimentResultStatusData;
+  decisionCriteria?: DecisionCriteriaData;
   mutate: () => void;
   close: () => void;
   source?: string;
-}> = ({ experiment, close, mutate, source }) => {
+}> = ({
+  experiment,
+  runningExperimentStatus,
+  decisionCriteria,
+  close,
+  mutate,
+  source,
+}) => {
+  const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
   const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+
+  const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestFunction = gb.isOn(
+    "ai-suggestions-for-experiment-analysis-input",
+  )
+    ? async () => {
+        const response = await apiCall<{
+          status: number;
+          data: {
+            description: string;
+          };
+        }>(
+          `/experiment/${experiment.id}/analysis/ai-suggest`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              results: form.watch("results"),
+              winner: form.watch("winner"),
+              releasedVariationId: form.watch("releasedVariationId"),
+            }),
+          },
+          (responseData) => {
+            if (responseData.status === 429) {
+              const retryAfter = parseInt(responseData.retryAfter);
+              const hours = Math.floor(retryAfter / 3600);
+              const minutes = Math.floor((retryAfter % 3600) / 60);
+              throw new Error(
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+              );
+            } else if (responseData.message) {
+              throw new Error(responseData.message);
+            } else {
+              throw new Error("Error getting AI suggestion");
+            }
+          },
+        );
+        return response.data.description;
+      }
+    : undefined;
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -37,19 +92,82 @@ const StopExperimentForm: FC<{
     maximumFractionDigits: 2,
   });
 
-  const form = useForm({
+  const getRecommendedResult = (
+    recommendation?: ExperimentResultStatusData,
+    controlVariationId?: string,
+  ): { result?: Results; releasedVariationId?: string } => {
+    if (recommendation?.status === "ship-now") {
+      return {
+        result: "won",
+        releasedVariationId:
+          recommendation.variations.length === 1
+            ? recommendation.variations[0].variationId
+            : undefined,
+      };
+    }
+    if (recommendation?.status === "rollback-now") {
+      return { result: "lost", releasedVariationId: controlVariationId };
+    }
+    return {};
+  };
+
+  const {
+    result: recommendedResult,
+    releasedVariationId: recommendedReleaseVariationId,
+  } = getRecommendedResult(
+    runningExperimentStatus,
+    experiment.variations?.[0]?.id,
+  );
+
+  const recommendedReleaseVariationIndex = recommendedReleaseVariationId
+    ? experiment.variations.findIndex(
+        (v) => v.id === recommendedReleaseVariationId,
+      )
+    : undefined;
+
+  const form = useForm<{
+    reason: string;
+    winner: number;
+    releasedVariationId: string;
+    excludeFromPayload: boolean;
+    analysis: string;
+    results: Results;
+    dateEnded: string;
+  }>({
     defaultValues: {
       reason: "",
-      winner: experiment.winner || 0,
-      releasedVariationId: experiment.releasedVariationId || "",
+      winner: experiment.winner ?? recommendedReleaseVariationIndex ?? 0,
+      releasedVariationId:
+        experiment.releasedVariationId || recommendedReleaseVariationId || "",
       excludeFromPayload: !!experiment.excludeFromPayload,
       analysis: experiment.analysis || "",
-      results: experiment.results || "dnf",
+      results: experiment.results || recommendedResult,
       dateEnded: new Date().toISOString().substr(0, 16),
     },
   });
 
+  const decisionDoesNotMatchRecommendedResult =
+    recommendedResult && form.watch("results") !== recommendedResult;
+  const variationDoesNotMatchRecommendedReleaseVariationId =
+    !decisionDoesNotMatchRecommendedResult &&
+    recommendedReleaseVariationId !== undefined &&
+    form.watch("releasedVariationId") !== recommendedReleaseVariationId;
+  const winnerDoesNotMatchRecommendedReleaseVariationId =
+    !decisionDoesNotMatchRecommendedResult &&
+    recommendedReleaseVariationId !== undefined &&
+    experiment.variations?.[form.watch("winner")]?.id !==
+      recommendedReleaseVariationId;
   const { apiCall } = useAuth();
+
+  const decisionBanner =
+    runningExperimentStatus && decisionCriteria
+      ? RunningExperimentDecisionBanner({
+          experiment,
+          runningExperimentStatus,
+          decisionCriteria,
+          showDecisionCriteriaLink: false,
+        })
+      : null;
 
   const submit = form.handleSubmit(async (value) => {
     let winner = -1;
@@ -75,7 +193,7 @@ const StopExperimentForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(body),
-      }
+      },
     );
 
     if (!isStopped) {
@@ -96,162 +214,194 @@ const StopExperimentForm: FC<{
           ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`
           : `Stop ${isBandit ? "Bandit" : "Experiment"}`
       }
+      size="lg"
       close={close}
-      open={true}
+      open={showModal}
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
       submitColor={isStopped ? "primary" : "danger"}
       closeCta="Cancel"
     >
-      {!isStopped && (
-        <>
-          <Field
-            label="Reason for stopping"
-            textarea
-            {...form.register("reason")}
-            placeholder="(optional)"
-          />
-          {!hasLinkedChanges && (
-            <DatePicker
-              label="End Time (UTC)"
-              date={form.watch("dateEnded")}
-              setDate={(v) => {
-                form.setValue("dateEnded", v ? datetime(v) : "");
+      <Flex direction={"column"} gap={"1"}>
+        {decisionBanner ? (
+          <>
+            <Flex direction={"column"} gap="0">
+              <label>Recommendation</label>
+              {decisionBanner}
+            </Flex>
+            <hr className="m-1" />
+          </>
+        ) : null}
+        <Flex direction={"column"} gap="0">
+          <div className="row">
+            <SelectField
+              label="Conclusion"
+              containerClassName="col-lg"
+              className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
+              value={form.watch("results")}
+              onChange={(v) => {
+                const result = v as ExperimentResultsType;
+                form.setValue("results", result);
+
+                if (result === "dnf" || result === "inconclusive") {
+                  form.setValue("excludeFromPayload", true);
+                  form.setValue("releasedVariationId", "");
+                  form.setValue("winner", 0);
+                } else if (result === "won") {
+                  form.setValue("excludeFromPayload", false);
+                  form.setValue(
+                    "winner",
+                    recommendedReleaseVariationIndex ?? 1,
+                  );
+                  form.setValue(
+                    "releasedVariationId",
+                    recommendedReleaseVariationId ??
+                      (experiment.variations[1]?.id || ""),
+                  );
+                } else if (result === "lost") {
+                  form.setValue("excludeFromPayload", true);
+                  form.setValue("winner", 0);
+                  form.setValue(
+                    "releasedVariationId",
+                    experiment.variations[0]?.id || "",
+                  );
+                }
               }}
+              placeholder="Pick one..."
+              required
+              options={[
+                { label: "Did Not Finish", value: "dnf" },
+                { label: "Won", value: "won" },
+                { label: "Lost", value: "lost" },
+                { label: "Inconclusive", value: "inconclusive" },
+              ]}
             />
-          )}
-        </>
-      )}
-      <div className="row">
-        <SelectField
-          label="Conclusion"
-          containerClassName="col-lg"
-          value={form.watch("results")}
-          onChange={(v) => {
-            const result = v as ExperimentResultsType;
-            form.setValue("results", result);
+            {form.watch("results") === "won" &&
+              experiment.variations.length > 2 && (
+                <SelectField
+                  label="Winner"
+                  containerClassName="col-lg"
+                  className={
+                    decisionDoesNotMatchRecommendedResult ? "warning" : ""
+                  }
+                  value={form.watch("winner") + ""}
+                  onChange={(v) => {
+                    form.setValue("winner", parseInt(v) || 0);
 
-            if (result === "dnf" || result === "inconclusive") {
-              form.setValue("excludeFromPayload", true);
-              form.setValue("releasedVariationId", "");
-              form.setValue("winner", 0);
-            } else if (result === "won") {
-              form.setValue("excludeFromPayload", false);
-              form.setValue("winner", 1);
-              form.setValue(
-                "releasedVariationId",
-                experiment.variations[1]?.id || ""
-              );
-            } else if (result === "lost") {
-              form.setValue("excludeFromPayload", true);
-              form.setValue("winner", 0);
-              form.setValue(
-                "releasedVariationId",
-                experiment.variations[0]?.id || ""
-              );
-            }
-          }}
-          placeholder="Pick one..."
-          required
-          options={[
-            { label: "Did Not Finish", value: "dnf" },
-            { label: "Won", value: "won" },
-            { label: "Lost", value: "lost" },
-            { label: "Inconclusive", value: "inconclusive" },
-          ]}
-        />
-        {form.watch("results") === "won" && experiment.variations.length > 2 && (
-          <SelectField
-            label="Winner"
-            containerClassName="col-lg"
-            value={form.watch("winner") + ""}
-            onChange={(v) => {
-              form.setValue("winner", parseInt(v) || 0);
-
-              form.setValue(
-                "releasedVariationId",
-                experiment.variations[parseInt(v)]?.id ||
-                  form.watch("releasedVariationId")
-              );
+                    form.setValue(
+                      "releasedVariationId",
+                      experiment.variations[parseInt(v)]?.id ||
+                        form.watch("releasedVariationId"),
+                    );
+                  }}
+                  options={experiment.variations.slice(1).map((v, i) => {
+                    return { value: i + 1 + "", label: v.name };
+                  })}
+                />
+              )}
+          </div>
+          {decisionDoesNotMatchRecommendedResult ||
+          winnerDoesNotMatchRecommendedReleaseVariationId ? (
+            <Callout status="warning" mb="3" mt="-2">
+              Conclusion does not match the recommendation.
+            </Callout>
+          ) : null}
+        </Flex>
+        {!isStopped && !hasLinkedChanges && (
+          <DatePicker
+            label="End Time (UTC)"
+            date={form.watch("dateEnded")}
+            setDate={(v) => {
+              form.setValue("dateEnded", v ? datetime(v) : "");
             }}
-            options={experiment.variations.slice(1).map((v, i) => {
-              return { value: i + 1 + "", label: v.name };
-            })}
           />
         )}
-      </div>
-      {hasLinkedChanges && (
-        <>
-          <div className="row">
-            <div className="form-group col">
-              <label>Enable Temporary Rollout</label>
-
-              <div>
-                <Toggle
+        {hasLinkedChanges && (
+          <>
+            <div className="row">
+              <div className="form-group col">
+                <Checkbox
                   id="excludeFromPayload"
+                  label="Enable Temporary Rollout"
                   value={!form.watch("excludeFromPayload")}
                   setValue={(includeInPayload) => {
                     form.setValue("excludeFromPayload", !includeInPayload);
                   }}
                 />
+
+                <small className="form-text text-muted">
+                  Keep the {isBandit ? "Bandit" : "Experiment"} running until
+                  you can implement the changes in code.{" "}
+                  <DocLink docSection="temporaryRollout">Learn more</DocLink>
+                </small>
               </div>
-
-              <small className="form-text text-muted">
-                Keep the {isBandit ? "Bandit" : "Experiment"} running until you
-                can implement the changes in code.{" "}
-                <DocLink docSection="temporaryRollout">Learn more</DocLink>
-              </small>
             </div>
+
+            {!form.watch("excludeFromPayload") &&
+            (lastPhase?.coverage ?? 1) < 1 ? (
+              <Callout status="warning" mb="2" mt="-2">
+                Currently only{" "}
+                <strong>{percentFormatter.format(lastPhase.coverage)}</strong>{" "}
+                of traffic is directed at this experiment.
+                <br />
+                Upon rollout, <strong>100%</strong> of traffic will be directed
+                towards the releeased variation.
+              </Callout>
+            ) : null}
+
+            {!form.watch("excludeFromPayload") ? (
+              <>
+                <div className="row">
+                  <SelectField
+                    label="Variation to Release"
+                    containerClassName="col"
+                    value={form.watch("releasedVariationId")}
+                    onChange={(v) => {
+                      form.setValue("releasedVariationId", v);
+                    }}
+                    helpText="Send 100% of experiment traffic to this variation"
+                    placeholder="Pick one..."
+                    required
+                    options={experiment.variations.map((v) => {
+                      return { value: v.id, label: v.name };
+                    })}
+                  />
+                </div>
+                {variationDoesNotMatchRecommendedReleaseVariationId ? (
+                  <Callout status="warning" mb="3" mt="-2">
+                    Variation selected does not match the recommendation.
+                  </Callout>
+                ) : null}
+              </>
+            ) : form.watch("results") === "won" ? (
+              <Callout status="info" mb="3" mt="-2">
+                If you don&apos;t enable a Temporary Rollout, all experiment
+                traffic will immediately revert to the default control
+                experience when you submit this form.
+              </Callout>
+            ) : null}
+          </>
+        )}
+
+        <div className="row">
+          <div className="form-group col-lg">
+            <label>Additional Analysis or Details</label>{" "}
+            <MarkdownInput
+              value={form.watch("analysis")}
+              setValue={(val) => form.setValue("analysis", val)}
+              aiSuggestFunction={aiSuggestFunction}
+              aiButtonText="Generate Analysis"
+              aiSuggestionHeader="Suggested Summary"
+              onOptInModalClose={() => {
+                setShowModal(true);
+              }}
+              onOptInModalOpen={() => {
+                setShowModal(false);
+              }}
+            />
           </div>
-
-          {!form.watch("excludeFromPayload") &&
-          (lastPhase?.coverage ?? 1) < 1 ? (
-            <div className="alert alert-warning">
-              <FaExclamationTriangle className="mr-1" />
-              Currently only{" "}
-              <strong>{percentFormatter.format(lastPhase.coverage)}</strong> of
-              traffic is directed at this experiment. Upon rollout,{" "}
-              <strong>100%</strong> of traffic will be directed towards the
-              released variation.
-            </div>
-          ) : null}
-
-          {!form.watch("excludeFromPayload") ? (
-            <div className="row">
-              <SelectField
-                label="Variation to Release"
-                containerClassName="col"
-                value={form.watch("releasedVariationId")}
-                onChange={(v) => {
-                  form.setValue("releasedVariationId", v);
-                }}
-                helpText="Send 100% of experiment traffic to this variation"
-                placeholder="Pick one..."
-                required
-                options={experiment.variations.map((v) => {
-                  return { value: v.id, label: v.name };
-                })}
-              />
-            </div>
-          ) : form.watch("results") === "won" ? (
-            <div className="alert alert-info">
-              If you don&apos;t enable a Temporary Rollout, all experiment
-              traffic will immediately revert to the default control experience
-              when you submit this form.
-            </div>
-          ) : null}
-        </>
-      )}
-
-      <div className="row">
-        <div className="form-group col-lg">
-          <label>Additional Analysis or Details</label>{" "}
-          <MarkdownInput
-            value={form.watch("analysis")}
-            setValue={(val) => form.setValue("analysis", val)}
-          />
         </div>
-      </div>
+      </Flex>
     </Modal>
   );
 };

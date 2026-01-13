@@ -1,12 +1,16 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface } from "shared/types/feature";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { datetime } from "shared/dates";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
+import Badge from "@/ui/Badge";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export interface Props {
   feature: FeatureInterface;
-  revisions: FeatureRevisionInterface[];
+  revisions: MinimalFeatureRevisionInterface[];
+  loading?: boolean;
   version: number;
   setVersion: (version: number) => void;
 }
@@ -14,6 +18,7 @@ export interface Props {
 export default function RevisionDropdown({
   feature,
   revisions,
+  loading = false,
   version,
   setVersion,
 }: Props) {
@@ -37,7 +42,7 @@ export default function RevisionDropdown({
       value={version + ""}
       onChange={(version) => setVersion(parseInt(version))}
       sort={false}
-      formatOptionLabel={({ value }, { context }) => {
+      formatOptionLabel={({ value }) => {
         const revision = versions.get(value);
 
         const date =
@@ -46,37 +51,36 @@ export default function RevisionDropdown({
             : revision?.dateUpdated;
 
         return (
-          <div className="d-flex w-100">
-            <div className="mr-3">
-              <strong className="mr-2">Revision {value}</strong>
-              {revision?.version === liveVersion ? (
-                <span className="badge badge-success">live</span>
-              ) : revision?.status === "draft" ? (
-                <span className="badge badge-warning">draft</span>
-              ) : revision?.status === "published" ? (
-                <span className="badge badge-light border">locked</span>
-              ) : revision?.status === "discarded" ? (
-                <span
-                  className="badge badge-secondary border"
-                  style={{ opacity: 0.6 }}
-                >
-                  discarded
-                </span>
-              ) : null}
-              {context !== "value" && (
-                <div style={{ marginTop: -4 }}>
-                  {date && (
-                    <small className="text-muted">{datetime(date)}</small>
-                  )}
-                </div>
+          <Flex align="center" justify="between" gap="3">
+            {loading ? <LoadingOverlay /> : null}
+            <Heading size="2" mb="0">
+              Revision {value}
+            </Heading>
+            <Box flexGrow="1" />
+            <Box
+              flexShrink="1"
+              overflow="hidden"
+              style={{ textOverflow: "ellipsis" }}
+            >
+              {date && (
+                <Text size="1" color="gray">
+                  Created {datetime(date)} by{" "}
+                  <EventUser user={revision?.createdBy} display="name" />
+                </Text>
               )}
-            </div>
-            {context !== "value" && (
-              <div className="ml-auto">
-                <EventUser user={revision?.createdBy} />
-              </div>
-            )}
-          </div>
+            </Box>
+            <Box flexShrink="0">
+              {revision?.version === liveVersion ? (
+                <Badge label="Live" radius="full" color="teal" />
+              ) : revision?.status === "draft" ? (
+                <Badge label="Draft" radius="full" color="indigo" />
+              ) : revision?.status === "published" ? (
+                <Badge label="Locked" radius="full" color="gray" />
+              ) : revision?.status === "discarded" ? (
+                <Badge label="Discarded" radius="full" color="red" />
+              ) : null}
+            </Box>
+          </Flex>
         );
       }}
     />

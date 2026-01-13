@@ -1,13 +1,13 @@
 import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   DestinationURL,
   URLRedirectInterface,
-} from "back-end/types/url-redirect";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
-import { urlRedirectValidator } from "back-end/src/routers/url-redirects/url-redirects.validators";
+} from "shared/types/url-redirect";
+import { urlRedirectValidator } from "shared/validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -45,7 +45,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");
     return this.context.permissions.canReadSingleProjectResource(
-      experiment.project
+      experiment.project,
     );
   }
 
@@ -78,7 +78,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     const reqVariationIds = doc.destinationURLs.map((r) => r.variation);
 
     const areValidVariations = variationIds.every((v) =>
-      reqVariationIds.includes(v)
+      reqVariationIds.includes(v),
     );
     if (!areValidVariations) {
       throw new Error("Invalid variation IDs for urlRedirects");
@@ -87,7 +87,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
   protected async customValidation(
     doc: URLRedirectInterface,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ) {
     if (!doc.urlPattern) {
       throw new Error("url pattern cannot be empty");
@@ -97,14 +97,14 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       await this.checkCircularDependencies(
         doc.urlPattern,
         doc.destinationURLs,
-        doc.id
+        doc.id,
       );
     }
   }
 
   protected async afterCreateOrUpdate(
     doc: URLRedirectInterface,
-    writeOptions?: WriteOptions
+    writeOptions?: WriteOptions,
   ) {
     let { experiment } = this.getForeignRefs(doc);
     if (!experiment) return;
@@ -122,7 +122,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
     if (!writeOptions?.skipSDKRefresh) {
       const payloadKeys = getPayloadKeys(this.context, experiment);
-      await refreshSDKPayloadCache(this.context, payloadKeys);
+      queueSDKPayloadRefresh({ context: this.context, payloadKeys });
     }
   }
 
@@ -145,14 +145,14 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     // Important: pass the old `experiment` object before doing the update
     // The updated experiment has `hasURLRedirects: false`, which may stop the SDK from updating
     const payloadKeys = getPayloadKeys(this.context, experiment);
-    await refreshSDKPayloadCache(this.context, payloadKeys);
+    queueSDKPayloadRefresh({ context: this.context, payloadKeys });
   }
 
   // When an experiment adds/removes variations, we need to update
   // url redirect changes to be in sync
   public async syncURLRedirectsWithVariations(
     urlRedirect: URLRedirectInterface,
-    experiment: ExperimentInterface
+    experiment: ExperimentInterface,
   ) {
     const { variations } = experiment;
     const { destinationURLs } = urlRedirect;
@@ -168,24 +168,24 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
         destinationURLs: newDestinationURLs,
       },
       // The SDK was already refreshed by the experiment change
-      { skipSDKRefresh: true }
+      { skipSDKRefresh: true },
     );
   }
 
   private async checkCircularDependencies(
     origin: string,
     destinations: DestinationURL[],
-    urlRedirectId?: string
+    urlRedirectId?: string,
   ) {
     const payloadExperiments = await getAllPayloadExperiments(this.context);
     const urlRedirects = await getAllURLRedirectExperiments(
       this.context,
-      payloadExperiments
+      payloadExperiments,
     );
     const originUrl = origin;
 
     const existingRedirects = urlRedirects.filter(
-      (r) => r.urlRedirect.id !== urlRedirectId
+      (r) => r.urlRedirect.id !== urlRedirectId,
     );
 
     existingRedirects.forEach((existing) => {
@@ -199,7 +199,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
         ])
       ) {
         throw new Error(
-          "Origin URL matches an existing redirect's origin URL."
+          "Origin URL matches an existing redirect's origin URL.",
         );
       }
       existing.urlRedirect.destinationURLs?.forEach((d) => {
@@ -213,7 +213,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
           ])
         ) {
           throw new Error(
-            "Origin URL targets the destination url of an existing redirect."
+            "Origin URL targets the destination url of an existing redirect.",
           );
         }
       });
@@ -228,7 +228,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
           ])
         ) {
           throw new Error(
-            "Origin URL of an existing redirect targets a destination URL in this redirect."
+            "Origin URL of an existing redirect targets a destination URL in this redirect.",
           );
         }
       });

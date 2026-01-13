@@ -3,27 +3,31 @@ import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { ProjectInterface } from "back-end/types/project";
-import { Environment } from "back-end/types/organization";
+import { ProjectInterface } from "shared/types/project";
+import { Environment } from "shared/types/organization";
 import { useForm } from "react-hook-form";
-import { SchemaFormat } from "back-end/types/datasource";
+import { useRouter } from "next/router";
 import PagedModal from "@/components/Modal/PagedModal";
 import { useUser } from "@/services/UserContext";
 import Page from "@/components/Modal/Page";
-import InitiateConnectionPage from "@/components/InitialSetup/InitiateConnectionPage";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import VerifyConnectionPage from "@/components/InitialSetup/VerifyConnectionPage";
-import SelectDataSourcePage from "@/components/InitialSetup/SelectDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
 import SetupCompletedPage from "@/components/InitialSetup/SetupCompletedPage";
-import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import {
+  getConnectionLanguageFilter,
+  LanguageFilter,
+  languageMapping,
+} from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
+import SetupAbandonedPage from "@/components/InitialSetup/SetupAbandonedPage";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -37,10 +41,12 @@ export type ProjectApiResponse = {
 
 export default function SetupFlow() {
   const [step, setStep] = useState(0);
+  const router = useRouter();
+  const exitHref =
+    router.query.exitLocation === "features" ? "/features" : "/getstarted";
+
   const [connection, setConnection] = useState<null | string>(null);
-  const [eventTracker, setEventTracker] = useState<null | SchemaFormat>(null);
   const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
-  const [setupComplete, setSetupComplete] = useState(false);
   const [skipped, setSkipped] = useState<Set<number>>(() => new Set());
 
   const { hasCommercialFeature } = useUser();
@@ -49,6 +55,9 @@ export default function SetupFlow() {
   const { organization, refreshOrganization } = useUser();
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const environments = useEnvironments();
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
+    getConnectionLanguageFilter([]),
+  );
 
   const sdkConnectionForm = useForm<SdkFormValues>({
     defaultValues: {
@@ -71,11 +80,7 @@ export default function SetupFlow() {
     if (!firstConnection.connected) {
       setStep(1);
     } else if (firstConnection.connected) {
-      if (datasources.length === 0) {
-        setStep(2);
-      } else {
-        setSetupComplete(true);
-      }
+      setStep(2);
     }
   }, [sdkConnectionData, datasources, sdkConnectionForm, connection]);
 
@@ -91,24 +96,6 @@ export default function SetupFlow() {
       id: "production",
     });
 
-  // Mark setup as complete
-  const handleSubmit = async () => {
-    if (eventTracker) {
-      await apiCall(`/organization/setup-event-tracker`, {
-        method: "PUT",
-        body: JSON.stringify({
-          eventTracker: eventTracker,
-        }),
-      });
-      refreshOrganization();
-    }
-    track("Finish Essential Setup", {
-      source: "EssentialSetup",
-      skippedSteps: skipped,
-    });
-    setSetupComplete(true);
-  };
-
   if (!canUseSetupFlow) {
     return (
       <div className="alert alert-warning mt-5">
@@ -117,23 +104,20 @@ export default function SetupFlow() {
     );
   }
 
-  if (setupComplete) {
-    return <SetupCompletedPage />;
-  }
-
   return (
     <div className="container pagecontents pt-5" style={{ maxWidth: "1100px" }}>
-      <PageHead
-        breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
-      />
-      <h1 style={{ padding: "0px 65px" }}>
-        Setup GrowthBook for {organization.name}
-      </h1>
+      <PageHead breadcrumb={[{ display: "< Exit Setup", href: exitHref }]} />
+      {step < 2 && (
+        <h1 style={{ padding: "0px 65px" }}>
+          Setup GrowthBook for {organization.name}
+        </h1>
+      )}
       <PagedModal
         trackingEventModalType="setup-growthbook"
         header={""}
-        submit={() => handleSubmit()}
-        cta={"Finish Setup"}
+        submit={async () => {}}
+        hideCta={step >= 2}
+        cta={"Next"}
         closeCta="Cancel"
         step={step}
         setStep={(step) => {
@@ -148,7 +132,7 @@ export default function SetupFlow() {
         }}
         inline
         className="bg-transparent border-0"
-        navStyle={"default"}
+        hideNav
         stickyFooter
         onSkip={
           step === 0
@@ -160,11 +144,7 @@ export default function SetupFlow() {
                   return next;
                 });
 
-                if (step >= 2) {
-                  handleSubmit();
-                } else {
-                  setStep((prev) => prev + 1);
-                }
+                setStep((prev) => prev + 1);
               }
         }
         skipped={skipped}
@@ -202,12 +182,9 @@ export default function SetupFlow() {
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
             const canUseVisualEditor =
-              hasCommercialFeature("visual-editor") &&
               sdkCapabilities.includes("visualEditorJS");
 
-            const canUseUrlRedirects =
-              hasCommercialFeature("redirects") &&
-              sdkCapabilities.includes("redirects");
+            const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
             const canUseSecureConnection =
               hasCommercialFeature("hash-secure-attributes") &&
@@ -226,7 +203,8 @@ export default function SetupFlow() {
               includeDraftExperiments: true,
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
-              projects: [project],
+              includeRuleIds: true,
+              projects: project ? [project] : [],
             };
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -234,7 +212,7 @@ export default function SetupFlow() {
               {
                 method: "POST",
                 body: JSON.stringify(body),
-              }
+              },
             );
             setConnection(res.connection.id);
             track("Create SDK Connection", {
@@ -248,10 +226,21 @@ export default function SetupFlow() {
             await mutateDefinitions();
           })}
         >
-          <InitiateConnectionPage
-            connection={connection}
-            form={sdkConnectionForm}
-          />
+          <div style={{ padding: "0px 49px" }}>
+            <h2>Select your SDK Language</h2>
+            <SDKLanguageSelector
+              value={[sdkConnectionForm.watch("languages")[0]]}
+              setValue={([language]) => {
+                const version = getLatestSDKVersion(language);
+                sdkConnectionForm.setValue("sdkVersion", version);
+                sdkConnectionForm.setValue("languages", [language]);
+              }}
+              multiple={false}
+              includeOther={false}
+              languageFilter={languageFilter}
+              setLanguageFilter={setLanguageFilter}
+            />
+          </div>
         </Page>
 
         <Page
@@ -264,7 +253,13 @@ export default function SetupFlow() {
             connection={connection}
             showCheckConnectionModal={SDKConnectionModalOpen}
             closeCheckConnectionModal={() => setSDKConnectionModalOpen(false)}
-            goToNextStep={() => setStep(2)}
+            goToNextStep={() => {
+              track("Finish Essential Setup", {
+                source: "EssentialSetup",
+                skippedSteps: skipped,
+              });
+              setStep((prev) => prev + 1);
+            }}
             setSkipped={() =>
               setSkipped((prev) => {
                 const next = new Set(prev);
@@ -274,11 +269,13 @@ export default function SetupFlow() {
             }
           />
         </Page>
-        <Page enabled={!datasources.length} display="Select Data Source">
-          <SelectDataSourcePage
-            eventTracker={eventTracker}
-            setEventTracker={setEventTracker}
-          />
+
+        <Page display="">
+          {skipped.size > 0 ? (
+            <SetupAbandonedPage exitHref={exitHref} />
+          ) : (
+            <SetupCompletedPage exitHref={exitHref} />
+          )}
         </Page>
       </PagedModal>
     </div>

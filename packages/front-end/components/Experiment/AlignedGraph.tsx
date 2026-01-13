@@ -16,7 +16,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   id: string;
-  ci?: [number, number] | [];
+  ci?: [number, number];
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant" | "color";
   barFillColor?: string;
@@ -64,8 +64,8 @@ const AlignedGraph: FC<Props> = ({
   significant = false,
   showAxis = false,
   axisOnly = false,
-  zeroLineWidth = 3,
-  zeroLineOffset = 1,
+  zeroLineWidth = 1,
+  zeroLineOffset = 0,
   metricForFormatting,
   graphWidth = 500,
   height = 30,
@@ -89,23 +89,23 @@ const AlignedGraph: FC<Props> = ({
 
   const metricFormatterOptions = { currency: metricDisplayCurrency };
 
-  const axisColor = "var(--text-link-hover-color)";
-  const zeroLineColor = "#0077b6";
-  const gridColor = "#0077b633";
+  const axisColor = "var(--color-text-mid)";
+  const zeroLineColor = "var(--color-text-low)";
+  const gridColor = "var(--slate-a3)";
   let barColor = "#aaa";
-  let sigBarColorPos = "#52be5b";
-  let sigBarColorNeg = "#d35a5a";
+  let sigBarColorPos = "var(--jade-10)";
+  let sigBarColorNeg = "var(--red-10)";
   let barColorOk = "#55ab95";
   let barColorWarning = "#d99132";
   let barColorDanger = "#d94032";
-  const barThickness = 20;
+  const barThickness = 18;
   const barHeight = Math.floor(height / 2) - barThickness / 2;
-  const violinOpacitySignificant = 0.8;
+  const violinOpacitySignificant = 0.9;
   const violinOpacityNotSignificant = 0.4;
   if (barFillType !== "color" && isHovered) {
     barColor = "#a0a0a0";
-    sigBarColorPos = "#39cb45";
-    sigBarColorNeg = "#e34040";
+    sigBarColorPos = "var(--jade-11)";
+    sigBarColorNeg = "var(--red-11)";
     barColorOk = "#4ec2a5";
     barColorWarning = "#ea9526";
     barColorDanger = "#e83223";
@@ -133,13 +133,13 @@ const AlignedGraph: FC<Props> = ({
     return metricForFormatting
       ? getExperimentMetricFormatter(metricForFormatting, getFactTableById)(
           v as number,
-          metricFormatterOptions
+          metricFormatterOptions,
         )
       : !percent
-      ? numberFormatter.format(v)
-      : domainWidth < 0.05
-      ? smallPercentFormatter.format(v)
-      : percentFormatter.format(v);
+        ? numberFormatter.format(v)
+        : domainWidth < 0.05
+          ? smallPercentFormatter.format(v)
+          : percentFormatter.format(v);
   };
 
   // rough number of columns:
@@ -171,12 +171,12 @@ const AlignedGraph: FC<Props> = ({
     barFillType === "color"
       ? barFillColor
       : barFillType === "gradient"
-      ? `url(#${gradientId})`
-      : significant
-      ? (expected ?? 0) > 0
-        ? sigBarColorPos
-        : sigBarColorNeg
-      : barColor;
+        ? `url(#${gradientId})`
+        : significant
+          ? (expected ?? 0) > 0
+            ? sigBarColorPos
+            : sigBarColorNeg
+          : barColor;
 
   // forced color state (nothing needed for non-significant):
   if (barFillType === "significant") {
@@ -206,7 +206,7 @@ const AlignedGraph: FC<Props> = ({
     <div
       className={clsx(
         "d-flex aligned-graph align-items-center aligned-graph-row position-relative",
-        className
+        className,
       )}
     >
       <ParentSize className="graph-container" debounceTime={1000}>
@@ -232,6 +232,7 @@ const AlignedGraph: FC<Props> = ({
               fill: axisColor,
               fontSize: 12,
               y: -10,
+              x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",
             } as const;
@@ -334,29 +335,18 @@ const AlignedGraph: FC<Props> = ({
                       width={barThickness}
                       left={xScale(ci?.[0] ?? 0)}
                       data={[
-                        0.025,
-                        0.05,
-                        0.1,
-                        0.2,
-                        0.3,
-                        0.4,
-                        0.5,
-                        0.6,
-                        0.7,
-                        0.8,
-                        0.9,
-                        0.95,
-                        0.975,
+                        0.025, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,
+                        0.9, 0.95, 0.975,
                       ].map((n) => {
                         let x = normal.quantile(
                           n,
                           uplift?.mean || 0,
-                          uplift?.stddev || 0
+                          uplift?.stddev || 0,
                         );
                         const y = normal.pdf(
                           x,
                           uplift?.mean || 0,
-                          uplift?.stddev || 0
+                          uplift?.stddev || 0,
                         );
 
                         if (uplift?.dist === "lognormal") {
@@ -404,9 +394,9 @@ const AlignedGraph: FC<Props> = ({
                     />
                   )}
                   <Line
-                    fill="#000000"
-                    strokeWidth={3}
-                    stroke={"#0008"}
+                    fill={"var(--slate-a9)"}
+                    strokeWidth={1}
+                    stroke={"var(--slate-a9)"}
                     from={{ x: xScale(expected ?? 0), y: barHeight }}
                     to={{
                       x: xScale(expected ?? 0),

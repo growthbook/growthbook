@@ -1,25 +1,27 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ReportInterface } from "back-end/types/report";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ReportInterface } from "shared/types/report";
+import { ExperimentInterface } from "shared/types/experiment";
 import { datetime, ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
+  const { project } = useDefinitions();
 
   const { data, error } = useApi<{
     reports: ReportInterface[];
     experiments: ExperimentInterface[];
-  }>(`/reports`);
+  }>(`/reports?project=${project || ""}`);
   const [onlyMyReports, setOnlyMyReports] = useState(true);
 
   const { userId, getUserDisplay } = useUser();
@@ -43,12 +45,12 @@ const ReportsPage = (): React.ReactElement => {
           ? "private"
           : "organization"
         : r.shareLevel === "public"
-        ? "public"
-        : r.shareLevel === "private"
-        ? "private"
-        : "organization") as "public" | "organization" | "private",
+          ? "public"
+          : r.shareLevel === "private"
+            ? "private"
+            : "organization") as "public" | "organization" | "private",
     }),
-    [experimentNames]
+    [experimentNames],
   );
 
   const filterResults = useCallback(
@@ -62,29 +64,24 @@ const ReportsPage = (): React.ReactElement => {
         }
       });
     },
-    [onlyMyReports, userId]
+    [onlyMyReports, userId],
   );
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    pagination,
-  } = useSearch({
-    items: reports,
-    localStorageKey: "reports",
-    defaultSortField: "dateUpdated",
-    defaultSortDir: -1,
-    searchFields: [
-      "title",
-      "description",
-      "experimentName",
-      "userName",
-      "dateUpdated",
-    ],
-    filterResults,
-    pageSize: 20,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: reports,
+      localStorageKey: "reports",
+      defaultSortField: "dateUpdated",
+      defaultSortDir: -1,
+      searchFields: [
+        "title",
+        "description",
+        "experimentName",
+        "userName",
+        "dateUpdated",
+      ],
+      filterResults,
+      pageSize: 20,
+    });
 
   if (error) {
     return (
@@ -142,15 +139,12 @@ const ReportsPage = (): React.ReactElement => {
         <div className="col-lg-3 col-md-4 col-6">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
-        <div className="col-auto">
-          <Toggle
-            id={"onlymine"}
-            value={onlyMyReports}
-            label={"onlymine"}
-            setValue={setOnlyMyReports}
-          />
-          Show only my reports
-        </div>
+        <Switch
+          id={"onlymine"}
+          value={onlyMyReports}
+          label="Show only my reports"
+          onChange={setOnlyMyReports}
+        />
         <div style={{ flex: 1 }} />
       </div>
       <table className="table appbox gbtable table-hover">
@@ -220,8 +214,8 @@ const ReportsPage = (): React.ReactElement => {
                 {isFiltered
                   ? "No matching reports"
                   : onlyMyReports
-                  ? "You have no reports"
-                  : "No reports"}
+                    ? "You have no reports"
+                    : "No reports"}
               </td>
             </tr>
           )}

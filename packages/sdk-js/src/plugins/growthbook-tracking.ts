@@ -5,6 +5,7 @@ import type {
   GrowthBookClient,
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
+import { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "../core";
 
 const SDK_VERSION = loadSDKVersion();
 
@@ -45,9 +46,7 @@ function parseString(value: unknown): null | string {
   return typeof value === "string" ? value : null;
 }
 
-function parseAttributes(
-  attributes: Attributes
-): {
+function parseAttributes(attributes: Attributes): {
   nested: Attributes;
   topLevel: {
     user_id: string | null;
@@ -138,19 +137,15 @@ async function track({
   const body = JSON.stringify(events);
 
   try {
-    if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
-      navigator.sendBeacon(endpoint, body);
-    } else {
-      await fetch(endpoint, {
-        method: "POST",
-        body,
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "text/plain",
-        },
-        credentials: "omit",
-      });
-    }
+    await fetch(endpoint, {
+      method: "POST",
+      body,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "text/plain",
+      },
+      credentials: "omit",
+    });
   } catch (e) {
     console.error("Failed to track event", e);
   }
@@ -189,9 +184,9 @@ export function growthbookTrackingPlugin({
       const flush = async () => {
         const events = _q;
         _q = [];
-        events.length && (await track({ clientKey, events, ingestorHost }));
         timer && clearTimeout(timer);
         timer = null;
+        events.length && (await track({ clientKey, events, ingestorHost }));
       };
 
       let promise: Promise<void> | null = null;
@@ -208,27 +203,34 @@ export function growthbookTrackingPlugin({
           return;
         }
 
-        // Build the key for de-duping
-        const dedupeKeyData: Record<string, unknown> = {
-          eventName,
-          properties,
-        };
-        for (const key of dedupeKeyAttributes) {
-          dedupeKeyData["attr:" + key] = data.attributes[key];
-        }
+        // De-dupe Feature Evaluated and Experiment Viewed events
+        if (
+          eventName === EVENT_FEATURE_EVALUATED ||
+          eventName === EVENT_EXPERIMENT_VIEWED
+        ) {
+          // Build the key for de-duping
+          const dedupeKeyData: Record<string, unknown> = {
+            eventName,
+            properties,
+          };
+          for (const key of dedupeKeyAttributes) {
+            dedupeKeyData["attr:" + key] = data.attributes[key];
+          }
 
-        const k = JSON.stringify(dedupeKeyData);
-        // Duplicate event fired recently, move to end of LRU cache and skip
-        if (eventCache.has(k)) {
-          eventCache.delete(k);
+          const k = JSON.stringify(dedupeKeyData);
+          // Duplicate event fired recently, move to end of LRU cache and skip
+          if (eventCache.has(k)) {
+            eventCache.delete(k);
+            eventCache.add(k);
+            return;
+          }
           eventCache.add(k);
-          return;
-        }
-        eventCache.add(k);
-        // If the cache is too big, remove the oldest item
-        if (eventCache.size > dedupeCacheSize) {
-          const oldest = eventCache.values().next().value;
-          oldest && eventCache.delete(oldest);
+
+          // If the cache is too big, remove the oldest item
+          if (eventCache.size > dedupeCacheSize) {
+            const oldest = eventCache.values().next().value;
+            oldest && eventCache.delete(oldest);
+          }
         }
 
         const payload = getEventPayload(data);
@@ -236,7 +238,7 @@ export function growthbookTrackingPlugin({
         debug &&
           console.log(
             "Logging event to GrowthBook",
-            JSON.parse(JSON.stringify(payload))
+            JSON.parse(JSON.stringify(payload)),
           );
         if (!enable) return;
 

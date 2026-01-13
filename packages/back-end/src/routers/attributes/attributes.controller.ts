@@ -1,13 +1,13 @@
 import type { Response } from "express";
+import { SDKAttribute } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { SDKAttribute } from "back-end/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number }>,
 ) => {
   const {
     property,
@@ -17,6 +17,7 @@ export const postAttribute = async (
     format,
     enum: enumValue,
     hashAttribute,
+    disableEqualityConditions,
   } = req.body;
   const context = getContextFromReq(req);
 
@@ -31,21 +32,21 @@ export const postAttribute = async (
     throw new Error("An attribute with that name already exists");
   }
 
+  const newAttribute: SDKAttribute = {
+    property,
+    description,
+    datatype,
+    projects,
+    format,
+    enum: enumValue,
+    hashAttribute,
+    disableEqualityConditions,
+  };
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      attributeSchema: [
-        ...attributeSchema,
-        {
-          property,
-          description,
-          datatype,
-          projects,
-          format,
-          enum: enumValue,
-          hashAttribute,
-        },
-      ],
+      attributeSchema: [...attributeSchema, newAttribute],
     },
   });
 
@@ -59,20 +60,9 @@ export const postAttribute = async (
       { settings: { attributeSchema } },
       {
         settings: {
-          attributeSchema: [
-            ...attributeSchema,
-            {
-              property,
-              description,
-              datatype,
-              projects,
-              format,
-              enum: enumValue,
-              hashAttribute,
-            },
-          ],
+          attributeSchema: [...attributeSchema, newAttribute],
         },
-      }
+      },
     ),
   });
   return res.status(200).json({
@@ -82,7 +72,7 @@ export const postAttribute = async (
 
 export const putAttribute = async (
   req: AuthRequest<SDKAttribute & { previousName?: string }>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number }>,
 ) => {
   const {
     property,
@@ -93,6 +83,7 @@ export const putAttribute = async (
     enum: enumValue,
     hashAttribute,
     archived,
+    disableEqualityConditions,
     previousName,
   } = req.body;
   const context = getContextFromReq(req);
@@ -102,7 +93,7 @@ export const putAttribute = async (
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
-    (a) => a.property === (previousName ? previousName : property)
+    (a) => a.property === (previousName ? previousName : property),
   );
 
   if (index === -1) {
@@ -134,6 +125,7 @@ export const putAttribute = async (
     enum: enumValue,
     hashAttribute,
     archived,
+    disableEqualityConditions,
   };
 
   await updateOrganization(org.id, {
@@ -155,7 +147,7 @@ export const putAttribute = async (
         settings: {
           attributeSchema,
         },
-      }
+      },
     ),
   });
   return res.status(200).json({
@@ -165,7 +157,7 @@ export const putAttribute = async (
 
 export const deleteAttribute = async (
   req: AuthRequest<{ id: string }>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number }>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -205,7 +197,7 @@ export const deleteAttribute = async (
         settings: {
           attributeSchema: updatedArr,
         },
-      }
+      },
     ),
   });
   return res.status(200).json({

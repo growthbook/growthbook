@@ -37,6 +37,10 @@ properties:
       - frequentist
   regressionAdjustmentEnabled:
     type: boolean
+  sequentialTestingEnabled:
+    type: boolean
+  sequentialTestingTuningParameter:
+    type: number
   goals:
     type: array
     items:

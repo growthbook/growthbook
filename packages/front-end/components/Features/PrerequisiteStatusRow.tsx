@@ -1,10 +1,10 @@
-import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
+import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { FaExclamationCircle } from "react-icons/fa";
 import {
   evaluatePrerequisiteState,
   PrerequisiteStateResult,
 } from "shared/util";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import {
   FaRegCircleCheck,
@@ -57,14 +57,14 @@ export default function PrerequisiteStatusRow({
         states[env] = evaluatePrerequisiteState(
           parentFeature,
           featuresMap,
-          env
+          env,
         );
         defaultValues[env] = parentFeature.defaultValue;
       });
       return { states, defaultValues };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentFeature, features, envsStr]
+    [parentFeature, features, envsStr],
   );
 
   return (
@@ -122,7 +122,7 @@ export default function PrerequisiteStatusRow({
                       {
                         method: "DELETE",
                         body: JSON.stringify({ i }),
-                      }
+                      },
                     );
                     mutate();
                   }}

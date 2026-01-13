@@ -4,23 +4,31 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { VisualChange } from "back-end/types/visual-changeset";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { Environment } from "back-end/types/organization";
-import { SavedGroupInterface } from "../types";
+} from "shared/types/experiment-snapshot";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { ExperimentReportVariation } from "shared/types/report";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { VisualChange } from "shared/types/visual-changeset";
+import { SavedGroupInterface } from "shared/types/groups";
+import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotAnalysisSettings,
+  SafeRolloutSnapshotInterface,
+} from "../validators/safe-rollout-snapshot";
+import { HoldoutInterface } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
 export * from "./saved-groups";
+export * from "./metric-time-series";
+export * from "./types";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -59,14 +67,14 @@ export function getAffectedEnvsForExperiment({
         orgEnvIds,
         undefined,
         // the boolean below skips environments if they are disabled on the feature
-        true
+        true,
       );
 
       // if we find any matching rules get the environments that are affected
       if (matches.length) {
         matches.forEach((match) => {
           const env = orgEnvironments.find(
-            (env) => env.id === match.environmentId
+            (env) => env.id === match.environmentId,
           );
 
           if (env) {
@@ -84,19 +92,29 @@ export function getAffectedEnvsForExperiment({
 
 export function getSnapshotAnalysis(
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings?: ExperimentSnapshotAnalysisSettings | null
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null,
 ): ExperimentSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (
     (analysisSettings
-      ? snapshot.analyses.find((a) => isEqual(a.settings, analysisSettings))
-      : snapshot.analyses[0]) || null
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
   );
 }
 
+export function getSafeRolloutSnapshotAnalysis(
+  snapshot: SafeRolloutSnapshotInterface,
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
+): SafeRolloutSnapshotAnalysis | null {
+  return (
+    (analysisSettings
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
+  );
+}
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
-  baselineVariationIndex: number | null
+  baselineVariationIndex: number | null,
 ): ExperimentReportVariation[] {
   if (baselineVariationIndex === null) return variations;
 
@@ -108,7 +126,7 @@ export function putBaselineVariationFirst(
 
 export function isAnalysisAllowed(
   snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
   const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
@@ -132,7 +150,7 @@ export function generateVariationId() {
 }
 
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
@@ -142,7 +160,7 @@ export function experimentHasLinkedChanges(
 
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: LinkedFeatureInfo[]
+  linkedFeatures: LinkedFeatureInfo[],
 ) {
   if (!experimentHasLinkedChanges(exp)) return false;
   if (linkedFeatures.length > 0) {
@@ -156,7 +174,7 @@ export function experimentHasLiveLinkedChanges(
 
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: FeatureInterface[] = []
+  linkedFeatures: FeatureInterface[] = [],
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
@@ -190,7 +208,7 @@ export function includeExperimentInPayload(
       const rules = getMatchingRules(
         feature,
         (r) => r.type === "experiment-ref" && r.experimentId === exp.id,
-        Object.keys(feature.environmentSettings)
+        Object.keys(feature.environmentSettings),
       );
       return rules.some((r) => {
         if (!r.environmentEnabled) return false;
@@ -207,9 +225,34 @@ export function includeExperimentInPayload(
   return true;
 }
 
+export function includeHoldoutInPayload(
+  holdout: HoldoutInterface,
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+): boolean {
+  // Archived experiments are always excluded
+  if (exp.archived) return false;
+
+  if (
+    Object.keys(holdout.linkedExperiments).length === 0 &&
+    Object.keys(holdout.linkedFeatures).length === 0
+  )
+    return false;
+
+  if (exp.status === "draft") return false;
+
+  if (!exp.phases?.length) return false;
+
+  // Stopped holdouts are not included in the payload
+  if (exp.status === "stopped") {
+    return false;
+  }
+
+  return true;
+}
+
 export function isValidEnvironment(
   env: string,
-  environments: string[]
+  environments: string[],
 ): boolean {
   return environments.includes(env);
 }
@@ -229,7 +272,7 @@ export function getMatchingRules(
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
   revision?: FeatureRevisionInterface,
-  omitDisabledEnvironments: boolean = false
+  omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -254,7 +297,7 @@ export function getMatchingRules(
             }
           });
         }
-      }
+      },
     );
   }
 
@@ -263,7 +306,7 @@ export function getMatchingRules(
 
 export function isProjectListValidForProject(
   projects?: string[],
-  project?: string
+  project?: string,
 ) {
   // If project list is empty, it's always valid no matter what
   if (!projects || !projects.length) return true;
@@ -277,7 +320,7 @@ export function isProjectListValidForProject(
 
 export function stringToBoolean(
   value: string | undefined,
-  defaultValue = false
+  defaultValue = false,
 ): boolean {
   if (value === undefined) return defaultValue;
   if (["true", "yes", "on", "1"].includes(value.toLowerCase())) return true;
@@ -326,15 +369,91 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
-export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
+export function getNumberFormatDigits(
+  value: number,
+  highPrecision: boolean = false,
+) {
+  const absValue = Math.abs(value);
+  let digits = absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  // For very small numbers (< 1), find the first significant digit & show 2 digits after it
+  if (highPrecision && absValue > 0 && absValue < 1) {
+    // Use Math.log10 to find the position of the first significant digit
+    const log10 = Math.log10(absValue);
+    const decimalPlacesToFirstSig = -Math.floor(log10);
+    // Show 2 digits after the first significant digit
+    digits = Math.min(decimalPlacesToFirstSig + 1, 15);
+  }
+  return digits;
+}
+
+export function formatByteSizeString(numBytes: number, inferDigits = false) {
   if (numBytes == 0) return "0 Bytes";
   const k = 1024,
     sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
     i = Math.floor(Math.log(numBytes) / Math.log(k));
-  return (
-    parseFloat((numBytes / Math.pow(k, i)).toFixed(decimalPlaces)) +
-    " " +
-    sizes[i]
+  const value = numBytes / Math.pow(k, i);
+
+  const options = {
+    maximumFractionDigits: inferDigits ? getNumberFormatDigits(value) : 1,
+    minimumFractionDigits: 0,
+  };
+
+  return Intl.NumberFormat(undefined, options).format(value) + " " + sizes[i];
+}
+
+export function meanVarianceFromSums(
+  sum: number,
+  sum_squares: number,
+  n: number,
+): number {
+  const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
+  return returnZeroIfNotFinite(variance);
+}
+
+export function proportionVarianceFromSums(sum: number, n: number): number {
+  const mean = sum / n;
+  return returnZeroIfNotFinite(mean * (1 - mean));
+}
+
+// compare with RatioStatistic.variance in gbstats
+export function ratioVarianceFromSums({
+  numerator_sum,
+  numerator_sum_squares,
+  denominator_sum,
+  denominator_sum_squares,
+  numerator_denominator_sum_product,
+  n,
+}: {
+  numerator_sum: number;
+  numerator_sum_squares: number;
+  denominator_sum: number;
+  denominator_sum_squares: number;
+  numerator_denominator_sum_product: number;
+  n: number;
+}): number {
+  const numerator_mean = returnZeroIfNotFinite(numerator_sum / n);
+  const numerator_variance = meanVarianceFromSums(
+    numerator_sum,
+    numerator_sum_squares,
+    n,
+  );
+  const denominator_mean = returnZeroIfNotFinite(denominator_sum / n);
+  const denominator_variance = meanVarianceFromSums(
+    denominator_sum,
+    denominator_sum_squares,
+    n,
+  );
+  const covariance =
+    returnZeroIfNotFinite(
+      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n,
+    ) /
+    (n - 1);
+
+  return returnZeroIfNotFinite(
+    numerator_variance / Math.pow(denominator_mean, 2) -
+      (2 * covariance * numerator_mean) / Math.pow(denominator_mean, 3) +
+      (Math.pow(numerator_mean, 2) * denominator_variance) /
+        Math.pow(denominator_mean, 4),
   );
 }
 
@@ -356,7 +475,7 @@ export function featuresReferencingSavedGroups({
           rule.condition?.includes(savedGroup.id) ||
           rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
           false,
-        environments.map((e) => e.id)
+        environments.map((e) => e.id),
       );
 
       if (matches.length > 0) {
@@ -385,7 +504,7 @@ export function experimentsReferencingSavedGroups({
         (phase) =>
           phase.condition?.includes(savedGroup.id) ||
           phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false
+          false,
       );
 
       if (matchingPhases.length > 0) {
@@ -395,4 +514,30 @@ export function experimentsReferencingSavedGroups({
     });
   });
   return referenceMap;
+}
+
+export function parseProcessLogBase() {
+  let parsedLogBase:
+    | {
+        // eslint-disable-next-line
+        [key: string]: any;
+      }
+    | null
+    | undefined = undefined;
+  try {
+    if (process.env.LOG_BASE === "null") {
+      parsedLogBase = null;
+    } else if (process.env.LOG_BASE) {
+      parsedLogBase = JSON.parse(process.env.LOG_BASE);
+    }
+  } catch {
+    // Empty catch - don't pass a LOG_BASE
+  }
+
+  // Only pass `base` if defined or null
+  return typeof parsedLogBase === "undefined"
+    ? {}
+    : {
+        base: parsedLogBase,
+      };
 }

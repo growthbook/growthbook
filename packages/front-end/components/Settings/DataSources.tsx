@@ -16,7 +16,7 @@ const DataSources: FC = () => {
   const { datasources, project, error, ready } = useDefinitions();
   const filteredDatasources = project
     ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
+        isProjectListValidForProject(ds.projects, project),
       )
     : datasources;
 
@@ -41,9 +41,24 @@ const DataSources: FC = () => {
       <tbody>
         {filteredDatasources.map((d, i) => (
           <tr
-            className="nav-item"
+            className="nav-item cursor-pointer"
             key={i}
             onClick={(e) => {
+              // If clicking on a link or button, default to browser behavior
+              if (
+                e.target instanceof HTMLElement &&
+                e.target.closest("a, button")
+              ) {
+                return;
+              }
+
+              // If cmd/ctrl/shift+click, open in new tab
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+                window.open(`/datasources/${d.id}`, "_blank");
+                return;
+              }
+
+              // Otherwise, navigate to the data source
               e.preventDefault();
               router.push(`/datasources/${d.id}`);
             }}
@@ -72,13 +87,9 @@ const DataSources: FC = () => {
                 <ProjectBadges
                   resourceType="data source"
                   projectIds={d.projects}
-                  className="badge-ellipsis short align-middle"
                 />
               ) : (
-                <ProjectBadges
-                  resourceType="data source"
-                  className="badge-ellipsis short align-middle"
-                />
+                <ProjectBadges resourceType="data source" />
               )}
             </td>
             {!hasFileConfig() && <td>{ago(d.dateUpdated || "")}</td>}

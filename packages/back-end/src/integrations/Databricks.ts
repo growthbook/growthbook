@@ -1,9 +1,9 @@
-import { databricksCreateTableOptions } from "enterprise";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { databricksCreateTableOptions } from "shared/enterprise";
+import { FormatDialect } from "shared/types/sql";
+import { QueryResponse, DataType } from "shared/types/integrations";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { QueryResponse } from "back-end/src/types/Integration";
-import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {
@@ -11,9 +11,8 @@ export default class Databricks extends SqlIntegration {
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<DatabricksConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<DatabricksConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -22,8 +21,11 @@ export default class Databricks extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return databricksCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings,
     );
   }
   getFormatDialect(): FormatDialect {
@@ -44,7 +46,7 @@ export default class Databricks extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `timestampadd(${unit},${sign === "-" ? "-" : ""}${amount},${col})`;
   }
@@ -75,8 +77,33 @@ export default class Databricks extends SqlIntegration {
   hllCardinality(col: string): string {
     return `HLL_SKETCH_ESTIMATE(${col})`;
   }
-
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `${jsonCol}:${path}`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   getDefaultDatabase(): string {
     return this.params.catalog;
+  }
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "STRING";
+      case "integer":
+        return "INT";
+      case "float":
+        return "DOUBLE";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      case "hll":
+        return "BINARY";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }

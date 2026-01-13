@@ -10,12 +10,12 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "back-end/types/report";
+} from "shared/types/experiment-snapshot";
+import { ExperimentReportInterface } from "shared/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { growthbook } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
@@ -71,10 +71,21 @@ export function getJitsuClient(): JitsuClient | null {
   return _jitsu;
 }
 
+const getHost = () => {
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+};
+
+const getURL = () => {
+  const host = getHost();
+  return document.location.protocol + "//" + host + location.pathname;
+};
+
 export default function track(
   event: string,
   props: TrackEventProps = {},
-  skipGrowthBookLogging = false
+  skipGrowthBookLogging = false,
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -88,16 +99,13 @@ export default function track(
   const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
   const orgCreationDate = currentUser?.orgCreationDate;
 
-  // Mask the hostname and sanitize URLs to avoid leaking private info
-  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
-  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: document.location.protocol + "//" + host + location.pathname,
-    doc_host: host,
+    url: getURL(),
+    doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
@@ -131,7 +139,7 @@ export function trackSnapshot(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): void {
   const trackingProps = snapshot
     ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
@@ -146,7 +154,7 @@ export function trackReport(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  report: ExperimentReportInterface
+  report: ExperimentReportInterface,
 ): void {
   const trackingProps = report
     ? getTrackingPropsFromReport(report, source, datasourceType)
@@ -160,10 +168,10 @@ export function trackReport(
 function getTrackingPropsFromSnapshot(
   snapshot: ExperimentSnapshotInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(
-    snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
+    snapshot.settings.dimensions.map((d) => d.id).join(", ") || "",
   );
   const analysis = snapshot.analyses?.[0] as
     | ExperimentSnapshotAnalysis
@@ -174,8 +182,8 @@ function getTrackingPropsFromSnapshot(
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
     engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
-    regression_adjustment_enabled: !!snapshot.settings
-      .regressionAdjustmentEnabled,
+    regression_adjustment_enabled:
+      !!snapshot.settings.regressionAdjustmentEnabled,
     sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
     sequential_testing_tuning_parameter:
       analysis?.settings?.sequentialTestingTuningParameter ?? -99,
@@ -191,7 +199,7 @@ function getTrackingPropsFromSnapshot(
 function getTrackingPropsFromReport(
   report: ExperimentReportInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(report.args.dimension ?? "");
   return {
@@ -213,9 +221,7 @@ function getTrackingPropsFromReport(
   };
 }
 
-export function parseSnapshotDimension(
-  dimension: string
-): {
+export function parseSnapshotDimension(dimension: string): {
   type: string;
   id: string;
 } {

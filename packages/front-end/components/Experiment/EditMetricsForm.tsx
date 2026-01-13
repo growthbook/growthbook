@@ -3,14 +3,17 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CustomMetricSlice } from "shared/validators";
+import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,10 +23,13 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import PremiumCallout from "@/ui/PremiumCallout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
 
 export interface EditMetricsFormInterface {
   goalMetrics: string[];
@@ -31,12 +37,14 @@ export interface EditMetricsFormInterface {
   guardrailMetrics: string[];
   activationMetric: string;
   metricOverrides: MetricOverride[];
+  customMetricSlices?: CustomMetricSlice[];
+  pinnedMetricSlices?: string[];
 }
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
-  settings: OrganizationSettings
+  settings: OrganizationSettings,
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
@@ -48,6 +56,7 @@ export function getDefaultMetricOverridesFormValue(
           "loseRisk",
           "maxPercentChange",
           "minPercentChange",
+          "targetMDE",
         ].includes(key)
       ) {
         defaultMetricOverrides[i][key] *= 100;
@@ -55,7 +64,7 @@ export function getDefaultMetricOverridesFormValue(
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
@@ -71,7 +80,7 @@ export function getDefaultMetricOverridesFormValue(
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
     ) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       const defaultValues = metricDefinition?.priorSettings?.override
         ? {
@@ -115,6 +124,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
           "loseRisk",
           "maxPercentChange",
           "minPercentChange",
+          "targetMDE",
         ].includes(key)
       ) {
         overrides[i][key] = v / 100;
@@ -130,22 +140,29 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
     getExperimentMetricById,
-    settings
+    settings,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+
+  const datasource = getDatasourceById(experiment.datasource);
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -154,6 +171,8 @@ const EditMetricsForm: FC<{
       guardrailMetrics: experiment.guardrailMetrics || [],
       activationMetric: experiment.activationMetric || "",
       metricOverrides: defaultMetricOverrides,
+      customMetricSlices: experiment.customMetricSlices || [],
+      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
     },
   });
   const { apiCall } = useAuth();
@@ -164,8 +183,8 @@ const EditMetricsForm: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
+        commercialFeature="override-metrics"
       />
     );
   }
@@ -192,6 +211,8 @@ const EditMetricsForm: FC<{
       cta="Save"
     >
       <ExperimentMetricsSelector
+        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+        excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}
@@ -206,12 +227,30 @@ const EditMetricsForm: FC<{
         setSecondaryMetrics={(secondaryMetrics) =>
           form.setValue("secondaryMetrics", secondaryMetrics)
         }
-        setGuardrailMetrics={(guardrailMetrics) =>
-          form.setValue("guardrailMetrics", guardrailMetrics)
+        setGuardrailMetrics={
+          !isHoldout
+            ? (guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+            : undefined
         }
+        filterConversionWindowMetrics={isHoldout}
+        experimentId={experiment.id}
       />
+      {/* If the org has the feature, we render a callout within MetricsSelector */}
+      {!hasCommercialFeature("metric-groups") ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="4"
+        >
+          <strong>Metric Groups</strong> make it possible to reuse sets of
+          metrics in your experiments.
+        </PremiumCallout>
+      ) : null}
 
-      {!(isBandit && experiment.status === "running") && (
+      {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
           <div className="form-group">
             <label className="font-weight-bold mb-1">Activation Metric</label>
@@ -233,36 +272,79 @@ const EditMetricsForm: FC<{
             />
           </div>
 
-          <div className="form-group mb-2">
-            <PremiumTooltip commercialFeature="override-metrics">
-              Metric Overrides (optional)
-            </PremiumTooltip>
-            <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-              <p className="mb-0">
-                Override metric behaviors within this experiment.
-              </p>
-              <p className="mb-0">
-                Leave any fields empty that you do not want to override.
-              </p>
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics")}
+            secondaryMetrics={form.watch("secondaryMetrics")}
+            guardrailMetrics={form.watch("guardrailMetrics")}
+            customMetricSlices={
+              (form.watch("customMetricSlices") as CustomMetricSlice[]) || []
+            }
+            setCustomMetricSlices={(slices) =>
+              form.setValue(
+                "customMetricSlices" as keyof EditMetricsFormInterface,
+                slices,
+              )
+            }
+            pinnedMetricSlices={
+              (form.watch("pinnedMetricSlices") as string[]) || []
+            }
+            setPinnedMetricSlices={(slices) =>
+              form.setValue(
+                "pinnedMetricSlices" as keyof EditMetricsFormInterface,
+                slices,
+              )
+            }
+          />
+
+          <hr className="mt-4" />
+
+          <Collapsible
+            trigger={
+              <div className="link-purple font-weight-bold mt-4 mb-2">
+                <PiCaretRightFill className="chevron mr-1" />
+                Advanced Settings
+              </div>
+            }
+            transitionTime={100}
+          >
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+              <div className="form-group mb-2">
+                <PremiumTooltip commercialFeature="override-metrics">
+                  <label className="font-weight-bold mb-1">
+                    Metric Overrides (optional)
+                  </label>
+                </PremiumTooltip>
+                <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+                  <p className="mb-0">
+                    Override metric behaviors within this experiment.
+                  </p>
+                  <p className="mb-0">
+                    Leave any fields empty that you do not want to override.
+                  </p>
+                </div>
+                <MetricsOverridesSelector
+                  experiment={experiment}
+                  form={form}
+                  disabled={
+                    !hasOverrideMetricsFeature ||
+                    isExperimentIncludedInIncrementalRefresh
+                  }
+                  setHasMetricOverrideRiskError={(v: boolean) =>
+                    setHasMetricOverrideRiskError(v)
+                  }
+                />
+                {!hasOverrideMetricsFeature && (
+                  <UpgradeMessage
+                    showUpgradeModal={() => setUpgradeModal(true)}
+                    commercialFeature="override-metrics"
+                    upgradeMessage="override metrics"
+                  />
+                )}
+              </div>
             </div>
-            <MetricsOverridesSelector
-              experiment={experiment}
-              form={form}
-              disabled={!hasOverrideMetricsFeature}
-              setHasMetricOverrideRiskError={(v: boolean) =>
-                setHasMetricOverrideRiskError(v)
-              }
-            />
-            {!hasOverrideMetricsFeature && (
-              <UpgradeMessage
-                showUpgradeModal={() => setUpgradeModal(true)}
-                commercialFeature="override-metrics"
-                upgradeMessage="override metrics"
-              />
-            )}
-          </div>
+          </Collapsible>
         </>
-      )}
+      ) : null}
     </Modal>
   );
 };

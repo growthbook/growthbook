@@ -1,104 +1,34 @@
 ---
-title: Holdout Experiments in GrowthBook
-description: Holdout Experiments
+title: Holdout Experiments
 sidebar_label: Holdout Experiments
 slug: holdouts
 ---
 
 ## What are holdout experiments?
 
-Holdout experiments (holdouts) are an approach to measuring the long term impact of one feature or a set of features. Essentially, you take some set of users and keep them from seeing new features; you then use them as a control group to measure against some other set of users who are getting all of the features you have launched.
+Holdout experiments (or simply "holdouts") measure the long-term impact of features by maintaining a control group that doesn't receive new functionality. While most users experience your latest features and improvements, a small percentage remains on the original version, providing a baseline to measure cumulative effects over time.
 
-Who uses holdouts?
+## Who uses holdouts?
 
-Large tech companies often use them to measure both the long-term impact of individual features as well as the general evolution of a product that some team owns. We advocate that everyone uses holdouts at some level, even if only to test the long-term impacts of a single feature every now and then, to begin to understand how they work and what they say about the persistence of experiment effects at your company.
+Major tech companies often use holdouts to measure both individual feature impact and overall product evolution. However, we recommend that teams of all sizes use holdouts at some level, even if only occasionally. Starting with a simple, single-feature holdout helps you understand the feature's long-term impact and reveals how experiment effects persist at your company.
 
-Why would I want to run a holdout?
+## Why run a holdout?
 
-- Holdouts are a great way to measure long-term impact. The impact of features changes over time, as does user behavior, and running an experiment for an extended period can help you understand these effects.
-- Holdouts can help you measure the impact of multiple features at once. Experiments can interact with each other in unexpected ways and these interactions can change as time goes on.
+- **Measure long-term impact**: The impact of features changes over time, as does user behavior, and running a holdout experiment for an extended period will help you understand these effects.
+- **Understand cumulative effects**: Features interact in unexpected ways, and these interactions shift over time. Holdouts capture the combined impact of multiple changes, revealing synergies and conflicts that individual experiments miss.
 
-Why wouldn't I want to run a holdout?
+Some approaches to measuring cumulative effects involve summing up the effect of individual experiments. Often, analysts then shrink this total by some amount to account for statistical bias (like we do on our (impact dashboard)[/insights#scaled-impact]) and to account for the general understanding that long term impacts often shrink or cannibalize one another. But even then, often these adjusted totals still overstate or mis-state the total impact (for example, see [this analysis by AirBnB](https://medium.com/airbnb-engineering/selection-bias-in-online-experimentation-c3d67795cceb)).
 
-- Holdouts require you to keep a certain set of users behind the rest in terms of functionality.
-- Holdouts require you to maintain feature flags in your codebase for their duration.
-- Holdouts work best for logged-in experimentation, but can still be useful with anonymous traffic.
+We could then add, if we wanted, or we could cut this altogether and save this for somewhere else:
+
+Holdouts expose users to a combined set of features over a long period of time, naturally measuring their interactions (positive and negative) and serving as a back-test that deals with the selection bias issue in summing up shipped experiments. For this reason, they are the gold standard for measuring cumulative, long-run impact.
+
+## Why wouldn't I want to run a holdout?
+
+- **User experience trade-offs**: Holdouts require some users to miss out on improvements and new features while serving as the control group.
+- **Technical overhead**: Holdouts require you to maintain feature flags in your codebase for their duration.
+- **Authentication considerations**: Holdouts work best for logged-in experimentation, but can still be useful with anonymous traffic.
 
 ## Can I run a holdout experiment in GrowthBook?
 
-**Yes!**
-
-Holdouts are a special class of experiment. While the GrowthBook team plans to build dedicated support for holdouts to make them even easier to run, this document will show you how to run them today.
-
-## How to run a holdout experiment in GrowthBook
-
-For this tutorial, we will assume the following goals:
-
-- You want to hold out 5% of users from some time period from seeing a set of features (the 5% is customizable)
-- You want to measure the impact of testing and launching one or more features to the general population
-
-To achieve these goals we will essentially split our traffic into 2 groups:
-
-1. 10% of traffic: your **holdout** population, split into two sub-groups
-   1. A **`holdout control`** group here - 5% of global traffic that will never see new features and serves as our holdout control
-   2. A **`holdout treatment`** group - 5% of global traffic that gets experimented on and released to
-2. Our **`general population`** - 90% of traffic that gets experimented on and released to, but is not part of measuring the impact of the holdout
-
-### 1. Create a Holdout Experiment
-
-1. Create an experiment called, for example, ”Global Holdout Q1 2024”.
-2. **Splits:** Set coverage to 10% and then use a 50/50 split (again to achieve our 5% holdout control population, which you can customize).
-
-3. **Metrics:** Do not use conversion windows with a holdout experiment. Users are going to get exposed to the holdout experiment as soon as you start adding it to features, so conversion windows may close before certain features are launched or tested. We recommend two alternatives:
-   1. Use metrics that have no conversion window to roll up behavior data from their first holdout check until the present, or
-   2. Use a Lookback Window to only measure the last X days of the holdout. For example, if you want to run a holdout for 2 months, but only measure effects in the last month, you can use metrics with 30 day Lookback Windows (you can use metric overrides within the experiment to do this, or create versions of your metrics that use Lookback Windows).
-4. Add a Boolean Feature Flag (in our example, we call this `holdout-q1-2024`) to the holdout experiment where the control group gets False, the treatment group gets True, and the default value is also True.
-5. Start the holdout experiment.
-
-Your feature flag for the holdout should look like this:
-
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/statistics/holdout-splits.png" alt="Traffic Splits for an Example Holdout Experiment" style={{ width: 800, margin: "0 auto" }} />
-</div>
-
-Note: an alternative is to use a String Feature Flag with values of `holdout` and `test` for the holdout experiment and `test` for the default value. That way you can more easily interpret the UI when you begin adding the holdout as a prerequisite for future features.
-
-### 2. Add Holdout as Prerequisite to All Future Features
-
-Now, for any future feature or experiment, you can add the `holdout-q1-2024` feature as a [prerequisite](/features/prerequisites) to hold out the **`holdout control`** group. This can be done in one of two ways.
-
-**Prerequisite as targeting condition**
-
-Your holdout experiment can be added as a prerequisite targeting condition to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a prerequisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feauture-2024`:
-
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/statistics/holdout-targeting.png" alt="Feature Rule for an Example Feature Experiment with Holdout" style={{ width: 800 }} />
-</div>
-
-You can see in the image above that if the prerequisite `holdout-q1-2024` is `True`, which it will be for the holdout treatment group and the 90\% who are not in the holdout control or test group, then the experiment will apply to them. In practice, we check this condition by evaluating the holdout experiment, firing an exposure event for the holdout test, and then only proceeding if they evaluate to `True` on way or another.
-
-In other words, the 5\% in the holdout control group will skip the feature rule, getting the default feature value, and the 5\% in the holdout treatment group and the 90\% in the general population will be evaluated for the feature rule. Any time the feature rule is checked, an experiment exposure will be fired for the holdout experiment to ensure you can track the effect of the feature on the holdout population.
-
-**Prerequisite rule at top of rule list**
-
-A second option is to ensure that every user in the holdout control group gets the default value for your feature flag by creating a rule at the very top of your feature flag that sends all control feature traffic to the default value. You can do that with a Forced Rule that sends all users that are `False` on the holdout feature to the default value for your feature flag.
-
-In this instance, your feature flag will look like the following:
-
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/statistics/holdout-rule.png" alt="Feature Rule for an Example Feature Experiment with Holdout" style={{ width: 800 }} />
-</div>
-
-:::note
-
-If you take this approach, be sure to set the Force Rule to target users that are `False` on the holdout feature to ensure the control group gets targeted with this forced rule and therefore excluded from the rest of the feature rules.
-
-:::
-
-### 3. Launch Features
-
-Once you are ready to launch your feature, you can use "temporary rollouts" as before or you can create custom feature rules to manually target your rollout. Of course, if you create new feature rules you do not want to apply to the holdout, you must either add the holdout experiment as a prerequisite targeting condition for those rules or instead use the approach where the holdout prerequisite is at the top of the list and targeting just those users in the control condition.
-
-### 4. Monitor your Holdout Experiment!
-
-That's it! Initially, your holdout population will be seeing the same version of the app, so this experiment will show no differences. As you begin testing and rolling out features, you should begin to see differences in the two groups.
+**Yes!** See our docs on [how to run a holdout experiment](/app/holdouts) in GrowthBook.

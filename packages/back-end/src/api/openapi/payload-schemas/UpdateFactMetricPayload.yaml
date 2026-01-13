@@ -22,6 +22,7 @@ properties:
       - mean
       - quantile
       - ratio
+      - dailyParticipation
   numerator:
     type: object
     required:
@@ -31,7 +32,7 @@ properties:
         type: string
       column:
         type: string
-        description: "Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
+        description: "Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')"
       aggregation:
         type: string
         description: "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics."
@@ -39,11 +40,64 @@ properties:
           - sum
           - max
           - count distinct
+
       filters:
         type: array
-        description: Array of Fact Table Filter Ids
+        description: Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+        deprecated: true
         items:
           type: string
+      inlineFilters:
+        type: object
+        description: Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+        deprecated: true
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      rowFilters:
+        type: array
+        description: Filters to apply to the rows of the fact table before aggregation.
+        items:
+          type: object
+          required:
+            - operator
+          properties:
+            operator:
+              type: string
+              enum:
+                - "="
+                - "!="
+                - ">"
+                - "<"
+                - ">="
+                - "<="
+                - "in"
+                - "not_in"
+                - "is_null"
+                - "not_null"
+                - "is_true"
+                - "is_false"
+                - "contains"
+                - "not_contains"
+                - "starts_with"
+                - "ends_with"
+                - "sql_expr"
+                - "saved_filter"
+            values:
+              type: array
+              description: Not required for is_null, not_null, is_true, is_false operators.
+              items:
+                type: string
+            column:
+              type: string
+              description: Required for all operators except sql_expr and saved_filter.
+      aggregateFilterColumn:
+        type: string
+        description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+      aggregateFilter:
+        type: string
+        description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
   denominator:
     description: Only when metricType is 'ratio'
     type: object
@@ -55,7 +109,7 @@ properties:
         type: string
       column:
         type: string
-        description: "The column name or one of the special values: '$$distinctUsers' or '$$count'"
+        description: "The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')"
       aggregation:
         type: string
         description: "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics."
@@ -63,11 +117,58 @@ properties:
           - sum
           - max
           - count distinct
+   
       filters:
         type: array
-        description: Array of Fact Table Filter Ids
+        description: Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.
+        deprecated: true
         items:
           type: string
+      inlineFilters:
+        type: object
+        description: Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.
+        deprecated: true
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      rowFilters:
+        type: array
+        description: Filters to apply to the rows of the fact table before aggregation.
+        items:
+          type: object
+          required:
+            - operator
+          properties:
+            operator:
+              type: string
+              enum:
+                - "="
+                - "!="
+                - ">"
+                - "<"
+                - ">="
+                - "<="
+                - "in"
+                - "not_in"
+                - "is_null"
+                - "not_null"
+                - "is_true"
+                - "is_false"
+                - "contains"
+                - "not_contains"
+                - "starts_with"
+                - "ends_with"
+                - "sql_expr"
+                - "saved_filter"
+            values:
+              type: array
+              description: Not required for is_null, not_null, is_true, is_false operators.
+              items:
+                type: string
+            column:
+              type: string
+              description: Required for all operators except sql_expr and saved_filter.
   inverse:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
@@ -195,6 +296,9 @@ properties:
     type: number
     description: Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
     minimum: 0
+  displayAsPercentage:
+    type: boolean
+    description: If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.
   minPercentChange:
     type: number
     description: Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)
@@ -206,9 +310,20 @@ properties:
   minSampleSize:
     type: number
     minimum: 0
+  targetMDE:
+    type: number
+    minimum: 0
   managedBy:
     type: string
     description: Set this to "api" to disable editing in the GrowthBook UI
     enum:
       - ""
       - api
+      - admin
+  archived:
+    type: boolean
+  metricAutoSlices:
+    type: array
+    items:
+      type: string
+    description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.

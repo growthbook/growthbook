@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
-import { RadixColor } from "@/components/Radix/HelperText";
+import { RadixColor } from "@/ui/HelperText";
 
 export interface ColorOption {
   readonly value: string;
@@ -135,7 +135,6 @@ const TagsInput: FC<{
       }}
       closeMenuOnSelect={closeMenuOnSelect}
       autoFocus={autoFocus}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'StylesConfig<ColorOption, true, GroupBase<Co... Remove this comment to see the full error message
       customStyles={tagStyles}
       placeholder={prompt}
       creatable={creatable}

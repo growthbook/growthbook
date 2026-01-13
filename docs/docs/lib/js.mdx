@@ -7,10 +7,14 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # Javascript
 
 The documentation is meant for client-side environments. Check out the [Node.js docs](/lib/node) for server-side environments.
+
+<SdkResources sdk="js" />
 
 ## Installation
 
@@ -65,37 +69,99 @@ if (gb.isOn("my-feature")) {
 const color = gb.getFeatureValue("button-color", "blue");
 ```
 
-## OpenFeature Provider
+## Plugins
 
-If you are using OpenFeature, we have created a [GrowthBook Provider](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook-client) that you can use client-side.
-Simply import our package and set `GrowthbookClientProvider` as the provider for your OpenFeature client.
-Similarly to using our SDK directly, you'll want to pass in GrowthBook `Context` into the new provider instance as well as any `InitOptions`.
+GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook constructor.
+
+Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### Third Party Tracking
+
+The third-party tracking plugin automatically sends an "Experiment Viewed" event to several popular analytics tracking tools (Segment, Google Analytics, and Google Tag Manager). This plugin requires a browser environment and does not work from Node.js.
+
+This plugin does not install any 3rd party libraries, it just sends events to ones that are already installed on your site. Below are all of the supported trackers:
+
+- `segment` - Requires `window.analytics` to be defined.
+- `gtag` - Requires `window.gtag` to be defined.
+- `gtm` - Requires `window.dataLayer` to be defined.
 
 ```js
-import { GrowthBook, Context, InitOptions } from '@growthbook/growthbook';
-import { GrowthbookClientProvider } from '@openfeature/growthbook-client-provider';
+import { thirdPartyTrackingPlugin } from "@growthbook/growthbook/plugins";
 
-/*
- * Configure your GrowthBook instance with GrowthBook context
- * @see https://docs.growthbook.io/lib/js#step-1-configure-your-app
- */
-const gbContext: Context = {
-  apiHost: 'https://cdn.growthbook.io',
-  clientKey: 'sdk-abc123',
-  // Only required if you have feature encryption enabled in GrowthBook
-  decryptionKey: 'key_abc123',
-};
+// Optional settings for the plugin
+const pluginOptions = {
+  // By default, it will attempt to send to all 3 of these
+  trackers: ["segment", "gtag", "gtm"],
+  // Additional custom tracking callback
+  additionalCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    })
+  }
+}
 
-/*
- * optional init options
- * @see https://docs.growthbook.io/lib/js#switching-to-init
- */
-const initOptions: InitOptions = {
-  timeout: 2000,
-  streaming: true,
-};
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [
+    thirdPartyTrackingPlugin(pluginOptions),
+  ],
+});
+```
 
-OpenFeature.setProvider(new GrowthbookClientProvider(gbContext, initOptions));
+### Auto-Attributes
+
+The auto-attributes plugin automatically detects and sets common attributes in GrowthBook for the current user. These attributes are available locally for targeting and are not sent to GrowthBook's servers.
+
+This plugin requires a browser environment and does not work from Node.js.
+
+```js
+import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+
+// Optional settings for the plugin (documented below)
+const pluginOptions: {}
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  plugins: [
+    autoAttributesPlugin(pluginOptions),
+  ],
+});
+```
+
+#### Attributes
+
+Here is a list of all attributes that are set by this plugin:
+
+- `id` - A random unique identifier for the user, persisted in a cookie
+- `url` - The current URL of the page
+- `path` - The current URL path of the page
+- `host` - The current URL host of the page
+- `query` - The current URL query string of the page
+- `pageTitle` - The current page title
+- `deviceType` - The device type of the user. Either "mobile" or "desktop"
+- `browser` - The browser name of the user (edge, chrome, firefox, safari, or unknown)
+- `utmSource`, `utmMedium`, `utmCampaign`, `utmTerm`, `utmContent` - UTM parameters from the URL (persisted in sessionStorage for subsequent page views)
+
+In addition, any variables set through Google Tag Manager (`window.dataLayer`) will be added as attributes as well.
+
+You can still specify your own custom attributes in the GrowthBook constructor, and they will be merged with the auto-attributes.
+
+#### Options
+
+By default the plugin generates a random UUID for the user and stores it in a cookie. You can customize this behavior with the following options.
+
+- `uuidKey` - The attribute key to use for the uuid (default is `id`)
+- `uuid` - Pass in your own user id instead of having the plugin generate a random one.
+- `uuidCookieName` - The name of the cookie to use for the generated uuid (default is `gb_uuid`)
+- `uuidAutoPersist` - If `false`, the generated id will NOT be stored in a cookie automatically. Default depends on the `uuid` option. If `uuid` is set, the default is `false`. Otherwise, the default is `true`.
+
+If you have a cookie consent banner, you can set `uuidAutoPersist` to `false` and then later manually trigger the cookie to be saved by calling:
+
+```js
+document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
 ## Loading Features and Experiments
@@ -139,9 +205,9 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
 ### Custom Integration
 
@@ -171,7 +237,7 @@ There is a alternate synchronous version of init named `initSync`, which can be 
 
 - You MUST pass in `payload`
 - The `payload` MUST NOT have encrypted features or experiments
-- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- If using sticky bucketing, you should use an instance of `StickyBucketServiceSync`, such as `BrowserCookieStickyBucketService`.
 - The return value is the GrowthBook instance to enable easy method chaining
 
 ## Streaming Updates
@@ -193,9 +259,13 @@ You may also differentiate your streaming host URL from your API host by setting
 
 ## Remote Evaluation
 
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
+
 When used in a front-end context, the JS SDK may be run in Remote Evaluation mode. This mode brings the security benefits of a backend SDK to the front end by evaluating feature flags exclusively on a private server. Using Remote Evaluation ensures that any sensitive information within targeting rules or unused feature variations are never seen by the client. Note that Remote Evaluation should not be used in a backend context.
 
-You must enable Remote Evaluation in your SDK Connection settings. Cloud customers are also required to self-host a GrowthBook Proxy Server or custom remote evaluation backend.
+You must enable Remote Evaluation in your SDK Connection settings. Cloud customers are also required to self-host a GrowthBook Proxy Server, edge worker, or custom remote evaluation backend.
 
 To use Remote Evaluation, add the `remoteEval: true` property to your SDK instance. A new evaluation API call will be made any time a user attribute or other dependency changes. You may optionally limit these API calls to specific attribute changes by setting the `cacheKeyAttributes` property (an array of attribute names that, when changed, trigger a new evaluation call).
 
@@ -211,7 +281,7 @@ const gb = new GrowthBook({
 });
 ```
 
-:::note
+:::note Sticky Bucketing with Remote Evaluation
 
 If you would like to implement Sticky Bucketing while using Remote Evaluation, you must configure your remote evaluation backend to support Sticky Bucketing. In the case of the GrowthBook Proxy Server, this means implementing a Redis database for sticky bucketing use. You will not need to provide a StickyBucketService instance to the client side SDK.
 
@@ -263,6 +333,8 @@ gb.setRenderer(() => {
 ## Experimentation (A/B Testing)
 
 In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+**Note**: If you use the `third-party-tracking` plugin, you don't need to specify a `trackingCallback` since the plugin will handle that for you automatically.
 
 ```js
 const gb = new GrowthBook({
@@ -1171,3 +1243,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 ## Examples
 
 - [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="js" />

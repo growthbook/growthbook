@@ -1,12 +1,12 @@
 import clsx from "clsx";
 import React, { CSSProperties } from "react";
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
   getVariationDefaultName,
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 import styles from "./ExperimentSplitVisual.module.scss";
 
 export interface Props {
@@ -31,22 +31,21 @@ export default function ExperimentSplitVisual({
 }: Props) {
   let previewLeft = 0;
   const totalWeights = parseFloat(
-    values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3)
+    values.reduce((partialSum, v) => partialSum + v.weight, 0).toFixed(3),
   );
 
   const coverageVal = coverage ? coverage : 0;
 
   return (
     <div className={`${totalWeights > 1 ? "overflow-hidden" : ""}`}>
+      {totalWeights !== 1 ? (
+        <Callout status="error" size="sm" mb="3">
+          Please adjust weights to sum to 100%.
+        </Callout>
+      ) : null}
       <div className="row">
         <div className="col">
           <label>{label}</label>
-          {totalWeights !== 1 && (
-            <span className="ml-2 text-danger">
-              <FaExclamationTriangle className="text-danger mr-2" />
-              <span className="">Please adjust weights to sum to 100%.</span>
-            </span>
-          )}
         </div>
         {coverage < 1 && (
           <div className={clsx("col-auto", styles.legend)}>
@@ -54,7 +53,7 @@ export default function ExperimentSplitVisual({
               className={clsx(
                 styles.legend_box,
                 styles.used,
-                "progress-bar-striped"
+                "progress-bar-striped",
               )}
               style={{ backgroundColor: "#e0e0e0" }}
             />{" "}
@@ -70,7 +69,7 @@ export default function ExperimentSplitVisual({
         style={{
           width: "100%",
           textAlign: "right",
-          height: 30,
+          height: 20,
           backgroundColor: "#e0e0e0",
         }}
       >
@@ -94,7 +93,7 @@ export default function ExperimentSplitVisual({
               const valueDisplay = getVariationDefaultName(val, type);
 
               const variationLabel = `${valueDisplay} (${parseFloat(
-                percentVal.toPrecision(5)
+                percentVal.toPrecision(5),
               )}%)`;
 
               return (
@@ -136,7 +135,7 @@ export default function ExperimentSplitVisual({
               >
                 <Tooltip
                   body={`Not included: ${parseFloat(
-                    ((1 - coverageVal) * 100).toPrecision(5)
+                    ((1 - coverageVal) * 100).toPrecision(5),
                   )}% - users will skip this rule`}
                   style={{ width: "100%", height: "100%" }}
                 >

@@ -1,13 +1,13 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { LegacyMetricAnalysis, MetricInterface } from "back-end/types/metric";
-import { Queries, QueryStatus } from "back-end/types/query";
-import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
+import { meanVarianceFromSums } from "shared/util";
 import {
   MetricValueParams,
   MetricValueQueryResponseRows,
   MetricValueResult,
-} from "back-end/src/types/Integration";
-import { meanVarianceFromSums } from "back-end/src/util/stats";
+} from "shared/types/integrations";
+import { LegacyMetricAnalysis, MetricInterface } from "shared/types/metric";
+import { Queries, QueryStatus } from "shared/types/query";
+import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
@@ -17,7 +17,7 @@ export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
 > {
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -112,7 +112,7 @@ export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
 }
 
 export function processMetricValueQueryResponse(
-  rows: MetricValueQueryResponseRows
+  rows: MetricValueQueryResponseRows,
 ): MetricValueResult {
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 
@@ -120,7 +120,7 @@ export function processMetricValueQueryResponse(
     const { date, count, main_sum, main_sum_squares } = row;
     const mean = main_sum / count;
     const stddev = Math.sqrt(
-      meanVarianceFromSums(main_sum, main_sum_squares, count)
+      meanVarianceFromSums(main_sum, main_sum_squares, count),
     );
     // Row for each date
     if (date) {

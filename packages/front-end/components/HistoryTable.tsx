@@ -1,10 +1,10 @@
 import { FC, useState, useMemo } from "react";
-import { AuditInterface, EventType } from "back-end/types/audit";
+import { AuditInterface, EventType } from "shared/types/audit";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
-import { ago, datetime } from "shared/dates";
+import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Button from "./Button";
@@ -59,6 +59,11 @@ function EventDetails({
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}
+          styles={{
+            contentText: {
+              wordBreak: "break-all",
+            },
+          }}
         />
       </div>
     );
@@ -99,7 +104,8 @@ export function HistoryTableRow({
   const userDisplay =
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key");
+    ("apiKey" in user && "API Key") ||
+    ("system" in user && "System");
   let colSpanNum = 4;
   if (showName) colSpanNum++;
   if (showType) colSpanNum++;
@@ -121,7 +127,9 @@ export function HistoryTableRow({
           setOpen(!open);
         }}
       >
-        <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
+        <td title={datetime(event.dateCreated)}>
+          {datetime(event.dateCreated)}
+        </td>
         {showType && <td>{event.entity.object}</td>}
         {showName && (
           <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
@@ -153,8 +161,19 @@ const HistoryTable: FC<{
   showType?: boolean;
   id?: string;
 }> = ({ id, type, showName = false, showType = false }) => {
-  const apiPath = id ? `/history/${type}/${id}` : `/history/${type}`;
-  const { data, error, mutate } = useApi<{ events: AuditInterface[] }>(apiPath);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursors, setCursors] = useState<(string | null)[]>([null]); // Stack of cursors for each page
+  const limit = 50;
+
+  const apiPath = id
+    ? `/history/${type}/${id}?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`
+    : `/history/${type}?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`;
+
+  const { data, error, mutate } = useApi<{
+    events: AuditInterface[];
+    total: number;
+    nextCursor?: string | null;
+  }>(apiPath);
 
   const [open, setOpen] = useState("");
   const { getSavedGroupById } = useDefinitions();
@@ -177,6 +196,10 @@ const HistoryTable: FC<{
     });
   }, [data?.events, showName, getSavedGroupById]);
 
+  const currentPage = cursors.length;
+  const totalPages = data ? Math.ceil(data.total / limit) : 0;
+  const hasMore = data ? currentPage < totalPages : false;
+
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
@@ -190,6 +213,9 @@ const HistoryTable: FC<{
         <div className="col-auto">
           <h4>Audit Log</h4>
         </div>
+        <div className="col-auto text-muted">
+          {data.total} total event{data.total !== 1 ? "s" : ""}
+        </div>
         <div className="col-auto ml-auto">
           <Button
             color="link btn-sm"
@@ -201,7 +227,7 @@ const HistoryTable: FC<{
           </Button>
         </div>
       </div>
-      <table className="table appbox bg-light">
+      <table className="table appbox">
         <thead>
           <tr>
             <th>Date</th>
@@ -227,6 +253,43 @@ const HistoryTable: FC<{
           ))}
         </tbody>
       </table>
+      {(currentPage > 1 || hasMore) && (
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <div>
+            Page {currentPage} of {totalPages}
+          </div>
+          <div>
+            <Button
+              color="outline-primary"
+              disabled={currentPage <= 1}
+              onClick={() => {
+                // Go back to previous cursor
+                const newCursors = cursors.slice(0, -1);
+                setCursors(newCursors);
+                setCursor(newCursors[newCursors.length - 1]);
+                setOpen("");
+              }}
+              className="mr-2"
+            >
+              Previous
+            </Button>
+            <Button
+              color="outline-primary"
+              disabled={!hasMore}
+              onClick={() => {
+                // Add the next cursor to the stack
+                if (data?.nextCursor) {
+                  setCursors([...cursors, data.nextCursor]);
+                  setCursor(data.nextCursor);
+                  setOpen("");
+                }
+              }}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

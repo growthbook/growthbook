@@ -52,7 +52,7 @@ export default function ResultsVariationsFilter({
       setShowVariations(sv);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterVariations]
+    [filterVariations],
   );
 
   const filteringApplied =
@@ -134,7 +134,6 @@ export default function ResultsVariationsFilter({
             <div className="mt-3 mb-2">
               <label className="uppercase-title mb-0">Filter variations</label>
               <SelectField
-                className="select-unfixed"
                 containerClassName="select-dropdown-underline"
                 isSearchable={false}
                 sort={false}

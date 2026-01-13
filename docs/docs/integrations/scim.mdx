@@ -7,9 +7,9 @@ slug: scim
 
 # SCIM Integration for Enterprise Organizations
 
-:::note
+:::info Enterprise plan required
 
-SCIM is only available with an Enterprise plan and requires [Single Sign-On (SSO)](https://docs.growthbook.io/sso) to be enabled. Currently, GrowthBook only supports Okta and Azure AD/Microsoft Entra ID as the identity providers.
+SCIM is only available with an Enterprise plan and requires [Single Sign-On (SSO)](/sso) to be enabled. Currently, GrowthBook only supports Okta and Azure AD/Microsoft Entra ID as the identity providers.
 
 :::
 
@@ -25,11 +25,9 @@ When a user is provisioned, they are added to your GrowthBook organization with 
 
 GrowthBook does support the ability to optionally [define a role when provisioning a user](#okta-how-to-define-user-roles-when-provisioning). Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
 
-When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](https://docs.growthbook.io/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Just like how user provisioning works, new Teams will be set up with your organization's default role. You'll need to adjust the permissions for the Team in GrowthBook. Group removal or membership changes will need to be done through your identity provider.
+When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Just like how user provisioning works, new Teams will be set up with your organization's default role. You'll need to adjust the permissions for the Team in GrowthBook. Group removal or membership changes will need to be done through your identity provider.
 
-:::note
-
-We are actively working on adding support for additional identity providers.
+:::note We are actively working on adding support for additional identity providers.
 
 :::
 
@@ -41,24 +39,24 @@ We are actively working on adding support for additional identity providers.
 
 2. Log in to your Okta account and go to the Applications page. Select "Browse App Catalog," then search for "SCIM 2.0 Test App (OAuth Bearer Token)." Click "Add Integration" to add the app to your Okta account.
 
-![](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Okta-Integration.png)
+![Add GrowthBook SCIM integration to Okta](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Okta-Integration.png)
 
 3. Once the app is added, you can change its name, for example, to "GrowthBook SCIM." Click "Next."
 
-![](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Name.png)
+![Add name to GrowthBook SCIM integration](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Name.png)
 
 4. On the next page, you don't need to modify any settings. Simply click "Done."
 
 5. With the application created, click on the "Provisioning" tab and select "Configure API Integration."
 
-![](../../static/images/integrations/scim/GrowthBook-SCIM-Enable-API-Integration.png)
+![Enable API integration for GrowthBook SCIM](../../static/images/integrations/scim/GrowthBook-SCIM-Enable-API-Integration.png)
 
 6. Now you can enter the Base URL and your OAUTH Bearer Token.
 
 - For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
 - You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
-:::note
+:::info Allowlist Okta's IP addresses
 
 If self-hosting GrowthBook on a VPN or behind a firewall, allowlist [Okta's IP addresses](https://support.okta.com/help/s/article/list-of-ip-addresses-that-should-be-allowlisted-for-inbound-traffic?language=en_US) to ensure SCIM API calls can hit GrowthBook's SCIM server.
 
@@ -104,13 +102,13 @@ If self-hosting GrowthBook on a VPN or behind a firewall, allowlist [Okta's IP a
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Define-Role-Attribute.png)
 
-:::note
+:::info Exact capitalization required
 
 It's important each of these values are entered exactly as shown above, including capitalization. If there is a descrepancy, the user's role will fall back to your organizations default role.
 
 :::
 
-4. Once complete, when you provision a user, you can select their role from the dropdown, and that will be applied to the user in GrowthBook. If you're not sure which role a user should have, you can view GrowthBook role permissions [here](https://docs.growthbook.io/account/user-permissions).
+4. Once complete, when you provision a user, you can select their role from the dropdown, and that will be applied to the user in GrowthBook. If you're not sure which role a user should have, you can [view GrowthBook role permissions](/account/user-permissions).
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Define-User-Role.png)
 
@@ -143,7 +141,7 @@ The setup directions below are shown using the Azure Portal (e.g., portal.azure.
 - For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting, the Base URL is `{YOUR_API_HOST}/scim/v2`.
 - Obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, open GrowthBook and go to **Settings** → **API Keys**. We recommend creating a dedicated API key for your SCIM integration.
 
-:::note
+:::info Allowlist Azure AD's/Entra ID's IP addresses
 
 If self-hosting GrowthBook on a VPN or behind a firewall, allowlist Azure AD's/Entra ID's IP addresses to ensure the SCIM API calls can hit GrowthBook's SCIM server.
 
@@ -168,7 +166,7 @@ Customizing the attribute mapping is a critical step that enables the mapping of
 
 #### Group Mapping (Optional)
 
-Using groups simplifies providing users with custom permissions. When a user is added to a group and the group is provisioned to GrowthBook, we'll create a Team in GrowthBook, and all users of the team will inherit the team's permissions. More details on teams can be found [here](https://docs.growthbook.io/account/user-permissions#teams). If you don't plan on using `Teams`, you can disable group syncing and do not have to customize the attribute mapping.
+Using groups simplifies providing users with custom permissions. When a user is added to a group and the group is provisioned to GrowthBook, we'll create a Team in GrowthBook, and all users of the team will inherit the team's permissions. See more [details on teams](/account/user-permissions#teams). If you don't plan on using `Teams`, you can disable group syncing and do not have to customize the attribute mapping.
 
 If you are planning to use groups, below are the required attributes and how they need to be mapped.
 
@@ -179,9 +177,9 @@ If you are planning to use groups, below are the required attributes and how the
 
 ![Microsoft Azure web app on the attribute mappings page, extended](../../static/images/integrations/azure/growthbook-entra-scim-group-mapping.png)
 
-:::note
+:::info Syncing groups is optional
 
-Syncing groups is optional. When a group is synced with GrowthBook, it creates a team in your GrowthBook organization and adds any members in the group to the team. This is handy because any role you assign to a team will also be inherited by its members. With Azure AD/Entra ID, all group members are synced to GrowthBook.
+When a group is synced with GrowthBook, it creates a team in your GrowthBook organization and adds any members in the group to the team. This is handy because any role you assign to a team will also be inherited by its members. With Azure AD/Entra ID, all group members are synced to GrowthBook.
 
 :::
 

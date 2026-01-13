@@ -1,5 +1,5 @@
 ---
-title: Self-Hosting GrowthBook
+title: Overview
 description: Learn how to set a self-hosted version of GrowthBook
 id: index
 slug: /self-host
@@ -9,20 +9,19 @@ slug: /self-host
 
 GrowthBook consists of a NextJS front-end, an ExpressJS API, and a Python stats engine. Everything is bundled together in a single [Docker Image](https://hub.docker.com/r/growthbook/growthbook).
 
-In addition to the app itself, you will also need a MongoDB instance to store login credentials, cached experiment results, and metadata.
+In addition to the app itself, you will also need a MongoDB instance (or MongoDB compatible database) to store login credentials, cached experiment results, and metadata.
 
-:::tip
-Don't want to install or host the app yourself? <a href="https://app.growthbook.io">GrowthBook Cloud</a> is a fully managed
-version that's free to get started.
+:::tip Don't want to install or host the app yourself?
+
+<a href="https://app.growthbook.io">GrowthBook Cloud</a> is a fully managed version that's free to get started with.
 :::
 
-## Installation
+## Quick Start
 
-You can use **docker-compose** to get started quickly:
+You can use **docker compose** to get started quickly:
 
 ```yml
 # docker-compose.yml
-version: "3"
 services:
   mongo:
     image: "mongo:latest"
@@ -47,28 +46,23 @@ volumes:
   mongodata:
 ```
 
-Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
+Then, just run `docker compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
 
-:::caution
+:::caution Use of mongo image
 The use of the mongo image within the docker-compose.yml is meant to quickly get a dev or staging environment up and running.
 For production you may want to use a more scalable and stable solution (ie. AWS DocumentDB, Google Cloud MongoDB Atlas, Azure Cosmos DB for Mongo, etc.)
-You may also want to have a [Growthbook Proxy](/self-host/proxy) running as well for speed, scalability, sercurity, and real-time feature rollouts.
 :::
+
+We also offer an official Helm chart for deploying GrowthBook on Kubernetes. See the [Kubernetes Self-Hosting Guide](/self-host/kubernetes) for more details.
+
+## Production
+
+We have a dedicated guide for [Self-Hosting GrowthBook in Production](/self-host/production) that covers best practices for security, scaling, performance, and more.
 
 ## Docker Tags
 
-Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch. The most recent commit is tagged with `latest`.
+The `latest` tag is updated with every commit to the main branch. We run this tag in GrowthBook Cloud, so it's generally safe for production, but may occasionally have minor bugs.
 
-GitHub Releases are also tagged using SemVer (e.g. `0.2.1`).
+We periodically create stable release tags (e.g. `4.1.0`) if you prefer to have more control over updates. Check out the [Releases page on GitHub](https://github.com/growthbook/growthbook/releases) for a list of releases with detailed release notes.
 
-If you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).
-
-## Updating to Latest
-
-If you are using docker-compose, and assuming you specify the growthbook container with `:latest`, you can update with:
-
-```bash
-docker-compose pull growthbook
-docker-compose stop growthbook
-docker-compose up -d growthbook
-```
+Lastly, if you need to reference the image for a specific git commit for any reason, you can use the git shorthash tag (e.g. `git-41278e9`).

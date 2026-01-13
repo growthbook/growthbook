@@ -1,17 +1,17 @@
 import React, { FC, useCallback, useState } from "react";
-import { FaPencilAlt, FaPlus } from "react-icons/fa";
+import { FaPlus } from "react-icons/fa";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
-  onSave,
-  dataSource,
-  canEdit = true,
-}) => {
+export const DataSourceJupyterNotebookQuery: FC<
+  DataSourceJupyterNotebookQueryProps
+> = ({ onSave, dataSource, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -26,33 +26,33 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
   }
 
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center">
-        <div className="">
-          <h3>Jupyter Notebook Query Runner</h3>
-        </div>
+    <Box>
+      <Flex align="start" justify="between" mb="2">
+        <Box>
+          <Heading size="4" mb="0">
+            Jupyter Notebook Query Runner
+          </Heading>
+        </Box>
 
         {canEdit && (
-          <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold"
+          <Box>
+            <Button
+              variant={dataSource.settings.notebookRunQuery ? "ghost" : "solid"}
               onClick={() => {
                 setUiMode("edit");
               }}
             >
               {dataSource.settings.notebookRunQuery ? (
-                <>
-                  <FaPencilAlt className="mr-1" /> Edit
-                </>
+                <>Edit</>
               ) : (
                 <>
                   <FaPlus className="mr-1" /> Add
                 </>
               )}
-            </button>
-          </div>
+            </Button>
+          </Box>
         )}
-      </div>
+      </Flex>
       <p>
         Tell us how to query this data source from within a Jupyter notebook
         environment.
@@ -64,9 +64,7 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
           expandable={true}
         />
       ) : (
-        <div className="alert alert-info">
-          Used when exporting experiment results to a Jupyter notebook
-        </div>
+        <></>
       )}
 
       {uiMode === "edit" ? (
@@ -76,6 +74,6 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
           dataSource={dataSource}
         />
       ) : null}
-    </div>
+    </Box>
   );
 };

@@ -1,12 +1,12 @@
 import { PiLink, PiCheck } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Button from "@/components/Radix/Button";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import track from "@/services/track";
-import Metadata from "@/components/Radix/Metadata";
+import Metadata from "@/ui/Metadata";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 export default function PublicExperimentMetaInfo({
@@ -50,9 +50,9 @@ export default function PublicExperimentMetaInfo({
     );
 
   return (
-        <div className="container-fluid pagecontents d-flex mb-3">
+        <div className="container-fluid pagecontents d-flex my-3 px-3">
           <div className="flex-1">
-            <h1 className="mt-1 mb-3 mr-2">
+            <h1 className="mb-3 mr-2">
               {experiment.name}
               <div
                 className="d-inline-block ml-2 position-relative"

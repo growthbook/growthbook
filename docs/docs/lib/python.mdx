@@ -5,9 +5,16 @@ sidebar_label: Python
 slug: python
 ---
 
+import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
 # Python
 
 _Requires **Python 3.6** or above_
+
+<SdkResources sdk="python" />
 
 ## Installation
 
@@ -52,37 +59,138 @@ if gb.is_on("my-feature"):
 color = gb.get_feature_value("button-color-feature", "blue")
 ```
 
-### Web Frameworks (Django, Flask, etc.)
+## Async Client (Recommended)
 
-For web frameworks, you should create a new `GrowthBook` instance for every incoming request and call `destroy()` at the end of the request to clean up resources.
+**Available starting in version 1.2.0**
 
-In Django, for example, this is best done with a simple middleware:
+For improved performance and better resource utilization, especially in async web applications, use the `GrowthBookClient` class. This approach provides up to **3x better performance** by reusing a single client instance across multiple requests instead of creating new instances per request.
+
+### Basic Async Usage
 
 ```python
-from growthbook import GrowthBook
+from growthbook import GrowthBookClient, Options, UserContext, FeatureRefreshStrategy
+import asyncio
 
-def growthbook_middleware(get_response):
-    def middleware(request):
-        request.gb = GrowthBook(
-          # ...
+async def main():
+    # Create client options
+    options = Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        # Optional: Enable real-time feature updates
+        refresh_strategy=FeatureRefreshStrategy.SERVER_SENT_EVENTS
+    )
+
+    # Create and initialize client
+    client = GrowthBookClient(options)
+    try:
+        # Initialize the client before using it
+        success = await client.initialize()
+        if not success:
+            print("Failed to initialize GrowthBook client")
+            return
+
+        # Create user context for targeting
+        user = UserContext(
+            attributes={
+                "id": "123",
+                "country": "US",
+                "premium": True
+            }
         )
-        request.gb.load_features()
 
-        response = get_response(request)
+        # Simple feature evaluation
+        if await client.is_on("new-homepage", user):
+            print("New homepage is enabled!")
 
-        request.gb.destroy() # Cleanup
+        # Get feature value with fallback
+        color = await client.get_feature_value("button-color", "blue", user)
+        print(f"Button color is {color}")
 
-        return response
-    return middleware
+        # Run an experiment
+        from growthbook import Experiment
+        result = await client.run(
+            Experiment(
+                key="my-test",
+                variations=["A", "B"]
+            ),
+            user
+        )
+        print(f"User got variation: {result.value}")
+    finally:
+        # Always close the client when done
+        await client.close()
+
+# Run the async code
+asyncio.run(main())
 ```
 
-Then, you can easily use GrowthBook in any of your views:
+For web framework integration examples, see [Integration Examples](#integration-examples) below.
+
+### Real-time Feature Updates
+
+The async client supports real-time feature updates using Server-Sent Events:
 
 ```python
-def index(request):
-    feature_enabled = request.gb.is_on("my-feature")
-    # ...
+from growthbook import GrowthBookClient, Options, FeatureRefreshStrategy
+
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        # Enable SSE for real-time updates
+        refresh_strategy=FeatureRefreshStrategy.SERVER_SENT_EVENTS
+    )
+)
 ```
+
+### Concurrency and Thread Safety
+
+The async client is designed to be thread-safe and handle concurrent requests efficiently. You can safely use a single client instance across multiple coroutines:
+
+```python
+from fastapi import FastAPI
+from growthbook import GrowthBookClient, Options, UserContext
+import asyncio
+
+app = FastAPI()
+
+# Single client instance shared across all requests
+gb_client = GrowthBookClient(Options(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123"
+))
+
+@app.on_event("startup")
+async def startup():
+    await gb_client.initialize()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await gb_client.close()
+
+@app.get("/batch")
+async def batch_process(user_ids: list[str]):
+    # Safely process multiple users concurrently
+    tasks = []
+    for user_id in user_ids:
+        user = UserContext(attributes={"id": user_id})
+        tasks.append(gb_client.eval_feature("new-feature", user))
+
+    results = await asyncio.gather(*tasks)
+    return {"results": results}
+```
+
+**Note**: While the client is thread-safe, you should not share a single `UserContext` instance across different requests. Create a new `UserContext` for each request to maintain proper isolation.
+
+### Performance Benefits
+
+The `GrowthBookClient` provides significant performance improvements over the traditional per-request `GrowthBook` approach:
+
+- **3x faster** feature evaluations due to instance reuse
+- **Lower memory usage** by sharing feature data across requests
+- **Built-in caching** with configurable refresh strategies
+- **Real-time updates** without polling overhead
+- **Async/await support** for non-blocking operations
 
 ## Loading Features
 
@@ -90,27 +198,90 @@ There are two ways to load feature flags into the GrowthBook SDK. You can either
 
 ### Built-in Fetching and Caching
 
-To use the built-in fetching and caching logic, in the `GrowthBook` constructor, pass in your GrowthBook `api_host` and `client_key`. If you have encryption enabled for your GrowthBook endpoint, you also need to pass the `decryption_key` into the constructor.
+Both the async client and traditional client support built-in fetching and caching of feature flags.
 
-Then, call the `load_features()` method to initiate the HTTP request with a cache layer.
+<Tabs>
+<TabItem value="async" label="Async Client">
 
-Here's a full example:
+For the async client, use `GrowthBookClient` with `Options`:
 
 ```python
-gb = GrowthBook(
-  api_host = "https://cdn.growthbook.io",
-  client_key = "sdk-abc123",
-  # How long to cache features in seconds (Optional, default 60s)
-  cache_ttl = 60,
-)
-gb.load_features()
+import asyncio
+from growthbook import GrowthBookClient, Options, FeatureRefreshStrategy
+
+async def main():
+    # Create client with built-in fetching and caching
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123",
+            # Optional: Configure caching
+            cache_ttl=300,  # Cache for 5 minutes
+            # Optional: Enable real-time updates
+            refresh_strategy=FeatureRefreshStrategy.SERVER_SENT_EVENTS,
+            # Optional: Encryption support
+            decryption_key="your-decryption-key"
+        )
+    )
+
+    try:
+        # Initialize features (async)
+        await client.initialize()
+
+        # Features are now cached and ready to use
+        user = UserContext(attributes={"id": "user_123"})
+        feature_enabled = await client.is_on("my-feature", user)
+
+        print(f"Feature enabled: {feature_enabled}")
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
 ```
 
-#### Caching
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
 
-GrowthBook comes with a custom in-memory cache. If you run Python in a multi-process mode, the different processes cannot share memory, so you likely want to switch to a distributed cache system like Redis instead.
+For the traditional client, pass `api_host` and `client_key` to the constructor:
 
-Here is an example of using Redis:
+```python
+from growthbook import GrowthBook
+
+# Create client with built-in fetching and caching
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+  # How long to cache features in seconds (Optional, default 60s)
+    cache_ttl=60,
+    # Optional: Encryption support
+    decryption_key="your-decryption-key",
+    # User attributes
+    attributes={"id": "user_123"}
+)
+
+# Load features (synchronous)
+gb.load_features()
+
+# Features are now cached and ready to use
+feature_enabled = gb.is_on("my-feature")
+print(f"Feature enabled: {feature_enabled}")
+
+# Clean up
+gb.destroy()
+```
+
+</TabItem>
+</Tabs>
+
+#### Custom Caching
+
+GrowthBook comes with a custom in-memory cache.
+
+<Tabs>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, configure a custom cache globally:
 
 ```python
 from redis import Redis
@@ -133,7 +304,17 @@ class RedisFeatureCache(AbstractFeatureCache):
 
 # Configure GrowthBook to use your custom cache class
 feature_repo.set_cache(RedisFeatureCache())
+
+# Now all GrowthBook instances will use Redis caching
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123"
+)
+gb.load_features()  # Will use Redis cache
 ```
+
+</TabItem>
+</Tabs>
 
 ### Custom Implementation
 
@@ -182,44 +363,567 @@ You can specify attributes about the current user and request. These are used fo
 
 Attributes can be any JSON data type - boolean, integer, float, string, list, or dict.
 
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+For the async client, attributes are passed via `UserContext` for each evaluation:
+
 ```python
-attributes = {
+import asyncio
+from growthbook import GrowthBookClient, Options, UserContext
+
+async def main():
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123"
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        # Create user context with attributes
+        user = UserContext(
+            attributes={
   'id': "123",
   'loggedIn': True,
   'age': 21.5,
   'tags': ["tag1", "tag2"],
   'account': {
     'age': 90
-  }
+                },
+                'country': 'US',
+                'premium': True
+            }
+        )
+
+        # Use features with user context
+        feature_enabled = await client.is_on("premium-feature", user)
+        discount = await client.get_feature_value("discount-percent", 0, user)
+
+        # Different user context for another request
+        guest_user = UserContext(
+            attributes={
+                'id': "guest_456",
+                'loggedIn': False,
+                'country': 'CA'
+            }
+        )
+
+        guest_feature = await client.is_on("premium-feature", guest_user)
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, attributes are set globally on the instance:
+
+```python
+from growthbook import GrowthBook
+
+# Define user attributes
+attributes = {
+    'id': "123",
+    'loggedIn': True,
+    'age': 21.5,
+    'tags': ["tag1", "tag2"],
+    'account': {
+        'age': 90
+    },
+    'country': 'US',
+    'premium': True
 }
 
 # Pass into constructor
-gb = GrowthBook(attributes = attributes)
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes=attributes
+)
 
-# Or set later
-gb.set_attributes(attributes)
+gb.load_features()
+
+# Use features (uses global attributes)
+feature_enabled = gb.is_on("premium-feature")
+discount = gb.get_feature_value("discount-percent", 0)
+
+# Or update attributes later
+new_attributes = {
+    'id': "456",
+    'loggedIn': False,
+    'country': 'CA'
+}
+gb.set_attributes(new_attributes)
+
+# Features will now use updated attributes
+updated_feature = gb.is_on("premium-feature")
+
+gb.destroy()
 ```
+
+</TabItem>
+</Tabs>
+
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use the `hashlib` library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+For the async client, hash secure attributes before creating the `UserContext`:
+
+```python
+import asyncio
+import hashlib
+from growthbook import GrowthBookClient, Options, UserContext
+
+def hash_secure_attribute(value: str, salt: str) -> str:
+    """Helper function to hash secure attributes"""
+    return hashlib.sha256(f"{salt}{value}".encode()).hexdigest()
+
+async def main():
+# Your secure attribute salt (set in Organization Settings)
+salt = "f09jq3fij"
+
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123"
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        # Hash secure attributes
+        user_email = "user@example.com"
+        user_tags = ["premium", "beta"]
+
+        hashed_email = hash_secure_attribute(user_email, salt)
+        hashed_tags = [hash_secure_attribute(tag, salt) for tag in user_tags]
+
+        # Create user context with hashed secure attributes
+        user = UserContext(
+            attributes={
+                'id': "123",
+                'loggedIn': True,
+                'email': hashed_email,  # secureString
+                'tags': hashed_tags,    # secureString[]
+                'country': 'US'         # regular attribute
+            }
+        )
+
+        # Use features with secure attributes
+        premium_feature = await client.is_on("premium-feature", user)
+        personalized_content = await client.get_feature_value("personalized-content", {}, user)
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, hash secure attributes before passing to the constructor:
+
+```python
+import hashlib
+from growthbook import GrowthBook
+
+def hash_secure_attribute(value: str, salt: str) -> str:
+    """Helper function to hash secure attributes"""
+    return hashlib.sha256(f"{salt}{value}".encode()).hexdigest()
+
+# Your secure attribute salt (set in Organization Settings)
+salt = "f09jq3fij"
+
+# Hash secure attributes
+user_email = "user@example.com"
+user_tags = ["premium", "beta"]
+
+hashed_email = hash_secure_attribute(user_email, salt)
+hashed_tags = [hash_secure_attribute(tag, salt) for tag in user_tags]
+
+# Create GrowthBook instance with hashed secure attributes
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={
+    'id': "123",
+    'loggedIn': True,
+        'email': hashed_email,  # secureString
+        'tags': hashed_tags,    # secureString[]
+        'country': 'US'         # regular attribute
+    }
+)
+
+gb.load_features()
+
+# Use features with secure attributes
+premium_feature = gb.is_on("premium-feature")
+personalized_content = gb.get_feature_value("personalized-content", {})
+
+gb.destroy()
+```
+
+</TabItem>
+</Tabs>
 
 ### Tracking Experiments
 
 Any time an experiment is run to determine the value of a feature, you want to track that event in your analytics system.
 
-You can use the `on_experiment_viewed` option to do this:
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+For the async client, you can set up experiment tracking through the `Options`:
+
+```python
+import asyncio
+from growthbook import GrowthBookClient, Options, UserContext, Experiment, Result
+
+def on_experiment_viewed(experiment: Experiment, result: Result, user_context: UserContext):
+    """Synchronous callback for experiment tracking (Fire-and-Forget)"""
+    # Use whatever event tracking system you want
+    user_id = result.hash_attribute or "anonymous"
+
+    # For async analytics, you must schedule the task on the loop
+    # without awaiting it (Fire-and-Forget)
+    loop = asyncio.get_running_loop()
+    loop.create_task(track_async(user_id, experiment, result))
+
+async def track_async(user_id, experiment, result):
+    # This runs in the background
+    await analytics.track_async(user_id, "Experiment Viewed", {
+        'experimentId': experiment.key,
+        'variationId': result.key,
+        'variationValue': result.value,
+        'inExperiment': result.in_experiment,
+        'hashUsed': result.hash_used
+    })
+    print(f"Tracked experiment: {experiment.key} -> {result.value}")
+
+async def main():
+    # Create client with experiment tracking
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123",
+            # Callback must be synchronous
+            on_experiment_viewed=on_experiment_viewed
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        # Create user context
+        user = UserContext(attributes={"id": "user_123", "premium": True})
+
+        # Feature evaluations will automatically trigger tracking
+        feature_value = await client.get_feature_value("button-color", "blue", user)
+
+        # Run inline experiments (also triggers tracking)
+        experiment = Experiment(
+            key="pricing-test",
+            variations=["$9.99", "$14.99", "$19.99"]
+        )
+
+        result = await client.run(experiment, user)
+        print(f"Experiment result: {result.value}")
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+You can also use synchronous callbacks with the async client:
+
+```python
+def sync_experiment_tracker(experiment: Experiment, result: Result):
+    """Synchronous callback that works with async client"""
+    # Send to synchronous analytics service
+    analytics.track("Experiment Viewed", {
+        'experimentId': experiment.key,
+        'variationId': result.key,
+        'userId': result.hash_attribute
+    })
+
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        on_experiment_viewed=sync_experiment_tracker  # Sync callback
+    )
+)
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, pass the callback to the constructor:
 
 ```python
 from growthbook import GrowthBook, Experiment, Result
 
 def on_experiment_viewed(experiment: Experiment, result: Result):
+    """Callback for experiment tracking"""
   # Use whatever event tracking system you want
-  analytics.track(attributes["id"], "Experiment Viewed", {
+    user_id = result.hash_attribute or "anonymous"
+
+    analytics.track(user_id, "Experiment Viewed", {
     'experimentId': experiment.key,
-    'variationId': result.key
+        'variationId': result.key,
+        'variationValue': result.value,
+        'inExperiment': result.in_experiment,
+        'hashUsed': result.hash_used
   })
 
-# Pass into constructor
+    print(f"Tracked experiment: {experiment.key} -> {result.value}")
+
+# Create GrowthBook instance with experiment tracking
 gb = GrowthBook(
-  on_experiment_viewed = on_experiment_viewed
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": "user_123", "premium": True},
+    on_experiment_viewed=on_experiment_viewed
 )
+
+gb.load_features()
+
+# Feature evaluations will automatically trigger tracking
+feature_value = gb.get_feature_value("button-color", "blue")
+
+# Run inline experiments (also triggers tracking)
+experiment = Experiment(
+    key="pricing-test",
+    variations=["$9.99", "$14.99", "$19.99"]
+)
+
+result = gb.run(experiment)
+print(f"Experiment result: {result.value}")
+
+gb.destroy()
+```
+
+</TabItem>
+</Tabs>
+
+### Tracking Plugins
+
+**Available starting in version 1.3.0**
+
+The Python SDK supports tracking plugins that provide automated event tracking with batching, error handling, and retry logic. This is the recommended approach for production applications as it handles edge cases and provides better reliability than custom tracking callbacks.
+
+#### Built-in Tracking Plugin
+
+The SDK includes a built-in tracking plugin that automatically batches and sends events:
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+import asyncio
+from growthbook import GrowthBookClient, Options, UserContext, GrowthBookTrackingPlugin
+
+# Custom synchronous tracking callback
+def my_custom_tracker(experiment, result, user_context):
+    """Process tracking event (Fire-and-Forget)"""
+    loop = asyncio.get_running_loop()
+    loop.create_task(process_async(experiment, result, user_context))
+
+async def process_async(experiment, result, user_context):
+    # Send to your analytics system
+    await analytics.track_async(
+        user_id=user_context.attributes.get('id'),
+        event_name="Experiment Viewed",
+        properties={
+            'experiment_id': experiment.key,
+            'variation_id': result.key,
+            'variation_value': result.value,
+        }
+    )
+
+async def main():
+    # Create client with built-in tracking plugin
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123",
+            tracking_plugins=[
+                GrowthBookTrackingPlugin(
+                    # Ingestor host for GrowthBook built-in usage
+                    ingestor_host="https://c1.growthbook.io",
+                    # Additional callback for custom analytics
+                    additional_callback=my_custom_tracker
+                )
+            ]
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        user = UserContext(attributes={"id": "user_123"})
+
+        # Events are now automatically tracked and batched
+        result1 = await client.get_feature_value("button-color", "blue", user)
+        result2 = await client.is_on("premium-feature", user)
+
+        # Plugin handles batching and sending automatically
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+```python
+from growthbook import GrowthBook, TrackingPlugin
+
+# Custom tracking callback for your analytics system
+def my_custom_tracker(events):
+    """Process a batch of tracking events"""
+    for event in events:
+        # Send to your analytics system
+        analytics.track(
+            user_id=event.user_id,
+            event_name="Experiment Viewed",
+            properties={
+                'experiment_id': event.experiment.key,
+                'variation_id': event.result.key,
+                'variation_value': event.result.value,
+                'timestamp': event.timestamp
+            }
+        )
+    print(f"Processed {len(events)} tracking events")
+
+# Create GrowthBook with tracking plugin
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": "user_123"},
+    tracking_plugins=[
+        TrackingPlugin(
+            # Your custom tracking function
+            callback=my_custom_tracker,
+            # Batch size (optional, default 10)
+            batch_size=5,
+            # Flush interval in seconds (optional, default 30)
+            flush_interval=10,
+            # Max retries (optional, default 3)
+            max_retries=2
+        )
+    ]
+)
+
+gb.load_features()
+
+# Events are now automatically tracked and batched
+result1 = gb.get_feature_value("button-color", "blue")
+result2 = gb.is_on("premium-feature")
+
+# Plugin handles batching and sending automatically
+
+gb.destroy()
+```
+
+</TabItem>
+</Tabs>
+
+#### Multiple Tracking Plugins
+
+You can use multiple tracking plugins to send events to different analytics systems:
+
+```python
+from growthbook import GrowthBookClient, Options, GrowthBookTrackingPlugin
+
+# Different tracking callbacks
+def segment_tracker(experiment, result, user_context):
+    """Send events to Segment (Fire-and-Forget)"""
+    loop = asyncio.get_running_loop()
+    loop.create_task(segment_track_async(experiment, result))
+
+async def segment_track_async(experiment, result):
+     await segment.track_async(...)
+
+async def mixpanel_tracker(events):
+    """Send events to Mixpanel"""
+    for event in events:
+        await mixpanel.track_async(event.user_id, "Experiment Viewed", {
+            'experiment_id': event.experiment.key,
+            'variation': event.result.value
+        })
+
+# Create client with multiple tracking plugins
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        tracking_plugins=[
+            GrowthBookTrackingPlugin(
+                additional_callback=segment_tracker
+            ),
+            GrowthBookTrackingPlugin(
+                additional_callback=mixpanel_tracker
+            )
+        ]
+    )
+)
+
+# Events are now automatically sent to both Segment and Mixpanel
+```
+
+#### Tracking Plugin Benefits
+
+The tracking plugin system provides several advantages over custom tracking callbacks:
+
+- **Automatic Batching**: Events are batched together to reduce API calls
+- **Error Handling**: Failed requests are automatically retried with exponential backoff
+- **Non-blocking**: Tracking doesn't block feature evaluations
+- **Configurable**: Batch sizes, intervals, and retry logic can be customized
+- **Multiple Destinations**: Send events to multiple analytics systems simultaneously
+
+#### Working with Traditional Callbacks
+
+Tracking plugins work alongside your existing `on_experiment_viewed` callbacks:
+
+```python
+def legacy_tracker(experiment, result):
+    """Traditional tracking callback"""
+    print(f"Legacy tracker: {experiment.key}")
+
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        # Traditional callback still works
+        on_experiment_viewed=legacy_tracker,
+        # Plus new tracking plugins
+        tracking_plugins=[
+            TrackingPlugin(callback=my_custom_tracker)
+        ]
+    )
+)
+
+# Both the legacy callback and plugin will be triggered
 ```
 
 ## Using Features
@@ -256,22 +960,81 @@ Sticky Bucket documents contain three fields
 
 The attributeName/attributeValue combo is the primary key.
 
-Here's an example implementation using a theoretical `db` object:
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+**Note**: The Async Client currently uses the synchronous sticky bucket interface. This means sticky bucket operations running in the main event loop may block. We recommend using a fast, local store (like the default in-memory one) or an optimized synchronous store.
 
 ```python
-from growthbook import AbstractStickyBucketService, GrowthBook
+import asyncio
+from growthbook import GrowthBookClient, Options, UserContext
+# AbstractStickyBucketService is synchronous
+from growthbook import AbstractStickyBucketService
 
 class MyStickyBucketService(AbstractStickyBucketService):
-    # Lookup a sticky bucket document
-    def get_assignments(self, attributeName: str, attributeValue: str) -> Optional[Dict]:
-        return db.find({
-          "attributeName": attributeName,
-          "attributeValue": attributeValue
-        })
+    def get_assignments(self, attributeName, attributeValue):
+        # Implementation must be synchronous
+        return None
+
+    def save_assignments(self, doc):
+        # Implementation must be synchronous
+        pass
+
+async def main():
+    # Create sticky bucket service
+    sticky_service = MyStickyBucketService()
+
+    # Create client with sticky bucketing
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123",
+            sticky_bucket_service=sticky_service
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        # User will get consistent experiment assignments
+        user = UserContext(attributes={"id": "user_123"})
+
+        # ...
+    finally:
+        await client.close()
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, implement a synchronous sticky bucket service:
+
+```python
+from typing import Optional, Dict
+from growthbook import GrowthBook, AbstractStickyBucketService
+
+class MyStickyBucketService(AbstractStickyBucketService):
+    """Synchronous sticky bucket service using database"""
+
+    def __init__(self):
+        # Initialize your database connection
+        self.db = Database()  # Your DB client
+
+    def get_assignments(self, attribute_name: str, attribute_value: str) -> Optional[Dict]:
+        """Lookup a sticky bucket document"""
+        try:
+            return self.db.find({
+                "attributeName": attribute_name,
+                "attributeValue": attribute_value
+            })
+        except Exception as e:
+            print(f"Error getting assignments: {e}")
+            return None
 
     def save_assignments(self, doc: Dict) -> None:
-        # Insert new record if not exists, otherwise update
-        db.upsert({
+        """Save sticky bucket assignments"""
+        try:
+            self.db.upsert({
             "attributeName": doc["attributeName"],
             "attributeValue": doc["attributeValue"]
         }, {
@@ -279,29 +1042,211 @@ class MyStickyBucketService(AbstractStickyBucketService):
             "assignments": doc["assignments"]
           }
         })
+        except Exception as e:
+            print(f"Error saving assignments: {e}")
 
-# Pass in an instance of this service to your GrowthBook constructor
-
+# Create GrowthBook with sticky bucketing
 gb = GrowthBook(
-  sticky_bucket_service = MyStickyBucketService()
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": "user_123"},
+    sticky_bucket_service=MyStickyBucketService()
+)
+
+gb.load_features()
+
+# User will get consistent experiment assignments
+result1 = gb.get_feature_value("button-color", "blue")
+print(f"First assignment: {result1}")
+
+# Second time - retrieves saved assignment
+result2 = gb.get_feature_value("button-color", "blue")
+print(f"Consistent assignment: {result2}")
+
+# Run inline experiments with sticky bucketing
+from growthbook import Experiment
+
+experiment = Experiment(
+    key="pricing-test",
+    variations=["$9.99", "$14.99", "$19.99"]
+)
+
+exp_result = gb.run(experiment)
+print(f"Sticky experiment result: {exp_result.value}")
+
+gb.destroy()
+```
+
+#### SQLite Implementation Example
+
+```python
+import sqlite3
+import json
+from growthbook import GrowthBook, AbstractStickyBucketService
+
+class SQLiteStickyBucketService(AbstractStickyBucketService):
+    def __init__(self, db_path="sticky_buckets.db"):
+        self.conn = sqlite3.connect(db_path)
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS sticky_buckets (
+                attribute_name TEXT,
+                attribute_value TEXT,
+                assignments TEXT,
+                PRIMARY KEY (attribute_name, attribute_value)
+            )
+        ''')
+        self.conn.commit()
+
+    def get_assignments(self, attribute_name: str, attribute_value: str) -> Optional[Dict]:
+        cursor = self.conn.execute(
+            "SELECT assignments FROM sticky_buckets WHERE attribute_name=? AND attribute_value=?",
+            (attribute_name, attribute_value)
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                "attributeName": attribute_name,
+                "attributeValue": attribute_value,
+                "assignments": json.loads(row[0])
+            }
+        return None
+
+    def save_assignments(self, doc: Dict) -> None:
+        self.conn.execute(
+            "INSERT OR REPLACE INTO sticky_buckets (attribute_name, attribute_value, assignments) VALUES (?, ?, ?)",
+            (doc["attributeName"], doc["attributeValue"], json.dumps(doc["assignments"]))
+        )
+        self.conn.commit()
+
+# Usage
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": "user_123"},
+    sticky_bucket_service=SQLiteStickyBucketService()
 )
 ```
+
+</TabItem>
+</Tabs>
 
 ## Inline Experiments
 
 Instead of declaring all features up-front and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `run` method:
 
-```python
-from growthbook import Experiment
+<Tabs>
+<TabItem value="async" label="Async Client">
 
+For the async client, use `await` with the `run` method:
+
+```python
+import asyncio
+from growthbook import GrowthBookClient, Options, UserContext, Experiment
+
+async def main():
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123"
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        # Create user context
+        user = UserContext(attributes={"id": "user_123", "country": "US"})
+
+        # Simple experiment
 exp = Experiment(
-  key = "my-experiment",
-  variations = ["red", "blue", "green"]
+            key="my-experiment",
+            variations=["red", "blue", "green"]
+        )
+
+        # Run experiment (async)
+        result = await client.run(exp, user)
+        print(f"Variation: {result.value}")  # Either "red", "blue", or "green"
+
+        # Complex experiment with all options
+        complex_exp = Experiment(
+            key="pricing-test",
+            variations=[9.99, 14.99, 19.99],
+            weights=[0.5, 0.3, 0.2],  # 50%, 30%, 20%
+            coverage=0.8,  # Include 80% of users
+            condition={"country": "US", "premium": True},
+            hashAttribute="id",
+            hashVersion=2,
+            namespace=("pricing", 0, 0.5)
+        )
+
+        pricing_result = await client.run(complex_exp, user)
+
+        if pricing_result.in_experiment:
+            print(f"User is in pricing experiment: ${pricing_result.value}")
+            print(f"Variation ID: {pricing_result.key}")
+            print(f"Hash used: {pricing_result.hash_used}")
+        else:
+            print("User not in pricing experiment")
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, call `run` directly:
+
+```python
+from growthbook import GrowthBook, Experiment
+
+# Create GrowthBook instance
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": "user_123", "country": "US"}
 )
 
-# Either "red", "blue", or "green"
-print(gb.run(exp).value)
+gb.load_features()
+
+# Simple experiment
+exp = Experiment(
+    key="my-experiment",
+    variations=["red", "blue", "green"]
+)
+
+# Run experiment
+result = gb.run(exp)
+print(f"Variation: {result.value}")  # Either "red", "blue", or "green"
+
+# Complex experiment with all options
+complex_exp = Experiment(
+    key="pricing-test",
+    variations=[9.99, 14.99, 19.99],
+    weights=[0.5, 0.3, 0.2],  # 50%, 30%, 20%
+    coverage=0.8,  # Include 80% of users
+    condition={"country": "US", "premium": True},
+    hashAttribute="id",
+    hashVersion=2,
+    namespace=("pricing", 0, 0.5)
+)
+
+pricing_result = gb.run(complex_exp)
+
+if pricing_result.in_experiment:
+    print(f"User is in pricing experiment: ${pricing_result.value}")
+    print(f"Variation ID: {pricing_result.key}")
+    print(f"Hash used: {pricing_result.hash_used}")
+else:
+    print("User not in pricing experiment")
+
+gb.destroy()
 ```
+
+</TabItem>
+</Tabs>
 
 As you can see, there are 2 required parameters for experiments, a string key, and an array of variations. Variations can be any data type, not just strings.
 
@@ -380,22 +1325,70 @@ The `hashUsed` flag will only be true if the user was randomly assigned a variat
 
 ### Example Experiments
 
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+3-way experiment with uneven variation weights:
+
+```python
+result = await client.run(
+    Experiment(
+        key="3-way-uneven",
+        variations=["A", "B", "C"],
+        weights=[0.5, 0.25, 0.25]
+    ),
+    user
+)
+```
+
+</TabItem>
+
+<TabItem value="legacy" label="Legacy Client">
+
 3-way experiment with uneven variation weights:
 
 ```python
 gb.run(Experiment(
-  key = "3-way-uneven",
-  variations = ["A","B","C"],
-  weights = [0.5, 0.25, 0.25]
+    key="3-way-uneven",
+    variations=["A", "B", "C"],
+    weights=[0.5, 0.25, 0.25]
 ))
 ```
 
+</TabItem>
+</Tabs>
+
 Slow rollout (10% of users who match the targeting condition):
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+# Create user context with targeting attributes
+user = UserContext(attributes={
+    "id": "123",
+    "beta": True,
+    "qa": True,
+})
+
+result = await client.run(
+    Experiment(
+        key="slow-rollout",
+        variations=["A", "B"],
+        coverage=0.1,
+        condition={'beta': True}
+    ),
+    user
+)
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
 
 ```python
 # User is marked as being in "qa" and "beta"
 gb = GrowthBook(
-  attributes = {
+    attributes={
     "id": "123",
     "beta": True,
     "qa": True,
@@ -403,21 +1396,44 @@ gb = GrowthBook(
 )
 
 gb.run(Experiment(
-  key = "slow-rollout",
-  variations = ["A", "B"],
-  coverage = 0.1,
-  condition = {
-    'beta': True
-  }
+    key="slow-rollout",
+    variations=["A", "B"],
+    coverage=0.1,
+    condition={'beta': True}
 ))
 ```
 
-Complex variations
+</TabItem>
+</Tabs>
+
+Complex variations:
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+result = await client.run(
+    Experiment(
+        key="complex-variations",
+        variations=[
+            ("blue", "large"),
+            ("green", "small")
+        ],
+    ),
+    user
+)
+
+# Either "blue,large" OR "green,small"
+print(result.value[0] + "," + result.value[1])
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
 
 ```python
 result = gb.run(Experiment(
-  key = "complex-variations",
-  variations = [
+    key="complex-variations",
+    variations=[
     ("blue", "large"),
     ("green", "small")
   ],
@@ -427,11 +1443,38 @@ result = gb.run(Experiment(
 print(result.value[0] + "," + result.value[1])
 ```
 
-Assign variations based on something other than user id
+</TabItem>
+</Tabs>
+
+Assign variations based on something other than user id:
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+# Create user context with company attribute
+user = UserContext(attributes={
+    "id": "123",
+    "company": "growthbook"
+})
+
+# Users in the same company will always get the same variation
+result = await client.run(
+    Experiment(
+        key="by-company-id",
+        variations=["A", "B"],
+        hashAttribute="company"
+    ),
+    user
+)
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
 
 ```python
 gb = GrowthBook(
-  attributes = {
+    attributes={
     "id": "123",
     "company": "growthbook"
   }
@@ -439,10 +1482,148 @@ gb = GrowthBook(
 
 # Users in the same company will always get the same variation
 gb.run(Experiment(
-  key = "by-company-id",
-  variations = ["A", "B"],
-  hashAttribute = "company"
+    key="by-company-id",
+    variations=["A", "B"],
+    hashAttribute="company"
 ))
+```
+
+</TabItem>
+</Tabs>
+
+## Working with Encrypted Features
+
+The Python SDK supports encrypted feature flags for enhanced security. When encryption is enabled, the feature payload is encrypted before being sent from GrowthBook, and the SDK automatically decrypts it client-side.
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+For the async client, provide the decryption key in the `Options`:
+
+```python
+import asyncio
+from growthbook import GrowthBookClient, Options, UserContext
+
+async def main():
+    # Create client with decryption key
+    client = GrowthBookClient(
+        Options(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123",
+            # Your decryption key from GrowthBook
+            decryption_key="your-secret-key-here"
+        )
+    )
+
+    try:
+        await client.initialize()
+
+        # Features are automatically decrypted
+        user = UserContext(attributes={"id": "user_123"})
+        feature_enabled = await client.is_on("encrypted-feature", user)
+
+        print(f"Encrypted feature enabled: {feature_enabled}")
+
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+For the traditional client, pass the decryption key to the constructor:
+
+```python
+from growthbook import GrowthBook
+
+# Create GrowthBook with decryption key
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    # Your decryption key from GrowthBook
+    decryption_key="your-secret-key-here",
+    attributes={"id": "user_123"}
+)
+
+gb.load_features()
+
+# Features are automatically decrypted
+feature_enabled = gb.is_on("encrypted-feature")
+feature_value = gb.get_feature_value("encrypted-config", {"default": "value"})
+
+print(f"Encrypted feature enabled: {feature_enabled}")
+print(f"Encrypted config: {feature_value}")
+
+gb.destroy()
+```
+
+</TabItem>
+</Tabs>
+
+### Environment Variables
+
+You can also set the decryption key via environment variable:
+
+```bash
+export GROWTHBOOK_DECRYPTION_KEY="your-secret-key-here"
+```
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+import os
+from growthbook import GrowthBookClient, Options
+
+# Decryption key will be automatically picked up from environment
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        decryption_key=os.environ.get("GROWTHBOOK_DECRYPTION_KEY")
+    )
+)
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+```python
+import os
+from growthbook import GrowthBook
+
+# Decryption key will be automatically picked up from environment
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    # decryption_key will be read from GROWTHBOOK_DECRYPTION_KEY env var
+    attributes={"id": "user_123"}
+)
+```
+
+</TabItem>
+</Tabs>
+
+### Error Handling
+
+If decryption fails (wrong key, corrupted data, etc.), the SDK will log an error and treat all features as disabled/default values:
+
+```python
+import logging
+
+# Enable logging to see decryption errors
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger('growthbook')
+
+# This will log errors if decryption fails
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    decryption_key="wrong-key",  # This will cause decryption to fail
+    attributes={"id": "user_123"}
+)
 ```
 
 ## Logging
@@ -462,3 +1643,200 @@ formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 ```
+
+## Integration Examples
+
+This section provides practical examples for integrating GrowthBook with popular web frameworks.
+
+### Async Web Framework Integration (FastAPI)
+
+The async client works great with modern async web frameworks like FastAPI:
+
+```python
+from fastapi import FastAPI, Depends
+from growthbook import GrowthBookClient, Options, UserContext
+
+app = FastAPI()
+
+# Create a single client instance (singleton)
+gb_client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123"
+    )
+)
+
+@app.on_event("startup")
+async def startup():
+    # Initialize the client when the app starts
+    await gb_client.initialize()
+
+@app.on_event("shutdown")
+async def shutdown():
+    # Clean up when the app shuts down
+    await gb_client.close()
+
+@app.get("/")
+async def root(user_id: str):
+    # Create user context for the request
+    user = UserContext(attributes={"id": user_id})
+
+    # Use features - no need to pass client around
+    show_new_ui = await gb_client.is_on("new-ui", user)
+    discount_amount = await gb_client.get_feature_value("discount-percent", 0, user)
+
+    return {
+        "new_ui": show_new_ui,
+        "discount": discount_amount
+    }
+
+@app.get("/experiment")
+async def run_experiment(user_id: str):
+    user = UserContext(attributes={"id": user_id})
+
+    # Run inline experiments
+    from growthbook import Experiment
+
+    experiment = Experiment(
+        key="button-color",
+        variations=["red", "blue", "green"]
+    )
+
+    result = await gb_client.run(experiment, user)
+
+    return {
+        "variation": result.value,
+        "in_experiment": result.in_experiment
+    }
+```
+
+### Starlette Integration
+
+```python
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+from growthbook import GrowthBookClient, Options, UserContext
+
+# Create client instance
+gb_client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123"
+    )
+)
+
+async def homepage(request):
+    user_id = request.query_params.get('user_id', 'anonymous')
+    user = UserContext(attributes={"id": user_id})
+
+    feature_enabled = await gb_client.is_on("new-homepage", user)
+
+    return JSONResponse({
+        "new_homepage": feature_enabled,
+        "user_id": user_id
+    })
+
+async def startup():
+    await gb_client.initialize()
+
+async def shutdown():
+    await gb_client.close()
+
+app = Starlette(
+    routes=[
+        Route('/', homepage),
+    ],
+    on_startup=[startup],
+    on_shutdown=[shutdown]
+)
+```
+
+### Traditional Web Frameworks (Django, Flask, etc.)
+
+**For new projects, we recommend using the [Async Client](#async-client-recommended) instead for better performance.**
+
+For traditional synchronous web frameworks, you should create a new `GrowthBook` instance for every incoming request and call `destroy()` at the end of the request to clean up resources.
+
+#### Django Integration
+
+In Django, this is best done with a simple middleware:
+
+```python
+from growthbook import GrowthBook
+
+def growthbook_middleware(get_response):
+    def middleware(request):
+        request.gb = GrowthBook(
+            api_host="https://cdn.growthbook.io",
+            client_key="sdk-abc123",
+            attributes={
+                "id": getattr(request.user, 'id', 'anonymous'),
+                "loggedIn": request.user.is_authenticated,
+                "country": request.META.get('HTTP_CF_IPCOUNTRY', 'US')
+            }
+        )
+        request.gb.load_features()
+
+        response = get_response(request)
+
+        request.gb.destroy() # Cleanup
+
+        return response
+    return middleware
+```
+
+Then, you can easily use GrowthBook in any of your views:
+
+```python
+def index(request):
+    feature_enabled = request.gb.is_on("my-feature")
+    button_color = request.gb.get_feature_value("button-color", "blue")
+
+    return render(request, 'index.html', {
+        'feature_enabled': feature_enabled,
+        'button_color': button_color
+    })
+```
+
+#### Flask Integration
+
+```python
+from flask import Flask, g, request
+from growthbook import GrowthBook
+
+app = Flask(__name__)
+
+@app.before_request
+def before_request():
+    g.gb = GrowthBook(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        attributes={
+            "id": request.headers.get('User-ID', 'anonymous'),
+            "userAgent": request.user_agent.string,
+            "url": request.url
+        }
+    )
+    g.gb.load_features()
+
+@app.teardown_request
+def teardown_request(exception):
+    gb = getattr(g, 'gb', None)
+    if gb is not None:
+        gb.destroy()
+
+@app.route('/')
+def index():
+    feature_enabled = g.gb.is_on("new-layout")
+    theme = g.gb.get_feature_value("theme", "light")
+
+    return {
+        "feature_enabled": feature_enabled,
+        "theme": theme
+    }
+```
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="python" />

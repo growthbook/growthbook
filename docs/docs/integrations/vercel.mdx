@@ -1,80 +1,60 @@
-# Configuring GrowthBook with Vercel
+---
+title: Vercel Native Integration
+description: Integrate GrowthBook with Vercel to manage feature flags and experiments directly from your Vercel dashboard.
+sidebar_label: Vercel
+---
 
-_This guide assumes that you already have a Vercel account and have at least one Vercel project_
+GrowthBook is now available as a Native Integration in Vercel, allowing you to manage feature flags and experiments directly from your Vercel dashboard. This integration also works with Edge Config, enabling you to use GrowthBook's SDKs with near-zero latency by serving flags from the edge without API calls.
 
-This integration creates GrowthBook API keys and creates matching keys as Environment Variables in Vercel (for use with any of [our SDKs](/lib)).
+## What's Included
 
-## Keys created
+- View all of your feature flags and experiments in Vercel with links to GrowthBook for more details.
+- Login to GrowthBook directly from Vercel without needing to manage separate credentials.
+- Sync your feature flags to Vercel Edge Config to bootstrap GrowthBook's SDKs with near-zero latency.
+- Install into multiple Vercel projects - each one will get their own corresponding project in GrowthBook.
+- Seamlessly integrate with Vercel's Flags SDK with zero-configuration - ideal for Next.js applications.
 
-`GROWTHBOOK_KEY`: This key will be used with the SDK of your choice.
+## Installation
 
-## 1. Navigate to the GrowthBook Vercel integration
+Installation is done entirely through the Vercel dashboard:
 
-<a href="https://vercel.com/integrations/growthbook" target="_blank">
-  https://vercel.com/integrations/growthbook
-</a>
+1. Go to your Vercel dashboard and navigate to the **Integrations** section.
+2. Click on **Browse Marketplace**.
+3. Search for "GrowthBook" and select the GrowthBook integration.
+4. Click **Install** and follow the prompts.
 
-## 2. Click on the "Add Integration" button
+:::warning This integration creates a brand new GrowthBook organization and cannot be used to connect to an existing GrowthBook organization.
+:::
 
-Located in the upper right corner of the page, click on the "Add Integration" button.
+## Billing
 
-<img
-  src="/images/integrations/vercel-add-integration.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 700, margin: "0 auto" }}
-/>
+When configuring the integration, you can choose our free Starter plan or Pro plan.
 
-## 3. Choose which account you want to use for the integration
+When using the Pro plan, you will be billed directly through Vercel. You can manage your billing info, view current usage, download past invoices, and cancel your subscription directly from the Vercel dashboard.
 
-The account selected will determine which projects are shown in the next step.
+The Pro plan includes a per-seat fee. You are only charged for members on your team who log into the GrowthBook application. The user who installs the integration will be your first seat. Viewing flags and experiments directly within the Vercel dashboard is always 100% free. If you no longer need a seat (e.g. someone leaves your organization), you can remove them from GrowthBook's member settings page and you'll no longer be charged for their seat.
 
-<img
-  src="/images/integrations/vercel-choose-account.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+## User Management
 
-## 4. Choose which projects you want GrowthBook to be enabled for
+Any user in your Vercel team can log into GrowthBook by clicking the "Open in Provider" button or clicking into a flag or experiment within Vercel. This will automatically create a GrowthBook user for them if they don't already have one and grant them the necessary permissions to manage feature flags and experiments.
 
-<img
-  src="/images/integrations/vercel-choose-project.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+Admins within GrowthBook can manage user roles and permissions. Only the first user who installs the integration will be an admin by default and you must always have at least one admin user in GrowthBook.
 
-## 5. Setup your environments
+## Edge Config and SDK Integration
 
-`GROWTHBOOK_KEY` will be added as an environment variable to your project.
-Configure each Vercel environment to map to its correct GrowthBook environment. For example, if you are
-using "production" for your Vercel environment you will most likely want to set your GrowthBook Environment to
-"production".
+You can optionally enable Edge Config syncing during the installation process. When enabled, GrowthBook will automatically sync your feature flags to Vercel Edge Config.
 
-_Note: If you leave a GrowthBook environment as None, neither GrowthBook nor Vercel keys will be created for that environment._
+Edge Config is Vercel's global data store that provides ultra-low latency access to configuration data at the edge. By syncing your feature flags to Edge Config, your applications can evaluate flags without making API calls to GrowthBook's servers.
 
-<img
-  src="/images/integrations/vercel-environments.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+You can use this Edge Config data with any of our [SDKs](/lib), but the most seamless integration is with Next.js using Vercel's Flags SDK. View the docs for the [Next.js SDK](/lib/nextjs) for more details.
 
-By clicking "Submit" both sets of keys will be created for all of your environments.
+## Next Steps
 
-## 6. Integration configuration
+Once your integration is installed:
 
-You will then be taken to the integration page. From here you can click on "Configure" in the top right corner to
-view the created keys.
+1. **Create your first feature flag**: Click into your GrowthBook organization from the Vercel dashboard
+2. **Set up your SDK**: If you enabled Edge Config, check out our [Next.js SDK guide](/lib/nextjs) for the fastest setup
+3. **Invite your team**: Add team members who will need to manage flags and experiments
+4. **Start experimenting**: Create your first A/B test and start collecting data
 
-<img
-  src="/images/integrations/vercel-configure.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
-
-You can also look at your keys from GrowthBook & Vercel:
-
-GrowthBook Keys are located <a href="https://app.growthbook.io/settings/keys" target="_blank">here</a><br/>
-Vercel Keys are located in the "Environment Variables" section of your project settings.
-
-## 7. Next steps
-
-Configure an SDK with your project using the keys you just created. [Click here to view our SDKs](/lib).
+For additional help, [join GrowthBook's official Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ).

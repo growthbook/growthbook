@@ -1,4 +1,4 @@
-import { ScheduleRule } from "back-end/types/feature";
+import { ScheduleRule } from "shared/types/feature";
 
 // Type after the filter is applied
 type ScheduleRuleNoNulls = Omit<ScheduleRule, "timestamp"> & {
@@ -7,7 +7,7 @@ type ScheduleRuleNoNulls = Omit<ScheduleRule, "timestamp"> & {
 
 export const getCurrentEnabledState = (
   scheduledRules: ScheduleRule[],
-  now: Date
+  now: Date,
 ) => {
   const sorted = scheduledRules
     // Remove nulls

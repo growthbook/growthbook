@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { Namespaces } from "back-end/types/organization";
+import { Namespaces } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -44,7 +44,7 @@ export default function NamespaceModal({
             {
               method: "PUT",
               body: JSON.stringify(value),
-            }
+            },
           );
         } else {
           await apiCall(`/organization/namespaces`, {

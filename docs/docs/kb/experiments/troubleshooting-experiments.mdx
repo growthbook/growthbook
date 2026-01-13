@@ -26,20 +26,57 @@ A clue that the traffic to the experiment isn't balanced is the presence of a Sa
 
 Whenever there is traffic imbalance in your GrowthBook experiment, the cause is usually one (or several) of these problems:
 
-1. **The trackingCallback is configured incorrectly**, which is causing it to send an event to your data warehouse *only under certain condition*s.
-2. You are using an **Activation Metric** that is triggered differently by users across variations.
-3. **The Hash Attribute doesn't match the "Identifier Type" in your data source.**
-4. **You made a change to the experiment targeting after it started, or created a new phase without re-randomizing.**
+1. **Decoupled assignment and tracking**: The experiment assignment (e.g., server-side) and exposure tracking event (e.g., client-side) are happening in different places.
+2. **Misconfigured `trackingCallback`**: The `trackingCallback` is configured to send an event to your data warehouse _only under certain conditions_.
+3. **Misconfigured Activation Metric**: You are using an Activation Metric that is triggered differently by users across variations..
+4. **Hash attribute mismatch**: The hash attribute doesn't match the "Identifier Type" in your data source.
+5. **Mid-experiment Targeting Changes**: You made a change to the experiment targeting after it started, or created a new phase without re-randomizing.
 
-### Solution 1: Ensure the trackingCallback is triggered unconditionally
+### Solution 1: Couple the tracking event with assignment
 
-The trackingCallback you configure is used by the SDK to send tracking events to your data warehouse whenever a user is exposed to an experiment. Make sure that whether the trackingCallback method sends event data is _not conditional_ on the experiment variation.
+_This solution addresses Problem 1: Decoupled Assignment and Tracking._
+
+This is the most common and severe cause of SRM. While it's tempting to fire the exposure event on the frontend (e.g., "when the component is viewed") to be sure the user saw the change, this approach makes your experiment data vulnerable to a number of client-side issues:
+
+- **Bot & Crawler Traffic**: Bots will hit your server, be assigned a variation, but will never execute your client-side JavaScript code. This means that they are counted on the backend but will never fire the frontend event. Depending on your site, this can be 50% or more of traffic.
+
+- **Ad Blockers & Privacy Tools**: A large percentage of real human users (often 30-40%) use blockers that stop analytics and tracking scripts (like Segment, Google Analytics, and others) from executing. These users are also assigned but will never fire the frontend event.
+
+- **Client-Side Factors**: Normal users may bounce before the page loads, have a network error, or encounter an unrelated JavaScript error that prevents your tracking script from firing.
+
+This massive drop-off becomes an SRM error when it is differential—that is, one variation causes more drop-off than another (e.g., the variant is 100ms slower, causing more users to bounce before the event fires).
+
+The most robust solution is to fire your exposure tracking event from your backend, immediately after you get the variation assignment from the SDK.
+
+This couples assignment and tracking into a single, reliable step. It completely bypasses the client-side issues, guaranteeing that every user who is assigned a variation is also counted in the experiment.
+
+A common concern with this approach it that it "dilutes" metrics by including users who were assigned but (due to bouncing, etc.) never saw the change.
+
+This is often a feature, not a bug! If your variant causes 2% of users to bounce because it's slow or buggy, that is a critically important negative impact of your experiment. Backend tracking correctly captures this negative impact. Frontend-only tracking hides this problem and biases your results.
+
+If you absolutely must filter for users who saw the change, use this pattern:
+
+1. Fire the main exposure event from the backend. This will be your reliable denominator, and it will not have SRM.
+
+2. Fire a separate frontend event (e.g., component_viewed) when the user actually sees the component.
+
+3. In GrowthBook, use this frontend event as an Activation Metric.
+
+This way, your experiment's health (the SRM check) is validated on the reliable backend data, but your final metric results are filtered to only the "activated" users you care about.
+
+### Solution 2: Ensure the trackingCallback is triggered unconditionally
+
+_This solution addresses Problem 2: Biased trackingCallback Logic._
+
+The `trackingCallback` you configure is used by the SDK to send tracking events to your data warehouse whenever a user is exposed to an experiment. Make sure that whether the `trackingCallback` method sends event data is _not conditional_ on the experiment variation.
 
 As you create the GrowthBook-related logic in your application code, be careful not to have users in control variations emit trackingCallbacks under more conditions than users who are _not_ bucketed into the control variation. Otherwise, you are likely to have Sample Ratio Mismatch (SRM) issues.
 
 It is much better to emit a tracking event as soon as possible within the trackingCallback, before doing any other custom logic that may differ across users based on the experiment variations they are exposed to.
 
-### Solution 2: Only use Activation Metrics that do not differ across variations
+### Solution 3: Only use Activation Metrics that do not differ across variations
+
+_This solution addresses Problem 3: Biased Activation Metric._
 
 If you are using an Activation Metric to filter users that get into your experiment analysis, you may be introducing bias if the Activation Metric is downstream of any differences between users in your variations.
 
@@ -55,7 +92,9 @@ Best practices:
 - If you must use an Activation Metric, make sure it is not downstream of any differences in the user experience caused by the experiment.
 - Check the Health Tab on your experiment results to see traffic breakdowns by Activation Status to help you understand what your Activation Metric is doing to your sample.
 
-### Solution 3: Ensure the Hash Attribute and Identifier Type match
+### Solution 4: Ensure the Hash Attribute and Identifier Type match
+
+_This solution addresses Problem 4: Hash Attribute Mismatch._
 
 GrowthBook randomizes users according to the Hash Attribute that you set for each user, often a `user_id`. When you analyze experiments, you set an "Identifier Type" that corresponds to columns in your data warehouse. Ideally, the Hash Attribute that you choose for users is both (1) logged to the data warehouse in the trackingCallback, and (2) is used as the "Identifier Type" for all of these experiments. By doing this, you establish a 1:1 relationship between the Hash Attribute and the Identifier Type.
 
@@ -69,11 +108,13 @@ If for some reason the Identifier in your data warehouse is different from your 
 
 There are times where it might be beneficial to have the Hash Attribute differ from the Identifier Type. The consequence is that there may be minor traffic imbalance or Multiple Exposures, but you may be willing to accept some slippage in the 1:1 mapping between Identifier Type and Hash Attribute in order to more easily join experiment exposure data with metric data.
 
-For example, on client-side experiments with Google Analytics (GA4), you may wish to avoid flickering by hashing on some custom ID as we do in our [Script Tag SDK](https://docs.growthbook.io/lib/script-tag) and not wait for the IDs provided by GA4.
+For example, on client-side experiments with Google Analytics (GA4), you may wish to avoid flickering by hashing on some custom ID as we do in our [Script Tag SDK](/lib/script-tag) and not wait for the IDs provided by GA4.
 
 While you could send this custom ID in your trackingCallback you may prefer to use GA4 identifiers as the Identifier Type instead, because they are already tracked with many of the other GA4 events that you are using as Metrics.
 
-### Solution 4: Minimize Experiment targeting changes while running
+### Solution 5: Minimize Experiment targeting changes while running
+
+_This solution addresses Problem 5: Mid-experiment Targeting Changes._
 
 When you make changes to the targeting of an experiment or created a new phase without re-randomizing users, it's possible that the traffic to the experiment will become imbalanced. This is because the users who were already in the experiment may continue to be in the same variation at differing rates. Whenever creating a new phase, you should re-randomize traffic when possible, and only certain changes to an experiment's targeting conditions can be done without re-randomizing.
 
@@ -81,9 +122,9 @@ You can read more about the [rules for changing experiment targeting](/app/makin
 
 If your experiment is suffering from these issues, unfortunately the only solution may be to restart the experiment (you can do this by creating a new phase and choosing to re-randomize traffic). Of course, some amount of bias and SRM may be preferable to throwing out your data, but this depends on the magnitude of the problem.
 
-### Solution 5 (URL Redirects): Ensure trackingCallback fires
+### Solution 6 (URL Redirects): Ensure trackingCallback fires
 
-If you're seeing SRM warnings while running a URL Redirect test, especially if you are using a front-end SDK such as the HTML, JavaScript, React, or Vue.js SDKs, please review the [Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests](https://docs.growthbook.io/app/url-redirects#sample-ratio-mismatch-srm-warnings-on-url-redirect-tests) documentation.
+If you're seeing SRM warnings while running a URL Redirect test, especially if you are using a front-end SDK such as the HTML, JavaScript, React, or Vue.js SDKs, please review the [Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests](/app/url-redirects#sample-ratio-mismatch-srm-warnings-on-url-redirect-tests) documentation.
 
 ## Problem 3: Multiple Exposures
 
@@ -109,7 +150,7 @@ Sometimes the Metric values in an experiment may surprise you if you are targeti
 
 You can confirm that the Metric is returning the right values in the table rows on a per-user basis. Navigate to the Metric page, edit the SQL for the Metric, and use the Edit SQL interface to run test queries and make modifications to make sure the rows you are getting are what you expect. The results should show the right identifiers, timestamps, and values.
 
-You should also make sure the [Metric Window](https://docs.growthbook.io/app/metrics#metric-windows) is not too short and not too long, otherwise it could be excluding or including too much data.
+You should also make sure the [Metric Window](/app/metrics#metric-windows) is not too short and not too long, otherwise it could be excluding or including too much data.
 
 ### Solution: Make sure your Identifier Types are correct
 

@@ -5,6 +5,8 @@ sidebar_label: Segment
 slug: segment
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Configuring GrowthBook to work with Segment
 
 GrowthBook supports Segment as an event source for easily adding A/B testing to your application. This document is a
@@ -39,11 +41,9 @@ const gb = new GrowthBook({
 Now that we have data flowing into a data warehouse, we need to have GrowthBook connect to it. It
 is best practice to create another service account for GrowthBook to connect to your data warehouse.
 
-<img
-  src="/images/new-data-sources-modal.png"
-  alt="Choose Segment data schema"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Choose Segment data schema](/images/new-data-sources-modal.png)
+</MaxWidthImage>
 
 After choosing Segment you'll be presented with a connection window to connect to your data warehouses. Enter the connection credentials for your data warehouse.
 
@@ -61,13 +61,8 @@ experiment results.
 
 Metrics are added from the Analysis → Metrics menu.
 
-<img
-  src="/images/guides/metrics-addmetric.png"
-  alt="Choose Segment data schema"
-  style={{ width: 500, margin: "0 auto 20px" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Edit metrics modal](/images/guides/metrics-addmetric.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/metrics-metricoverview.png"
-  alt="Choose Segment data schema"
-/>
+![Metrics overview in GrowthBook](/images/guides/metrics-metricoverview.png)

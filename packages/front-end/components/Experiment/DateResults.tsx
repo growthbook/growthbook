@@ -2,7 +2,7 @@ import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
   expandMetricGroups,
@@ -12,7 +12,7 @@ import {
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -23,11 +23,11 @@ import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Switch from "@/ui/Switch";
+import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
+import Tooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -62,12 +62,8 @@ const DateResults: FC<{
   differenceType,
   ssrPolyfills,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
+    useDefinitions();
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
@@ -116,32 +112,29 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    goalMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-    secondaryMetrics,
-    guardrailMetrics,
-  ]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
@@ -156,8 +149,8 @@ const DateResults: FC<{
     return (
       Array.from(
         new Set(
-          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
-        )
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails),
+        ),
       )
         .map((metricId) => {
           const metric =
@@ -222,14 +215,14 @@ const DateResults: FC<{
 
                   const v_formatted = getExperimentMetricFormatter(
                     metric,
-                    ssrPolyfills?.getFactTableById || getFactTableById
+                    ssrPolyfills?.getFactTableById || getFactTableById,
                   )(
                     cumulative
                       ? totalDenominator[i]
                         ? totalValue[i] / totalDenominator[i]
                         : 0
                       : stats?.cr || 0,
-                    { currency: displayCurrency }
+                    { currency: displayCurrency },
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -252,7 +245,7 @@ const DateResults: FC<{
                     if (statsEngine === "frequentist" && statSig) {
                       const expectedDirection = isExpectedDirection(
                         stats,
-                        metric
+                        metric,
                       );
                       if (expectedDirection) {
                         className = "won";
@@ -282,7 +275,7 @@ const DateResults: FC<{
                   };
                 }),
               };
-            }
+            },
           );
 
           return {
@@ -290,7 +283,7 @@ const DateResults: FC<{
             resultGroup: getMetricResultGroup(
               metric.id,
               expandedGoals,
-              expandedSecondaries
+              expandedSecondaries,
             ),
             datapoints,
           };
@@ -332,27 +325,26 @@ const DateResults: FC<{
           </div>
           <div>
             <Tooltip
-              body="Cumulative charts disabled for Scaled Impact difference type"
-              shouldDisplay={differenceType === "scaled"}
+              content="Cumulative charts disabled for Scaled Impact difference type"
+              enabled={differenceType === "scaled"}
             >
-              <Toggle
-                label="Cumulative"
+              <Switch
                 id="cumulative"
+                label="Cumulative"
                 value={cumulative}
-                setValue={setCumulative}
+                onChange={setCumulative}
                 disabled={differenceType === "scaled"}
               />
             </Tooltip>
-            Cumulative
           </div>
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
-          label="Users"
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}
@@ -390,7 +382,13 @@ const DateResults: FC<{
               formatter={
                 differenceType === "relative"
                   ? formatPercent
-                  : getExperimentMetricFormatter(metric, getFactTableById, true)
+                  : getExperimentMetricFormatter(
+                      metric,
+                      getFactTableById,
+                      differenceType === "absolute"
+                        ? "percentagePoints"
+                        : "number",
+                    )
               }
               formatterOptions={metricFormatterOptions}
               variationNames={variations.map((v) => v.name)}

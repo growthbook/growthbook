@@ -5,22 +5,19 @@ sidebar_label: Google Analytics (GA4)
 slug: /guide/GA4-google-analytics
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # A/B Testing with Google Analytics 4 (GA4) and GrowthBook
 
 This guide walks you through using GrowthBook with Google Analytics 4 (GA4) for A/B testing. There are a few parts to
 this, connecting GA4 to BigQuery, connecting GrowthBook to BigQuery, and then configuring GrowthBook to track correctly
 with GA4.
 
-:::info
+For help debugging GA4 integration issues, please review our [GA4 Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting).
 
 You can watch a video version of this guide, largely focused on Google Optimize replacement, here:
 
-<div style={{"max-width": "500px", "margin": "auto"}}>
-  <div style={{ "position": "relative", "padding-bottom": "56.25%", "height": 0, "max-height": "300px"}} >
-    <iframe style={{"position": "absolute", "top": 0, "left": 0, width: "100%", "height": "100%"}} src="https://www.youtube.com/embed/w8MBaBqcVZI?si=ZwioZRXQ7ftPY6hp" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-  </div>
-</div>
-:::
+<iframe style={{width: "100%", height: "auto", aspectRatio: 16/9}} src="https://www.youtube.com/embed/w8MBaBqcVZI?si=ZwioZRXQ7ftPY6hp" title="GA4 and GrowthBook"  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
 
 ## Configuring GrowthBook to use Google Analytics GA4 as a data source
 
@@ -31,31 +28,25 @@ You can also find Google's documentation on how to create this link [here](https
 
 If you don't have a BigQuery project, you'll need to create one. Go to your [Google Cloud Console](https://console.cloud.google.com/) and create a new project:
 
-<img
-  src="/images/guides/GA4-1-project-list.png"
-  alt="GA4 - BigQuery create project"
-  style={{ width: 800, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border>
+ ![GA4 - BigQuery create project](/images/guides/GA4-1-project-list.png)
+</MaxWidthImage>
 
 Click on **_Create new project_** from the right and give your project a name.
 
-<img
-  src="/images/guides/GA4-2-create-project.png"
-  alt="GA4 - BigQuery create project"
-  style={{ width: 500, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+ ![GA4 - BigQuery create and name your project](/images/guides/GA4-2-create-project.png)
+</MaxWidthImage>
 
 Once created, you'll be redirected to the BigQuery dashboard.
 
-<img
-  src="/images/guides/GA4-3-new-project.png"
-  alt="GA4 BigQuery new project dashboard"
-  style={{ width: 800, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border>
+ ![GA4 - BigQuery new project dashboard](/images/guides/GA4-3-new-project.png)
+</MaxWidthImage>
 
-If you created a new project, the BigQuery API is automatically enabled. Otherwise, you'll need to enable it manually [here](https://console.cloud.google.com/flows/enableapi?apiid=bigquery)
+If you created a new project, the BigQuery API is automatically enabled. Otherwise, you'll need to [enable it manually](https://console.cloud.google.com/flows/enableapi?apiid=bigquery)
 
-:::note
+:::note Using the BigQuery sandbox project
 
 If you are just testing GrowthBook with GA4 out, you can use the sandbox project that Google provides for free. When you create a new cloud project the sandbox should be automatically enabled. You can find more information about the sandbox [here](https://cloud.google.com/bigquery/docs/sandbox).
 
@@ -65,93 +56,69 @@ If you are just testing GrowthBook with GA4 out, you can use the sandbox project
 
 Log into your Google Analytics account and navigate to the Admin section. From there, make sure you have selected the right property, and scroll down to **_Product Links_** section. Click on the menu named **_BigQuery Links_**
 
-<img
-  src="/images/guides/GA4-4-link-to-bigquery-1.png"
-  alt="GA4 BigQuery new project dashboard"
-  style={{ width: 700, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border>
+  ![GA4 BigQuery new project dashboard](/images/guides/GA4-4-link-to-bigquery-1.png)
+</MaxWidthImage>
 
 Click on the **_Link_** button. This will open a menu that allows you select the project. Select on the **_Choose a BigQuery Project_** link.
 
-<img
-  src="/images/guides/GA4-5-link-to-bigquery-2.png"
-  alt="GA4 BigQuery new project dashboard"
-  style={{ width: 700, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border>
+  ![GA4 BigQuery, choose a project](/images/guides/GA4-5-link-to-bigquery-2.png)
+</MaxWidthImage>
 
 Select the project you wish to send your GA4 data to:
 
-<img
-  src="/images/guides/GA4-5-link-to-bigquery-3.png"
-  alt="GA4 BigQuery connect to project"
-  style={{ width: 900, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border>
+  ![GA4 BigQuery connect to project](/images/guides/GA4-5-link-to-bigquery-3.png)
+</MaxWidthImage>
 
-Then click **_next_**
+Then click **Next**.
 
-<img
-  src="/images/guides/GA4-5-link-to-bigquery-4.png"
-  alt="GA4 BigQuery connected to project"
-  style={{ width: 900, margin: "0 auto 10px auto" }}
-/>
+![GA4 BigQuery connected to project](/images/guides/GA4-5-link-to-bigquery-4.png)
 
 On the next step you'll be presented with some options about the connection.
 
-<img
-  src="/images/guides/GA4-5-link-to-bigquery-5.png"
-  alt="GA4 BigQuery link options"
-  style={{ width: 900, margin: "0 auto 10px auto" }}
-/>
+![GA4 BigQuery link options](/images/guides/GA4-5-link-to-bigquery-5.png)
 
 Here you can choose the frequency of data updates, either daily or streaming. To use Streaming, you'll need a BigQuery account with billing info added. Depending on your use case, daily updates may be sufficient.
 
 On the final step you'll be asked to confirm your choices. When finished, you should see something like this, verifying that the connection was successful.
 
-<img
-  src="/images/guides/GA4-5-link-to-bigquery-6.png"
-  alt="GA4 BigQuery successfully connected"
-  style={{ width: 900, margin: "0 auto 10px auto" }}
-/>
+![GA4 BigQuery link created](/images/guides/GA4-5-link-to-bigquery-6.png)
 
 And then your BigQuery link will show up on the listing page:
 
-<img
-  src="/images/guides/GA4-5-link-to-bigquery-7.png"
-  alt="GA4 BigQuery successfully connected"
-  style={{ width: 900, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border maxWidth={1000}>
+![GA4 BigQuery successfully connected](/images/guides/GA4-5-link-to-bigquery-7.png)
+</MaxWidthImage>
 
-:::note
+:::note Loading Google Analytics via Google Tag Manager (GTM)
 
 If you are loading Google Analytics via Google Tag Manager (GTM), you may need to add the custom event to GTM to ensure
-the data is passed to GA4 from the datalayer. You can add the custom event by following this [section from the GTM guide](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm).
+the data is passed to GA4 from the datalayer. You can add the custom event by following this [section from the GTM guide](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm). Our [Google Tag Manager (GTM) Troubleshooting Guide](/kb/google-analytics/google-tag-manager-gtm-troubleshooting) may be helpful for debugging if needed.
 
 :::
 
 ### 3. Configure BigQuery for GrowthBook
 
-You'll need to give GrowthBook permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
+You'll need to give GrowthBook permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](/guide/bigquery)
 
 ### 4. Connect GrowthBook to BigQuery
 
 Within GrowthBook, navigate to the **_Analysis_** section, and then click on the **_Data Sources_** page. Add a new data source, and select **_Google Analytics (GA4)_**.
 
-<img
-  src="/images/guides/GA4-6-add-GA4-datasource.png"
-  alt="GrowthBook connect to GA4"
-  style={{ width: 500, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![GA4 GrowthBook connect to GA4](/images/guides/GA4-6-add-GA4-datasource.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/GA4-6-add-GA4-datasource2.png"
-  alt="GrowthBook connect to GA4"
-  style={{ width: 500, margin: "0 auto 10px auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![GA4 GrowthBook connect to GA4](/images/guides/GA4-6-add-GA4-datasource2.png)
+</MaxWidthImage>
 
 Then add your BigQuery connection info. GrowthBook will pre-populate the SQL queries required to use your GA4 data. You
 can also add a custom SQL query if you want to use a different table or filter the data in some way as you like.
 
-:::note
+:::note Automatic SQL query creation
 
 While GrowthBook will pre-populate the SQL queries for you, you may need to adjust the experiment query to match your
 data depending on the way you are tracking your experiments (see the **_trackingCallback_** below).
@@ -166,7 +133,7 @@ when a user is exposed to an experiment.
 
 With the data source connected, you can integrate the GrowthBook SDK into your application to run A/B tests. Once implemented, the SDK will do the random assignments and send the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
 
-:::info
+:::info Visual editor for creating experiments
 
 We do have a visual editor for creating experiments as part of our Pro plan. Our visual editor is meant for simple
 experiments. Experiments that are more complex are best created by writing code with feature flags.
@@ -177,7 +144,7 @@ experiments. Experiments that are more complex are best created by writing code 
 
 The easiest and recommended way to integrate GrowthBook is by using our [Script Tag SDK](/lib/script-tag). This SDK will work out-of-the-box with GA4 without any configuration required.
 
-:::note
+:::note Debugging GA4 integrations
 
 If your experiment is not firing the `trackingCallback` you can use our
 [Chrome developer tool](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
@@ -187,3 +154,7 @@ to help you debug and make sure the user attributes are being set correctly.
 
 Implementing the experiment variations can be done with code with inline experiments, using the feature flags, or by
 using our visual editor.
+
+## Troubleshooting
+
+Please see our our [GA4 Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting) for help debugging GA4 integrations with GrowthBook. If relevant, see our [GTM Setup Guide](/guide/google-tag-manager-and-growthbook) and our [Google Tag Manager (GTM) Troubleshooting Guide](/kb/google-analytics/google-tag-manager-gtm-troubleshooting).

@@ -10,8 +10,8 @@ import React, {
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
-} from "back-end/types/archetype";
-import { FeatureTestResult } from "back-end/types/feature";
+} from "shared/types/archetype";
+import { FeatureTestResult } from "shared/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -36,7 +36,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
@@ -59,19 +59,16 @@ export const SimulateFeatureValues: FC<{
   const [featureResultsMap, setFeatureResultsMap] = useState<
     Map<string, FeatureTestResult>
   >(new Map());
-  const [
-    evaluatedAttributes,
-    setEvaluatedAttributes,
-  ] = useState<ArchetypeAttributeValues>({});
+  const [evaluatedAttributes, setEvaluatedAttributes] =
+    useState<ArchetypeAttributeValues>({});
   const [evaluatedFeatures, setEvaluatedFeatures] = useState<string[]>([]);
   const environments = useEnvironments();
   const showAllEnv = environments.length <= maxEnvironments;
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>(
-    showAllEnv ? "all" : environments[0].id
+    showAllEnv ? "all" : environments[0].id,
   );
-  const [evaluatedEnvironment, setEvaluatedEnvironment] = useState(
-    selectedEnvironment
-  );
+  const [evaluatedEnvironment, setEvaluatedEnvironment] =
+    useState(selectedEnvironment);
   const { apiCall } = useAuth();
 
   const { features: allFeatures, loading } = useFeaturesList(true, false);
@@ -83,7 +80,7 @@ export const SimulateFeatureValues: FC<{
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [tagsFilter.tags]
+    [tagsFilter.tags],
   );
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
@@ -130,7 +127,7 @@ export const SimulateFeatureValues: FC<{
               Object.keys(r).forEach((featureId) => {
                 featureResultsMap.set(
                   featureId + r[featureId].env,
-                  r[featureId]
+                  r[featureId],
                 );
               });
             });
@@ -211,7 +208,7 @@ export const SimulateFeatureValues: FC<{
       <div className="mb-3">
         <div className="row mb-3">
           <div className="col">
-            <div className="border border-primary bg-white p-3 rounded">
+            <div className="border border-primary appbox p-3">
               {attributeText} {attributeNodes}{" "}
               <a
                 href="#"
@@ -308,7 +305,7 @@ export const SimulateFeatureValues: FC<{
                           }
                         });
                       }
-                    }
+                    },
                   );
                 }
                 return (
@@ -346,7 +343,7 @@ export const SimulateFeatureValues: FC<{
                       {selectedEnvironment !== "all" ? (
                         (() => {
                           const res = featureResultsMap.get(
-                            feature.id + selectedEnvironment
+                            feature.id + selectedEnvironment,
                           );
                           if (!res) {
                             return <td>-</td>;
@@ -366,7 +363,7 @@ export const SimulateFeatureValues: FC<{
                         <>
                           {environments.slice(0, maxEnvironments).map((en) => {
                             const res = featureResultsMap.get(
-                              feature.id + en.id
+                              feature.id + en.id,
                             );
                             if (!res) {
                               return (
@@ -456,7 +453,6 @@ export const SimulateFeatureValues: FC<{
               values they have or would receive. Simulation is a premium
               feature."
           commercialFeature="simulate"
-          reason="Simulate landing page no access"
           learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
         />
       </div>

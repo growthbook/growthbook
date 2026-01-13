@@ -1,4 +1,4 @@
-import { ExperimentPhaseStringDates } from "back-end/types/experiment";
+import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { date } from "shared/dates";
@@ -39,8 +39,10 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
         <div className="small">
           <div style={{ fontSize: "1.2em" }}>{phase.name}</div>
           <div>
-            <strong>{date(phase.dateStarted ?? "")}</strong> to{" "}
-            <strong>{phase.dateEnded ? date(phase.dateEnded) : "now"}</strong>
+            <strong>{date(phase.dateStarted ?? "", "UTC")}</strong> to{" "}
+            <strong>
+              {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+            </strong>
           </div>
         </div>
         <div className="ml-auto">
@@ -88,7 +90,7 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
               <td>
                 {hasNamespace ? (
                   `${phase.namespace!.name} (${percentFormatter.format(
-                    namespaceRange
+                    namespaceRange,
                   )})`
                 ) : (
                   <em>none</em>

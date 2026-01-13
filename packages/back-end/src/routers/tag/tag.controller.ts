@@ -1,14 +1,14 @@
 import type { Response } from "express";
+import { TagInterface } from "shared/types/tag";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { TagInterface } from "back-end/types/tag";
 import { addTag, removeTag } from "back-end/src/models/TagModel";
 import { removeTagInMetrics } from "back-end/src/models/MetricModel";
 import { removeTagInFeature } from "back-end/src/models/FeatureModel";
 import { removeTagFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { removeTagFromExperiments } from "back-end/src/models/ExperimentModel";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 
 // region POST /tag
 
@@ -26,7 +26,7 @@ type CreateTagResponse = {
  */
 export const postTag = async (
   req: CreateTagRequest,
-  res: Response<CreateTagResponse>
+  res: Response<CreateTagResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -61,7 +61,7 @@ export const deleteTag = async (
   res: Response<
     DeleteTagResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 

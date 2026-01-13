@@ -3,7 +3,7 @@ import chunk from "lodash/chunk";
 // eslint-disable-next-line
 export async function promiseAllChunks<T = any>(
   callbacks: (() => Promise<T>)[],
-  chunkSize: number = 3
+  chunkSize: number = 3,
 ): Promise<T[]> {
   let results: T[] = [];
   const chunks = chunk(callbacks, chunkSize);

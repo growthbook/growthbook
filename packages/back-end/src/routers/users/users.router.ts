@@ -11,5 +11,6 @@ router.put("/name", usersController.putUserName);
 router.post("/watch/:type/:id", usersController.postWatchItem);
 router.post("/unwatch/:type/:id", usersController.postUnwatchItem);
 router.get("/getRecommendedOrgs", usersController.getRecommendedOrgs);
+router.get("/history", usersController.getHistoryByUser);
 
 export { router as usersRouter };

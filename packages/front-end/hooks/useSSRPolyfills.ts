@@ -1,11 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
-import { ExperimentReportSSRData } from "back-end/types/report";
+import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { FactTableInterface } from "back-end/types/fact-table";
-import { DimensionInterface } from "back-end/types/dimension";
-import { ProjectInterface } from "back-end/types/project";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { FactTableInterface } from "shared/types/fact-table";
+import { DimensionInterface } from "shared/types/dimension";
+import { ProjectInterface } from "shared/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -33,7 +33,7 @@ export interface SSRPolyfills {
 }
 
 export default function useSSRPolyfills(
-  ssrData: ExperimentReportSSRData | null
+  ssrData: ExperimentReportSSRData | null,
 ): SSRPolyfills {
   const {
     getExperimentMetricById,
@@ -50,22 +50,22 @@ export default function useSSRPolyfills(
   const getExperimentMetricByIdSSR = useCallback(
     (metricId: string) =>
       getExperimentMetricById(metricId) || ssrData?.metrics?.[metricId] || null,
-    [getExperimentMetricById, ssrData?.metrics]
+    [getExperimentMetricById, ssrData?.metrics],
   );
   const metricGroupsSSR = useMemo(
     () => [...metricGroups, ...(ssrData?.metricGroups ?? [])],
-    [metricGroups, ssrData?.metricGroups]
+    [metricGroups, ssrData?.metricGroups],
   );
   const getMetricGroupByIdSSR = useCallback(
     (metricGroupId: string) =>
       getMetricGroupById(metricGroupId) ||
       metricGroupsSSR?.[metricGroupId] ||
       null,
-    [getMetricGroupById, metricGroupsSSR]
+    [getMetricGroupById, metricGroupsSSR],
   );
   const getFactTableByIdSSR = useCallback(
     (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
-    [getFactTableById, ssrData?.factTables]
+    [getFactTableById, ssrData?.factTables],
   );
 
   const useOrgSettingsSSR = () => {
@@ -74,13 +74,13 @@ export default function useSSRPolyfills(
   };
   const getProjectByIdSSR = useCallback(
     (id: string) => getProjectById(id) || ssrData?.projects?.[id] || null,
-    [getProjectById, ssrData?.projects]
+    [getProjectById, ssrData?.projects],
   );
   const useCurrencySSR = () => {
     const currency = useCurrency();
     if (hasCsrSettings) return currency;
     return (ssrData?.settings?.displayCurrency ?? "") in supportedCurrencies
-      ? ssrData?.settings?.displayCurrency ?? "USD"
+      ? (ssrData?.settings?.displayCurrency ?? "USD")
       : "USD";
   };
   const usePValueThresholdSSR = () => {
@@ -114,11 +114,11 @@ export default function useSSRPolyfills(
 
   const dimensionsSSR = useMemo(
     () => [...dimensions, ...(ssrData?.dimensions ?? [])],
-    [dimensions, ssrData?.dimensions]
+    [dimensions, ssrData?.dimensions],
   );
   const getDimensionByIdSSR = useCallback(
     (id: string) => getDimensionById(id) || dimensionsSSR?.[id] || null,
-    [getDimensionById, dimensionsSSR]
+    [getDimensionById, dimensionsSSR],
   );
 
   return {

@@ -1,23 +1,24 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { isBinomialMetric, isRatioMetric } from "shared/experiments";
-import { returnZeroIfNotFinite } from "shared/util";
-import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
-import {
-  MetricAnalysisHistogram,
-  MetricAnalysisInterface,
-  MetricAnalysisResult,
-} from "back-end/types/metric-analysis";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { Queries, QueryStatus } from "back-end/types/query";
-import {
-  MetricAnalysisParams,
-  MetricAnalysisQueryResponseRows,
-} from "back-end/src/types/Integration";
 import {
   meanVarianceFromSums,
   proportionVarianceFromSums,
   ratioVarianceFromSums,
-} from "back-end/src/util/stats";
+  returnZeroIfNotFinite,
+} from "shared/util";
+import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
+import {
+  MetricAnalysisParams,
+  MetricAnalysisQueryResponseRows,
+} from "shared/types/integrations";
+import {
+  MetricAnalysisHistogram,
+  MetricAnalysisInterface,
+  MetricAnalysisResult,
+} from "shared/types/metric-analysis";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { Queries, QueryStatus } from "shared/types/query";
+import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
@@ -29,20 +30,24 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricAnalysisQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
+  // For alternative entrypoints that don't pass the metric in for analysis
+  setMetric(metric: FactMetricInterface) {
+    this.metric = metric;
+  }
+
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
-    this.metric = params.metric;
+    this.metric = getMetricWithFiltersApplied(params);
     return [
       await this.startQuery({
         name: "metricAnalysis",
-        query: this.integration.getMetricAnalysisQuery(params),
+        query: this.integration.getMetricAnalysisQuery(this.metric, params),
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runMetricAnalysisQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "metricAnalysis",
       }),
     ];
@@ -61,7 +66,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   }
   async getLatestModel(): Promise<MetricAnalysisInterface> {
     const model = await this.context.models.metricAnalysis.getById(
-      this.model.id
+      this.model.id,
     );
     if (!model) {
       throw new Error("Metric analysis not found");
@@ -83,21 +88,23 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   }): Promise<MetricAnalysisInterface> {
     const updates: Partial<MetricAnalysisInterface> = {
       queries,
-      runStarted,
       error,
       result,
       status:
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
+    if (runStarted) {
+      updates.runStarted = runStarted;
+    }
 
     const latest = await this.getLatestModel();
     const updated = await this.context.models.metricAnalysis.update(
       latest,
-      updates
+      updates,
     );
     return updated;
   }
@@ -105,7 +112,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
 export function processMetricAnalysisQueryResponse(
   rows: MetricAnalysisQueryResponseRows,
-  metric: FactMetricInterface
+  metric: FactMetricInterface,
 ): MetricAnalysisResult {
   const ret: MetricAnalysisResult = { units: 0, mean: 0, stddev: 0 };
 
@@ -132,7 +139,7 @@ export function processMetricAnalysisQueryResponse(
           denominator_sum_squares: denominator_sum_squares ?? 0,
           numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
           n: units,
-        })
+        }),
       );
     } else if (isBinomialMetric(metric)) {
       mean = main_sum / units;
@@ -140,7 +147,7 @@ export function processMetricAnalysisQueryResponse(
     } else {
       mean = main_sum / units;
       stddev = Math.sqrt(
-        meanVarianceFromSums(main_sum, main_sum_squares, units)
+        meanVarianceFromSums(main_sum, main_sum_squares, units),
       );
     }
     // Row for each date

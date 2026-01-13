@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -13,10 +13,17 @@ import { distributeWeights } from "@/services/utils";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  onlySafeToEditVariationMetadata: boolean;
   cancel: () => void;
   mutate: () => void;
   source?: string;
-}> = ({ experiment, cancel, mutate, source }) => {
+}> = ({
+  experiment,
+  onlySafeToEditVariationMetadata,
+  cancel,
+  mutate,
+  source,
+}) => {
   const lastPhaseIndex = experiment.phases.length - 1;
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[lastPhaseIndex];
@@ -60,10 +67,10 @@ const EditVariationsForm: FC<{
                 Math.max(
                   data.variationWeights?.[i] ??
                     1 / (data.variations?.length || 2),
-                  0
+                  0,
                 ),
-                1
-              )
+                1,
+              ),
             ),
           ];
           data.variationWeights = distributeWeights(newWeights, true);
@@ -75,7 +82,7 @@ const EditVariationsForm: FC<{
             // only recompute weights if original weights are the wrong size
             data.variationWeights = getEqualWeights(
               data.variations.length || 2,
-              4
+              4,
             );
           } else {
             data.variationWeights = [...lastPhase.variationWeights];
@@ -124,15 +131,16 @@ const EditVariationsForm: FC<{
                 ...newData,
                 key: value,
               };
-            })
+            }),
           );
           form.setValue(
             `variationWeights`,
-            v.map((v) => v.weight)
+            v.map((v) => v.weight),
           );
         }}
         showPreview={false}
-        disableCoverage
+        hideCoverage
+        onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
     </Modal>
   );

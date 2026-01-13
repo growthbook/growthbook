@@ -1,9 +1,50 @@
-import Handlebars from "handlebars";
+import Handlebars, { HelperOptions } from "handlebars";
 
 // Adapted from https://github.com/helpers/handlebars-helpers
 import formatInTimeZone from "date-fns-tz/formatInTimeZone";
 import parseISO from "date-fns/parseISO";
 export const helpers: Record<string, Handlebars.HelperDelegate> = {};
+
+/**
+ * Wraps a Handlebars helper so that any undefined argument (positional or named/hash)
+ * will throw, similar to strict mode behavior for top-level variables.
+ */
+export function strictHelper<T extends (...args: unknown[]) => unknown>(
+  fn: T,
+): T {
+  const wrapped = function (this: unknown, ...args: unknown[]) {
+    const options = args[args.length - 1] as HelperOptions;
+
+    // check positional args
+    for (let i = 0; i < args.length - 1; i++) {
+      if (args[i] === undefined) {
+        const helperName =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (options && (options as any).name) || fn.name || "anonymous";
+        throw new Error(`Missing variable passed to helper '${helperName}'`);
+      }
+    }
+
+    // check hash (named) args
+    if (options && options.hash) {
+      for (const [key, val] of Object.entries(options.hash)) {
+        if (val === undefined) {
+          const helperName =
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (options && (options as any).name) || fn.name || "anonymous";
+          throw new Error(
+            `Missing named parameter '${key}' passed to helper '${helperName}'`,
+          );
+        }
+      }
+    }
+
+    return fn.apply(this, args);
+  };
+
+  // preserve type signature
+  return wrapped as unknown as T;
+}
 
 const isString = function (str: string) {
   return typeof str === "string";
@@ -73,12 +114,12 @@ const changecase = function (str: string, fn: (arg: string) => string) {
  * @api public
  */
 
-helpers.camelcase = function (str: string) {
+helpers.camelcase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   return changecase(str, function (ch: string) {
     return ch.toUpperCase();
   });
-};
+});
 
 /**
  * dot.case the characters in `string`.
@@ -92,12 +133,12 @@ helpers.camelcase = function (str: string) {
  * @api public
  */
 
-helpers.dotcase = function (str: string) {
+helpers.dotcase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   return changecase(str, function (ch: string) {
     return "." + ch;
   });
-};
+});
 
 /**
  * kebab-case the characters in `string`. Replaces non-word
@@ -112,12 +153,12 @@ helpers.dotcase = function (str: string) {
  * @api public
  */
 
-helpers.kebabcase = function (str: string) {
+helpers.kebabcase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   return changecase(str, function (ch: string) {
     return "-" + ch;
   });
-};
+});
 
 /**
  * Lowercase all characters in the given string.
@@ -131,10 +172,10 @@ helpers.kebabcase = function (str: string) {
  * @api public
  */
 
-helpers.lowercase = function (str: string) {
+helpers.lowercase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   return str.toLowerCase();
-};
+});
 
 /**
  * PascalCase the characters in `string`.
@@ -148,13 +189,13 @@ helpers.lowercase = function (str: string) {
  * @api public
  */
 
-helpers.pascalcase = function (str: string) {
+helpers.pascalcase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   str = changecase(str, function (ch: string) {
     return ch.toUpperCase();
   });
   return str.charAt(0).toUpperCase() + str.slice(1);
-};
+});
 
 /**
  * replace the characters in the given `string` that match a regular expression with the given replacement.
@@ -169,9 +210,13 @@ helpers.pascalcase = function (str: string) {
  * @return {String}
  * @api public
  */
-helpers.replace = function (str: string, pattern: string, replacement: string) {
+helpers.replace = strictHelper(function (
+  str: string,
+  pattern: string,
+  replacement: string,
+) {
   return str.replace(new RegExp(pattern, "g"), replacement);
-};
+});
 
 /**
  * snake_case the characters in the given `string`.
@@ -185,12 +230,12 @@ helpers.replace = function (str: string, pattern: string, replacement: string) {
  * @api public
  */
 
-helpers.snakecase = function (str) {
+helpers.snakecase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   return changecase(str, function (ch) {
     return "_" + ch;
   });
-};
+});
 
 /**
  * Uppercase all of the characters in the given string. Alias for [uppercase](#uppercase).
@@ -205,10 +250,10 @@ helpers.snakecase = function (str) {
  * @api public
  */
 
-helpers.uppercase = function (str: string) {
+helpers.uppercase = strictHelper(function (str: string) {
   if (!isString(str)) return "";
   return str.toUpperCase();
-};
+});
 
 /**
  * Takes an ISO date string and returns a formatted date string in the given format in UTC time.
@@ -217,7 +262,7 @@ helpers.uppercase = function (str: string) {
  * @param formatStr
  * @returns
  */
-helpers.date = function (dateStr: string, formatStr: string) {
+helpers.date = strictHelper(function (dateStr: string, formatStr: string) {
   // Convert to UTC as that is what most DBs store
   return formatInTimeZone(parseISO(dateStr), "UTC", formatStr);
-};
+});

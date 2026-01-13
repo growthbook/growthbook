@@ -8,7 +8,7 @@ export default function DocumentationLinksSidebar() {
   const permissions = usePermissions();
 
   return (
-    <div className="card gsbox mb-3">
+    <div className="appbox p-4 mb-3">
       <div className="card-body">
         <div className="card-title">
           <h4 className="">Documentation, help &amp; support</h4>

@@ -21,7 +21,7 @@ const VariationDataForm: FC<{
       JSON.stringify({
         ...parsed,
         [key]: newValues,
-      })
+      }),
     );
   };
   const removeKey = (key: string) => {
@@ -34,7 +34,7 @@ const VariationDataForm: FC<{
       JSON.stringify({
         ...parsed,
         [key]: new Array(variationNames.length).fill(""),
-      })
+      }),
     );
   };
 

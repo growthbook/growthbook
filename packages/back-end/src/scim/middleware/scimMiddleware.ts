@@ -1,12 +1,12 @@
 import { Response, NextFunction } from "express";
-import { orgHasPremiumFeature } from "enterprise";
 import { usingOpenId } from "back-end/src/services/auth";
 import { BaseScimRequest, ScimError } from "back-end/types/scim";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
 export default function scimMiddleware(
   req: BaseScimRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Response<ScimError> | undefined {
   const acceptHeader = req.get("Accept");
 

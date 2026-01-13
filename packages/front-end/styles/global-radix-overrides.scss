@@ -1,5 +1,5 @@
 // Button
-.rt-variant-ghost {
+.rt-Button.rt-variant-ghost {
   margin: 0 !important;
   &:not(.rt-IconButton) {
     min-height: var(--base-button-height) !important;
@@ -251,6 +251,12 @@
   &[data-disabled] {
     cursor: not-allowed !important;
   }
+  &.multiline-item {
+    height: auto !important;
+    min-height: var(--base-menu-item-height) !important;
+    padding-top: var(--space-1) !important;
+    padding-bottom: var(--space-1) !important;
+  }
 }
 
 // Radio
@@ -284,6 +290,13 @@
 }
 
 // Select
+.rt-SelectTrigger.disable-dropdown {
+  pointer-events: none;
+  .rt-SelectIcon {
+    display: none;
+  }
+}
+
 .rt-SelectTrigger {
   &.error {
     box-shadow: inset 0 0 0 1px var(--red-8);
@@ -349,4 +362,24 @@
 // Tooltip
 p.rt-TooltipText {
   margin-bottom: 0;
+}
+
+// Table
+.rt-TableRootTable {
+  .rt-TableBody > .rt-TableRow:last-child > .rt-TableCell {
+    box-shadow: none;
+  }
+}
+
+// Utility classes
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-items-container {
+  .rt-Text {
+    flex: 1 1 calc(25% - 0.75rem);
+  }
 }

@@ -27,7 +27,7 @@ export async function lookupByEmail(email: string) {
   const json: { message?: string; status: number } = await res.json();
   if (json.message || json.status !== 200) {
     throw new Error(
-      json?.message || "No SSO Connection found for that email address."
+      json?.message || "No SSO Connection found for that email address.",
     );
   }
 }

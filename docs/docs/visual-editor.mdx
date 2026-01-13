@@ -6,39 +6,52 @@ id: visual-editor
 slug: /app/visual
 ---
 
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+
 # Visual Editor
 
 With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate GrowthBook's [Script Tag](/lib/script-tag), [JavaScript](/lib/js), or [ReactJS](/lib/react) SDKs with your application. Alternatively, use one of our [Edge SDKs](/lib/edge/cloudflare) to render visual experiments on a CDN.
 
-:::note
+:::note Visual Editor may not work optimally on client-side rendered apps
 
-The Visual Editor may not work optimally on client-side rendered apps (e.g. React.js, Vue.js). Consider using [Feature Flags](/app/features) instead for smoother integration. Contact support@growthbook.io if you have any questions.
+With client-side rendered apps (e.g., React, Vue, Svelte), the Visual Editor may not work optimally. Consider using [Feature Flags](/app/features) instead for a better experience.
 
 :::
 
 ## Requirements
 
-All you need to get started is the [GrowthBook Chrome Extension](/tools/chrome-extension) [installed](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) on your Chrome Browser. Once you've added it to your Chrome browser, you need to add the API key (from Settings -> API Keys). If you are using Cloud, the API Host will be `https://api.growthbook.io`.
+All you need to get started is the [GrowthBook DevTools browser extension](/tools/chrome-extension) installed on your [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) browser. Once you've added it to your browser, you need to add a Personal Access Token (GrowthBook menu).
 
 The application you want to experiment on **must be a front-end web application viewed in a browser**. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For unsupported platforms, we recommend using [Feature Flags](/app/features) instead to implement your changes in code.
 
-Once you've create your first experiment and are ready to deploy to production, there are some additional steps required (see **Deploying to Production** below).
+### Allow Visual Experiments on the SDK Connection
+
+Ensure that the "Include Visual Experiments" toggle is enabled in the SDK Connection's settings, otherwise visual experiments will not be sent to your application.
+
+To check if visual experiments are enabled for your SDK connection in GrowthBook:
+
+1. Go to the Left navigation menu > SDK Configuration > SDK Connections page in the GrowthBook UI.
+2. Select the SDK connection in question.
+3. Click the purple "Edit" button in the upper right corner.
+4. Scroll down and look for the "Include Visual Experiments" toggle.
+   - If this toggle is enabled, visual experiments are included in the SDK payload and are enabled for the SDK.
+   - If it is disabled, visual experiments will not run and will not be sent to the application.
+
+If you have enabled the toggle and still do not see visual experiments, double-check that you are using the correct client key and SDK connection in your application.
 
 ## Creating a Visual Experiment
 
 To use the visual editor, first add a new Experiment. This can be done under **Experiments** in the left nav.
 
-![Design a new experiment](/images/add-experiment-modal.png)
-
 Select the option to design a new experiment. Then, you'll have a series of fields to fill out (hypothesis, variation names, goal metrics, etc.). Don't worry, these can all be changed later.
 
-Once you created an experiment, you should be prompted to open the Visual Editor.
+Once you created an experiment, you should be prompted to open the Visual Editor. Make the desired visual changes using the editor. Once you've created your first experiment and are ready to deploy to production, there are some additional steps required (see **Deploying to Production** below).
 
 ### URL Targeting
 
 GrowthBook needs to know what page(s) of your site the experiment should run on.
 
-:::note
+:::note URL Targeting is required for the Visual Editor to work
 
 For URL Targeting to work, you must pass the `url` targeting attribute into the GrowthBook SDK and also list it in the GrowthBook App.
 See [Targeting Attributes](/features/targeting) to learn more about targeting users with certain attributes.
@@ -56,7 +69,7 @@ You'll need to enter 2 different URLs.
 
 The targeting pattern supports wildcards (`*`), so for this example, you could enter `/post/*`.
 
-:::tip
+:::tip Simple URL targeting is recommended
 
 We recommend sticking with "Simple" URL targeting rules (don't be fooled by the name, it's actually really powerful). The other option (Regex) can be useful for really advanced use cases, but it is much harder to write and more error prone.
 
@@ -93,7 +106,9 @@ You can also match on just the path:
 
 There are a number of different tools in the Visual Editor.
 
+<MaxWidthImage maxWidth={400}>
 ![The Visual Editor UI](/images/visual-editor-ui.png)
+</MaxWidthImage>
 
 At the top is a dropdown where you can select which variation you are currently editing.
 
@@ -149,13 +164,17 @@ When an element is selected, you will see a floating handle to move it positiona
 
 Once dragging, the cursor will highlight an edge where the dragged element will land. When you release the cursor the element will move to the indicated spot. If you want to undo the move, click the 'Undo' button that is available for elements that have been dragged.
 
+<MaxWidthImage>
 ![Visual Editor Drag and Drop Example](/images/visual-editor-drag-and-drop.gif)
+</MaxWidthImage>
 
 ### Debug Panel
 
 The Visual Editor now comes with a Debug Panel to help diagnose any issues with your SDK configuration and URL Targeting rules. Use this to help diagnose your own errors, or provide a screenshot to our Support team when reaching out to help provide context.
 
-<img style={{ width: '400px'}} src="/images/visual-editor-debug-panel.png" alt="Debug Panel"/>
+<MaxWidthImage maxWidth={400}>
+![Debug Panel](/images/visual-editor-debug-panel.png)
+</MaxWidthImage>
 
 ## Deploying to Production
 
@@ -163,7 +182,9 @@ Before you start your first experiment, you will first need to generate a **Clie
 
 **Important**: Make sure to enable the "Include Visual Experiments" toggle. If you forget this step, Visual Editor experiments will not be sent to your application.
 
+<MaxWidthImage border>
 ![Enable the Visual Editor in your SDK Connection](/images/sdk-connection-visual-editor.png)
+</MaxWidthImage>
 
 You can also optionally include Draft Experiments (see below).
 
@@ -171,7 +192,7 @@ Once you create an SDK Connection, you need to follow the steps to integrate Gro
 
 The easiest and recommended way to do this is with our [Script Tag SDK](/lib/script-tag), which works out-of-the-box and doesn't require any configuration for most websites. It's also possible to use either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs, although these do require more up-front work to integrate into your application.
 
-:::note
+:::note Updating your SDK configuration
 
 If you've already been using our front-end SDKs for feature flagging, make sure you:
 
@@ -217,9 +238,7 @@ You will still need to allow `unsafe-eval`.
 
 While the experiment is still a draft, you can preview variations by adding a querystring to your URL.
 
-:::note
-
-This requires turning on the "Include Drafts" toggle for your SDK Connection in GrowthBook.
+:::note Drafts require turning on the "Include Drafts" toggle for your SDK Connection in GrowthBook.
 
 :::
 

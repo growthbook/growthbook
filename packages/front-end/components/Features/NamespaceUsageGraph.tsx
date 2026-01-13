@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { NamespaceUsage } from "back-end/types/organization";
+import { NamespaceUsage } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import styles from "./NamespaceUsageGraph.module.scss";
@@ -46,7 +46,7 @@ export default function NamespaceUsageGraph({
             className={clsx(
               styles.legend_box,
               styles.used,
-              "progress-bar-striped"
+              "progress-bar-striped",
             )}
           />{" "}
           In-use
@@ -54,6 +54,12 @@ export default function NamespaceUsageGraph({
         <div className={clsx("col-auto", styles.legend)}>
           <div className={clsx(styles.legend_box, styles.unused)} /> Available
         </div>
+        {setRange && (
+          <div className={clsx("col-auto", styles.legend)}>
+            <div className={clsx(styles.legend_box, styles.selected)} />{" "}
+            Selected
+          </div>
+        )}
       </div>
       <div className={clsx(styles.bar_holder, "progress-bar-striped")}>
         {gaps.map((g, i) => (
@@ -76,25 +82,20 @@ export default function NamespaceUsageGraph({
         {range && (
           <>
             <div
-              className={clsx(styles.hmarker)}
+              className={styles.rangeSelected}
               style={{
                 left: `${+(range[0] * 100).toFixed(4)}%`,
-              }}
-            />
-            <div
-              className={clsx(styles.hmarker)}
-              style={{
-                left: `${+(range[1] * 100).toFixed(4)}%`,
-              }}
-            />
-            <div
-              className={clsx(styles.label)}
-              style={{
                 width: `${+(range[1] * 100 - range[0] * 100).toFixed(4)}%`,
+              }}
+            ></div>
+            <div
+              className={styles.rangeMarker}
+              style={{
                 left: `${+(range[0] * 100).toFixed(4)}%`,
+                width: `${+(range[1] * 100 - range[0] * 100).toFixed(4)}%`,
               }}
             >
-              {percentFormatter.format(range[1] - range[0])}
+              <span>{percentFormatter.format(range[1] - range[0])}</span>
             </div>
           </>
         )}

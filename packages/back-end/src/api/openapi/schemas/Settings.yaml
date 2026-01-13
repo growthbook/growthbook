@@ -1,0 +1,184 @@
+type: object
+required:
+  - confidenceLevel
+  - northStar
+  - metricDefaults
+  - pastExperimentsMinLength
+  - metricAnalysisDays
+  - updateSchedule
+  - multipleExposureMinPercent
+  - defaultRole
+  - statsEngine
+  - pValueThreshold
+  - regressionAdjustmentEnabled
+  - regressionAdjustmentDays
+  - sequentialTestingEnabled
+  - sequentialTestingTuningParameter
+  - attributionModel
+  - targetMDE
+  - delayHours
+  - windowType
+  - windowHours
+  - winRisk
+  - loseRisk
+  - secureAttributeSalt
+  - killswitchConfirmation
+  - requireReviews
+  - featureKeyExample
+  - featureRegexValidator
+  - banditScheduleValue
+  - banditScheduleUnit
+  - banditBurnInValue
+  - banditBurnInUnit
+  - experimentMinLengthDays
+properties:
+  confidenceLevel:
+    type: number
+  northStar:
+    type: object
+    nullable: true
+    properties:
+      title:
+        type: string
+      metricIds:
+        type: array
+        items:
+          type: string
+  metricDefaults:
+    type: object
+    properties:
+      priorSettings:
+        type: object
+        required:
+          - override
+          - proper
+          - mean
+          - stddev
+        properties:
+          override:
+            type: boolean
+          proper:
+            type: boolean
+          mean:
+            type: number
+          stddev:
+            type: number
+      minimumSampleSize:
+        type: number
+      maxPercentageChange:
+        type: number
+      minPercentageChange:
+        type: number
+      targetMDE:
+        type: number
+  pastExperimentsMinLength:
+    type: number
+  metricAnalysisDays:
+    type: number
+  updateSchedule:
+    type: object
+    nullable: true
+    properties:
+      type:
+        type: string
+        enum:
+          - "cron"
+          - "never"
+          - "stale"
+      cron:
+        type: string
+        nullable: true
+      hours:
+        type: number
+        nullable: true
+  multipleExposureMinPercent:
+    type: number
+  defaultRole:
+    type: object
+    properties:
+      role:
+        type: string
+      limitAccessByEnvironment:
+        type: boolean
+      environments:
+        type: array
+        items:
+          type: string
+  statsEngine:
+    type: string
+  pValueThreshold:
+    type: number
+  regressionAdjustmentEnabled:
+    type: boolean
+  regressionAdjustmentDays:
+    type: number
+  sequentialTestingEnabled:
+    type: boolean
+  sequentialTestingTuningParameter:
+    type: number
+  attributionModel:
+    type: string
+    enum:
+      - "firstExposure"
+      - "experimentDuration"
+  targetMDE:
+    type: number
+  delayHours:
+    type: number
+  windowType:
+    type: string
+  windowHours:
+    type: number
+  winRisk:
+    type: number
+  loseRisk:
+    type: number
+  secureAttributeSalt:
+    type: string
+  killswitchConfirmation:
+    type: boolean
+  requireReviews:
+    type: array
+    items:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+  featureKeyExample:
+    type: string
+  featureRegexValidator:
+    type: string
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "hours"
+      - "days"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "hours"
+      - "days"
+  experimentMinLengthDays:
+    type: number
+  experimentMaxLengthDays:
+    type: number
+    nullable: true
+  preferredEnvironment:
+    type: string
+    nullable: true
+  maxMetricSliceLevels:
+    type: number

@@ -1,7 +1,7 @@
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
 import { Text } from "@radix-ui/themes";
 import { dataSourceConnections } from "@/services/eventSchema";
-import RadioCards from "@/components/Radix/RadioCards";
+import RadioCards from "@/ui/RadioCards";
 
 export interface Props {
   value: DataSourceType | "";
@@ -12,7 +12,7 @@ export default function DataSourceTypeSelector({ value, setValue }: Props) {
   return (
     <RadioCards
       options={dataSourceConnections
-        .filter((o) => o.type !== "google_analytics")
+        .filter((o) => o.type !== "google_analytics" && o.type !== "mixpanel")
         .map((o) => {
           return {
             value: o.type,
@@ -30,6 +30,7 @@ export default function DataSourceTypeSelector({ value, setValue }: Props) {
       }}
       columns={"3"}
       align="center"
+      width="100%"
     />
   );
 }

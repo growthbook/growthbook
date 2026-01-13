@@ -1,5 +1,5 @@
 import { Factory } from "fishery";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 
 export const snapshotFactory = Factory.define<ExperimentSnapshotInterface>(
   ({ sequence, params }) => ({
@@ -47,5 +47,5 @@ export const snapshotFactory = Factory.define<ExperimentSnapshotInterface>(
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [],
-  })
+  }),
 );

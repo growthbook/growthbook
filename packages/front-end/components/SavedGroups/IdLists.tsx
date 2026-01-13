@@ -7,16 +7,19 @@ import {
   truncateString,
 } from "shared/util";
 import Link from "next/link";
-import { SavedGroupInterface } from "shared/src/types";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/groups";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { PiInfoFill } from "react-icons/pi";
 import { isEmpty } from "lodash";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -31,15 +34,13 @@ import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
-  groups: SavedGroupInterface[];
+  groups: SavedGroupWithoutValues[];
   mutate: () => void;
 }
 
 export default function IdLists({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -56,7 +57,7 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const filteredIdLists = project
     ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project)
+        isProjectListValidForProject(list.projects, project),
       )
     : idLists;
 
@@ -65,38 +66,54 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const environments = useEnvironments();
 
-  const {
-    hasLargeSavedGroupFeature,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
-  // Get a list of feature ids for every saved group
+  const conditionGroups = useMemo(
+    () => groups.filter((g) => g.type === "condition"),
+    [groups],
+  );
+
   const referencingFeaturesByGroup = useMemo(
     () =>
       featuresReferencingSavedGroups({
-        savedGroups: filteredIdLists,
+        savedGroups: idLists,
         features,
         environments,
       }),
-    [filteredIdLists, environments, features]
+    [idLists, environments, features],
   );
   const referencingExperimentsByGroup = useMemo(
     () =>
       experimentsReferencingSavedGroups({
-        savedGroups: filteredIdLists,
+        savedGroups: idLists,
         experiments,
       }),
-    [filteredIdLists, experiments]
+    [idLists, experiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: filteredIdLists,
-    localStorageKey: "savedGroups",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
-  });
+  const referencingSavedGroupsByGroup = useMemo(() => {
+    const result: Record<string, SavedGroupWithoutValues[]> = {};
+    filteredIdLists.forEach((targetGroup) => {
+      result[targetGroup.id] = conditionGroups.filter((sg) => {
+        if (!sg.condition) return false;
+        return sg.condition.includes(targetGroup.id);
+      });
+    });
+    return result;
+  }, [filteredIdLists, conditionGroups]);
+
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: filteredIdLists,
+      localStorageKey: "savedGroups",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
+      pageSize: 50,
+      updateSearchQueryOnChange: true,
+    });
 
   if (!idLists) return <LoadingOverlay />;
 
@@ -105,11 +122,11 @@ export default function IdLists({ groups, mutate }: Props) {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="large-saved-groups"
+          commercialFeature="large-saved-groups"
         />
       )}
-      <div className="mb-5 p-3 bg-white appbox border-top-0">
+      <Box mt="4" mb="5" p="4" className="appbox">
         {savedGroupForm && (
           <SavedGroupForm
             close={() => setSavedGroupForm(null)}
@@ -124,36 +141,27 @@ export default function IdLists({ groups, mutate }: Props) {
           <div className="flex-1"></div>
           {canCreate ? (
             <div className="col-auto">
-              <Button
-                onClick={async () => {
-                  setSavedGroupForm({});
-                }}
-              >
-                Add ID List
-              </Button>
+              <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
             </div>
           ) : null}
         </div>
         <p className="text-gray mb-1">
           Specify a list of values to include for an attribute.
         </p>
-        <p className="text-gray mb-1">
+        <p className="text-gray">
           For example, create a &quot;Beta Testers&quot; group identified by a
           specific set of <code>device_id</code> values.
         </p>
 
         {unsupportedConnections.length > 0 ? (
-          <LargeSavedGroupPerformanceWarning
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            unsupportedConnections={unsupportedConnections}
-            openUpgradeModal={() => setUpgradeModal(true)}
-          />
-        ) : (
-          <p>
-            <PiInfoFill /> Too many large lists will cause too large of a
-            payload, and your server may not support it.
-          </p>
-        )}
+          <Box mt="4">
+            <LargeSavedGroupPerformanceWarning
+              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+              unsupportedConnections={unsupportedConnections}
+              openUpgradeModal={() => setUpgradeModal(true)}
+            />
+          </Box>
+        ) : null}
 
         {filteredIdLists.length > 0 && (
           <>
@@ -189,7 +197,7 @@ export default function IdLists({ groups, mutate }: Props) {
                         <tr key={s.id}>
                           <td>
                             <Link
-                              className="text-color-primary"
+                              className="link-purple"
                               key={s.id}
                               href={`/saved-groups/${s.id}`}
                             >
@@ -207,13 +215,9 @@ export default function IdLists({ groups, mutate }: Props) {
                               <ProjectBadges
                                 resourceType="saved group"
                                 projectIds={s.projects}
-                                className="badge-ellipsis short align-middle"
                               />
                             ) : (
-                              <ProjectBadges
-                                resourceType="saved group"
-                                className="badge-ellipsis short align-middle"
-                              />
+                              <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
                           <td>{s.owner}</td>
@@ -247,11 +251,15 @@ export default function IdLists({ groups, mutate }: Props) {
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
                                     referencingFeaturesByGroup[s.id],
-                                    referencingExperimentsByGroup[s.id]
+                                    referencingExperimentsByGroup[s.id],
+                                    referencingSavedGroupsByGroup[s.id],
                                   )}
                                   canDelete={
                                     isEmpty(referencingFeaturesByGroup[s.id]) &&
-                                    isEmpty(referencingExperimentsByGroup[s.id])
+                                    isEmpty(
+                                      referencingExperimentsByGroup[s.id],
+                                    ) &&
+                                    isEmpty(referencingSavedGroupsByGroup[s.id])
                                   }
                                 />
                               ) : null}
@@ -269,11 +277,12 @@ export default function IdLists({ groups, mutate }: Props) {
                     )}
                   </tbody>
                 </table>
+                {pagination}
               </div>
             </div>
           </>
         )}
-      </div>
+      </Box>
     </>
   );
 }

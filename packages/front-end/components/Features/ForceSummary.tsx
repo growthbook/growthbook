@@ -1,4 +1,5 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
 
@@ -11,14 +12,16 @@ export default function ForceSummary({
 }) {
   return (
     <>
-      <div className="row align-items-top">
-        <div className="col-auto">
-          <strong>SERVE</strong>
-        </div>
-        <div className="col">
-          <ValueDisplay value={value} type={feature.valueType} />
-        </div>
-      </div>
+      <Flex direction="row" gap="2">
+        <Text weight="medium">SERVE</Text>
+        <Box width="100%">
+          <ValueDisplay
+            value={value}
+            type={feature.valueType}
+            showFullscreenButton={true}
+          />
+        </Box>
+      </Flex>
       <ValidateValue value={value} feature={feature} />
     </>
   );

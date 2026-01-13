@@ -2,41 +2,36 @@ import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
-import { useRouter } from "next/router";
-import { BsGear } from "react-icons/bs";
+import { FaChevronRight, FaPlus } from "react-icons/fa";
+import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
+import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
-  const router = useRouter();
-  let intitialOpenIndexes: boolean[] = [];
-  if (router.query.openAll === "1") {
-    intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries?.exposure?.length || 0)
-    ).fill(true);
-  }
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
+  const intitialOpenIndexes: boolean[] = Array.from(
+    Array(dataSource.settings?.queries?.exposure?.length || 0),
+  ).fill(true);
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
-    intitialOpenIndexes
-  );
+  const [openIndexes, setOpenIndexes] =
+    useState<boolean[]>(intitialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -49,7 +44,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
   const handleCancel = useCallback(() => {
@@ -60,7 +55,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   const experimentExposureQueries = useMemo(
     () => dataSource.settings?.queries?.exposure || [],
-    [dataSource.settings?.queries?.exposure]
+    [dataSource.settings?.queries?.exposure],
   );
 
   const handleAdd = useCallback(() => {
@@ -73,7 +68,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       setEditingIndex(idx);
       setUiMode(uiMode);
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -85,7 +80,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -95,7 +90,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   const [validatingQuery, setValidatingQuery] = useState(false);
@@ -108,7 +103,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       await onSave(copy);
       setValidatingQuery(false);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {
@@ -117,34 +112,41 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }
 
   return (
-    <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="">
-          <h3>Experiment Assignment Queries</h3>
-          <p>
-            Queries that return a list of experiment variation assignment
-            events. Returns a record of which experiment variation was assigned
-            to each user.
-          </p>
-        </div>
+    <Box>
+      <Flex align="center" gap="2" mb="3" justify="between">
+        <Box>
+          <Flex align="center" gap="3" mb="0">
+            <Heading as="h3" size="4" mb="0">
+              Experiment Assignment Queries
+            </Heading>
+            <Badge
+              label={experimentExposureQueries.length + ""}
+              color="gray"
+              radius="medium"
+            />
+          </Flex>
+        </Box>
 
         {canEdit && (
-          <div className="">
-            <button
-              className="btn btn-outline-primary font-weight-bold text-nowrap"
-              onClick={handleAdd}
-            >
+          <Box>
+            <Button onClick={handleAdd}>
               <FaPlus className="mr-1" /> Add
-            </button>
-          </div>
+            </Button>
+          </Box>
         )}
-      </div>
+      </Flex>
+      <p>
+        Queries that return a list of experiment variation assignment events.
+        Returns a record of which experiment variation was assigned to each
+        user.
+      </p>
 
       {/* region Empty state */}
       {experimentExposureQueries.length === 0 ? (
-        <div className="alert alert-info mb-0">
-          No experiment assignment queries
-        </div>
+        <Callout status="info">
+          No experiment assignment queries. Assignment queries are required for
+          experiment analysis.
+        </Callout>
       ) : null}
       {/* endregion Empty state */}
 
@@ -152,24 +154,30 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
         const isOpen = openIndexes[idx] || false;
 
         return (
-          <div key={query.id} className="card p-3 mb-3 bg-light">
-            <div className="d-flex justify-content-between">
+          <Card mt="3" key={query.id}>
+            <Flex align="start" justify="between" py="2" px="3" gap="3">
               {/* region Title Bar */}
-              <div>
-                <div className="d-flex">
-                  <h4>{query.name}</h4>
+              <Box width="100%">
+                <Flex>
+                  <Heading as="h4" size="3" mb="1">
+                    {query.name}
+                  </Heading>
                   {query.description && (
                     <p className="ml-3 text-muted">{query.description}</p>
                   )}
-                </div>
+                </Flex>
 
-                <div className="row">
-                  <div className="col-auto">
-                    <strong>Identifier: </strong>
+                <Flex gap="4">
+                  <Box>
+                    <strong className="font-weight-semibold">
+                      Identifier:{" "}
+                    </strong>
                     <code>{query.userIdType}</code>
-                  </div>
-                  <div className="col-auto">
-                    <strong>Dimension Columns: </strong>
+                  </Box>
+                  <Box>
+                    <strong className="font-weight-semibold">
+                      Dimension Columns:{" "}
+                    </strong>
                     {query.dimensions.map((d, i) => (
                       <Fragment key={i}>
                         {i ? ", " : ""}
@@ -179,68 +187,67 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     {!query.dimensions.length && (
                       <em className="text-muted">none</em>
                     )}
-                  </div>
-                </div>
+                  </Box>
+                </Flex>
                 {query.error && (
-                  <div
-                    className="alert alert-danger"
-                    style={{ marginTop: "1rem" }}
-                  >
-                    This query had an error with it the last time it ran:{" "}
-                    <div className="font-weight-bold">{query.error}</div>
-                    <div style={{ marginTop: "1rem" }}>
-                      <Button
-                        onClick={handleValidate()}
-                        loading={validatingQuery}
-                      >
-                        Check it again.
-                      </Button>
-                      {canEdit && (
+                  <Callout status="error" mt="3">
+                    <Box>
+                      This query had an error with it the last time it ran:{" "}
+                      <Box className="font-weight-bold" py="2">
+                        {query.error}
+                      </Box>
+                      <Box mt="3">
                         <Button
-                          onClick={handleActionClicked(idx, "edit")}
-                          style={{ marginLeft: "1rem" }}
+                          onClick={handleValidate()}
+                          loading={validatingQuery}
                         >
-                          Edit it now.
+                          Check it again.
                         </Button>
-                      )}
-                    </div>
-                  </div>
+                        {canEdit && (
+                          <Button
+                            onClick={handleActionClicked(idx, "edit")}
+                            style={{ marginLeft: "1rem" }}
+                          >
+                            Edit it now.
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                  </Callout>
                 )}
-              </div>
+              </Box>
 
               {/* endregion Title Bar */}
 
               {/* region Actions*/}
 
-              <div
-                className="d-flex align-items-center"
-                style={{ height: "fit-content" }}
-              >
+              <Flex align="center">
                 {canEdit && (
                   <MoreMenu>
                     <button
                       className="dropdown-item py-2"
                       onClick={handleActionClicked(idx, "edit")}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit Query
+                      Edit Query
                     </button>
                     {query.dimensions.length > 0 ? (
                       <button
                         className="dropdown-item py-2"
                         onClick={handleActionClicked(idx, "dimension")}
                       >
-                        <BsGear className="mr-2" /> Configure Dimensions
+                        Edit Dimensions
                       </button>
                     ) : null}
 
+                    <hr className="dropdown-divider" />
                     <DeleteButton
                       onClick={handleActionDeleteClicked(idx)}
                       className="dropdown-item text-danger py-2"
                       iconClassName="mr-2"
                       style={{ borderRadius: 0 }}
-                      useIcon
+                      useIcon={false}
                       displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
+                      deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
                       title="Delete"
                       text="Delete"
                       outline={false}
@@ -258,21 +265,22 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     }}
                   />
                 </button>
-              </div>
+              </Flex>
 
               {/* endregion Actions*/}
-            </div>
+            </Flex>
 
             {isOpen && (
-              <div className="mb-2">
+              <Box p="2">
                 <Code
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
+                  expandable
                 />
-              </div>
+              </Box>
             )}
-          </div>
+          </Card>
         );
       })}
 
@@ -291,13 +299,79 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       {uiMode === "dimension" ? (
         <UpdateDimensionMetadataModal
           exposureQuery={experimentExposureQueries[editingIndex]}
-          dataSource={dataSource}
+          datasourceId={dataSource.id}
           close={() => setUiMode("view")}
-          onSave={handleSave(editingIndex)}
+          onSave={handleSaveDimensionMetadata(editingIndex, dataSource, onSave)}
         />
       ) : null}
 
       {/* endregion Add/Edit modal */}
-    </div>
+    </Box>
   );
 };
+
+const handleSaveDimensionMetadata =
+  (
+    editingIndex: number,
+    dataSource: DataSourceInterfaceWithParams,
+    onSave: (dataSource: DataSourceInterfaceWithParams) => void,
+  ) =>
+  async (
+    customDimensionMetadata: CustomDimensionMetadata[],
+    dimensionSlices?: DimensionSlicesInterface,
+  ) => {
+    const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+    const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
+
+    if (!exposureQuery) {
+      throw new Error(
+        "Exposure queries out of sync. Refresh the page and try again.",
+      );
+    }
+
+    exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
+      const existingMetadata = exposureQuery.dimensionMetadata?.find(
+        (m) => m.dimension === d,
+      ) ?? {
+        dimension: d,
+        specifiedSlices: [],
+      };
+
+      const trafficSlices = dimensionSlices?.results
+        .find((r) => r.dimension === d)
+        ?.dimensionSlices.map((s) => s.name);
+
+      const customDimension = customDimensionMetadata?.find(
+        (m) => m.dimension === d,
+      );
+
+      // if custom slices are defined, use them, otherwise use the traffic slices.
+      // If neither are defined, use fall back to the existing values.
+      const specifiedSlices = customDimension?.customSlicesArray?.length
+        ? customDimension.customSlicesArray
+        : (trafficSlices ?? existingMetadata.specifiedSlices);
+
+      return {
+        ...existingMetadata,
+        specifiedSlices,
+        customSlices: !!customDimension?.customSlicesArray?.length,
+      };
+    });
+
+    // re-order the dimensions array based on the priority
+    exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
+      const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
+      const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
+      // if missing metadata, put it at the end
+      if (!aMetadata) return 1;
+      if (!bMetadata) return -1;
+      return aMetadata.priority - bMetadata.priority;
+    });
+
+    // if dimension slices updated, update the dimension slices id
+    if (dimensionSlices) {
+      exposureQuery.dimensionSlicesId = dimensionSlices.id;
+    }
+
+    await onSave(copy);
+  };

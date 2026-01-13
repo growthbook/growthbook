@@ -1,4 +1,4 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import {
   ExperimentMetricInterface,
@@ -89,7 +89,7 @@ export default function PercentGraph({
 
   return (
     <AlignedGraph
-      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
+      ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
       id={id}
       domain={domain}
       uplift={showGraph ? stats.uplift : undefined}

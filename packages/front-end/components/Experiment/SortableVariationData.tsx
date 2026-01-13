@@ -1,4 +1,4 @@
-import { Variation } from "back-end/types/experiment";
+import { Variation } from "shared/types/experiment";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef } from "react";
@@ -95,19 +95,14 @@ const Card = forwardRef<HTMLDivElement, VariationProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 Card.displayName = "Card";
 
 export function SortableExperimentVariationCard(props) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

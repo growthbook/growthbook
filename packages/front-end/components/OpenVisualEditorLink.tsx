@@ -1,26 +1,38 @@
 import { FC, useMemo, useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL, growthbook } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
+import RadixButton from "@/ui/Button";
+import Link from "@/ui/Link";
 import Modal from "./Modal";
 import Button from "./Button";
 
-const CHROME_EXTENSION_LINK =
+export const CHROME_EXTENSION_LINK =
   "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
+export const FIREFOX_EXTENSION_LINK =
+  "https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/";
 
 type OpenVisualEditorResponse =
-  | { error: "NOT_CHROME" }
+  | { error: "INVALID_BROWSER" }
   | { error: "NO_URL" }
   | { error: "NO_EXTENSION" };
 
-export async function openVisualEditor(
-  vc: VisualChangesetInterface,
-  apiCall: AuthContextValue["apiCall"],
-  bypassChecks: boolean = false
-): Promise<null | OpenVisualEditorResponse> {
+export async function openVisualEditor({
+  vc,
+  apiCall,
+  browser,
+  deviceType,
+  bypassChecks = false,
+}: {
+  vc: VisualChangesetInterface;
+  apiCall: AuthContextValue["apiCall"];
+  browser: string;
+  deviceType: string;
+  bypassChecks?: boolean;
+}): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();
   if (!url) {
     track("Open visual editor", {
@@ -38,7 +50,7 @@ export async function openVisualEditor(
 
   const apiHost = getApiHost();
   const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
-    `/meta/ai`
+    `/meta/ai`,
   );
   const isAiFeatureEnabled = growthbook.isOn("visual-editor-ai-enabled");
 
@@ -50,29 +62,39 @@ export async function openVisualEditor(
   });
 
   if (!bypassChecks) {
-    const ua = navigator.userAgent;
-    const isChromeBrowser =
-      ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
-    if (!isChromeBrowser) {
+    if (!["chrome", "firefox"].includes(browser) || deviceType !== "desktop") {
       track("Open visual editor", {
         source: "visual-editor-ui",
-        status: "not chrome",
+        status: "invalid browser",
+        type: browser + " - " + deviceType,
       });
-      return { error: "NOT_CHROME" };
+      return { error: "INVALID_BROWSER" };
     }
 
     try {
-      const res = await fetch(
-        "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
-        { method: "HEAD" }
-      );
-      if (!res.ok) {
+      let res: Response | undefined = undefined;
+      switch (browser) {
+        case "chrome":
+          res = await fetch(
+            "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo128.png",
+            { method: "HEAD" },
+          );
+          break;
+        case "firefox":
+          res = await fetch(
+            "moz-extension://a69dc869-b91d-4fd3-adb2-71dc23cdc01c/js/logo128.png",
+            { method: "HEAD" },
+          );
+          break;
+      }
+      if (!res?.ok) {
         throw new Error("Could not reach extension");
       }
     } catch (e) {
       track("Open visual editor", {
         source: "visual-editor-ui",
         status: "no extension",
+        type: browser + " - " + deviceType,
       });
       return { error: "NO_EXTENSION" };
     }
@@ -91,10 +113,10 @@ export async function openVisualEditor(
           apiKey,
         },
       },
-      window.location.origin
+      window.location.origin,
     );
 
-    // Give time for the Chrome extension to receive the API host/key
+    // Give time for the extension to receive the API host/key
     await new Promise((resolve) => setTimeout(resolve, 300));
   } catch (e) {
     console.error("Failed to set visual editor key automatically", e);
@@ -103,6 +125,7 @@ export async function openVisualEditor(
   track("Open visual editor", {
     source: "visual-editor-ui",
     status: "success",
+    type: browser + " - " + deviceType,
   });
   window.location.href = url;
   return null;
@@ -111,43 +134,80 @@ export async function openVisualEditor(
 const OpenVisualEditorLink: FC<{
   visualChangeset: VisualChangesetInterface;
   openSettings?: () => void;
-}> = ({ visualChangeset, openSettings }) => {
+  useRadix?: boolean;
+  useLink?: boolean;
+  button?: string | JSX.Element;
+}> = ({
+  visualChangeset,
+  openSettings,
+  useRadix,
+  useLink,
+  button = (
+    <>
+      Open Visual Editor
+      <PiArrowSquareOut
+        className="ml-1"
+        style={{ position: "relative", top: "-2px" }}
+      />
+    </>
+  ),
+}) => {
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
   const { apiCall } = useAuth();
 
-  const isChromeBrowser = useMemo(() => {
+  const { browser, deviceType } = useMemo(() => {
     const ua = navigator.userAgent;
-    return ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
+    return getBrowserDevice(ua);
   }, []);
+
+  const onOpen = async () => {
+    const res = await openVisualEditor({
+      vc: visualChangeset,
+      apiCall,
+      browser,
+      deviceType,
+    });
+    if (!res) {
+      // Stay in a loading state until window redirects
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      return;
+    }
+
+    if (res.error === "NO_URL") {
+      setShowEditorUrlDialog(true);
+      return;
+    }
+
+    if (res.error === "NO_EXTENSION" || res.error === "INVALID_BROWSER") {
+      setShowExtensionDialog(true);
+      return;
+    }
+  };
 
   return (
     <>
-      <Button
-        color="primary"
-        className="btn-sm"
-        onClick={async () => {
-          const res = await openVisualEditor(visualChangeset, apiCall);
-          if (!res) {
-            // Stay in a loading state until window redirects
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-            return;
-          }
-
-          if (res.error === "NO_URL") {
-            setShowEditorUrlDialog(true);
-            return;
-          }
-
-          if (res.error === "NO_EXTENSION" || res.error === "NOT_CHROME") {
-            setShowExtensionDialog(true);
-            return;
-          }
-        }}
-      >
-        Open Visual Editor <FaExternalLinkAlt />
-      </Button>
+      {useLink ? (
+        <Link
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpen();
+          }}
+        >
+          {button}
+        </Link>
+      ) : useRadix ? (
+        <RadixButton variant="ghost" onClick={onOpen}>
+          {button}
+        </RadixButton>
+      ) : (
+        <Button color="primary" className="btn-sm" onClick={onOpen}>
+          {button}
+        </Button>
+      )}
 
       {showEditorUrlDialog && openSettings && (
         <Modal
@@ -175,18 +235,28 @@ const OpenVisualEditorLink: FC<{
           closeCta="Close"
           cta="View extension"
           submit={() => {
-            window.open(CHROME_EXTENSION_LINK);
+            if (browser === "firefox") {
+              window.open(FIREFOX_EXTENSION_LINK);
+            } else {
+              window.open(CHROME_EXTENSION_LINK);
+            }
           }}
         >
-          {isChromeBrowser ? (
+          {["chrome", "firefox"].includes(browser) ? (
             <>
-              You&apos;ll need to install the GrowthBook DevTools Chrome
+              You&apos;ll need to install the GrowthBook DevTools browser
               extension to use the visual editor.{" "}
               <a
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  openVisualEditor(visualChangeset, apiCall, true);
+                  openVisualEditor({
+                    vc: visualChangeset,
+                    apiCall,
+                    browser,
+                    deviceType,
+                    bypassChecks: true,
+                  });
                 }}
               >
                 Click here to proceed anyway
@@ -195,8 +265,9 @@ const OpenVisualEditorLink: FC<{
             </>
           ) : (
             <>
-              The Visual Editor is currently only supported in Chrome. We are
-              working on bringing the Visual Editor to other browsers.
+              The Visual Editor is currently only supported in Chrome and
+              Firefox. We are working on bringing the Visual Editor to other
+              browsers.
             </>
           )}
         </Modal>
@@ -206,3 +277,22 @@ const OpenVisualEditorLink: FC<{
 };
 
 export default OpenVisualEditorLink;
+
+export function getBrowserDevice(ua: string): {
+  browser: string;
+  deviceType: string;
+} {
+  const browser = ua.match(/Edg/)
+    ? "edge"
+    : ua.match(/Chrome/)
+      ? "chrome"
+      : ua.match(/Firefox/)
+        ? "firefox"
+        : ua.match(/Safari/)
+          ? "safari"
+          : "unknown";
+
+  const deviceType = ua.match(/Mobi/) ? "mobile" : "desktop";
+
+  return { browser, deviceType };
+}

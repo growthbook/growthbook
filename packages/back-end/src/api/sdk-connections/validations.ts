@@ -3,16 +3,16 @@ import {
   getSDKCapabilities,
   getSDKVersions,
 } from "shared/sdk-versioning";
-import { ApiReqContext } from "back-end/types/api";
-import { sdkLanguages } from "back-end/src/util/constants";
-import { getEnvironments } from "back-end/src/services/organizations";
-import { IS_CLOUD } from "back-end/src/util/secrets";
-import { OrganizationInterface } from "back-end/types/organization";
+import { sdkLanguages } from "shared/constants";
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
   SDKLanguage,
-} from "back-end/types/sdk-connection";
+} from "shared/types/sdk-connection";
+import { OrganizationInterface } from "shared/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],
@@ -21,20 +21,21 @@ const capabilityParams = [
   ["redirects", "includeRedirectExperiments"],
 ] as const;
 
-type CapabilitiesParamKey = typeof capabilityParams[number][1];
+type CapabilitiesParamKey = (typeof capabilityParams)[number][1];
 type CapabilitiesParams = { [k in CapabilitiesParamKey]?: boolean };
 
+// Redirects and Visual Editor are premium features, but they are blocked
+// When starting experiments, not when creating the SDK connection.
+// This way, free users can still preview the features in a draft.
 const premiumFeatures = [
   ["encrypt-features-endpoint", "encryptPayload"],
-  ["visual-editor", "includeVisualExperiments"],
   ["hash-secure-attributes", "hashSecureAttributes"],
   ["remote-evaluation", "remoteEvalEnabled"],
-  ["redirects", "includeRedirectExperiments"],
   ["cloud-proxy", "proxyEnabled"],
 ] as const;
 
-type PremiumFeatureName = typeof premiumFeatures[number][0];
-type PremiumFeatureParam = typeof premiumFeatures[number][1];
+type PremiumFeatureName = (typeof premiumFeatures)[number][0];
+type PremiumFeatureParam = (typeof premiumFeatures)[number][1];
 type PremiumFeatures = { [k in PremiumFeatureParam]?: boolean };
 type CreateSdkConnectionPayload = Omit<
   CreateSDKConnectionParams,
@@ -55,6 +56,7 @@ interface CreateSdkConnectionRequestBody
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -73,7 +75,7 @@ export function validateName(name: string) {
 
 export function validateEnvironment(
   org: OrganizationInterface,
-  environment: string
+  environment: string,
 ) {
   if (
     !getEnvironments(org)
@@ -85,15 +87,15 @@ export function validateEnvironment(
 
 export async function validateProjects(
   context: ApiReqContext,
-  projects: string[]
+  projects: string[],
 ) {
   const allProjects = await context.models.projects.getAll();
   const nonexistentProjects = projects.filter(
-    (p) => !allProjects.some(({ id }) => p === id)
+    (p) => !allProjects.some(({ id }) => p === id),
   );
   if (nonexistentProjects.length)
     throw new Error(
-      `The following projects do not exist: ${nonexistentProjects.join(", ")}`
+      `The following projects do not exist: ${nonexistentProjects.join(", ")}`,
     );
 }
 
@@ -107,7 +109,7 @@ export function validateSdkCapabilities(
   payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
   language: SDKLanguage,
   sdkVersion: string | undefined,
-  latestSdkVersion: string
+  latestSdkVersion: string,
 ) {
   const latestCapabilities = getSDKCapabilities(language, latestSdkVersion);
   const capabilities = getSDKCapabilities(language, sdkVersion);
@@ -116,18 +118,18 @@ export function validateSdkCapabilities(
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
         throw new Error(
-          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`
+          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
         throw new Error(
-          `SDK version ${sdkVersion} does not support ${capability}`
+          `SDK version ${sdkVersion} does not support ${capability}`,
         );
   });
 }
 
 export function validatePremiumFeatures(
   context: ApiReqContext,
-  payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload
+  payload: CreateSdkConnectionPayload | UpdateSdkConnectionPayload,
 ) {
   premiumFeatures.forEach(([feature, param]) => {
     if (!payload[param]) return;
@@ -158,11 +160,12 @@ export async function validatePostPayload(
     includeDraftExperiments = false,
     includeExperimentNames = false,
     includeRedirectExperiments = false,
+    includeRuleIds = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
     ...otherParams
-  }: CreateSdkConnectionRequestBody
+  }: CreateSdkConnectionRequestBody,
 ) {
   validateName(name);
 
@@ -190,6 +193,7 @@ export async function validatePostPayload(
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -215,12 +219,13 @@ export async function validatePutPayload(
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
     ...otherParams
   }: Partial<CreateSdkConnectionRequestBody>,
-  sdkConnection: SDKConnectionInterface
+  sdkConnection: SDKConnectionInterface,
 ) {
   if (name) validateName(name);
 
@@ -248,6 +253,7 @@ export async function validatePutPayload(
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

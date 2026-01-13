@@ -1,27 +1,38 @@
 import * as bq from "@google-cloud/bigquery";
-import { bigQueryCreateTableOptions } from "enterprise";
-import { getValidDate } from "shared/dates";
-import { format, FormatDialect } from "back-end/src/util/sql";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
+import {
+  bigQueryCreateTableOptions,
+  bigQueryCreateTablePartitions,
+} from "shared/enterprise";
+import { FormatDialect } from "shared/types/sql";
+import { format } from "shared/sql";
 import {
   ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
-} from "back-end/src/types/Integration";
+  DataType,
+  QueryResponseColumnData,
+  MaxTimestampMetricSourceQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
+} from "shared/types/integrations";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
+import {
+  BigQueryDataType,
+  getFactTableTypeFromBigQueryType,
+} from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
-  requiresEscapingPath = true;
+  escapePathCharacter = "`";
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<BigQueryConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -56,14 +67,14 @@ export default class BigQuery extends SqlIntegration {
     const [apiResult] = await job.cancel();
     logger.debug(
       `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
-        apiResult.job?.status
-      )}`
+        apiResult.job?.status,
+      )}`,
     );
   }
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback
+    setExternalId?: ExternalIdCallback,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
@@ -77,11 +88,16 @@ export default class BigQuery extends SqlIntegration {
       await setExternalId(job.id);
     }
 
-    const [rows] = await job.getQueryResults();
+    const [rows, _, queryResultsResponse] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
+
+    const rowsInserted =
+      metadata?.statistics?.query?.statementType === "INSERT"
+        ? Number(metadata?.statistics?.query?.numDmlAffectedRows)
+        : undefined;
     const statistics = {
       executionDurationMs: Number(
-        metadata?.statistics?.finalExecutionDurationMs
+        metadata?.statistics?.finalExecutionDurationMs,
       ),
       totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
       bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
@@ -91,13 +107,41 @@ export default class BigQuery extends SqlIntegration {
         metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
+      ...(rowsInserted !== undefined && { rowsInserted }),
     };
-    return { rows, statistics };
+
+    const columns = queryResultsResponse
+      ? this.getQueryResultResponseColumns(queryResultsResponse)
+      : undefined;
+
+    // BigQuery dates are stored nested in an object, so need to extract the value
+    for (const row of rows) {
+      for (const key in row) {
+        const value = row[key];
+        if (value instanceof bq.BigQueryDatetime) {
+          row[key] = value.value + "Z"; // Convert to ISO date
+        } else if (
+          value instanceof bq.BigQueryTimestamp ||
+          value instanceof bq.BigQueryDate
+        ) {
+          row[key] = value.value; // Already in ISO format
+        }
+      }
+    }
+
+    return {
+      rows,
+      columns,
+      statistics,
+    };
   }
 
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return bigQueryCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings,
     );
   }
 
@@ -105,32 +149,11 @@ export default class BigQuery extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATETIME_${
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
-  }
-
-  // BigQueryDateTime: ISO Date string in UTC (Z at end)
-  // BigQueryDatetime: ISO Date string with no timezone
-  // BigQueryDate: YYYY-MM-DD
-  convertDate(
-    fromDB:
-      | bq.BigQueryDatetime
-      | bq.BigQueryTimestamp
-      | bq.BigQueryDate
-      | undefined
-  ) {
-    if (!fromDB?.value) return getValidDate(null);
-
-    // BigQueryTimestamp already has `Z` at the end, but the others don't
-    let value = fromDB.value;
-    if (!value.endsWith("Z")) {
-      value += "Z";
-    }
-
-    return getValidDate(value);
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;
@@ -172,6 +195,10 @@ export default class BigQuery extends SqlIntegration {
       : `${multiplier} * ${quantile}`;
     return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
+    return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
+  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
@@ -179,7 +206,7 @@ export default class BigQuery extends SqlIntegration {
     return this.generateTablePath(
       "INFORMATION_SCHEMA.COLUMNS",
       schema,
-      database
+      database,
     );
   }
 
@@ -221,7 +248,7 @@ export default class BigQuery extends SqlIntegration {
 
       try {
         const { rows: datasetResults } = await this.runQuery(
-          format(query, this.getFormatDialect())
+          format(query, this.getFormatDialect()),
         );
 
         if (datasetResults.length > 0) {
@@ -229,8 +256,8 @@ export default class BigQuery extends SqlIntegration {
         }
       } catch (e) {
         logger.error(
+          e,
           `Error fetching information schema data for dataset: ${datasetName}`,
-          e
         );
       }
     }
@@ -239,9 +266,92 @@ export default class BigQuery extends SqlIntegration {
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(
-      results as RawInformationSchema[],
-      this.datasource.type
+    return formatInformationSchema(results as RawInformationSchema[]);
+  }
+
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "STRING";
+      case "integer":
+        return "INT64";
+      case "float":
+        return "FLOAT64";
+      case "boolean":
+        return "BOOL";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      case "hll":
+        return "BYTES";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
+  }
+
+  getQueryResultResponseColumns(
+    bqQueryResultsResponse: QueryResultsResponse,
+  ): QueryResponseColumnData[] | undefined {
+    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+      let childFields: QueryResponseColumnData[] | undefined = undefined;
+      if (field.type === "RECORD" || field.type === "STRUCT") {
+        childFields = field.fields
+          ?.filter((f) => f.name !== undefined)
+          .map((f) => mapField(f));
+      }
+
+      const dataType = field.type
+        ? getFactTableTypeFromBigQueryType(field.type as BigQueryDataType)
+        : undefined;
+
+      return {
+        name: field.name!.toLowerCase(),
+        ...(dataType && { dataType }),
+        ...(childFields && { fields: childFields }),
+      };
+    };
+
+    return bqQueryResultsResponse.schema?.fields
+      ?.filter((field) => field.name !== undefined)
+      .map((field) => mapField(field));
+  }
+
+  getCurrentTimestamp(): string {
+    return `CURRENT_TIMESTAMP()`;
+  }
+
+  createTablePartitions(columns: string[]): string {
+    return bigQueryCreateTablePartitions(columns);
+  }
+
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        FROM ${params.metricSourceTableFullName}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    return format(
+      `
+      SELECT
+        MAX(max_timestamp) AS max_timestamp
+        FROM ${params.unitsTableFullName}
+        ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}` : ""}
+      `,
+      this.getFormatDialect(),
     );
   }
 }

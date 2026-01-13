@@ -1,13 +1,20 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
-import { SavedGroupInterface } from "shared/src/types";
-import { ApiSavedGroup } from "back-end/types/openapi";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/groups";
+import { ApiSavedGroup } from "shared/types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
   UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
+} from "shared/types/saved-group";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 import { migrateSavedGroup } from "back-end/src/util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
@@ -36,18 +43,15 @@ const savedGroupSchema = new mongoose.Schema({
   useEmptyListGroup: Boolean,
 });
 
-type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
-
 const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   "savedGroup",
-  savedGroupSchema
+  savedGroupSchema,
 );
 
-const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
-  const legacy = omit(
-    doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+const COLLECTION = "savedgroups";
+
+const toInterface: ToInterface<SavedGroupInterface> = (doc) => {
+  const legacy = removeMongooseFields(doc);
 
   return migrateSavedGroup(legacy);
 };
@@ -63,7 +67,7 @@ export function parseSavedGroupString(list: string) {
 
 export async function createSavedGroup(
   organization: string,
-  group: CreateSavedGroupProps
+  group: CreateSavedGroupProps,
 ): Promise<SavedGroupInterface> {
   const newGroup = await SavedGroupModel.create({
     ...group,
@@ -77,19 +81,41 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  organization: string
+  organization: string,
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
-    organization,
-  });
+  const savedGroups = await getCollection(COLLECTION)
+    .find({
+      organization,
+    })
+    .toArray();
+
   return savedGroups.map(toInterface);
+}
+
+export async function getAllSavedGroupsWithoutValues(
+  organization: string,
+): Promise<SavedGroupWithoutValues[]> {
+  const savedGroups = await getCollection(COLLECTION)
+    .find(
+      {
+        organization,
+      },
+      {
+        projection: {
+          values: 0,
+        },
+      },
+    )
+    .toArray();
+
+  return savedGroups.map(toInterface) as SavedGroupWithoutValues[];
 }
 
 export async function getSavedGroupById(
   savedGroupId: string,
-  organization: string
+  organization: string,
 ): Promise<SavedGroupInterface | null> {
-  const savedGroup = await SavedGroupModel.findOne({
+  const savedGroup = await getCollection(COLLECTION).findOne({
     id: savedGroupId,
     organization: organization,
   });
@@ -99,12 +125,14 @@ export async function getSavedGroupById(
 
 export async function getSavedGroupsById(
   savedGroupIds: string[],
-  organization: string
+  organization: string,
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups = await SavedGroupModel.find({
-    id: savedGroupIds,
-    organization: organization,
-  });
+  const savedGroups = await getCollection(COLLECTION)
+    .find({
+      id: { $in: savedGroupIds || [] },
+      organization: organization,
+    })
+    .toArray();
 
   return savedGroups ? savedGroups.map((group) => toInterface(group)) : [];
 }
@@ -112,7 +140,7 @@ export async function getSavedGroupsById(
 export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
-  group: UpdateSavedGroupProps
+  group: UpdateSavedGroupProps,
 ): Promise<UpdateSavedGroupProps> {
   const changes = {
     ...group,
@@ -124,7 +152,7 @@ export async function updateSavedGroupById(
       id: savedGroupId,
       organization: organization,
     },
-    changes
+    changes,
   );
 
   return changes;
@@ -132,11 +160,11 @@ export async function updateSavedGroupById(
 
 export async function removeProjectFromSavedGroups(
   project: string,
-  organization: string
+  organization: string,
 ) {
   await SavedGroupModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } }
+    { $pull: { projects: project } },
   );
 }
 
@@ -148,7 +176,7 @@ export async function deleteSavedGroupById(id: string, organization: string) {
 }
 
 export function toSavedGroupApiInterface(
-  savedGroup: SavedGroupInterface
+  savedGroup: SavedGroupInterface,
 ): ApiSavedGroup {
   return {
     id: savedGroup.id,

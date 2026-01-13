@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
-import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
+import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import {
   closestCenter,
   DndContext,
@@ -24,7 +24,7 @@ import {
 import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const CustomFields: FC<{
   section: CustomFieldSection;
@@ -35,7 +35,7 @@ const CustomFields: FC<{
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState();
   const [items, setItems] = useState(
-    customFields?.filter((x) => x.section === section)
+    customFields?.filter((x) => x.section === section),
   );
   const permissionsUtils = usePermissionsUtil();
 
@@ -64,7 +64,7 @@ const CustomFields: FC<{
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
+    useSensor(KeyboardSensor, {}),
   );
 
   function handleDragStart(event) {
@@ -131,6 +131,7 @@ const CustomFields: FC<{
               <tr>
                 <th style={{ width: "30px" }}></th>
                 <th>Field Name</th>
+                <th>Field Key</th>
                 <th>Description</th>
                 <th>Type</th>
                 <th>Default value</th>
@@ -160,7 +161,7 @@ const CustomFields: FC<{
               ) : (
                 <>
                   <tr>
-                    <td colSpan={9} className="text-center text-gray">
+                    <td colSpan={10} className="text-center text-gray">
                       <em>
                         No custom fields defined{" "}
                         <a

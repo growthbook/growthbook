@@ -26,6 +26,15 @@ properties:
           type: array
           items:
             type: string
+  scheduleRules:
+    type: array
+    items:
+      $ref: "../../schemas/ScheduleRule.yaml"
+    example:
+      - enabled: true
+        timestamp: null
+      - enabled: false
+        timestamp: "2025-06-23T16:09:37.769Z"
   id:
     type: string
   enabled:

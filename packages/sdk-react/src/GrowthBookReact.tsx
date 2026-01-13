@@ -24,12 +24,12 @@ export type GrowthBookSSRData = {
 };
 
 export const GrowthBookContext = React.createContext<GrowthBookContextValue>(
-  {} as GrowthBookContextValue
+  {} as GrowthBookContextValue,
 );
 
 /** @deprecated */
 export async function getGrowthBookSSRData(
-  context: Context
+  context: Context,
 ): Promise<GrowthBookSSRData> {
   // Server-side GrowthBook instance
   const gb = new GrowthBook({
@@ -38,7 +38,7 @@ export async function getGrowthBookSSRData(
 
   // Load feature flags from network if needed
   if (context.clientKey) {
-    await gb.loadFeatures();
+    await gb.init();
   }
 
   const data: GrowthBookSSRData = {
@@ -69,14 +69,14 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
 }
 
 export function useFeature<T extends JSONValue = any>(
-  id: string
+  id: string,
 ): FeatureResult<T | null> {
   const growthbook = useGrowthBook();
   return growthbook.evalFeature<T>(id);
 }
 
 export function useFeatureIsOn<
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 >(id: string & keyof AppFeatures): boolean {
   const growthbook = useGrowthBook<AppFeatures>();
   return growthbook.isOn(id);
@@ -84,14 +84,14 @@ export function useFeatureIsOn<
 
 export function useFeatureValue<T extends JSONValue = any>(
   id: string,
-  fallback: T
+  fallback: T,
 ): WidenPrimitives<T> {
   const growthbook = useGrowthBook();
   return growthbook.getFeatureValue(id, fallback);
 }
 
 export function useGrowthBook<
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 >(): GrowthBook<AppFeatures> {
   const { growthbook } = React.useContext(GrowthBookContext);
 
@@ -110,7 +110,7 @@ export function FeaturesReady({
   children: React.ReactNode;
   timeout?: number;
   fallback?: React.ReactNode;
-}) {
+}): React.ReactElement {
   const gb = useGrowthBook();
   const [hitTimeout, setHitTimeout] = React.useState(false);
   const ready = gb ? gb.ready : false;
@@ -136,11 +136,14 @@ export function IfFeatureEnabled({
 }: {
   children: React.ReactNode;
   feature: string;
-}) {
+}): React.ReactElement | null {
   return useFeature(feature).on ? <>{children}</> : null;
 }
 
-export function FeatureString(props: { default: string; feature: string }) {
+export function FeatureString(props: {
+  default: string;
+  feature: string;
+}): React.ReactElement {
   const value = useFeature(props.feature).value;
 
   if (value !== null) {
@@ -151,12 +154,12 @@ export function FeatureString(props: { default: string; feature: string }) {
 }
 
 export const withRunExperiment = <P extends WithRunExperimentProps>(
-  Component: React.ComponentType<P>
+  Component: React.ComponentType<P>,
 ): React.ComponentType<Omit<P, keyof WithRunExperimentProps>> => {
   // eslint-disable-next-line
-  const withRunExperimentWrapper = (props: any): JSX.Element => (
+  const withRunExperimentWrapper = (props: any): React.ReactElement => (
     <GrowthBookContext.Consumer>
-      {({ growthbook }): JSX.Element => {
+      {({ growthbook }): React.ReactElement => {
         return (
           <Component
             {...(props as P)}

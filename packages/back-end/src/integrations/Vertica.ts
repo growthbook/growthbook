@@ -1,13 +1,14 @@
-import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { runPostgresQuery } from "back-end/src/services/postgres";
+import { FormatDialect } from "shared/types/sql";
+import { format } from "shared/sql";
 import {
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
-} from "back-end/src/types/Integration";
-import { format, FormatDialect } from "back-end/src/util/sql";
+} from "shared/types/integrations";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Vertica extends SqlIntegration {
@@ -15,9 +16,8 @@ export default class Vertica extends SqlIntegration {
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "postgresql";
@@ -46,6 +46,10 @@ export default class Vertica extends SqlIntegration {
   getDefaultDatabase(): string {
     return this.params.database;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `MAPLOOKUP(MapJSONExtractor(${jsonCol}), '${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
 
   getInformationSchemaTable(schema?: string, database?: string): string {
     return this.generateTablePath("v_catalog.columns", schema, database);
@@ -71,10 +75,7 @@ export default class Vertica extends SqlIntegration {
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(
-      results.rows as RawInformationSchema[],
-      this.datasource.type
-    );
+    return formatInformationSchema(results.rows as RawInformationSchema[]);
   }
   // may be able to optimize with using a string of multiple quantiles
   approxQuantile(value: string, quantile: string | number): string {

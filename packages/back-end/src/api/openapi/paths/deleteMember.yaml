@@ -2,7 +2,7 @@ summary: Removes a single user from an organization
 parameters:
   - $ref: "../parameters.yaml#/id"
 tags:
-  - member
+  - members
 operationId: deleteMember
 x-codeSamples:
   - lang: "cURL"

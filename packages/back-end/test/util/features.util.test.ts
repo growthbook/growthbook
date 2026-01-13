@@ -11,7 +11,7 @@ describe("feature utils", () => {
           { id: "parent", description: "" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       expect(result).toEqual({
         parent: "value",
@@ -29,7 +29,7 @@ describe("feature utils", () => {
           { id: "parent", description: "", parent: "grandparent" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       expect(result).toEqual({
         grandparent: "value",
@@ -48,7 +48,7 @@ describe("feature utils", () => {
           { id: "parent", description: "" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       expect(envRecord.child).toBeUndefined();
     });
@@ -62,7 +62,7 @@ describe("feature utils", () => {
           { id: "parent", description: "" },
           { id: "child", parent: "parent", description: "" },
         ],
-        envRecord
+        envRecord,
       );
       result.child.push("new entry");
       expect(result).toEqual({

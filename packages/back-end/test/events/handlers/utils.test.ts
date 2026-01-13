@@ -1,8 +1,8 @@
+import { ApiFeature, ApiFeatureForceRule } from "shared/types/openapi";
 import {
   RELEVANT_KEYS_FOR_ALL_ENVS,
   getChangedApiFeatureEnvironments,
 } from "back-end/src/events/handlers/utils";
-import { ApiFeature, ApiFeatureForceRule } from "back-end/types/openapi";
 
 describe("getChangedApiFeatureEnvironments", () => {
   const rule: ApiFeatureForceRule = {
@@ -42,7 +42,7 @@ describe("getChangedApiFeatureEnvironments", () => {
       getChangedApiFeatureEnvironments(feature, {
         ...feature,
         [key]: key === "archived" ? !feature.archived : "new-value",
-      })
+      }),
     );
 
     values.forEach((v) => expect(v).toEqual(["dev", "prod"]));
@@ -59,7 +59,7 @@ describe("getChangedApiFeatureEnvironments", () => {
             enabled: !feature.environments["prod"]?.enabled,
           } as ApiFeature["environments"][string],
         },
-      })
+      }),
     ).toEqual(["prod"]);
   });
 
@@ -89,92 +89,92 @@ describe("getChangedApiFeatureEnvironments", () => {
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 0),
-        getFeatureToTest(0, 0)
-      )
+        getFeatureToTest(0, 0),
+      ),
     ).toEqual([]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 0),
-        getFeatureToTest(0, 1)
-      )
+        getFeatureToTest(0, 1),
+      ),
     ).toEqual([]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 0),
-        getFeatureToTest(1, 0)
-      )
+        getFeatureToTest(1, 0),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 0),
-        getFeatureToTest(1, 1)
-      )
+        getFeatureToTest(1, 1),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 1),
-        getFeatureToTest(0, 0)
-      )
+        getFeatureToTest(0, 0),
+      ),
     ).toEqual([]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 1),
-        getFeatureToTest(0, 1)
-      )
+        getFeatureToTest(0, 1),
+      ),
     ).toEqual([]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(0, 1),
-        getFeatureToTest(1, 1)
-      )
+        getFeatureToTest(1, 1),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 0),
-        getFeatureToTest(0, 0)
-      )
+        getFeatureToTest(0, 0),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 0),
-        getFeatureToTest(0, 1)
-      )
+        getFeatureToTest(0, 1),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 0),
-        getFeatureToTest(1, 0)
-      )
+        getFeatureToTest(1, 0),
+      ),
     ).toEqual([]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 0),
-        getFeatureToTest(1, 1)
-      )
+        getFeatureToTest(1, 1),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 1),
-        getFeatureToTest(0, 0)
-      )
+        getFeatureToTest(0, 0),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 1),
-        getFeatureToTest(0, 1)
-      )
+        getFeatureToTest(0, 1),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 1),
-        getFeatureToTest(1, 0)
-      )
+        getFeatureToTest(1, 0),
+      ),
     ).toEqual(["dev", "prod"]);
     expect(
       getChangedApiFeatureEnvironments(
         getFeatureToTest(1, 1),
-        getFeatureToTest(1, 1)
-      )
+        getFeatureToTest(1, 1),
+      ),
     ).toEqual([]);
   });
 });

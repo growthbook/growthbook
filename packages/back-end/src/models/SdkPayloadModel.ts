@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
-} from "back-end/types/api";
+  FeatureDefinitionWithProjects,
+} from "shared/types/sdk";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
@@ -22,13 +23,13 @@ const sdkPayloadSchema = new mongoose.Schema({
 });
 sdkPayloadSchema.index(
   { organization: 1, environment: 1, schemaVersion: 1 },
-  { unique: true }
+  { unique: true },
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
   "SdkPayloadCache",
-  sdkPayloadSchema
+  sdkPayloadSchema,
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
@@ -48,6 +49,14 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
   }
 }
 
+// TODO: add support for S3 and GCS
+export function getSDKPayloadCacheLocation(): "mongo" | "none" {
+  const loc = process.env.SDK_PAYLOAD_CACHE;
+  if (loc === "none") return "none";
+  // Default to mongo
+  return "mongo";
+}
+
 export async function getSDKPayload({
   organization,
   environment,
@@ -55,6 +64,11 @@ export async function getSDKPayload({
   organization: string;
   environment: string;
 }): Promise<SDKPayloadInterface | null> {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return null;
+  }
+
   const doc = await SDKPayloadModel.findOne({
     organization,
     environment,
@@ -70,17 +84,25 @@ export async function updateSDKPayload({
   featureDefinitions,
   experimentsDefinitions,
   savedGroupsInUse,
+  holdoutFeatureDefinitions,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
   savedGroupsInUse: string[];
+  holdoutFeatureDefinitions: Record<string, FeatureDefinitionWithProjects>;
 }) {
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation === "none") {
+    return;
+  }
+
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
     savedGroupsInUse: savedGroupsInUse,
+    holdouts: holdoutFeatureDefinitions,
   };
 
   await SDKPayloadModel.updateOne(
@@ -99,6 +121,6 @@ export async function updateSDKPayload({
     },
     {
       upsert: true,
-    }
+    },
   );
 }

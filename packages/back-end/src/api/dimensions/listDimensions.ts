@@ -1,4 +1,5 @@
-import { ListDimensionsResponse } from "back-end/types/openapi";
+import { ListDimensionsResponse } from "shared/types/openapi";
+import { listDimensionsValidator } from "shared/validators";
 import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
@@ -8,7 +9,6 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listDimensionsValidator } from "back-end/src/validators/openapi";
 
 export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
   async (req): Promise<ListDimensionsResponse> => {
@@ -18,17 +18,17 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
     const { filtered, returnFields } = applyPagination(
       dimensions
         .filter((dimension) =>
-          applyFilter(req.query.datasourceId, dimension.datasource)
+          applyFilter(req.query.datasourceId, dimension.datasource),
         )
         .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
       dimensions: filtered.map((dimension) =>
-        toDimensionApiInterface(dimension)
+        toDimensionApiInterface(dimension),
       ),
       ...returnFields,
     };
-  }
+  },
 );

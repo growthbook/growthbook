@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { TagDBInterface, TagInterface } from "back-end/types/tag";
+import { TagDBInterface, TagInterface } from "shared/types/tag";
 
 const tagSchema = new mongoose.Schema({
   organization: {
@@ -32,7 +32,7 @@ function toTagInterface(doc: TagDocument | null): TagInterface[] {
 }
 
 export async function getAllTags(
-  organization: string
+  organization: string,
 ): Promise<TagInterface[]> {
   const doc = await TagModel.findOne({
     organization,
@@ -42,7 +42,7 @@ export async function getAllTags(
 
 export async function addTags(organization: string, tags: string[]) {
   tags = tags.filter(
-    (x) => x.length >= MIN_TAG_LENGTH && x.length <= MAX_TAG_LENGTH
+    (x) => x.length >= MIN_TAG_LENGTH && x.length <= MAX_TAG_LENGTH,
   );
   if (!tags.length) return;
 
@@ -55,7 +55,7 @@ export async function addTags(organization: string, tags: string[]) {
     },
     {
       upsert: true,
-    }
+    },
   );
 }
 
@@ -63,11 +63,11 @@ export async function addTag(
   organization: string,
   tag: string,
   color: string,
-  description: string
+  description: string,
 ) {
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
-      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`
+      `Tags must be at between ${MIN_TAG_LENGTH} and ${MAX_TAG_LENGTH} characers long.`,
     );
   }
   if (description.length > 256) {
@@ -94,7 +94,7 @@ export async function addTag(
     },
     {
       upsert: true,
-    }
+    },
   );
 }
 
@@ -105,14 +105,14 @@ export async function removeTag(organization: string, tag: string) {
     },
     {
       $pull: { tags: tag },
-    }
+    },
   );
 }
 
 export async function addTagsDiff(
   organization: string,
   oldTags: string[],
-  newTags: string[]
+  newTags: string[],
 ) {
   const diff = newTags.filter((x) => !oldTags.includes(x));
   if (diff.length) {

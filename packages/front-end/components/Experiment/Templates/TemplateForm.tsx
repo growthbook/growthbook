@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { FC, useEffect, useState } from "react";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
@@ -56,21 +56,15 @@ const TemplateForm: FC<Props> = ({
   const router = useRouter();
   const [step, setStep] = useState(0);
 
-  const {
-    getDatasourceById,
-    refreshTags,
-    project,
-    projects,
-  } = useDefinitions();
+  const { getDatasourceById, refreshTags, project, projects } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
@@ -120,13 +114,15 @@ const TemplateForm: FC<Props> = ({
         prerequisites: initialValue.targeting?.prerequisites || [],
         condition: initialValue.targeting?.condition || "",
       },
+      customMetricSlices: initialValue?.customMetricSlices || [],
+      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
-    form.watch("project")
+    form.watch("project"),
   );
 
   const datasource = form.watch("datasource")
@@ -172,14 +168,14 @@ const TemplateForm: FC<Props> = ({
             {
               method: "PUT",
               body,
-            }
+            },
           )
         : await apiCall<{ template: ExperimentTemplateInterface }>(
             "/templates",
             {
               method: "POST",
               body,
-            }
+            },
           );
 
     track("Create Experiment Template", {
@@ -321,16 +317,20 @@ const TemplateForm: FC<Props> = ({
               />
             </div>
 
-            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
-              <div className="form-group">
-                <CustomFieldInput
-                  customFields={customFields}
-                  form={form}
-                  section={"experiment"}
-                  project={form.watch("project")}
-                />
-              </div>
-            )}
+            {hasCommercialFeature("custom-metadata") &&
+              !!customFields?.length && (
+                <div className="form-group">
+                  <CustomFieldInput
+                    customFields={customFields}
+                    setCustomFields={(value) => {
+                      form.setValue("customFields", value);
+                    }}
+                    currentCustomFields={form.watch("customFields") || {}}
+                    section={"experiment"}
+                    project={form.watch("project")}
+                  />
+                </div>
+              )}
           </div>
         </Page>
 

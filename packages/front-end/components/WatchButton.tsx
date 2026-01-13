@@ -9,11 +9,8 @@ const WatchButton: FC<{
   type?: "button" | "icon" | "link";
   className?: string;
 }> = ({ item, itemType, type = "button", className }) => {
-  const {
-    watchedExperiments,
-    watchedFeatures,
-    refreshWatching,
-  } = useWatching();
+  const { watchedExperiments, watchedFeatures, refreshWatching } =
+    useWatching();
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -55,7 +52,7 @@ const WatchButton: FC<{
             `/user/${isWatching ? "unwatch" : "watch"}/${itemType}/${item}`,
             {
               method: "POST",
-            }
+            },
           );
           refreshWatching();
         } catch (e) {

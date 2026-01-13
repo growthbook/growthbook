@@ -1,18 +1,18 @@
 import { useRouter } from "next/router";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { IdeaInterface } from "back-end/types/idea";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { IdeaInterface } from "shared/types/idea";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
@@ -31,11 +31,10 @@ import {
 } from "@/components/Icons";
 import ConfigureLegacyReport from "@/components/Report/ConfigureLegacyReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -47,12 +46,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
 export default function LegacyReportPage({
@@ -70,7 +64,7 @@ export default function LegacyReportPage({
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, metricGroups } = useDefinitions();
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -93,19 +87,15 @@ export default function LegacyReportPage({
     : false;
 
   const canDeleteReport = permissionsUtil.canDeleteReport(
-    experimentData?.experiment || {}
+    experimentData?.experiment || {},
   );
 
   // todo: move to report args
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
-  );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const form = useForm({
     defaultValues: {
@@ -148,12 +138,6 @@ export default function LegacyReportPage({
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
-
-  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
-  const regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    regressionAdjustmentAvailable &&
-    !!report.args.regressionAdjustmentEnabled;
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
@@ -209,20 +193,15 @@ export default function LegacyReportPage({
                 value={form.watch("description")}
               />
             </div>
-            Publish:{" "}
-            <Toggle
+            <Switch
               id="toggle-status"
               value={form.watch("status") === "published"}
-              label="published"
-              setValue={(value) => {
+              label="Publish"
+              description="A published report will be visible to other users of your team"
+              onChange={(value) => {
                 const newStatus = value ? "published" : "private";
                 form.setValue("status", newStatus);
               }}
-            />
-            <Tooltip
-              body={
-                "A published report will be visible to other users of your team"
-              }
             />
           </Modal>
         )}
@@ -233,40 +212,42 @@ export default function LegacyReportPage({
               Go to experiment results
             </Link>
           )}
-          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
-            <DeleteButton
-              displayName="Custom Report"
-              link={false}
-              className="float-right btn-sm"
-              text="delete"
-              useIcon={true}
-              onClick={async () => {
-                await apiCall<{ status: number; message?: string }>(
-                  `/report/${report.id}`,
-                  {
-                    method: "DELETE",
-                  }
-                );
-                trackReport(
-                  "delete",
-                  "DeleteButton",
-                  datasource?.type || null,
-                  report
-                );
-                router.push(`/experiment/${report.experimentId}#results`);
-              }}
-            />
-          )}
+          {canDeleteReport &&
+            (userId === report?.userId || !report?.userId) && (
+              <DeleteButton
+                displayName="Custom Report"
+                link={false}
+                className="float-right btn-sm"
+                text="delete"
+                useIcon={true}
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/report/${report.id}`,
+                    {
+                      method: "DELETE",
+                    },
+                  );
+                  trackReport(
+                    "delete",
+                    "DeleteButton",
+                    datasource?.type || null,
+                    report,
+                  );
+                  router.push(`/experiment/${report.experimentId}#results`);
+                }}
+              />
+            )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
-              <a
-                className="ml-2 cursor-pointer"
-                onClick={() => setEditModalOpen(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
+            {canUpdateReport &&
+              (userId === report?.userId || !report?.userId) && (
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditModalOpen(true)}
+                >
+                  <GBEdit />
+                </a>
+              )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">
@@ -293,9 +274,9 @@ export default function LegacyReportPage({
             </TabsList>
           )}
 
-          <div className="tab-content p-0">
+          <div className="tab-content p-0 appbox">
             <TabsContent value="results">
-              <div className="pt-3 px-3">
+              <div className="pt-3 px-3 ">
                 <div className="row align-items-center mb-2">
                   <div className="col">
                     <h2>Results</h2>
@@ -380,7 +361,7 @@ export default function LegacyReportPage({
                               "update",
                               "RefreshData",
                               datasource?.type || null,
-                              res.report as ExperimentReportInterface
+                              res.report as ExperimentReportInterface,
                             );
                             mutate();
                             setRefreshError("");
@@ -415,7 +396,7 @@ export default function LegacyReportPage({
                             "update",
                             "ForceRefreshData",
                             datasource?.type || null,
-                            res.report as ExperimentReportInterface
+                            res.report as ExperimentReportInterface,
                           );
                           mutate();
                         } catch (e) {
@@ -432,13 +413,14 @@ export default function LegacyReportPage({
                       }
                       notebookUrl={`/report/${report.id}/notebook`}
                       notebookFilename={report.title}
-                      queries={report.queries}
-                      queryError={report.error}
+                      legacyQueries={report.queries}
+                      legacyQueryError={report.error}
                       results={report.results?.dimensions}
                       variations={variations}
                       metrics={getAllMetricIdsFromExperiment(
                         report.args,
-                        false
+                        false,
+                        metricGroups,
                       )}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}
@@ -497,7 +479,11 @@ export default function LegacyReportPage({
                   />
                 ) : (
                   <BreakDownResults
+                    experimentId={report.experimentId ?? ""}
                     isLatestPhase={true}
+                    phase={
+                      (experimentData?.experiment?.phases?.length ?? 1) - 1
+                    }
                     goalMetrics={report.args.goalMetrics}
                     secondaryMetrics={report.args.secondaryMetrics}
                     guardrailMetrics={report.args.guardrailMetrics}
@@ -507,8 +493,9 @@ export default function LegacyReportPage({
                     queryStatusData={queryStatusData}
                     status={"stopped"}
                     startDate={getValidDate(
-                      report.args.startDate
+                      report.args.startDate,
                     ).toISOString()}
+                    endDate={getValidDate(report.args.endDate).toISOString()}
                     dimensionId={report.args.dimension}
                     activationMetric={report.args.activationMetric}
                     variations={variations}
@@ -517,7 +504,6 @@ export default function LegacyReportPage({
                       report.args.statsEngine || DEFAULT_STATS_ENGINE
                     }
                     pValueCorrection={pValueCorrection}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                     settingsForSnapshotMetrics={
                       report.args.settingsForSnapshotMetrics
                     }
@@ -531,7 +517,7 @@ export default function LegacyReportPage({
                   unknownVariations={report.results?.unknownVariations || []}
                   isUpdating={status === "running"}
                   setVariationIds={async (ids) => {
-                    const args: ExperimentReportArgs = {
+                    const args: LegacyExperimentReportArgs = {
                       ...report.args,
                       variations: report.args.variations.map((v, i) => {
                         return {
@@ -553,7 +539,7 @@ export default function LegacyReportPage({
                       "update",
                       "VariationIdWarning",
                       datasource?.type || null,
-                      res.updatedReport as ExperimentReportInterface
+                      res.updatedReport as ExperimentReportInterface,
                     );
                     mutate();
                   }}
@@ -567,15 +553,20 @@ export default function LegacyReportPage({
                 report.results?.dimensions?.[0] !== undefined && (
                   <div className="mt-0 mb-3">
                     <CompactResults
+                      experimentId={report.experimentId ?? ""}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}
                       queryStatusData={queryStatusData}
                       reportDate={report.dateCreated}
                       startDate={getValidDate(
-                        report.args.startDate
+                        report.args.startDate,
                       ).toISOString()}
+                      endDate={getValidDate(report.args.endDate).toISOString()}
                       isLatestPhase={true}
+                      phase={
+                        (experimentData?.experiment?.phases?.length ?? 1) - 1
+                      }
                       status={"stopped"}
                       goalMetrics={report.args.goalMetrics}
                       secondaryMetrics={report.args.secondaryMetrics}
@@ -586,13 +577,13 @@ export default function LegacyReportPage({
                         report.args.statsEngine || DEFAULT_STATS_ENGINE
                       }
                       pValueCorrection={pValueCorrection}
-                      regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                       settingsForSnapshotMetrics={
                         report.args.settingsForSnapshotMetrics
                       }
                       sequentialTestingEnabled={sequentialTestingEnabled}
                       differenceType={differenceType}
                       isTabActive={true}
+                      disableTimeSeriesButton={true}
                     />
                   </div>
                 )}

@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
 import { useBanditSummaryTooltip } from "@/components/Experiment/BanditSummaryTableTooltip/useBanditSummaryTooltip";
@@ -51,7 +51,7 @@ export default function BanditSummaryTable({
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
-      "#bandit-summary-results thead tr:first-child th:not(.graph-cell)"
+      "#bandit-summary-results thead tr:first-child th:not(.graph-cell)",
     );
     let totalCellWidth = 0;
     for (let i = 0; i < firstRowCells.length; i++) {
@@ -72,14 +72,13 @@ export default function BanditSummaryTable({
   });
 
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variations.map(() => true)
+    variations.map(() => true),
   );
   const [variationsSort, setVariationsSort] = useState<"default" | "ranked">(
-    "default"
+    "default",
   );
-  const [showVariationsFilter, setShowVariationsFilter] = useState<boolean>(
-    false
-  );
+  const [showVariationsFilter, setShowVariationsFilter] =
+    useState<boolean>(false);
 
   useEffect(() => {
     if (!isTabActive) {
@@ -90,7 +89,8 @@ export default function BanditSummaryTable({
   const validEvents: BanditEvent[] =
     phaseObj?.banditEvents?.filter(
       (event) =>
-        event.banditResult?.singleVariationResults && !event.banditResult?.error
+        event.banditResult?.singleVariationResults &&
+        !event.banditResult?.error,
     ) || [];
   const currentEvent = validEvents[validEvents.length - 1];
   const results = currentEvent?.banditResult?.singleVariationResults;
@@ -148,13 +148,13 @@ export default function BanditSummaryTable({
       ...cis
         .filter((_, i) => isFinite(probabilities?.[i]))
         .map((ci) => ci[0])
-        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) < -190))
+        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) < -190)),
     );
     let max = Math.max(
       ...cis
         .filter((_, i) => isFinite(probabilities?.[i]))
         .map((ci) => ci[1])
-        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) > 190))
+        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) > 190)),
     );
     if (!isFinite(min) || !isFinite(max)) {
       min = -0.1;
@@ -319,7 +319,7 @@ export default function BanditSummaryTable({
                 const meanText = metric
                   ? getExperimentMetricFormatter(metric, getFactTableById)(
                       isFinite(stats.cr) ? stats.cr : 0,
-                      metricFormatterOptions
+                      metricFormatterOptions,
                     )
                   : (stats.cr ?? 0) + "";
                 const probability =
@@ -367,7 +367,7 @@ export default function BanditSummaryTable({
                     </td>
                     <td className="text-center px-0">
                       {numberFormatter.format(
-                        isFinite(stats.users) ? stats.users : 0
+                        isFinite(stats.users) ? stats.users : 0,
                       )}
                     </td>
                     <td
@@ -376,7 +376,7 @@ export default function BanditSummaryTable({
                         {
                           won,
                           hover: isHovered,
-                        }
+                        },
                       )}
                       onMouseMove={onPointerMove}
                       onMouseLeave={onPointerLeave}

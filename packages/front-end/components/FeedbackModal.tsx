@@ -31,7 +31,7 @@ export default function FeedbackModal({
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [formState, setFormState] = useState<"initial" | "submitted">(
-    "initial"
+    "initial",
   );
   const ctaEnabled = formState === "initial";
   const { email } = useUser();
@@ -41,7 +41,7 @@ export default function FeedbackModal({
       trackingEventModalType=""
       open={open}
       header={header}
-      cta={ctaEnabled ? cta : sentCta ?? cta}
+      cta={ctaEnabled ? cta : (sentCta ?? cta)}
       closeCta="Close"
       close={close}
       submit={() => {

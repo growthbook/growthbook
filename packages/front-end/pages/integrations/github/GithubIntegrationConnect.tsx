@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GithubIntegrationInterface } from "back-end/types/github";
+import { GithubIntegrationInterface } from "shared/types/github";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/services/auth";
 export default function GithubIntegrationConnect({
@@ -21,7 +21,7 @@ export default function GithubIntegrationConnect({
         body: JSON.stringify({
           code,
         }),
-      }
+      },
     )
       .then(() => refresh())
       .catch((e) => {

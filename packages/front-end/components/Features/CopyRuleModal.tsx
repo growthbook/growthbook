@@ -1,6 +1,7 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { useState } from "react";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
@@ -14,6 +15,7 @@ export interface Props {
   rules: FeatureRule[];
   cancel: () => void;
   mutate: () => void;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
 }
 
 export default function CopyRuleModal({
@@ -24,13 +26,14 @@ export default function CopyRuleModal({
   rules,
   cancel,
   mutate,
+  safeRolloutsMap,
 }: Props) {
   const { apiCall } = useAuth();
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const filteredEnvironments = environments.filter(
-    (env) => env.id !== environment
+    (env) => env.id !== environment,
   );
   const envs = filteredEnvironments.map((e) => e.id);
 
@@ -66,9 +69,15 @@ export default function CopyRuleModal({
             method: "POST",
             body: JSON.stringify({
               environment: env,
-              rule: { ...rule, id: "" },
+              rule:
+                rule.type === "safe-rollout"
+                  ? { ...rule, id: "", trackingKey: "" } // Don't copy tracking key but keep the seed for safe rollout copies
+                  : { ...rule, id: "" },
+              ...(rule.type === "safe-rollout" && {
+                safeRolloutFields: safeRolloutsMap.get(rule.safeRolloutId),
+              }),
             }),
-          }
+          },
         );
         draftVersion = res.version;
       }

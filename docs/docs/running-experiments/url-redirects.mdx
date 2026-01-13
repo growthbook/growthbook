@@ -125,24 +125,24 @@ It is possible to use our [Javascript](/lib/js) SDK to perform redirects on the 
 
 ## Sample Ratio Mismatch (SRM) Warnings on URL Redirect Tests
 
-[Sample Ratio Mismatch (SRM) warnings](https://docs.growthbook.io/using/experimenting#sample-ratio-mismatch-srm) happen when the actual traffic split in an experiment is significantly different from the traffic split configured for the experiment. For instance, if a 50/50 traffic split was configured for an experiment but a significantly different traffic split is observed, like a 46/54 split, an SRM warning will be triggered.
+[Sample Ratio Mismatch (SRM) warnings](/using/experimenting#sample-ratio-mismatch-srm) happen when the actual traffic split in an experiment is significantly different from the traffic split configured for the experiment. For instance, if a 50/50 traffic split was configured for an experiment but a significantly different traffic split is observed, like a 46/54 split, an SRM warning will be triggered.
 
 GrowthBook only shows SRM warnings if the p-value is less than 0.001, which means it's extremely unlikely to occur by chance. This p-value threshold is customizable in **Settings** → **General** → **Experiment
 Settings** → **Experiment Health Settings**.
 
 ### Why am I seeing SRM warnings on my URL Redirect test?
 
-SRM warnings are a common problem when running front-end URL redirect tests, regardless of what experimentation platform is used. When using GrowthBook's [JavaScript](https://docs.growthbook.io/lib/js), [React](https://docs.growthbook.io/lib/react), [Vue.js](https://docs.growthbook.io/lib/vue), or [Script Tag](https://docs.growthbook.io/lib/script-tag) SDKs to run URL Redirect tests, SRM warnings may occur. The issue is especially pronounced while also using [Google Tag Manager (GTM)](https://docs.growthbook.io/guide/google-tag-manager-and-growthbook).
+SRM warnings are a common problem when running front-end URL redirect tests, regardless of what experimentation platform is used. When using GrowthBook's [JavaScript](/lib/js), [React](/lib/react), [Vue.js](/lib/vue), or [Script Tag](/lib/script-tag) SDKs to run URL Redirect tests, SRM warnings may occur. The issue is especially pronounced while also using [Google Tag Manager (GTM)](/guide/google-tag-manager-and-growthbook).
 
-The inherent latency of the [trackingCallback](https://docs.growthbook.io/lib/js#experimentation-ab-testing) sometimes causes the URL Redirect to take place before the `trackingCallback` can complete, which means a disproportionately larger number of exposures are tracked for the control URL versus the redirect URL. This triggers an SRM warning.
+The inherent latency of the [trackingCallback](/lib/js#experimentation-ab-testing) sometimes causes the URL Redirect to take place before the `trackingCallback` can complete, which means a disproportionately larger number of exposures are tracked for the control URL versus the redirect URL. This triggers an SRM warning.
 
 ### What can I do to reduce or eliminate SRM warnings?
 
-1. The best way to eliminate a Sample Ratio Mismatch with URL Redirect tests is to use one of our **Edge Worker SDKs** instead of a front-end SDK. See our Edge SDK documentation for [Cloudflare Workers](https://docs.growthbook.io/lib/edge/cloudflare), [Fastly Compute](https://docs.growthbook.io/lib/edge/fastly), and [AWS Lambda@Edge](https://docs.growthbook.io/lib/edge/lambda).
+1. The best way to eliminate a Sample Ratio Mismatch with URL Redirect tests is to use one of our **Edge Worker SDKs** instead of a front-end SDK. See our Edge SDK documentation for [Cloudflare Workers](/lib/edge/cloudflare), [Fastly Compute](/lib/edge/fastly), and [AWS Lambda@Edge](/lib/edge/lambda).
 
 2. If you opt to use a front-end SDK (JS, React, or Vue), you can still greatly reduce or nearly eliminate SRM by implementing an **async tracking callback**. If your event tracking vendor supports async callbacks, then simply ensure that the `trackingCallback` that you pass into the GrowthBook SDK constructor awaits a successful network request for the tracked event. If you are using our HTML Script Tag, this is automatically handled for _GA4_ and _GTM_ tracking calls.
 
-:::note
+:::note Async tracking callbacks
 
 GrowthBook JavaScript and React SDKs introduced **async tracking callbacks** in version `1.2.0`.
 
