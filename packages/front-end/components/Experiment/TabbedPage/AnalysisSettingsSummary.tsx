@@ -628,7 +628,8 @@ export default function AnalysisSettingsSummary({
               ) : null}
             </Flex>
 
-            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
+            {ds &&
+              permissionsUtil.canRunExperimentQueries(ds) &&
               allMetrics.length > 0 && (
                 <RefreshResultsButton
                   entityType={
@@ -662,7 +663,6 @@ export default function AnalysisSettingsSummary({
                     }
                   }}
                   experiment={experiment}
-                  analysis={analysis}
                   phase={phase}
                   dimension={dimension}
                   setAnalysisSettings={setAnalysisSettings}
