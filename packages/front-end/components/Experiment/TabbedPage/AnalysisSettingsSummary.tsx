@@ -650,46 +650,46 @@ export default function AnalysisSettingsSummary({
               ) : null}
             </Flex>
 
-            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-              allMetrics.length > 0 && (
-                <RefreshResultsButton
-                  entityType={
-                    experiment.type === "holdout" ? "holdout" : "experiment"
+            {ds &&
+            permissionsUtil.canRunExperimentQueries(ds) &&
+            allMetrics.length > 0 ? (
+              <RefreshResultsButton
+                entityType={
+                  experiment.type === "holdout" ? "holdout" : "experiment"
+                }
+                entityId={experiment.id}
+                datasourceId={experiment.datasource}
+                latest={latest}
+                onSubmitSuccess={(snapshot) => {
+                  trackSnapshot(
+                    "create",
+                    "RunQueriesButton",
+                    datasource?.type || null,
+                    snapshot,
+                  );
+                  setAnalysisSettings(null);
+                }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
+                resetFilters={async () => {
+                  if (baselineRow !== 0) {
+                    setBaselineRow?.(0);
+                    setVariationFilter?.([]);
                   }
-                  entityId={experiment.id}
-                  datasourceId={experiment.datasource}
-                  latest={latest}
-                  onSubmitSuccess={(snapshot) => {
-                    trackSnapshot(
-                      "create",
-                      "RunQueriesButton",
-                      datasource?.type || null,
-                      snapshot,
-                    );
-                    setAnalysisSettings(null);
-                  }}
-                  mutate={mutateSnapshot}
-                  mutateAdditional={mutate}
-                  setRefreshError={setRefreshError}
-                  resetFilters={async () => {
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                    if (experiment.type === "multi-armed-bandit") {
-                      setSnapshotType?.("exploratory");
-                    } else {
-                      setSnapshotType?.(undefined);
-                    }
-                  }}
-                  experiment={experiment}
-                  analysis={analysis}
-                  phase={phase}
-                  dimension={dimension}
-                  setAnalysisSettings={setAnalysisSettings}
-                />
-              )}
+                  setDifferenceType("relative");
+                  if (experiment.type === "multi-armed-bandit") {
+                    setSnapshotType?.("exploratory");
+                  } else {
+                    setSnapshotType?.(undefined);
+                  }
+                }}
+                experiment={experiment}
+                phase={phase}
+                dimension={dimension}
+                setAnalysisSettings={setAnalysisSettings}
+              />
+            ) : null}
 
             <ResultMoreMenu
               experiment={experiment}

@@ -229,7 +229,6 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
-    manual: false,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -687,7 +686,6 @@ export function getReportSnapshotSettings({
 
   const phase = report.experimentMetadata.phases?.[phaseIndex];
   return {
-    manual: false,
     activationMetric:
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:

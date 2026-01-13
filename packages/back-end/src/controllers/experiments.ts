@@ -47,7 +47,6 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
-  createManualSnapshot,
   createSnapshot,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -2918,7 +2917,6 @@ export async function postSnapshot(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
   const { phase, dimension } = req.body;
 
@@ -2937,76 +2935,6 @@ export async function postSnapshot(
       message: "Phase not found",
     });
     return;
-  }
-
-  // Manual snapshot
-  if (!experiment.datasource) {
-    const { users, metrics } = req.body;
-    if (!users || !metrics) {
-      throw new Error("Missing users and metric data");
-    }
-
-    let project = null;
-    if (experiment.project) {
-      project = await context.models.projects.getById(experiment.project);
-    }
-    const { settings } = getScopedSettings({
-      organization: org,
-      project: project ?? undefined,
-      experiment,
-    });
-    const statsEngine = settings.statsEngine.value;
-    const metricDefaults = settings.metricDefaults.value;
-    const postStratificationEnabled = settings.postStratificationEnabled.value;
-
-    const analysisSettings = getDefaultExperimentAnalysisSettings({
-      statsEngine,
-      experiment,
-      organization: org,
-      regressionAdjustmentEnabled: false,
-      postStratificationEnabled,
-      dimension,
-    });
-
-    const metricMap = await getMetricMap(context);
-
-    try {
-      const snapshot = await createManualSnapshot({
-        experiment,
-        phaseIndex: phase,
-        users,
-        metrics,
-        orgPriorSettings: metricDefaults.priorSettings,
-        analysisSettings,
-        metricMap,
-      });
-      res.status(200).json({
-        status: 200,
-        snapshot,
-      });
-
-      await req.audit({
-        event: "experiment.refresh",
-        entity: {
-          object: "experiment",
-          id: experiment.id,
-        },
-        details: auditDetailsCreate({
-          phase,
-          users,
-          metrics,
-          manual: true,
-        }),
-      });
-      return;
-    } catch (e) {
-      req.log.error(e, "Failed to create manual snapshot");
-      res.status(400).json({
-        status: 400,
-        message: e.message,
-      });
-      return;
-    }
   }
 
   const datasource = await getDataSourceById(context, experiment.datasource);

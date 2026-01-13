@@ -3,7 +3,6 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
-  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
 } from "shared/types/experiment-snapshot";
 import { Text } from "@radix-ui/themes";
@@ -13,12 +12,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
-import ManualSnapshotForm from "./ManualSnapshotForm";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
   experiment: ExperimentInterfaceStringDates;
-  lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
   dimension?: string;
   setAnalysisSettings: (
@@ -31,7 +28,6 @@ const RefreshSnapshotButton: FC<{
 }> = ({
   mutate,
   experiment,
-  lastAnalysis,
   phase,
   dimension,
   setAnalysisSettings,
@@ -40,21 +36,13 @@ const RefreshSnapshotButton: FC<{
   resetFilters,
   setError,
 }) => {
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
   const { getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const manual = !experiment.datasource;
 
   const refreshSnapshot = async () => {
-    // Manual experiments can't refresh automatically, prompt for values in a modal instead
-    if (manual) {
-      setOpen(true);
-      return;
-    }
-
     const res = await apiCall<{
       status: number;
       message: string;
@@ -78,15 +66,6 @@ const RefreshSnapshotButton: FC<{
 
   return (
     <>
-      {open && (
-        <ManualSnapshotForm
-          phase={phase}
-          close={() => setOpen(false)}
-          experiment={experiment}
-          success={mutate}
-          lastAnalysis={lastAnalysis}
-        />
-      )}
       {useRadixButton ? (
         <>
           {loading && longResult && (
