@@ -118,54 +118,66 @@ export default function ChartTypeConfigSection({
   ];
 
   return (
-    <Collapsible
-      open={true}
-      transitionTime={100}
-      trigger={
-        <div
-          style={{
-            paddingLeft: "12px",
-            paddingRight: "12px",
-            paddingTop: "12px",
-            paddingBottom: "12px",
-            borderBottom: "1px solid var(--gray-a3)",
-          }}
-        >
-          <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-            <Flex justify="between" align="center">
-              <Flex align="center" gap="1">
-                <PiChartBar style={{ color: "var(--violet-11)" }} size={20} />
-                Chart Type
-              </Flex>
-              <FaAngleRight className="chevron" />
-            </Flex>
-          </Text>
-        </div>
-      }
+    <Flex
+      direction="column"
+      height="100%"
+      style={{
+        border: "1px solid var(--gray-a3)",
+        borderRadius: "var(--radius-4)",
+        overflow: "hidden",
+        backgroundColor: "var(--color-panel-translucent)",
+      }}
     >
-      <Box p="4" height="fit-content">
-        <Flex direction="column" gap="4">
-          <Grid columns="3" gap="2">
-            {chartTypes.map(({ value, label }) => {
-              const isSelected = displayChartType === value;
-              return (
-                <Button
-                  key={value}
-                  variant="outline"
-                  onClick={() => handleChartTypeChange(value)}
-                  style={{
-                    backgroundColor: isSelected ? "var(--violet-5)" : undefined,
-                    borderColor: isSelected ? "var(--violet-8)" : undefined,
-                    color: isSelected ? "var(--violet-11)" : undefined,
-                  }}
-                >
-                  {label}
-                </Button>
-              );
-            })}
-          </Grid>
-        </Flex>
-      </Box>
-    </Collapsible>
+      <Collapsible
+        open={true}
+        transitionTime={100}
+        trigger={
+          <div
+            style={{
+              paddingLeft: "12px",
+              paddingRight: "12px",
+              paddingTop: "12px",
+              paddingBottom: "12px",
+              borderBottom: "1px solid var(--gray-a3)",
+            }}
+          >
+            <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+              <Flex justify="between" align="center">
+                <Flex align="center" gap="1">
+                  <PiChartBar style={{ color: "var(--violet-11)" }} size={20} />
+                  Chart Type
+                </Flex>
+                <FaAngleRight className="chevron" />
+              </Flex>
+            </Text>
+          </div>
+        }
+      >
+        <Box p="4" height="fit-content">
+          <Flex direction="column" gap="4">
+            <Grid columns="3" gap="2">
+              {chartTypes.map(({ value, label }) => {
+                const isSelected = displayChartType === value;
+                return (
+                  //MKTODO: I think these should be RadioCards, not buttons
+                  <Button
+                    key={value}
+                    variant="outline"
+                    onClick={() => handleChartTypeChange(value)}
+                    style={{
+                      backgroundColor: isSelected
+                        ? "var(--violet-5)"
+                        : undefined,
+                    }}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </Grid>
+          </Flex>
+        </Box>
+      </Collapsible>
+    </Flex>
   );
 }

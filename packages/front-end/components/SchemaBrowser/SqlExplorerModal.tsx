@@ -83,6 +83,7 @@ export interface Props {
     allVisualizationIds: string[];
   }) => Promise<void>;
   projects?: string[];
+  canAddVisualizations?: boolean;
 }
 
 export default function SqlExplorerModal({
@@ -97,6 +98,7 @@ export default function SqlExplorerModal({
   trackingEventModalSource = "",
   onSave,
   projects = [],
+  canAddVisualizations = true,
 }: Props) {
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
@@ -105,7 +107,9 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tab, setTab] = useState(
-    initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql",
+    initial?.dataVizConfig?.length && !disableSave && canAddVisualizations
+      ? "visualization-0"
+      : "sql",
   );
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
@@ -852,85 +856,86 @@ export default function SqlExplorerModal({
                       )}
                     </Flex>
                   </TabsTrigger>
-                  {dataVizConfig.map((config, index) => (
-                    <TabsTrigger
-                      value={`visualization-${index}`}
-                      key={index}
-                      style={{ paddingRight: "0px" }}
-                    >
-                      <Flex align="center" gap="2">
-                        <span
-                          title={config.title || `Visualization ${index + 1}`}
-                        >
-                          {getTruncatedTitle(
-                            config.title || `Visualization ${index + 1}`,
-                            dataVizConfig.length,
-                          )}
-                        </span>
-                        {!readOnlyMode && tab === `visualization-${index}` ? (
-                          <DropdownMenu
-                            trigger={
-                              <button className="btn btn-link pr-0">
-                                <BsThreeDotsVertical color="var(--text-color-main" />
-                              </button>
-                            }
+                  {canAddVisualizations &&
+                    dataVizConfig.map((config, index) => (
+                      <TabsTrigger
+                        value={`visualization-${index}`}
+                        key={index}
+                        style={{ paddingRight: "0px" }}
+                      >
+                        <Flex align="center" gap="2">
+                          <span
+                            title={config.title || `Visualization ${index + 1}`}
                           >
-                            <Tooltip
-                              body="You can only add up to 10 visualizations to a query."
-                              shouldDisplay={dataVizConfig.length >= 10}
+                            {getTruncatedTitle(
+                              config.title || `Visualization ${index + 1}`,
+                              dataVizConfig.length,
+                            )}
+                          </span>
+                          {!readOnlyMode && tab === `visualization-${index}` ? (
+                            <DropdownMenu
+                              trigger={
+                                <button className="btn btn-link pr-0">
+                                  <BsThreeDotsVertical color="var(--text-color-main" />
+                                </button>
+                              }
                             >
+                              <Tooltip
+                                body="You can only add up to 10 visualizations to a query."
+                                shouldDisplay={dataVizConfig.length >= 10}
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setDirty(true);
+                                    const newDataVizConfig = [
+                                      ...dataVizConfig,
+                                      {
+                                        ...config,
+                                        id: undefined, // Generate a new ID once the request hits the backend
+                                        title: `${
+                                          config.title ||
+                                          `Visualization ${index + 1}`
+                                        } (Copy)`,
+                                      },
+                                    ];
+                                    form.setValue(
+                                      "dataVizConfig",
+                                      newDataVizConfig,
+                                    );
+                                    setTab(
+                                      `visualization-${dataVizConfig.length}`,
+                                    );
+                                  }}
+                                  disabled={dataVizConfig.length >= 10}
+                                >
+                                  Duplicate
+                                </DropdownMenuItem>
+                              </Tooltip>
                               <DropdownMenuItem
+                                color="red"
                                 onClick={() => {
                                   setDirty(true);
-                                  const newDataVizConfig = [
-                                    ...dataVizConfig,
-                                    {
-                                      ...config,
-                                      id: undefined, // Generate a new ID once the request hits the backend
-                                      title: `${
-                                        config.title ||
-                                        `Visualization ${index + 1}`
-                                      } (Copy)`,
-                                    },
-                                  ];
-                                  form.setValue(
-                                    "dataVizConfig",
-                                    newDataVizConfig,
-                                  );
+                                  const currentConfig = [...dataVizConfig];
+                                  currentConfig.splice(index, 1);
+                                  form.setValue("dataVizConfig", currentConfig);
                                   setTab(
-                                    `visualization-${dataVizConfig.length}`,
+                                    index < dataVizConfig.length - 1
+                                      ? `visualization-${index}`
+                                      : index > 0
+                                        ? `visualization-${index - 1}`
+                                        : "sql",
                                   );
                                 }}
-                                disabled={dataVizConfig.length >= 10}
                               >
-                                Duplicate
+                                Delete
                               </DropdownMenuItem>
-                            </Tooltip>
-                            <DropdownMenuItem
-                              color="red"
-                              onClick={() => {
-                                setDirty(true);
-                                const currentConfig = [...dataVizConfig];
-                                currentConfig.splice(index, 1);
-                                form.setValue("dataVizConfig", currentConfig);
-                                setTab(
-                                  index < dataVizConfig.length - 1
-                                    ? `visualization-${index}`
-                                    : index > 0
-                                      ? `visualization-${index - 1}`
-                                      : "sql",
-                                );
-                              }}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenu>
-                        ) : null}
-                      </Flex>
-                    </TabsTrigger>
-                  ))}
+                            </DropdownMenu>
+                          ) : null}
+                        </Flex>
+                      </TabsTrigger>
+                    ))}
                 </TabsList>
-                {!readOnlyMode ? (
+                {!readOnlyMode && canAddVisualizations ? (
                   <Tooltip
                     shouldDisplay={dataVizConfig.length >= 10}
                     body="You can only add up to 10 visualizations to a query."
@@ -1293,36 +1298,37 @@ export default function SqlExplorerModal({
               </PanelGroup>
             </TabsContent>
 
-            {dataVizConfig.map((config, index) => (
-              <TabsContent
-                key={index}
-                value={`visualization-${index}`}
-                style={{ flex: 1, overflow: "hidden" }}
-              >
-                {!form.watch("results").results ||
-                form.watch("results").results.length === 0 ? (
-                  <Flex justify="center" align="center" height="100%">
-                    <Text align="center">
-                      No results to visualize.
-                      <br />
-                      Ensure your query has results to add a visualization.
-                    </Text>
-                  </Flex>
-                ) : (
-                  <SqlExplorerDataVisualization
-                    rows={form.watch("results").results}
-                    dataVizConfig={config}
-                    onDataVizConfigChange={(updatedConfig) => {
-                      const newDataVizConfig = [...dataVizConfig];
-                      newDataVizConfig[index] = updatedConfig;
-                      setDirty(true);
-                      form.setValue("dataVizConfig", newDataVizConfig);
-                    }}
-                    showPanel={showSidePanel && !readOnlyMode}
-                  />
-                )}
-              </TabsContent>
-            ))}
+            {canAddVisualizations &&
+              dataVizConfig.map((config, index) => (
+                <TabsContent
+                  key={index}
+                  value={`visualization-${index}`}
+                  style={{ flex: 1, overflow: "hidden" }}
+                >
+                  {!form.watch("results").results ||
+                  form.watch("results").results.length === 0 ? (
+                    <Flex justify="center" align="center" height="100%">
+                      <Text align="center">
+                        No results to visualize.
+                        <br />
+                        Ensure your query has results to add a visualization.
+                      </Text>
+                    </Flex>
+                  ) : (
+                    <SqlExplorerDataVisualization
+                      rows={form.watch("results").results}
+                      dataVizConfig={config}
+                      onDataVizConfigChange={(updatedConfig) => {
+                        const newDataVizConfig = [...dataVizConfig];
+                        newDataVizConfig[index] = updatedConfig;
+                        setDirty(true);
+                        form.setValue("dataVizConfig", newDataVizConfig);
+                      }}
+                      showPanel={showSidePanel && !readOnlyMode}
+                    />
+                  )}
+                </TabsContent>
+              ))}
           </Tabs>
         </Box>
       </Modal>

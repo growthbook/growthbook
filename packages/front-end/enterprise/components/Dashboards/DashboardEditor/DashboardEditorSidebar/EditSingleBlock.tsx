@@ -1400,7 +1400,12 @@ export default function EditSingleBlock({
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
             {block.type === "data-visualization" && (
-              <DataVisualizationSettings block={block} setBlock={setBlock} />
+              <DataVisualizationSettings
+                block={block}
+                setBlock={setBlock}
+                dashboardId={dashboardId}
+                projects={projects}
+              />
             )}
           </Flex>
           <Flex gap="3" align="center" justify="center">
