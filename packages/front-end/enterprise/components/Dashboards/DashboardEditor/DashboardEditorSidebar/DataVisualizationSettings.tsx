@@ -3,10 +3,14 @@ import { Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DataVisualizationBlockInterface,
+  chartTypeHasDisplaySettings,
 } from "shared/enterprise";
 import { DataVizConfig, SavedQuery } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import DataVizDimensionPanel from "@/components/DataViz/DataVizDimensionPanel";
+import DataVizFilterPanel from "@/components/DataViz/DataVizFilterPanel";
+import DisplaySettingsPanel from "@/components/DataViz/DisplaySettingsPanel/DisplaySettingsPanel";
+import AnchorYAxisToZeroCheckbox from "@/components/DataViz/DisplaySettingsPanel/AnchorYAxisToZeroCheckbox";
 import ChartTypeConfigSection from "./ChartTypeConfigSection";
 import DataSourceConfigSection from "./DataSourceConfigSection";
 import AxesConfigSection from "./AxesConfigSection";
@@ -101,6 +105,21 @@ export default function DataVisualizationSettings({
               onDataVizConfigChange={onDataVizConfigChange}
               axisKeys={axisKeys}
             />
+            <DataVizFilterPanel
+              dataVizConfig={block.dataVizConfig?.[0] ?? {}}
+              onDataVizConfigChange={onDataVizConfigChange}
+              rows={rows}
+            />
+            {chartTypeHasDisplaySettings(
+              block.dataVizConfig?.[0]?.chartType,
+            ) && (
+              <DisplaySettingsPanel>
+                <AnchorYAxisToZeroCheckbox
+                  dataVizConfig={block.dataVizConfig?.[0] ?? {}}
+                  onDataVizConfigChange={onDataVizConfigChange}
+                />
+              </DisplaySettingsPanel>
+            )}
           </>
         )}
     </Flex>
