@@ -125,20 +125,11 @@ export default function EditGlobalColorDropdown() {
                                   <HexColorInput
                                     color={seriesSettings.color}
                                     onChange={(color) => {
-                                      // Track color, sync on blur
-                                      pendingColorsRef.current.set(key, color);
-                                    }}
-                                    onBlur={() => {
-                                      // Sync to state when user finishes typing
-                                      const pendingColor =
-                                        pendingColorsRef.current.get(key);
-                                      if (pendingColor) {
-                                        updateSeriesColor(
-                                          columnName,
-                                          dimensionValue,
-                                          pendingColor,
-                                        );
-                                      }
+                                      updateSeriesColor(
+                                        columnName,
+                                        dimensionValue,
+                                        color,
+                                      );
                                     }}
                                   />
                                 </div>
