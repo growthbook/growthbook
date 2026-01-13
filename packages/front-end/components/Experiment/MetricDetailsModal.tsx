@@ -15,6 +15,10 @@ import {
 import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotAnalysis,
+} from "shared/types/experiment-snapshot";
+import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -56,6 +60,7 @@ interface MetricDetailsModalProps {
   sliceId?: string;
   allRows?: ExperimentTableRow[];
   baselineRow: number;
+  variationFilter?: number[];
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
@@ -68,6 +73,10 @@ interface MetricDetailsModalProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  initialTab?: "overview" | "slices" | "debug";
+  initialSliceSearchTerm?: string;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
 }
 
 const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
@@ -80,12 +89,13 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
   experimentStatus,
   differenceType,
   variationNames,
-  showVariations,
+  showVariations: _showVariations,
   pValueAdjustmentEnabled,
   firstDateToRender,
   sliceId,
   allRows = [],
   baselineRow = 0,
+  variationFilter = [],
   goalMetrics = [],
   secondaryMetrics = [],
   hideDetails = false,
@@ -97,14 +107,45 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
   isLatestPhase,
   pValueCorrection,
   sequentialTestingEnabled,
+  initialTab = "overview",
+  initialSliceSearchTerm = "",
+  snapshot,
+  analysis,
 }) => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Create local state for filters that can be modified within the modal
+  const [localBaselineRow, setLocalBaselineRow] = useState(baselineRow);
+  const [localVariationFilter, setLocalVariationFilter] =
+    useState<number[]>(variationFilter);
+  const [localDifferenceType, setLocalDifferenceType] =
+    useState<DifferenceType>(differenceType);
+
+  // Reset to initial tab when modal reopens or initialTab changes
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  // Reset local filters when parent filters change (modal reopens)
+  useEffect(() => {
+    setLocalBaselineRow(baselineRow);
+    setLocalVariationFilter(variationFilter);
+    setLocalDifferenceType(differenceType);
+  }, [baselineRow, variationFilter, differenceType]);
 
   // Calculate which fields are overridden
   const metricOverrideFields = useMemo(() => {
     const { overrideFields } = applyMetricOverrides(metric, metricOverrides);
     return overrideFields;
   }, [metric, metricOverrides]);
+
+  // Calculate local showVariations based on local variation filter
+  const localShowVariations = useMemo(() => {
+    if (!localVariationFilter || localVariationFilter.length === 0) {
+      return variations.map(() => true);
+    }
+    return variations.map((_, i) => !localVariationFilter.includes(i));
+  }, [localVariationFilter, variations]);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -346,7 +387,10 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
             endDate={endDate}
             status={experimentStatus}
             variations={variations}
-            baselineRow={baselineRow}
+            baselineRow={localBaselineRow}
+            setBaselineRow={setLocalBaselineRow}
+            variationFilter={localVariationFilter}
+            setVariationFilter={setLocalVariationFilter}
             rows={[row]}
             id={`${experimentId}_${metric.id}_modal`}
             resultGroup={
@@ -361,7 +405,8 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
             renderLabelColumn={({ label }) => label}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
             pValueCorrection={pValueCorrection}
-            differenceType={differenceType}
+            differenceType={localDifferenceType}
+            setDifferenceType={setLocalDifferenceType}
             sequentialTestingEnabled={sequentialTestingEnabled}
             isTabActive={activeTab === "overview"}
             noStickyHeader={true}
@@ -375,9 +420,9 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
             phase={phase}
             experimentStatus={experimentStatus}
             metric={metric}
-            differenceType={differenceType}
+            differenceType={localDifferenceType}
             variationNames={variationNames}
-            showVariations={showVariations}
+            showVariations={localShowVariations}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
             pValueAdjustmentEnabled={pValueAdjustmentEnabled}
             firstDateToRender={firstDateToRender}
@@ -390,9 +435,9 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
             metric={metric}
             allRows={allRows}
             variationNames={variationNames}
-            differenceType={differenceType}
+            differenceType={localDifferenceType}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
-            baselineRow={baselineRow}
+            baselineRow={localBaselineRow}
             experimentId={experimentId}
             phase={phase}
             variations={variations}
@@ -403,6 +448,7 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
             pValueCorrection={pValueCorrection}
             sequentialTestingEnabled={sequentialTestingEnabled}
             experimentStatus={experimentStatus}
+            initialSearchTerm={initialSliceSearchTerm}
           />
         </TabsContent>
 
@@ -411,9 +457,21 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
             row={row}
             metric={metric}
             statsEngine={statsEngine || DEFAULT_STATS_ENGINE}
-            differenceType={differenceType}
+            differenceType={localDifferenceType}
             variationNames={variationNames}
-            baselineRow={baselineRow}
+            baselineRow={localBaselineRow}
+            experimentId={experimentId}
+            phase={phase}
+            variations={variations}
+            startDate={startDate}
+            endDate={endDate}
+            reportDate={reportDate}
+            isLatestPhase={isLatestPhase}
+            pValueCorrection={pValueCorrection}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            experimentStatus={experimentStatus}
+            snapshot={snapshot}
+            analysis={analysis}
           />
         </TabsContent>
       </Modal>

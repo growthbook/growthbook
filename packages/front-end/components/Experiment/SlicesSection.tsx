@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   DifferenceType,
@@ -7,10 +7,11 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
-import { Box, Flex, Heading, Text, TextField } from "@radix-ui/themes";
+import { Flex, TextField } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EmptyState from "@/components/EmptyState";
 import ResultsTable from "./ResultsTable";
 
 interface SlicesSectionProps {
@@ -31,12 +32,13 @@ interface SlicesSectionProps {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   experimentStatus: ExperimentStatus;
+  initialSearchTerm?: string;
 }
 
 const SlicesSection: FC<SlicesSectionProps> = ({
   metric,
   allRows,
-  differenceType,
+  differenceType: initialDifferenceType,
   statsEngine,
   baselineRow = 0,
   experimentId,
@@ -49,9 +51,26 @@ const SlicesSection: FC<SlicesSectionProps> = ({
   pValueCorrection,
   sequentialTestingEnabled,
   experimentStatus,
+  initialSearchTerm = "",
 }) => {
   const { getFactTableById } = useDefinitions();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  
+  // Update search term when initialSearchTerm changes
+  useEffect(() => {
+    setSearchTerm(initialSearchTerm);
+  }, [initialSearchTerm]);
+  
+  // Add state for sorting
+  const [sortBy, setSortBy] = useState<"significance" | "change" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
+    null
+  );
+  
+  // Add state for difference type (local state for this section)
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
+    initialDifferenceType
+  );
 
   // Filter to get slice rows for this metric
   // Always show ALL slices in the modal regardless of expansion state in main table
@@ -92,41 +111,15 @@ const SlicesSection: FC<SlicesSectionProps> = ({
   const hasSliceData = sliceRows.length > 0;
   const showEmptyState = !hasSliceData && hasSlicesAvailable;
 
-  // Don't render anything if slices are not available at all
-  if (!hasSliceData && !hasSlicesAvailable) {
-    return null;
-  }
-
   // Render empty state
   if (showEmptyState) {
     return (
-      <Box
-        style={{
-          textAlign: "center",
-          padding: "var(--space-8) var(--space-6)",
-          backgroundColor: "var(--color-background-subtle)",
-          borderRadius: "var(--radius-3)",
-        }}
-      >
-        <Heading size="5" weight="medium" mb="3">
-          View Analysis for a Pre-selected Set of Metric Dimensions
-        </Heading>
-        <Text
-          size="3"
-          style={{
-            color: "var(--color-text-mid)",
-            maxWidth: "700px",
-            margin: "0 auto",
-            display: "block",
-          }}
-        >
-          Introducing <strong>Slices</strong>, metric dimensions that can be
-          pre-defined at a global or local level and reused for granular
-          analysis. Configure Slices in{" "}
-          <strong>Fact Tables &gt; Edit Columns</strong> to make them available
-          in Experiments.
-        </Text>
-      </Box>
+      <EmptyState
+        title="View Analysis for Slices"
+        description="Introducing Slices, metric dimensions that can be pre-defined at a global or local level and reused for granular analysis. Configure Slices in Fact Tables > Edit Columns to make them available in Experiments."
+        leftButton={null}
+        rightButton={null}
+      />
     );
   }
 
@@ -174,6 +167,7 @@ const SlicesSection: FC<SlicesSectionProps> = ({
         statsEngine={statsEngine}
         pValueCorrection={pValueCorrection}
         differenceType={differenceType}
+        setDifferenceType={setDifferenceType}
         sequentialTestingEnabled={sequentialTestingEnabled}
         isTabActive={true}
         noStickyHeader={true}
@@ -181,6 +175,10 @@ const SlicesSection: FC<SlicesSectionProps> = ({
         isBandit={false}
         showTimeSeriesButton={true}
         isHoldout={false}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortDirection={sortDirection}
+        setSortDirection={setSortDirection}
       />
     </div>
   );

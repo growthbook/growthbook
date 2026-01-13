@@ -167,6 +167,7 @@ export default function ResultsTable({
   startDate,
   endDate: _endDate,
   renderLabelColumn,
+  onRowClick,
   resultGroup,
   dateCreated,
   statsEngine,
@@ -736,7 +737,11 @@ export default function ResultsTable({
               let alreadyShownQueryError = false;
               let alreadyShownQuantileError = false;
 
-              const rowId = `${row.metric.id}-${i}`;
+              // Use sliceId for slice rows to ensure consistency when filtering
+              const rowId =
+                row.isSliceRow && row.sliceId
+                  ? `${row.metric.id}-${row.sliceId}`
+                  : `${row.metric.id}-${i}`;
 
               const timeSeriesButton = showTimeSeriesButton ? (
                 <TimeSeriesButton
@@ -979,6 +984,7 @@ export default function ResultsTable({
                                           rows[i]?.sliceLevels || [],
                                         ) &&
                                       j === orderedVariations.length - 1,
+                                    [styles.clickableRow]: !!onRowClick,
                                   },
                                 )}
                                 key={j}
@@ -986,7 +992,24 @@ export default function ResultsTable({
                                   height: compactResults
                                     ? ROW_HEIGHT + 10
                                     : ROW_HEIGHT,
+                                  cursor: onRowClick ? "pointer" : undefined,
                                 }}
+                                onClick={
+                                  onRowClick
+                                    ? (e) => {
+                                        // Don't trigger row click if clicking on interactive elements
+                                        const target = e.target as HTMLElement;
+                                        if (
+                                          target.closest("a") ||
+                                          target.closest("button") ||
+                                          target.closest("[role='button']")
+                                        ) {
+                                          return;
+                                        }
+                                        onRowClick(row);
+                                      }
+                                    : undefined
+                                }
                               >
                                 {columnsToDisplay.includes(
                                   "Metric & Variation Names",

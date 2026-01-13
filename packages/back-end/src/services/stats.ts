@@ -161,7 +161,8 @@ export async function runStatsEngine(
       .getHistogram("python.stats_pool_acquire_ms")
       .record(Date.now() - acquireStart);
     try {
-      return await server.call(statsData);
+      const results = await server.call(statsData);
+      return results;
     } finally {
       statsServerPool.release(server);
     }

@@ -315,7 +315,7 @@ pre {
 }
 
 .experiment-row-tooltip-wrapper {
-  z-index: 820;
+  z-index: 9999999;
   &.tooltip-animate-appear .experiment-row-tooltip {
     opacity: 0;
     transform: scaleX(60%) scaleY(40%);

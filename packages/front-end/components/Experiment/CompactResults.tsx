@@ -1,5 +1,5 @@
 import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
-import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -38,14 +38,34 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Link from "@/ui/Link";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import { ExperimentTab } from "./TabbedPage";
-import Link from "@/ui/Link";
 import MetricDetailsModal from "./MetricDetailsModal";
+
+// Helper function to extract slice name from row for search
+function getSliceNameFromRow(row: ExperimentTableRow): string {
+  if (!row.isSliceRow || !row.sliceLevels || row.sliceLevels.length === 0) {
+    return "";
+  }
+
+  return row.sliceLevels
+    .map((dl) => {
+      if (dl.levels.length === 0) {
+        const emptyValue = dl.datatype === "string" ? "other" : "null";
+        return `${dl.column}: ${emptyValue}`;
+      }
+      const value = dl.levels[0];
+      if (dl.datatype === "boolean") {
+        return `${dl.column}: ${value}`;
+      }
+      return value;
+    })
+    .join(" + ");
+}
 
 const CompactResults: FC<{
   experimentId: string;
@@ -199,6 +219,11 @@ const CompactResults: FC<{
   const [openMetricIdDetailsModal, setOpenMetricIdDetailsModal] = useState<
     string | null
   >(null);
+  const [openMetricDetailsTab, setOpenMetricDetailsTab] = useState<
+    "overview" | "slices" | "debug"
+  >("overview");
+  const [openMetricSliceSearchTerm, setOpenMetricSliceSearchTerm] =
+    useState("");
 
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
@@ -432,8 +457,28 @@ const CompactResults: FC<{
             shouldShowMetricSlices: true,
             getChildRowCounts,
             sliceTagsFilter,
-            onMetricLabelClick: setOpenMetricIdDetailsModal,
+            onMetricLabelClick: (
+              metricId: string,
+              tab?: "overview" | "slices" | "debug",
+              sliceSearchTerm?: string,
+            ) => {
+              setOpenMetricIdDetailsModal(metricId);
+              setOpenMetricDetailsTab(tab || "overview");
+              setOpenMetricSliceSearchTerm(sliceSearchTerm || "");
+            },
           })}
+          onRowClick={(row) => {
+            setOpenMetricIdDetailsModal(row.metric.id);
+            if (row.isSliceRow) {
+              setOpenMetricDetailsTab("slices");
+              // Extract slice name from the row
+              const sliceName = getSliceNameFromRow(row);
+              setOpenMetricSliceSearchTerm(sliceName);
+            } else {
+              setOpenMetricDetailsTab("overview");
+              setOpenMetricSliceSearchTerm("");
+            }
+          }}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
           noTooltip={noTooltip}
@@ -493,8 +538,28 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
-              onMetricLabelClick: setOpenMetricIdDetailsModal,
+              onMetricLabelClick: (
+                metricId: string,
+                tab?: "overview" | "slices" | "debug",
+                sliceSearchTerm?: string,
+              ) => {
+                setOpenMetricIdDetailsModal(metricId);
+                setOpenMetricDetailsTab(tab || "overview");
+                setOpenMetricSliceSearchTerm(sliceSearchTerm || "");
+              },
             })}
+            onRowClick={(row) => {
+              setOpenMetricIdDetailsModal(row.metric.id);
+              if (row.isSliceRow) {
+                setOpenMetricDetailsTab("slices");
+                // Extract slice name from the row
+                const sliceName = getSliceNameFromRow(row);
+                setOpenMetricSliceSearchTerm(sliceName);
+              } else {
+                setOpenMetricDetailsTab("overview");
+                setOpenMetricSliceSearchTerm("");
+              }
+            }}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
@@ -554,8 +619,28 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
-              onMetricLabelClick: setOpenMetricIdDetailsModal,
+              onMetricLabelClick: (
+                metricId: string,
+                tab?: "overview" | "slices" | "debug",
+                sliceSearchTerm?: string,
+              ) => {
+                setOpenMetricIdDetailsModal(metricId);
+                setOpenMetricDetailsTab(tab || "overview");
+                setOpenMetricSliceSearchTerm(sliceSearchTerm || "");
+              },
             })}
+            onRowClick={(row) => {
+              setOpenMetricIdDetailsModal(row.metric.id);
+              if (row.isSliceRow) {
+                setOpenMetricDetailsTab("slices");
+                // Extract slice name from the row
+                const sliceName = getSliceNameFromRow(row);
+                setOpenMetricSliceSearchTerm(sliceName);
+              } else {
+                setOpenMetricDetailsTab("overview");
+                setOpenMetricSliceSearchTerm("");
+              }
+            }}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
@@ -597,6 +682,7 @@ const CompactResults: FC<{
           guardrailMetrics={guardrailMetrics}
           allRows={rows}
           baselineRow={baselineRow}
+          variationFilter={variationFilter}
           metricOverrides={metricOverrides}
           variations={variations}
           startDate={startDate}
@@ -605,6 +691,10 @@ const CompactResults: FC<{
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          initialTab={openMetricDetailsTab}
+          initialSliceSearchTerm={openMetricSliceSearchTerm}
+          snapshot={snapshot}
+          analysis={analysis}
         />
       )}
     </>
@@ -613,8 +703,8 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  statsEngine,
-  hideDetails,
+  statsEngine: _statsEngine,
+  hideDetails: _hideDetails,
   experimentType: _experimentType,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
@@ -648,7 +738,11 @@ export function getRenderLabelColumn({
   pinSource?: "experiment" | "custom" | "none";
   sliceTagsFilter?: string[];
   className?: string;
-  onMetricLabelClick?: (metricId: string) => void;
+  onMetricLabelClick?: (
+    metricId: string,
+    tab?: "overview" | "slices" | "debug",
+    sliceSearchTerm?: string,
+  ) => void;
 }) {
   return function renderLabelColumn({
     label,
@@ -665,13 +759,19 @@ export function getRenderLabelColumn({
     maxRows?: number;
     location?: "goal" | "secondary" | "guardrail";
   }) {
+    const isSliceRow = !!row?.isSliceRow;
     const onClickLabel = onMetricLabelClick
-      ? () => onMetricLabelClick(metric.id)
+      ? () => {
+          if (isSliceRow && row) {
+            const sliceName = getSliceNameFromRow(row);
+            onMetricLabelClick(metric.id, "slices", sliceName);
+          } else {
+            onMetricLabelClick(metric.id, "overview", "");
+          }
+        }
       : undefined;
     const expandedKey = `${metric.id}:${location}`;
     const isExpanded = !!expandedMetrics?.[expandedKey];
-
-    const isSliceRow = !!row?.isSliceRow;
 
     // Slice row
     if (isSliceRow) {
