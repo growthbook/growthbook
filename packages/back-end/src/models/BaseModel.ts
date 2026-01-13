@@ -29,8 +29,8 @@ import {
   ForeignRefs,
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
-import { ApiRequest } from "../util/handler";
-import { ApiBaseSchema, ApiModelConfig } from "../api/ApiModel";
+import { ApiRequest } from "back-end/src/util/handler";
+import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
 
 export type Context = ApiReqContext | ReqContext;
 
