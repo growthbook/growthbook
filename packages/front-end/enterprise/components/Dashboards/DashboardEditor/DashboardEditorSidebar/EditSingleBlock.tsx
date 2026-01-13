@@ -344,7 +344,7 @@ export default function EditSingleBlock({
   const sortByOptions = useMemo(() => {
     const options = [{ value: "", label: "Default" }];
     if (hasMetricFilters) {
-      options.push({ value: "metricIds", label: "Metric filter" });
+      options.push({ value: "metrics", label: "Metric order" });
     }
     if (block?.type !== "experiment-time-series") {
       options.push(
@@ -355,7 +355,7 @@ export default function EditSingleBlock({
     return options;
   }, [hasMetricFilters, block?.type]);
 
-  // Reset sortBy to null if it's "metricIds" but no metric filters exist
+  // Reset sortBy to null if it's "metrics" but no metric filters exist
   useEffect(() => {
     if (
       block &&
@@ -364,7 +364,7 @@ export default function EditSingleBlock({
         "sortBy",
         (val) => val === null || typeof val === "string",
       ) &&
-      block.sortBy === "metricIds" &&
+      block.sortBy === "metrics" &&
       !hasMetricFilters
     ) {
       setBlock({
@@ -1005,13 +1005,13 @@ export default function EditSingleBlock({
                             block,
                             "sortBy",
                             (val) => val === null || typeof val === "string",
-                          ) && block.sortBy === "metricIds"
+                          ) && block.sortBy === "metrics"
                         }
                         setValue={(checked) => {
                           setBlock({
                             ...block,
                             sortBy: checked
-                              ? ("metricIds" as (typeof block)["sortBy"])
+                              ? ("metrics" as (typeof block)["sortBy"])
                               : null,
                             sortDirection: null,
                           });

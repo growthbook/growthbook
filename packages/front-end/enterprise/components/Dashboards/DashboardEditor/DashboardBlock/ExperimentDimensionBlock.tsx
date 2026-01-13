@@ -135,10 +135,10 @@ export default function ExperimentDimensionBlock({
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
-      sortBy={blockSortBy === "metricIds" ? "custom" : (blockSortBy ?? null)}
+      sortBy={blockSortBy === "metrics" ? "metrics" : (blockSortBy ?? null)}
       setSortBy={
         isEditing && setSortBy
-          ? (value: "significance" | "change" | "custom" | null) => {
+          ? (value: "significance" | "change" | "metrics" | null) => {
               setSortBy(value as "significance" | "change" | null);
             }
           : undefined
@@ -146,9 +146,7 @@ export default function ExperimentDimensionBlock({
       sortDirection={blockSortDirection ?? null}
       setSortDirection={isEditing ? setSortDirection : undefined}
       customMetricOrder={
-        blockSortBy === "metricIds" &&
-        blockMetricIds &&
-        blockMetricIds.length > 0
+        blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
           ? blockMetricIds.filter(
               (id) =>
                 ![

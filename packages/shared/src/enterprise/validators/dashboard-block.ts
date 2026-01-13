@@ -110,7 +110,7 @@ const experimentMetricBlockInterface = baseBlockInterface
     snapshotId: z.string(),
     sliceTagsFilter: z.array(z.string()),
     metricTagFilter: z.array(z.string()),
-    sortBy: z.enum(["metricIds", "significance", "change"]).nullable(),
+    sortBy: z.enum(["metrics", "significance", "change"]).nullable(),
     sortDirection: z.enum(["asc", "desc"]).nullable(),
   })
   .strict();
@@ -156,7 +156,7 @@ const experimentDimensionBlockInterface = baseBlockInterface
     ),
     snapshotId: z.string(),
     metricTagFilter: z.array(z.string()),
-    sortBy: z.enum(["metricIds", "significance", "change"]).nullable(),
+    sortBy: z.enum(["metrics", "significance", "change"]).nullable(),
     sortDirection: z.enum(["asc", "desc"]).nullable(),
   })
   .strict();
@@ -186,7 +186,7 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     snapshotId: z.string(),
     sliceTagsFilter: z.array(z.string()),
     metricTagFilter: z.array(z.string()),
-    sortBy: z.enum(["metricIds", "significance", "change"]).nullable(),
+    sortBy: z.enum(["metrics", "significance", "change"]).nullable(),
     sortDirection: z.enum(["asc", "desc"]).nullable(),
   })
   .strict();

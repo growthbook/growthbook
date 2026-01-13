@@ -49,7 +49,7 @@ export interface UseExperimentTableRowsParams {
   metricTagFilter?: string[];
   metricsFilter?: string[];
   sliceTagsFilter?: string[];
-  sortBy?: "significance" | "change" | "custom" | null;
+  sortBy?: "significance" | "change" | "metrics" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -314,7 +314,7 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered metrics
     const sortedFilteredMetrics =
-      sortBy === "custom" && customMetricOrder
+      sortBy === "metrics" && customMetricOrder
         ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
             customMetricOrder,
@@ -337,7 +337,7 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered secondary metrics
     const sortedFilteredSecondary =
-      sortBy === "custom" && customMetricOrder
+      sortBy === "metrics" && customMetricOrder
         ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
             customMetricOrder,
@@ -360,7 +360,7 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered guardrail metrics
     const sortedFilteredGuardrails =
-      sortBy === "custom" && customMetricOrder
+      sortBy === "metrics" && customMetricOrder
         ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
             customMetricOrder,

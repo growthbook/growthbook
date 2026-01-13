@@ -89,7 +89,7 @@ export function useDashboardEditorHooks<
 
   // Setters
   const setSortBy = useCallback(
-    (value: "metricIds" | "significance" | "change" | null) => {
+    (value: "metrics" | "significance" | "change" | null) => {
       if (!setBlock) return;
       const currentBlock = blockRef.current;
       // Clear sortDirection when switching away from significance/change

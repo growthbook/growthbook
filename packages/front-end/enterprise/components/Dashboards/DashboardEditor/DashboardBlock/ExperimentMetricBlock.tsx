@@ -118,14 +118,14 @@ export default function ExperimentMetricBlock({
     enableExpansion: true,
     expandedMetrics,
     sortBy:
-      blockSortBy === "metricIds"
-        ? "custom"
+      blockSortBy === "metrics"
+        ? "metrics"
         : sortBy === "significance" || sortBy === "change"
           ? sortBy
           : null,
-    sortDirection: blockSortBy !== "metricIds" ? sortDirection : undefined,
+    sortDirection: blockSortBy !== "metrics" ? sortDirection : undefined,
     customMetricOrder:
-      blockSortBy === "metricIds" && blockMetricIds && blockMetricIds.length > 0
+      blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds.filter(
             (id) =>
               ![
@@ -206,11 +206,11 @@ export default function ExperimentMetricBlock({
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={true}
             sortBy={
-              blockSortBy === "metricIds" ? "custom" : (blockSortBy ?? null)
+              blockSortBy === "metrics" ? "metrics" : (blockSortBy ?? null)
             }
             setSortBy={
               isEditing && setSortBy
-                ? (value: "significance" | "change" | "custom" | null) => {
+                ? (value: "significance" | "change" | "metrics" | null) => {
                     setSortBy(value as "significance" | "change" | null);
                   }
                 : undefined

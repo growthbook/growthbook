@@ -378,11 +378,11 @@ export function migrateBlock(
         "sortBy" in doc && typeof doc.sortBy === "string"
           ? (doc.sortBy as string)
           : null;
-      // Map "custom" (used by hooks) to "metricIds" (used by dashboard blocks), otherwise use the value if it's valid
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
       const sortBy =
         sortByRaw === "custom"
-          ? "metricIds"
-          : sortByRaw === "metricIds" ||
+          ? "metrics"
+          : sortByRaw === "metrics" ||
               sortByRaw === "significance" ||
               sortByRaw === "change"
             ? sortByRaw
@@ -431,11 +431,11 @@ export function migrateBlock(
         "sortBy" in doc && typeof doc.sortBy === "string"
           ? (doc.sortBy as string)
           : null;
-      // Map "custom" (used by hooks) to "metricIds" (used by dashboard blocks), otherwise use the value if it's valid
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
       const sortBy =
         sortByRaw === "custom"
-          ? "metricIds"
-          : sortByRaw === "metricIds" ||
+          ? "metrics"
+          : sortByRaw === "metrics" ||
               sortByRaw === "significance" ||
               sortByRaw === "change"
             ? sortByRaw
@@ -475,11 +475,11 @@ export function migrateBlock(
         "sortBy" in doc && typeof doc.sortBy === "string"
           ? (doc.sortBy as string)
           : null;
-      // Map "custom" (used by hooks) to "metricIds" (used by dashboard blocks), otherwise use the value if it's valid
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
       const sortBy =
         sortByRaw === "custom"
-          ? "metricIds"
-          : sortByRaw === "metricIds" ||
+          ? "metrics"
+          : sortByRaw === "metrics" ||
               sortByRaw === "significance" ||
               sortByRaw === "change"
             ? sortByRaw

@@ -324,10 +324,9 @@ export default function MigrateResultsToDashboardModal({
   }, [variationFilter, experiment.variations, baselineRow]);
 
   const sortByDisplay = useMemo(() => {
-    if (sortBy === "metricIds") return "Metric filter";
+    if (sortBy === "metrics") return "Metric order";
     if (sortBy === "significance") return "Significance";
     if (sortBy === "change") return "Change";
-    if (sortBy === "custom") return "Metric order";
     return "Default";
   }, [sortBy]);
 
@@ -350,13 +349,11 @@ export default function MigrateResultsToDashboardModal({
     const selectedDashboard = dashboards.find((d) => d.id === dashboardId);
     if (!selectedDashboard || !selectedDashboard.blocks) return false;
 
-    // Map sortBy: "custom" -> "metricIds"
-    const mappedSortBy: "metricIds" | "significance" | "change" | null =
-      sortBy === "custom"
-        ? "metricIds"
-        : sortBy === "significance" || sortBy === "change"
-          ? (sortBy as "significance" | "change")
-          : null;
+    // Map sortBy: "metrics" is used consistently in both experiment results and dashboards
+    const mappedSortBy: "metrics" | "significance" | "change" | null =
+      sortBy === "metrics" || sortBy === "significance" || sortBy === "change"
+        ? (sortBy as "metrics" | "significance" | "change")
+        : null;
 
     const mappedSortDirection: "asc" | "desc" | null =
       sortDirection === "asc" || sortDirection === "desc"
@@ -417,13 +414,11 @@ export default function MigrateResultsToDashboardModal({
     setIsSubmitting(true);
 
     try {
-      // Map sortBy: "custom" -> "metricIds"
-      const mappedSortBy: "metricIds" | "significance" | "change" | null =
-        sortBy === "custom"
-          ? "metricIds"
-          : sortBy === "significance" || sortBy === "change"
-            ? (sortBy as "significance" | "change")
-            : null;
+      // Map sortBy: "metrics" is used consistently in both experiment results and dashboards
+      const mappedSortBy: "metrics" | "significance" | "change" | null =
+        sortBy === "metrics" || sortBy === "significance" || sortBy === "change"
+          ? (sortBy as "metrics" | "significance" | "change")
+          : null;
 
       // Create the new block using CREATE_BLOCK_TYPE, then override with our values
       const baseBlock = CREATE_BLOCK_TYPE[blockType]({

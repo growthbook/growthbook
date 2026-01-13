@@ -37,7 +37,7 @@ export interface UseExperimentDimensionRowsParams {
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
   metricsFilter?: string[];
-  sortBy?: "significance" | "change" | "custom" | null;
+  sortBy?: "significance" | "change" | "metrics" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -293,7 +293,7 @@ export function useExperimentDimensionRows({
 
       // Apply custom ordering if sortBy is "custom"
       const sortedMetricIds =
-        sortBy === "custom" && customMetricOrder
+        sortBy === "metrics" && customMetricOrder
           ? sortMetricsByCustomOrder(
               metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
               customMetricOrder,

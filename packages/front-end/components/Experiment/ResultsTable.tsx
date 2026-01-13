@@ -115,8 +115,8 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
-  sortBy?: "significance" | "change" | "custom" | null;
-  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
+  sortBy?: "significance" | "change" | "metrics" | null;
+  setSortBy?: (s: "significance" | "change" | "metrics" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   setBaselineRow?: (baselineRow: number) => void;
