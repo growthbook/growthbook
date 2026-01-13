@@ -1,9 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
-import {
-  GrowthBook,
-  BrowserCookieStickyBucketService,
-} from "@growthbook/growthbook";
+import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
 import { userHasPermission } from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
@@ -13,7 +10,7 @@ import {
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
 import { logger } from "back-end/src/util/logger";
-import { GB_SDK_ID, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
@@ -34,7 +31,7 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
-import { getBuild } from "back-end/src/util/handler";
+import { getBuild } from "back-end/src/util/build";
 import { usingFileConfig } from "back-end/src/init/config";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import { insertAudit } from "back-end/src/models/AuditModel";
@@ -43,7 +40,8 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { licenseInit } from "back-end/src/enterprise";
+import { licenseInit, getAccountPlan } from "back-end/src/enterprise";
+import { getGrowthBookClient } from "back-end/src/services/growthbook";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -284,18 +282,21 @@ export async function processJWT(
     };
 
     if (IS_CLOUD) {
-      const build = getBuild();
-      req.gb = new GrowthBook({
-        apiHost: "https://cdn.growthbook.io",
-        clientKey: GB_SDK_ID,
-        enableDevMode: true,
-        stickyBucketService: new BrowserCookieStickyBucketService({
-          jsCookie: req.cookies,
-        }),
-        trackingCallback: () => {
-          // TODO: How to send event to Jitsu?
-        },
-        attributes: {
+      const gbClient = getGrowthBookClient();
+
+      if (gbClient) {
+        const build = getBuild();
+
+        // Create sticky bucket service for Express
+        const stickyBucketService = new ExpressCookieStickyBucketService({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          req: req as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          res: res as any,
+        });
+
+        // Define user attributes
+        const attributes = {
           id: user.id,
           url: req.originalUrl,
           cloud: IS_CLOUD,
@@ -316,10 +317,35 @@ export async function processJWT(
           buildSHA: build.sha,
           buildDate: build.date,
           buildVersion: build.lastVersion,
-        },
-      });
+        };
 
-      await req.gb.init({ timeout: 500 });
+        try {
+          // Apply sticky bucketing and get user context
+          const userContext = await gbClient.applyStickyBuckets(
+            {
+              attributes,
+              enableDevMode: true,
+            },
+            stickyBucketService,
+          );
+
+          // Create scoped instance for this request (reuses singleton)
+          req.gb = gbClient.createScopedInstance(userContext);
+
+          // Optional: Set tracking callback
+          if (req.gb) {
+            req.gb.setTrackingCallback(() => {
+              // TODO: How to send event to Jitsu?
+            });
+          }
+        } catch (error) {
+          logger.error("Failed to create GrowthBook scoped instance", {
+            error,
+            userId: user.id,
+          });
+          // Continue without feature flags rather than failing request
+        }
+      }
     }
   } else {
     req.audit = async () => {
