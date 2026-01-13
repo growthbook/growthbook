@@ -1492,6 +1492,7 @@ export async function postExperiment(
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
+    "postStratificationEnabled",
     "hasVisualChangesets",
     "hasURLRedirects",
     "sequentialTestingEnabled",
@@ -2839,7 +2840,7 @@ export async function createExperimentSnapshot({
     experiment,
   });
   const statsEngine = settings.statsEngine.value;
-
+  const postStratificationEnabled = settings.postStratificationEnabled.value;
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
@@ -2872,13 +2873,14 @@ export async function createExperimentSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
-  const analysisSettings = getDefaultExperimentAnalysisSettings(
+  const analysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
     experiment,
-    org,
+    organization: org,
     regressionAdjustmentEnabled,
+    postStratificationEnabled,
     dimension,
-  );
+  });
 
   const queryRunner = await createSnapshot({
     experiment,

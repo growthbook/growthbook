@@ -9,6 +9,7 @@ import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -272,22 +273,31 @@ export async function refreshMetric(
   }
 }
 
-export function getDefaultExperimentAnalysisSettings(
-  statsEngine: StatsEngine,
-  experiment: ExperimentInterface | ExperimentReportAnalysisSettings,
-  organization: OrganizationInterface,
-  regressionAdjustmentEnabled?: boolean,
-  dimension?: string,
-): ExperimentSnapshotAnalysisSettings {
+export function getDefaultExperimentAnalysisSettings({
+  statsEngine,
+  experiment,
+  organization,
+  regressionAdjustmentEnabled,
+  postStratificationEnabled,
+  dimension,
+}: {
+  statsEngine: StatsEngine;
+  experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
+  organization: OrganizationInterface;
+  regressionAdjustmentEnabled?: boolean;
+  postStratificationEnabled?: boolean;
+  dimension?: string;
+}): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
-  // const hasPostStratificationFeature = organization
-  //   ? orgHasPremiumFeature(organization, "post-stratification")
-  //   : false;
+  const hasPostStratificationFeature = organization
+    ? orgHasPremiumFeature(organization, "post-stratification")
+    : false;
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
+
   return {
     statsEngine,
     dimensions: dimension ? [dimension] : [],
@@ -296,9 +306,8 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
-    postStratificationEnabled: false,
-    // hasPostStratificationFeature &&
-    // !(organization.settings?.postStratificationDisabled ?? false),
+    postStratificationEnabled:
+      hasPostStratificationFeature && postStratificationEnabled,
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -1221,7 +1230,11 @@ export async function createSnapshot({
       mainSnapshot: runningSnapshot,
       statsEngine: defaultAnalysisSettings.statsEngine,
       regressionAdjustmentEnabled:
-        defaultAnalysisSettings.regressionAdjusted ?? false,
+        defaultAnalysisSettings.regressionAdjusted ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+      postStratificationEnabled:
+        defaultAnalysisSettings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
       settingsForSnapshotMetrics,
       metricMap,
       factTableMap,
