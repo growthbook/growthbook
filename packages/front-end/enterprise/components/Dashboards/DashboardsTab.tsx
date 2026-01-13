@@ -9,7 +9,6 @@ import {
   getBlockData,
 } from "shared/enterprise";
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
 import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
@@ -17,7 +16,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EditButton from "@/components/EditButton/EditButton";
-import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -27,7 +25,6 @@ import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Callout from "@/ui/Callout";
 import { createTemporaryDashboard } from "@/pages/product-analytics/dashboards/new";
 import DashboardEditor from "./DashboardEditor";
@@ -35,6 +32,7 @@ import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
 import DashboardWorkspace from "./DashboardWorkspace";
 import DashboardViewQueriesButton from "./DashboardEditor/DashboardViewQueriesButton";
+import DashboardSelector from "./DashboardSelector";
 
 export type CreateDashboardArgs = {
   method: "POST";
@@ -383,52 +381,14 @@ function DashboardsTab({
                   <Flex gap="1" align="center">
                     {dashboards.length > 0 && !showDashboardView ? (
                       <Flex gap="4" align="center">
-                        <Select
-                          style={{
-                            minWidth: "200px",
-                          }}
+                        <DashboardSelector
+                          dashboards={dashboards}
+                          defaultDashboard={defaultDashboard}
                           value={dashboardId}
-                          setValue={(value) => {
-                            if (value === "__create__") {
-                              createOrPromptUpgrade();
-                              return;
-                            }
-                            setDashboardId(value);
-                          }}
-                        >
-                          {defaultDashboard && (
-                            <>
-                              <SelectItem value={defaultDashboard.id}>
-                                <OverflowText maxWidth={400}>
-                                  {defaultDashboard.title}
-                                </OverflowText>
-                              </SelectItem>
-                              <SelectSeparator />
-                            </>
-                          )}
-                          {dashboards.map((dash) =>
-                            dash.id === defaultDashboard?.id ? null : (
-                              <SelectItem key={dash.id} value={dash.id}>
-                                <OverflowText maxWidth={400}>
-                                  {dash.title}
-                                </OverflowText>
-                              </SelectItem>
-                            ),
-                          )}
-                          {canCreate && (
-                            <>
-                              {dashboards.length > 0 && <SelectSeparator />}
-                              <SelectItem value="__create__">
-                                <Flex align="center">
-                                  <PiPlus className="rt-SelectItemIndicator" />
-                                  <Text weight="regular">
-                                    Create new dashboard
-                                  </Text>
-                                </Flex>
-                              </SelectItem>
-                            </>
-                          )}
-                        </Select>
+                          setValue={setDashboardId}
+                          canCreate={canCreate}
+                          onCreateNew={createOrPromptUpgrade}
+                        />
                         <PaidFeatureBadge commercialFeature="dashboards" />
                       </Flex>
                     ) : (

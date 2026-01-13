@@ -168,7 +168,7 @@ export function formatMetricTagOptionLabel(option: {
   value: string;
   label: string;
   isOrphaned?: boolean;
-}): React.ReactNode {
+}) {
   return (
     <span
       style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
@@ -183,7 +183,7 @@ export function formatMetricOptionLabel(
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
   getMetricGroupById: (id: string) => MetricGroupInterface | null,
   showGroupIcon?: boolean,
-): React.ReactNode {
+) {
   const isGroup = isMetricGroupId(option.value);
   const metrics = isGroup
     ? (() => {
@@ -214,7 +214,7 @@ export function formatSliceOptionLabel(
   option: SliceOption,
   meta: FormatOptionLabelMeta<SingleValue>,
   sliceTagsFilter?: string[],
-): React.ReactNode {
+) {
   if (option.value === "overall") {
     return (
       <>
@@ -331,7 +331,7 @@ export function getMetricOptions({
   return { groups, metrics };
 }
 
-export default function ResultsMetricFilter({
+export default function ResultsFilter({
   availableMetricTags = [],
   metricTagFilter = [],
   setMetricTagFilter,

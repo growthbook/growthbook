@@ -289,16 +289,18 @@ export default function ResultsTab({
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
-            baselineRow={analysisBarSettings.baselineRow}
+            variationFilter={analysisBarSettings.variationFilter}
             setVariationFilter={(v: number[]) =>
               setAnalysisBarSettings({
                 ...analysisBarSettings,
                 variationFilter: v,
               })
             }
+            baselineRow={analysisBarSettings.baselineRow}
             setBaselineRow={(b: number) =>
               setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
             }
+            differenceType={analysisBarSettings.differenceType}
             setDifferenceType={(d: DifferenceType) =>
               setAnalysisBarSettings({
                 ...analysisBarSettings,
@@ -328,6 +330,8 @@ export default function ResultsTab({
             availableSliceTags={availableSliceTags}
             sliceTagsFilter={sliceTagsFilter}
             setSliceTagsFilter={setSliceTagsFilter}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">

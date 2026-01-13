@@ -319,6 +319,12 @@ export default function TabbedPage({
       if (newUrl === window.location.href) return;
       router.replace(newUrl, undefined, {
         shallow: true,
+      }).catch((e) => {
+        // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+        // Route changes can be cancelled when component unmounts or another navigation occurs
+        if (!e.cancelled) {
+          throw e;
+        }
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

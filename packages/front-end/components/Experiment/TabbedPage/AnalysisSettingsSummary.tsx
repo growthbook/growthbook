@@ -39,19 +39,22 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
-import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
+import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
+  variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
@@ -71,6 +74,8 @@ export interface Props {
   }>;
   sliceTagsFilter?: string[];
   setSliceTagsFilter?: (tags: string[]) => void;
+  sortBy?: "significance" | "change" | "custom" | null;
+  sortDirection?: "asc" | "desc" | null;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -80,9 +85,11 @@ export default function AnalysisSettingsSummary({
   mutate,
   statsEngine,
   editMetrics,
-  baselineRow,
+  variationFilter,
   setVariationFilter,
+  baselineRow,
   setBaselineRow,
+  differenceType,
   setDifferenceType,
   dimension,
   setDimension,
@@ -95,6 +102,8 @@ export default function AnalysisSettingsSummary({
   availableSliceTags = [],
   sliceTagsFilter,
   setSliceTagsFilter,
+  sortBy,
+  sortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -143,6 +152,8 @@ export default function AnalysisSettingsSummary({
 
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [migrateToDashboardModalOpen, setMigrateToDashboardModalOpen] =
+    useState(false);
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
@@ -743,6 +754,7 @@ export default function AnalysisSettingsSummary({
               trackingKey={experiment.trackingKey}
               dimension={dimension}
               project={experiment.project}
+              onAddToDashboard={() => setMigrateToDashboardModalOpen(true)}
             />
           </Flex>
         </Box>
@@ -770,7 +782,7 @@ export default function AnalysisSettingsSummary({
                 {setDimension && (
                   <Separator orientation="vertical" ml="5" mr="2" />
                 )}
-                <ResultsMetricFilter
+                <ResultsFilter
                   availableMetricTags={availableMetricTags}
                   metricTagFilter={metricTagFilter}
                   setMetricTagFilter={setMetricTagFilter}
@@ -827,6 +839,20 @@ export default function AnalysisSettingsSummary({
             error={latest.error}
           />
         )}
+      <MigrateResultsToDashboardModal
+        open={migrateToDashboardModalOpen}
+        close={() => setMigrateToDashboardModalOpen(false)}
+        experiment={experiment}
+        dimension={dimension}
+        metricTagFilter={metricTagFilter}
+        metricsFilter={metricsFilter}
+        sliceTagsFilter={sliceTagsFilter}
+        baselineRow={baselineRow}
+        variationFilter={variationFilter}
+        sortBy={sortBy ?? null}
+        sortDirection={sortDirection ?? null}
+        differenceType={differenceType}
+      />
     </Box>
   );
 }

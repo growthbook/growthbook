@@ -33,7 +33,7 @@ import {
   formatSliceOptionLabel,
   formatMetricTagOptionLabel,
   formatMetricOptionLabel,
-} from "@/components/Experiment/ResultsMetricFilter";
+} from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
