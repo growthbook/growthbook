@@ -277,7 +277,6 @@ const AnalysisForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
-        console.log(values);
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
           phaseEndDate?: string;
