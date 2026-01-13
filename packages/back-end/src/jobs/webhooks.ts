@@ -8,7 +8,7 @@ import {
 import { getFeatureDefinitions } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { cancellableFetch } from "back-end/src/util/http.util";
-import { SdkWebhookModel } from "../models/WebhookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
