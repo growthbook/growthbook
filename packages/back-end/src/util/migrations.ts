@@ -731,6 +731,7 @@ export function migrateSnapshot(
     queryFilter,
     segment,
     skipPartialData,
+    manual,
     ...snapshot
   } = orig;
   // Try to figure out metric ids from results
@@ -837,6 +838,7 @@ export function migrateSnapshot(
     });
 
     snapshot.settings = {
+      ...(manual !== undefined ? { manual: !!manual } : {}),
       dimensions: snapshot.dimension
         ? [
             {
