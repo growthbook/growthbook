@@ -156,7 +156,6 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     endDate: settings.endDate || new Date(),
     experimentId: settings.experimentId,
     exposureQueryId: settings.exposureQueryId,
-    manual: false,
     segment: "",
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
