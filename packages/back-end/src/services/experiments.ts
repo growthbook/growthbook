@@ -9,6 +9,7 @@ import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -1411,9 +1412,11 @@ export async function createSnapshot({
       mainSnapshot: runningSnapshot,
       statsEngine: defaultAnalysisSettings.statsEngine,
       regressionAdjustmentEnabled:
-        defaultAnalysisSettings.regressionAdjusted ?? false,
+        defaultAnalysisSettings.regressionAdjusted ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       postStratificationEnabled:
-        defaultAnalysisSettings.postStratificationEnabled ?? true,
+        defaultAnalysisSettings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
       settingsForSnapshotMetrics,
       metricMap,
       factTableMap,

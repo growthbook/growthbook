@@ -18,7 +18,7 @@ const postStratificationEnabledResolver = (): SettingsResolver<boolean> => {
       ctx.scopes?.organization?.settings?.postStratificationDisabled ?? false;
     const orgPostStratificationEnabled = !orgPostStratificationDisabled;
 
-    // Check if experiment has an explicit setting
+    // Check if experiment has an explicit setting (null or undefined means use default)
     const experimentPostStratificationEnabled =
       ctx.scopes?.experiment?.postStratificationEnabled;
 
@@ -35,7 +35,10 @@ const postStratificationEnabledResolver = (): SettingsResolver<boolean> => {
       };
     }
 
-    if (experimentPostStratificationEnabled !== undefined) {
+    if (
+      experimentPostStratificationEnabled !== undefined &&
+      experimentPostStratificationEnabled !== null
+    ) {
       return {
         value: experimentPostStratificationEnabled,
         meta: {

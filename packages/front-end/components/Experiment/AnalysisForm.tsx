@@ -277,6 +277,7 @@ const AnalysisForm: FC<{
       submit={form.handleSubmit(async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
+        console.log(values);
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
           phaseEndDate?: string;
@@ -653,7 +654,7 @@ const AnalysisForm: FC<{
                 style={{ width: 200 }}
                 labelClassName="font-weight-bold"
                 value={
-                  form.watch("postStratificationEnabled") === undefined
+                  form.watch("postStratificationEnabled") == null
                     ? ""
                     : form.watch("postStratificationEnabled")
                       ? "on"
@@ -662,7 +663,7 @@ const AnalysisForm: FC<{
                 onChange={(v) => {
                   form.setValue(
                     "postStratificationEnabled",
-                    v === "" ? undefined : v === "on",
+                    v === "" ? null : v === "on",
                   );
                 }}
                 options={[
