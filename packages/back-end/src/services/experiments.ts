@@ -78,16 +78,10 @@ import {
   ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
-  SnapshotVariation,
   SnapshotBanditSettings,
   DimensionForSnapshot,
 } from "shared/types/experiment-snapshot";
-import {
-  Condition,
-  MetricInterface,
-  MetricStats,
-  Operator,
-} from "shared/types/metric";
+import { Condition, MetricInterface, Operator } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -106,11 +100,7 @@ import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
-  StatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
-} from "shared/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -125,7 +115,6 @@ import {
   getMetricsByIds,
   insertMetric,
 } from "back-end/src/models/MetricModel";
-import { checkSrm, sumSquaresFromStats } from "back-end/src/util/stats";
 import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
@@ -157,7 +146,7 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
@@ -166,9 +155,7 @@ import {
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
-  getMetricSettingsForStatsEngine,
   runSnapshotAnalyses,
-  runSnapshotAnalysis,
   writeSnapshotAnalyses,
 } from "./stats";
 import {
@@ -608,7 +595,6 @@ export function getSnapshotSettings({
       : undefined;
 
   return {
-    manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     skipPartialData: !!experiment.skipPartialData,

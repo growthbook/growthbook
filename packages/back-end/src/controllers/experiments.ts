@@ -2915,7 +2915,6 @@ export async function postSnapshot(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
   const { phase, dimension } = req.body;
 
