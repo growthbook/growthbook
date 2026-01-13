@@ -231,7 +231,6 @@ const Results: FC<{
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
-  const manualSnapshot = !datasource;
 
   const hasMetrics =
     experiment.goalMetrics.length > 0 ||
@@ -400,7 +399,6 @@ const Results: FC<{
           analysis={analysis}
           setAnalysisSettings={setAnalysisSettings}
           mutate={mutate}
-          manualSnapshot={manualSnapshot}
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
@@ -466,7 +464,6 @@ const Results: FC<{
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutate}
-            manualSnapshot={manualSnapshot}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}
