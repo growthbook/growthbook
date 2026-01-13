@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { DisplaySettings } from "shared/enterprise";
+import { SeriesDisplaySettings } from "shared/enterprise";
 import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 
 // Delimiter used to create composite keys for series (columnName + dimensionValue)
@@ -14,10 +14,8 @@ import { CHART_COLOR_PALETTE } from "@/services/dataVizConfigUtilities";
 export const SERIES_KEY_DELIMITER = "|||";
 
 export const DashboardSeriesDisplayContext = React.createContext<{
-  settings: Record<string, Record<string, DisplaySettings>>;
-  getSeriesDisplaySettings: () =>
-    | Record<string, Record<string, DisplaySettings>>
-    | undefined;
+  settings: SeriesDisplaySettings;
+  getSeriesDisplaySettings: () => SeriesDisplaySettings | undefined;
   updateSeriesColor: (
     columnName: string,
     dimensionValue: string,
@@ -49,17 +47,17 @@ export default function DashboardSeriesDisplayProvider({
   dashboard:
     | {
         id?: string;
-        seriesDisplaySettings?: Record<string, Record<string, DisplaySettings>>;
+        seriesDisplaySettings?: SeriesDisplaySettings;
       }
     | undefined;
   onSave?: (
-    seriesDisplaySettings: Record<string, Record<string, DisplaySettings>>,
+    seriesDisplaySettings: SeriesDisplaySettings,
   ) => Promise<void> | void;
   children: ReactNode;
 }) {
   // Manage seriesDisplaySettings state internally
   const [seriesDisplaySettings, setSeriesDisplaySettings] = React.useState<
-    Record<string, Record<string, DisplaySettings>> | undefined
+    SeriesDisplaySettings | undefined
   >(dashboard?.seriesDisplaySettings);
 
   // Sync state when dashboard prop changes

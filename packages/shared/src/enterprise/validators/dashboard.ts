@@ -26,6 +26,13 @@ export const displaySettings = z.object({
 
 export type DisplaySettings = z.infer<typeof displaySettings>;
 
+export const seriesDisplaySettings = z.record(
+  z.string(),
+  z.record(z.string(), displaySettings),
+);
+
+export type SeriesDisplaySettings = z.infer<typeof seriesDisplaySettings>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -41,9 +48,7 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
-    seriesDisplaySettings: z
-      .record(z.string(), z.record(z.string(), displaySettings))
-      .optional(),
+    seriesDisplaySettings: seriesDisplaySettings.optional(),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     nextUpdate: z.date().optional(),
     lastUpdated: z.date().optional(),

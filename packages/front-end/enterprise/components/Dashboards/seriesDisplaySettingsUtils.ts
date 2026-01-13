@@ -1,16 +1,16 @@
-import { DisplaySettings } from "shared/enterprise";
+import { SeriesDisplaySettings, DisplaySettings } from "shared/enterprise";
 
 // Helper function that filters the seriesDisplaySettings to only include entries that have a color property & are actively being used in the dashboard
 // This ensures we're only storing colors for series that are actually being used in the dashboard
 export function filterSeriesDisplaySettings(
-  settings: Record<string, Record<string, DisplaySettings>> | undefined,
+  settings: SeriesDisplaySettings | undefined,
   activeKeys?: Map<string, Set<string>>,
-): Record<string, Record<string, DisplaySettings>> | undefined {
+): SeriesDisplaySettings | undefined {
   if (!settings || Object.keys(settings).length === 0) {
     return undefined;
   }
 
-  const filtered: Record<string, Record<string, DisplaySettings>> = {};
+  const filtered: SeriesDisplaySettings = {};
 
   Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
     // If activeKeys provided, only process columns that have active series
