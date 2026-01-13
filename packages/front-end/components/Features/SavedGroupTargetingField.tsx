@@ -1,14 +1,23 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
-import { PiArrowSquareOut } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiPlusBold,
+  PiPlusCircleBold,
+  PiXBold,
+} from "react-icons/pi";
 import React from "react";
-import Link from "next/link";
+import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import { ConditionLabel } from "./ConditionInput";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -28,12 +37,14 @@ export default function SavedGroupTargetingField({
 
   if (!savedGroups.length)
     return (
-      <div>
+      <Box>
         <label>Target by Saved Groups</label>
-        <div className="font-italic text-muted mr-3">
-          You do not have any saved groups.
-        </div>
-      </div>
+        <Box>
+          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+            You do not have any saved groups.
+          </Text>
+        </Box>
+      </Box>
     );
 
   const filteredSavedGroups = savedGroups.filter((group) => {
@@ -51,61 +62,74 @@ export default function SavedGroupTargetingField({
 
   if (value.length === 0) {
     return (
-      <div>
+      <Box>
         <label>Target by Saved Groups</label>
-        <div className="font-italic text-muted mr-3">
-          No saved group targeting applied.
-        </div>
-        <div
-          className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
-          onClick={(e) => {
-            e.preventDefault();
-            setValue([
-              ...value,
-              {
-                match: "any",
-                ids: [],
-              },
-            ]);
-          }}
-        >
-          <FaPlusCircle className="mr-1" />
-          Add group targeting
-        </div>
-      </div>
+        <Box>
+          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+            No saved group targeting applied.
+          </Text>
+          <Box mt="2">
+            <Link
+              onClick={() => {
+                setValue([
+                  ...value,
+                  {
+                    match: "any",
+                    ids: [],
+                  },
+                ]);
+              }}
+            >
+              <Text weight="bold">
+                <PiPlusCircleBold className="mr-1" />
+                Add group targeting
+              </Text>
+            </Link>
+          </Box>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <div className="form-group my-4">
+    <Box my="4">
       <label>Target by Saved Groups</label>
-      <div className="mb-1">
+      <Box mb="2">
         <LargeSavedGroupPerformanceWarning
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           unsupportedConnections={unsupportedConnections}
         />
-      </div>
-      <div>
-        <div className="appbox bg-light px-3 py-3">
-          {conflicts.length > 0 && (
-            <div className="alert alert-danger">
-              <strong>Error:</strong> You have a conflict in your rules with the
-              following groups:{" "}
-              {conflicts.map((c) => (
-                <span key={c} className="badge badge-danger mr-1">
-                  {getSavedGroupById(c)?.groupName || c}
-                </span>
-              ))}
-            </div>
-          )}
-          {value.map((v, i) => {
-            return (
-              <div className="row align-items-center mb-3" key={i}>
-                <div className="col-auto" style={{ width: 70 }}>
-                  {i === 0 ? "In" : "AND"}
-                </div>
-                <div className="col-auto">
+      </Box>
+      <Box className="appbox bg-light px-3 py-3">
+        {conflicts.length > 0 && (
+          <Callout status="error" mb="3">
+            <Text weight="bold">Error:</Text> You have a conflict in your rules
+            with the following groups:{" "}
+            {conflicts.map((c) => (
+              <Badge
+                key={c}
+                label={getSavedGroupById(c)?.groupName || c}
+                color="red"
+                mr="1"
+              />
+            ))}
+          </Callout>
+        )}
+        {value.map((v, i) => {
+          return (
+            <Flex key={i} gap="2" align="start" mb="4">
+              <Box style={{ flexShrink: 0 }}>
+                <ConditionLabel label={i === 0 ? "In" : "AND"} />
+              </Box>
+              <Flex
+                align="start"
+                gap="2"
+                wrap="wrap"
+                style={{ flex: "1 1 0", minWidth: 0 }}
+              >
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                   <SelectField
+                    useMultilineLabels={true}
                     value={v.match}
                     onChange={(match) => {
                       const newValue = [...value];
@@ -129,8 +153,8 @@ export default function SavedGroupTargetingField({
                       },
                     ]}
                   />
-                </div>
-                <div className="col">
+                </Box>
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                   <MultiSelectField
                     value={v.ids}
                     onChange={(ids) => {
@@ -157,29 +181,30 @@ export default function SavedGroupTargetingField({
                     placeholder="Select groups..."
                     closeMenuOnSelect={true}
                   />
-                </div>
-                <div className="col-auto ml-auto">
-                  <button
-                    className="btn btn-link text-danger"
+                </Box>
+              </Flex>
+              <Box px="1" pt="3" style={{ width: 16 }}>
+                <Tooltip content="Remove condition">
+                  <IconButton
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
+                    color="red"
+                    variant="ghost"
+                    onClick={() => {
                       const newValue = [...value];
                       newValue.splice(i, 1);
                       setValue(newValue);
                     }}
                   >
-                    <FaMinusCircle className="mr-1" />
-                    remove
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          <span
-            className="link-purple font-weight-bold cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
+                    <PiXBold size={16} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Flex>
+          );
+        })}
+        <Box mt="2">
+          <Link
+            onClick={() => {
               setValue([
                 ...value,
                 {
@@ -189,12 +214,14 @@ export default function SavedGroupTargetingField({
               ]);
             }}
           >
-            <FaPlusCircle className="mr-1" />
-            Add another condition
-          </span>
-        </div>
-      </div>
-    </div>
+            <Text weight="bold">
+              <PiPlusBold className="mr-1" />
+              Add another condition
+            </Text>
+          </Link>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 

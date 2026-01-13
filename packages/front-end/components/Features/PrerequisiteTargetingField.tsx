@@ -7,12 +7,15 @@ import {
 } from "shared/types/feature";
 import {
   FaExclamationCircle,
-  FaExclamationTriangle,
   FaExternalLinkAlt,
-  FaMinusCircle,
-  FaPlusCircle,
   FaRecycle,
 } from "react-icons/fa";
+import {
+  PiXBold,
+  PiPlusBold,
+  PiPlusCircleBold,
+  PiArrowSquareOut,
+} from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   evaluatePrerequisiteState,
@@ -26,6 +29,8 @@ import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -44,6 +49,8 @@ import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -278,15 +285,20 @@ export default function PrerequisiteTargetingField({
   }
 
   return (
-    <div className="form-group my-4">
-      <div className="mb-2">
+    <Box my="4">
+      <Flex justify="between" align="center" mb="2">
         <PremiumTooltip
           commercialFeature="prerequisite-targeting"
           premiumText="Prerequisite targeting is available for Enterprise customers"
         >
-          <label className="mb-0">Target by Prerequisite Features</label>
+          <label style={{ marginBottom: 0 }}>
+            Target by Prerequisite Features
+          </label>
         </PremiumTooltip>
-      </div>
+        <DocLink docSection="prerequisites">
+          Learn more <PiArrowSquareOut />
+        </DocLink>
+      </Flex>
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
@@ -297,30 +309,15 @@ export default function PrerequisiteTargetingField({
             );
 
             return (
-              <div key={i} className="appbox bg-light px-3 py-3">
-                <div className="row mb-1">
-                  <div className="col">
-                    <label className="mb-0">Feature</label>
-                  </div>
-                  <div className="col-md-auto col-sm-12">
-                    <button
-                      className="btn btn-link py-0 text-danger position-relative"
-                      style={{ top: -4 }}
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setValue([...value.slice(0, i), ...value.slice(i + 1)]);
-                      }}
-                    >
-                      <FaMinusCircle className="mr-1" />
-                      remove
-                    </button>
-                  </div>
-                </div>
+              <Box key={i} className="appbox bg-light px-3 py-3" mb="4">
+                <Box mb="2">
+                  <label style={{ marginBottom: 0 }}>Feature</label>
+                </Box>
 
-                <div className="row">
-                  <div className="col">
+                <Flex align="start" gap="2" mb="2">
+                  <Box style={{ flex: "1 1 0", minWidth: 0 }}>
                     <SelectField
+                      useMultilineLabels={true}
                       placeholder="Select feature"
                       options={groupedFeatureOptions}
                       value={v.id}
@@ -441,8 +438,25 @@ export default function PrerequisiteTargetingField({
                         );
                       }}
                     />
-                  </div>
-                </div>
+                  </Box>
+                  <Box px="1" pt="3" style={{ width: 16 }}>
+                    <RadixTooltip content="Remove prerequisite">
+                      <IconButton
+                        type="button"
+                        color="red"
+                        variant="ghost"
+                        onClick={() => {
+                          setValue([
+                            ...value.slice(0, i),
+                            ...value.slice(i + 1),
+                          ]);
+                        }}
+                      >
+                        <PiXBold size={16} />
+                      </IconButton>
+                    </RadixTooltip>
+                  </Box>
+                </Flex>
 
                 <PrereqStatesRows
                   parentFeature={parentFeature}
@@ -455,10 +469,11 @@ export default function PrerequisiteTargetingField({
                   <PrerequisiteAlerts
                     environments={environments}
                     project={parentFeature.project || ""}
+                    size="sm"
                   />
                 ) : null}
 
-                <div className="mt-2">
+                <Box mt="2">
                   {parentFeature ? (
                     <PrerequisiteInput
                       defaultValue={v.condition}
@@ -477,82 +492,74 @@ export default function PrerequisiteTargetingField({
                       key={conditionKeys[i]}
                     />
                   ) : null}
-                </div>
-              </div>
+                </Box>
+              </Box>
             );
           })}
 
-          <div className="float-right small">
-            <DocLink
-              docSection="prerequisites"
-              className="align-self-center ml-2 pb-1"
+          <Box mt="2">
+            <Link
+              onClick={() => {
+                if (!hasPrerequisitesCommercialFeature) {
+                  return;
+                }
+                setValue([
+                  ...value,
+                  {
+                    id: "",
+                    condition: "{}",
+                  },
+                ]);
+              }}
+              style={{
+                opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                cursor: !hasPrerequisitesCommercialFeature
+                  ? "not-allowed"
+                  : "pointer",
+              }}
             >
-              View Documentation
-            </DocLink>
-          </div>
-
-          <div
-            className={clsx(
-              "d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer",
-              {
-                "opacity-50 cursor-not-allowed":
-                  !hasPrerequisitesCommercialFeature,
-              },
-            )}
-            onClick={(e) => {
-              if (!hasPrerequisitesCommercialFeature) {
-                e.preventDefault();
-                return;
-              }
-              e.preventDefault();
-              setValue([
-                ...value,
-                {
-                  id: "",
-                  condition: "{}",
-                },
-              ]);
-            }}
-          >
-            <FaPlusCircle className="mr-1" />
-            Add prerequisite
-          </div>
+              <Text weight="bold">
+                <PiPlusBold className="mr-1" />
+                Add another prerequisite
+              </Text>
+            </Link>
+          </Box>
         </>
       ) : (
-        <div>
-          <div className="font-italic text-muted mr-3">
+        <Box>
+          <Text color="gray" style={{ fontStyle: "italic" }} mr="3" mb="2">
             No prerequisite targeting applied.
-          </div>
-          <div
-            className={clsx(
-              "d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer",
-              {
-                "opacity-50 cursor-not-allowed":
-                  !hasPrerequisitesCommercialFeature,
-              },
-            )}
-            style={{ paddingLeft: 0 }}
-            onClick={(e) => {
-              if (!hasPrerequisitesCommercialFeature) {
-                e.preventDefault();
-                return;
-              }
-              e.preventDefault();
-              setValue([
-                ...value,
-                {
-                  id: "",
-                  condition: "{}",
-                },
-              ]);
-            }}
-          >
-            <FaPlusCircle className="mr-1" />
-            Add prerequisite targeting
-          </div>
-        </div>
+          </Text>
+          <Box mt="2">
+            <Link
+              onClick={() => {
+                if (!hasPrerequisitesCommercialFeature) {
+                  return;
+                }
+                setValue([
+                  ...value,
+                  {
+                    id: "",
+                    condition: "{}",
+                  },
+                ]);
+              }}
+              style={{
+                opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                cursor: !hasPrerequisitesCommercialFeature
+                  ? "not-allowed"
+                  : "pointer",
+              }}
+            >
+              <Text weight="bold">
+                <PiPlusCircleBold className="mr-1" />
+                Add prerequisite targeting
+              </Text>
+            </Link>
+          </Box>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -575,12 +582,9 @@ function PrereqStatesRows({
 
   return (
     <>
-      <div className="d-flex align-items-center mt-1">
-        <div className="flex-1" />
-        <span
-          className="link-purple cursor-pointer"
-          onClick={() => setShowDetails(!showDetails)}
-        >
+      <Flex align="center" mt="1" mb="2">
+        <Box flexGrow="1" />
+        <Link onClick={() => setShowDetails(!showDetails)}>
           {showDetails ? (
             <>
               <BiHide /> Hide details
@@ -590,22 +594,21 @@ function PrereqStatesRows({
               <BiShow /> Show details
             </>
           )}
-        </span>
-      </div>
+        </Link>
+      </Flex>
 
       {showDetails && (
-        <div>
-          <div className="mb-2">
-            <a
-              className="a nowrap"
+        <Box>
+          <Box mb="2">
+            <Link
               href={`/features/${parentFeature.id}`}
               target="_blank"
-              rel="noreferrer"
+              style={{ whiteSpace: "nowrap" }}
             >
               {parentFeature.id}
-              <FaExternalLinkAlt className="ml-1" />
-            </a>
-          </div>
+              <FaExternalLinkAlt style={{ marginLeft: 4 }} />
+            </Link>
+          </Box>
 
           {(parentFeature?.project || "") !== featureProject ? (
             <HelperText status="warning" mt="3" mb="6">
@@ -653,7 +656,7 @@ function PrereqStatesRows({
               </tr>
             </tbody>
           </table>
-        </div>
+        </Box>
       )}
     </>
   );
@@ -663,10 +666,12 @@ export const PrerequisiteAlerts = ({
   environments,
   type = "prerequisite",
   project,
+  size,
 }: {
   environments: string[];
   type?: "feature" | "prerequisite";
   project: string;
+  size?: "sm" | "md";
 }) => {
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -684,17 +689,16 @@ export const PrerequisiteAlerts = ({
   }
 
   return (
-    <div
-      className={`mt-2 mb-3 alert ${
-        hasSDKWithPrerequisites ? "alert-warning" : "alert-danger"
-      }`}
+    <Callout
+      size={size}
+      status={hasSDKWithPrerequisites ? "warning" : "error"}
+      mb="4"
     >
-      <div>
-        <FaExclamationTriangle className="mr-1" />
+      <Text>
         This {type} is in a{" "}
-        <span className="text-warning-orange font-weight-bold">
+        <Text weight="bold" style={{ color: "var(--orange-9)" }}>
           Schrödinger state
-        </span>{" "}
+        </Text>{" "}
         {environments.length > 1
           ? "in some environments"
           : "in this environment"}{" "}
@@ -703,17 +707,17 @@ export const PrerequisiteAlerts = ({
         {hasSDKWithPrerequisites ? (
           <>
             However, some of your{" "}
-            <a href="/sdks" target="_blank">
+            <Link href="/sdks" target="_blank">
               SDK Connections <FaExternalLinkAlt />
-            </a>{" "}
+            </Link>{" "}
             in this project may not support prerequisite evaluation.
           </>
         ) : (
           <>
             However, none of your{" "}
-            <a href="/sdks" className="text-normal" target="_blank">
+            <Link href="/sdks" target="_blank">
               SDK Connections <FaExternalLinkAlt />
-            </a>{" "}
+            </Link>{" "}
             in this project support prerequisite evaluation. Either upgrade your
             SDKs or{" "}
             {type === "prerequisite"
@@ -731,7 +735,7 @@ export const PrerequisiteAlerts = ({
             </>
           }
         />
-      </div>
-    </div>
+      </Text>
+    </Callout>
   );
 };
