@@ -53,7 +53,7 @@ export default function EditGlobalColorDropdown() {
         style={{ maxWidth: "250px", padding: "6px 12px" }}
         color="gray"
       >
-        Customize chart colors for this dashboard~
+        Customize chart colors for this dashboard
       </Text>
       <Separator size="4" my="2" />
       <Flex direction="column">
