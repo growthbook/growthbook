@@ -359,7 +359,7 @@ You may also differentiate your streaming host URL from your API host by setting
 You need to install a polyfill for SSE to use streaming in a ReactNative application:
 
 ```bash npm2yarn
-npm install --save eventsource
+npm install --save react-native-sse
 ```
 
 The, tell GrowthBook to use this polyfill:
@@ -369,7 +369,7 @@ const { setPolyfills } = require("@growthbook/growthbook");
 
 // Configure GrowthBook to use the eventsource library
 setPolyfills({
-  EventSource: require("eventsource"),
+  EventSource: require("react-native-sse"),
 });
 ```
 
