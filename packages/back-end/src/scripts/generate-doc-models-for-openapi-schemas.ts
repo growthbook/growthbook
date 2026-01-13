@@ -8,9 +8,8 @@ import {
   generateYamlForPath,
   getCrudConfig,
   getDefaultCrudActionSummary,
-  HttpVerb,
-  httpVerbs,
 } from "back-end/src/api/ApiModel";
+import { HttpVerb, apiHttpVerbs } from "back-end/src/api/apiModelHandlers";
 
 type ApiTag = {
   name: string;
@@ -53,7 +52,9 @@ function isValidPathRecord(pathRecord: unknown): pathRecord is ApiPaths {
   )
     return true;
   if (
-    Object.keys(pathRecord).some((key) => !httpVerbs.includes(key as HttpVerb))
+    Object.keys(pathRecord).some(
+      (key) => !apiHttpVerbs.includes(key as HttpVerb),
+    )
   )
     return false;
   if (
