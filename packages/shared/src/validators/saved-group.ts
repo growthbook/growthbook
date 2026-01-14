@@ -9,7 +9,6 @@ export const savedGroupValidator = z
     groupName: z.string(),
     owner: z.string(),
     type: savedGroupTypeValidator,
-    source: z.string().optional(),
     condition: z.string().optional(),
     attributeKey: z.string().optional(),
     values: z.array(z.string()).optional(),
