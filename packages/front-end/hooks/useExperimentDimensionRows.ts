@@ -8,6 +8,7 @@ import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentSortBy,
   quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -38,7 +39,7 @@ export interface UseExperimentDimensionRowsParams {
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
   metricsFilter?: string[];
-  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
+  sortBy?: ExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {

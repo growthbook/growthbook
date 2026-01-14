@@ -12,6 +12,7 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentSortBy,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -20,6 +21,7 @@ import {
   SliceDataForMetric,
   isFactMetric,
   generateSliceString,
+  generateSelectAllSliceString,
   isMetricGroupId,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -50,7 +52,7 @@ export interface UseExperimentTableRowsParams {
   metricTagFilter?: string[];
   metricsFilter?: string[];
   sliceTagsFilter?: string[];
-  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
+  sortBy?: ExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -622,8 +624,7 @@ export function generateRowsForMetric({
       if (sliceTagsFilter && sliceTagsFilter.length > 0) {
         // Check if any "select all" filter is active for columns in this slice
         const hasSelectAllFilter = slice.sliceLevels.some((sliceLevel) => {
-          // "Select all" format: dim:column (no equals sign)
-          const selectAllTag = `dim:${encodeURIComponent(sliceLevel.column)}`;
+          const selectAllTag = generateSelectAllSliceString(sliceLevel.column);
           return sliceTagsFilter.includes(selectAllTag);
         });
 

@@ -25,6 +25,8 @@ import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentSortBy,
+  SetExperimentSortBy,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
@@ -83,10 +85,8 @@ const CompactResults: FC<{
       levels: string[];
     }>;
   }>;
-  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
-  setSortBy?: (
-    s: "significance" | "change" | "metrics" | "metricTags" | null,
-  ) => void;
+  sortBy?: ExperimentSortBy;
+  setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   analysisBarSettings?: {

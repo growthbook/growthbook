@@ -37,6 +37,7 @@ import {
   expandMetricGroups,
   createAutoSliceDataForMetric,
   generateSliceString,
+  generateSelectAllSliceString,
   parseSliceQueryString,
   SliceDataForMetric,
 } from "shared/experiments";
@@ -1265,7 +1266,7 @@ export function getAvailableSliceTags({
   // Generate "select all" tags for each column (format: dim:column, no equals sign)
   columnSet.forEach((column) => {
     const datatype = columnDatatypeMap.get(column) || "string";
-    const selectAllTag = `dim:${encodeURIComponent(column)}`;
+    const selectAllTag = generateSelectAllSliceString(column);
     sliceTagsMap.set(selectAllTag, {
       datatypes: { [column]: datatype },
       isSelectAll: true,

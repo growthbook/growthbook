@@ -6,6 +6,8 @@ import {
   parseSliceQueryString,
   isMetricGroupId,
   ExperimentMetricInterface,
+  isSliceTagSelectAll,
+  generateSelectAllSliceString,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import clsx from "clsx";
@@ -65,27 +67,23 @@ export function getSliceOptions({
     const isOrphaned = !availableTag;
 
     // Handle "select all" format: dim:column (no equals sign)
-    if (!tagId.includes("=")) {
-      const columnMatch = tagId.match(/^dim:(.+)$/);
-      if (columnMatch) {
-        const column = decodeURIComponent(columnMatch[1]);
-        const datatype =
-          availableTag?.datatypes?.[column] ||
-          ("string" as FactTableColumnType);
-        return {
-          value: tagId,
-          parsedChunks: [
-            {
-              column,
-              value: null,
-              datatype,
-              isSelectAll: true,
-              isOther: false,
-            },
-          ],
-          isOrphaned,
-        };
-      }
+    const { isSelectAll, column } = isSliceTagSelectAll(tagId);
+    if (isSelectAll && column) {
+      const datatype =
+        availableTag?.datatypes?.[column] || ("string" as FactTableColumnType);
+      return {
+        value: tagId,
+        parsedChunks: [
+          {
+            column,
+            value: null,
+            datatype,
+            isSelectAll: true,
+            isOther: false,
+          },
+        ],
+        isOrphaned,
+      };
     }
 
     // Parse regular slice tag using parseSliceQueryString
@@ -142,13 +140,13 @@ export function isSliceCoveredBySelectAll(
   selectedSliceTags: string[],
 ): boolean {
   // "Select all" options themselves should never be considered covered
-  if (sliceId.startsWith("dim:") && !sliceId.includes("=")) {
+  if (isSliceTagSelectAll(sliceId).isSelectAll) {
     return false;
   }
 
   // Get all "select all" tags from selected filters (format: dim:column)
   const selectAllTags = selectedSliceTags.filter(
-    (tag) => tag.startsWith("dim:") && !tag.includes("="),
+    (tag) => isSliceTagSelectAll(tag).isSelectAll,
   );
 
   if (selectAllTags.length === 0) return false;
@@ -159,7 +157,7 @@ export function isSliceCoveredBySelectAll(
 
   // Check if any of the slice's columns has a "select all" filter
   return sliceColumns.some((column) => {
-    const selectAllTag = `dim:${encodeURIComponent(column)}`;
+    const selectAllTag = generateSelectAllSliceString(column);
     return selectAllTags.includes(selectAllTag);
   });
 }

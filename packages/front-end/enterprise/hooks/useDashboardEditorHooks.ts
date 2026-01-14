@@ -13,6 +13,7 @@ import {
 import { DifferenceType } from "shared/types/stats";
 import { isNumber, isStringArray } from "shared/util";
 import { ExperimentReportVariation } from "shared/types/report";
+import { ExperimentSortBy } from "shared/experiments";
 
 export function useDashboardEditorHooks<
   B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
@@ -89,7 +90,7 @@ export function useDashboardEditorHooks<
 
   // Setters
   const setSortBy = useCallback(
-    (value: "metrics" | "metricTags" | "significance" | "change" | null) => {
+    (value: ExperimentSortBy) => {
       if (!setBlock) return;
       const currentBlock = blockRef.current;
       // Clear sortDirection when switching away from significance/change

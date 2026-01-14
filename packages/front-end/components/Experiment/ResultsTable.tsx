@@ -31,7 +31,12 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+  SetExperimentSortBy,
+  isFactMetric,
+} from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
@@ -115,10 +120,8 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
-  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
-  setSortBy?: (
-    s: "significance" | "change" | "metrics" | "metricTags" | null,
-  ) => void;
+  sortBy?: ExperimentSortBy;
+  setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   setBaselineRow?: (baselineRow: number) => void;

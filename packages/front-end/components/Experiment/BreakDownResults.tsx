@@ -19,7 +19,11 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+  SetExperimentSortBy,
+} from "shared/experiments";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -83,10 +87,8 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
-  setSortBy?: (
-    s: "significance" | "change" | "metrics" | "metricTags" | null,
-  ) => void;
+  sortBy?: ExperimentSortBy;
+  setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   customMetricOrder?: string[];
