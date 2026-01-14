@@ -675,6 +675,8 @@ export function DataVisualizationDisplay({
 
   const series = useMemo(() => {
     if (dimensionFields.length === 0) {
+      console.log("no dimensions, returning single series");
+      console.log("xField", xField);
       return [
         {
           name: xField,
@@ -703,7 +705,7 @@ export function DataVisualizationDisplay({
     const columnName = dimensionFields[0];
 
     // Register all series keys if tracking is enabled
-    if (trackSeriesKeys) {
+    if (trackSeriesKeys && dataVizConfig.chartType !== "pivot-table") {
       const keys = dimensionCombinations.map((combination) => ({
         columnName,
         dimensionValue: combination.join(", "),
