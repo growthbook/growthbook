@@ -119,14 +119,7 @@ export default function ExperimentMetricBlock({
     sortDirection: blockSortDirection,
     customMetricOrder:
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
-        ? blockMetricIds.filter(
-            (id) =>
-              ![
-                "experiment-goal",
-                "experiment-secondary",
-                "experiment-guardrail",
-              ].includes(id),
-          )
+        ? blockMetricIds
         : undefined,
   });
 

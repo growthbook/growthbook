@@ -27,6 +27,14 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
+
+// Special metric selector IDs that should be filtered out of customMetricOrder
+const METRIC_SELECTOR_IDS = [
+  "experiment-goal",
+  "experiment-secondary",
+  "experiment-guardrail",
+] as const;
+
 import {
   applyMetricOverrides,
   ExperimentTableRow,
@@ -746,9 +754,18 @@ export function sortMetricsByCustomOrder(
   metrics: ExperimentMetricInterface[],
   customOrder: string[],
 ): string[] {
+  // Filter out special metric selector IDs
+  const filteredCustomOrder = customOrder.filter(
+    (id) =>
+      !METRIC_SELECTOR_IDS.includes(id as (typeof METRIC_SELECTOR_IDS)[number]),
+  );
   const metricIds = metrics.map((m) => m.id);
-  const orderedMetrics = customOrder.filter((id) => metricIds.includes(id));
-  const unorderedMetrics = metricIds.filter((id) => !customOrder.includes(id));
+  const orderedMetrics = filteredCustomOrder.filter((id) =>
+    metricIds.includes(id),
+  );
+  const unorderedMetrics = metricIds.filter(
+    (id) => !filteredCustomOrder.includes(id),
+  );
   return [...orderedMetrics, ...unorderedMetrics];
 }
 

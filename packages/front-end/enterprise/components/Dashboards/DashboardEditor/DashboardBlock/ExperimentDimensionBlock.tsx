@@ -141,14 +141,7 @@ export default function ExperimentDimensionBlock({
       setSortDirection={isEditing ? setSortDirection : undefined}
       customMetricOrder={
         blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
-          ? blockMetricIds.filter(
-              (id) =>
-                ![
-                  "experiment-goal",
-                  "experiment-secondary",
-                  "experiment-guardrail",
-                ].includes(id),
-            )
+          ? blockMetricIds
           : undefined
       }
       metricTagFilter={blockMetricTagFilter}
