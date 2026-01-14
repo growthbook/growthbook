@@ -219,7 +219,7 @@ export default function SDKLanguageSelector({
             <TabsContent key={tab} value={tab}>
               {variant === "grid" ? (
                 <Grid
-                  columns="4"
+                  columns={{ initial: "1", sm: "2", md: "4" }}
                   gapX="2"
                   gapY="1"
                   p="2"
