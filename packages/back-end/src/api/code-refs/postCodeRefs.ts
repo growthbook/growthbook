@@ -1,14 +1,13 @@
 import { groupBy, values } from "lodash";
 import { PostCodeRefsResponse } from "shared/types/openapi";
 import { postCodeRefsValidator } from "shared/validators";
-import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
-  getFeatureCodeRefsByFeatures,
+  getExistingFeaturesForRepoBranch,
+  getFeatureKeysForRepoBranch,
   upsertFeatureCodeRefs,
-  getAllCodeRefsForOrg,
 } from "back-end/src/models/FeatureCodeRefs";
-import { promiseAllChunks } from "back-end/src/util/promise";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
@@ -17,20 +16,12 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     const refsByFeature = groupBy(req.body.refs, "flagKey");
     // convert deleteMissing to boolean
     const deleteMissing = deleteMissingString === "true";
-    const allExistingCodeRefs: FeatureCodeRefsInterface[] =
-      await getAllCodeRefsForOrg({
-        context: req.context,
-      });
 
-    const existingCodeRefsForRepoBranch = allExistingCodeRefs.filter(
-      (codeRef) => codeRef.repo === repo && codeRef.branch === branch,
-    );
-
-    const existingFeatures = [
-      ...new Set(
-        existingCodeRefsForRepoBranch.map((codeRef) => codeRef.feature),
-      ),
-    ];
+    const existingFeatures = await getExistingFeaturesForRepoBranch({
+      repo,
+      branch,
+      organization: req.context.org,
+    });
 
     const requestedFeatures = new Set(Object.keys(refsByFeature));
 
@@ -77,15 +68,16 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     // Get all features that were updated (both added/updated and removed)
     const allAffectedFeatures = [...requestedFeatures, ...featuresToRemove];
 
+    // Only fetch feature keys, not the full documents with all refs
+    const featuresUpdated = await getFeatureKeysForRepoBranch({
+      repo,
+      branch,
+      features: allAffectedFeatures,
+      organization: req.context.org,
+    });
+
     return {
-      featuresUpdated: (
-        await getFeatureCodeRefsByFeatures({
-          repo,
-          branch,
-          features: allAffectedFeatures,
-          organization: req.context.org,
-        })
-      ).map((f) => f.feature),
+      featuresUpdated,
     };
   },
 );

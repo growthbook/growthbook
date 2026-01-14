@@ -480,6 +480,7 @@ def analyze_metric_df(
                 post_stratify=post_stratify,
             )
             res = test.compute_result()
+            realized_settings = test.realized_settings
 
             power_response: Optional[PowerResponse] = None
             if decision_making_conditions(metric, analysis):
@@ -509,6 +510,7 @@ def analyze_metric_df(
                 ci=ci,
                 errorMessage=res.error_message,
                 power=power_response,
+                realizedSettings=realized_settings,
             )
 
             # Safely build specific response type from base response

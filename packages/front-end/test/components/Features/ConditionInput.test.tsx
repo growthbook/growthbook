@@ -1,9 +1,11 @@
 import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, beforeEach, vi, expect } from "vitest";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { RadixTheme } from "@/services/RadixTheme";
 
 vi.mock("@/services/DefinitionsContext", () => ({
   useDefinitions: vi.fn(),
@@ -45,7 +47,15 @@ describe("ConditionInput", () => {
   it("properly handles operator update when attribute changes", async () => {
     // Setup
     render(
-      <ConditionInput defaultValue="{}" onChange={mockOnChange} project="" />,
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -144,7 +154,15 @@ describe("ConditionInput", () => {
   it("properly handles equal operator update when attribute changes", async () => {
     // Setup
     render(
-      <ConditionInput defaultValue="{}" onChange={mockOnChange} project="" />,
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();
@@ -224,7 +242,15 @@ describe("ConditionInput", () => {
   it("adds a new OR condition when the + OR button is clicked", async () => {
     // Setup
     const { container } = render(
-      <ConditionInput defaultValue="{}" onChange={mockOnChange} project="" />,
+      <RadixTheme>
+        <TooltipProvider>
+          <ConditionInput
+            defaultValue="{}"
+            onChange={mockOnChange}
+            project=""
+          />
+        </TooltipProvider>
+      </RadixTheme>,
     );
     await waitFor(() => {
       expect(screen.getByText("Target by Attributes")).toBeInTheDocument();

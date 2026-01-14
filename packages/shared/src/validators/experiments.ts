@@ -194,7 +194,7 @@ export const experimentAnalysisSettings = z
     skipPartialData: z.boolean().optional(),
     attributionModel: z.enum(attributionModel).optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
-    postStratificationEnabled: z.boolean().optional(),
+    postStratificationEnabled: z.boolean().nullable().optional(),
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
