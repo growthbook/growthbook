@@ -279,23 +279,19 @@ const PagedModal: FC<Props> = (props) => {
       hideCta={hideCta}
       {...passThrough}
       trackOnSubmit={!nextStep}
-      submit={
-        submit
-          ? async () => {
-              await validateSteps(nextStep);
-              if (!nextStep) {
-                await submit();
-                if (props.close && autoCloseOnSubmit) {
-                  props.close();
-                }
-              } else if (steps[nextStep - 1].customNext) {
-                steps[nextStep - 1].customNext?.();
-              } else {
-                setStep(nextStep);
-              }
-            }
-          : undefined
-      }
+      submit={async () => {
+        await validateSteps(nextStep);
+        if (!nextStep) {
+          await submit?.();
+          if (props.close && autoCloseOnSubmit) {
+            props.close();
+          }
+        } else if (steps[nextStep - 1].customNext) {
+          steps[nextStep - 1].customNext?.();
+        } else {
+          setStep(nextStep);
+        }
+      }}
       backCTA={
         backButton && (step >= 1 || onBackFirstStep) ? (
           <button
