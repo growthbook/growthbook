@@ -250,12 +250,12 @@ export class MetricTimeSeriesModel extends BaseClass {
     newTimeSeries: CreateMetricTimeSeriesSingleDataPoint,
   ): MetricTimeSeries | undefined {
     if (!isValidDataPoint(newTimeSeries.singleDataPoint)) {
-      // logger.warn(
-      //   {
-      //     newTimeSeries,
-      //   },
-      //   "Invalid data point. Skipping creation of time series.",
-      // );
+      logger.warn(
+        {
+          newTimeSeries,
+        },
+        "Invalid data point. Skipping creation of time series.",
+      );
       return;
     }
 

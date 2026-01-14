@@ -4,6 +4,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
 import {
   ExperimentMetricInterface,
+  getMetricLink,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -186,7 +187,7 @@ const MetricDetailsModal: FC<MetricDetailsModalProps> = ({
 
             <Flex gap="5" mt="2">
               <Link
-                href={`/metrics/${metric.id}`}
+                href={getMetricLink(metric.id)}
                 target="_blank"
                 weight="bold"
               >
