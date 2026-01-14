@@ -156,6 +156,7 @@ export function DropdownMenuItem({
           submitColor={confirmation.submitColor ?? "danger"}
           submit={confirmation.submit}
           increasedElevation={true}
+          useRadixButton={true}
         >
           {confirmationContent ?? "Are you sure? This action cannot be undone."}
         </Modal>

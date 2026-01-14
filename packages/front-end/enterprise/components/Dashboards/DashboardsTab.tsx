@@ -8,18 +8,14 @@ import {
   DashboardBlockData,
   getBlockData,
 } from "shared/enterprise";
-import { Container, Flex, Heading, Text } from "@radix-ui/themes";
+import { Flex, Heading, Text } from "@radix-ui/themes";
 import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import EditButton from "@/components/EditButton/EditButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -27,11 +23,11 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { createTemporaryDashboard } from "@/pages/product-analytics/dashboards/new";
+import DashboardsTabMoreMenu from "./DashboardsTabMoreMenu";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
 import DashboardWorkspace from "./DashboardWorkspace";
-import DashboardViewQueriesButton from "./DashboardEditor/DashboardViewQueriesButton";
 import DashboardSelector from "./DashboardSelector";
 
 export type CreateDashboardArgs = {
@@ -240,6 +236,17 @@ function DashboardsTab({
     [blocks, submitDashboard, dashboardId],
   );
 
+  const toggleAutoUpdates = useCallback(async () => {
+    if (!dashboard) return;
+    await submitDashboard({
+      method: "PUT",
+      dashboardId,
+      data: {
+        enableAutoUpdates: !dashboard.enableAutoUpdates,
+      },
+    });
+  }, [dashboard, dashboardId, submitDashboard]);
+
   const createOrPromptUpgrade = () => {
     if (canCreate) {
       setTemporaryDashboard(
@@ -405,151 +412,25 @@ function DashboardsTab({
                         body="URL copied to clipboard"
                         innerClassName="px-2 py-1"
                       >
-                        <MoreMenu>
-                          {canEdit && (
-                            <>
-                              <EditButton
-                                useIcon={false}
-                                className="dropdown-item"
-                                onClick={() => {
-                                  setIsEditing(true);
-                                }}
-                              />
-                              <Button
-                                className="dropdown-item"
-                                onClick={() => setShowEditModal(true)}
-                              >
-                                <Text weight="regular">
-                                  Edit Dashboard Settings
-                                </Text>
-                              </Button>
-                              {mutateExperiment && canUpdateExperiment && (
-                                <Tooltip
-                                  body={
-                                    dashboard.shareLevel !== "published"
-                                      ? "Only published dashboards can be set as the default view"
-                                      : experiment.defaultDashboardId ===
-                                          dashboard.id
-                                        ? "Remove this dashboard as the default view for the experiment"
-                                        : "Set this dashboard as the default view for the experiment"
-                                  }
-                                >
-                                  <Button
-                                    className="dropdown-item"
-                                    disabled={
-                                      dashboard.shareLevel !== "published"
-                                    }
-                                    onClick={async () => {
-                                      await apiCall(
-                                        `/experiment/${experiment.id}`,
-                                        {
-                                          method: "POST",
-                                          body: JSON.stringify({
-                                            defaultDashboardId:
-                                              experiment.defaultDashboardId ===
-                                              dashboard.id
-                                                ? ""
-                                                : dashboard.id,
-                                          }),
-                                        },
-                                      );
-                                      mutateExperiment();
-                                    }}
-                                  >
-                                    <Text weight="regular">
-                                      {experiment.defaultDashboardId ===
-                                      dashboard.id
-                                        ? "Remove as Default View"
-                                        : "Set as Default View"}
-                                    </Text>
-                                  </Button>
-                                </Tooltip>
-                              )}
-
-                              <Container px="5">
-                                <DropdownMenuSeparator />
-                              </Container>
-                            </>
-                          )}
-                          {canEdit && (
-                            <Tooltip
-                              body={autoUpdateDisabledMessage}
-                              shouldDisplay={updateSchedule?.type === "never"}
-                            >
-                              <Button
-                                className="dropdown-item"
-                                disabled={updateSchedule?.type === "never"}
-                                onClick={() =>
-                                  submitDashboard({
-                                    method: "PUT",
-                                    dashboardId,
-                                    data: {
-                                      enableAutoUpdates:
-                                        !dashboard.enableAutoUpdates,
-                                    },
-                                  })
-                                }
-                              >
-                                <Text weight="regular">{`${
-                                  dashboard.enableAutoUpdates
-                                    ? "Disable"
-                                    : "Enable"
-                                } Auto-update`}</Text>
-                              </Button>
-                            </Tooltip>
-                          )}
-                          <DashboardViewQueriesButton
-                            className="dropdown-item text-capitalize"
-                            weight="regular"
-                            size="2"
-                          />
-                          <Container px="5">
-                            <DropdownMenuSeparator />
-                          </Container>
-                          {copySupported && (
-                            <Button
-                              className="dropdown-item"
-                              onClick={() => {
-                                const url = window.location.href.replace(
-                                  /[?#].*/,
-                                  `#dashboards/${dashboardId}`,
-                                );
-                                performCopy(url);
-                              }}
-                            >
-                              <Text weight="regular">Share</Text>
-                            </Button>
-                          )}
-                          {canCreate && (
-                            <Button
-                              className="dropdown-item"
-                              onClick={() => setShowDuplicateModal(true)}
-                            >
-                              <Flex align="center" gap="2">
-                                <Text weight="regular">Duplicate</Text>
-                                <PaidFeatureBadge commercialFeature="dashboards" />
-                              </Flex>
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <>
-                              <DeleteButton
-                                displayName="Dashboard"
-                                className="dropdown-item text-danger"
-                                useIcon={false}
-                                text="Delete"
-                                title="Delete Dashboard"
-                                onClick={async () => {
-                                  await apiCall(`/dashboards/${dashboard.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  mutateDashboards();
-                                  setDashboardId("");
-                                }}
-                              />
-                            </>
-                          )}
-                        </MoreMenu>
+                        <DashboardsTabMoreMenu
+                          dashboard={dashboard}
+                          experiment={experiment}
+                          dashboardId={dashboardId}
+                          canEdit={canEdit}
+                          canUpdateExperiment={canUpdateExperiment}
+                          canCreate={canCreate}
+                          canDelete={canDelete}
+                          updateSchedule={updateSchedule}
+                          copySupported={copySupported}
+                          mutateExperiment={mutateExperiment}
+                          setIsEditing={setIsEditing}
+                          setShowEditModal={setShowEditModal}
+                          setShowDuplicateModal={setShowDuplicateModal}
+                          toggleAutoUpdates={toggleAutoUpdates}
+                          performCopy={performCopy}
+                          mutateDashboards={mutateDashboards}
+                          setDashboardId={setDashboardId}
+                        />
                       </Tooltip>
                     </Flex>
                   ) : null}

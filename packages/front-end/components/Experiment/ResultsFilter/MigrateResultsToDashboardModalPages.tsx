@@ -209,7 +209,8 @@ export function SelectDashboardAndBlockPage({
 
         {hasMatchingBlock && (
           <Callout status="wizard" mt="3">
-            This dashboard already contains a similar block
+            This dashboard already contains a similar block. Click &quot;Save
+            &amp; Continue&quot; to create this block anyhow.
           </Callout>
         )}
       </Box>
