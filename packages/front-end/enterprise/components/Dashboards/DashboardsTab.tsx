@@ -119,6 +119,9 @@ function DashboardsTab({
     settings: { updateSchedule },
   } = useUser();
   const [isEditing, setIsEditing] = useState(false);
+  const [initialEditBlockIndex, setInitialEditBlockIndex] = useState<
+    number | null
+  >(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -260,6 +263,14 @@ function DashboardsTab({
     }
   };
 
+  const enterEditModeForBlock = useCallback(
+    (blockIndex: number) => {
+      setInitialEditBlockIndex(blockIndex);
+      setIsEditing(true);
+    },
+    [setIsEditing],
+  );
+
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
@@ -282,6 +293,8 @@ function DashboardsTab({
           }}
           isTabActive={isTabActive}
           dashboardFirstSave={dashboardFirstSave}
+          initialEditBlockIndex={initialEditBlockIndex}
+          onConsumeInitialEditBlockIndex={() => setInitialEditBlockIndex(null)}
         />
       ) : (
         <div>
@@ -495,9 +508,11 @@ function DashboardsTab({
                         isIncrementalRefreshExperiment={
                           isIncrementalRefreshExperiment
                         }
+                        enterEditModeForBlock={enterEditModeForBlock}
                         setBlock={canEdit ? memoizedSetBlock : undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
+                        setIsEditing={setIsEditing}
                       />
                     )}
                   </>

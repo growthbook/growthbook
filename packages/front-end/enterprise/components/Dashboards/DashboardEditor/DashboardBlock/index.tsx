@@ -93,6 +93,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
+  blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
   editingBlock: boolean;
@@ -108,6 +109,9 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   deleteBlock: () => void;
   moveBlock: (direction: 1 | -1) => void;
   mutate: () => void;
+  canEdit?: boolean;
+  setIsEditing?: (value: boolean) => void;
+  enterEditModeForBlock?: (blockIndex: number) => void;
 }
 
 const BLOCK_COMPONENTS: {
@@ -126,6 +130,7 @@ const BLOCK_COMPONENTS: {
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
+  blockIndex,
   isEditing,
   isFocused,
   editingBlock,
@@ -139,6 +144,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   deleteBlock,
   moveBlock,
   mutate,
+  canEdit,
+  setIsEditing,
+  enterEditModeForBlock,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
   const {
@@ -452,7 +460,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </DropdownMenuItem>
         </DropdownMenu>
       )}
-      <Flex align="center" mb="2" mr="3">
+      <Flex align="center" mb="2">
         {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus
@@ -517,21 +525,22 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
-        {isEditing && (
+        {isEditing ? (
           <div>
             {!editingBlock && (
               <DropdownMenu
                 open={dropdownOpen}
                 onOpenChange={setDropdownOpen}
+                variant="soft"
+                menuPlacement="end"
                 trigger={
                   <IconButton
                     variant="ghost"
+                    radius="full"
                     size="1"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span style={{ fontSize: "15px", lineHeight: "15px" }}>
-                      <BsThreeDotsVertical />
-                    </span>
+                    <BsThreeDotsVertical />
                   </IconButton>
                 }
               >
@@ -560,13 +569,47 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                     deleteBlock();
                     setDropdownOpen(false);
                   }}
+                  color="red"
                 >
-                  <Text color="red">Delete</Text>
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenu>
             )}
           </div>
-        )}
+        ) : canEdit && setIsEditing ? (
+          <div>
+            <DropdownMenu
+              open={dropdownOpen}
+              onOpenChange={setDropdownOpen}
+              variant="soft"
+              menuPlacement="end"
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  radius="full"
+                  size="1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <BsThreeDotsVertical />
+                </IconButton>
+              }
+            >
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (typeof blockIndex === "number" && enterEditModeForBlock) {
+                    enterEditModeForBlock(blockIndex);
+                  } else {
+                    setIsEditing(true);
+                  }
+                  setDropdownOpen(false);
+                }}
+              >
+                Edit
+              </DropdownMenuItem>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </Flex>
       <Text>{block.description}</Text>
       {/* Check for possible error states to ensure block component has all necessary data */}

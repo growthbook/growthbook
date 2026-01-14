@@ -1,4 +1,11 @@
-import React, { Fragment, ReactElement, useEffect, useState } from "react";
+import React, {
+  Fragment,
+  ReactElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   PiCaretDownFill,
   PiPlus,
@@ -9,6 +16,7 @@ import {
   PiArticleMediumDuotone,
   PiPencilSimpleFill,
 } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -28,6 +36,7 @@ import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
@@ -39,14 +48,15 @@ import { useUser } from "@/services/UserContext";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
-import DashboardBlock from "./DashboardBlock";
+import DropdownDeleteButton from "@/components/DeleteButton/DropdownDeleteButton";
+import Badge from "@/ui/Badge";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
-import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
+import DashboardBlock from "./DashboardBlock";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -234,6 +244,7 @@ interface Props {
   isGeneralDashboard: boolean;
   isIncrementalRefreshExperiment: boolean;
   setIsEditing?: (v: boolean) => void;
+  enterEditModeForBlock?: (blockIndex: number) => void;
   editBlockProps?: EditBlockProps;
 }
 
@@ -257,6 +268,7 @@ function DashboardEditor({
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
+  enterEditModeForBlock,
   editBlockProps,
 }: Props) {
   const {
@@ -274,9 +286,14 @@ function DashboardEditor({
   const [editDashboard, setEditDashboard] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const { apiCall } = useAuth();
   const { userId, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const { allQueries, savedQueriesMap, snapshotError } = useContext(
+    DashboardSnapshotContext,
+  );
   const isOwner = dashboardOwnerId === userId;
   const isAdmin = permissionsUtil.canManageOrgSettings();
   let canEdit = permissionsUtil.canUpdateGeneralDashboards(
@@ -297,6 +314,19 @@ function DashboardEditor({
     canEdit = false;
   }
   const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
+
+  const savedQueryIds = [...savedQueriesMap.keys()];
+  const queryStrings = useMemo(() => {
+    return allQueries.map((q) => q.query) ?? [];
+  }, [allQueries]);
+
+  const error = snapshotError;
+  const count = queryStrings.length + savedQueryIds.length;
+
+  const handleViewQueries = () => {
+    setQueriesModalOpen(true);
+    setDropdownOpen(false);
+  };
 
   const renderSingleBlock = ({
     i,
@@ -322,6 +352,7 @@ function DashboardEditor({
         <DashboardBlock
           isTabActive={isTabActive}
           block={block}
+          blockIndex={i}
           isEditing={isEditing}
           isFocused={isFocused}
           editingBlock={isEditingBlock}
@@ -343,6 +374,9 @@ function DashboardEditor({
             moveBlock ? (direction) => moveBlock(i, direction) : () => {}
           }
           mutate={mutate}
+          canEdit={canEdit}
+          setIsEditing={setIsEditing}
+          enterEditModeForBlock={enterEditModeForBlock}
         />
         <Container
           py="2px"
@@ -528,7 +562,7 @@ function DashboardEditor({
             isEditing={isEditing}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
-            <>
+            <Flex align="center" gap="4" ml="4">
               {canManageSharingAndEditLevels && (
                 <Button
                   variant="outline"
@@ -541,7 +575,6 @@ function DashboardEditor({
               <Button
                 variant="solid"
                 size="sm"
-                className="mx-4"
                 disabled={!canEdit}
                 onClick={() => setIsEditing(true)}
               >
@@ -549,52 +582,91 @@ function DashboardEditor({
                 Edit Blocks
               </Button>
 
-              <MoreMenu>
-                {canEdit && (
-                  <Button
-                    className="dropdown-item"
-                    onClick={() => setEditDashboard(true)}
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="3"
+                    highContrast
                   >
-                    <Text weight="regular">Edit Dashboard Settings</Text>
-                  </Button>
-                )}
-                {canDuplicate && (
-                  <Button
-                    className="dropdown-item"
-                    onClick={() => setDuplicateDashboard(true)}
-                  >
-                    <Text weight="regular">Duplicate</Text>
-                  </Button>
-                )}
-                <DropdownMenuSeparator />
-                <DashboardViewQueriesButton
-                  className="dropdown-item text-capitalize"
-                  weight="regular"
-                  size="2"
-                />
-                {canDelete && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DeleteButton
-                      displayName="Dashboard"
-                      className="dropdown-item text-danger"
-                      useIcon={false}
-                      text="Delete"
-                      title="Delete Dashboard"
-                      onClick={async () => {
-                        await apiCall(`/dashboards/${id}`, {
-                          method: "DELETE",
-                        });
-                        if (typeof window !== "undefined") {
-                          window.location.href =
-                            "/product-analytics/dashboards";
-                        }
+                    <BsThreeDotsVertical size={18} />
+                  </IconButton>
+                }
+                open={dropdownOpen}
+                onOpenChange={(o) => {
+                  setDropdownOpen(!!o);
+                }}
+                menuPlacement="end"
+                variant="soft"
+              >
+                <DropdownMenuGroup>
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditDashboard(true);
+                        setDropdownOpen(false);
                       }}
-                    />
-                  </>
+                    >
+                      <Text weight="regular">Edit Dashboard Settings</Text>
+                    </DropdownMenuItem>
+                  )}
+                  {canDuplicate && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDuplicateDashboard(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      <Text weight="regular">Duplicate</Text>
+                    </DropdownMenuItem>
+                  )}
+                  {queryStrings.length > 0 || savedQueryIds.length > 0 ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleViewQueries}>
+                        View queries
+                        <Badge
+                          variant="soft"
+                          radius="full"
+                          label={String(count)}
+                          ml="2"
+                          color={error ? "red" : undefined}
+                        />
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                  {canDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownDeleteButton
+                        displayName="Dashboard"
+                        text="Delete"
+                        onClick={async () => {
+                          await apiCall(`/dashboards/${id}`, {
+                            method: "DELETE",
+                          });
+                          if (typeof window !== "undefined") {
+                            window.location.href =
+                              "/product-analytics/dashboards";
+                          }
+                        }}
+                      />
+                    </>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenu>
+              {queriesModalOpen &&
+                (queryStrings.length > 0 || savedQueryIds.length > 0) && (
+                  <AsyncQueriesModal
+                    close={() => setQueriesModalOpen(false)}
+                    queries={queryStrings}
+                    savedQueries={savedQueryIds}
+                    error={error}
+                  />
                 )}
-              </MoreMenu>
-            </>
+            </Flex>
           ) : null}
         </Flex>
         {!isEditing && (

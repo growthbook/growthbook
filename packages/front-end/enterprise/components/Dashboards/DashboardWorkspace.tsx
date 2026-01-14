@@ -45,6 +45,9 @@ interface Props {
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
   close: () => void;
+  // for quick editing a block from the display view
+  initialEditBlockIndex?: number | null;
+  onConsumeInitialEditBlockIndex?: () => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -54,6 +57,8 @@ export default function DashboardWorkspace({
   mutate,
   submitDashboard,
   close,
+  initialEditBlockIndex,
+  onConsumeInitialEditBlockIndex,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
@@ -141,6 +146,16 @@ export default function DashboardWorkspace({
   const [editingBlockIndex, setEditingBlockIndex] = useState<
     number | undefined
   >(undefined);
+
+  // One-shot edit (and scroll) when entering edit mode from a specific block.
+  useEffect(() => {
+    if (!isDefined(initialEditBlockIndex)) return;
+    // This sets editingBlockIndex + stagedEditBlock and relies on DashboardBlock's
+    // existing scroll behavior (it scrolls when `editingBlock` is true).
+    editBlock(initialEditBlockIndex);
+    onConsumeInitialEditBlockIndex?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditBlockIndex, onConsumeInitialEditBlockIndex]);
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
     undefined,
   );
