@@ -86,8 +86,6 @@ export default function ExperimentMetricBlock({
 
   // Use shared editor hooks for state management
   const {
-    sortBy,
-    sortDirection,
     baselineRow,
     variationFilter,
     differenceType,
@@ -117,18 +115,8 @@ export default function ExperimentMetricBlock({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    sortBy:
-      blockSortBy === "metrics"
-        ? "metrics"
-        : blockSortBy === "metricTags"
-          ? "metricTags"
-          : sortBy === "significance" || sortBy === "change"
-            ? sortBy
-            : null,
-    sortDirection:
-      blockSortBy !== "metrics" && blockSortBy !== "metricTags"
-        ? sortDirection
-        : undefined,
+    sortBy: blockSortBy,
+    sortDirection: blockSortDirection,
     customMetricOrder:
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds.filter(
@@ -210,20 +198,8 @@ export default function ExperimentMetricBlock({
             isGoalMetrics={resultGroup === "goal"}
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={true}
-            sortBy={
-              blockSortBy === "metrics"
-                ? "metrics"
-                : blockSortBy === "metricTags"
-                  ? null // metricTags sorting is handled by useExperimentTableRows, not ResultsTable
-                  : (blockSortBy ?? null)
-            }
-            setSortBy={
-              isEditing && setSortBy
-                ? (value: "significance" | "change" | "metrics" | null) => {
-                    setSortBy(value as "significance" | "change" | null);
-                  }
-                : undefined
-            }
+            sortBy={blockSortBy}
+            setSortBy={isEditing ? setSortBy : undefined}
             sortDirection={blockSortDirection ?? null}
             setSortDirection={isEditing ? setSortDirection : undefined}
           />

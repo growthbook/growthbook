@@ -136,20 +136,7 @@ export default function ExperimentDimensionBlock({
         d.startsWith("precomputed:"),
       )}
       sortBy={blockSortBy ?? null}
-      setSortBy={
-        isEditing && setSortBy
-          ? (
-              value:
-                | "significance"
-                | "change"
-                | "metrics"
-                | "metricTags"
-                | null,
-            ) => {
-              setSortBy(value);
-            }
-          : undefined
-      }
+      setSortBy={isEditing ? setSortBy : undefined}
       sortDirection={blockSortDirection ?? null}
       setSortDirection={isEditing ? setSortDirection : undefined}
       customMetricOrder={
