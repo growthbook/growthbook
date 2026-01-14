@@ -574,9 +574,13 @@ export default function MigrateResultsToDashboardModal({
       {open && (
         <PagedModal
           header={
-            savedDashboardId
-              ? `Block added to "${savedDashboardName}"`
-              : "Add Results View to Dashboard"
+            savedDashboardId ? (
+              <>
+                Block added to <i>{savedDashboardName}</i>
+              </>
+            ) : (
+              "Add Results View to Dashboard"
+            )
           }
           subHeader={
             savedDashboardId

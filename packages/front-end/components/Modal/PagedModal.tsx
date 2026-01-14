@@ -17,7 +17,7 @@ import { DocSection } from "@/components/DocLink";
 import track, { TrackEventProps } from "@/services/track";
 
 type Props = {
-  header: string | null;
+  header: string | ReactNode | null;
   subHeader?: string | ReactNode;
   submitColor?: string;
   hideCta?: boolean;
