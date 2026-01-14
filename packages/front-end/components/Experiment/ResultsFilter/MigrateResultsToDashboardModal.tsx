@@ -218,7 +218,9 @@ export default function MigrateResultsToDashboardModal({
   const [wasCreatingNew, setWasCreatingNew] = useState(false);
   const [step, setStep] = useState(0);
 
-  const savedDashboardName = savedDashboardId ? dashboards.find((d) => d.id === savedDashboardId)?.title : null;
+  const savedDashboardName = savedDashboardId
+    ? dashboards.find((d) => d.id === savedDashboardId)?.title
+    : null;
   const canCreate = permissionsUtil.canCreateReport(experiment);
 
   const dashboardId = form.watch("dashboardId");
@@ -290,7 +292,6 @@ export default function MigrateResultsToDashboardModal({
     }
   };
 
-
   // Check if the new block would match an existing block in the selected dashboard
   const hasMatchingBlock = useMemo(() => {
     if (!dashboardId) return false;
@@ -299,7 +300,12 @@ export default function MigrateResultsToDashboardModal({
     if (!selectedDashboard || !selectedDashboard.blocks) return false;
 
     // Map sortBy: "metrics" and "metricTags" are used consistently in both experiment results and dashboards
-    const mappedSortBy: "metrics" | "metricTags" | "significance" | "change" | null =
+    const mappedSortBy:
+      | "metrics"
+      | "metricTags"
+      | "significance"
+      | "change"
+      | null =
       sortBy === "metrics" ||
       sortBy === "metricTags" ||
       sortBy === "significance" ||
@@ -356,7 +362,7 @@ export default function MigrateResultsToDashboardModal({
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
-    
+
     // Validate based on current step
     if (step === 0) {
       // Page 1: Validate dashboard selection
@@ -387,7 +393,12 @@ export default function MigrateResultsToDashboardModal({
 
     try {
       // Map sortBy: "metrics" and "metricTags" are used consistently in both experiment results and dashboards
-      const mappedSortBy: "metrics" | "metricTags" | "significance" | "change" | null =
+      const mappedSortBy:
+        | "metrics"
+        | "metricTags"
+        | "significance"
+        | "change"
+        | null =
         sortBy === "metrics" ||
         sortBy === "metricTags" ||
         sortBy === "significance" ||
@@ -518,7 +529,6 @@ export default function MigrateResultsToDashboardModal({
     );
   };
 
-
   const getCtaEnabled = () => {
     if (savedDashboardId) return false;
     if (step === confirmationStep) return false;
@@ -529,9 +539,7 @@ export default function MigrateResultsToDashboardModal({
       } else {
         // Can save if dashboard is selected
         return Boolean(
-          dashboardId &&
-            dashboardId !== "__create__" &&
-            dashboardId !== "",
+          dashboardId && dashboardId !== "__create__" && dashboardId !== "",
         );
       }
     }
@@ -566,8 +574,16 @@ export default function MigrateResultsToDashboardModal({
       )}
       {open && (
         <PagedModal
-          header={savedDashboardId ? `Block added to "${savedDashboardName}"` : "Add Results View to Dashboard"}
-          subHeader={savedDashboardId ? undefined : "Capture the current settings of this Experiment Results view to use in a Dashboard"}
+          header={
+            savedDashboardId
+              ? `Block added to "${savedDashboardName}"`
+              : "Add Results View to Dashboard"
+          }
+          subHeader={
+            savedDashboardId
+              ? undefined
+              : "Capture the current settings of this Experiment Results view to use in a Dashboard"
+          }
           close={close}
           submit={savedDashboardId ? undefined : handleSubmit}
           cta={getCtaText()}
@@ -628,10 +644,7 @@ export default function MigrateResultsToDashboardModal({
             </Page>
           )}
 
-          <Page
-            display="Confirmation"
-            enabled={!!savedDashboardId}
-          >
+          <Page display="Confirmation" enabled={!!savedDashboardId}>
             {savedDashboardId ? (
               <ConfirmationPage
                 wasCreatingNew={wasCreatingNew}

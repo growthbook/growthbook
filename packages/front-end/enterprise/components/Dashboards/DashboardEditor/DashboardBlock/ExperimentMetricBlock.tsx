@@ -215,7 +215,7 @@ export default function ExperimentMetricBlock({
                 ? "metrics"
                 : blockSortBy === "metricTags"
                   ? null // metricTags sorting is handled by useExperimentTableRows, not ResultsTable
-                  : blockSortBy ?? null
+                  : (blockSortBy ?? null)
             }
             setSortBy={
               isEditing && setSortBy

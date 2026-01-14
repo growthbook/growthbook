@@ -140,11 +140,18 @@ export default function ExperimentDimensionBlock({
           ? "metrics"
           : blockSortBy === "metricTags"
             ? "metrics" // metricTags is handled by BreakDownResults internally via metricTagFilter
-            : blockSortBy ?? null
+            : (blockSortBy ?? null)
       }
       setSortBy={
         isEditing && setSortBy
-          ? (value: "significance" | "change" | "metrics" | "metricTags" | null) => {
+          ? (
+              value:
+                | "significance"
+                | "change"
+                | "metrics"
+                | "metricTags"
+                | null,
+            ) => {
               setSortBy(value as "significance" | "change" | null);
             }
           : undefined

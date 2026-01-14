@@ -320,7 +320,9 @@ export function useExperimentTableRows({
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
             customMetricOrder,
           )
-        : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
           ? sortMetricsByTags(
               metricDefs.filter((m) => filteredMetrics.includes(m.id)),
               metricTagFilter,
@@ -349,7 +351,9 @@ export function useExperimentTableRows({
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
             customMetricOrder,
           )
-        : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
           ? sortMetricsByTags(
               secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
               metricTagFilter,
@@ -378,7 +382,9 @@ export function useExperimentTableRows({
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
             customMetricOrder,
           )
-        : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
           ? sortMetricsByTags(
               guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
               metricTagFilter,
@@ -440,6 +446,7 @@ export function useExperimentTableRows({
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
+    metricGroups,
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
@@ -752,14 +759,14 @@ export function sortMetricsByTags(
   // Expand any metric groups in the metrics array before sorting
   const metricIds = metrics.map((m) => m.id);
   const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
-  
+
   // Create a map of metric ID to metric object for quick lookup
   const metricMap = new Map(metrics.map((m) => [m.id, m]));
-  
+
   // Filter to only include expanded metric IDs that have corresponding metric objects
   // (metrics from expanded groups that aren't in the original array won't be included)
   const validExpandedIds = expandedMetricIds.filter((id) => metricMap.has(id));
-  
+
   // Start with default order (all expanded metrics in their current order)
   const sorted: string[] = [];
   const unsorted = new Set(validExpandedIds);

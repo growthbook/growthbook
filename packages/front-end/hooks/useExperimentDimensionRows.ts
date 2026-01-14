@@ -299,7 +299,9 @@ export function useExperimentDimensionRows({
               metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
               customMetricOrder,
             )
-          : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+          : sortBy === "metricTags" &&
+              metricTagFilter &&
+              metricTagFilter.length > 0
             ? sortMetricsByTags(
                 metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
                 metricTagFilter,
@@ -398,6 +400,7 @@ export function useExperimentDimensionRows({
     return tables;
   }, [
     results,
+    metricGroups,
     metricOverrides,
     ssrPolyfills,
     metricTagFilter,

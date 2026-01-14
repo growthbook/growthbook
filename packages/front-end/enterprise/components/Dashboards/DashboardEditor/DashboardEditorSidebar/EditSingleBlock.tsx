@@ -1086,7 +1086,8 @@ export default function EditSingleBlock({
                                 blockHasFieldOfType(
                                   block,
                                   "sortBy",
-                                  (val) => val === null || typeof val === "string",
+                                  (val) =>
+                                    val === null || typeof val === "string",
                                 ) && block.sortBy === "metricTags"
                               }
                               setValue={(checked) => {
