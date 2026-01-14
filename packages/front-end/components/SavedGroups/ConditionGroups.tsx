@@ -4,7 +4,7 @@ import { ago } from "shared/dates";
 import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,

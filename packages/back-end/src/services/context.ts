@@ -49,6 +49,7 @@ import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
@@ -78,6 +79,7 @@ export class ReqContextClass {
     metricAnalysis: MetricAnalysisModel;
     populationData: PopulationDataModel;
     savedQueries: SavedQueryDataModel;
+    savedGroups: SavedGroupModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
@@ -106,6 +108,7 @@ export class ReqContextClass {
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
       savedQueries: new SavedQueryDataModel(this),
+      savedGroups: new SavedGroupModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),

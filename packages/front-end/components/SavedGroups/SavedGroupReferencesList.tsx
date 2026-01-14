@@ -4,7 +4,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { SavedGroupWithoutValues } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";

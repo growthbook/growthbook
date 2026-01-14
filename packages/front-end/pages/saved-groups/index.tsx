@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
