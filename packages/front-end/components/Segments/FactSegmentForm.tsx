@@ -13,7 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import SelectOwner from "../Owner/SelectOwner";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 type Props = {
   goBack: () => void;

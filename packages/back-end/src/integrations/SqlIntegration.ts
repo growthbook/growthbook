@@ -2592,6 +2592,7 @@ export default abstract class SqlIntegration
     params: FeatureEvalDiagnosticsQueryParams,
   ): string {
     const featureKey = this.escapeStringLiteral(params.feature);
+    const oneWeekAgo = subDays(new Date(), 7);
 
     // We only support one feature usage query per data source for now
     // Always use the first query in the array for now
@@ -2605,9 +2606,9 @@ export default abstract class SqlIntegration
         ${featureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
-      WHERE feature_key = '${featureKey}'
+      WHERE feature_key = '${featureKey}' AND timestamp >= ${this.toTimestamp(oneWeekAgo)}
       ORDER BY timestamp DESC
-      LIMIT ${SQL_ROW_LIMIT}
+      LIMIT 100
       `,
       this.getFormatDialect(),
     );

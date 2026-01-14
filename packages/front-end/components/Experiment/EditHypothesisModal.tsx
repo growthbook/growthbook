@@ -12,8 +12,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 interface Props {
   source: string;

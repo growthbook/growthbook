@@ -24,7 +24,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
-} from "../services/bigquery";
+} from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {

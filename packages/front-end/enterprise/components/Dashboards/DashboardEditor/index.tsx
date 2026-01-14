@@ -23,7 +23,7 @@ import {
 import { isDefined } from "shared/util";
 import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { withErrorBoundary } from "@sentry/react";
+import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -41,9 +41,9 @@ import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import DashboardModal from "../DashboardModal";
-import DashboardShareModal from "../DashboardShareModal";
-import { DashboardChartsProvider } from "../DashboardChartsContext";
+import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
+import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
+import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";

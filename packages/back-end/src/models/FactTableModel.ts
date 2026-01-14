@@ -14,7 +14,7 @@ import {
 import { ApiFactTable, ApiFactTableFilter } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { promiseAllChunks } from "../util/promise";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
