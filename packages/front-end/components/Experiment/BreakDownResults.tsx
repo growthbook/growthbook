@@ -83,8 +83,8 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "significance" | "change" | "metrics" | null;
-  setSortBy?: (s: "significance" | "change" | "metrics" | null) => void;
+  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
+  setSortBy?: (s: "significance" | "change" | "metrics" | "metricTags" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   customMetricOrder?: string[];

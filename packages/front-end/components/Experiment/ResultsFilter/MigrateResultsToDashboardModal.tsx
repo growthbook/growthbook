@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DifferenceType } from "shared/types/stats";
 import {
@@ -10,25 +9,23 @@ import {
   DashboardEditLevel,
   DashboardShareLevel,
 } from "shared/enterprise";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import cronstrue from "cronstrue";
-import Modal from "@/components/Modal";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Metadata from "@/ui/Metadata";
-import RadioGroup from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
-import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import LinkButton from "@/ui/LinkButton";
 import { getExperimentRefreshFrequency } from "@/services/env";
-import { autoUpdateDisabledMessage } from "@/enterprise/components/Dashboards/DashboardsTab";
+import LinkButton from "@/ui/LinkButton";
+import {
+  SelectDashboardAndBlockPage,
+  NewDashboardSettingsPage,
+  ConfirmationPage,
+} from "./MigrateResultsToDashboardModalPages";
 
 // Type for block comparison - only includes fields we compare
 type BlockComparisonFields = {
@@ -219,11 +216,12 @@ export default function MigrateResultsToDashboardModal({
   const [error, setError] = useState<string | null>(null);
   const [savedDashboardId, setSavedDashboardId] = useState<string | null>(null);
   const [wasCreatingNew, setWasCreatingNew] = useState(false);
+  const [step, setStep] = useState(0);
 
+  const savedDashboardName = savedDashboardId ? dashboards.find((d) => d.id === savedDashboardId)?.title : null;
   const canCreate = permissionsUtil.canCreateReport(experiment);
 
   const dashboardId = form.watch("dashboardId");
-  const isCreatingNew = form.watch("isCreatingNew");
   const blockType = form.watch("blockType");
   const blockName = form.watch("blockName");
   const defaultBlockName = useMemo(
@@ -261,12 +259,13 @@ export default function MigrateResultsToDashboardModal({
     form.setValue("blockName", defaultBlockName);
   }, [defaultBlockName, form]);
 
-  // Reset form when modal closes
+  // Reset form and step when modal closes
   useEffect(() => {
     if (!open) {
       setError(null);
       setSavedDashboardId(null);
       setWasCreatingNew(false);
+      setStep(0);
       form.reset(getDefaultFormValues());
     }
   }, [open, form, getDefaultFormValues]);
@@ -291,56 +290,6 @@ export default function MigrateResultsToDashboardModal({
     }
   };
 
-  const metricTagCount = metricTagFilter?.length || 0;
-  const metricsCount = metricsFilter?.length || 0;
-  const sliceTagsCount = sliceTagsFilter?.length || 0;
-
-  const baselineText = useMemo(() => {
-    if (baselineRow === undefined || !experiment.variations[baselineRow]) {
-      return null;
-    }
-    const variation = experiment.variations[baselineRow];
-    return `${baselineRow} - ${variation.name}`;
-  }, [baselineRow, experiment.variations]);
-
-  const variationsText = useMemo(() => {
-    const baselineIndex = baselineRow ?? 0;
-    const visibleIndices = experiment.variations
-      .map((_, index) => index)
-      .filter(
-        (index) =>
-          index !== baselineIndex &&
-          (!variationFilter || !variationFilter.includes(index)),
-      );
-    const totalVariations = experiment.variations.length - 1;
-
-    if (
-      visibleIndices.length === 0 ||
-      visibleIndices.length === totalVariations
-    ) {
-      return "All variations";
-    }
-    return visibleIndices.map((index) => `#${index}`).join(", ");
-  }, [variationFilter, experiment.variations, baselineRow]);
-
-  const sortByDisplay = useMemo(() => {
-    if (sortBy === "metrics") return "Metric order";
-    if (sortBy === "significance") return "Significance";
-    if (sortBy === "change") return "Change";
-    return "Default";
-  }, [sortBy]);
-
-  const sortDirectionDisplay = useMemo(() => {
-    if (sortDirection === "asc") return "Ascending";
-    if (sortDirection === "desc") return "Descending";
-    return "";
-  }, [sortDirection]);
-
-  const differenceTypeDisplay = useMemo(() => {
-    if (differenceType === "absolute") return "Absolute";
-    if (differenceType === "scaled") return "Scaled";
-    return "Relative";
-  }, [differenceType]);
 
   // Check if the new block would match an existing block in the selected dashboard
   const hasMatchingBlock = useMemo(() => {
@@ -349,10 +298,13 @@ export default function MigrateResultsToDashboardModal({
     const selectedDashboard = dashboards.find((d) => d.id === dashboardId);
     if (!selectedDashboard || !selectedDashboard.blocks) return false;
 
-    // Map sortBy: "metrics" is used consistently in both experiment results and dashboards
-    const mappedSortBy: "metrics" | "significance" | "change" | null =
-      sortBy === "metrics" || sortBy === "significance" || sortBy === "change"
-        ? (sortBy as "metrics" | "significance" | "change")
+    // Map sortBy: "metrics" and "metricTags" are used consistently in both experiment results and dashboards
+    const mappedSortBy: "metrics" | "metricTags" | "significance" | "change" | null =
+      sortBy === "metrics" ||
+      sortBy === "metricTags" ||
+      sortBy === "significance" ||
+      sortBy === "change"
+        ? (sortBy as "metrics" | "metricTags" | "significance" | "change")
         : null;
 
     const mappedSortDirection: "asc" | "desc" | null =
@@ -404,9 +356,29 @@ export default function MigrateResultsToDashboardModal({
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
-    if (!isCreatingNew && !dashboardId) return;
-    if (isCreatingNew && !form.watch("newDashboardTitle").trim()) {
-      setError("Dashboard name is required");
+    
+    // Validate based on current step
+    if (step === 0) {
+      // Page 1: Validate dashboard selection
+      if (!isCreatingNew && !dashboardId) {
+        setError("Please select a dashboard");
+        return;
+      }
+      if (isCreatingNew) {
+        // For new dashboard, advance to page 2
+        setStep(1);
+        return;
+      }
+      // For existing dashboard, proceed with submission
+    } else if (step === 1) {
+      // Page 2 (new dashboard only): Validate dashboard name
+      if (!form.watch("newDashboardTitle").trim()) {
+        setError("Dashboard name is required");
+        return;
+      }
+      // Proceed with submission
+    } else {
+      // Already on confirmation page
       return;
     }
 
@@ -414,10 +386,13 @@ export default function MigrateResultsToDashboardModal({
     setIsSubmitting(true);
 
     try {
-      // Map sortBy: "metrics" is used consistently in both experiment results and dashboards
-      const mappedSortBy: "metrics" | "significance" | "change" | null =
-        sortBy === "metrics" || sortBy === "significance" || sortBy === "change"
-          ? (sortBy as "metrics" | "significance" | "change")
+      // Map sortBy: "metrics" and "metricTags" are used consistently in both experiment results and dashboards
+      const mappedSortBy: "metrics" | "metricTags" | "significance" | "change" | null =
+        sortBy === "metrics" ||
+        sortBy === "metricTags" ||
+        sortBy === "significance" ||
+        sortBy === "change"
+          ? (sortBy as "metrics" | "metricTags" | "significance" | "change")
           : null;
 
       // Create the new block using CREATE_BLOCK_TYPE, then override with our values
@@ -506,7 +481,11 @@ export default function MigrateResultsToDashboardModal({
         await mutateDashboards();
         setSavedDashboardId(finalDashboardId);
         setWasCreatingNew(isCreatingNew);
-        // Don't close the modal - let user click "View Dashboard" or "Close"
+        setError(null);
+        // Advance to confirmation page
+        // For existing dashboard: step 0 -> step 1 (confirmation)
+        // For new dashboard: step 1 -> step 2 (confirmation)
+        setStep(isCreatingNew ? 2 : 1);
       } else {
         setError("Failed to add block to dashboard");
       }
@@ -521,6 +500,61 @@ export default function MigrateResultsToDashboardModal({
     }
   };
 
+  // Determine which pages to show based on flow
+  const isCreatingNew = form.watch("isCreatingNew");
+  const confirmationStep = isCreatingNew ? 2 : 1;
+  const canGoBack = step < confirmationStep && !savedDashboardId;
+
+  // Calculate CTA text and enabled state
+  const getCtaText = () => {
+    if (savedDashboardId) return undefined;
+    if (step === 0 && isCreatingNew) return undefined; // Will show "Next"
+    if (step === confirmationStep) return undefined; // Confirmation page
+    return (
+      <>
+        Save & Continue{" "}
+        <PiCaretRight className="position-relative" style={{ top: -1 }} />
+      </>
+    );
+  };
+
+
+  const getCtaEnabled = () => {
+    if (savedDashboardId) return false;
+    if (step === confirmationStep) return false;
+    if (step === 0) {
+      if (isCreatingNew) {
+        // Can proceed to next page if dashboard is selected
+        return dashboardId === "__create__";
+      } else {
+        // Can save if dashboard is selected
+        return Boolean(
+          dashboardId &&
+            dashboardId !== "__create__" &&
+            dashboardId !== "",
+        );
+      }
+    }
+    if (step === 1) {
+      // New dashboard settings page
+      return Boolean(form.watch("newDashboardTitle").trim());
+    }
+    return false;
+  };
+
+  // Get secondary CTA (View Dashboard link when saved)
+  const getSecondaryCTA = () => {
+    if (!savedDashboardId) return undefined;
+    return (
+      <LinkButton
+        href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
+        external={true}
+      >
+        View Dashboard <PiArrowSquareOut />
+      </LinkButton>
+    );
+  };
+
   return (
     <>
       {showUpgradeModal && (
@@ -530,259 +564,85 @@ export default function MigrateResultsToDashboardModal({
           commercialFeature="dashboards"
         />
       )}
-      <Modal
-        open={open}
-        close={close}
-        header="Add Results View to Dashboard"
-        subHeader="Capture the current settings of this Experiment Results view to use it in a Dashboard."
-        trackingEventModalType="migrate-results-to-dashboard"
-        trackingEventModalSource="experiment-results"
-        size="lg"
-        includeCloseCta={true}
-        closeCta="Close"
-        cta={savedDashboardId ? undefined : "Add to Dashboard"}
-        submit={savedDashboardId ? undefined : handleSubmit}
-        secondaryCTA={
-          savedDashboardId ? (
-            <LinkButton
-              href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
-              external={true}
-              variant="outline"
+      {open && (
+        <PagedModal
+          header={savedDashboardId ? `Block added to "${savedDashboardName}"` : "Add Results View to Dashboard"}
+          subHeader={savedDashboardId ? undefined : "Capture the current settings of this Experiment Results view to use in a Dashboard"}
+          close={close}
+          submit={savedDashboardId ? undefined : handleSubmit}
+          cta={getCtaText()}
+          ctaEnabled={getCtaEnabled() && !isSubmitting}
+          loading={isSubmitting}
+          size="lg"
+          step={step}
+          setStep={setStep}
+          backButton={canGoBack}
+          closeCta={savedDashboardId ? "Close" : "Cancel"}
+          hideNav={true}
+          autoCloseOnSubmit={false}
+          secondaryCTA={getSecondaryCTA()}
+          trackingEventModalType="migrate-results-to-dashboard"
+          trackingEventModalSource="experiment-results"
+        >
+          <Page display="Select Dashboard & Block">
+            <SelectDashboardAndBlockPage
+              experiment={experiment}
+              dimension={dimension}
+              dimensionName={dimensionName}
+              metricTagFilter={metricTagFilter}
+              metricsFilter={metricsFilter}
+              sliceTagsFilter={sliceTagsFilter}
+              baselineRow={baselineRow}
+              variationFilter={variationFilter}
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              differenceType={differenceType}
+              form={form}
+              defaultBlockName={defaultBlockName}
+              hasMatchingBlock={hasMatchingBlock}
+              filteredDashboards={filteredDashboards}
+              defaultDashboard={defaultDashboard}
+              loadingDashboards={loadingDashboards}
+              canCreate={canCreate}
+              onDashboardSelect={handleDashboardSelect}
+              onCreateNew={handleCreateNew}
+              error={error}
+            />
+          </Page>
+
+          {isCreatingNew && (
+            <Page
+              display="Dashboard Settings"
+              enabled={isCreatingNew}
+              validate={async () => {
+                if (!form.watch("newDashboardTitle").trim()) {
+                  throw new Error("Dashboard name is required");
+                }
+              }}
             >
-              View Dashboard <PiArrowSquareOut />
-            </LinkButton>
-          ) : undefined
-        }
-        ctaEnabled={
-          savedDashboardId
-            ? false
-            : Boolean(
-                isCreatingNew
-                  ? form.watch("newDashboardTitle").trim()
-                  : dashboardId &&
-                      dashboardId !== "__create__" &&
-                      dashboardId !== "",
-              ) && !isSubmitting
-        }
-        loading={isSubmitting}
-        useRadixButton={true}
-        autoCloseOnSubmit={false}
-      >
-        {savedDashboardId ? (
-          <Box>
-            <Callout status="success" mt="2" mb="5">
-              {wasCreatingNew
-                ? "Dashboard created successfully!"
-                : "Block added to dashboard successfully!"}
-            </Callout>
-            <Text>
-              {wasCreatingNew
-                ? `Your new dashboard has been created. Close this window to return to the ${isBandit ? "bandit" : "experiment"} results.`
-                : `The results view has been added to the dashboard. Close this window to return to the ${isBandit ? "bandit" : "experiment"} results.`}
-            </Text>
-          </Box>
-        ) : (
-          <>
-            <Box mb="6">
-              {error && (
-                <Callout status="error" mb="3">
-                  {error}
-                </Callout>
-              )}
+              <NewDashboardSettingsPage
+                form={form}
+                refreshInterval={refreshInterval}
+                updateSchedule={updateSchedule}
+              />
+            </Page>
+          )}
 
-              <Box mb="4">
-                <Text
-                  weight="bold"
-                  size="2"
-                  className="mb-2"
-                  style={{ display: "block" }}
-                >
-                  Select Dashboard
-                </Text>
-
-                <DashboardSelector
-                  dashboards={filteredDashboards}
-                  defaultDashboard={defaultDashboard}
-                  value={isCreatingNew ? "__create__" : dashboardId}
-                  setValue={handleDashboardSelect}
-                  canCreate={canCreate}
-                  onCreateNew={handleCreateNew}
-                  showIcon={false}
-                  disabled={
-                    loadingDashboards || filteredDashboards.length === 0
-                  }
-                />
-              </Box>
-
-              {isCreatingNew && (
-                <Box className="bg-highlight rounded" mt="4" p="3">
-                  <Text
-                    weight="bold"
-                    size="2"
-                    mb="3"
-                    style={{ display: "block" }}
-                  >
-                    New Dashboard Settings
-                  </Text>
-                  <Flex direction="column" gap="3">
-                    <Field
-                      label="Name"
-                      {...form.register("newDashboardTitle")}
-                      placeholder="Dashboard name"
-                    />
-                    {refreshInterval && (
-                      <Checkbox
-                        label="Auto-update dashboard data"
-                        description={`An automatic data refresh will occur ${refreshInterval}.`}
-                        disabled={updateSchedule?.type === "never"}
-                        disabledMessage={autoUpdateDisabledMessage}
-                        value={form.watch("newDashboardEnableAutoUpdates")}
-                        setValue={(checked) =>
-                          form.setValue(
-                            "newDashboardEnableAutoUpdates",
-                            checked,
-                          )
-                        }
-                      />
-                    )}
-                    <SelectField
-                      label="View access"
-                      options={[
-                        { label: "Organization members", value: "published" },
-                        {
-                          label: "Only me",
-                          value: "private",
-                        },
-                      ]}
-                      value={form.watch("newDashboardShareLevel")}
-                      onChange={(value) => {
-                        form.setValue(
-                          "newDashboardShareLevel",
-                          value as DashboardShareLevel,
-                        );
-                        if (value === "private") {
-                          form.setValue("newDashboardEditLevel", "private");
-                        }
-                      }}
-                    />
-                    <SelectField
-                      label="Edit access"
-                      disabled={
-                        form.watch("newDashboardShareLevel") === "private"
-                      }
-                      options={[
-                        {
-                          label:
-                            "Any organization members with editing permission",
-                          value: "published",
-                        },
-                        {
-                          label: "Only me",
-                          value: "private",
-                        },
-                      ]}
-                      value={form.watch("newDashboardEditLevel")}
-                      onChange={(value) =>
-                        form.setValue(
-                          "newDashboardEditLevel",
-                          value as DashboardEditLevel,
-                        )
-                      }
-                    />
-                  </Flex>
-                </Box>
-              )}
-
-              <Box mt="4">
-                <Field
-                  label="Dashboard Block Name"
-                  {...form.register("blockName")}
-                  placeholder={defaultBlockName}
-                  labelClassName="font-weight-bold"
-                  containerClassName="mb-0"
-                />
-              </Box>
-
-              <Box mt="4">
-                <Box mb="2">
-                  <Text weight="bold" size="2">
-                    Block Type
-                  </Text>
-                </Box>
-                {dimension ? (
-                  <Text>Dimension Results</Text>
-                ) : (
-                  <RadioGroup
-                    gap="0"
-                    value={blockType}
-                    setValue={(value) =>
-                      form.setValue(
-                        "blockType",
-                        value as
-                          | "experiment-metric"
-                          | "experiment-time-series"
-                          | "experiment-dimension",
-                      )
-                    }
-                    options={[
-                      { value: "experiment-metric", label: "Metric Results" },
-                      {
-                        value: "experiment-time-series",
-                        label: "Timeseries Results",
-                      },
-                    ]}
-                  />
-                )}
-              </Box>
-
-              {hasMatchingBlock && (
-                <Callout status="wizard" mt="3">
-                  This dashboard already contains a similar block
-                </Callout>
-              )}
-            </Box>
-
-            <Box>
-              <Heading size="2" weight="bold" mb="2">
-                Summary
-              </Heading>
-
-              <Flex direction="column" gap="1">
-                <Metadata label="Unit Dimension" value={dimensionName} />
-                {sliceTagsCount > 0 && (
-                  <Metadata label="Slices" value={String(sliceTagsCount)} />
-                )}
-                {metricsCount > 0 && (
-                  <Metadata label="Metrics" value={String(metricsCount)} />
-                )}
-                {metricTagCount > 0 && (
-                  <Metadata
-                    label="Metric Tags"
-                    value={String(metricTagCount)}
-                  />
-                )}
-                {baselineText && (
-                  <Metadata label="Baseline" value={baselineText} />
-                )}
-                <Metadata label="Variations" value={variationsText} />
-                <Metadata
-                  label="Difference Type"
-                  value={differenceTypeDisplay}
-                />
-                <Metadata
-                  label="Sort by"
-                  value={
-                    (sortBy === "significance" || sortBy === "change") &&
-                    sortDirection
-                      ? `${sortByDisplay} (${sortDirectionDisplay})`
-                      : sortByDisplay
-                  }
-                />
-              </Flex>
-            </Box>
-          </>
-        )}
-      </Modal>
+          <Page
+            display="Confirmation"
+            enabled={!!savedDashboardId}
+          >
+            {savedDashboardId ? (
+              <ConfirmationPage
+                wasCreatingNew={wasCreatingNew}
+                blockType={blockType}
+              />
+            ) : (
+              <div />
+            )}
+          </Page>
+        </PagedModal>
+      )}
     </>
   );
 }

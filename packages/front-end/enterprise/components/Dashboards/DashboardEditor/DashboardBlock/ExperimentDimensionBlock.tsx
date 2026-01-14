@@ -135,10 +135,16 @@ export default function ExperimentDimensionBlock({
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
-      sortBy={blockSortBy === "metrics" ? "metrics" : (blockSortBy ?? null)}
+      sortBy={
+        blockSortBy === "metrics"
+          ? "metrics"
+          : blockSortBy === "metricTags"
+            ? "metrics" // metricTags is handled by BreakDownResults internally via metricTagFilter
+            : blockSortBy ?? null
+      }
       setSortBy={
         isEditing && setSortBy
-          ? (value: "significance" | "change" | "metrics" | null) => {
+          ? (value: "significance" | "change" | "metrics" | "metricTags" | null) => {
               setSortBy(value as "significance" | "change" | null);
             }
           : undefined

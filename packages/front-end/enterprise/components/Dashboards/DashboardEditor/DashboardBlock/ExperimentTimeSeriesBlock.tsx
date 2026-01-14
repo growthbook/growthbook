@@ -89,8 +89,16 @@ export default function ExperimentTimeSeriesBlock({
     shouldShowMetricSlices: true,
     enableExpansion: true,
     expandedMetrics,
-    sortBy: blockSortBy === "metrics" ? "metrics" : blockSortBy,
-    sortDirection: blockSortBy !== "metrics" ? blockSortDirection : undefined,
+    sortBy:
+      blockSortBy === "metrics"
+        ? "metrics"
+        : blockSortBy === "metricTags"
+          ? "metricTags"
+          : blockSortBy,
+    sortDirection:
+      blockSortBy !== "metrics" && blockSortBy !== "metricTags"
+        ? blockSortDirection
+        : undefined,
     customMetricOrder:
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds.filter(

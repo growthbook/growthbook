@@ -26,6 +26,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import {
   filterMetricsByTags,
   sortMetricsByCustomOrder,
+  sortMetricsByTags,
 } from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
@@ -37,7 +38,7 @@ export interface UseExperimentDimensionRowsParams {
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
   metricsFilter?: string[];
-  sortBy?: "significance" | "change" | "metrics" | null;
+  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -291,14 +292,20 @@ export function useExperimentDimensionRows({
         metricTagFilter,
       );
 
-      // Apply custom ordering if sortBy is "custom"
+      // Apply custom ordering if sortBy is "metrics" or "metricTags"
       const sortedMetricIds =
         sortBy === "metrics" && customMetricOrder
           ? sortMetricsByCustomOrder(
               metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
               customMetricOrder,
             )
-          : filteredMetricIds;
+          : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+            ? sortMetricsByTags(
+                metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
+                metricTagFilter,
+                ssrPolyfills?.metricGroups || metricGroups,
+              )
+            : filteredMetricIds;
 
       return sortedMetricIds
         .map((metricId) => {

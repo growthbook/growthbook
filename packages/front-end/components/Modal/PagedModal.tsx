@@ -36,7 +36,7 @@ type Props = {
   navFill?: boolean;
   inline?: boolean;
   close?: () => void;
-  submit: () => Promise<void>;
+  submit?: () => Promise<void>;
   children: ReactNode;
   backButton?: boolean;
   onBackFirstStep?: () => void;
@@ -56,6 +56,7 @@ type Props = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
+  useRadixButton?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -87,6 +88,7 @@ const PagedModal: FC<Props> = (props) => {
     trackingEventModalSource,
     allowlistedTrackingEventProps = {},
     header,
+    hideCta,
     ...passThrough
   } = props;
   const [modalUuid] = useState(uuidv4());
@@ -274,9 +276,10 @@ const PagedModal: FC<Props> = (props) => {
       bodyClassName={bodyClassName}
       header={header}
       showHeaderCloseButton={showHeaderCloseButton}
+      hideCta={hideCta}
       {...passThrough}
       trackOnSubmit={!nextStep}
-      submit={async () => {
+      submit={submit ? async () => {
         await validateSteps(nextStep);
         if (!nextStep) {
           await submit();
@@ -288,7 +291,7 @@ const PagedModal: FC<Props> = (props) => {
         } else {
           setStep(nextStep);
         }
-      }}
+      } : undefined}
       backCTA={
         backButton && (step >= 1 || onBackFirstStep) ? (
           <button

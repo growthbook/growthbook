@@ -22,6 +22,7 @@ import {
   generateSliceString,
   isMetricGroupId,
 } from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -49,7 +50,7 @@ export interface UseExperimentTableRowsParams {
   metricTagFilter?: string[];
   metricsFilter?: string[];
   sliceTagsFilter?: string[];
-  sortBy?: "significance" | "change" | "metrics" | null;
+  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -319,7 +320,13 @@ export function useExperimentTableRows({
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
             customMetricOrder,
           )
-        : filteredMetrics;
+        : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              metricDefs.filter((m) => filteredMetrics.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -342,7 +349,13 @@ export function useExperimentTableRows({
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
             customMetricOrder,
           )
-        : filteredSecondary;
+        : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -365,7 +378,13 @@ export function useExperimentTableRows({
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
             customMetricOrder,
           )
-        : filteredGuardrails;
+        : sortBy === "metricTags" && metricTagFilter && metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -723,6 +742,47 @@ export function sortMetricsByCustomOrder(
   const orderedMetrics = customOrder.filter((id) => metricIds.includes(id));
   const unorderedMetrics = metricIds.filter((id) => !customOrder.includes(id));
   return [...orderedMetrics, ...unorderedMetrics];
+}
+
+export function sortMetricsByTags(
+  metrics: ExperimentMetricInterface[],
+  metricTagFilter: string[],
+  metricGroups: MetricGroupInterface[],
+): string[] {
+  // Expand any metric groups in the metrics array before sorting
+  const metricIds = metrics.map((m) => m.id);
+  const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
+  
+  // Create a map of metric ID to metric object for quick lookup
+  const metricMap = new Map(metrics.map((m) => [m.id, m]));
+  
+  // Filter to only include expanded metric IDs that have corresponding metric objects
+  // (metrics from expanded groups that aren't in the original array won't be included)
+  const validExpandedIds = expandedMetricIds.filter((id) => metricMap.has(id));
+  
+  // Start with default order (all expanded metrics in their current order)
+  const sorted: string[] = [];
+  const unsorted = new Set(validExpandedIds);
+
+  // For each tag in order, find metrics with that tag and move them to the front
+  for (const tag of metricTagFilter) {
+    // Find metrics with this tag that haven't been sorted yet
+    const metricsWithTag = validExpandedIds.filter((metricId) => {
+      if (!unsorted.has(metricId)) return false;
+      const metric = metricMap.get(metricId);
+      if (!metric) return false;
+      return metric.tags?.includes(tag);
+    });
+
+    // Add metrics with this tag to the sorted list (preserving their relative order from default sort)
+    for (const metricId of metricsWithTag) {
+      sorted.push(metricId);
+      unsorted.delete(metricId);
+    }
+  }
+
+  // Add remaining unsorted metrics at the end (preserving their relative order)
+  return [...sorted, ...Array.from(unsorted)];
 }
 
 export function filterMetricsByTags(

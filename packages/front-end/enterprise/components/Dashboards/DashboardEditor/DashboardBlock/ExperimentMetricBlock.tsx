@@ -120,10 +120,15 @@ export default function ExperimentMetricBlock({
     sortBy:
       blockSortBy === "metrics"
         ? "metrics"
-        : sortBy === "significance" || sortBy === "change"
-          ? sortBy
-          : null,
-    sortDirection: blockSortBy !== "metrics" ? sortDirection : undefined,
+        : blockSortBy === "metricTags"
+          ? "metricTags"
+          : sortBy === "significance" || sortBy === "change"
+            ? sortBy
+            : null,
+    sortDirection:
+      blockSortBy !== "metrics" && blockSortBy !== "metricTags"
+        ? sortDirection
+        : undefined,
     customMetricOrder:
       blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
         ? blockMetricIds.filter(
@@ -206,7 +211,11 @@ export default function ExperimentMetricBlock({
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={true}
             sortBy={
-              blockSortBy === "metrics" ? "metrics" : (blockSortBy ?? null)
+              blockSortBy === "metrics"
+                ? "metrics"
+                : blockSortBy === "metricTags"
+                  ? null // metricTags sorting is handled by useExperimentTableRows, not ResultsTable
+                  : blockSortBy ?? null
             }
             setSortBy={
               isEditing && setSortBy

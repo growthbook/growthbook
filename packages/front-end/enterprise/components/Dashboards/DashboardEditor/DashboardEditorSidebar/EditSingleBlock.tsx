@@ -340,11 +340,21 @@ export default function EditSingleBlock({
     return blockMetricIds.length > 0;
   }, [block]);
 
+  // Check if metric tag filters exist
+  const hasMetricTagFilters = useMemo(() => {
+    if (!block || !("metricTagFilter" in block)) return false;
+    const blockMetricTagFilter = block.metricTagFilter;
+    return (blockMetricTagFilter?.length || 0) > 0;
+  }, [block]);
+
   // Generate available sort options
   const sortByOptions = useMemo(() => {
     const options = [{ value: "", label: "Default" }];
     if (hasMetricFilters) {
       options.push({ value: "metrics", label: "Metric order" });
+    }
+    if (hasMetricTagFilters) {
+      options.push({ value: "metricTags", label: "Metric tags" });
     }
     if (block?.type !== "experiment-time-series") {
       options.push(
@@ -353,7 +363,7 @@ export default function EditSingleBlock({
       );
     }
     return options;
-  }, [hasMetricFilters, block?.type]);
+  }, [hasMetricFilters, hasMetricTagFilters, block?.type]);
 
   // Reset sortBy to null if it's "metrics" but no metric filters exist
   useEffect(() => {
@@ -374,6 +384,26 @@ export default function EditSingleBlock({
       });
     }
   }, [block, hasMetricFilters, setBlock]);
+
+  // Reset sortBy to null if it's "metricTags" but no metric tag filters exist
+  useEffect(() => {
+    if (
+      block &&
+      blockHasFieldOfType(
+        block,
+        "sortBy",
+        (val) => val === null || typeof val === "string",
+      ) &&
+      block.sortBy === "metricTags" &&
+      !hasMetricTagFilters
+    ) {
+      setBlock({
+        ...block,
+        sortBy: null,
+        sortDirection: null,
+      });
+    }
+  }, [block, hasMetricTagFilters, setBlock]);
 
   // Generate available slice tags for blocks that support slice filtering
   const availableSliceTags = useMemo(() => {
@@ -1032,24 +1062,47 @@ export default function EditSingleBlock({
                       <>
                         {(block.metricTagFilter?.length || 0) > 0 ||
                         showMetricTags ? (
-                          <MultiSelectField
-                            label="Tags"
-                            containerClassName="mb-0"
-                            labelClassName="font-weight-bold"
-                            placeholder="Type to search..."
-                            value={block.metricTagFilter}
-                            onChange={(value) =>
-                              setBlock({ ...block, metricTagFilter: value })
-                            }
-                            options={metricTagOptions.map((tag) => ({
-                              label: tag.label,
-                              value: tag.value,
-                              isOrphaned: tag.isOrphaned,
-                            }))}
-                            formatOptionLabel={(option) =>
-                              formatMetricTagOptionLabel(option)
-                            }
-                          />
+                          <Box>
+                            <MultiSelectField
+                              label="Tags"
+                              containerClassName="mb-0"
+                              labelClassName="font-weight-bold"
+                              placeholder="Type to search..."
+                              value={block.metricTagFilter}
+                              onChange={(value) =>
+                                setBlock({ ...block, metricTagFilter: value })
+                              }
+                              options={metricTagOptions.map((tag) => ({
+                                label: tag.label,
+                                value: tag.value,
+                                isOrphaned: tag.isOrphaned,
+                              }))}
+                              formatOptionLabel={(option) =>
+                                formatMetricTagOptionLabel(option)
+                              }
+                            />
+                            <Checkbox
+                              value={
+                                blockHasFieldOfType(
+                                  block,
+                                  "sortBy",
+                                  (val) => val === null || typeof val === "string",
+                                ) && block.sortBy === "metricTags"
+                              }
+                              setValue={(checked) => {
+                                setBlock({
+                                  ...block,
+                                  sortBy: checked
+                                    ? ("metricTags" as (typeof block)["sortBy"])
+                                    : null,
+                                  sortDirection: null,
+                                });
+                              }}
+                              label="Sort results by order of metric tags"
+                              weight="regular"
+                              containerClassName="mt-3 mb-0"
+                            />
+                          </Box>
                         ) : (
                           <Link
                             onClick={() => setShowMetricTags(true)}

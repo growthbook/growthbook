@@ -83,8 +83,8 @@ const CompactResults: FC<{
       levels: string[];
     }>;
   }>;
-  sortBy?: "significance" | "change" | null;
-  setSortBy?: (s: "significance" | "change" | null) => void;
+  sortBy?: "significance" | "change" | "metrics" | "metricTags" | null;
+  setSortBy?: (s: "significance" | "change" | "metrics" | "metricTags" | null) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   analysisBarSettings?: {
