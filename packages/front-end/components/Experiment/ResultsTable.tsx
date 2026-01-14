@@ -357,6 +357,15 @@ export default function ResultsTable({
     return () =>
       globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
+
+  // Watch for table container resizes (e.g., sidebar opening/closing)
+  useEffect(() => {
+    if (!tableContainerRef.current) return;
+    const resizeObserver = new ResizeObserver(() => onResize());
+    resizeObserver.observe(tableContainerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
