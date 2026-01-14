@@ -19,7 +19,6 @@ import { autoUpdateDisabledMessage } from "@/enterprise/components/Dashboards/Da
 
 type FormValues = {
   dashboardId: string;
-  isCreatingNew: boolean;
   blockType:
     | "experiment-metric"
     | "experiment-time-series"
@@ -78,9 +77,9 @@ export function SelectDashboardAndBlockPage({
   onCreateNew,
   error,
 }: SharedProps) {
-  const isCreatingNew = form.watch("isCreatingNew");
   const blockType = form.watch("blockType");
   const dashboardId = form.watch("dashboardId");
+  const isCreatingNew = dashboardId === "__create__";
 
   const metricTagCount = metricTagFilter?.length || 0;
   const metricsCount = metricsFilter?.length || 0;

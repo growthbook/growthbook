@@ -164,7 +164,6 @@ export default function MigrateResultsToDashboardModal({
 
   const getDefaultFormValues = useCallback((): {
     dashboardId: string;
-    isCreatingNew: boolean;
     blockType:
       | "experiment-metric"
       | "experiment-time-series"
@@ -182,8 +181,7 @@ export default function MigrateResultsToDashboardModal({
       ? "experiment-dimension"
       : "experiment-metric";
     return {
-      dashboardId: "",
-      isCreatingNew: false,
+      dashboardId: "__create__",
       blockType: initialBlockType,
       blockName: getDefaultBlockName(initialBlockType),
       newDashboardTitle: "Untitled Dashboard",
@@ -197,7 +195,6 @@ export default function MigrateResultsToDashboardModal({
 
   const form = useForm<{
     dashboardId: string;
-    isCreatingNew: boolean;
     blockType:
       | "experiment-metric"
       | "experiment-time-series"
@@ -282,7 +279,6 @@ export default function MigrateResultsToDashboardModal({
       return;
     }
     if (canCreate) {
-      form.setValue("isCreatingNew", true);
       form.setValue("dashboardId", "__create__");
     }
   };
@@ -291,7 +287,6 @@ export default function MigrateResultsToDashboardModal({
     if (value === "__create__") {
       handleCreateNew();
     } else {
-      form.setValue("isCreatingNew", false);
       form.setValue("dashboardId", value);
     }
   };
@@ -370,11 +365,11 @@ export default function MigrateResultsToDashboardModal({
     // Validate based on current step
     if (step === 0) {
       // Page 1: Validate dashboard selection
-      if (!isCreatingNew && !dashboardId) {
+      if (dashboardId !== "__create__" && !dashboardId) {
         setError("Please select a dashboard");
         return;
       }
-      if (isCreatingNew) {
+      if (dashboardId === "__create__") {
         // For new dashboard, advance to page 2
         setStep(1);
         return;
@@ -445,7 +440,7 @@ export default function MigrateResultsToDashboardModal({
       let res: { status: number; dashboard: DashboardInterface };
       let finalDashboardId: string;
 
-      if (isCreatingNew) {
+      if (dashboardId === "__create__") {
         // Create new dashboard with the block included
         const blocks = [getBlockData(newBlock)];
         const formValues = form.getValues();
@@ -495,12 +490,12 @@ export default function MigrateResultsToDashboardModal({
       if (res.status === 200) {
         await mutateDashboards();
         setSavedDashboardId(finalDashboardId);
-        setWasCreatingNew(isCreatingNew);
+        setWasCreatingNew(dashboardId === "__create__");
         setError(null);
         // Advance to confirmation page
         // For existing dashboard: step 0 -> step 1 (confirmation)
         // For new dashboard: step 1 -> step 2 (confirmation)
-        setStep(isCreatingNew ? 2 : 1);
+        setStep(dashboardId === "__create__" ? 2 : 1);
       } else {
         setError("Failed to add block to dashboard");
       }
@@ -516,7 +511,7 @@ export default function MigrateResultsToDashboardModal({
   };
 
   // Determine which pages to show based on flow
-  const isCreatingNew = form.watch("isCreatingNew");
+  const isCreatingNew = dashboardId === "__create__";
   const confirmationStep = isCreatingNew ? 2 : 1;
   const canGoBack = step < confirmationStep && !savedDashboardId;
 
@@ -603,6 +598,7 @@ export default function MigrateResultsToDashboardModal({
           secondaryCTA={getSecondaryCTA()}
           trackingEventModalType="migrate-results-to-dashboard"
           trackingEventModalSource="experiment-results"
+          useRadixButton={true}
         >
           <Page display="Select Dashboard & Block">
             <SelectDashboardAndBlockPage
@@ -633,7 +629,7 @@ export default function MigrateResultsToDashboardModal({
           {isCreatingNew && (
             <Page
               display="Dashboard Settings"
-              enabled={isCreatingNew}
+              enabled={dashboardId === "__create__"}
               validate={async () => {
                 if (!form.watch("newDashboardTitle").trim()) {
                   throw new Error("Dashboard name is required");
