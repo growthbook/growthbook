@@ -61,7 +61,6 @@ export const postPopulationData = async (
     );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
-    manual: false,
     dimensions: [],
     metricSettings: [],
     goalMetrics: data.metricIds,

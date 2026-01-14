@@ -47,7 +47,7 @@ import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeS
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useSafeRolloutSnapshot } from "../SnapshotProvider";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import ChangeColumn from "./ChangeColumn";
 import StatusColumn from "./StatusColumn";
 

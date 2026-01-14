@@ -1,17 +1,20 @@
 import { useState, useMemo } from "react";
-import { SavedGroupTargeting } from "shared/types/feature";
+import { SavedGroupTargeting, FeaturePrerequisite } from "shared/types/feature";
+import { Text } from "@radix-ui/themes";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Link from "@/ui/Link";
 
 interface TruncatedConditionDisplayProps {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
   maxLength?: number;
 }
 
 export default function TruncatedConditionDisplay({
   condition,
   savedGroups,
+  prerequisites,
   maxLength = 200,
 }: TruncatedConditionDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -30,7 +33,11 @@ export default function TruncatedConditionDisplay({
   if (!isLarge || isExpanded) {
     return (
       <>
-        <ConditionDisplay condition={condition} savedGroups={savedGroups} />
+        <ConditionDisplay
+          condition={condition}
+          savedGroups={savedGroups}
+          prerequisites={prerequisites}
+        />
         {isExpanded && (
           <Link onClick={() => setIsExpanded(false)} mt="1">
             Collapse...
@@ -43,10 +50,10 @@ export default function TruncatedConditionDisplay({
   // Show placeholder for large conditions
   return (
     <>
-      <div
-        style={{ color: "var(--text-color-secondary)", fontStyle: "italic" }}
-      >
-        Large Condition
+      <div>
+        <Text color="gray" weight="bold" style={{ fontStyle: "italic" }}>
+          Large Condition
+        </Text>
       </div>
       <Link onClick={() => setIsExpanded(true)} mt="1">
         Expand...

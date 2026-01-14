@@ -1,7 +1,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ago } from "shared/dates";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/saved-group";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
@@ -28,7 +31,7 @@ import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
-  groups: SavedGroupInterface[];
+  groups: SavedGroupWithoutValues[];
   mutate: () => void;
 }
 
@@ -80,7 +83,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   );
 
   const referencingSavedGroupsByGroup = useMemo(() => {
-    const result: Record<string, SavedGroupInterface[]> = {};
+    const result: Record<string, SavedGroupWithoutValues[]> = {};
     filteredConditionGroups.forEach((targetGroup) => {
       result[targetGroup.id] = conditionGroups.filter((sg) => {
         if (sg.id === targetGroup.id) return false;

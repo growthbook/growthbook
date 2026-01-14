@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { SavedGroupInterface } from "shared/types/saved-group";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FeatureInterface } from "shared/types/feature";
 import {
@@ -104,8 +107,8 @@ export default function SavedGroupsPage() {
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
   const [idLists, conditionGroups] = useMemo(() => {
-    const idLists: SavedGroupInterface[] = [];
-    const conditionGroups: SavedGroupInterface[] = [];
+    const idLists: SavedGroupWithoutValues[] = [];
+    const conditionGroups: SavedGroupWithoutValues[] = [];
     savedGroups.forEach((savedGroup) => {
       if (savedGroup.type === "condition") {
         conditionGroups.push(savedGroup);

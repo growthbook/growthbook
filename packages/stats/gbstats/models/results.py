@@ -1,14 +1,68 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 import pandas as pd
 
-from gbstats.bayesian.tests import RiskType
-from gbstats.frequentist.tests import PValueErrorMessage
-from gbstats.models.tests import Uplift
+
+# Internal results classes
+@dataclass
+class EffectMomentsResult:
+    point_estimate: float
+    standard_error: float
+    pairwise_sample_size: int
+    error_message: Optional[str]
+    post_stratification_applied: bool
+
+
+@dataclass
+class Uplift:
+    dist: str
+    mean: float
+    stddev: float
+
+
+@dataclass
+class TestResult:
+    expected: float
+    ci: List[float]
+    uplift: Uplift
+    error_message: Optional[str]
+
+
+RiskType = Literal["absolute", "relative"]
+
+
+@dataclass
+class BayesianTestResult(TestResult):
+    chance_to_win: float
+    risk: List[float]
+    risk_type: RiskType
+
+
+PValueErrorMessage = Literal[
+    "NUMERICAL_PVALUE_NOT_CONVERGED",
+    "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
+]
+
+
+@dataclass
+class FrequentistTestResult(TestResult):
+    p_value: Optional[float] = None
+    p_value_error_message: Optional[PValueErrorMessage] = None
+
+
+@dataclass
+class PValueResult:
+    p_value: Optional[float] = None
+    p_value_error_message: Optional[PValueErrorMessage] = None
 
 
 # Data classes for return to the back end
+@dataclass
+class RealizedSettings:
+    postStratificationApplied: bool
+
+
 @dataclass
 class SingleVariationResult:
     users: Optional[float]
@@ -70,6 +124,7 @@ class BaseVariationResponse(BaselineResponse):
     ci: ResponseCI
     errorMessage: Optional[str]
     power: Optional[PowerResponse]
+    realizedSettings: RealizedSettings
 
 
 @dataclass

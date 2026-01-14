@@ -7,7 +7,7 @@ import {
 import { savedGroupValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
-import { savedGroupUpdated } from "../services/savedGroups";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

@@ -126,7 +126,6 @@ export type ResultsTableProps = {
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate?: () => void;
-  manualSnapshot?: boolean;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
 };
@@ -191,7 +190,6 @@ export default function ResultsTable({
   analysis,
   setAnalysisSettings,
   mutate,
-  manualSnapshot,
   setDifferenceType,
   totalMetricsCount,
 }: ResultsTableProps) {
@@ -606,9 +604,7 @@ export default function ResultsTable({
                           setAnalysisSettings={setAnalysisSettings}
                           mutate={mutate}
                           dropdownEnabled={
-                            !isHoldout &&
-                            !manualSnapshot &&
-                            snapshot?.dimension !== "pre:date"
+                            !isHoldout && snapshot?.dimension !== "pre:date"
                           }
                           isHoldout={isHoldout}
                         />
@@ -625,9 +621,7 @@ export default function ResultsTable({
                           setVariationFilter={setVariationFilter}
                           baselineRow={baselineRow}
                           dropdownEnabled={
-                            !isHoldout &&
-                            !manualSnapshot &&
-                            snapshot?.dimension !== "pre:date"
+                            !isHoldout && snapshot?.dimension !== "pre:date"
                           }
                           isHoldout={isHoldout}
                         />

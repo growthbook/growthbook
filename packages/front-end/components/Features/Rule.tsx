@@ -37,7 +37,7 @@ import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRollou
 import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBadge";
 import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
 import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
-import ConditionDisplay from "./ConditionDisplay";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
@@ -245,14 +245,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color="gray"
                 />
               </Box>
-              <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+              <Box
+                flexGrow="1"
+                pr="2"
+                style={{ minWidth: 0, maxWidth: "100%" }}
+              >
+                <Flex
+                  align="center"
+                  justify="between"
+                  mb="3"
+                  flexGrow="1"
+                  style={{ minWidth: 0, maxWidth: "100%" }}
+                >
                   <Flex
                     flexGrow="1"
                     gap="3"
                     justify="between"
                     mr="3"
                     align="center"
+                    style={{ minWidth: 0, maxWidth: "100%" }}
                   >
                     <Heading
                       as="h4"
@@ -260,6 +271,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       weight="medium"
                       mb="0"
                       className="w-100"
+                      style={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
                     >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
@@ -306,7 +322,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {info.pill}
                   </Flex>
                   {canEdit && (
-                    <Flex>
+                    <Flex style={{ flexShrink: 0, overflow: "visible" }}>
                       <MoreMenu useRadix={true} size={14}>
                         <a
                           href="#"
@@ -439,10 +455,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <Flex direction="row" gap="2" mb="3">
                       <Text weight="medium">IF</Text>
                       <Box>
-                        <ConditionDisplay
+                        <TruncatedConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
                           prerequisites={rule.prerequisites}
+                          maxLength={500}
                         />
                       </Box>
                     </Flex>

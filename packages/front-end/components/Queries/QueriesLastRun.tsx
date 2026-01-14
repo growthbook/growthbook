@@ -73,20 +73,31 @@ const QueriesLastRun: FC<{
           </Tooltip>
         )}
 
-        <Tooltip
-          body={
-            <Flex direction="column">
-              <Text>Last update: {datetime(dateCreated ?? "")}</Text>
-              {nextUpdate && !showAutoUpdateWidget ? (
-                <Text>Next update: {datetime(nextUpdate)}</Text>
-              ) : null}
-            </Flex>
-          }
-        >
-          <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
-            Updated {abbreviateAgo(dateCreated)}
-          </Text>
-        </Tooltip>
+        {dateCreated ? (
+          <Tooltip
+            body={
+              <Flex direction="column">
+                <Text>Last update: {datetime(dateCreated ?? "")}</Text>
+                {nextUpdate && !showAutoUpdateWidget ? (
+                  <Text>Next update: {datetime(nextUpdate)}</Text>
+                ) : null}
+              </Flex>
+            }
+          >
+            <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
+              Updated {abbreviateAgo(dateCreated)}
+            </Text>
+          </Tooltip>
+        ) : (
+          <Tooltip
+            body={<Text>Next update: {datetime(nextUpdate ?? "")}</Text>}
+            shouldDisplay={nextUpdate && !showAutoUpdateWidget}
+          >
+            <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
+              Not updated yet
+            </Text>
+          </Tooltip>
+        )}
 
         {(status === "partially-succeeded" || status === "failed") && (
           <Tooltip

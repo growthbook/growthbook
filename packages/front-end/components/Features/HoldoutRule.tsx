@@ -12,9 +12,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
-import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import HoldoutSummary from "./HoldoutSummary";
-import ConditionDisplay from "./ConditionDisplay";
 
 interface Props {
   feature: FeatureInterface;
@@ -167,7 +167,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                           overflowX="auto"
                           pb="3"
                         >
-                          <ConditionDisplay
+                          <TruncatedConditionDisplay
                             condition={
                               holdoutExperiment.phases[0].condition || ""
                             }
@@ -177,6 +177,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                             prerequisites={
                               holdoutExperiment.phases[0].prerequisites
                             }
+                            maxLength={500}
                           />
                         </Box>
                       </Flex>

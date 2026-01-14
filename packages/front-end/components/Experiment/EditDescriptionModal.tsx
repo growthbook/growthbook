@@ -4,8 +4,8 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import Modal from "../Modal";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Modal from "@/components/Modal";
 
 interface Props {
   source: string;

@@ -46,8 +46,8 @@ import {
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
-import { getExperimentById } from "../models/ExperimentModel";
-import { applyMetricOverrides } from "../util/integration";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -730,12 +730,17 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(maxTimestampMetricsSourceQuery);
 
+    const dimensionsForPrecomputation = org.settings
+      ?.disablePrecomputedDimensions
+      ? []
+      : eligibleDimensionsWithSlicesUnderMaxCells;
+
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensionsForPrecomputation: eligibleDimensionsWithSlicesUnderMaxCells,
+        dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
       }),
