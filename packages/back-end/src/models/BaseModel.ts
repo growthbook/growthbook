@@ -366,6 +366,7 @@ export abstract class BaseModel<
       limit,
       skip,
       bypassReadPermissionChecks,
+      projection,
     }: {
       sort?: Partial<{
         [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
@@ -373,6 +374,8 @@ export abstract class BaseModel<
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;
+      // Note: projection does not work when using config.yml
+      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
     } = {},
   ) {
     const fullQuery = {
@@ -403,6 +406,9 @@ export abstract class BaseModel<
       rawDocs = docs;
     } else {
       const cursor = this._dangerousGetCollection().find(fullQuery);
+      if (projection) {
+        cursor.project(projection);
+      }
       sort &&
         cursor.sort(
           sort as {

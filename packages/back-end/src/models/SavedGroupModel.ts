@@ -2,6 +2,7 @@ import { ApiSavedGroup } from "shared/types/openapi";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
+  SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { savedGroupValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
@@ -102,6 +103,11 @@ export class SavedGroupModel extends BaseClass {
       { organization: this.context.org.id, projects: projectId },
       { $pull: pullOperation },
     );
+  }
+
+  public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
+    const groups = await this._find({}, { projection: { values: 0 } });
+    return groups as SavedGroupWithoutValues[];
   }
 
   public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {

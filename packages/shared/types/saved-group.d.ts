@@ -10,6 +10,8 @@ export type SavedGroupType = z.infer<typeof savedGroupTypeValidator>;
 
 export type SavedGroupInterface = z.infer<typeof savedGroupValidator>;
 
+export type SavedGroupWithoutValues = Omit<SavedGroupInterface, "values">;
+
 /**
  * @deprecated
  */
