@@ -5,6 +5,7 @@ from pydantic.dataclasses import dataclass
 import numpy as np
 import operator
 from functools import reduce, cached_property
+from gbstats.models.results import EffectMomentsResult, RealizedSettings, TestResult
 from gbstats.utils import multinomial_covariance
 
 
@@ -47,30 +48,6 @@ class BaseConfig:
     total_users: Optional[int] = None
     alpha: float = 0.05
     post_stratify: bool = False
-
-
-# Results
-@dataclass
-class EffectMomentsResult:
-    point_estimate: float
-    standard_error: float
-    error_message: Optional[str]
-    pairwise_sample_size: int
-
-
-@dataclass
-class Uplift:
-    dist: str
-    mean: float
-    stddev: float
-
-
-@dataclass
-class TestResult:
-    expected: float
-    ci: List[float]
-    uplift: Uplift
-    error_message: Optional[str]
 
 
 @staticmethod
@@ -176,6 +153,7 @@ class EffectMoments:
             standard_error=0,
             pairwise_sample_size=0,
             error_message=error_message,
+            post_stratification_applied=False,
         )
 
     def _has_zero_variance(self) -> bool:
@@ -227,6 +205,7 @@ class EffectMoments:
             standard_error=np.sqrt(self.variance),
             pairwise_sample_size=self.stat_a.n + self.stat_b.n,
             error_message=None,
+            post_stratification_applied=False,
         )
 
 
@@ -270,6 +249,9 @@ class BaseABTest(ABC):
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
+        self.realized_settings = RealizedSettings(
+            postStratificationApplied=self.moments_result.post_stratification_applied,
+        )
 
     def compute_moments_result(self) -> EffectMomentsResult:
         moments_config = EffectMomentsConfig(
@@ -1198,6 +1180,7 @@ class PostStratificationSummary:
             standard_error=0,
             pairwise_sample_size=0,
             error_message=error_message,
+            post_stratification_applied=True,
         )
 
     def _has_zero_variance(self) -> bool:
@@ -1214,6 +1197,7 @@ class PostStratificationSummary:
             standard_error=np.sqrt(self.estimated_variance),
             pairwise_sample_size=self.n_total,
             error_message=None,
+            post_stratification_applied=True,
         )
 
 
@@ -1455,6 +1439,7 @@ class EffectMomentsPostStratification:
             standard_error=0,
             pairwise_sample_size=0,
             error_message=error_message,
+            post_stratification_applied=True,
         )
 
     @staticmethod

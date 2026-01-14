@@ -94,14 +94,12 @@ export default function ResultsTab({
     getDatasourceById,
     getExperimentMetricById,
     getProjectById,
-    metrics,
     datasources,
     getSegmentById,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
 
-  const [allowManualDatasource, setAllowManualDatasource] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
   const router = useRouter();
@@ -194,6 +192,16 @@ export default function ResultsTab({
                     : "Disabled"
                 }
               />
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Metadata
+                  label="Post-Stratification"
+                  value={
+                    analysis?.settings?.postStratificationEnabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+              ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
                   label="Sequential"
@@ -342,7 +350,6 @@ export default function ResultsTab({
             <>
               {experiment.status === "running" &&
               !experiment.datasource &&
-              !allowManualDatasource &&
               !snapshot &&
               !experiment.id.match(/^exp_sample/) ? (
                 <div className="alert-cool-1 text-center m-4 px-3 py-4">
@@ -375,19 +382,6 @@ export default function ResultsTab({
                         Connect to your Data
                       </NextLink>
                     </>
-                  )}
-                  {metrics.length > 0 && (
-                    <div className="mt-3">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setAllowManualDatasource(true);
-                        }}
-                      >
-                        continue with manually entered data
-                      </a>
-                    </div>
                   )}
                 </div>
               ) : (

@@ -1,10 +1,7 @@
 import React from "react";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-} from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { SafeRolloutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
@@ -31,7 +28,6 @@ export interface RefreshResultsButtonProps<
   resetFilters?: () => void | Promise<void>;
   // Experiment/holdout-specific props
   experiment?: ExperimentInterfaceStringDates;
-  analysis?: ExperimentSnapshotAnalysis;
   phase?: number;
   dimension?: string;
   setAnalysisSettings?: (
@@ -58,7 +54,6 @@ export default function RefreshResultsButton<
   setRefreshError,
   resetFilters,
   experiment,
-  analysis,
   phase,
   dimension,
   setAnalysisSettings,
@@ -145,7 +140,6 @@ export default function RefreshResultsButton<
           }}
           phase={phase}
           experiment={experiment}
-          lastAnalysis={analysis}
           dimension={dimension}
           setError={(error) => setRefreshError(error ?? "")}
           setAnalysisSettings={setAnalysisSettings}

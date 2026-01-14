@@ -90,7 +90,6 @@ const CompactResults: FC<{
   analysisBarSettings?: {
     variationFilter: number[];
   };
-  manualSnapshot?: boolean;
   setBaselineRow?: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
@@ -143,7 +142,6 @@ const CompactResults: FC<{
   sortDirection,
   setSortDirection,
   analysisBarSettings,
-  manualSnapshot,
   setBaselineRow,
   snapshot,
   analysis,
@@ -407,7 +405,6 @@ const CompactResults: FC<{
           analysis={analysis}
           setAnalysisSettings={setAnalysisSettings}
           mutate={mutate}
-          manualSnapshot={manualSnapshot}
         />
       ) : null}
 
@@ -465,7 +462,6 @@ const CompactResults: FC<{
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutate}
-            manualSnapshot={manualSnapshot}
           />
         </div>
       ) : null}
@@ -524,7 +520,6 @@ const CompactResults: FC<{
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutate}
-            manualSnapshot={manualSnapshot}
           />
         </div>
       ) : (

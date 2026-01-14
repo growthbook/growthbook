@@ -91,7 +91,6 @@ const BreakDownResults: FC<{
   analysisBarSettings?: {
     variationFilter: number[];
   };
-  manualSnapshot?: boolean;
   setBaselineRow?: (baselineRow: number) => void;
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
@@ -142,7 +141,6 @@ const BreakDownResults: FC<{
   setSortDirection,
   customMetricOrder,
   analysisBarSettings,
-  manualSnapshot,
   setBaselineRow,
   snapshot,
   analysis,
@@ -315,7 +313,6 @@ const BreakDownResults: FC<{
               analysis={analysis}
               setAnalysisSettings={setAnalysisSettings}
               mutate={mutate}
-              manualSnapshot={manualSnapshot}
             />
             <div className="mb-5" />
           </>
