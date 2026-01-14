@@ -22,9 +22,9 @@ import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { BsFiletypeHtml } from "react-icons/bs";
 import { TbCloudCode } from "react-icons/tb";
+import { Text } from "@radix-ui/themes";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { Text } from "@radix-ui/themes";
 
 export type LanguageFilter =
   | "popular"

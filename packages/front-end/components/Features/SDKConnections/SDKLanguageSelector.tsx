@@ -1,14 +1,14 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
 import { Box, Grid } from "@radix-ui/themes";
+import { FaMagnifyingGlass } from "react-icons/fa6";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Field from "@/components/Forms/Field";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
   languageMapping,
 } from "./SDKLanguageLogo";
-import Field from "@/components/Forms/Field";
-import { FaMagnifyingGlass } from "react-icons/fa6";
 
 const tabs: Record<LanguageFilter, string> = {
   popular: "Popular",
@@ -48,7 +48,11 @@ export function SDKLanguageOption({
         onClick();
       }}
     >
-      <SDKLanguageLogo language={language} showLabel={true} size={isGrid ? 20 : 30} />
+      <SDKLanguageLogo
+        language={language}
+        showLabel={true}
+        size={isGrid ? 20 : 30}
+      />
     </div>
   );
 }

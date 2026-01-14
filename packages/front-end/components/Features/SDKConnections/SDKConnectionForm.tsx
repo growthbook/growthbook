@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
-  FaCheck,
   FaExclamationCircle,
   FaExclamationTriangle,
   FaInfoCircle,
@@ -28,6 +27,7 @@ import {
 } from "shared/util";
 import { PiPackage, PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { Text, Box, Flex, Separator } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -55,7 +55,6 @@ import {
   getConnectionLanguageFilter,
   getPackageRepositoryName,
 } from "./SDKLanguageLogo";
-import { Text, Box, Flex, Separator } from "@radix-ui/themes";
 
 function shouldShowPayloadSecurity(
   languageType: LanguageType,
@@ -245,13 +244,13 @@ export default function SDKConnectionForm({
   const permissionRequired = (project: string) => {
     return edit
       ? permissionsUtil.canUpdateSDKConnection(
-        { projects: [project], environment: form.watch("environment") },
-        {},
-      )
+          { projects: [project], environment: form.watch("environment") },
+          {},
+        )
       : permissionsUtil.canCreateSDKConnection({
-        projects: [project],
-        environment: form.watch("environment"),
-      });
+          projects: [project],
+          environment: form.watch("environment"),
+        });
   };
 
   const projectsOptions = useProjectOptions(
@@ -285,7 +284,9 @@ export default function SDKConnectionForm({
   useEffect(() => {
     if (selectedSecurityTab === "remote" && !showRemoteEval) {
       setSelectedSecurityTab(
-        shouldShowPayloadSecurity(languageType, languages) ? "ciphered" : "none"
+        shouldShowPayloadSecurity(languageType, languages)
+          ? "ciphered"
+          : "none",
       );
     }
   }, [showRemoteEval, selectedSecurityTab, languageType, languages]);
@@ -369,16 +370,16 @@ export default function SDKConnectionForm({
   const filteredEnvironments =
     initialValue.managedBy?.type === "vercel"
       ? environments.filter((e) => {
-        if (!e.projects?.length) {
-          return true;
-        }
-        if (
-          initialValue.projects?.[0] &&
-          e.projects?.includes(initialValue.projects?.[0])
-        ) {
-          return true;
-        }
-      })
+          if (!e.projects?.length) {
+            return true;
+          }
+          if (
+            initialValue.projects?.[0] &&
+            e.projects?.includes(initialValue.projects?.[0])
+          ) {
+            return true;
+          }
+        })
       : environments;
 
   return (
@@ -456,22 +457,33 @@ export default function SDKConnectionForm({
       cta={cta}
     >
       <div className="px-2">
-        <Field label={
-          <div>
-            Connection Name
-            <Text as="p" size="1" weight="regular" color="gray" mb="0" mt="1">
-              Give this SDK connection a meaningful name
-            </Text>
-          </div>
-        } {...form.register("name")} required />
+        <Field
+          label={
+            <div>
+              Connection Name
+              <Text as="p" size="1" weight="regular" color="gray" mb="0" mt="1">
+                Give this SDK connection a meaningful name
+              </Text>
+            </div>
+          }
+          {...form.register("name")}
+          required
+        />
 
         <div className="mb-4">
           <div className="form-group">
             <label>
               <div>
                 SDK Language
-                <Text as="p" size="1" weight="regular" color="gray" mb="0" mt="1">
-                  Choose the type of SDK you'll use for this connection
+                <Text
+                  as="p"
+                  size="1"
+                  weight="regular"
+                  color="gray"
+                  mb="0"
+                  mt="1"
+                >
+                  Choose the type of SDK you&apos;ll use for this connection
                 </Text>
               </div>
             </label>
@@ -634,8 +646,9 @@ export default function SDKConnectionForm({
           <label>
             Filter by Projects{" "}
             <Tooltip
-              body={`The dropdown below has been filtered to only include projects where you have permission to ${edit ? "update" : "create"
-                } SDK Connections.`}
+              body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                edit ? "update" : "create"
+              } SDK Connections.`}
             />
             {!!selectedProjects?.length && (
               <> ({selectedValidProjects?.length ?? 0})</>
@@ -696,7 +709,9 @@ export default function SDKConnectionForm({
                 })
               }
               tabContentsClassName={(tab) =>
-                tab === "none" || tab === "remote" || (tab === "ciphered" && !edit)
+                tab === "none" ||
+                tab === "remote" ||
+                (tab === "ciphered" && !edit)
                   ? "d-none"
                   : "noborder"
               }
@@ -773,14 +788,14 @@ export default function SDKConnectionForm({
                                   body={
                                     <>
                                       <p>
-                                        SDK payloads will be encrypted via the AES
-                                        encryption algorithm. When evaluating
-                                        feature flags in a public or insecure
-                                        environment (such as a browser),
-                                        encryption provides an additional layer of
-                                        security through obfuscation. This allows
-                                        you to target users based on sensitive
-                                        attributes.
+                                        SDK payloads will be encrypted via the
+                                        AES encryption algorithm. When
+                                        evaluating feature flags in a public or
+                                        insecure environment (such as a
+                                        browser), encryption provides an
+                                        additional layer of security through
+                                        obfuscation. This allows you to target
+                                        users based on sensitive attributes.
                                       </p>
                                       <p className="mb-0 text-warning-orange small">
                                         <FaExclamationCircle /> When using an
@@ -788,8 +803,8 @@ export default function SDKConnectionForm({
                                         exclusively on payload encryption as a
                                         means of securing highly sensitive data.
                                         Because the client performs the
-                                        decryption, the unencrypted payload may be
-                                        extracted with sufficient effort.
+                                        decryption, the unencrypted payload may
+                                        be extracted with sufficient effort.
                                       </p>
                                     </>
                                   }
@@ -815,8 +830,8 @@ export default function SDKConnectionForm({
                                   <>
                                     <p>
                                       Feature targeting conditions referencing{" "}
-                                      <code>secureString</code> attributes will be
-                                      anonymized via SHA-256 hashing. When
+                                      <code>secureString</code> attributes will
+                                      be anonymized via SHA-256 hashing. When
                                       evaluating feature flags in a public or
                                       insecure environment (such as a browser),
                                       hashing provides an additional layer of
@@ -829,9 +844,9 @@ export default function SDKConnectionForm({
                                       insecure environment, do not rely
                                       exclusively on hashing as a means of
                                       securing highly sensitive data. Hashing is
-                                      an obfuscation technique that makes it very
-                                      difficult, but not impossible, to extract
-                                      sensitive data.
+                                      an obfuscation technique that makes it
+                                      very difficult, but not impossible, to
+                                      extract sensitive data.
                                     </p>
                                   </>
                                 }
@@ -853,8 +868,9 @@ export default function SDKConnectionForm({
                                 body={
                                   <>
                                     <p>
-                                      Experiment and variation names can help add
-                                      context when debugging or tracking events.
+                                      Experiment and variation names can help
+                                      add context when debugging or tracking
+                                      events.
                                     </p>
                                     <p>
                                       However, this could expose potentially
@@ -883,8 +899,8 @@ export default function SDKConnectionForm({
                             className="ml-2 mt-3 text-warning-orange"
                             style={{ marginBottom: -5 }}
                           >
-                            <FaExclamationCircle /> Payload decryption may not be
-                            available in your current SDK.
+                            <FaExclamationCircle /> Payload decryption may not
+                            be available in your current SDK.
                             {languages.length === 1 && (
                               <div className="mt-1 text-gray">
                                 {getSDKCapabilityVersion(
@@ -899,8 +915,8 @@ export default function SDKConnectionForm({
                                         "encryption",
                                       )}
                                     </code>
-                                    . The SDK version specified in this connection
-                                    is{" "}
+                                    . The SDK version specified in this
+                                    connection is{" "}
                                     <code>
                                       {form.watch("sdkVersion") ||
                                         getDefaultSDKVersion(languages[0])}
@@ -932,12 +948,9 @@ export default function SDKConnectionForm({
                           />
                         </span>
                       )}
-                      
-                      { !hasRemoteEvaluationFeature && (
+                      {!hasRemoteEvaluationFeature && (
                         <span>
-                          <PaidFeatureBadge
-                            commercialFeature="remote-evaluation"
-                          />
+                          <PaidFeatureBadge commercialFeature="remote-evaluation" />
                         </span>
                       )}
                       Remote Evaluated
@@ -947,7 +960,7 @@ export default function SDKConnectionForm({
                     </>
                   }
                 >
-                <></>
+                  <></>
                 </Tab>
               )}
             </ControlledTabs>
@@ -968,7 +981,6 @@ export default function SDKConnectionForm({
               <Flex direction="column" gap="4">
                 {(showVisualEditorSettings || showRedirectSettings) && (
                   <div>
-
                     <Flex direction="column" gap="4">
                       <Text>Auto Experiments</Text>
                       {showVisualEditorSettings && (
@@ -979,8 +991,10 @@ export default function SDKConnectionForm({
                           }
                           label={
                             <>
-                              Enable <strong>Visual Editor experiments</strong> (
-                              <DocLink docSection="visual_editor">docs</DocLink>)
+                              Enable <strong>Visual Editor experiments</strong>{" "}
+                              (
+                              <DocLink docSection="visual_editor">docs</DocLink>
+                              )
                             </>
                           }
                         />
@@ -995,7 +1009,8 @@ export default function SDKConnectionForm({
                           label={
                             <>
                               Enable <strong>URL Redirect experiments</strong> (
-                              <DocLink docSection="url_redirects">docs</DocLink>)
+                              <DocLink docSection="url_redirects">docs</DocLink>
+                              )
                             </>
                           }
                         />
@@ -1003,40 +1018,40 @@ export default function SDKConnectionForm({
 
                       {(form.watch("includeVisualExperiments") ||
                         form.watch("includeRedirectExperiments")) && (
-                          <Checkbox
-                            value={form.watch("includeDraftExperiments")}
-                            setValue={(val) =>
-                              form.setValue("includeDraftExperiments", val)
-                            }
-                            label={
-                              <Tooltip
-                                body={
-                                  <>
-                                    <p>
-                                      In-development auto experiments will be sent to
-                                      the SDK. We recommend only enabling this for
-                                      non-production environments.
-                                    </p>
-                                    <p className="mb-0">
-                                      To force into a variation, use a URL query
-                                      string such as{" "}
-                                      <code className="d-block">
-                                        ?my-experiment-id=2
-                                      </code>
-                                    </p>
-                                  </>
-                                }
+                        <Checkbox
+                          value={form.watch("includeDraftExperiments")}
+                          setValue={(val) =>
+                            form.setValue("includeDraftExperiments", val)
+                          }
+                          label={
+                            <Tooltip
+                              body={
+                                <>
+                                  <p>
+                                    In-development auto experiments will be sent
+                                    to the SDK. We recommend only enabling this
+                                    for non-production environments.
+                                  </p>
+                                  <p className="mb-0">
+                                    To force into a variation, use a URL query
+                                    string such as{" "}
+                                    <code className="d-block">
+                                      ?my-experiment-id=2
+                                    </code>
+                                  </p>
+                                </>
+                              }
+                            >
+                              <label
+                                className="mb-0 cursor-pointer"
+                                htmlFor="sdk-connection-include-draft-experiments-toggle"
                               >
-                                <label
-                                  className="mb-0 cursor-pointer"
-                                  htmlFor="sdk-connection-include-draft-experiments-toggle"
-                                >
-                                  Include draft experiments <FaInfoCircle />
-                                </label>
-                              </Tooltip>
-                            }
-                          />
-                        )}
+                                Include draft experiments <FaInfoCircle />
+                              </label>
+                            </Tooltip>
+                          }
+                        />
+                      )}
                     </Flex>
                   </div>
                 )}
@@ -1065,15 +1080,16 @@ export default function SDKConnectionForm({
                                 body={
                                   <>
                                     <p>
-                                      Optionally add your proxy&apos;s public URL to
-                                      enable faster rollouts. Providing your proxy host
-                                      will allow GrowthBook to push updates to your
-                                      proxy whenever feature definitions change.
+                                      Optionally add your proxy&apos;s public
+                                      URL to enable faster rollouts. Providing
+                                      your proxy host will allow GrowthBook to
+                                      push updates to your proxy whenever
+                                      feature definitions change.
                                     </p>
                                     <p className="mb-0">
-                                      Without GrowthBook&apos;s push updates, the proxy
-                                      will fall back to a stale-while-revalidate caching
-                                      strategy.
+                                      Without GrowthBook&apos;s push updates,
+                                      the proxy will fall back to a
+                                      stale-while-revalidate caching strategy.
                                     </p>
                                   </>
                                 }
@@ -1104,21 +1120,23 @@ export default function SDKConnectionForm({
                           body={
                             <>
                               <p>
-                                Reduce the size of your payload by moving ID List
-                                Saved Groups from inline evaluation to a separate
-                                key in the payload json. Re-using an ID List in
-                                multiple features or experiments will no longer
-                                meaningfully increase the size of your payload.
+                                Reduce the size of your payload by moving ID
+                                List Saved Groups from inline evaluation to a
+                                separate key in the payload json. Re-using an ID
+                                List in multiple features or experiments will no
+                                longer meaningfully increase the size of your
+                                payload.
                               </p>
                               <p>
-                                This feature is not supported by old SDK versions.
-                                Ensure that your SDK implementation is up to date
-                                before enabling this feature.
+                                This feature is not supported by old SDK
+                                versions. Ensure that your SDK implementation is
+                                up to date before enabling this feature.
                               </p>
                               {form.watch("remoteEvalEnabled") && (
                                 <p>
-                                  You will also need to update your proxy server for
-                                  remote evaluation to continue working correctly.
+                                  You will also need to update your proxy server
+                                  for remote evaluation to continue working
+                                  correctly.
                                 </p>
                               )}
                             </>
