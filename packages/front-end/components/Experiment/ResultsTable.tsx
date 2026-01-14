@@ -491,6 +491,8 @@ export default function ResultsTable({
     tooltipData,
     hoveredX,
     hoveredY,
+    hoveredXViewport,
+    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,
@@ -518,35 +520,54 @@ export default function ResultsTable({
     ? (pValueCorrection ?? null)
     : null;
 
+  const [transitionClassName, setTransitionClassName] = useState<string>("");
+  const isTransitioning =
+    tooltipOpen &&
+    tooltipData &&
+    hoveredX !== null &&
+    hoveredY !== null &&
+    hoveredMetricRow !== null &&
+    hoveredVariationRow !== null;
+
   return (
     <div className="position-relative" ref={containerRef}>
       <CSSTransition
         key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-        in={
-          tooltipOpen &&
-          tooltipData &&
-          hoveredX !== null &&
-          hoveredY !== null &&
-          hoveredMetricRow !== null &&
-          hoveredVariationRow !== null
-        }
+        in={isTransitioning}
         timeout={200}
         classNames="tooltip-animate"
         appear={true}
+        onEnter={() => setTransitionClassName("tooltip-animate-appear")}
+        onEntering={() =>
+          setTransitionClassName(
+            "tooltip-animate-appear tooltip-animate-appear-active",
+          )
+        }
+        onEntered={() => setTransitionClassName("tooltip-animate-appear-done")}
+        onExit={() => setTransitionClassName("tooltip-animate-exit")}
+        onExiting={() =>
+          setTransitionClassName(
+            "tooltip-animate-exit tooltip-animate-exit-active",
+          )
+        }
+        onExited={() => setTransitionClassName("")}
       >
-        <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
-          data={tooltipData}
-          tooltipOpen={tooltipOpen}
-          close={closeTooltip}
-          differenceType={differenceType}
-          onPointerMove={resetTimeout}
-          onClick={resetTimeout}
-          onPointerLeave={leaveRow}
-          isBandit={isBandit}
-          ssrPolyfills={ssrPolyfills}
-        />
+        <div>
+          <ResultsTableTooltip
+            left={hoveredXViewport ?? hoveredX ?? 0}
+            top={hoveredYViewport ?? hoveredY ?? 0}
+            data={tooltipData}
+            tooltipOpen={tooltipOpen}
+            close={closeTooltip}
+            differenceType={differenceType}
+            onPointerMove={resetTimeout}
+            onClick={resetTimeout}
+            onPointerLeave={leaveRow}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
+            transitionClassName={transitionClassName}
+          />
+        </div>
       </CSSTransition>
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
@@ -679,11 +700,13 @@ export default function ResultsTable({
                         })}
                         style={{
                           width:
-                            (globalThis.window?.innerWidth ?? 900) < 900
+                            (tableContainerRef?.current?.clientWidth ?? 900) <
+                            900
                               ? graphCellWidth
                               : undefined,
                           minWidth:
-                            (globalThis.window?.innerWidth ?? 900) >= 900
+                            (tableContainerRef?.current?.clientWidth ?? 900) >=
+                            900
                               ? graphCellWidth
                               : undefined,
                         }}

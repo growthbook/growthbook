@@ -389,6 +389,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         "border-violet": editingBlock || isFocused,
         "dashboard-disabled": disableBlock === "full",
       })}
+      style={{ overflow: "auto" }}
       direction="column"
     >
       {isEditing && !editingBlock && disableBlock === "none" && (
