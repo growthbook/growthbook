@@ -130,6 +130,7 @@ class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
     supplementalResultsUncapped: Optional[BayesianTestResult]
     supplementalResultsFlatPrior: Optional[BayesianTestResult]
     supplementalResultsUnstratified: Optional[BayesianTestResult]
+    supplementalResultsNoVarianceReduction: Optional[BayesianTestResult]
 
 
 @dataclass
@@ -144,6 +145,7 @@ class FrequentistVariationResponse(FrequentistTestResult, BaselineResponse):
     supplementalResultsCupedUnadjusted: Optional[FrequentistTestResult] = None
     supplementalResultsUncapped: Optional[FrequentistTestResult] = None
     supplementalResultsUnstratified: Optional[FrequentistTestResult] = None
+    supplementalResultsNoVarianceReduction: Optional[FrequentistTestResult] = None
 
 
 VariationResponse = Union[

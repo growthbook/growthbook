@@ -147,6 +147,7 @@ const SupplementalResultsSection: FC<SupplementalResultsSectionProps> = ({
       supplementalResultsUncapped: [],
       supplementalResultsUnstratified: [],
       supplementalResultsFlatPrior: [],
+      supplementalResultsNoVarianceReduction: [],
     };
 
     row.variations.forEach((variation, index) => {
@@ -172,6 +173,12 @@ const SupplementalResultsSection: FC<SupplementalResultsSectionProps> = ({
         supplementalData.supplementalResultsFlatPrior.push({
           variationIndex: index,
           ...variation.supplementalResultsFlatPrior,
+        });
+      }
+      if (variation.supplementalResultsNoVarianceReduction) {
+        supplementalData.supplementalResultsNoVarianceReduction.push({
+          variationIndex: index,
+          ...variation.supplementalResultsNoVarianceReduction,
         });
       }
     });

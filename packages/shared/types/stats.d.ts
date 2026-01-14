@@ -63,6 +63,7 @@ interface BayesianVariationResponse
   supplementalResultsUncapped?: BayesianTestResult;
   supplementalResultsUnstratified?: BayesianTestResult;
   supplementalResultsFlatPrior?: BayesianTestResult;
+  supplementalResultsNoVarianceReduction?: BayesianTestResult;
 }
 
 interface FrequentistVariationResponse
@@ -72,6 +73,7 @@ interface FrequentistVariationResponse
   supplementalResultsCupedUnadjusted?: FrequentistTestResult;
   supplementalResultsUncapped?: FrequentistTestResult;
   supplementalResultsUnstratified?: FrequentistTestResult;
+  supplementalResultsNoVarianceReduction?: FrequentistTestResult;
 }
 
 // Keep in sync with gbstats PowerResponse

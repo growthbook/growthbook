@@ -130,6 +130,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
               supplementalResultsUncapped: supplementalResultsObject,
               supplementalResultsFlatPrior: supplementalResultsObject,
               supplementalResultsUnstratified: supplementalResultsObject,
+              supplementalResultsNoVarianceReduction: supplementalResultsObject,
             },
           },
         },

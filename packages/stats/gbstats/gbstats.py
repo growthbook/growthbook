@@ -878,18 +878,50 @@ def create_core_and_supplemental_results(
     post_stratify = test_post_strat_eligible(metric, analysis)
 
     if cuped_adjusted:
-        metric_cuped_adjusted = dataclasses.replace(
+        metric_cuped_unadjusted = dataclasses.replace(
             metric,
             statistic_type="mean" if metric.statistic_type == "mean_ra" else "ratio",
         )
-        result_cuped_adjusted = analyze_metric_df(
+        result_cuped_unadjusted = analyze_metric_df(
             metric_data=reduced_metric_data,
             num_variations=num_variations,
-            metric=metric_cuped_adjusted,
+            metric=metric_cuped_unadjusted,
             analysis=analysis,
         )
+        if post_stratify:
+            analysis_unstratified = dataclasses.replace(
+                analysis, post_stratification_enabled=False
+            )
+            result_unstratified = analyze_metric_df(
+                metric_data=reduced_metric_data,
+                num_variations=num_variations,
+                metric=metric,
+                analysis=analysis_unstratified,
+            )
+            result_no_variance_reduction = analyze_metric_df(
+                metric_data=reduced_metric_data,
+                num_variations=num_variations,
+                metric=metric_cuped_unadjusted,
+                analysis=analysis_unstratified,
+            )
+        else:
+            result_unstratified = None
+            result_no_variance_reduction = None
     else:
-        result_cuped_adjusted = None
+        result_cuped_unadjusted = None
+        result_no_variance_reduction = None
+        if post_stratify:
+            analysis_unstratified = dataclasses.replace(
+                analysis, post_stratification_enabled=False
+            )
+            result_unstratified = analyze_metric_df(
+                metric_data=reduced_metric_data,
+                num_variations=num_variations,
+                metric=metric,
+                analysis=analysis_unstratified,
+            )
+        else:
+            result_unstratified = None
     if metric_capped:
         reduced_metric_data_uncapped = copy.deepcopy(reduced_metric_data)
         for d in reduced_metric_data_uncapped:
@@ -912,18 +944,6 @@ def create_core_and_supplemental_results(
         )
     else:
         result_flat_prior = None
-    if post_stratify:
-        analysis_unstratified = dataclasses.replace(
-            analysis, post_stratification_enabled=False
-        )
-        result_unstratified = analyze_metric_df(
-            metric_data=reduced_metric_data,
-            num_variations=num_variations,
-            metric=metric,
-            analysis=analysis_unstratified,
-        )
-    else:
-        result_unstratified = None
 
     num_dimensions = len(reduced_metric_data)
 
@@ -931,10 +951,11 @@ def create_core_and_supplemental_results(
         num_dimensions,
         num_variations,
         core_result,
-        result_cuped_adjusted,
+        result_cuped_unadjusted,
         result_uncapped,
         result_flat_prior,
         result_unstratified,
+        result_no_variance_reduction,
     )
 
     return result
@@ -944,38 +965,69 @@ def combine_core_and_supplemental_results(
     num_dimensions: int,
     num_variations: int,
     core_result: List[DimensionResponseIndividual],
-    result_cuped_adjusted: Optional[List[DimensionResponseIndividual]],
+    result_cuped_unadjusted: Optional[List[DimensionResponseIndividual]],
     result_capped: Optional[List[DimensionResponseIndividual]],
     result_flat_prior: Optional[List[DimensionResponseIndividual]],
     result_unstratified: Optional[List[DimensionResponseIndividual]],
+    result_no_variance_reduction: Optional[List[DimensionResponseIndividual]],
 ) -> List[DimensionResponse]:
-    result = []
+    def _set_supplemental_result(
+        variation_response: Union[
+            BayesianVariationResponse, FrequentistVariationResponse
+        ],
+        supplemental_variation: Any,
+        attribute_name: str,
+    ) -> None:
+        """Set a supplemental result on the variation response with type checking."""
+        is_bayesian = isinstance(
+            variation_response, BayesianVariationResponse
+        ) and isinstance(supplemental_variation, BayesianVariationResponseIndividual)
+        is_frequentist = isinstance(
+            variation_response, FrequentistVariationResponse
+        ) and isinstance(supplemental_variation, FrequentistVariationResponseIndividual)
 
+        if is_bayesian or is_frequentist:
+            setattr(variation_response, attribute_name, supplemental_variation)
+        else:
+            raise ValueError(
+                f"Unexpected variation response type: {type(supplemental_variation)}"
+            )
+
+    # Map supplemental result lists to their attribute names
+    supplemental_mappings = [
+        (result_cuped_unadjusted, "supplementalResultsCupedUnadjusted"),
+        (result_capped, "supplementalResultsUncapped"),
+        (result_flat_prior, "supplementalResultsFlatPrior"),
+        (result_unstratified, "supplementalResultsUnstratified"),
+        (result_no_variance_reduction, "supplementalResultsNoVarianceReduction"),
+    ]
+
+    result = []
     for d in range(num_dimensions):
         this_dimension_result = core_result[d]
-        this_baseline_result = this_dimension_result.variations[0]
-        variations: List[VariationResponse] = []
-        variations.append(this_baseline_result)
+        variations: List[VariationResponse] = [this_dimension_result.variations[0]]
+
         for i in range(1, num_variations):
             core_variation = core_result[d].variations[i]
-            core_variation_is_bayesian = isinstance(
+            is_bayesian = isinstance(
                 core_variation, BayesianVariationResponseIndividual
             )
-            core_variation_is_frequentist = isinstance(
+            is_frequentist = isinstance(
                 core_variation, FrequentistVariationResponseIndividual
             )
 
-            if not (core_variation_is_frequentist or core_variation_is_bayesian):
+            if not (is_frequentist or is_bayesian):
                 continue
 
-            # Create the variation response object first
-            if core_variation_is_bayesian:
+            # Create the variation response object
+            if is_bayesian:
                 variation_response = BayesianVariationResponse(
                     **asdict(core_variation),
                     supplementalResultsCupedUnadjusted=None,
                     supplementalResultsUncapped=None,
                     supplementalResultsFlatPrior=None,
                     supplementalResultsUnstratified=None,
+                    supplementalResultsNoVarianceReduction=None,
                 )
             else:
                 variation_response = FrequentistVariationResponse(
@@ -983,82 +1035,15 @@ def combine_core_and_supplemental_results(
                     supplementalResultsCupedUnadjusted=None,
                     supplementalResultsUncapped=None,
                     supplementalResultsUnstratified=None,
+                    supplementalResultsNoVarianceReduction=None,
                 )
 
-            # Now set the supplemental results
-            if result_cuped_adjusted is not None:
-                cuped_variation = result_cuped_adjusted[d].variations[i]
-                if isinstance(
-                    variation_response, BayesianVariationResponse
-                ) and isinstance(cuped_variation, BayesianVariationResponseIndividual):
-                    variation_response.supplementalResultsCupedUnadjusted = (
-                        cuped_variation
-                    )
-                elif isinstance(
-                    variation_response, FrequentistVariationResponse
-                ) and isinstance(
-                    cuped_variation, FrequentistVariationResponseIndividual
-                ):
-                    variation_response.supplementalResultsCupedUnadjusted = (
-                        cuped_variation
-                    )
-                else:
-                    raise ValueError(
-                        f"Unexpected variation response type: {type(cuped_variation)}"
-                    )
-            if result_capped is not None:
-                uncapped_variation = result_capped[d].variations[i]
-                if isinstance(
-                    variation_response, BayesianVariationResponse
-                ) and isinstance(
-                    uncapped_variation, BayesianVariationResponseIndividual
-                ):
-                    variation_response.supplementalResultsUncapped = uncapped_variation
-                elif isinstance(
-                    variation_response, FrequentistVariationResponse
-                ) and isinstance(
-                    uncapped_variation, FrequentistVariationResponseIndividual
-                ):
-                    variation_response.supplementalResultsUncapped = uncapped_variation
-                else:
-                    raise ValueError(
-                        f"Unexpected variation response type: {type(uncapped_variation)}"
-                    )
-            if result_flat_prior is not None:
-                flat_prior_variation = result_flat_prior[d].variations[i]
-                if isinstance(
-                    variation_response, BayesianVariationResponse
-                ) and isinstance(
-                    flat_prior_variation, BayesianVariationResponseIndividual
-                ):
-                    variation_response.supplementalResultsFlatPrior = (
-                        flat_prior_variation
-                    )
-                else:
-                    raise ValueError(
-                        f"Unexpected variation response type: {type(flat_prior_variation)}"
-                    )
-            if result_unstratified is not None:
-                unstratified_variation = result_unstratified[d].variations[i]
-                if isinstance(
-                    variation_response, BayesianVariationResponse
-                ) and isinstance(
-                    unstratified_variation, BayesianVariationResponseIndividual
-                ):
-                    variation_response.supplementalResultsUnstratified = (
-                        unstratified_variation
-                    )
-                elif isinstance(
-                    variation_response, FrequentistVariationResponse
-                ) and isinstance(
-                    unstratified_variation, FrequentistVariationResponseIndividual
-                ):
-                    variation_response.supplementalResultsUnstratified = (
-                        unstratified_variation
-                    )
-                else:
-                    raise ValueError(
-                        f"Unexpected variation response type: {type(unstratified_variation)}"
+            # Set all supplemental results
+            for supplemental_result, attribute_name in supplemental_mappings:
+                if supplemental_result is not None:
+                    supplemental_variation = supplemental_result[d].variations[i]
+                    _set_supplemental_result(
+                        variation_response, supplemental_variation, attribute_name
                     )
 
             variations.append(variation_response)

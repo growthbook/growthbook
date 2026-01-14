@@ -69,6 +69,7 @@ export interface SnapshotMetric {
   supplementalResultsUncapped?: SupplementalExperimentResults;
   supplementalResultsUnstratified?: SupplementalExperimentResults;
   supplementalResultsFlatPrior?: SupplementalExperimentResults;
+  supplementalResultsNoVarianceReduction?: SupplementalExperimentResults;
 }
 
 export interface SnapshotVariation {

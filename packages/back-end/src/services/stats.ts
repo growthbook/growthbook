@@ -515,6 +515,9 @@ function parseStatsEngineResult({
           const ciUnstratified = getFormattedCI(
             v.supplementalResultsUnstratified?.ci,
           );
+          const ciNoVarianceReduction = getFormattedCI(
+            v.supplementalResultsNoVarianceReduction?.ci,
+          );
           const parsedVariation = {
             ...v,
             ci,
@@ -537,6 +540,9 @@ function parseStatsEngineResult({
           }
           if (v.supplementalResultsUnstratified) {
             v.supplementalResultsUnstratified.ci = ciUnstratified;
+          }
+          if (v.supplementalResultsNoVarianceReduction) {
+            v.supplementalResultsNoVarianceReduction.ci = ciNoVarianceReduction;
           }
           data.metrics[metric] = {
             ...parsedVariation,
