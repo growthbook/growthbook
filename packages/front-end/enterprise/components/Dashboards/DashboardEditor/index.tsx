@@ -51,7 +51,6 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
-import DropdownDeleteButton from "@/components/DeleteButton/DropdownDeleteButton";
 import Badge from "@/ui/Badge";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
@@ -609,7 +608,7 @@ function DashboardEditor({
                         setDropdownOpen(false);
                       }}
                     >
-                      <Text weight="regular">Edit Dashboard Settings</Text>
+                      Edit Dashboard Settings
                     </DropdownMenuItem>
                   )}
                   {canDuplicate && (
@@ -619,7 +618,7 @@ function DashboardEditor({
                         setDropdownOpen(false);
                       }}
                     >
-                      <Text weight="regular">Duplicate</Text>
+                      Duplicate
                     </DropdownMenuItem>
                   )}
                   {queryStrings.length > 0 || savedQueryIds.length > 0 ? (
@@ -640,19 +639,27 @@ function DashboardEditor({
                   {canDelete && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownDeleteButton
-                        displayName="Dashboard"
-                        text="Delete"
-                        onClick={async () => {
-                          await apiCall(`/dashboards/${id}`, {
-                            method: "DELETE",
-                          });
-                          if (typeof window !== "undefined") {
-                            window.location.href =
-                              "/product-analytics/dashboards";
-                          }
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          confirmationTitle: "Delete Dashboard?",
+                          cta: "Delete",
+                          submit: async () => {
+                            await apiCall(`/dashboards/${id}`, {
+                              method: "DELETE",
+                            });
+                            if (typeof window !== "undefined") {
+                              window.location.href =
+                                "/product-analytics/dashboards";
+                            }
+                          },
+                          closeDropdown: () => {
+                            setDropdownOpen(false);
+                          },
                         }}
-                      />
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     </>
                   )}
                 </DropdownMenuGroup>

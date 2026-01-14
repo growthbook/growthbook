@@ -3,7 +3,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DashboardInterface } from "shared/enterprise";
 import { ExperimentUpdateSchedule } from "shared/types/organization";
-import { Flex, Text, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -12,7 +12,6 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import DropdownDeleteButton from "@/components/DeleteButton/DropdownDeleteButton";
 import Badge from "@/ui/Badge";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { useAuth } from "@/services/auth";
@@ -118,7 +117,7 @@ export default function DashboardsTabMoreMenu({
                   setDropdownOpen(false);
                 }}
               >
-                <Text weight="regular">Edit Dashboard Settings</Text>
+                Edit Dashboard Settings
               </DropdownMenuItem>
               {mutateExperiment && canUpdateExperiment && (
                 <Tooltip
@@ -146,11 +145,9 @@ export default function DashboardsTabMoreMenu({
                       setDropdownOpen(false);
                     }}
                   >
-                    <Text weight="regular">
-                      {experiment.defaultDashboardId === dashboard.id
-                        ? "Remove as Default View"
-                        : "Set as Default View"}
-                    </Text>
+                    {experiment.defaultDashboardId === dashboard.id
+                      ? "Remove as Default View"
+                      : "Set as Default View"}
                   </DropdownMenuItem>
                 </Tooltip>
               )}
@@ -170,10 +167,7 @@ export default function DashboardsTabMoreMenu({
                   setDropdownOpen(false);
                 }}
               >
-                <Text weight="regular">
-                  {dashboard.enableAutoUpdates ? "Disable" : "Enable"}{" "}
-                  Auto-update
-                </Text>
+                {dashboard.enableAutoUpdates ? "Disable" : "Enable"} Auto-update
               </DropdownMenuItem>
             </Tooltip>
           )}
@@ -201,7 +195,7 @@ export default function DashboardsTabMoreMenu({
                 setDropdownOpen(false);
               }}
             >
-              <Text weight="regular">Share</Text>
+              Share
             </DropdownMenuItem>
           )}
           {canCreate && (
@@ -212,23 +206,35 @@ export default function DashboardsTabMoreMenu({
               }}
             >
               <Flex align="center" gap="2">
-                <Text weight="regular">Duplicate</Text>
+                Duplicate
                 <PaidFeatureBadge commercialFeature="dashboards" />
               </Flex>
             </DropdownMenuItem>
           )}
           {canDelete && (
-            <DropdownDeleteButton
-              displayName="Dashboard"
-              text="Delete"
-              onClick={async () => {
-                await apiCall(`/dashboards/${dashboard.id}`, {
-                  method: "DELETE",
-                });
-                mutateDashboards();
-                setDashboardId("");
+            <DropdownMenuItem
+              color="red"
+              confirmation={{
+                confirmationTitle: (
+                  <>
+                    Delete Dashboard <i>{dashboard.title}</i>?
+                  </>
+                ),
+                cta: "Delete",
+                submit: async () => {
+                  await apiCall(`/dashboards/${dashboard.id}`, {
+                    method: "DELETE",
+                  });
+                  mutateDashboards();
+                  setDashboardId("");
+                },
+                closeDropdown: () => {
+                  setDropdownOpen(false);
+                },
               }}
-            />
+            >
+              Delete
+            </DropdownMenuItem>
           )}
         </DropdownMenuGroup>
       </DropdownMenu>

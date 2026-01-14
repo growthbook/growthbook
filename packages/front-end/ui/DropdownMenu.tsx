@@ -6,7 +6,13 @@ import {
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
-import React, { ReactElement, useEffect, useState } from "react";
+import React, {
+  ReactElement,
+  useEffect,
+  useState,
+  createContext,
+  useContext,
+} from "react";
 import { amber } from "@radix-ui/colors";
 import Button from "@/ui/Button";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -14,6 +20,16 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 
 type AllowedChildren = string | React.ReactNode;
+
+// This context is used to hide and show the dropdown menu when a confirmation modal is open
+type DropdownVisibilityContextType = {
+  hideDropdown: () => void;
+  showDropdown: () => void;
+  closeDropdown: () => void;
+};
+
+const DropdownVisibilityContext =
+  createContext<DropdownVisibilityContextType | null>(null);
 
 type DropdownProps = {
   trigger: React.ReactNode;
@@ -37,6 +53,8 @@ export function DropdownMenu({
   color,
   variant,
   disabled,
+  open,
+  onOpenChange,
   ...props
 }: DropdownProps) {
   const triggerComponent =
@@ -51,27 +69,60 @@ export function DropdownMenu({
       trigger
     );
 
+  // Used to hide dropdown while confirmation modal is open without destroying <Modal> component
+  const [isHidden, setIsHidden] = useState(false);
+  const [isHiddenWithDelay, setIsHiddenWithDelay] = useState(false);
+  // Use a delayed render effect to account for dropdown closing animation.
+  useEffect(() => {
+    if (isHidden) {
+      setIsHiddenWithDelay(true);
+    } else {
+      setTimeout(() => {
+        setIsHiddenWithDelay(false);
+      }, 500);
+    }
+  }, [isHidden, isHiddenWithDelay, setIsHiddenWithDelay]);
+
+  const hideDropdown = () => setIsHidden(true);
+  const showDropdown = () => setIsHidden(false);
+  const closeDropdown = () => {
+    setIsHidden(false);
+    onOpenChange?.(false);
+  };
+
   return (
-    <RadixDropdownMenu.Root {...props} modal={false}>
-      <RadixDropdownMenu.Trigger
-        className={triggerClassName}
-        disabled={disabled}
+    <DropdownVisibilityContext.Provider
+      value={{ hideDropdown, showDropdown, closeDropdown }}
+    >
+      <RadixDropdownMenu.Root
+        {...props}
+        modal={false}
+        open={open}
+        onOpenChange={onOpenChange}
       >
-        {triggerComponent}
-      </RadixDropdownMenu.Trigger>
-      <RadixDropdownMenu.Content
-        align={menuPlacement}
-        color={color}
-        variant={variant}
-        side="bottom"
-        className={
-          menuWidth === "full" ? "dropdown-content-width-full" : undefined
-        }
-        style={{ width: typeof menuWidth === "number" ? menuWidth : undefined }}
-      >
-        {children}
-      </RadixDropdownMenu.Content>
-    </RadixDropdownMenu.Root>
+        <RadixDropdownMenu.Trigger
+          className={triggerClassName}
+          disabled={disabled}
+        >
+          {triggerComponent}
+        </RadixDropdownMenu.Trigger>
+        <RadixDropdownMenu.Content
+          align={menuPlacement}
+          color={color}
+          variant={variant}
+          side="bottom"
+          className={
+            menuWidth === "full" ? "dropdown-content-width-full" : undefined
+          }
+          style={{
+            width: typeof menuWidth === "number" ? menuWidth : undefined,
+            visibility: isHiddenWithDelay ? "hidden" : "visible",
+          }}
+        >
+          {children}
+        </RadixDropdownMenu.Content>
+      </RadixDropdownMenu.Root>
+    </DropdownVisibilityContext.Provider>
   );
 }
 
@@ -112,6 +163,9 @@ type DropdownItemProps = {
     confirmationTitle: string | ReactElement;
     cta: string;
     submitColor?: string;
+    hideDropdown?: () => void;
+    showDropdown?: () => void;
+    closeDropdown?: () => void;
   };
   style?: React.CSSProperties;
 } & MarginProps;
@@ -129,6 +183,7 @@ export function DropdownMenuItem({
   if (color === "default") {
     color = undefined;
   }
+  const visibilityContext = useContext(DropdownVisibilityContext);
   const [confirming, setConfirming] = useState(false);
   const [confirmationContent, setConfirmationContent] = useState<
     string | ReactElement | null
@@ -144,17 +199,36 @@ export function DropdownMenuItem({
 
   const [error, setError] = useState<null | string>(null);
   const [loading, setLoading] = useState(false);
+
+  // Get hideDropdown, showDropdown, and closeDropdown from confirmation prop or context
+  // Context is the primary source (provided by DropdownMenu), but can be overridden
+  const hideDropdown =
+    confirmation?.hideDropdown ?? visibilityContext?.hideDropdown;
+  const showDropdown =
+    confirmation?.showDropdown ?? visibilityContext?.showDropdown;
+  const closeDropdown =
+    confirmation?.closeDropdown ?? visibilityContext?.closeDropdown;
+
+  const handleClose = () => {
+    setConfirming(false);
+    showDropdown?.();
+    closeDropdown?.();
+  };
+
   return (
     <>
       {confirmation && confirming && (
         <Modal
           trackingEventModalType=""
           header={confirmation.confirmationTitle}
-          close={() => setConfirming(false)}
+          close={handleClose}
           open={true}
           cta={confirmation.cta}
           submitColor={confirmation.submitColor ?? "danger"}
-          submit={confirmation.submit}
+          submit={async () => {
+            await confirmation.submit();
+            handleClose();
+          }}
           increasedElevation={true}
           useRadixButton={true}
         >
@@ -166,6 +240,13 @@ export function DropdownMenuItem({
         onSelect={async (event) => {
           event.preventDefault();
           if (confirmation) {
+            if (!hideDropdown || !showDropdown) {
+              console.error(
+                "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",
+              );
+              return;
+            }
+            hideDropdown();
             setConfirming(true);
             return;
           }
