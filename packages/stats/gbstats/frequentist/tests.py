@@ -10,15 +10,18 @@ from gbstats.messages import (
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.tests import (
-    TestResult,
+from gbstats.models.results import (
+    FrequentistTestResult,
+    PValueErrorMessage,
+    PValueResult,
     Uplift,
+    ResponseCI,
+)
+from gbstats.models.tests import (
     BaseConfig,
     BaseABTest,
     TestStatistic,
-    ResponseCI,
 )
-from typing import Literal
 
 
 # Configs
@@ -31,25 +34,6 @@ class FrequentistConfig(BaseConfig):
 class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
     rho: Optional[float] = None
-
-
-PValueErrorMessage = Literal[
-    "NUMERICAL_PVALUE_NOT_CONVERGED",
-    "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
-]
-
-
-# Results
-@dataclass
-class FrequentistTestResult(TestResult):
-    pValue: Optional[float] = None
-    pValueErrorMessage: Optional[PValueErrorMessage] = None
-
-
-@dataclass
-class PValueResult:
-    pValue: Optional[float] = None
-    pValueErrorMessage: Optional[PValueErrorMessage] = None
 
 
 class TTest(BaseABTest):
@@ -120,8 +104,8 @@ class TTest(BaseABTest):
 
     def compute_p_value(self) -> PValueResult:
         return PValueResult(
-            pValue=self.p_value,
-            pValueErrorMessage=None,
+            p_value=self.p_value,
+            p_value_error_message=None,
         )
 
     @property
@@ -150,14 +134,14 @@ class TTest(BaseABTest):
         result = FrequentistTestResult(
             expected=self.moments_result.point_estimate,
             ci=self.confidence_interval,
-            pValue=p_value_result.pValue,
+            pValue=p_value_result.p_value,
             uplift=Uplift(
                 dist="normal",
                 mean=self.moments_result.point_estimate,
                 stddev=self.moments_result.standard_error,
             ),
             errorMessage=None,
-            pValueErrorMessage=p_value_result.pValueErrorMessage,
+            pValueErrorMessage=p_value_result.p_value_error_message,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -402,8 +386,8 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         if self.lesser and ci_small_value is not None:
             if ci_small_value < 0:
                 return PValueResult(
-                    pValue=min_alpha,
-                    pValueErrorMessage=None,
+                    p_value=min_alpha,
+                    p_value_error_message=None,
                 )
             this_config.alpha = max_alpha
             # bigger alpha => smaller confidence interval;
@@ -413,15 +397,15 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             ci_big_value = this_ci_big[ci_index]
             if ci_big_value is not None and ci_big_value > 0:
                 return PValueResult(
-                    pValue=max_alpha,
-                    pValueErrorMessage=None,
+                    p_value=max_alpha,
+                    p_value_error_message=None,
                 )
         else:
 
             if ci_small_value is not None and ci_small_value > 0:
                 return PValueResult(
-                    pValue=min_alpha,
-                    pValueErrorMessage=None,
+                    p_value=min_alpha,
+                    p_value_error_message=None,
                 )
             this_config.alpha = max_alpha
             # bigger alpha => smaller confidence interval;
@@ -431,8 +415,8 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             ci_big_value = this_ci_big[ci_index]
             if ci_big_value is not None and ci_big_value < 0:
                 return PValueResult(
-                    pValue=max_alpha,
-                    pValueErrorMessage=None,
+                    p_value=max_alpha,
+                    p_value_error_message=None,
                 )
         iters = 0
         this_alpha = 0.5 * (min_alpha + max_alpha)
@@ -462,13 +446,13 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         converged = abs(diff) < tol and iters != max_iters
         if converged:
             return PValueResult(
-                pValue=this_alpha,
-                pValueErrorMessage=None,
+                p_value=this_alpha,
+                p_value_error_message=None,
             )
         else:
             return PValueResult(
-                pValue=None,
-                pValueErrorMessage="NUMERICAL_PVALUE_NOT_CONVERGED",
+                p_value=None,
+                p_value_error_message="NUMERICAL_PVALUE_NOT_CONVERGED",
             )
 
 

@@ -17,8 +17,8 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import HelperText from "@/ui/HelperText";
-import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
-import { useDashboardCharts } from "../../DashboardChartsContext";
+import { useDashboardMetricAnalysis } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { BlockProps } from ".";
 
 export default function MetricExplorerBlock({

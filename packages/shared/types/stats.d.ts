@@ -39,6 +39,9 @@ interface TestResult {
   };
   ci?: [number | null, number | null];
   errorMessage?: string;
+  power?: MetricPowerResponseFromStatsEngine;
+  // Added later to gbstats model, leave as undefined
+  realizedSettings?: RealizedSettings;
 }
 
 interface BayesianTestResult extends TestResult {
@@ -102,7 +105,10 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
-// Keep below classes in sync with gbstats
+export type RealizedSettings = {
+  postStratificationApplied: boolean;
+};
+
 export type ExperimentMetricAnalysis = {
   metric: string;
   analyses: {

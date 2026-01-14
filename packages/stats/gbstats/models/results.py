@@ -1,14 +1,65 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 import pandas as pd
 
-from gbstats.models.tests import ResponseCI
-from gbstats.bayesian.tests import BayesianTestResult
-from gbstats.frequentist.tests import TestResult, PValueErrorMessage
+
+# Internal results classes
+@dataclass
+class EffectMomentsResult:
+    point_estimate: float
+    standard_error: float
+    pairwise_sample_size: int
+    error_message: Optional[str]
+    post_stratification_applied: bool
+
+
+@dataclass
+class Uplift:
+    dist: str
+    mean: float
+    stddev: float
+
+
+ResponseCI = Tuple[Optional[float], Optional[float]]
+
+
+@dataclass
+class TestResult:
+    expected: float
+    ci: ResponseCI
+    uplift: Uplift
+    errorMessage: Optional[str]
+
+
+RiskType = Literal["absolute", "relative"]
+
+
+@dataclass
+class BayesianTestResult(TestResult):
+    chanceToWin: float
+    risk: List[float]
+    riskType: RiskType
+
+
+PValueErrorMessage = Literal[
+    "NUMERICAL_PVALUE_NOT_CONVERGED",
+    "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
+]
+
+
+@dataclass
+class PValueResult:
+    p_value: Optional[float] = None
+    p_value_error_message: Optional[PValueErrorMessage] = None
 
 
 # Data classes for return to the back end
+@dataclass
+class RealizedSettings:
+    postStratificationApplied: bool
+
+
 @dataclass
 class SingleVariationResult:
     users: Optional[float]
@@ -68,13 +119,36 @@ class FrequentistTestResult(TestResult):
 
 @dataclass
 class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
+    realizedSettings: RealizedSettings
     power: Optional[PowerResponse]
 
 
 @dataclass
+class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
+    power: Optional[PowerResponse]
+    supplementalResultsCupedUnadjusted: Optional[BayesianTestResult]
+    supplementalResultsUncapped: Optional[BayesianTestResult]
+    supplementalResultsFlatPrior: Optional[BayesianTestResult]
+    supplementalResultsUnstratified: Optional[BayesianTestResult]
+
+
+@dataclass
 class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResponse):
+    realizedSettings: RealizedSettings
     power: Optional[PowerResponse] = None
 
+
+@dataclass
+class FrequentistVariationResponse(FrequentistTestResult, BaselineResponse):
+    power: Optional[PowerResponse] = None
+    supplementalResultsCupedUnadjusted: Optional[FrequentistTestResult] = None
+    supplementalResultsUncapped: Optional[FrequentistTestResult] = None
+    supplementalResultsUnstratified: Optional[FrequentistTestResult] = None
+
+
+VariationResponse = Union[
+    BayesianVariationResponse, FrequentistVariationResponse, BaselineResponse
+]
 
 VariationResponseIndividual = Union[
     BayesianVariationResponseIndividual,
@@ -94,28 +168,6 @@ class DimensionResponseIndividual:
         df["dimension"] = self.dimension
         df["srm"] = self.srm
         return df
-
-
-@dataclass
-class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
-    power: Optional[PowerResponse]
-    supplementalResultsCupedUnadjusted: Optional[BayesianTestResult]
-    supplementalResultsUncapped: Optional[BayesianTestResult]
-    supplementalResultsFlatPrior: Optional[BayesianTestResult]
-    supplementalResultsUnstratified: Optional[BayesianTestResult]
-
-
-@dataclass
-class FrequentistVariationResponse(FrequentistTestResult, BaselineResponse):
-    power: Optional[PowerResponse] = None
-    supplementalResultsCupedUnadjusted: Optional[FrequentistTestResult] = None
-    supplementalResultsUncapped: Optional[FrequentistTestResult] = None
-    supplementalResultsUnstratified: Optional[FrequentistTestResult] = None
-
-
-VariationResponse = Union[
-    BayesianVariationResponse, FrequentistVariationResponse, BaselineResponse
-]
 
 
 @dataclass

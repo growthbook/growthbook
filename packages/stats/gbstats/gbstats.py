@@ -50,8 +50,8 @@ from gbstats.models.results import (
     MultipleExperimentMetricAnalysis,
     BaselineResponse,
     BayesianVariationResponseIndividual,
-    FrequentistVariationResponseIndividual,
     BayesianVariationResponse,
+    FrequentistVariationResponseIndividual,
     FrequentistVariationResponse,
     VariationResponse,
     BanditResult,
@@ -548,6 +548,8 @@ def analyze_metric_df(
                 post_stratify=post_stratify,
             )
             res = test.compute_result()
+            realized_settings = test.realized_settings
+
             power_response: Optional[PowerResponse] = None
             if decision_making_conditions(metric, analysis):
                 power_response = run_mid_experiment_power(
@@ -569,6 +571,7 @@ def analyze_metric_df(
                 variation_response = BayesianVariationResponseIndividual(
                     **asdict(base_variation_response),
                     **asdict(res),
+                    realizedSettings=realized_settings,
                     power=(
                         power_response
                         if isinstance(power_response, PowerResponse)
@@ -580,6 +583,7 @@ def analyze_metric_df(
                 variation_response = FrequentistVariationResponseIndividual(
                     **asdict(base_variation_response),
                     **asdict(res),
+                    realizedSettings=realized_settings,
                     power=(
                         power_response
                         if isinstance(power_response, PowerResponse)

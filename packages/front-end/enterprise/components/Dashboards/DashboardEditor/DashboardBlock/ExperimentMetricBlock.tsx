@@ -19,8 +19,8 @@ import {
   useDashboardMetricSliceData,
   useDashboardPinnedMetricSlices,
 } from "@/enterprise/hooks/useDashboardMetricSlices";
-import { ExperimentMetricBlockContext } from "../DashboardEditorSidebar/types";
-import { setBlockContextValue } from "../DashboardEditorSidebar/useBlockContext";
+import { ExperimentMetricBlockContext } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/types";
+import { setBlockContextValue } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/useBlockContext";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({

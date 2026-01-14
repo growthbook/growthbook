@@ -329,7 +329,7 @@ export default function CodeTextArea({
       render={(id) => {
         return (
           <>
-            <style jsx>{`
+            <style>{`
               .code-editor-fullscreen {
                 position: fixed;
                 top: 0;
@@ -392,16 +392,20 @@ export default function CodeTextArea({
                 }}
               >
                 {fieldProps.disabled && (
-                  <style jsx>{`
-                    #${editorUid}.ace-editor-disabled .ace_content {
-                      background-color: ${theme === "light"
-                        ? "rgba(180, 180, 180, 0.20)"
-                        : "rgba(110, 110, 110, 0.25)"};
+                  <style>{`
+                    .ace-editor-disabled .ace_content {
+                      background-color: ${
+                        theme === "light"
+                          ? "rgba(180, 180, 180, 0.20)"
+                          : "rgba(110, 110, 110, 0.25)"
+                      };
                     }
-                    #${editorUid}.ace-editor-disabled .ace_gutter {
-                      background-color: ${theme === "light"
-                        ? "rgba(180, 180, 180, 0.10)"
-                        : "rgba(110, 110, 110, 0.15)"} !important;
+                    .ace-editor-disabled .ace_gutter {
+                      background-color: ${
+                        theme === "light"
+                          ? "rgba(180, 180, 180, 0.10)"
+                          : "rgba(110, 110, 110, 0.15)"
+                      } !important;
                     }
                   `}</style>
                 )}
@@ -423,14 +427,15 @@ export default function CodeTextArea({
                   fontSize="1em"
                   completions={completions}
                   {...heightProps}
-                  setOptions={
-                    language === "sql"
+                  setOptions={{
+                    wrap: true,
+                    ...(language === "sql"
                       ? {
                           enableBasicAutocompletion: true,
                           enableLiveAutocompletion: true,
                         }
-                      : undefined
-                  }
+                      : {}),
+                  }}
                   readOnly={fieldProps.disabled}
                   onCursorChange={(e) => {
                     if (!setCursorData) return;

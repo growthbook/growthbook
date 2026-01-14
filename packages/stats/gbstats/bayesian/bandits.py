@@ -6,8 +6,7 @@ import numpy as np
 import random
 from pydantic.dataclasses import dataclass
 
-from gbstats.models.tests import ResponseCI
-from gbstats.models.results import BanditResult, SingleVariationResult
+from gbstats.models.results import ResponseCI, BanditResult, SingleVariationResult
 from gbstats.models.statistics import (
     SampleMeanStatistic,
     RatioStatistic,

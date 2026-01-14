@@ -6,7 +6,7 @@ from gbstats.models.statistics import (
     compute_theta,
     compute_theta_regression_adjusted_ratio,
 )
-from gbstats.models.tests import Uplift
+from gbstats.models.results import Uplift
 from tests.frequentist.test_tests import _round_result_dict
 from scipy.stats import t
 
@@ -97,7 +97,7 @@ def compute_dof(stats: List[Tuple[TestStatistic, TestStatistic]]) -> float:
     if isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
         stat_b, RegressionAdjustedRatioStatistic
     ):
-        theta = compute_theta_regression_adjusted_ratio(stat_a, stat_b)
+        theta: float = compute_theta_regression_adjusted_ratio(stat_a, stat_b)
         stat_a = replace(stat_a, theta=theta)
         stat_b = replace(stat_b, theta=theta)
 
@@ -1029,6 +1029,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_count_rel,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         expected_rounded_dict_abs = asdict(
@@ -1037,6 +1038,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_count_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         self.assertDictEqual(
@@ -1101,6 +1103,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_count_rel,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         expected_rounded_dict_abs = asdict(
@@ -1109,6 +1112,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_count_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         self.assertDictEqual(
@@ -1240,6 +1244,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_count_reg_rel,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         expected_rounded_dict_abs = asdict(
@@ -1248,6 +1253,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_count_reg_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
 
@@ -1324,6 +1330,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_ratio_rel,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         expected_rounded_dict_abs = asdict(
@@ -1332,6 +1339,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_ratio_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         self.assertDictEqual(
@@ -1418,6 +1426,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_ratio_rel,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         expected_rounded_dict_abs = asdict(
@@ -1426,6 +1435,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_ratio_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         self.assertDictEqual(
@@ -1454,6 +1464,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_ratio_reg_rel,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         expected_rounded_dict_abs = asdict(
@@ -1462,6 +1473,7 @@ class TestPostStratification(TestCase):
                 standard_error=self.standard_error_ratio_reg_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
+                post_stratification_applied=True,
             )
         )
         self.assertDictEqual(
@@ -1751,12 +1763,14 @@ class TestPostStratification(TestCase):
             standard_error=test_result_eu_true.uplift.stddev,
             error_message=None,
             pairwise_sample_size=pairwise_sample_size_eu,
+            post_stratification_applied=True,
         )
         moments_result_from_test_us = EffectMomentsResult(
             point_estimate=test_result_us_true.expected,
             standard_error=test_result_us_true.uplift.stddev,
             error_message=None,
             pairwise_sample_size=pairwise_sample_size_us,
+            post_stratification_applied=True,
         )
         self.assertEqual(
             _round_result_dict(asdict(moments_result_from_test_eu)),

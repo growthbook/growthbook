@@ -24,7 +24,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     RegressionAdjustedRatioStatistic,
 )
-from gbstats.models.tests import Uplift
+from gbstats.models.results import Uplift
 
 DECIMALS = 5
 
@@ -38,7 +38,7 @@ round_ = partial(round_if_not_none, decimals=DECIMALS)
 
 def _round_result_dict(result_dict):
     for k, v in result_dict.items():
-        if k == "errorMessage":
+        if k == "errorMessage" or isinstance(v, bool):
             pass
         elif k == "uplift":
             v = {
@@ -73,6 +73,7 @@ class TestTwoSidedTTest(TestCase):
                 ci=(-0.03526, 1.44989),
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 pValue=0.06191,
+                pValueErrorMessage=None,
                 errorMessage=None,
             )
         )
@@ -93,6 +94,7 @@ class TestTwoSidedTTest(TestCase):
                 ci=(0.04538, 0.53462),
                 uplift=Uplift("normal", 0.29, 0.12478),
                 pValue=0.02016,
+                pValueErrorMessage=None,
                 errorMessage=None,
             )
         )
@@ -112,6 +114,7 @@ class TestTwoSidedTTest(TestCase):
                 ci=(-0.47767, 0.61101),
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 pValue=0.80707,
+                pValueErrorMessage=None,
                 errorMessage=None,
             )
         )
@@ -185,6 +188,7 @@ class TestTwoSidedTTest(TestCase):
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
                 errorMessage=None,
                 pValue=0.85771,
+                pValueErrorMessage=None,
             )
         )
         self.assertDictEqual(_round_result_dict(result_dict), expected_dict)
@@ -205,6 +209,7 @@ class TestSequentialTTest(TestCase):
                 uplift=Uplift("normal", 0.50336, 0.33341),
                 pValue=1,
                 errorMessage=None,
+                pValueErrorMessage=None,
             )
         )
 
@@ -222,6 +227,7 @@ class TestSequentialTTest(TestCase):
                 ci=(0.40098, 0.60675),
                 uplift=Uplift("normal", 0.50386, 0.03386),
                 pValue=0.0,
+                pValueErrorMessage=None,
                 errorMessage=None,
             )
         )
@@ -255,6 +261,7 @@ class TestSequentialTTest(TestCase):
                 ci=(-0.50969, 1.51646),
                 uplift=Uplift("normal", 0.50338, 0.33341),
                 pValue=1,
+                pValueErrorMessage=None,
                 errorMessage=None,
             )
         )
@@ -316,6 +323,7 @@ class TestSequentialTTest(TestCase):
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
                 errorMessage=None,
                 pValue=1.0,
+                pValueErrorMessage=None,
             )
         )
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
