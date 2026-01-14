@@ -10,14 +10,17 @@ from gbstats.messages import (
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.tests import (
-    TestResult,
+from gbstats.models.results import (
+    FrequentistTestResult,
+    PValueErrorMessage,
+    PValueResult,
     Uplift,
+)
+from gbstats.models.tests import (
     BaseConfig,
     BaseABTest,
     TestStatistic,
 )
-from typing import Literal
 
 
 # Configs
@@ -30,25 +33,6 @@ class FrequentistConfig(BaseConfig):
 class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
     rho: Optional[float] = None
-
-
-PValueErrorMessage = Literal[
-    "NUMERICAL_PVALUE_NOT_CONVERGED",
-    "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
-]
-
-
-# Results
-@dataclass
-class FrequentistTestResult(TestResult):
-    p_value: Optional[float] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
-
-
-@dataclass
-class PValueResult:
-    p_value: Optional[float] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
 
 
 class TTest(BaseABTest):

@@ -229,7 +229,6 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
-    manual: false,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -461,6 +460,9 @@ export async function createReportSnapshot({
   });
   const statsEngine =
     report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
+  const postStratificationEnabled =
+    report.experimentAnalysisSettings.postStratificationEnabled ??
+    settings.postStratificationEnabled.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
 
@@ -500,13 +502,14 @@ export async function createReportSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
-  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
-    report.experimentAnalysisSettings,
+    experiment: report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
-    report.experimentAnalysisSettings.dimension,
-  );
+    postStratificationEnabled,
+    dimension: report.experimentAnalysisSettings.dimension,
+  });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     ...defaultAnalysisSettings,
@@ -683,7 +686,6 @@ export function getReportSnapshotSettings({
 
   const phase = report.experimentMetadata.phases?.[phaseIndex];
   return {
-    manual: false,
     activationMetric:
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:

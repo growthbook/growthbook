@@ -519,6 +519,18 @@ export function upgradeOrganizationDoc(
     }));
   }
 
+  // Migrate postStratificationDisabled to postStratificationEnabled
+  // If postStratificationEnabled is undefined OR true, it means ON
+  // Only if postStratificationEnabled is explicitly false should it be OFF
+  if (org.settings?.postStratificationDisabled !== undefined) {
+    // Convert from inverted logic: disabled=true -> enabled=false
+    if (org.settings.postStratificationEnabled === undefined) {
+      org.settings.postStratificationEnabled =
+        !org.settings.postStratificationDisabled;
+    }
+    delete org.settings.postStratificationDisabled;
+  }
+
   return org;
 }
 
@@ -838,7 +850,6 @@ export function migrateSnapshot(
     });
 
     snapshot.settings = {
-      manual: !!manual,
       dimensions: snapshot.dimension
         ? [
             {
@@ -863,6 +874,8 @@ export function migrateSnapshot(
       skipPartialData: !!skipPartialData,
       attributionModel: "firstExposure",
       variations,
+      // Deprecated manual setting
+      ...(manual !== undefined ? { manual: !!manual } : {}),
     };
   } else {
     // Add new settings field in case it is missing

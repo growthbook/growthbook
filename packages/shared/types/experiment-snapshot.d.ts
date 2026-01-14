@@ -173,7 +173,6 @@ export interface SnapshotBanditSettings {
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
-  manual: boolean;
   dimensions: DimensionForSnapshot[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
@@ -196,6 +195,8 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
+  /** @deprecated */
+  manual?: boolean;
 }
 
 export interface ExperimentSnapshotInterface {
