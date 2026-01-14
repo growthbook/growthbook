@@ -161,7 +161,7 @@ export function SelectDashboardAndBlockPage({
             canCreate={canCreate}
             onCreateNew={onCreateNew}
             showIcon={false}
-            disabled={loadingDashboards || filteredDashboards.length === 0}
+            disabled={loadingDashboards}
           />
         </Box>
 

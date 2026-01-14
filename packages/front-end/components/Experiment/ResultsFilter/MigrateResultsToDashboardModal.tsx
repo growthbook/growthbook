@@ -248,11 +248,15 @@ export default function MigrateResultsToDashboardModal({
 
   // Initialize dashboardId with default or first available
   useEffect(() => {
-    if (!dashboardId && filteredDashboards.length > 0) {
-      form.setValue(
-        "dashboardId",
-        defaultDashboard?.id ?? filteredDashboards[0].id,
-      );
+    if (!dashboardId) {
+      if (filteredDashboards.length > 0) {
+        form.setValue(
+          "dashboardId",
+          defaultDashboard?.id ?? filteredDashboards[0].id,
+        );
+      } else {
+        form.setValue("dashboardId", "__create__");
+      }
     }
   }, [dashboardId, filteredDashboards, defaultDashboard, form]);
 
