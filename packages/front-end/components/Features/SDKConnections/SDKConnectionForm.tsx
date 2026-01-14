@@ -697,7 +697,7 @@ export default function SDKConnectionForm({
 
         {shouldShowPayloadSecurity(languageType, languages) && (
           <>
-            <label>SDK Payload Security</label>
+            <label>Payload Security</label>
             <ControlledTabs
               newStyle={true}
               className="mb-3"
@@ -709,19 +709,9 @@ export default function SDKConnectionForm({
                 })
               }
               tabContentsClassName={(tab) =>
-                tab === "none" ||
-                tab === "remote" ||
-                (tab === "ciphered" && !edit)
-                  ? "d-none"
-                  : "noborder"
+                edit && tab === "ciphered" ? "noborder" : "d-none"
               }
-              setActive={(tab) => {
-                // Prevent selecting remote tab if user doesn't have the feature
-                if (tab === "remote" && !hasRemoteEvaluationFeature) {
-                  return;
-                }
-                setSelectedSecurityTab(tab);
-              }}
+              setActive={setSelectedSecurityTab}
               active={effectiveSecurityTab}
             >
               <Tab
@@ -740,7 +730,7 @@ export default function SDKConnectionForm({
                     )}
                     Plain Text
                     <div className="subtitle">
-                      Highly cacheable, but may leak sensitive info to users
+                      Cacheable, but may expose sensitive info.
                     </div>
                   </>
                 }
@@ -748,190 +738,180 @@ export default function SDKConnectionForm({
                 <></>
               </Tab>
 
-              {shouldShowPayloadSecurity(languageType, languages) && (
-                <Tab
-                  id="ciphered"
-                  padding={false}
-                  className="pt-1 pb-2"
-                  display={
-                    <>
-                      {effectiveSecurityTab === "ciphered" && (
-                        <span>
-                          <FaRegCheckCircle
-                            className="check text-success"
-                            style={{ width: "15px", height: "15px" }}
-                          />
-                        </span>
-                      )}
-                      Ciphered
-                      <div className="subtitle">
-                        Obfuscated while still remaining cacheable.
-                      </div>
-                    </>
-                  }
-                >
-                  {edit && (
-                    <>
-                      <div className="p-3">
-                        <label className="mb-3">Cipher Options</label>
-                        {showEncryption && (
-                          <div className="mb-2 d-flex align-items-center">
-                            <Checkbox
-                              value={form.watch("encryptPayload")}
-                              setValue={(val) =>
-                                form.setValue("encryptPayload", val)
+              <Tab
+                id="ciphered"
+                padding={false}
+                className="pt-1 pb-2"
+                display={
+                  <>
+                    {effectiveSecurityTab === "ciphered" && (
+                      <span>
+                        <FaRegCheckCircle
+                          className="check text-success"
+                          style={{ width: "15px", height: "15px" }}
+                        />
+                      </span>
+                    )}
+                    Ciphered
+                    <div className="subtitle">
+                      Obfuscated while still remaining cacheable.
+                    </div>
+                  </>
+                }
+              >
+                <>
+                  <div className="p-3">
+                    <label className="mb-3">Cipher Options</label>
+                    {showEncryption && (
+                      <div className="mb-2 d-flex align-items-center">
+                        <Checkbox
+                          value={form.watch("encryptPayload")}
+                          setValue={(val) =>
+                            form.setValue("encryptPayload", val)
+                          }
+                          disabled={!hasEncryptionFeature}
+                          label={
+                            <PremiumTooltip
+                              commercialFeature="encrypt-features-endpoint"
+                              body={
+                                <>
+                                  <p>
+                                    SDK payloads will be encrypted via the AES
+                                    encryption algorithm. When evaluating
+                                    feature flags in a public or insecure
+                                    environment (such as a browser), encryption
+                                    provides an additional layer of security
+                                    through obfuscation. This allows you to
+                                    target users based on sensitive attributes.
+                                  </p>
+                                  <p className="mb-0 text-warning-orange small">
+                                    <FaExclamationCircle /> When using an
+                                    insecure environment, do not rely
+                                    exclusively on payload encryption as a means
+                                    of securing highly sensitive data. Because
+                                    the client performs the decryption, the
+                                    unencrypted payload may be extracted with
+                                    sufficient effort.
+                                  </p>
+                                </>
                               }
-                              disabled={!hasEncryptionFeature}
-                              label={
-                                <PremiumTooltip
-                                  commercialFeature="encrypt-features-endpoint"
-                                  body={
-                                    <>
-                                      <p>
-                                        SDK payloads will be encrypted via the
-                                        AES encryption algorithm. When
-                                        evaluating feature flags in a public or
-                                        insecure environment (such as a
-                                        browser), encryption provides an
-                                        additional layer of security through
-                                        obfuscation. This allows you to target
-                                        users based on sensitive attributes.
-                                      </p>
-                                      <p className="mb-0 text-warning-orange small">
-                                        <FaExclamationCircle /> When using an
-                                        insecure environment, do not rely
-                                        exclusively on payload encryption as a
-                                        means of securing highly sensitive data.
-                                        Because the client performs the
-                                        decryption, the unencrypted payload may
-                                        be extracted with sufficient effort.
-                                      </p>
-                                    </>
-                                  }
-                                >
-                                  Encrypt SDK payload <FaInfoCircle />
-                                </PremiumTooltip>
-                              }
-                            />
-                          </div>
-                        )}
-
-                        <div className="mb-2 d-flex align-items-center">
-                          <Checkbox
-                            value={form.watch("hashSecureAttributes")}
-                            setValue={(val) =>
-                              form.setValue("hashSecureAttributes", val)
-                            }
-                            disabled={!hasSecureAttributesFeature}
-                            label={
-                              <PremiumTooltip
-                                commercialFeature="hash-secure-attributes"
-                                body={
-                                  <>
-                                    <p>
-                                      Feature targeting conditions referencing{" "}
-                                      <code>secureString</code> attributes will
-                                      be anonymized via SHA-256 hashing. When
-                                      evaluating feature flags in a public or
-                                      insecure environment (such as a browser),
-                                      hashing provides an additional layer of
-                                      security through obfuscation. This allows
-                                      you to target users based on sensitive
-                                      attributes.
-                                    </p>
-                                    <p className="mb-0 text-warning-orange small">
-                                      <FaExclamationCircle /> When using an
-                                      insecure environment, do not rely
-                                      exclusively on hashing as a means of
-                                      securing highly sensitive data. Hashing is
-                                      an obfuscation technique that makes it
-                                      very difficult, but not impossible, to
-                                      extract sensitive data.
-                                    </p>
-                                  </>
-                                }
-                              >
-                                Hash secure attributes <FaInfoCircle />
-                              </PremiumTooltip>
-                            }
-                          />
-                        </div>
-
-                        <div className="d-flex align-items-center">
-                          <Checkbox
-                            value={!form.watch("includeExperimentNames")}
-                            setValue={(val) =>
-                              form.setValue("includeExperimentNames", !val)
-                            }
-                            label={
-                              <Tooltip
-                                body={
-                                  <>
-                                    <p>
-                                      Experiment and variation names can help
-                                      add context when debugging or tracking
-                                      events.
-                                    </p>
-                                    <p>
-                                      However, this could expose potentially
-                                      sensitive information to your users if
-                                      enabled for a client-side or mobile
-                                      application.
-                                    </p>
-                                    <p className="mb-0">
-                                      For maximum privacy and security, we
-                                      recommend hiding these fields.
-                                    </p>
-                                  </>
-                                }
-                              >
-                                Hide experiment and variation names{" "}
-                                <FaInfoCircle />
-                              </Tooltip>
-                            }
-                          />
-                        </div>
+                            >
+                              Encrypt SDK payload <FaInfoCircle />
+                            </PremiumTooltip>
+                          }
+                        />
                       </div>
+                    )}
 
-                      {form.watch("encryptPayload") &&
-                        !currentSdkCapabilities.includes("encryption") && (
-                          <div
-                            className="ml-2 mt-3 text-warning-orange"
-                            style={{ marginBottom: -5 }}
+                    <div className="mb-2 d-flex align-items-center">
+                      <Checkbox
+                        value={form.watch("hashSecureAttributes")}
+                        setValue={(val) =>
+                          form.setValue("hashSecureAttributes", val)
+                        }
+                        disabled={!hasSecureAttributesFeature}
+                        label={
+                          <PremiumTooltip
+                            commercialFeature="hash-secure-attributes"
+                            body={
+                              <>
+                                <p>
+                                  Feature targeting conditions referencing{" "}
+                                  <code>secureString</code> attributes will be
+                                  anonymized via SHA-256 hashing. When
+                                  evaluating feature flags in a public or
+                                  insecure environment (such as a browser),
+                                  hashing provides an additional layer of
+                                  security through obfuscation. This allows you
+                                  to target users based on sensitive attributes.
+                                </p>
+                                <p className="mb-0 text-warning-orange small">
+                                  <FaExclamationCircle /> When using an insecure
+                                  environment, do not rely exclusively on
+                                  hashing as a means of securing highly
+                                  sensitive data. Hashing is an obfuscation
+                                  technique that makes it very difficult, but
+                                  not impossible, to extract sensitive data.
+                                </p>
+                              </>
+                            }
                           >
-                            <FaExclamationCircle /> Payload decryption may not
-                            be available in your current SDK.
-                            {languages.length === 1 && (
-                              <div className="mt-1 text-gray">
-                                {getSDKCapabilityVersion(
-                                  languages[0],
-                                  "encryption",
-                                ) ? (
-                                  <>
-                                    It was introduced in SDK version{" "}
-                                    <code>
-                                      {getSDKCapabilityVersion(
-                                        languages[0],
-                                        "encryption",
-                                      )}
-                                    </code>
-                                    . The SDK version specified in this
-                                    connection is{" "}
-                                    <code>
-                                      {form.watch("sdkVersion") ||
-                                        getDefaultSDKVersion(languages[0])}
-                                    </code>
-                                    .
-                                  </>
-                                ) : null}
-                              </div>
-                            )}
+                            Hash secure attributes <FaInfoCircle />
+                          </PremiumTooltip>
+                        }
+                      />
+                    </div>
+
+                    <div className="d-flex align-items-center">
+                      <Checkbox
+                        value={!form.watch("includeExperimentNames")}
+                        setValue={(val) =>
+                          form.setValue("includeExperimentNames", !val)
+                        }
+                        label={
+                          <Tooltip
+                            body={
+                              <>
+                                <p>
+                                  Experiment and variation names can help add
+                                  context when debugging or tracking events.
+                                </p>
+                                <p>
+                                  However, this could expose potentially
+                                  sensitive information to your users if enabled
+                                  for a client-side or mobile application.
+                                </p>
+                                <p className="mb-0">
+                                  For maximum privacy and security, we recommend
+                                  hiding these fields.
+                                </p>
+                              </>
+                            }
+                          >
+                            Hide experiment and variation names <FaInfoCircle />
+                          </Tooltip>
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {form.watch("encryptPayload") &&
+                    !currentSdkCapabilities.includes("encryption") && (
+                      <div
+                        className="ml-2 mt-3 text-warning-orange"
+                        style={{ marginBottom: -5 }}
+                      >
+                        <FaExclamationCircle /> Payload decryption may not be
+                        available in your current SDK.
+                        {languages.length === 1 && (
+                          <div className="mt-1 text-gray">
+                            {getSDKCapabilityVersion(
+                              languages[0],
+                              "encryption",
+                            ) ? (
+                              <>
+                                It was introduced in SDK version{" "}
+                                <code>
+                                  {getSDKCapabilityVersion(
+                                    languages[0],
+                                    "encryption",
+                                  )}
+                                </code>
+                                . The SDK version specified in this connection
+                                is{" "}
+                                <code>
+                                  {form.watch("sdkVersion") ||
+                                    getDefaultSDKVersion(languages[0])}
+                                </code>
+                                .
+                              </>
+                            ) : null}
                           </div>
                         )}
-                    </>
-                  )}
-                </Tab>
-              )}
+                      </div>
+                    )}
+                </>
+              </Tab>
 
               {showRemoteEval && (
                 <Tab
@@ -955,7 +935,7 @@ export default function SDKConnectionForm({
                       )}
                       Remote Evaluated
                       <div className="subtitle">
-                        Completely hides business logic from users
+                        Fully hides business logic from users.
                       </div>
                     </>
                   }
