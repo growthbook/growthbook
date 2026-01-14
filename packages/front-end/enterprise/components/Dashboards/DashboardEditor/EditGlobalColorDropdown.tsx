@@ -20,20 +20,70 @@ export default function EditGlobalColorDropdown() {
     DashboardSeriesDisplayContext,
   );
   const pendingColorsRef = useRef<Map<string, string>>(new Map());
+  const lastSyncedSettingsRef = useRef<Record<string, Record<string, string>>>(
+    {},
+  );
+
   const activeKeys = getActiveSeriesKeys();
 
   // Sync pending colors when settings change from outside
   useEffect(() => {
+    const currentKeys = new Set<string>();
+
     Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
       Object.entries(dimensionSettings).forEach(
         ([dimensionValue, seriesSettings]) => {
           const key = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
+          currentKeys.add(key);
+
+          const currentColor = seriesSettings.color;
+          const lastSyncedColor =
+            lastSyncedSettingsRef.current[columnName]?.[dimensionValue];
+          const pendingColor = pendingColorsRef.current.get(key);
+
           if (!pendingColorsRef.current.has(key)) {
-            pendingColorsRef.current.set(key, seriesSettings.color);
+            // Initialize if key doesn't exist
+            pendingColorsRef.current.set(key, currentColor);
+          } else if (
+            lastSyncedColor !== undefined &&
+            pendingColor === lastSyncedColor
+          ) {
+            // Ref value matches last synced value, so no user changes pending
+            // Safe to sync external changes
+            pendingColorsRef.current.set(key, currentColor);
+          } else if (pendingColor === currentColor) {
+            // Pending color matches current settings - user's change was already committed
+            // Update ref to match (no-op but keeps ref in sync)
+            pendingColorsRef.current.set(key, currentColor);
           }
+          // If pendingColor !== lastSyncedColor && pendingColor !== currentColor,
+          // user has pending changes, keep ref value
         },
       );
     });
+
+    // Clean up keys that no longer exist in settings
+    const keysToRemove: string[] = [];
+    pendingColorsRef.current.forEach((_, key) => {
+      if (!currentKeys.has(key)) {
+        keysToRemove.push(key);
+      }
+    });
+    keysToRemove.forEach((key) => {
+      pendingColorsRef.current.delete(key);
+    });
+
+    // Update lastSyncedSettingsRef to current settings after syncing
+    const newLastSynced: Record<string, Record<string, string>> = {};
+    Object.entries(settings).forEach(([columnName, dimensionSettings]) => {
+      newLastSynced[columnName] = {};
+      Object.entries(dimensionSettings).forEach(
+        ([dimensionValue, seriesSettings]) => {
+          newLastSynced[columnName][dimensionValue] = seriesSettings.color;
+        },
+      );
+    });
+    lastSyncedSettingsRef.current = newLastSynced;
   }, [settings]);
 
   if (activeKeys.size === 0) {
@@ -77,7 +127,7 @@ export default function EditGlobalColorDropdown() {
                     if (!seriesSettings) return null;
 
                     const key = `${columnName}${SERIES_KEY_DELIMITER}${dimensionValue}`;
-                    // Initialize pending color if not set
+                    // Only initialize if key doesn't exist - full sync happens in useEffect
                     if (!pendingColorsRef.current.has(key)) {
                       pendingColorsRef.current.set(key, seriesSettings.color);
                     }

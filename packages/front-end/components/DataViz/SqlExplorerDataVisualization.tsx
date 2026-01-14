@@ -675,8 +675,6 @@ export function DataVisualizationDisplay({
 
   const series = useMemo(() => {
     if (dimensionFields.length === 0) {
-      console.log("no dimensions, returning single series");
-      console.log("xField", xField);
       return [
         {
           name: xField,
