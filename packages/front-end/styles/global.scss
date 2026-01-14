@@ -1425,6 +1425,11 @@ main.main {
   border: 1px solid transparent;
 }
 
+// Fix for checkbox buttons causing extra space in collapsed state when using react-collapsible
+.Collapsible__contentOuter {
+  contain: layout;
+}
+
 .Collapsible__trigger {
   &:hover {
     cursor: pointer;
@@ -3347,14 +3352,43 @@ input:disabled {
     box-sizing: border-box;
     flex: 1;
     padding: 24px 20px 18px;
-    max-width: 300px;
+    height: 112px;
+    background-color: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    border-right: 1px solid var(--border-color-300); // override nav-button-item's border-right: 0 since these cards have gaps
+
+    // hover effect
+    &:hover {
+      background-color: var(--color-surface-hover);
+      border-color: var(--border-color-100);
+      color: var(--text-dark);
+      border-right: 1px solid var(--border-color-100);
+    }
 
     &.selected {
       color: var(--text-color-main);
-      border-color: var(--border-color-100) !important;
+      // border-color: var(--border-color-100) !important;
+      // border-color: colors.$highlight-purple;
+      background-color: var(--color-surface) !important;
+      border-width: 2px !important;
+      border-color: var(--text-color-primary) !important;
     }
     &.active {
-      box-shadow: 0 0 0 1px var(--text-color-primary);
+      // box-shadow: 0 0 0 1px var(--text-color-primary);
+      color: var(--text-color-main) !important;
+    }
+
+    &.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-color: var(--border-color-300) !important;
+      background-color: var(--surface-background-color-alt) !important;
+      &:hover {
+        background-color: var(--surface-background-color-alt) !important;
+        border-color: var(--border-color-300) !important;
+      }
     }
 
     .subtitle {
@@ -3362,7 +3396,7 @@ input:disabled {
       line-height: 1rem;
       color: var(--text-dark);
       font-weight: normal;
-      margin: 12px 5px 0;
+      // margin: 12px 5px 0;
     }
   }
 }

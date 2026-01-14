@@ -24,6 +24,7 @@ import { BsFiletypeHtml } from "react-icons/bs";
 import { TbCloudCode } from "react-icons/tb";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Text } from "@radix-ui/themes";
 
 export type LanguageFilter =
   | "popular"
@@ -354,10 +355,10 @@ export default function SDKLanguageLogo({
         className="m-0"
         title={titlePrefix + label}
       />
-      <span className="ml-1">
+      <Text size="1" weight="medium" ml="2">
         {showLabel && label}
         {versionText}
-      </span>
+      </Text>
       {!hideExtra ? extra : null}
     </span>
   );

@@ -1,11 +1,14 @@
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
+  languageMapping,
 } from "./SDKLanguageLogo";
+import Field from "@/components/Forms/Field";
+import { FaMagnifyingGlass } from "react-icons/fa6";
 
 const tabs: Record<LanguageFilter, string> = {
   popular: "Popular",
@@ -20,27 +23,32 @@ export function SDKLanguageOption({
   language,
   selected,
   onClick,
+  variant = "default",
 }: {
   language: SDKLanguage;
   selected: boolean;
   onClick: () => void;
+  variant?: "default" | "grid";
 }) {
+  const isGrid = variant === "grid";
+
   return (
     <div
       className={`hover-highlight d-inline-flex align-items-center cursor-pointer border rounded ${
         selected ? "bg-light" : ""
       }`}
       style={{
-        height: 50,
-        padding: "0 10px",
+        height: isGrid ? 42 : 50,
+        padding: isGrid ? "8px 16px" : "0 10px",
         boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
+        ...(isGrid && { backgroundColor: "var(--color-panel-solid)" }),
       }}
       onClick={(e) => {
         e.preventDefault();
         onClick();
       }}
     >
-      <SDKLanguageLogo language={language} showLabel={true} size={30} />
+      <SDKLanguageLogo language={language} showLabel={true} size={isGrid ? 20 : 30} />
     </div>
   );
 }
@@ -55,6 +63,7 @@ export default function SDKLanguageSelector({
   hideShowAllLanguages = false,
   languageFilter = "popular",
   setLanguageFilter,
+  variant = "default",
 }: {
   value: SDKLanguage[];
   setValue: (languages: SDKLanguage[]) => void;
@@ -65,8 +74,10 @@ export default function SDKLanguageSelector({
   hideShowAllLanguages?: boolean;
   languageFilter?: LanguageFilter;
   setLanguageFilter?: (l: LanguageFilter) => void;
+  variant?: "default" | "grid";
 }) {
   const useTabs = !!setLanguageFilter;
+  const [searchTerm, setSearchTerm] = useState("");
 
   let selected = new Set(value);
   const handleLanguageOptionClick = (language: SDKLanguage) => {
@@ -138,6 +149,14 @@ export default function SDKLanguageSelector({
     if (!includeOther) {
       languages = languages.filter((l) => l !== "other");
     }
+
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      languages = languages.filter((l) =>
+        languageMapping[l]?.label.toLowerCase().includes(lower),
+      );
+    }
+
     return (
       <Tabs
         value={languageFilter}
@@ -157,23 +176,72 @@ export default function SDKLanguageSelector({
           </TabsList>
         </Box>
 
-        {Object.keys(tabs).map((tab) => (
-          <TabsContent key={tab} value={tab}>
-            <div
-              className="d-flex flex-wrap pb-3"
-              style={{ rowGap: "1em", columnGap: "0.6em" }}
-            >
-              {languages.map((l) => (
-                <SDKLanguageOption
-                  key={l}
-                  language={l}
-                  onClick={() => handleLanguageOptionClick(l)}
-                  selected={selected.has(l)}
-                />
-              ))}
-            </div>
-          </TabsContent>
-        ))}
+        {/* Search bar for grid variant */}
+        {variant === "grid" && (
+          <div className="position-relative" style={{ marginBottom: "8px" }}>
+            <FaMagnifyingGlass
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "12px",
+                transform: "translateY(-50%)",
+                color: "#aaa",
+                pointerEvents: "none",
+                zIndex: 10,
+              }}
+            />
+            <Field
+              type="search"
+              placeholder="Search SDKs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ paddingLeft: "38px" }}
+            />
+          </div>
+        )}
+
+        {Object.keys(tabs).map((tab) => {
+          const options = languages.map((l) => (
+            <SDKLanguageOption
+              key={l}
+              language={l}
+              onClick={() => handleLanguageOptionClick(l)}
+              selected={selected.has(l)}
+              variant={variant}
+            />
+          ));
+
+          return (
+            <TabsContent key={tab} value={tab}>
+              {variant === "grid" ? (
+                <Grid
+                  columns="4"
+                  gapX="2"
+                  gapY="1"
+                  p="2"
+                  mb="5"
+                  height="126px"
+                  overflowY="scroll"
+                  style={{
+                    backgroundColor: "var(--background-color)",
+                    border: "1px solid var(--border-color-300)",
+                    borderRadius: "0.25rem",
+                    alignContent: "start",
+                  }}
+                >
+                  {options}
+                </Grid>
+              ) : (
+                <div
+                  className="d-flex flex-wrap pb-3"
+                  style={{ rowGap: "1em", columnGap: "0.6em" }}
+                >
+                  {options}
+                </div>
+              )}
+            </TabsContent>
+          );
+        })}
       </Tabs>
     );
   }
