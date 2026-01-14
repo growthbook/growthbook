@@ -252,6 +252,7 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
+  postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],

@@ -19,6 +19,7 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -119,6 +120,9 @@ export default function AnalysisSettingsSummary({
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
+  );
+  const hasPostStratificationFeature = hasCommercialFeature(
+    "post-stratification",
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -261,6 +265,7 @@ export default function AnalysisSettingsSummary({
     orgSettings,
     statsEngine,
     hasRegressionAdjustmentFeature,
+    hasPostStratificationFeature,
     hasSequentialFeature,
     phase,
     unjoinableMetrics,
@@ -407,6 +412,7 @@ export default function AnalysisSettingsSummary({
     orgSettings: org,
     statsEngine: engine,
     hasRegressionAdjustmentFeature,
+    hasPostStratificationFeature,
     hasSequentialFeature,
     phase: currentPhase,
     unjoinableMetrics: unjoinable,
@@ -418,6 +424,7 @@ export default function AnalysisSettingsSummary({
     orgSettings: OrganizationSettings;
     statsEngine: StatsEngine;
     hasRegressionAdjustmentFeature: boolean;
+    hasPostStratificationFeature: boolean;
     hasSequentialFeature: boolean;
     phase?: number;
     unjoinableMetrics?: Set<string>;
@@ -527,6 +534,21 @@ export default function AnalysisSettingsSummary({
       reasons.push("CUPED settings changed");
     }
 
+    const experimentPostStratificationEnabled =
+      !hasPostStratificationFeature || org.disablePrecomputedDimensions
+        ? false
+        : (exp.postStratificationEnabled ??
+          org.postStratificationEnabled ??
+          DEFAULT_POST_STRATIFICATION_ENABLED);
+    if (
+      isDifferent(
+        experimentPostStratificationEnabled,
+        !!analysisSettings?.postStratificationEnabled,
+      )
+    ) {
+      reasons.push("Post-stratification settings changed");
+    }
+
     const experimentSequentialEnabled =
       engine !== "frequentist" || !hasSequentialFeature
         ? false
@@ -628,46 +650,46 @@ export default function AnalysisSettingsSummary({
               ) : null}
             </Flex>
 
-            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-              allMetrics.length > 0 && (
-                <RefreshResultsButton
-                  entityType={
-                    experiment.type === "holdout" ? "holdout" : "experiment"
+            {ds &&
+            permissionsUtil.canRunExperimentQueries(ds) &&
+            allMetrics.length > 0 ? (
+              <RefreshResultsButton
+                entityType={
+                  experiment.type === "holdout" ? "holdout" : "experiment"
+                }
+                entityId={experiment.id}
+                datasourceId={experiment.datasource}
+                latest={latest}
+                onSubmitSuccess={(snapshot) => {
+                  trackSnapshot(
+                    "create",
+                    "RunQueriesButton",
+                    datasource?.type || null,
+                    snapshot,
+                  );
+                  setAnalysisSettings(null);
+                }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
+                resetFilters={async () => {
+                  if (baselineRow !== 0) {
+                    setBaselineRow?.(0);
+                    setVariationFilter?.([]);
                   }
-                  entityId={experiment.id}
-                  datasourceId={experiment.datasource}
-                  latest={latest}
-                  onSubmitSuccess={(snapshot) => {
-                    trackSnapshot(
-                      "create",
-                      "RunQueriesButton",
-                      datasource?.type || null,
-                      snapshot,
-                    );
-                    setAnalysisSettings(null);
-                  }}
-                  mutate={mutateSnapshot}
-                  mutateAdditional={mutate}
-                  setRefreshError={setRefreshError}
-                  resetFilters={async () => {
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                    if (experiment.type === "multi-armed-bandit") {
-                      setSnapshotType?.("exploratory");
-                    } else {
-                      setSnapshotType?.(undefined);
-                    }
-                  }}
-                  experiment={experiment}
-                  analysis={analysis}
-                  phase={phase}
-                  dimension={dimension}
-                  setAnalysisSettings={setAnalysisSettings}
-                />
-              )}
+                  setDifferenceType("relative");
+                  if (experiment.type === "multi-armed-bandit") {
+                    setSnapshotType?.("exploratory");
+                  } else {
+                    setSnapshotType?.(undefined);
+                  }
+                }}
+                experiment={experiment}
+                phase={phase}
+                dimension={dimension}
+                setAnalysisSettings={setAnalysisSettings}
+              />
+            ) : null}
 
             <ResultMoreMenu
               experiment={experiment}

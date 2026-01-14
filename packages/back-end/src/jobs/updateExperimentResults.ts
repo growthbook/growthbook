@@ -145,12 +145,13 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
       await getSettingsForSnapshotMetrics(context, experiment);
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
-      experiment.statsEngine || scopedSettings.statsEngine.value,
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
+      statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
       regressionAdjustmentEnabled,
-    );
+      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
+    });
 
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
