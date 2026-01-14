@@ -3354,7 +3354,6 @@ input:disabled {
     justify-content: flex-end;
     border-right: 1px solid var(--border-color-300); // override nav-button-item's border-right: 0 since these cards have gaps
 
-    // hover effect
     &:hover {
       background-color: var(--color-surface-hover);
       border-color: var(--border-color-100);
@@ -3364,14 +3363,11 @@ input:disabled {
 
     &.selected {
       color: var(--text-color-main);
-      // border-color: var(--border-color-100) !important;
-      // border-color: colors.$highlight-purple;
       background-color: var(--color-surface) !important;
       border-width: 2px !important;
       border-color: var(--text-color-primary) !important;
     }
     &.active {
-      // box-shadow: 0 0 0 1px var(--text-color-primary);
       color: var(--text-color-main) !important;
     }
 
@@ -3391,7 +3387,6 @@ input:disabled {
       line-height: 1rem;
       color: var(--text-dark);
       font-weight: normal;
-      // margin: 12px 5px 0;
     }
   }
 }
