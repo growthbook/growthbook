@@ -48,6 +48,7 @@ import {
   DashboardSnapshotContext,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import DataVisualizationSettings from "./DataVisualizationSettings";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import {
   ExperimentMetricBlockContext,
@@ -1397,6 +1398,14 @@ export default function EditSingleBlock({
             )}
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
+            )}
+            {block.type === "data-visualization" && (
+              <DataVisualizationSettings
+                block={block}
+                setBlock={setBlock}
+                dashboardId={dashboardId}
+                projects={projects}
+              />
             )}
           </Flex>
           <Flex gap="3" align="center" justify="center">

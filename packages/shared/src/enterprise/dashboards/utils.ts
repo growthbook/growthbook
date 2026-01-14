@@ -256,6 +256,27 @@ export const CREATE_BLOCK_TYPE: {
     metricAnalysisId: "",
     ...(initialValues || {}),
   }),
+  "data-visualization": ({ initialValues }) => ({
+    type: "data-visualization",
+    title: "",
+    description: "",
+    dataSourceConfig: {
+      dataType: "sql",
+      savedQueryId: "",
+    },
+    dataVizConfig: [
+      {
+        chartType: "bar",
+        xAxis: {
+          fieldName: "",
+          type: "string",
+          sort: "none",
+        },
+        yAxis: [],
+      },
+    ],
+    ...(initialValues || {}),
+  }),
 };
 
 export function createDashboardBlocksFromTemplate(
