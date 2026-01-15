@@ -67,6 +67,9 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
           context: req.context,
           payloadKeys: [],
           sdkConnections: affectedConnections,
+          auditContext: {
+            caller: `Environment ${id} projects changed. putEnvironment.ts:66`,
+          },
         });
       }
     }

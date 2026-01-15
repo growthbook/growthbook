@@ -1748,7 +1748,13 @@ const onExperimentUpdate = async ({
       isEqual,
     );
 
-    queueSDKPayloadRefresh({ context, payloadKeys });
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        caller: `Experiment ${newExperiment.id} updated. ExperimentModel.ts:1751`,
+      },
+    });
   }
 
   if (context.org.isVercelIntegration)
@@ -1771,7 +1777,13 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  queueSDKPayloadRefresh({ context, payloadKeys });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      caller: `Experiment ${experiment.id} deleted. ExperimentModel.ts:1774`,
+    },
+  });
 
   if (context.org.isVercelIntegration)
     await deleteVercelExperimentationItemFromExperiment({

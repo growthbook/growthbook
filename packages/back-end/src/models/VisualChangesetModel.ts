@@ -376,7 +376,13 @@ const onVisualChangesetCreate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  queueSDKPayloadRefresh({ context, payloadKeys });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      caller: `Visual changeset ${visualChangeset.id} created. VisualChangesetModel.ts:379`,
+    },
+  });
 };
 
 const onVisualChangesetUpdate = async ({
@@ -404,7 +410,13 @@ const onVisualChangesetUpdate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  queueSDKPayloadRefresh({ context, payloadKeys });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      caller: `Visual changeset ${newVisualChangeset.id} updated. VisualChangesetModel.ts:407`,
+    },
+  });
 };
 
 const onVisualChangesetDelete = async ({
@@ -427,7 +439,13 @@ const onVisualChangesetDelete = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  queueSDKPayloadRefresh({ context, payloadKeys });
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      caller: `Visual changeset ${visualChangeset.id} deleted. VisualChangesetModel.ts:430`,
+    },
+  });
 };
 
 // when an experiment adds/removes variations, we need to update the analogous

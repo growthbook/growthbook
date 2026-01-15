@@ -588,6 +588,9 @@ async function onFeatureCreate(
       [feature],
       getEnvironmentIdsFromOrg(context.org),
     ),
+    auditContext: {
+      caller: `Feature ${feature.id} created. FeatureModel.ts:585`,
+    },
   });
 
   await logFeatureCreatedEvent(context, feature);
@@ -609,6 +612,9 @@ async function onFeatureDelete(
       [feature],
       getEnvironmentIdsFromOrg(context.org),
     ),
+    auditContext: {
+      caller: `Feature ${feature.id} deleted. FeatureModel.ts:606`,
+    },
   });
 
   await logFeatureDeletedEvent(context, feature);
@@ -634,6 +640,9 @@ export async function onFeatureUpdate(
       getEnvironmentIdsFromOrg(context.org),
     ),
     skipRefreshForProject,
+    auditContext: {
+      caller: `Feature ${feature.id} updated. FeatureModel.ts:629`,
+    },
   });
 
   // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
