@@ -1,7 +1,7 @@
 import { FC, useEffect, useMemo, useState } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex, Link, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import {
   ExperimentMetricInterface,
   getMetricLink,
@@ -23,6 +23,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import Link from "@/ui/Link";
 import Modal from "@/components/Modal";
 import {
   ExperimentTableRow,
@@ -35,9 +36,9 @@ import {
 } from "@/services/utils";
 import Metadata from "@/ui/Metadata";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import FactMetricTypeDisplayName from "../Metrics/FactMetricTypeDisplayName";
-import MetricName from "../Metrics/MetricName";
-import SortedTags from "../Tags/SortedTags";
+import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
+import MetricName from "@/components/Metrics/MetricName";
+import SortedTags from "@/components/Tags/SortedTags";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ResultsTable from "./ResultsTable";
 import SlicesSection from "./SlicesSection";

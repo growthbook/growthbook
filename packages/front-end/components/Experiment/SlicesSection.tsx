@@ -55,21 +55,21 @@ const SlicesSection: FC<SlicesSectionProps> = ({
 }) => {
   const { getFactTableById } = useDefinitions();
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-  
+
   // Update search term when initialSearchTerm changes
   useEffect(() => {
     setSearchTerm(initialSearchTerm);
   }, [initialSearchTerm]);
-  
+
   // Add state for sorting
   const [sortBy, setSortBy] = useState<"significance" | "change" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
-    null
+    null,
   );
-  
+
   // Add state for difference type (local state for this section)
   const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    initialDifferenceType
+    initialDifferenceType,
   );
 
   // Filter to get slice rows for this metric
