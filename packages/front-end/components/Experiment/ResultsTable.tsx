@@ -1272,7 +1272,13 @@ export default function ResultsTable({
                                 colSpan={columnsToDisplay.length}
                                 style={{ padding: 0 }}
                               >
-                                <div className={styles.expandAnimation}>
+                                <div
+                                  className={
+                                    forceTimeSeriesVisible
+                                      ? undefined
+                                      : styles.expandAnimation
+                                  }
+                                >
                                   <div className={styles.timeSeriesCell}>
                                     <ExperimentMetricTimeSeriesGraphWrapper
                                       experimentId={experimentId}

@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from "react";
+import { FC, useState } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getMetricLink } from "shared/experiments";
@@ -7,12 +7,8 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
+import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
-import {
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotAnalysis,
-} from "shared/types/experiment-snapshot";
 import Modal from "@/components/Modal";
 import { ExperimentTableRow } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
@@ -34,17 +30,11 @@ interface MetricDrilldownModalProps {
   phase: number;
   experimentStatus: ExperimentStatus;
   differenceType: DifferenceType;
-  initialShowVariations: boolean[];
-  pValueAdjustmentEnabled: boolean;
-  firstDateToRender: Date;
-  sliceId?: string;
-  allRows?: ExperimentTableRow[];
   baselineRow?: number;
   variationFilter?: number[];
   goalMetrics?: string[];
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
-  metricOverrides?: MetricOverride[];
   variations: ExperimentReportVariation[];
   startDate: string;
   endDate: string;
@@ -52,9 +42,6 @@ interface MetricDrilldownModalProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  initialSliceSearchTerm?: string;
-  snapshot?: ExperimentSnapshotInterface;
-  analysis?: ExperimentSnapshotAnalysis;
 }
 
 const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
@@ -66,10 +53,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   phase,
   experimentStatus,
   differenceType,
-  initialShowVariations,
-  pValueAdjustmentEnabled,
-  firstDateToRender,
-  sliceId,
   baselineRow = 0,
   variationFilter,
   goalMetrics = [],
@@ -92,13 +75,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   >(variationFilter);
   const [localDifferenceType, setLocalDifferenceType] =
     useState<DifferenceType>(differenceType);
-
-  // Reset local filters when parent filters change (modal reopens)
-  useEffect(() => {
-    setLocalBaselineRow(baselineRow);
-    setLocalVariationFilter(variationFilter);
-    setLocalDifferenceType(differenceType);
-  }, [baselineRow, variationFilter, differenceType]);
 
   useKeydown("Escape", close);
 

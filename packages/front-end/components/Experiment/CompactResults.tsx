@@ -587,25 +587,15 @@ const CompactResults: FC<{
           row={openMetricDrilldownModalInfo.metricRow}
           close={() => setOpenMetricDrilldownModalInfo(null)}
           initialTab={openMetricDrilldownModalInfo.initialTab}
-          // initialSliceSearchTerm={
-          //   openMetricDrilldownModalInfo.initialSliceSearchTerm
-          // }
           experimentId={experimentId}
           phase={phase}
           experimentStatus={status}
           differenceType={differenceType}
-          pValueAdjustmentEnabled={!!pValueCorrection}
-          firstDateToRender={new Date(startDate)}
           goalMetrics={goalMetrics}
           secondaryMetrics={secondaryMetrics}
           guardrailMetrics={guardrailMetrics}
-          // allRows={rows}
           baselineRow={baselineRow}
-          // metricOverrides={metricOverrides}
           variations={variations}
-          initialShowVariations={variations.map(
-            (_, i) => !variationFilter?.includes(i),
-          )}
           variationFilter={variationFilter}
           startDate={startDate}
           endDate={endDate}
@@ -613,8 +603,6 @@ const CompactResults: FC<{
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          // snapshot={snapshot}
-          // analysis={analysis}
         />
       )}
     </>
