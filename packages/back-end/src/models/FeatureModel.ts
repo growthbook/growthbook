@@ -589,7 +589,9 @@ async function onFeatureCreate(
       getEnvironmentIdsFromOrg(context.org),
     ),
     auditContext: {
-      caller: `Feature ${feature.id} created. FeatureModel.ts:585`,
+      event: "created",
+      model: "feature",
+      id: feature.id,
     },
   });
 
@@ -613,7 +615,9 @@ async function onFeatureDelete(
       getEnvironmentIdsFromOrg(context.org),
     ),
     auditContext: {
-      caller: `Feature ${feature.id} deleted. FeatureModel.ts:606`,
+      event: "deleted",
+      model: "feature",
+      id: feature.id,
     },
   });
 
@@ -641,7 +645,9 @@ export async function onFeatureUpdate(
     ),
     skipRefreshForProject,
     auditContext: {
-      caller: `Feature ${feature.id} updated. FeatureModel.ts:629`,
+      event: "updated",
+      model: "feature",
+      id: feature.id,
     },
   });
 

@@ -479,7 +479,7 @@ export function queueSDKPayloadRefresh(data: {
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
-  auditContext?: { caller: string };
+  auditContext?: { event: string; model: string; id?: string };
 }) {
   refreshSDKPayloadCache(data).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
@@ -499,7 +499,7 @@ async function refreshSDKPayloadCache({
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
-  auditContext?: { caller: string };
+  auditContext?: { event: string; model: string; id?: string };
 }) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
@@ -725,7 +725,10 @@ async function refreshSDKPayloadCache({
           initialAuditContext
             ? {
                 dateUpdated: new Date(),
-                caller: initialAuditContext.caller,
+                event: initialAuditContext.event,
+                model: initialAuditContext.model,
+                id: initialAuditContext.id,
+                stack: new Error().stack || "",
                 connection: connection as unknown as Record<string, unknown>,
               }
             : undefined;

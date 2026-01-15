@@ -380,7 +380,9 @@ const onVisualChangesetCreate = async ({
     context,
     payloadKeys,
     auditContext: {
-      caller: `Visual changeset ${visualChangeset.id} created. VisualChangesetModel.ts:379`,
+      event: "created",
+      model: "visualchangeset",
+      id: visualChangeset.id,
     },
   });
 };
@@ -414,7 +416,9 @@ const onVisualChangesetUpdate = async ({
     context,
     payloadKeys,
     auditContext: {
-      caller: `Visual changeset ${newVisualChangeset.id} updated. VisualChangesetModel.ts:407`,
+      event: "updated",
+      model: "visualchangeset",
+      id: newVisualChangeset.id,
     },
   });
 };
@@ -443,7 +447,9 @@ const onVisualChangesetDelete = async ({
     context,
     payloadKeys,
     auditContext: {
-      caller: `Visual changeset ${visualChangeset.id} deleted. VisualChangesetModel.ts:430`,
+      event: "deleted",
+      model: "visualchangeset",
+      id: visualChangeset.id,
     },
   });
 };

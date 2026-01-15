@@ -1752,7 +1752,9 @@ const onExperimentUpdate = async ({
       context,
       payloadKeys,
       auditContext: {
-        caller: `Experiment ${newExperiment.id} updated. ExperimentModel.ts:1751`,
+        event: "updated",
+        model: "experiment",
+        id: newExperiment.id,
       },
     });
   }
@@ -1781,7 +1783,9 @@ const onExperimentDelete = async (
     context,
     payloadKeys,
     auditContext: {
-      caller: `Experiment ${experiment.id} deleted. ExperimentModel.ts:1774`,
+      event: "deleted",
+      model: "experiment",
+      id: experiment.id,
     },
   });
 

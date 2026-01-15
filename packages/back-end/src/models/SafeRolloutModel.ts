@@ -86,7 +86,9 @@ export class SafeRolloutModel extends BaseClass {
           getEnvironmentIdsFromOrg(this.context.org),
         ),
         auditContext: {
-          caller: `Safe rollout step changed for feature ${existing.featureId}. SafeRolloutModel.ts:82`,
+          event: "step changed",
+          model: "saferollout",
+          id: existing.featureId,
         },
       });
     }

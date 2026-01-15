@@ -126,7 +126,9 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
         context: this.context,
         payloadKeys,
         auditContext: {
-          caller: `URL redirect ${doc.id} created/updated. UrlRedirectModel.ts:125`,
+          event: "created/updated",
+          model: "urlredirect",
+          id: doc.id,
         },
       });
     }
@@ -155,7 +157,9 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
       context: this.context,
       payloadKeys,
       auditContext: {
-        caller: `URL redirect ${doc.id} deleted. UrlRedirectModel.ts:148`,
+        event: "deleted",
+        model: "urlredirect",
+        id: doc.id,
       },
     });
   }

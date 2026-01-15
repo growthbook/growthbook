@@ -3,7 +3,10 @@ import { baseSchema } from "./base-model";
 
 export const sdkConnectionCacheAuditContextValidator = z.object({
   dateUpdated: z.date(),
-  caller: z.string(),
+  event: z.string(),
+  model: z.string(),
+  id: z.string().optional(),
+  stack: z.string(),
   connection: z.record(z.string(), z.unknown()),
 });
 

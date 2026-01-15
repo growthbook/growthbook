@@ -93,7 +93,9 @@ export const postSDKConnection = async (
     payloadKeys: [],
     sdkConnections: [doc],
     auditContext: {
-      caller: `SDK connection ${doc.id} created. sdk-connection.controller.ts:91`,
+      event: "created",
+      model: "sdkconnection",
+      id: doc.id,
     },
   });
 

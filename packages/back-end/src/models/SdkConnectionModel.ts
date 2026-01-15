@@ -259,7 +259,9 @@ export async function createSDKConnection(
     payloadKeys: [],
     sdkConnections: [connection],
     auditContext: {
-      caller: `SDK connection ${connection.id} created. SdkConnectionModel.ts:257`,
+      event: "created",
+      model: "sdkconnection",
+      id: connection.id,
     },
   });
 
@@ -379,7 +381,9 @@ export async function editSDKConnection(
         },
       ],
       auditContext: {
-        caller: `SDK connection ${connection.id} updated. SdkConnectionModel.ts:369`,
+        event: "updated",
+        model: "sdkconnection",
+        id: connection.id,
       },
     });
   }

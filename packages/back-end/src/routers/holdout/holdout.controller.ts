@@ -438,7 +438,9 @@ export const editStatus = async (
         getEnvironmentIdsFromOrg(context.org),
       ),
       auditContext: {
-        caller: `Holdout ${holdout.id} status changed to stopped. holdout.controller.ts:434`,
+        event: "status changed to stopped",
+        model: "holdout",
+        id: holdout.id,
       },
     });
   } else if (req.body.status === "running") {
@@ -490,7 +492,9 @@ export const editStatus = async (
         getEnvironmentIdsFromOrg(context.org),
       ),
       auditContext: {
-        caller: `Holdout ${holdout.id} status changed to running. holdout.controller.ts:483`,
+        event: "status changed to running",
+        model: "holdout",
+        id: holdout.id,
       },
     });
   } else if (req.body.status === "draft") {
@@ -512,7 +516,9 @@ export const editStatus = async (
         getEnvironmentIdsFromOrg(context.org),
       ),
       auditContext: {
-        caller: `Holdout ${holdout.id} status changed to draft. holdout.controller.ts:502`,
+        event: "status changed to draft",
+        model: "holdout",
+        id: holdout.id,
       },
     });
   }
@@ -592,7 +598,9 @@ export const deleteHoldout = async (
       getEnvironmentIdsFromOrg(context.org),
     ),
     auditContext: {
-      caller: `Holdout ${holdout.id} deleted. holdout.controller.ts:579`,
+      event: "deleted",
+      model: "holdout",
+      id: holdout.id,
     },
   });
 
