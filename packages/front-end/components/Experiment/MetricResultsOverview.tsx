@@ -111,9 +111,11 @@ const MetricResultsOverview: FC<MetricResultsOverviewProps> = ({
                   ? firstVariation.chanceToWin !== undefined
                     ? percentFormatter.format(firstVariation.chanceToWin)
                     : "—"
-                  : pValueFormatter(
-                      firstVariation.pValueAdjusted ?? firstVariation.pValue,
-                    )}
+                  : (firstVariation.pValueAdjusted ?? firstVariation.pValue)
+                    ? pValueFormatter(
+                        firstVariation.pValueAdjusted ?? firstVariation.pValue,
+                      )
+                    : "—"}
             </TableCell>
             <TableCell>
               {firstVariation ? formatValue(firstVariation.expected) : "—"}
