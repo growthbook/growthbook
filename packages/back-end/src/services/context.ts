@@ -65,35 +65,68 @@ export type ForeignRefTypes = {
   feature: FeatureInterface;
 };
 
+export type ModelName =
+  | "agreements"
+  | "aiPrompts"
+  | "customFields"
+  | "factMetrics"
+  | "featureRevisionLogs"
+  | "projects"
+  | "urlRedirects"
+  | "metricAnalysis"
+  | "populationData"
+  | "savedQueries"
+  | "metricGroups"
+  | "segments"
+  | "experimentTemplates"
+  | "vectors"
+  | "safeRollout"
+  | "safeRolloutSnapshots"
+  | "decisionCriteria"
+  | "metricTimeSeries"
+  | "webhookSecrets"
+  | "holdout"
+  | "dashboards"
+  | "customHooks"
+  | "incrementalRefresh"
+  | "sqlResultChunks"
+  | "sdkConnectionCache";
+
+export const modelClasses = {
+  agreements: AgreementModel,
+  aiPrompts: AiPromptModel,
+  customFields: CustomFieldModel,
+  factMetrics: FactMetricModel,
+  featureRevisionLogs: FeatureRevisionLogModel,
+  projects: ProjectModel,
+  urlRedirects: UrlRedirectModel,
+  metricAnalysis: MetricAnalysisModel,
+  populationData: PopulationDataModel,
+  savedQueries: SavedQueryDataModel,
+  metricGroups: MetricGroupModel,
+  segments: SegmentModel,
+  experimentTemplates: ExperimentTemplatesModel,
+  vectors: VectorsModel,
+  safeRollout: SafeRolloutModel,
+  safeRolloutSnapshots: SafeRolloutSnapshotModel,
+  decisionCriteria: DecisionCriteriaModel,
+  metricTimeSeries: MetricTimeSeriesModel,
+  webhookSecrets: WebhookSecretDataModel,
+  holdout: HoldoutModel,
+  dashboards: DashboardModel,
+  customHooks: CustomHookModel,
+  incrementalRefresh: IncrementalRefreshModel,
+  sqlResultChunks: SqlResultChunkModel,
+  sdkConnectionCache: SdkConnectionCacheModel,
+};
+export type ModelClass = (typeof modelClasses)[ModelName];
+type ModelInstances = {
+  [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
+};
+
 export class ReqContextClass {
   // Models
-  public models!: {
-    agreements: AgreementModel;
-    aiPrompts: AiPromptModel;
-    customFields: CustomFieldModel;
-    factMetrics: FactMetricModel;
-    featureRevisionLogs: FeatureRevisionLogModel;
-    projects: ProjectModel;
-    urlRedirects: UrlRedirectModel;
-    metricAnalysis: MetricAnalysisModel;
-    populationData: PopulationDataModel;
-    savedQueries: SavedQueryDataModel;
-    metricGroups: MetricGroupModel;
-    segments: SegmentModel;
-    experimentTemplates: ExperimentTemplatesModel;
-    vectors: VectorsModel;
-    safeRollout: SafeRolloutModel;
-    safeRolloutSnapshots: SafeRolloutSnapshotModel;
-    decisionCriteria: DecisionCriteriaModel;
-    metricTimeSeries: MetricTimeSeriesModel;
-    webhookSecrets: WebhookSecretDataModel;
-    holdout: HoldoutModel;
-    dashboards: DashboardModel;
-    customHooks: CustomHookModel;
-    incrementalRefresh: IncrementalRefreshModel;
-    sqlResultChunks: SqlResultChunkModel;
-    sdkConnectionCache: SdkConnectionCacheModel;
-  };
+  public models!: ModelInstances;
   private initModels() {
     this.models = {
       agreements: new AgreementModel(this),
