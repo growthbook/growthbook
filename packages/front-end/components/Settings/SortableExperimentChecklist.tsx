@@ -13,7 +13,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
+import { ChecklistTask } from "shared/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef, useState } from "react";

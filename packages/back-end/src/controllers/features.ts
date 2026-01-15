@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual, omit } from "lodash";
+import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
@@ -18,6 +18,12 @@ import {
   SDKCapability,
 } from "shared/sdk-versioning";
 import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  SafeRolloutRule,
+} from "shared/validators";
+import { FeatureUsageLookback } from "shared/types/integrations";
+import {
   ExperimentRefRule,
   FeatureInterface,
   FeaturePrerequisite,
@@ -26,7 +32,22 @@ import {
   JSONSchemaDef,
   FeatureUsageData,
   FeatureUsageDataPoint,
-} from "back-end/types/feature";
+} from "shared/types/feature";
+import { FeatureUsageRecords } from "shared/types/realtime";
+import { Environment } from "shared/types/organization";
+import {
+  EventUserForResponseLocals,
+  EventUserLoggedIn,
+} from "shared/types/events/event-types";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "shared/types/feature-revision";
+import { Changeset, ExperimentInterface } from "shared/types/experiment";
+import {
+  PostFeatureRuleBody,
+  PutFeatureRuleBody,
+} from "shared/types/feature-rule";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -64,7 +85,6 @@ import {
   getFeatureDefinitions,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { FeatureUsageRecords } from "back-end/types/realtime";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -87,17 +107,13 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { Environment, ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import {
-  EventUserForResponseLocals,
-  EventUserLoggedIn,
-} from "back-end/src/events/event-types";
 import {
   CACHE_CONTROL_MAX_AGE,
   CACHE_CONTROL_STALE_IF_ERROR,
@@ -107,10 +123,6 @@ import {
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
 import {
-  FeatureRevisionInterface,
-  RevisionLog,
-} from "back-end/types/feature-revision";
-import {
   addLinkedFeatureToExperiment,
   getAllPayloadExperiments,
   getExperimentById,
@@ -118,24 +130,13 @@ import {
   getExperimentsByTrackingKeys,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { Changeset, ExperimentInterface } from "back-end/types/experiment";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
-import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
-import {
-  SafeRolloutInterface,
-  validateCreateSafeRolloutFields,
-} from "back-end/src/validators/safe-rollout";
-import {
-  PostFeatureRuleBody,
-  PutFeatureRuleBody,
-} from "back-end/types/feature-rule";
+import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -2166,7 +2167,7 @@ export async function postFeatureMoveRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
   const rules = changes.rules[environment];
   if (!rules || !rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
@@ -2244,7 +2245,7 @@ export async function deleteFeatureRule(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules ? cloneDeep(revision.rules) : {} };
   const rules = changes.rules[environment];
   if (!rules || !rules[i]) {
     throw new Error("Invalid rule index");

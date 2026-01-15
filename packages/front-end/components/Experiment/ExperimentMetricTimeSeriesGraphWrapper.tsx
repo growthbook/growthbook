@@ -1,10 +1,9 @@
-import * as Sentry from "@sentry/nextjs";
+import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { ExperimentStatus } from "back-end/src/validators/experiments";
-import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
+import { ExperimentStatus, MetricTimeSeries } from "shared/validators";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
@@ -44,7 +43,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
         <Message>Something went wrong while displaying this graph.</Message>
       }
       onError={(error) => {
-        Sentry.captureException(error);
+        sentryCaptureException(error);
       }}
     >
       <ExperimentMetricTimeSeriesGraphWrapper {...props} />

@@ -11,9 +11,16 @@ import TabItem from '@theme/TabItem';
 
 [Model Context Protocol](https://modelcontextprotocol.io/introduction) (MCP) is a standard for integrating AI tools and agents with developer platforms like GrowthBook. This guide shows you how to connect your AI tools to GrowthBook's MCP server and which tools are available for use.
 
+<figure>
 <video style={{aspectRatio: "16/9", width: "100%"}} autoPlay muted playsInline>
     <source src="/videos/mcp-example-c.mp4" type="video/mp4"></source>
 </video>
+<figcaption>Demo of the MCP Server adding a feature flag to a codebase and GrowthBook</figcaption>
+</figure>
+
+:::info It's official!
+Check us out on the [official MCP Registry](https://registry.modelcontextprotocol.io/?q=growthbook)
+:::
 
 ## Prerequisites
 
@@ -35,7 +42,8 @@ Configuration includes 4 environment variables. Here's what they mean:
 
 <br />
 
-:::tip GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
+:::tip On GrowthBook Cloud?
+You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 :::
 
 ### Cursor
@@ -229,101 +237,16 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
 
 ### Claude Desktop
 
-1. **Open Settings** &rarr; **Developer**
-2. Click **Edit Config**
-3. Open `claude_desktop_config.json`
-4. Add the following configuration:
+We have an official extension in the Connectors Directory.
 
-<Tabs groupId="operating-systems">
-  <TabItem value="macos" label="macOS">
+1. Go to **Settings** → **Extensions** → **Browse Extensions**
+2. Select **Desktop Extensions** and search for "GrowthBook"
+3. Follow the prompts to install and configure the extension
+4. That's it!
 
-```json
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "npx",
-      "args": ["-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-  </TabItem>
-  <TabItem value="windows" label="Windows">
-  
-  ```json
-  {
-    "mcpServers": {
-      "growthbook": {
-        "command": "cmd",
-        "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
-        "env": {
-          "GB_API_KEY": "YOUR_API_KEY",
-          "GB_API_URL": "YOUR_API_URL",
-          "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-          "GB_EMAIL": "YOUR_EMAIL"
-        }
-      }
-    }
-  }
-  ```
-
-  </TabItem>
-  <TabItem value="wsl" label="WSL">
-
-```json
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "wsl",
-      "args": ["npx", "-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-  </TabItem>
-  <TabItem value="linux" label="Linux">
-
-```json
-{
-  "mcpServers": {
-    "growthbook": {
-      "command": "npx",
-      "args": ["-y", "@growthbook/mcp@latest"],
-      "env": {
-        "GB_API_KEY": "YOUR_API_KEY",
-        "GB_API_URL": "YOUR_API_URL",
-        "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_EMAIL": "YOUR_EMAIL"
-      }
-    }
-  }
-}
-```
-
-  </TabItem>
-</Tabs>
-
-5. Save the config and restart Claude
-
-A hammer icon will appear in the chat window, indicating that your GrowthBook MCP server is connected and available for use!
-
-<MaxWidthImage border>
-  ![GrowthBook MCP in Claude](/images/integrations/mcp/mcp-claude.png)
-</MaxWidthImage>
+:::tip Node not required
+Claude Desktop ships with its own version of Node, which means it's not required here
+:::
 
 ## Tools
 
@@ -339,7 +262,11 @@ A hammer icon will appear in the chat window, indicating that your GrowthBook MC
 ### Experiments
 
 - `get_experiments`: List experiments in GrowthBook.
-- `get_experiment`: Fetch details for a specific experiment by ID.
+    - This tool has 3 modes:
+        1. `metadata`: The default response from the GrowthBook API, including basic information about experiments.
+        2. `full`: Metadata about experiments plus results. Warning: This returns a large payload, which fills up the context window quickly.
+        3. `summary`: Presents a high-level summary of experiments and their results, combining experiment metadata, results, and metrics.
+- `get_experiment`: Fetch details for a specific experiment by ID. (Supports `metadata` and `full` modes. See above for details.)
 - `get_attributes`: List user attributes tracked in GrowthBook (useful for targeting).
 - `create_experiment`: Creates a feature-flag linked experiment. Note that this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
 - `get_defaults`: Get default values for experiments including hypothesis, description, datasource, and assignment query. (Runs automatically when the create experiment tool is called.)

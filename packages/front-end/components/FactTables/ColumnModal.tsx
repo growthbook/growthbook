@@ -5,7 +5,7 @@ import {
   FactTableInterface,
   UpdateColumnProps,
   FactTableColumnType,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import React, { useState, useEffect } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
@@ -34,7 +34,7 @@ import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 export interface Props {
   factTable: FactTableInterface;

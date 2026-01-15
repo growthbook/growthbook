@@ -4,19 +4,20 @@ import {
   DashboardBlockType,
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  DashboardTemplateInterface,
+} from "shared/enterprise";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+} from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { getSnapshotAnalysis } from "../../util";
+import { DataVizConfig } from "../../../validators";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
@@ -267,4 +268,21 @@ export function createDashboardBlocksFromTemplate(
   return blockInitialValues.map(({ type, ...initialValues }) =>
     CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
   );
+}
+
+export function chartTypeSupportsAnchorYAxisToZero(
+  chartType: DataVizConfig["chartType"],
+): boolean {
+  return ["line", "scatter"].includes(chartType);
+}
+
+export function chartTypeHasDisplaySettings(
+  chartType: DataVizConfig["chartType"] | undefined,
+): boolean {
+  if (!chartType) {
+    return false;
+  }
+  // Check if the chart type supports any display settings
+  // As more display settings are added, add their checks here
+  return chartTypeSupportsAnchorYAxisToZero(chartType);
 }

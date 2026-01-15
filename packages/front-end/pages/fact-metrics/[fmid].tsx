@@ -4,7 +4,11 @@ import { useEffect,
 useMemo,
 useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactMetricType,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -21,6 +25,7 @@ import Button from "@/ui/Button";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { getRowFilterSQL } from "shared/src/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -71,6 +76,7 @@ import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
 import { ApprovalFlowInterface } from "@/types/approval-flow";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -85,80 +91,93 @@ function FactTableLink({ id }: { id?: string }) {
   );
 }
 
-
-function FilterBadges({
-  ids,
-  factTable,
-}: {
-  ids: string[] | null | undefined;
-  factTable?: FactTableInterface | null;
-}) {
-  if (!factTable || !ids) return null;
-
-  return (
-    <>
-      {ids.map((id) => {
-        const filter = factTable.filters.find((f) => f.id === id);
-        if (!filter) return null;
-        return (
-          <span className="badge badge-secondary mr-2" key={filter.id}>
-            {filter.name}
-          </span>
-        );
-      })}
-    </>
-  );
-}
-
 function MetricType({
   type,
   quantileType,
 }: {
-  type: "proportion" | "retention" | "mean" | "ratio" | "quantile";
+  type: FactMetricType;
   quantileType?: "" | "unit" | "event";
 }) {
-  if (type === "proportion") {
-    return (
-      <div>
-        <strong>Proportion Metric</strong> - Percent of experiment users who
-        exist in a Fact Table
-      </div>
-    );
+  switch (type) {
+    case "proportion":
+      return (
+        <div>
+          <strong>Proportion Metric</strong> - Percent of experiment users who
+          exist in a Fact Table
+        </div>
+      );
+    case "retention":
+      return (
+        <div>
+          <strong>Retention Metric</strong> - Percent of experiment users who
+          exist in a Fact Table a certain period after experiment exposure
+        </div>
+      );
+    case "mean":
+      return (
+        <div>
+          <strong>Mean Metric</strong> - The average of a numeric value among
+          all experiment users
+        </div>
+      );
+    case "ratio":
+      return (
+        <div>
+          <strong>Ratio Metric</strong> - The ratio of two numeric values among
+          experiment users
+        </div>
+      );
+    case "quantile":
+      return (
+        <div>
+          <strong>Quantile Metric</strong> - The quantile of values{" "}
+          {quantileType === "unit" ? "after aggregating per user" : ""}
+        </div>
+      );
+    case "dailyParticipation":
+      return (
+        <div>
+          <strong>Daily Participation Metric</strong> - The average of the
+          percentage of days after exposure that a user is in the Fact Table
+        </div>
+      );
+    default: {
+      const exhaustiveCheck: never = type;
+      throw new Error(`Unhandled MetricType type: ${exhaustiveCheck}`);
+    }
   }
-  if (type === "retention") {
-    return (
-      <div>
-        <strong>Retention Metric</strong> - Percent of experiment users who
-        exist in a Fact Table a certain period after experiment exposure
-      </div>
-    );
-  }
-  if (type === "mean") {
-    return (
-      <div>
-        <strong>Mean Metric</strong> - The average of a numeric value among all
-        experiment users
-      </div>
-    );
-  }
-  if (type === "ratio") {
-    return (
-      <div>
-        <strong>Ratio Metric</strong> - The ratio of two numeric values among
-        experiment users
-      </div>
-    );
-  }
-  if (type === "quantile") {
-    return (
-      <div>
-        <strong>Quantile Metric</strong> - The quantile of values{" "}
-        {quantileType === "unit" ? "after aggregating per user" : ""}
-      </div>
-    );
-  }
+}
 
-  return null;
+function RowFilterCodeDisplay({
+  rowFilters,
+  factTable,
+}: {
+  rowFilters: RowFilter[];
+  factTable?: FactTableInterface | null;
+}) {
+  if (!rowFilters.length) return null;
+
+  const text = `WHERE ${
+    factTable
+      ? rowFilters
+          .map((rf) =>
+            getRowFilterSQL({
+              rowFilter: rf,
+              factTable,
+              escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              evalBoolean: (col, value) =>
+                `${col} IS ${value ? "TRUE" : "FALSE"}`,
+              jsonExtract: (col, path) => `${col}.${path}`,
+              showSourceComment: true,
+            }),
+          )
+          .join("\nAND ")
+      : rowFilters
+          .map((rf) => `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`)
+          .join("\nAND ")
+  }`;
+
+  return <Code language="sql" code={text} expandable filename={"SQL"} />;
 }
 export default function FactMetricPage() {
   const router = useRouter();
@@ -297,28 +316,19 @@ export default function FactMetricPage() {
       label: `Fact Table`,
       value: <FactTableLink id={factMetric.numerator.factTableId} />,
     },
-    ...Object.entries(factMetric.numerator.inlineFilters || {})
-      .filter(([, v]) => v.some((v) => !!v))
-      .map(([k, v]) => {
-        const columnName =
-          factTable?.columns.find((c) => c.column === k)?.name || k;
-        return {
-          label: columnName,
-          value: v.join(" OR "),
-        };
-      }),
-    {
-      label: `Row Filter`,
-      value:
-        factMetric.numerator.filters.length > 0 ? (
-          <FilterBadges
-            factTable={factTable}
-            ids={factMetric.numerator.filters}
-          />
-        ) : (
-          <em>None</em>
-        ),
-    },
+    ...(factMetric.numerator.rowFilters?.length
+      ? [
+          {
+            label: "Row Filter",
+            value: (
+              <RowFilterCodeDisplay
+                rowFilters={factMetric.numerator.rowFilters}
+                factTable={factTable}
+              />
+            ),
+          },
+        ]
+      : []),
     ...(!isBinomialMetric(factMetric)
       ? [
           {
@@ -328,7 +338,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.numerator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.numerator.column,
+                  : factMetric.numerator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.numerator.column,
           },
         ]
       : []),
@@ -378,29 +390,19 @@ export default function FactMetricPage() {
             label: `Fact Table`,
             value: <FactTableLink id={factMetric.denominator.factTableId} />,
           },
-          ...Object.entries(factMetric.denominator.inlineFilters || {})
-            .filter(([, v]) => v.some((v) => !!v))
-            .map(([k, v]) => {
-              const columnName =
-                denominatorFactTable?.columns.find((c) => c.column === k)
-                  ?.name || k;
-              return {
-                label: columnName,
-                value: v.join(" OR "),
-              };
-            }),
-          {
-            label: `Row Filter`,
-            value:
-              factMetric.denominator.filters.length > 0 ? (
-                <FilterBadges
-                  factTable={denominatorFactTable}
-                  ids={factMetric.denominator.filters}
-                />
-              ) : (
-                <em>None</em>
-              ),
-          },
+          ...(factMetric.denominator.rowFilters?.length
+            ? [
+                {
+                  label: "Row Filter",
+                  value: (
+                    <RowFilterCodeDisplay
+                      rowFilters={factMetric.denominator.rowFilters}
+                      factTable={denominatorFactTable}
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             label: `Value`,
             value:
@@ -408,7 +410,9 @@ export default function FactMetricPage() {
                 ? "Count of Rows"
                 : factMetric.denominator.column === "$$distinctUsers"
                   ? "Unique Users"
-                  : factMetric.denominator.column,
+                  : factMetric.denominator.column === "$$distinctDates"
+                    ? "Distinct Dates"
+                    : factMetric.denominator.column,
           },
           ...(!factMetric.denominator.column.startsWith("$$")
             ? [
@@ -484,7 +488,7 @@ export default function FactMetricPage() {
           existing={factMetric}
           showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
-          isApprovalFlow={showingApprovalFlow}
+          approvalFlowId={userOpenApprovalFlow?.id}
           mutateApprovalFlows={mutateApprovalFlows}
         />
       )}
@@ -778,6 +782,8 @@ export default function FactMetricPage() {
                       throw new Error(
                         `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                       );
+                    } else if (responseData.message) {
+                      throw new Error(responseData.message);
                     } else {
                       throw new Error("Error getting AI suggestion");
                     }
@@ -819,11 +825,16 @@ export default function FactMetricPage() {
                     ? "Numerator"
                     : "Metric Details"
                 }
+                maxColumns={1}
               />
             </div>
             {factMetric.metricType === "ratio" ? (
               <div className="appbox p-3 mb-3">
-                <DataList data={denominatorData} header="Denominator" />
+                <DataList
+                  data={denominatorData}
+                  header="Denominator"
+                  maxColumns={1}
+                />
               </div>
             ) : null}
 

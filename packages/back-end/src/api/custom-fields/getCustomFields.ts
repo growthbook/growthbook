@@ -1,6 +1,6 @@
+import { getCustomFieldsValidator } from "shared/validators";
+import { GetCustomFieldsResponse } from "shared/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getCustomFieldsValidator } from "back-end/src/validators/openapi";
-import { GetCustomFieldsResponse } from "back-end/types/openapi";
 
 export const getCustomFields = createApiRequestHandler(
   getCustomFieldsValidator,

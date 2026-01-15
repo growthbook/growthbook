@@ -32,6 +32,7 @@ export interface EnvironmentInitValue {
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
   hasOpenAIKey?: boolean;
+  hasAnthropicKey?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
 }
 
@@ -62,6 +63,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
     OPENAI_API_KEY,
+    ANTHROPIC_API_KEY,
     UPLOAD_METHOD,
   } = process.env;
 
@@ -143,6 +145,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
       : 6,
     hasOpenAIKey: !!OPENAI_API_KEY || false,
+    hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 

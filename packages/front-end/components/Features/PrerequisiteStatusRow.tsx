@@ -1,10 +1,10 @@
-import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
+import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { FaExclamationCircle } from "react-icons/fa";
 import {
   evaluatePrerequisiteState,
   PrerequisiteStateResult,
 } from "shared/util";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import {
   FaRegCircleCheck,

@@ -1,5 +1,10 @@
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { PostExperimentResponse } from "back-end/types/openapi";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  Variation,
+  postExperimentValidator,
+} from "shared/validators";
+import { PostExperimentResponse } from "shared/types/openapi";
 import {
   createExperiment,
   getExperimentByTrackingKey,
@@ -10,15 +15,10 @@ import {
   toExperimentApiInterface,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postExperimentValidator } from "back-end/src/validators/openapi";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import {
-  ExperimentInterfaceExcludingHoldouts,
-  Variation,
-} from "back-end/src/validators/experiments";
 import { validateCustomFields } from "./validation";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(

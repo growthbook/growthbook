@@ -1,13 +1,13 @@
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+} from "shared/types/experiment";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import track from "@/services/track";

@@ -47,21 +47,17 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
     gbstats_version: str = "0.8.0"
 
     summary_cols = [
+        "variation",
         "dimension",
-        "baseline_name",
-        "baseline_users",
-        "baseline_cr",
+        "users",
+        "cr",
+        "expected",
+        "ci",
     ]
-    for i in range(1, len(analysis.var_names)):
-        summary_cols.append(f"v{i}_name")
-        summary_cols.append(f"v{i}_users")
-        summary_cols.append(f"v{i}_cr")
-        summary_cols.append(f"v{i}_expected")
-        summary_cols.append(f"v{i}_ci")
-        if analysis.stats_engine == "bayesian":
-            summary_cols.append(f"v{i}_prob_beat_baseline")
-        elif analysis.stats_engine == "frequentist":
-            summary_cols.append(f"v{i}_p_value")
+    if analysis.stats_engine == "bayesian":
+        summary_cols.append("chanceToWin")
+    elif analysis.stats_engine == "frequentist":
+        summary_cols.append("pValue")
 
     cells = [
         nbf.new_markdown_cell(
@@ -152,9 +148,11 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             result = process_analysis(
                 rows=rows, metric=metric, analysis=analysis, var_id_map=var_id_map
             )
+
+            result_df = pd.concat([x.to_df() for x in result])
             cells.append(
                 code_cell_df(
-                    df=result[summary_cols].T,
+                    df=result_df[summary_cols].T,
                     source=(
                         "# Run the analysis and show a summary of results\n"
                         f"{metric_prefix}_result = process_analysis(\n"
@@ -163,7 +161,8 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
                         f"    analysis=analysis,\n"
                         f"    var_id_map=var_id_map,\n"
                         f")\n"
-                        f"display({metric_prefix}_result[summary_cols].T)"
+                        f"{metric_prefix}_result_df = pd.concat([x.to_df() for x in {metric_prefix}_result])\n"
+                        f"display({metric_prefix}_result_df[summary_cols].T)"
                     ),
                 )
             )

@@ -6,9 +6,9 @@ import { CloudWatch } from "aws-sdk";
 import { createPool } from "generic-pool";
 import { stringToBoolean } from "shared/util";
 import JSON5 from "json5";
-import { MultipleExperimentMetricAnalysis } from "back-end/types/stats";
+import { MultipleExperimentMetricAnalysis } from "shared/types/stats";
+import type { ExperimentDataForStatsEngine } from "shared/types/stats";
 import { logger } from "back-end/src/util/logger";
-import { ExperimentDataForStatsEngine } from "back-end/src/services/stats";
 import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
 import { metrics } from "back-end/src/util/metrics";
 

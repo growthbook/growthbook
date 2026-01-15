@@ -4,11 +4,11 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -40,6 +40,7 @@ import {
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import { hasOpenAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -80,7 +81,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -549,7 +550,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
-    if (!aiEnabled || !useCheckForSimilar) return;
+    // only OpenAI allows for embeddings right now.
+    if (!aiEnabled || !useCheckForSimilar || !hasOpenAIKey()) return;
 
     // check how many words we're sending in the hypothesis, name, and description:
     const wordCount =

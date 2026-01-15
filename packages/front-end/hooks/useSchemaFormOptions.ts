@@ -2,8 +2,8 @@ import { useState } from "react";
 import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
-} from "back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/integrations";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 

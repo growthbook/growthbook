@@ -8,29 +8,26 @@ import {
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
+  DashboardInterface,
+  MetricExplorerBlockInterface,
+  SqlExplorerBlockInterface,
 } from "shared/enterprise";
-import { getValidDate } from "shared/dates";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 
+import { ExperimentInterface } from "shared/types/experiment";
+import { MetricSnapshotSettings } from "shared/types/report";
+import { StatsEngine } from "shared/types/stats";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 
-import { ExperimentInterface } from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { ReqContext } from "back-end/types/request";
 
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { StatsEngine } from "back-end/types/stats";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import {
-  MetricExplorerBlockInterface,
-  SqlExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   getDefaultExperimentAnalysisSettings,
@@ -39,7 +36,6 @@ import {
   determineNextDate,
 } from "back-end/src/services/experiments";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
 export async function updateExperimentDashboards({
@@ -48,6 +44,7 @@ export async function updateExperimentDashboards({
   mainSnapshot,
   statsEngine,
   regressionAdjustmentEnabled,
+  postStratificationEnabled,
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
@@ -57,6 +54,7 @@ export async function updateExperimentDashboards({
   mainSnapshot: ExperimentSnapshotInterface;
   statsEngine: StatsEngine;
   regressionAdjustmentEnabled: boolean;
+  postStratificationEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -132,13 +130,14 @@ export async function updateExperimentDashboards({
         isEqual,
       );
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
       statsEngine,
       experiment,
-      context.org,
+      organization: context.org,
       regressionAdjustmentEnabled,
-      snapshotSettings.dimensionId,
-    );
+      postStratificationEnabled,
+      dimension: snapshotSettings.dimensionId,
+    });
 
     const queryRunner = await createSnapshot({
       experiment,
@@ -226,17 +225,16 @@ export async function updateDashboardMetricAnalyses(
       // Use the block's analysisSettings instead of the metricAnalysis.settings
       // This ensures filters and other block-specific settings are preserved
       const blockSettings = block.analysisSettings;
+      // Reset the stored dates based on the configured lookback days
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - blockSettings.lookbackDays);
+
       const settings: MetricAnalysisSettings = {
         userIdType: blockSettings.userIdType,
         lookbackDays: blockSettings.lookbackDays,
-        startDate:
-          blockSettings.startDate instanceof Date
-            ? blockSettings.startDate
-            : getValidDate(blockSettings.startDate),
-        endDate:
-          blockSettings.endDate instanceof Date
-            ? blockSettings.endDate
-            : getValidDate(blockSettings.endDate),
+        startDate,
+        endDate,
         populationType: blockSettings.populationType,
         populationId: blockSettings.populationId ?? null,
         additionalNumeratorFilters: blockSettings.additionalNumeratorFilters,
@@ -254,6 +252,8 @@ export async function updateDashboardMetricAnalyses(
 
       // Mutate the block in place (same object reference as in original blocks array)
       block.metricAnalysisId = queryRunner.model.id;
+      block.analysisSettings.startDate = startDate;
+      block.analysisSettings.endDate = endDate;
       return true;
     }),
   );

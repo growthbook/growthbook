@@ -1,12 +1,17 @@
 import type { Response } from "express";
 import { pick } from "lodash";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
+import {
+  SDKConnectionInterface,
+  CreateSDKConnectionParams,
+  EditSDKConnectionParams,
+  ProxyTestResult,
+} from "shared/types/sdk-connection";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
   WebhookSummary,
-} from "back-end/types/webhook";
+} from "shared/types/webhook";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   countSdkWebhooksByOrg,
   createSdkWebhook,
@@ -16,12 +21,6 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  SDKConnectionInterface,
-  CreateSDKConnectionParams,
-  EditSDKConnectionParams,
-  ProxyTestResult,
-} from "back-end/types/sdk-connection";
-import {
   createSDKConnection,
   deleteSDKConnectionById,
   editSDKConnection,
@@ -29,6 +28,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -80,15 +80,20 @@ export const postSDKConnection = async (
     hashSecureAttributes = false;
   }
 
-  const doc = await createSDKConnection({
+  const doc = await createSDKConnection(context, {
     ...params,
     encryptPayload,
     hashSecureAttributes,
     remoteEvalEnabled,
     organization: org.id,
   });
-  const isUsingProxy = !!(doc.proxy.enabled && doc.proxy.host);
-  triggerSingleSDKWebhookJobs(context, doc, {}, doc.proxy, isUsingProxy);
+
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [doc],
+  });
+
   res.status(200).json({
     status: 200,
     connection: doc,

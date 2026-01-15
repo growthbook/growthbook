@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { FC, useCallback, useState } from "react";
-import { PastExperimentsInterface } from "back-end/types/past-experiments";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { PastExperimentsInterface } from "shared/types/past-experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";

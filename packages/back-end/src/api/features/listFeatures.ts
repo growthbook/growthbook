@@ -1,6 +1,7 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { ListFeaturesResponse } from "shared/types/openapi";
+import { listFeaturesValidator } from "shared/validators";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
-import { ListFeaturesResponse } from "back-end/types/openapi";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
@@ -12,19 +13,18 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listFeaturesValidator } from "back-end/src/validators/openapi";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
     const features = await getAllFeatures(req.context, {
-      project: req.query.projectId,
+      projects: req.query.projectId ? [req.query.projectId] : undefined,
       includeArchived: true,
     });
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
       req.context,
-      req.query.projectId,
+      req.query.projectId ? [req.query.projectId] : undefined,
     );
 
     // If SDK clientKey is provided, get the SDK connection and use its projects/environment

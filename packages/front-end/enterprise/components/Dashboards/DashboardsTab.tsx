@@ -1,17 +1,15 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   DashboardInterface,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
-import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  getBlockData,
+} from "shared/enterprise";
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { getBlockData } from "shared/enterprise";
 import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
@@ -218,6 +216,9 @@ function DashboardsTab({
         setBlocks(res.dashboard.blocks);
         if (dashboardId === "new") {
           setTemporaryDashboard(res.dashboard);
+        }
+        if (method === "POST" && dashboardId !== "new") {
+          setDashboardId(res.dashboard.id);
         }
       } else {
         console.error(res);

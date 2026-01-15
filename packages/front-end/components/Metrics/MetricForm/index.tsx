@@ -6,7 +6,7 @@ import {
   MetricInterface,
   MetricType,
   Operator,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {

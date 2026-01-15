@@ -1,6 +1,6 @@
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import { MetricInterface } from "shared/types/metric";
+import { ExperimentInterface } from "shared/types/experiment";
+import { MetricPriorSettings } from "shared/types/fact-table";
 
 export const metrics: Record<string, MetricInterface> = {};
 export const experiments: Record<string, ExperimentInterface> = {};

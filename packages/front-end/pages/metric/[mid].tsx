@@ -9,10 +9,10 @@ import React, {
 } from "react";
 import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
@@ -581,6 +581,8 @@ const MetricPage: FC = () => {
                                 throw new Error(
                                   `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                                 );
+                              } else if (responseData.message) {
+                                throw new Error(responseData.message);
                               } else {
                                 throw new Error("Error getting AI suggestion");
                               }

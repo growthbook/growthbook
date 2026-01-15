@@ -1,6 +1,6 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useState } from "react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "shared/validators";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";

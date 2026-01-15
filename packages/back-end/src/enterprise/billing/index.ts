@@ -1,13 +1,13 @@
 import * as Sentry from "@sentry/node";
 import { AccountPlan } from "shared/enterprise";
 import {
+  OrganizationInterface,
+  OrganizationUsage,
+} from "shared/types/organization";
+import {
   callLicenseServer,
   LICENSE_SERVER_URL,
 } from "back-end/src/enterprise/licenseUtil";
-import {
-  OrganizationInterface,
-  OrganizationUsage,
-} from "back-end/types/organization";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
@@ -19,8 +19,16 @@ const PLANS_WITH_UNLIMITED_USAGE: AccountPlan[] = [
 ];
 
 export const UNLIMITED_USAGE: OrganizationUsage = {
-  limits: { requests: "unlimited", bandwidth: "unlimited" },
+  limits: {
+    requests: "unlimited",
+    bandwidth: "unlimited",
+    managedClickhouseEvents: "unlimited",
+  },
   cdn: {
+    lastUpdated: new Date(),
+    status: "under",
+  },
+  managedClickhouse: {
     lastUpdated: new Date(),
     status: "under",
   },
@@ -82,13 +90,20 @@ export async function deletePaymentMethodById(
   return res;
 }
 
-export async function updateUsageDataFromServer(orgId: string) {
+export async function updateUsagesFromServer(organizationIds: string[]) {
   try {
-    const url = `${LICENSE_SERVER_URL}cdn/${orgId}/usage`;
+    const url = `${LICENSE_SERVER_URL}subscription/usages`;
 
-    const usage = await callLicenseServer({ url, method: "GET" });
-
-    setUsageInCache(orgId, usage);
+    const usages = await callLicenseServer({
+      url,
+      body: JSON.stringify({
+        organizationIds: organizationIds,
+        cloudSecret: process.env.CLOUD_SECRET,
+      }),
+    });
+    organizationIds.forEach((orgId) => {
+      setUsageInCache(orgId, usages[orgId]);
+    });
   } catch (err) {
     Sentry.captureException(err);
   }
@@ -148,9 +163,9 @@ export function getUsageFromCache(organization: OrganizationInterface) {
   }
 
   // Don't await for the result, we will just keep showing out of date cached version or the fallback
-  backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
+  backgroundUpdateUsageDataFromServerForTests = updateUsagesFromServer([
     organization.id,
-  ).catch((err) => {
+  ]).catch((err) => {
     logger.error(err, `Error getting usage data from server`);
   });
 
@@ -165,15 +180,38 @@ export async function getUsage(organization: OrganizationInterface) {
 
   if (keyToUsageData[organization.id]) {
     // If we have a cached version, but it's invalid, we will update it in the background
-    backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
+    backgroundUpdateUsageDataFromServerForTests = updateUsagesFromServer([
       organization.id,
-    ).catch((err) => {
+    ]).catch((err) => {
       logger.error(err, `Error getting usage data from server`);
     });
   } else {
-    await updateUsageDataFromServer(organization.id);
+    await updateUsagesFromServer([organization.id]);
   }
 
   // If the updateUsageDataFromServer failed we fall back to unlimited usage
   return keyToUsageData[organization.id]?.usage || UNLIMITED_USAGE;
+}
+
+export async function getUsages(organizations: OrganizationInterface[]) {
+  const orgUsageMap: Record<string, OrganizationUsage> = {};
+
+  const orgsNotInCache: string[] = [];
+  organizations.forEach((org) => {
+    const cachedUsage = getCachedUsageIfValid(org);
+    if (cachedUsage) {
+      orgUsageMap[org.id] = cachedUsage;
+    } else {
+      orgsNotInCache.push(org.id);
+    }
+  });
+
+  if (orgsNotInCache.length > 0) {
+    await updateUsagesFromServer(orgsNotInCache);
+    orgsNotInCache.forEach((orgId) => {
+      orgUsageMap[orgId] = keyToUsageData[orgId]?.usage || UNLIMITED_USAGE;
+    });
+  }
+
+  return orgUsageMap;
 }

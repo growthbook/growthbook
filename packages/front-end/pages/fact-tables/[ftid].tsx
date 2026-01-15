@@ -5,7 +5,7 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   FactTableInterface,
   FactMetricInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";

@@ -39,6 +39,7 @@ export default function InlineCode({
   // this next line actually doesn't do anything- its overridden somewhere in Prism.
   style['code[class*="language-"]'].whiteSpace = "pre-wrap";
   style['pre[class*="language-"]'].whiteSpace = "pre-wrap";
+  style['code[class*="language-"]'].overflowWrap = "anywhere";
 
   return (
     <Suspense

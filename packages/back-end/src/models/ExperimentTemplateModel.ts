@@ -1,7 +1,7 @@
 import {
   experimentTemplateInterface,
   ExperimentTemplateInterface,
-} from "back-end/src/routers/experiment-template/template.validators";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -36,6 +36,10 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
   protected canDelete(doc: ExperimentTemplateInterface): boolean {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
+  }
+
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("templates");
   }
 
   // TODO: Implement this for OpenAPI

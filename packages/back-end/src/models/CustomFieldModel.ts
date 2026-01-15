@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-} from "back-end/src/routers/custom-fields/custom-fields.validators";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -35,6 +35,10 @@ export class CustomFieldModel extends BaseClass {
 
   protected canDelete(): boolean {
     return this.context.permissions.canManageCustomFields();
+  }
+
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("custom-metadata");
   }
 
   public async getCustomFields() {

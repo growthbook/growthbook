@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { TeamInterface } from "back-end/types/team";
+import { ManagedBy } from "shared/validators";
+import { TeamInterface } from "shared/types/team";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { ManagedBy } from "back-end/src/validators/managed-by";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const teamSchema = new mongoose.Schema({

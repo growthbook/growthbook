@@ -1,13 +1,13 @@
 import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   DestinationURL,
   URLRedirectInterface,
-} from "back-end/types/url-redirect";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
-import { urlRedirectValidator } from "back-end/src/routers/url-redirects/url-redirects.validators";
+} from "shared/types/url-redirect";
+import { urlRedirectValidator } from "shared/validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -122,7 +122,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
     if (!writeOptions?.skipSDKRefresh) {
       const payloadKeys = getPayloadKeys(this.context, experiment);
-      await refreshSDKPayloadCache(this.context, payloadKeys);
+      queueSDKPayloadRefresh({ context: this.context, payloadKeys });
     }
   }
 
@@ -145,7 +145,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     // Important: pass the old `experiment` object before doing the update
     // The updated experiment has `hasURLRedirects: false`, which may stop the SDK from updating
     const payloadKeys = getPayloadKeys(this.context, experiment);
-    await refreshSDKPayloadCache(this.context, payloadKeys);
+    queueSDKPayloadRefresh({ context: this.context, payloadKeys });
   }
 
   // When an experiment adds/removes variations, we need to update

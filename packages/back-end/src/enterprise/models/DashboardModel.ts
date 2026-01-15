@@ -1,25 +1,37 @@
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
+import { UpdateProps } from "shared/types/base-model";
+import { isString } from "shared/util";
 import {
+  ApiCreateDashboardBlockInterface,
+  ApiDashboardBlockInterface,
+  blockHasFieldOfType,
+  dashboardBlockHasIds,
+  apiCreateDashboardBody,
+  apiDashboardInterface,
+  ApiDashboardInterface,
+  ApiGetDashboardsForExperimentReturn,
+  apiGetDashboardsForExperimentReturn,
+  apiGetDashboardsForExperimentValidator,
+  apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
-} from "back-end/src/enterprise/validators/dashboard";
+  CreateDashboardBlockInterface,
+  DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
+} from "shared/enterprise";
+import { getValidDate } from "shared/dates";
 import {
   MakeModelClass,
   ScopedFilterQuery,
-  UpdateProps,
 } from "back-end/src/models/BaseModel";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import {
-  CreateDashboardBlockInterface,
-  DashboardBlockInterface,
-  LegacyDashboardBlockInterface,
-} from "../validators/dashboard-block";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -49,6 +61,37 @@ const BaseClass = MakeModelClass({
   baseQuery: {
     isDefault: false,
     isDeleted: false,
+  },
+  apiConfig: {
+    modelKey: "dashboards",
+    modelSingular: "dashboard",
+    modelPlural: "dashboards",
+    apiInterface: apiDashboardInterface,
+    schemas: {
+      createBody: apiCreateDashboardBody,
+      updateBody: apiUpdateDashboardBody,
+    },
+    pathBase: "/dashboards",
+    includeDefaultCrud: true,
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "/by-experiment/:experimentId",
+        verb: "get",
+        operationId: "getDashboardsForExperiment",
+        validator: apiGetDashboardsForExperimentValidator,
+        zodReturnObject: apiGetDashboardsForExperimentReturn,
+        summary: "Get all dashboards for an experiment",
+        reqHandler: async (
+          req,
+        ): Promise<ApiGetDashboardsForExperimentReturn> => ({
+          dashboards: (
+            await req.context.models.dashboards.findByExperiment(
+              req.params.experimentId,
+            )
+          ).map(req.context.models.dashboards.toApiInterface),
+        }),
+      }),
+    ],
   },
 });
 
@@ -239,6 +282,22 @@ export class DashboardModel extends BaseClass {
     });
   }
 
+  protected async customValidation(toSave: DashboardDocument) {
+    if (toSave.experimentId) {
+      if (toSave.updateSchedule) {
+        throw new Error(
+          "Cannot specify an update schedule for experiment dashboards",
+        );
+      }
+    } else {
+      if (toSave.enableAutoUpdates && !toSave.updateSchedule) {
+        throw new Error(
+          "Must define an update schedule to enable auto updates",
+        );
+      }
+    }
+  }
+
   protected async afterCreate(doc: DashboardDocument) {
     const queryIdSet = getSavedQueryIds(doc);
     for (const queryId of queryIdSet) {
@@ -280,12 +339,115 @@ export class DashboardModel extends BaseClass {
     await this._deleteOne(existing);
     return existing;
   }
+
+  // When duplicating a dashboard, we need to create a new instance of each saved query so changes in
+  // the new dashboard don't affect the existing one
+  protected async beforeCreate(doc: DashboardDocument) {
+    const savedQueryIds = new Set(
+      doc.blocks
+        .filter((block) => blockHasFieldOfType(block, "savedQueryId", isString))
+        .map(({ savedQueryId }) => savedQueryId),
+    );
+    const newIdMapping: Record<string, string> = {};
+    for (const oldId of savedQueryIds) {
+      const existing = await this.context.models.savedQueries.getById(oldId);
+      if (!existing) continue;
+      // Only duplicate the query if it's linked to an existing dashboard (i.e. not being created for this new dashboard)
+      if ((existing.linkedDashboardIds ?? []).some((dashId) => dashId)) {
+        const {
+          id: _i,
+          organization: _o,
+          dateCreated: _c,
+          dateUpdated: _u,
+          linkedDashboardIds: _l,
+          ...toCreate
+        } = existing;
+        const { id } = await this.context.models.savedQueries.create(toCreate);
+        newIdMapping[oldId] = id;
+      }
+    }
+    doc.blocks = doc.blocks.map((block) => {
+      if (!blockHasFieldOfType(block, "savedQueryId", isString)) return block;
+      return {
+        ...block,
+        savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
+      };
+    });
+  }
+
+  public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {
+    return {
+      ...removeMongooseFields(dashboard),
+      blocks: dashboard.blocks.map(toBlockApiInterface),
+      dateCreated: dashboard.dateCreated.toISOString(),
+      dateUpdated: dashboard.dateUpdated.toISOString(),
+      nextUpdate: dashboard.nextUpdate?.toISOString(),
+      lastUpdated: dashboard.lastUpdated?.toISOString(),
+    };
+  }
+
+  protected async processApiCreateBody(rawBody: unknown) {
+    const {
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId,
+      title,
+      projects,
+      blocks,
+    } = apiCreateDashboardBody.parse(rawBody);
+    const createdBlocks = await Promise.all(
+      blocks.map((blockData) =>
+        generateDashboardBlockIds(
+          this.context.org.id,
+          fromBlockApiInterface(blockData),
+        ),
+      ),
+    );
+    return {
+      uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
+      isDefault: false,
+      isDeleted: false,
+      userId: this.context.userId,
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId: experimentId || undefined,
+      title,
+      projects,
+      blocks: createdBlocks,
+    };
+  }
+  protected async processApiUpdateBody(rawBody: unknown) {
+    const { blocks: blockUpdates, ...otherUpdates } =
+      apiUpdateDashboardBody.parse(rawBody);
+    const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    if (blockUpdates) {
+      const migratedBlocks = blockUpdates
+        .map(fromBlockApiInterface)
+        .map(migrateBlock);
+      const createdBlocks = await Promise.all(
+        migratedBlocks.map((blockData) =>
+          dashboardBlockHasIds(blockData)
+            ? blockData
+            : generateDashboardBlockIds(this.context.org.id, blockData),
+        ),
+      );
+      updates.blocks = createdBlocks;
+    }
+    return updates;
+  }
 }
 
 function getSavedQueryIds(doc: DashboardDocument): Set<string> {
   const queryIdSet = new Set<string>();
   doc.blocks.forEach((block) => {
-    if (block.type === "sql-explorer" && block.savedQueryId) {
+    if (
+      blockHasFieldOfType(block, "savedQueryId", isString) &&
+      block.savedQueryId
+    ) {
       queryIdSet.add(block.savedQueryId);
     }
   });
@@ -332,7 +494,7 @@ export function migrateBlock(
     case "experiment-time-series":
       return {
         ...doc,
-        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
+        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
         pinSource: doc.pinSource || "experiment",
@@ -376,7 +538,56 @@ export function migrateBlock(
         showTable: true,
         showTimeseries: false,
       };
+    case "sql-explorer": {
+      return {
+        ...doc,
+        blockConfig: doc.blockConfig ?? [],
+      };
+    }
     default:
       return doc;
+  }
+}
+
+function toBlockApiInterface(
+  block: DashboardBlockInterface,
+): ApiDashboardBlockInterface {
+  switch (block.type) {
+    case "metric-explorer":
+      return {
+        ...block,
+        analysisSettings: {
+          ...block.analysisSettings,
+          startDate: getValidDate(
+            block.analysisSettings.startDate,
+          ).toISOString(),
+          endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
+        },
+      };
+    default:
+      return block;
+  }
+}
+
+export function fromBlockApiInterface(
+  apiBlock: ApiDashboardBlockInterface | ApiCreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  switch (apiBlock.type) {
+    case "metric-explorer":
+      return {
+        ...apiBlock,
+        analysisSettings: {
+          ...apiBlock.analysisSettings,
+          startDate: getValidDate(apiBlock.analysisSettings.startDate),
+          endDate: getValidDate(apiBlock.analysisSettings.endDate),
+        },
+      };
+    case "sql-explorer":
+      return {
+        ...apiBlock,
+        blockConfig: apiBlock.blockConfig ?? [],
+      };
+    default:
+      return apiBlock;
   }
 }

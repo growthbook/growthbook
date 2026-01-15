@@ -1,9 +1,11 @@
 import type { Response } from "express";
+import { ProjectInterface, ProjectSettings } from "shared/types/project";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { stringToBoolean } from "shared/util";
 import { removeProjectFromSavedGroups } from "back-end/src/models/SavedGroupModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import {
   deleteAllDataSourcesForAProject,
   removeProjectFromDatasources,
@@ -25,7 +27,6 @@ import {
   deleteAllSlackIntegrationsForAProject,
   removeProjectFromSlackIntegration,
 } from "back-end/src/models/SlackIntegrationModel";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
 
 // region POST /projects
@@ -132,12 +133,7 @@ type DeleteProjectRequest = AuthRequest<
   null,
   { id: string },
   {
-    deleteFeatures?: boolean;
-    deleteExperiments?: boolean;
-    deleteMetrics?: boolean;
-    deleteSlackIntegrations?: boolean;
-    deleteDataSources?: boolean;
-    deleteFactTables?: boolean;
+    deleteResources?: string;
   }
 >;
 
@@ -159,14 +155,7 @@ export const deleteProject = async (
   >,
 ) => {
   const { id } = req.params;
-  const {
-    deleteExperiments = false,
-    deleteFeatures = false,
-    deleteMetrics = false,
-    deleteSlackIntegrations = false,
-    deleteDataSources = false,
-    deleteFactTables = false,
-  } = req.query;
+  const deleteResources = stringToBoolean(req.query.deleteResources, false);
   const context = getContextFromReq(req);
 
   if (!context.permissions.canDeleteProject(id)) {
@@ -176,10 +165,12 @@ export const deleteProject = async (
 
   await context.models.projects.deleteById(id);
 
+  const failedToDeleteResources: string[] = [];
+
   // Cleanup functions from other models
   // Clean up data sources
-  if (deleteDataSources) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteDataSource({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
@@ -188,19 +179,16 @@ export const deleteProject = async (
         projectId: id,
         organizationId: org.id,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete data sources",
-      });
+    } else {
+      await removeProjectFromDatasources(id, org.id);
     }
-  } else {
-    await removeProjectFromDatasources(id, org.id);
+  } catch (e) {
+    failedToDeleteResources.push("data sources");
   }
 
   // Clean up metrics
-  if (deleteMetrics) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteMetric({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
@@ -208,35 +196,29 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete metrics",
-      });
+    } else {
+      await removeProjectFromMetrics(id, org.id);
     }
-  } else {
-    await removeProjectFromMetrics(id, org.id);
+  } catch (e) {
+    failedToDeleteResources.push("metrics");
   }
 
   // Clean up fact tables and metrics
-  if (deleteFactTables) {
-    try {
+  try {
+    if (deleteResources) {
       await deleteAllFactTablesForAProject({
         projectId: id,
         context,
       });
       await context.models.factMetrics.deleteAllFactMetricsForAProject(id);
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete fact tables",
-      });
     }
+  } catch (e) {
+    failedToDeleteResources.push("fact tables and metrics");
   }
 
   // Clean up features
-  if (deleteFeatures) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteFeature({ project: id })) {
         context.permissions.throwPermissionError();
       }
@@ -245,19 +227,16 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete features",
-      });
+    } else {
+      await removeProjectFromFeatures(context, id);
     }
-  } else {
-    await removeProjectFromFeatures(context, id);
+  } catch (e) {
+    failedToDeleteResources.push("features");
   }
 
   // Clean up experiments
-  if (deleteExperiments) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canDeleteExperiment({ project: id })) {
         context.permissions.throwPermissionError();
       }
@@ -265,19 +244,16 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete experiments",
-      });
+    } else {
+      await removeProjectFromExperiments(context, id);
     }
-  } else {
-    await removeProjectFromExperiments(context, id);
+  } catch (e) {
+    failedToDeleteResources.push("experiments");
   }
 
   // Clean up Slack integrations
-  if (deleteSlackIntegrations) {
-    try {
+  try {
+    if (deleteResources) {
       if (!context.permissions.canManageIntegrations()) {
         context.permissions.throwPermissionError();
       }
@@ -286,27 +262,50 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
       });
-    } catch (e) {
-      return res.json({
-        status: 403,
-        message: "Failed to delete Slack integrations",
+    } else {
+      await removeProjectFromSlackIntegration({
+        organizationId: org.id,
+        projectId: id,
       });
     }
-  } else {
-    await removeProjectFromSlackIntegration({
-      organizationId: org.id,
-      projectId: id,
-    });
+  } catch (e) {
+    failedToDeleteResources.push("Slack integrations");
   }
 
-  await removeProjectFromProjectRoles(id, org);
+  // Clean up project roles
+  try {
+    await removeProjectFromProjectRoles(id, org);
+  } catch (e) {
+    failedToDeleteResources.push("project roles");
+  }
 
-  await removeProjectFromSavedGroups(id, org.id);
+  // Clean up saved groups
+  try {
+    await removeProjectFromSavedGroups(id, org.id);
+  } catch (e) {
+    failedToDeleteResources.push("saved groups");
+  }
 
+  // TODO: other resources to clean up
   // ideas?
-  // report?
   // dimensions?
-  // api endpoints & webhooks?
+  // segments?
+  // webhooks?
+  // safe rollouts?
+  // custom hooks?
+  // custom fields?
+  // pre-launch checklists?
+
+  if (deleteResources && failedToDeleteResources.length > 0) {
+    const message =
+      `Project deleted, but failed to delete the following resources: ` +
+      failedToDeleteResources.join(", ");
+    res.status(400).json({
+      status: 400,
+      message,
+    });
+    return;
+  }
 
   res.status(200).json({
     status: 200,

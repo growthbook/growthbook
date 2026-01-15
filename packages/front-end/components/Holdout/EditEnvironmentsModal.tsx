@@ -1,13 +1,13 @@
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
-import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
-import Modal from "../Modal";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
+import Modal from "@/components/Modal";
 import { genEnvironmentSettings } from "./NewHoldoutForm";
 
 const EditEnvironmentsModal = ({

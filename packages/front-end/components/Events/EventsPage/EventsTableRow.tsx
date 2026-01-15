@@ -1,9 +1,9 @@
 import React, { FC, useMemo, useState } from "react";
-import { EventInterface } from "back-end/types/event";
+import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import Link from "next/link";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { getEventText } from "@/components/Events/EventsPage/utils";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useApi from "@/hooks/useApi";

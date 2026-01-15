@@ -1,10 +1,11 @@
 import { ago } from "shared/dates";
 import { useCallback, useEffect, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
+  DashboardInterface,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  getBlockData,
+} from "shared/enterprise";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -200,6 +201,7 @@ export default function DashboardsPage() {
             updateSchedule: showDuplicateModal.updateSchedule || undefined,
             userId: userId || "",
             projects: showDuplicateModal.projects || [],
+            blocks: (showDuplicateModal.blocks ?? []).map(getBlockData),
           }}
           submit={async (data) => {
             await submitDashboard({ method: "POST", data });

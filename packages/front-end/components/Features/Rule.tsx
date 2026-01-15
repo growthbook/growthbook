@@ -1,20 +1,25 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
+import {
+  getRules,
+  isRuleInactive,
+  useEnvironments,
+  useAttributeMap,
+  getAttributesWithVersionStringMismatches,
+} from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -32,7 +37,7 @@ import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRollou
 import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBadge";
 import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
 import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
-import ConditionDisplay from "./ConditionDisplay";
+import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
@@ -136,6 +141,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
+
+    const attributeMap = useAttributeMap(feature.project);
+    const attributesWithVersionStringOperatorMismatches =
+      getAttributesWithVersionStringMismatches(
+        rule.condition || "",
+        attributeMap,
+      );
+
     let title: string | ReactElement =
       rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
     if (rule.type !== "rollout") {
@@ -232,14 +245,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color="gray"
                 />
               </Box>
-              <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+              <Box
+                flexGrow="1"
+                pr="2"
+                style={{ minWidth: 0, maxWidth: "100%" }}
+              >
+                <Flex
+                  align="center"
+                  justify="between"
+                  mb="3"
+                  flexGrow="1"
+                  style={{ minWidth: 0, maxWidth: "100%" }}
+                >
                   <Flex
                     flexGrow="1"
                     gap="3"
                     justify="between"
                     mr="3"
                     align="center"
+                    style={{ minWidth: 0, maxWidth: "100%" }}
                   >
                     <Heading
                       as="h4"
@@ -247,6 +271,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       weight="medium"
                       mb="0"
                       className="w-100"
+                      style={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
                     >
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
@@ -293,7 +322,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     {info.pill}
                   </Flex>
                   {canEdit && (
-                    <Flex>
+                    <Flex style={{ flexShrink: 0, overflow: "visible" }}>
                       <MoreMenu useRadix={true} size={14}>
                         <a
                           href="#"
@@ -395,6 +424,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Flex>
                 <Box>{info.callout}</Box>
+                {attributesWithVersionStringOperatorMismatches &&
+                  attributesWithVersionStringOperatorMismatches.length > 0 && (
+                    <Callout status="warning" mt="3">
+                      <Flex direction="column" gap="2">
+                        <Text>
+                          This rule uses string operators on version attributes,
+                          which can have unintended effects. Edit this rule and
+                          change{" "}
+                          <strong>
+                            {attributesWithVersionStringOperatorMismatches.join(
+                              ", ",
+                            )}
+                          </strong>{" "}
+                          to use version operators ($vgt, $vlt, etc.) instead.
+                        </Text>
+                      </Flex>
+                    </Callout>
+                  )}
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {rule.type === "safe-rollout" && safeRollout ? (
                     <>
@@ -408,10 +455,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <Flex direction="row" gap="2" mb="3">
                       <Text weight="medium">IF</Text>
                       <Box>
-                        <ConditionDisplay
+                        <TruncatedConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
                           prerequisites={rule.prerequisites}
+                          maxLength={500}
                         />
                       </Box>
                     </Flex>

@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Tooltip from "../Tooltip/Tooltip";
-import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 
 export type Props = {
   results: Record<string, unknown>[];

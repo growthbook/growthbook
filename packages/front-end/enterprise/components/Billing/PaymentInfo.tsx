@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { CiCreditCard1 } from "react-icons/ci";
-import { PaymentMethod } from "shared/src/types/subscriptions";
+import { PaymentMethod } from "shared/types/subscriptions";
 import { FaCreditCard } from "react-icons/fa";
 import { FaBuildingColumns } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
@@ -18,7 +18,7 @@ import Badge from "@/ui/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { StripeProvider } from "../Billing/StripeProvider";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
 export default function PaymentInfo() {

@@ -3,9 +3,9 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { FaCheck } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";

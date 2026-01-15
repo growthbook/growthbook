@@ -2,9 +2,13 @@ import {
   SDKAttributeType,
   OrganizationInterface,
   SDKAttribute,
-} from "back-end/types/organization";
-import { AttributeMap } from "back-end/src/services/features";
-import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
+} from "shared/types/organization";
+import { AttributeMap } from "shared/types/feature";
+import {
+  GroupMap,
+  SavedGroupsValues,
+  SavedGroupInterface,
+} from "shared/types/groups";
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;
@@ -68,7 +72,7 @@ export function getTypedSavedGroupValues(
 
 export function getSavedGroupValueType(
   group: SavedGroupInterface,
-  organization: OrganizationInterface,
+  organization: Pick<OrganizationInterface, "settings">,
 ): string {
   const attributes = organization.settings?.attributeSchema;
 

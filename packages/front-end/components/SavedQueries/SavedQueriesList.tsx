@@ -1,6 +1,6 @@
 import { useState, useCallback, Fragment } from "react";
 import { date, datetime } from "shared/dates";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { SavedQuery } from "shared/validators";
 import Link from "next/link";
 import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";

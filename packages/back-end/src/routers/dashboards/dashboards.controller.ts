@@ -1,19 +1,22 @@
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   snapshotSatisfiesBlock,
+  DashboardInterface,
+  DashboardBlockInterface,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { SavedQuery } from "shared/validators";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -21,17 +24,13 @@ import {
   deleteSnapshotById,
   findSnapshotsByIds,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import {
   updateDashboardMetricAnalyses,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { ExperimentInterface } from "back-end/types/experiment";
 import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
@@ -107,23 +106,11 @@ export async function createDashboard(
     userId,
   } = req.body;
 
-  if (experimentId) {
-    if (updateSchedule) {
-      throw new Error(
-        "Cannot specify an update schedule for experiment dashboards",
-      );
-    }
-  } else {
-    if (enableAutoUpdates && !updateSchedule) {
-      throw new Error("Must define an update schedule to enable auto updates");
-    }
-  }
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
   );
 
   const dashboard = await context.models.dashboards.create({
-    uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
     userId: userId || context.userId,
@@ -225,7 +212,8 @@ export async function refreshDashboardData(
     let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
-      if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+      if (!blockHasFieldOfType(block, "snapshotId", isString))
+        return { ...block };
       if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
       mainSnapshotUsed = true;
       return { ...block, snapshotId: mainSnapshot.id };

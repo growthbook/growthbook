@@ -1,10 +1,12 @@
 import React, { useMemo, useEffect } from "react";
 import { v4 as uuid4 } from "uuid";
-import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import {
+  ExperimentMetricBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import { groupBy } from "lodash";
-import { blockHasFieldOfType } from "shared/enterprise";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { expandMetricGroups } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -17,8 +19,8 @@ import {
   useDashboardMetricSliceData,
   useDashboardPinnedMetricSlices,
 } from "@/enterprise/hooks/useDashboardMetricSlices";
-import { ExperimentMetricBlockContext } from "../DashboardEditorSidebar/types";
-import { setBlockContextValue } from "../DashboardEditorSidebar/useBlockContext";
+import { ExperimentMetricBlockContext } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/types";
+import { setBlockContextValue } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/useBlockContext";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
@@ -145,7 +147,21 @@ export default function ExperimentMetricBlock({
   const { sliceData, togglePinnedMetricSlice, isSlicePinned } =
     useDashboardMetricSliceData(block, setBlock, rows);
 
-  const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
+  // Filter rows based on expansion state and pinned slices (no slice filter in dashboard blocks)
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (!row.isSliceRow) return true; // Always include parent rows
+      if (row.isPinned) return true; // Always include pinned rows
+      // For slice rows, check if parent metric is expanded
+      if (row.parentRowId) {
+        const expandedKey = `${row.parentRowId}:${row.resultGroup}`;
+        return !!expandedMetrics?.[expandedKey];
+      }
+      return true;
+    });
+  }, [rows, expandedMetrics]);
+
+  const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   useEffect(() => {
     const contextValue: ExperimentMetricBlockContext = {

@@ -1,5 +1,5 @@
-import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import React, {
   Fragment,
   useCallback,

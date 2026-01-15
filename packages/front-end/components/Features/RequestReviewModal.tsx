@@ -1,6 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef } from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -8,8 +8,8 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventUserLoggedIn } from "back-end/src/events/event-types";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -23,6 +23,10 @@ import Button from "@/components/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
@@ -96,6 +100,19 @@ export default function RequestReviewModal({
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
+  const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
+  const resultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
+        }
+      : currentRevisionData,
+  });
+
   let submitEnabled = true;
   if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
     submitEnabled = false;
@@ -156,42 +173,6 @@ export default function RequestReviewModal({
       close();
     }
   };
-
-  const resultDiffs = useMemo(() => {
-    const diffs: { a: string; b: string; title: string }[] = [];
-
-    if (!mergeResult) return diffs;
-    if (!mergeResult.success) return diffs;
-
-    const result = mergeResult.result;
-
-    if (result.defaultValue !== undefined) {
-      diffs.push({
-        title: "Default Value",
-        a: feature.defaultValue,
-        b: result.defaultValue,
-      });
-    }
-    if (result.rules) {
-      environments.forEach((env) => {
-        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-        if (result.rules && result.rules[env.id]) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(liveRules, null, 2),
-            b: JSON.stringify(result.rules[env.id], null, 2),
-          });
-        }
-      });
-    }
-
-    return diffs;
-  }, [
-    environments,
-    feature.defaultValue,
-    feature.environmentSettings,
-    mergeResult,
-  ]);
 
   if (!revision || !mergeResult) return null;
 

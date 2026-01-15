@@ -1,7 +1,7 @@
 import fs from "fs";
 import uniq from "lodash/uniq";
 
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import {
   SDKCapability,
   getDefaultSDKVersion,

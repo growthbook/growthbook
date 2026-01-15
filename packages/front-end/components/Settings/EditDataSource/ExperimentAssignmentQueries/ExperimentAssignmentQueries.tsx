@@ -2,12 +2,11 @@ import React, { FC, Fragment, useCallback, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { useRouter } from "next/router";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
-import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -25,14 +24,9 @@ type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<
   ExperimentAssignmentQueriesProps
 > = ({ dataSource, onSave, onCancel, canEdit = true }) => {
-  const router = useRouter();
-
-  let intitialOpenIndexes: boolean[] = [];
-  if (router.query.openAll === "1") {
-    intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries?.exposure?.length || 0),
-    ).fill(true);
-  }
+  const intitialOpenIndexes: boolean[] = Array.from(
+    Array(dataSource.settings?.queries?.exposure?.length || 0),
+  ).fill(true);
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
@@ -253,7 +247,7 @@ export const ExperimentAssignmentQueries: FC<
                       style={{ borderRadius: 0 }}
                       useIcon={false}
                       displayName={query.name}
-                      deleteMessage={`Are you sure you want to delete identifier join ${query.name}?`}
+                      deleteMessage={`Are you sure you want to delete experiment assignment query ${query.name}?`}
                       title="Delete"
                       text="Delete"
                       outline={false}
@@ -282,6 +276,7 @@ export const ExperimentAssignmentQueries: FC<
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
+                  expandable
                 />
               </Box>
             )}

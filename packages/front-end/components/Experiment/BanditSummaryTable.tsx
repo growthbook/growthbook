@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { BanditEvent } from "back-end/src/validators/experiments";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
 import { useBanditSummaryTooltip } from "@/components/Experiment/BanditSummaryTableTooltip/useBanditSummaryTooltip";

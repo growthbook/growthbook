@@ -11,18 +11,18 @@ import {
 import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "shared/enterprise";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { MemoryCache } from "back-end/src/services/cache";
 import {
   SSOConnectionInterface,
   UnauthenticatedResponse,
-} from "back-end/types/sso-connection";
+} from "shared/types/sso-connection";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { MemoryCache } from "back-end/src/services/cache";
 import {
   AuthChecksCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
 import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
-import { getSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
+import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
@@ -48,7 +48,7 @@ const passthroughQueryParams = ["hypgen", "hypothesis"];
 
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
-  const ssoConnection = await getSSOConnectionById(ssoConnectionId);
+  const ssoConnection = await _dangerousGetSSOConnectionById(ssoConnectionId);
   if (ssoConnection) {
     return ssoConnection;
   }
@@ -189,6 +189,7 @@ export class OpenIdAuthConnection implements AuthConnection {
             rateLimit: false,
             jwksRequestsPerMinute: 10,
             jwksUri,
+            requestAgent: getHttpOptions().agent,
           }),
           audience: connection.clientId,
           issuer,

@@ -9,7 +9,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
@@ -80,7 +80,7 @@ const NewDataSourceForm: FC<{
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
-  const { hasCommercialFeature, license } = useUser();
+  const { license } = useUser();
   const gb = useGrowthBook();
 
   const settings = useOrgSettings();
@@ -112,9 +112,9 @@ const NewDataSourceForm: FC<{
   const showManagedWarehouse =
     isCloud() &&
     !datasources.some((d) => d.type === "growthbook_clickhouse") &&
-    (!hasCommercialFeature("managed-warehouse") ||
-      !!license?.orbSubscription) &&
+    (!license || !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
+
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
 
   // Form data for the schema options screen

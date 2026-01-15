@@ -1,12 +1,15 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { SavedGroupInterface } from "shared/src/types";
-import { ApiSavedGroup } from "back-end/types/openapi";
+import {
+  SavedGroupInterface,
+  SavedGroupWithoutValues,
+} from "shared/types/groups";
+import { ApiSavedGroup } from "shared/types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
   UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
+} from "shared/types/saved-group";
 import {
   ToInterface,
   getCollection,
@@ -87,6 +90,25 @@ export async function getAllSavedGroups(
     .toArray();
 
   return savedGroups.map(toInterface);
+}
+
+export async function getAllSavedGroupsWithoutValues(
+  organization: string,
+): Promise<SavedGroupWithoutValues[]> {
+  const savedGroups = await getCollection(COLLECTION)
+    .find(
+      {
+        organization,
+      },
+      {
+        projection: {
+          values: 0,
+        },
+      },
+    )
+    .toArray();
+
+  return savedGroups.map(toInterface) as SavedGroupWithoutValues[];
 }
 
 export async function getSavedGroupById(

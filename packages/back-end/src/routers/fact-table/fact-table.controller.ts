@@ -2,9 +2,6 @@ import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
-import { ReqContext } from "back-end/types/organization";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -15,7 +12,11 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ReqContext } from "back-end/types/request";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -32,7 +33,6 @@ import {
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { DataSourceInterface } from "back-end/types/datasource";
 import {
   runRefreshColumnsQuery,
   runColumnTopValuesQuery,

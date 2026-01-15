@@ -4,25 +4,25 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { VisualChange } from "back-end/types/visual-changeset";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { Environment } from "back-end/types/organization";
+} from "shared/types/experiment-snapshot";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { ExperimentReportVariation } from "shared/types/report";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { VisualChange } from "shared/types/visual-changeset";
+import { SavedGroupInterface } from "shared/types/groups";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { SavedGroupInterface } from "../types";
+} from "../validators/safe-rollout-snapshot";
+import { HoldoutInterface } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
@@ -370,10 +370,20 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
-export function getNumberFormatDigits(value: number) {
+export function getNumberFormatDigits(
+  value: number,
+  highPrecision: boolean = false,
+) {
   const absValue = Math.abs(value);
-  const digits =
-    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  let digits = absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  // For very small numbers (< 1), find the first significant digit & show 2 digits after it
+  if (highPrecision && absValue > 0 && absValue < 1) {
+    // Use Math.log10 to find the position of the first significant digit
+    const log10 = Math.log10(absValue);
+    const decimalPlacesToFirstSig = -Math.floor(log10);
+    // Show 2 digits after the first significant digit
+    digits = Math.min(decimalPlacesToFirstSig + 1, 15);
+  }
   return digits;
 }
 
@@ -531,4 +541,8 @@ export function parseProcessLogBase() {
     : {
         base: parsedLogBase,
       };
+}
+
+export function capitalizeFirstCharacter(s: string) {
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }

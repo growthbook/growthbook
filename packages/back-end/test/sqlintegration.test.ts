@@ -1,13 +1,14 @@
 import { format } from "shared/sql";
-import BigQuery from "back-end/src/integrations/BigQuery";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
   FactMetricType,
   MetricCappingSettings,
-} from "back-end/types/fact-table";
-import { ExposureQuery } from "back-end/types/datasource";
+  RowFilter,
+} from "shared/types/fact-table";
+import { ExposureQuery } from "shared/types/datasource";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 
@@ -113,15 +114,19 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["getAggregateMetricColumn"]({
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
         metric: customNumberAggMetric,
       }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg }),
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+        metric: customCountAgg,
+      }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric }),
+      bqIntegration["getAggregateMetricColumnLegacyMetrics"]({
+        metric: normalSqlMetric,
+      }),
     ).toEqual("SUM(COALESCE(value, 0))");
   });
   it("correctly picks date windows", () => {
@@ -261,7 +266,6 @@ describe("bigquery integration", () => {
         factTableId: factTable.id,
         column: "value",
         aggregation: "sum",
-        filters: [],
       },
     });
 
@@ -313,7 +317,12 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        filters: ["filter1"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
     // inline filter
@@ -322,9 +331,13 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        inlineFilters: {
-          country: ["UK"],
-        },
+        rowFilters: [
+          {
+            operator: "=",
+            column: "country",
+            values: ["UK"],
+          },
+        ],
       },
     });
 
@@ -367,7 +380,6 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        filters: [],
       },
     });
 
@@ -422,7 +434,12 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        filters: ["filter1"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
     const factMetric2 = factMetricFactory.build({
@@ -430,7 +447,12 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value2",
         aggregation: "sum",
-        filters: ["filter1"], // Same filter as factMetric1
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
 
@@ -496,13 +518,23 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "conversions",
         aggregation: "sum",
-        filters: ["filter1"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
       denominator: {
         factTableId: factTableWithFilters.id,
         column: "sessions",
         aggregation: "sum",
-        filters: ["filter2"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter2"],
+          },
+        ],
       },
     });
 
@@ -556,13 +588,19 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "conversions",
         aggregation: "sum",
-        filters: ["filter1"], // Has filter
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
       denominator: {
         factTableId: factTableWithFilters.id,
         column: "sessions",
         aggregation: "sum",
-        filters: [], // No filter
+        // No filter
+        rowFilters: [],
       },
     });
 
@@ -605,13 +643,18 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "conversions",
         aggregation: "sum",
-        filters: [], // No filter
+        rowFilters: [],
       },
       denominator: {
         factTableId: factTableWithFilters.id,
         column: "sessions",
         aggregation: "sum",
-        filters: ["filter1"], // No filter
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
 
@@ -697,13 +740,23 @@ describe("full fact metric experiment query - bigquery", () => {
     "count distinct",
     "max",
   ];
-  const inlineFilters: ColumnRef["inlineFilters"][] = [
+
+  const inlineFilters: (RowFilter | undefined)[] = [
     undefined,
     {
-      type: ["discount"],
+      column: "type",
+      operator: "=",
+      values: ["discount"],
     },
   ];
-  const filters: ColumnRef["filters"][] = [[], ["orders.mobile"]];
+
+  const filters: (RowFilter | undefined)[] = [
+    undefined,
+    {
+      operator: "saved_filter",
+      values: ["orders.mobile"],
+    },
+  ];
   const aggregateFilters: {
     aggregateFilter: ColumnRef["aggregateFilter"];
     aggregateFilterColumn: ColumnRef["aggregateFilterColumn"];
@@ -718,6 +771,7 @@ describe("full fact metric experiment query - bigquery", () => {
     "amount",
     "$$count",
     "$$distinctUsers",
+    "$$distinctDates",
   ];
   const binomialColumns: ColumnRef["column"][] = ["$$distinctUsers"];
   const quantileSettings: FactMetricInterface["quantileSettings"][] = [
@@ -929,11 +983,11 @@ describe("full fact metric experiment query - bigquery", () => {
               for (const aggregateFilter of aggregateFilters) {
                 for (const windowSetting of retentionWindowSettings) {
                   // skip combined filters
-                  if (filter.length > 0 && inlineFilter) {
+                  if (filter && inlineFilter) {
                     continue;
                   }
                   // skip aggregate filters with pre-defined filters
-                  if (aggregateFilter.aggregateFilter && filter.length > 0) {
+                  if (aggregateFilter.aggregateFilter && filter) {
                     continue;
                   }
                   const metric = createMetric({
@@ -970,8 +1024,8 @@ describe("full fact metric experiment query - bigquery", () => {
     cappingType?: MetricCappingSettings["type"];
     aggregationType?: ColumnRef["aggregation"];
     column: string;
-    inlineFilter?: ColumnRef["inlineFilters"];
-    filter?: ColumnRef["filters"];
+    inlineFilter?: RowFilter | undefined;
+    filter?: RowFilter | undefined;
     windowSetting?: FactMetricInterface["windowSettings"];
     regressionSetting?: {
       regressionAdjustmentEnabled: boolean;
@@ -1007,10 +1061,8 @@ describe("full fact metric experiment query - bigquery", () => {
       cappingType ? `cap_${cappingType}` : "cap_none",
       `agg_${aggregationType?.replace(" ", "_") ?? "none"}`,
       `col_${column.replace("$$", "special_")}`,
-      inlineFilter ? `inline_${Object.keys(inlineFilter)[0]}` : "inline_none",
-      filter && filter.length > 0
-        ? `filter_${filter[0].split(".")[1]}`
-        : "filter_none",
+      inlineFilter ? `inline_${inlineFilter.column}` : "inline_none",
+      filter ? `filter_${filter.values?.[0].split(".")[1]}` : "filter_none",
       windowSetting?.type ? `window_${windowSetting.type}` : "window_none",
       regressionSetting?.regressionAdjustmentEnabled
         ? `regadj_${regressionSetting.regressionAdjustmentDays}d`
@@ -1044,7 +1096,7 @@ describe("full fact metric experiment query - bigquery", () => {
     const id = idParts.join("__");
 
     // Build base metric configuration
-    const baseConfig = {
+    const baseConfig: Partial<FactMetricInterface> = {
       id,
       name: `Generated Metric: ${metricType} (${aggregationType || "sum"} ${column})`,
       metricType,
@@ -1052,11 +1104,13 @@ describe("full fact metric experiment query - bigquery", () => {
         factTableId: "orders",
         column: column,
         aggregation: aggregationType || "sum",
-        filters: filter || [],
-        inlineFilters: inlineFilter,
+        rowFilters: [
+          ...(inlineFilter ? [inlineFilter] : []),
+          ...(filter ? [filter] : []),
+        ],
         aggregateFilter,
         aggregateFilterColumn,
-      } as ColumnRef,
+      },
       cappingSettings: {
         type: (cappingType || "") as MetricCappingSettings["type"],
         value:
@@ -1089,8 +1143,7 @@ describe("full fact metric experiment query - bigquery", () => {
           factTableId: denominatorFactTableId || "orders",
           column: denominatorColumn || "amount",
           aggregation: denominatorAggregation || "sum",
-          filters: [],
-        } as ColumnRef,
+        },
       });
     } else if (metricType === "quantile") {
       // Quantile metrics need quantileSettings

@@ -1,13 +1,15 @@
 import React, { useMemo } from "react";
 import { v4 as uuid4 } from "uuid";
-import { ExperimentDimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  ExperimentDimensionBlockInterface,
+  blockHasFieldOfType,
+} from "shared/enterprise";
+import { MetricSnapshotSettings } from "shared/types/report";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { expandMetricGroups } from "shared/experiments";
-import { blockHasFieldOfType } from "shared/enterprise";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";

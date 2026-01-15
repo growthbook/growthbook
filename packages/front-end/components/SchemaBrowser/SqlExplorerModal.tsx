@@ -12,14 +12,14 @@ import {
   DataVizConfig,
   SavedQuery,
   QueryExecutionResult,
-} from "back-end/src/validators/saved-queries";
+} from "shared/validators";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -49,25 +49,27 @@ import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
 import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { filterOptions } from "../DataViz/DataVizFilter";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { filterOptions } from "@/components/DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
+
+export interface SqlExplorerModalInitial {
+  sql?: string;
+  name?: string;
+  datasourceId?: string;
+  results?: QueryExecutionResult;
+  dateLastRan?: Date | string;
+  dataVizConfig?: DataVizConfig[];
+}
 
 export interface Props {
   dashboardId?: string;
   close: () => void;
-  initial?: {
-    sql?: string;
-    name?: string;
-    datasourceId?: string;
-    results?: QueryExecutionResult;
-    dateLastRan?: Date | string;
-    dataVizConfig?: DataVizConfig[];
-  };
+  initial?: SqlExplorerModalInitial;
   id?: string;
   mutate: () => void;
   disableSave?: boolean; // Controls if user can save query AND also controls if they can create/save visualizations
@@ -253,21 +255,23 @@ export default function SqlExplorerModal({
       throw new Error("You must enter a name for your query");
     }
 
-    // Validate that the name only contains letters, numbers, hyphens, and underscores
-    if (!currentName.match(/^[a-zA-Z0-9_.:|\s-]+$/)) {
-      setLoading(false);
-      setIsEditingName(true);
-      throw new Error(
-        "Query name can only contain letters, numbers, hyphens, underscores, and spaces",
-      );
-    }
-
     // If we have an empty object for dataVizConfig, set it to an empty array
     const dataVizConfig = form.watch("dataVizConfig") || [];
 
     // Normalize dataVizConfig to ensure pivot tables have xAxis as arrays
     // and other charts have xAxis as single objects (for API compatibility)
     const normalizedDataVizConfig = dataVizConfig.map((config) => {
+      // If the chart type doesn't support displaySettings, remove the displaySettings property
+      // Only line and scatter charts support displaySettings
+      const chartType = config.chartType;
+      if (
+        chartType &&
+        !["line", "scatter"].includes(chartType) &&
+        "displaySettings" in config
+      ) {
+        const { displaySettings: _displaySettings, ...rest } = config;
+        return rest as DataVizConfig;
+      }
       if (!requiresXAxis(config) || !config.xAxis) {
         return config as DataVizConfig;
       }
@@ -592,6 +596,11 @@ export default function SqlExplorerModal({
               setAiError(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              setAiError(
+                "Error getting AI suggestion: " + responseData.message,
+              );
+              throw new Error(responseData.message);
             } else {
               setAiError("Error getting AI suggestion");
             }

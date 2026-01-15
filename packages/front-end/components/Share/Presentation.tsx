@@ -10,12 +10,12 @@ import {
   Appear,
   Text,
 } from "spectacle";
-import { PresentationInterface } from "back-end/types/presentation";
+import { PresentationInterface } from "shared/types/presentation";
 import {
   ExperimentInterfaceStringDates,
   Variation,
-} from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import clsx from "clsx";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";

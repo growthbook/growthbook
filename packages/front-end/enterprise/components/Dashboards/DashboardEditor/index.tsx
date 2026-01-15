@@ -13,18 +13,17 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined } from "shared/util";
-import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
-import clsx from "clsx";
-import { withErrorBoundary } from "@sentry/react";
-import { dashboardBlockHasIds } from "shared/enterprise";
-import {
+  dashboardBlockHasIds,
+  getBlockData,
   DashboardEditLevel,
   DashboardInterface,
   DashboardShareLevel,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
+import { isDefined } from "shared/util";
+import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import clsx from "clsx";
+import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -42,8 +41,9 @@ import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import DashboardModal from "../DashboardModal";
-import DashboardShareModal from "../DashboardShareModal";
+import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
+import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
+import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
@@ -399,7 +399,7 @@ function DashboardEditor({
   };
 
   return (
-    <div>
+    <DashboardChartsProvider>
       {editDashboard && (
         <DashboardModal
           mode="edit"
@@ -433,8 +433,9 @@ function DashboardEditor({
             enableAutoUpdates: enableAutoUpdates,
             updateSchedule: updateSchedule || undefined,
             shareLevel: initialShareLevel,
-            projects: projects,
+            projects,
             userId: ownerId,
+            blocks,
           }}
           close={() => setDuplicateDashboard(false)}
           submit={async (data) => {
@@ -451,8 +452,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
-                blocks: data.blocks || [],
-                // userId: userId || "",
+                blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
             if (res.status === 200) {
@@ -695,7 +695,7 @@ function DashboardEditor({
           {isEditing && <div style={{ height: 350 }} />}
         </div>
       </div>
-    </div>
+    </DashboardChartsProvider>
   );
 }
 

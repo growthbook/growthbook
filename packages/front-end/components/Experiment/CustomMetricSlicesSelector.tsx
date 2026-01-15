@@ -13,16 +13,16 @@ import {
   expandMetricGroups,
   SliceLevelsData,
 } from "shared/experiments";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 interface MetricWithStringColumns extends FactMetricInterface {
   stringColumns: Array<{

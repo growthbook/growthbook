@@ -1,16 +1,16 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import React, { useEffect, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   FeatureRevisionInterface,
   FeatureRule,
-} from "back-end/src/validators/features";
-import { Environment } from "back-end/types/organization";
+  SafeRolloutInterface,
+  HoldoutInterface,
+} from "shared/validators";
+import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
@@ -24,7 +24,7 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
-import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
+import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 import HoldoutValueModal from "./HoldoutValueModal";
 
