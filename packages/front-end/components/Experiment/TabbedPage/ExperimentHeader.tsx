@@ -11,7 +11,7 @@ import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye, PiLink } from "react-icons/pi";
+import { PiCheck, PiClock, PiEye, PiLink } from "react-icons/pi";
 import { Text, Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
@@ -19,6 +19,8 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { HoldoutInterface } from "shared/validators";
+import { datetime } from "shared/dates";
+import RadixTooltip from "@/ui/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -90,9 +92,16 @@ export interface Props {
   holdout?: HoldoutInterface;
   stop?: (() => void) | null;
   showDashboardView: boolean;
+  editSchedule?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
+  start: "start",
+  startAnalysisPeriod: "start Analysis Period",
+  stop: "stop",
+};
 
 const DisabledHealthTabTooltip = ({
   reason,
@@ -144,6 +153,7 @@ export default function ExperimentHeader({
   holdout,
   stop,
   showDashboardView,
+  editSchedule,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -698,6 +708,17 @@ export default function ExperimentHeader({
             <Box ml="2" mt="1" display="inline-block">
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
+            {isHoldout &&
+            holdout?.nextScheduledUpdate &&
+            holdout.nextScheduledUpdateType ? (
+              <RadixTooltip
+                content={`Scheduled to ${HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[holdout.nextScheduledUpdateType]} on: ${datetime(holdout.nextScheduledUpdate)}`}
+              >
+                <Box ml="2" mt="1" display="inline-block">
+                  <PiClock size={15} />
+                </Box>
+              </RadixTooltip>
+            ) : null}
           </Box>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
@@ -806,6 +827,16 @@ export default function ExperimentHeader({
                     {`Edit ${
                       experiment.type === "holdout" ? "holdout period" : "phase"
                     }`}
+                  </DropdownMenuItem>
+                )}
+                {editSchedule && isHoldout && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      editSchedule();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Edit schedule
                   </DropdownMenuItem>
                 )}
                 {canEditExperiment &&

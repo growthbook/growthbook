@@ -48,21 +48,14 @@ export class HoldoutModel extends BaseClass {
 
     const holdouts = await getCollection<HoldoutInterface>(COLLECTION_NAME)
       .find({
-        $or: [
-          {
-            scheduledAnalysisPeriodStartDate: { $lte: now, $exists: true },
-          },
-          {
-            scheduledStopDate: { $lte: now, $exists: true },
-          },
-        ],
+        nextScheduledUpdate: { $lte: now, $exists: true },
       })
       .project({
         id: true,
         organization: true,
       })
       .limit(100)
-      .sort({ scheduledAnalysisPeriodStartDate: 1, scheduledStopDate: 1 })
+      .sort({ nextScheduledUpdate: 1 })
       .toArray();
 
     return holdouts.map((h) => ({ id: h.id, organization: h.organization }));

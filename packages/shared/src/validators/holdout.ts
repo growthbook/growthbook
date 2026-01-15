@@ -6,6 +6,14 @@ export const holdoutLinkedItemValidator = z.object({
   id: z.string(),
 });
 
+const scheduledUpdatesValidator = z.object({
+  startAt: z.date().optional(),
+  startAnalysisPeriodAt: z.date().optional(),
+  stopAt: z.date().optional(),
+});
+
+export type HoldoutUpdateSchedule = z.infer<typeof scheduledUpdatesValidator>;
+
 export const holdoutValidator = z
   .object({
     id: z.string(),
@@ -19,8 +27,12 @@ export const holdoutValidator = z
     linkedFeatures: z.record(z.string(), holdoutLinkedItemValidator),
     environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
-    scheduledAnalysisPeriodStartDate: z.date().optional(),
-    scheduledStopDate: z.date().optional(),
+    scheduledStatusUpdates: scheduledUpdatesValidator.optional(),
+    nextScheduledUpdate: z.date().optional().nullable(),
+    nextScheduledUpdateType: z
+      .enum(["start", "startAnalysisPeriod", "stop"])
+      .optional()
+      .nullable(),
   })
   .strict();
 

@@ -22,6 +22,7 @@ import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutA
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
+import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -38,6 +39,7 @@ const HoldoutPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
+  const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
@@ -117,6 +119,9 @@ const HoldoutPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
+    : null;
+  const editSchedule = canRunExperiment
+    ? () => setEditScheduleModalOpen(true)
     : null;
 
   const safeToEdit =
@@ -214,6 +219,14 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
+      {editScheduleModalOpen && (
+        <EditScheduleModal
+          close={() => setEditScheduleModalOpen(false)}
+          holdout={holdout}
+          experiment={experiment}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -248,6 +261,7 @@ const HoldoutPage = (): ReactElement => {
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           stop={stop}
+          editSchedule={editSchedule}
         />
       </SnapshotProvider>
     </>

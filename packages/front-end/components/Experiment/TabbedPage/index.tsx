@@ -87,6 +87,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
+  editSchedule?: (() => void) | null;
   stop?: (() => void) | null;
 }
 
@@ -111,6 +112,7 @@ export default function TabbedPage({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   stop,
+  editSchedule,
 }: Props) {
   const growthbook = useGrowthBook();
   const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
@@ -490,6 +492,7 @@ export default function TabbedPage({
         stop={stop}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
+        editSchedule={editSchedule}
       />
 
       <div
