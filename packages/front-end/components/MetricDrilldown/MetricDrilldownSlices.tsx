@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   DifferenceType,
@@ -7,20 +7,24 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
-import { Flex, TextField } from "@radix-ui/themes";
+import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EmptyState from "@/components/EmptyState";
-import ResultsTable from "./ResultsTable";
+import ResultsTable from "@/components/Experiment/ResultsTable";
 
-interface SlicesSectionProps {
+interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
   allRows: ExperimentTableRow[];
   variationNames: string[];
   differenceType: DifferenceType;
+  setDifferenceType: (type: DifferenceType) => void;
   statsEngine: StatsEngine;
   baselineRow?: number;
+  setBaselineRow: (baseline: number) => void;
+  variationFilter?: number[];
+  setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
   experimentId: string;
   phase: number;
@@ -32,15 +36,23 @@ interface SlicesSectionProps {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   experimentStatus: ExperimentStatus;
-  initialSearchTerm?: string;
+  // Search and timeseries state (managed by parent to persist across tab switches)
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  visibleTimeSeriesRowIds: string[];
+  setVisibleTimeSeriesRowIds: (ids: string[]) => void;
 }
 
-const SlicesSection: FC<SlicesSectionProps> = ({
+const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   metric,
   allRows,
-  differenceType: initialDifferenceType,
+  differenceType,
+  setDifferenceType,
   statsEngine,
   baselineRow = 0,
+  setBaselineRow,
+  variationFilter,
+  setVariationFilter,
   experimentId,
   phase,
   variations,
@@ -51,25 +63,20 @@ const SlicesSection: FC<SlicesSectionProps> = ({
   pValueCorrection,
   sequentialTestingEnabled,
   experimentStatus,
-  initialSearchTerm = "",
+  searchTerm,
+  setSearchTerm,
+  visibleTimeSeriesRowIds,
+  setVisibleTimeSeriesRowIds: _setVisibleTimeSeriesRowIds,
 }) => {
   const { getFactTableById } = useDefinitions();
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-
-  // Update search term when initialSearchTerm changes
-  useEffect(() => {
-    setSearchTerm(initialSearchTerm);
-  }, [initialSearchTerm]);
+  const tableId = `${experimentId}_${metric.id}_slices`;
 
   // Add state for sorting
-  const [sortBy, setSortBy] = useState<"significance" | "change" | null>(null);
+  const [sortBy, setSortBy] = useState<
+    "significance" | "change" | "custom" | null
+  >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     null,
-  );
-
-  // Add state for difference type (local state for this section)
-  const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    initialDifferenceType,
   );
 
   // Filter to get slice rows for this metric
@@ -125,7 +132,7 @@ const SlicesSection: FC<SlicesSectionProps> = ({
 
   // Render slices data with ResultsTable
   return (
-    <div className="mt-4">
+    <Box mt="4">
       <Flex
         justify="between"
         align="center"
@@ -158,12 +165,22 @@ const SlicesSection: FC<SlicesSectionProps> = ({
         status={experimentStatus}
         variations={variations}
         baselineRow={baselineRow}
+        setBaselineRow={setBaselineRow}
+        variationFilter={variationFilter}
+        setVariationFilter={setVariationFilter}
         rows={filteredSliceRows}
-        id={`${experimentId}_${metric.id}_slices`}
+        id={tableId}
         resultGroup="secondary"
         tableRowAxis="dimension"
         labelHeader="Slice"
-        renderLabelColumn={({ label }) => label}
+        renderLabelColumn={({ label, row }) => (
+          <Flex direction="column" gap="1" ml="4">
+            <Text weight="medium">{label}</Text>
+            <Text size="1" style={{ color: "var(--color-text-low)" }}>
+              {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
+            </Text>
+          </Flex>
+        )}
         statsEngine={statsEngine}
         pValueCorrection={pValueCorrection}
         differenceType={differenceType}
@@ -179,9 +196,11 @@ const SlicesSection: FC<SlicesSectionProps> = ({
         setSortBy={setSortBy}
         sortDirection={sortDirection}
         setSortDirection={setSortDirection}
+        initialVisibleTimeSeriesRowIds={visibleTimeSeriesRowIds}
+        totalMetricsCount={sliceRows.length}
       />
-    </div>
+    </Box>
   );
 };
 
-export default SlicesSection;
+export default MetricDrilldownSlices;

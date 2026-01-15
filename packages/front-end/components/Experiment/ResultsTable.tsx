@@ -3,7 +3,6 @@ import React, {
   CSSProperties,
   ReactElement,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -130,6 +129,7 @@ export type ResultsTableProps = {
   mutate?: () => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
+  initialVisibleTimeSeriesRowIds?: string[];
 };
 
 const ROW_HEIGHT = 46;
@@ -196,9 +196,8 @@ export default function ResultsTable({
   mutate,
   setDifferenceType,
   totalMetricsCount,
+  initialVisibleTimeSeriesRowIds = [],
 }: ResultsTableProps) {
-  const tableId = useId();
-
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
@@ -317,8 +316,19 @@ export default function ResultsTable({
 
   const [visibleTimeSeriesRowIds, setVisibleTimeSeriesRowIds] = useState<
     string[]
-  >([]);
+  >(initialVisibleTimeSeriesRowIds);
+
+  // Track which rows were initially visible (to skip animation for them)
+  // This will be cleared when user toggles so animation works for user interactions
+  const initiallyVisibleRowIdsRef = useRef(
+    new Set(initialVisibleTimeSeriesRowIds),
+  );
+
   const toggleVisibleTimeSeriesRowId = (rowId: string) => {
+    // Clear the initially visible set on first user toggle so animations work
+    if (initiallyVisibleRowIdsRef.current.size > 0) {
+      initiallyVisibleRowIdsRef.current.clear();
+    }
     setVisibleTimeSeriesRowIds((prev) =>
       prev.includes(rowId)
         ? prev.filter((id) => id !== rowId)
@@ -328,8 +338,11 @@ export default function ResultsTable({
 
   // Ensure we close all of them if dimension changes
   useEffect(() => {
+    if (initialVisibleTimeSeriesRowIds.length > 0) {
+      return;
+    }
     setVisibleTimeSeriesRowIds([]);
-  }, [tableRowAxis]);
+  }, [tableRowAxis, initialVisibleTimeSeriesRowIds.length]);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -750,8 +763,8 @@ export default function ResultsTable({
               let alreadyShownQuantileError = false;
 
               const rowId = row.sliceId
-                ? `${tableId}-${row.metric.id}-${row.sliceId}`
-                : `${tableId}-${row.metric.id}-${i}`;
+                ? `${id}-${row.metric.id}-${row.sliceId}`
+                : `${id}-${row.metric.id}-${i}`;
 
               const timeSeriesButton =
                 showTimeSeriesButton && !forceTimeSeriesVisible ? (
@@ -1274,7 +1287,8 @@ export default function ResultsTable({
                               >
                                 <div
                                   className={
-                                    forceTimeSeriesVisible
+                                    forceTimeSeriesVisible ||
+                                    initiallyVisibleRowIdsRef.current.has(rowId)
                                       ? undefined
                                       : styles.expandAnimation
                                   }

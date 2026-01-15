@@ -8,7 +8,6 @@ import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
-import styles from "./MetricDrilldownOverview.module.scss";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
@@ -58,6 +57,7 @@ function MetricDrilldownOverview({
   sequentialTestingEnabled,
 }: MetricDrilldownOverviewProps) {
   const { metric } = row;
+  const tableId = `${experimentId}_${metric.id}_modal`;
 
   // Determine result group based on metric categorization
   const resultGroup: "goal" | "secondary" | "guardrail" = goalMetrics.includes(
@@ -68,7 +68,7 @@ function MetricDrilldownOverview({
       ? "secondary"
       : "guardrail";
   return (
-    <Box className={styles.metricDrilldownOverviewResultsTableWrapper}>
+    <Box>
       <ResultsTable
         experimentId={experimentId}
         dateCreated={reportDate}
@@ -83,7 +83,7 @@ function MetricDrilldownOverview({
         variationFilter={localVariationFilter}
         setVariationFilter={setLocalVariationFilter}
         rows={[row]}
-        id={`${experimentId}_${metric.id}_modal`}
+        id={tableId}
         resultGroup={resultGroup}
         tableRowAxis="metric"
         labelHeader=""

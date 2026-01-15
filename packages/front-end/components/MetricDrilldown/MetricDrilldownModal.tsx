@@ -18,6 +18,7 @@ import { useKeydown } from "@/hooks/useKeydown";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
+import MetricDrilldownSlices from "./MetricDrilldownSlices";
 
 export type MetricDrilldownTab = "overview" | "slices" | "debug";
 
@@ -42,6 +43,8 @@ interface MetricDrilldownModalProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  allRows?: ExperimentTableRow[];
+  initialSliceSearchTerm?: string;
 }
 
 const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
@@ -65,6 +68,8 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   isLatestPhase,
   pValueCorrection,
   sequentialTestingEnabled,
+  allRows = [],
+  initialSliceSearchTerm,
 }) => {
   const { metric } = row;
 
@@ -75,6 +80,35 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   >(variationFilter);
   const [localDifferenceType, setLocalDifferenceType] =
     useState<DifferenceType>(differenceType);
+
+  // Local state for Slices tab (persists across tab switches)
+  const [sliceSearchTerm, setSliceSearchTerm] = useState(
+    initialSliceSearchTerm || "",
+  );
+  const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
+    useState<string[]>(() => {
+      // Auto-expand first slice timeseries when opened from a slice click
+      // Only if initialTab is "slices" and we have an initial search term
+      if (initialTab === "slices" && initialSliceSearchTerm) {
+        // Compute the row ID based on the expected structure
+        const tableId = `${experimentId}_${metric.id}_slices`;
+        // We'll need to find the matching row from allRows
+        const matchingRow = allRows.find(
+          (r) =>
+            r.isSliceRow &&
+            r.metric.id === metric.id &&
+            r.sliceId &&
+            typeof r.label === "string" &&
+            r.label
+              .toLowerCase()
+              .includes(initialSliceSearchTerm.toLowerCase()),
+        );
+        if (matchingRow?.sliceId) {
+          return [`${tableId}-${matchingRow.metric.id}-${matchingRow.sliceId}`];
+        }
+      }
+      return [];
+    });
 
   useKeydown("Escape", close);
 
@@ -154,7 +188,34 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
             sequentialTestingEnabled={sequentialTestingEnabled}
           />
         </TabsContent>
-        <TabsContent value="slices">Slices</TabsContent>
+        <TabsContent value="slices">
+          <MetricDrilldownSlices
+            metric={metric}
+            allRows={allRows}
+            variationNames={variations.map((v) => v.name)}
+            differenceType={localDifferenceType}
+            setDifferenceType={setLocalDifferenceType}
+            statsEngine={statsEngine}
+            baselineRow={localBaselineRow}
+            setBaselineRow={setLocalBaselineRow}
+            variationFilter={localVariationFilter}
+            setVariationFilter={setLocalVariationFilter}
+            experimentId={experimentId}
+            phase={phase}
+            variations={variations}
+            startDate={startDate}
+            endDate={endDate}
+            reportDate={reportDate}
+            isLatestPhase={isLatestPhase}
+            pValueCorrection={pValueCorrection}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            experimentStatus={experimentStatus}
+            searchTerm={sliceSearchTerm}
+            setSearchTerm={setSliceSearchTerm}
+            visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
+            setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+          />
+        </TabsContent>
         <TabsContent value="debug">Debug</TabsContent>
       </Modal>
     </Tabs>

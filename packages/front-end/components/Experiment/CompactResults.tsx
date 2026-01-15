@@ -603,6 +603,10 @@ const CompactResults: FC<{
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          allRows={rows}
+          initialSliceSearchTerm={
+            openMetricDrilldownModalInfo.initialSliceSearchTerm
+          }
         />
       )}
     </>
