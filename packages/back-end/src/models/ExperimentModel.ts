@@ -16,6 +16,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
+import { ApiExperiment } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -601,10 +602,6 @@ export async function updateExperiment({
     current: updatedExperiment,
   });
 
-  logger.info(
-    "API changes for experiment update: %o",
-    JSON.stringify(apiChanges, null, 2),
-  );
   if (apiChanges) {
     allChanges.dateApiUpdated = allChanges.dateUpdated;
   }
@@ -940,14 +937,6 @@ async function computeExperimentApiChanges({
       currentApiExperimentPromise,
     ]);
 
-    logger.info(
-      "Previous API Experiment: %o",
-      JSON.stringify(previousApiExperiment, null, 2),
-    );
-    logger.info(
-      "Current API Experiment: %o",
-      JSON.stringify(currentApiExperiment, null, 2),
-    );
     const changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
       ignoredKeys: ["dateUpdated"],
       nestedObjectConfigs: [
@@ -1075,10 +1064,6 @@ export const logExperimentUpdated = async ({
     current,
   });
 
-  logger.info(
-    "logExperimentUpdated changes for experiment update: %o",
-    JSON.stringify(apiChangesResult, null, 2),
-  );
   // Skip event creation if there are no actual API changes
   if (!apiChangesResult) return;
 
