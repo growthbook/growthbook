@@ -4,7 +4,6 @@ import { getDisallowedProjects } from "shared/util";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,6 +19,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import { formatDateForURL, parseDateFromURL } from "@/utils/date";
+import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import Field from "@/components/Forms/Field";
 import ExperimentWinRate from "./ExperimentWinRate";
 import ExecExperimentsGraph from "./ExecExperimentsGraph";
 
@@ -39,11 +40,11 @@ export default function ExecReport() {
   const searchParams = new URLSearchParams(window.location.search);
 
   // Initialize state from query string
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(
-    searchParams.get("selectedProjects")?.split(",") || currentProject === ""
-      ? []
-      : [currentProject],
-  );
+  // const [selectedProjects, setSelectedProjects] = useState<string[]>(
+  //   searchParams.get("selectedProjects")?.split(",") || currentProject === ""
+  //     ? []
+  //     : [currentProject],
+  // );
   const [dateRange, setDateRange] = useState(
     searchParams.get("dateRange") || "90",
   );
@@ -71,37 +72,30 @@ export default function ExecReport() {
 
   const { hasCommercialFeature } = useUser();
   //const permissionsUtil = usePermissionsUtil();
+  //
+  // const disallowedProjects = getDisallowedProjects(
+  //   projects,
+  //   selectedProjects ?? [],
+  // );
 
-  const disallowedProjects = getDisallowedProjects(
-    projects,
-    selectedProjects ?? [],
-  );
-
-  const projectsOptions = useProjectOptions(
-    () => {
-      return true;
-    },
-    selectedProjects || [],
-    [...projects, ...disallowedProjects],
-  );
+  // const projectsOptions = useProjectOptions(
+  //   () => {
+  //     return true;
+  //   },
+  //   selectedProjects || [],
+  //   [...projects, ...disallowedProjects],
+  // );
 
   const {
     experiments: allExperiments,
     error,
     loading,
-  } = useExperiments("", true, "standard");
+  } = useExperiments("", true, "standard", { autoRevalidate: false });
 
   //const tagsFilter = useTagsFilter("experiments");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
-      // filter by projects:
-      if (selectedProjects && selectedProjects.length > 0) {
-        items = items.filter((item) => {
-          if (!item.project) return false;
-          return selectedProjects.includes(item.project);
-        });
-      }
       // filter out any multi armed bandits:
       items = items.filter((item) => item.type !== "multi-armed-bandit");
 
@@ -138,31 +132,36 @@ export default function ExecReport() {
 
       return items;
     },
-    [endDate, selectedProjects, startDate],
+    [endDate, startDate],
   );
 
-  const { items } = useExperimentSearch({
+  const {
+    items,
+    searchInputProps,
+    // isFiltered,
+    // SortableTH,
+    filteredItems,
+    syntaxFilters,
+    setSearchValue,
+  } = useExperimentSearch({
     allExperiments,
     filterResults,
   });
-
+console.log(filteredItems);
   // get a separate list of experiments, given the same filterResults function, but with the status of "running":
-  const { items: allExpInProject } = useExperimentSearch({
-    allExperiments,
-    filterResults: useCallback(
-      (items: ComputedExperimentInterface[]) => {
-        return items.filter((item) => {
-          // filter by projects:
-          if (selectedProjects && selectedProjects.length > 0) {
-            if (!item.project) return false;
-            return selectedProjects.includes(item.project);
-          }
-          return true;
-        });
-      },
-      [selectedProjects],
-    ),
-  });
+  // const { items: allExpInProject } = useExperimentSearch({
+  //   allExperiments,
+  //   filterResults: useCallback((items: ComputedExperimentInterface[]) => {
+  //     return items.filter((item) => {
+  //       // filter by projects:
+  //       if (selectedProjects && selectedProjects.length > 0) {
+  //         if (!item.project) return false;
+  //         return selectedProjects.includes(item.project);
+  //       }
+  //       return true;
+  //     });
+  //   }, []),
+  // });
 
   // Update URL query string when state changes
   useEffect(() => {
@@ -170,13 +169,13 @@ export default function ExecReport() {
 
     const params: Record<string, string> = {};
     let updateUrl = false;
-    if (
-      selectedProjects.length > 0 &&
-      selectedProjects[0] !== "" &&
-      selectedProjects[0] !== currentProject
-    ) {
-      params.selectedProjects = selectedProjects.join(",");
-    }
+    // if (
+    //   selectedProjects.length > 0 &&
+    //   selectedProjects[0] !== "" &&
+    //   selectedProjects[0] !== currentProject
+    // ) {
+    //   params.selectedProjects = selectedProjects.join(",");
+    // }
     if (dateRange) {
       params.dateRange = dateRange;
     }
@@ -220,7 +219,6 @@ export default function ExecReport() {
         .then();
     }
   }, [
-    selectedProjects,
     dateRange,
     startDate,
     endDate,
@@ -246,29 +244,6 @@ export default function ExecReport() {
           <Box>Use filters to adjust data displayed in this section.</Box>
         </Box>
         <Flex gap="5">
-          <Box style={{ width: "250px" }}>
-            <label className="mb-1">
-              <Text
-                weight="medium"
-                size="2"
-                style={{ color: "var(--color-text-high)" }}
-                as="p"
-                mb="0"
-              >
-                Projects
-              </Text>
-            </label>
-            <MultiSelectField
-              placeholder="All Projects"
-              value={selectedProjects ?? []}
-              onChange={(ps) => setSelectedProjects(ps)}
-              options={projectsOptions}
-              containerClassName="mb-0 w-100"
-              sort={false}
-              closeMenuOnSelect={true}
-            />
-            {/*<TagsFilter filter={tagsFilter} items={filterResults} />*/}
-          </Box>
           <Box>
             <label>
               <Text
@@ -335,6 +310,17 @@ export default function ExecReport() {
           </Flex>
         </Flex>
       )}
+      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+        <Box flexBasis="300px" flexShrink="0">
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
+        </Box>
+        <ExperimentSearchFilters
+          searchInputProps={searchInputProps}
+          syntaxFilters={syntaxFilters}
+          setSearchValue={setSearchValue}
+          experiments={allExperiments}
+        />
+      </Flex>
       {items.length > 0 ? (
         <>
           {hasCommercialFeature("experiment-impact") ? (

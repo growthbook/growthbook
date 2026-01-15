@@ -137,7 +137,7 @@ const ExperimentSearchFilters: FC<
 
   return (
     <Flex gap="5" align="center">
-      {!project && (
+      {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"
           heading="Project"
