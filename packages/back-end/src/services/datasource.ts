@@ -12,7 +12,7 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import { QueryStatistics } from "shared/types/query";
-import { SQLExecutionError } from "shared/util";
+import { SQLExecutionError } from "back-end/src/util/errors";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";

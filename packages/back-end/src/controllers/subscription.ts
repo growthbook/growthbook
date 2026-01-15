@@ -6,7 +6,7 @@ import {
   TaxIdType,
 } from "shared/types/subscriptions";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
-import { LicenseServerError } from "shared/util";
+import { LicenseServerError } from "back-end/src/util/errors";
 import {
   getLicense,
   licenseInit,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import mongoose from "mongoose";
-import { VercelIntallationNotFound } from "shared/util";
+import { VercelInstallationNotFound } from "back-end/src/util/errors";
 import {
   upsertInstallationPayloadValidator,
   userAuthenticationValidator,
@@ -93,7 +93,7 @@ export const findVercelInstallationByOrganization = async (
     .findOne({ organization: { $eq: organization } });
 
   if (!model)
-    throw new VercelIntallationNotFound(
+    throw new VercelInstallationNotFound(
       `Vercel installation not found for org ${organization}!`,
     );
 

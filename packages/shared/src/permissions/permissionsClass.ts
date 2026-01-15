@@ -1228,9 +1228,9 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  public throwPermissionError(): void {
+  public throwPermissionError(message?: string): void {
     throw new PermissionError(
-      "You do not have permission to perform this action",
+      message ?? "You do not have permission to perform this action",
     );
   }
 

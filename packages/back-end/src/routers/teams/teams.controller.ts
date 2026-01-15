@@ -52,7 +52,7 @@ export const postTeam = async (
   const { name, description, permissions, defaultProject } = req.body;
 
   if (!orgHasPremiumFeature(org, "teams")) {
-    context.throwUnauthorizedError(
+    context.throwPlanDoesNotAllowError(
       "Must have a commercial License Key to create a team.",
     );
   }

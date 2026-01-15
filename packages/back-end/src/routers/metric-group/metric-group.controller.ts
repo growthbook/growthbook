@@ -72,7 +72,7 @@ export const putMetricGroup = async (
     );
   }
   if (org.id !== metricGroup.organization) {
-    context.throwUnauthorizedError(
+    context.permissions.throwPermissionError(
       "You don't have access to that metric group",
     );
   }
@@ -139,7 +139,7 @@ export const putMetricGroupReorder = async (
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
-    context.throwUnauthorizedError(
+    context.permissions.throwPermissionError(
       "You don't have access to that metric group",
     );
   }
@@ -177,7 +177,7 @@ export const removeMetricFromGroup = async (
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
-    context.throwUnauthorizedError(
+    context.permissions.throwPermissionError(
       "You don't have access to that metric group",
     );
   }

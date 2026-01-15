@@ -23,9 +23,10 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   BadRequestError,
   UnauthorizedError,
-  ErrorNotFound,
+  PlanDoesNotAllowError,
+  NotFoundError,
   InternalServerError,
-} from "shared/util";
+} from "back-end/src/util/errors";
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -256,8 +257,12 @@ export class ReqContextClass {
     throw new UnauthorizedError(message);
   }
 
+  public throwPlanDoesNotAllowError(message: string) {
+    throw new PlanDoesNotAllowError(message);
+  }
+
   public throwNotFoundError(message?: string) {
-    throw new ErrorNotFound(message);
+    throw new NotFoundError(message);
   }
 
   public throwInternalServerError(message: string) {

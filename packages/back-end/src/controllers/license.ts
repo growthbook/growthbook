@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Response } from "express";
 import { AccountPlan } from "shared/enterprise";
-import { LicenseServerError } from "shared/util";
+import { LicenseServerError } from "back-end/src/util/errors";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,

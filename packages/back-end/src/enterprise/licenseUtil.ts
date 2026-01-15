@@ -3,11 +3,7 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import {
-  LicenseServerError,
-  parseProcessLogBase,
-  stringToBoolean,
-} from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -25,6 +21,7 @@ import {
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
 import { OrganizationInterface } from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
+import { LicenseServerError } from "back-end/src/util/errors";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
 

@@ -11,7 +11,6 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
-  UnrecoverableApiError,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -138,6 +137,7 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import { UnrecoverableApiError } from "back-end/src/util/errors";
 
 export async function getPayloadParamsFromApiKey(
   key: string,

@@ -3,7 +3,7 @@ import { InformationSchemaError } from "shared/types/integrations";
 import {
   DataSourceNotSupportedError,
   MissingDatasourceParamsError,
-} from "shared/util";
+} from "back-end/src/util/errors";
 import { updateDatasourceInformationSchema } from "back-end/src/services/informationSchema";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {

@@ -28,7 +28,7 @@ import {
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { SQLExecutionError } from "shared/util";
+import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {

@@ -136,7 +136,7 @@ export async function postSavedQuery(
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
-    context.throwUnauthorizedError(
+    context.throwPlanDoesNotAllowError(
       "Your organization's plan does not support saving queries",
     );
   }
@@ -170,7 +170,7 @@ export async function putSavedQuery(
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
-    context.throwUnauthorizedError(
+    context.throwPlanDoesNotAllowError(
       "Your organization's plan does not support saving queries",
     );
   }
@@ -203,7 +203,7 @@ export async function refreshSavedQuery(
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
-    context.throwUnauthorizedError(
+    context.throwPlanDoesNotAllowError(
       "Your organization's plan does not support saving queries",
     );
   }
@@ -289,7 +289,7 @@ export async function postGenerateSQL(
   const { aiEnabled } = getAISettingsForOrg(context);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-    context.throwUnauthorizedError(
+    context.throwPlanDoesNotAllowError(
       "Your organization's plan does not support generating queries",
     );
   }

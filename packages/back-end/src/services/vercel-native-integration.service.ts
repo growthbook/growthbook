@@ -2,7 +2,7 @@ import { Promise as BluebirdPromise } from "bluebird";
 import { OrganizationInterface } from "shared/types/organization";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
-import { VercelIntallationNotFound } from "shared/util";
+import { VercelInstallationNotFound } from "back-end/src/util/errors";
 import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
@@ -157,7 +157,7 @@ const createVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error creating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    if (!(err instanceof VercelIntallationNotFound))
+    if (!(err instanceof VercelInstallationNotFound))
       logger.error(err, `Error while creating vercel experimentation item`);
   }
 };
@@ -222,7 +222,7 @@ const updateVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error updating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    if (!(err instanceof VercelIntallationNotFound))
+    if (!(err instanceof VercelInstallationNotFound))
       logger.error(err, "Error while creating vercel experimentation item");
   }
 };
@@ -288,7 +288,7 @@ const deleteVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
   } catch (err) {
-    if (!(err instanceof VercelIntallationNotFound))
+    if (!(err instanceof VercelInstallationNotFound))
       logger.error(err, `Error while deleting vercel experimentation item`);
   }
 };
