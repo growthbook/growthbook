@@ -1512,7 +1512,9 @@ export async function toExperimentApiInterface(
     tags: experiment.tags || [],
     owner: experiment.owner || "",
     dateCreated: experiment.dateCreated.toISOString(),
-    dateUpdated: experiment.dateUpdated.toISOString(),
+    dateUpdated: (
+      experiment.dateApiUpdated || experiment.dateUpdated
+    ).toISOString(),
     archived: !!experiment.archived,
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
