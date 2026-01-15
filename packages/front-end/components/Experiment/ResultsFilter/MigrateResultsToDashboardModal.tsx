@@ -245,17 +245,20 @@ export default function MigrateResultsToDashboardModal({
 
   // Initialize dashboardId with default or first available
   useEffect(() => {
-    if (!dashboardId) {
-      if (filteredDashboards.length > 0) {
-        form.setValue(
-          "dashboardId",
-          defaultDashboard?.id ?? filteredDashboards[0].id,
-        );
-      } else {
-        form.setValue("dashboardId", "__create__");
-      }
+    // Only set dashboard when modal is open and loading is complete
+    if (!open || loadingDashboards) return;
+
+    const currentDashboardId = form.getValues("dashboardId");
+    // Override "__create__" if dashboards are available
+    if (currentDashboardId === "__create__" && filteredDashboards.length > 0) {
+      form.setValue(
+        "dashboardId",
+        defaultDashboard?.id ?? filteredDashboards[0].id,
+      );
+    } else if (filteredDashboards.length === 0) {
+      form.setValue("dashboardId", "__create__");
     }
-  }, [dashboardId, filteredDashboards, defaultDashboard, form]);
+  }, [open, filteredDashboards, defaultDashboard, form, loadingDashboards]);
 
   // Update block name when block type changes
   useEffect(() => {
