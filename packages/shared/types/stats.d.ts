@@ -44,13 +44,13 @@ interface TestResult {
   realizedSettings?: RealizedSettings;
 }
 
-interface BayesianTestResult extends TestResult {
+export interface BayesianTestResult extends TestResult {
   chanceToWin?: number;
   risk?: [number, number];
   riskType?: RiskType;
 }
 
-interface FrequentistTestResult extends TestResult {
+export interface FrequentistTestResult extends TestResult {
   pValue?: number;
   pValueErrorMessage?: PValueErrorMessage;
 }

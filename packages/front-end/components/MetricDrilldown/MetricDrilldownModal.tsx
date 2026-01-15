@@ -19,6 +19,7 @@ import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
+import MetricDrilldownDebug from "./MetricDrilldownDebug";
 
 export type MetricDrilldownTab = "overview" | "slices" | "debug";
 
@@ -216,7 +217,30 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
             setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           />
         </TabsContent>
-        <TabsContent value="debug">Debug</TabsContent>
+        <TabsContent value="debug">
+          <MetricDrilldownDebug
+            row={row}
+            metric={metric}
+            statsEngine={statsEngine}
+            differenceType={localDifferenceType}
+            setDifferenceType={setLocalDifferenceType}
+            baselineRow={localBaselineRow}
+            setBaselineRow={setLocalBaselineRow}
+            variationFilter={localVariationFilter}
+            setVariationFilter={setLocalVariationFilter}
+            experimentId={experimentId}
+            phase={phase}
+            variations={variations}
+            startDate={startDate}
+            endDate={endDate}
+            reportDate={reportDate}
+            isLatestPhase={isLatestPhase}
+            pValueCorrection={pValueCorrection}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            experimentStatus={experimentStatus}
+            variationNames={variations.map((v) => v.name)}
+          />
+        </TabsContent>
       </Modal>
     </Tabs>
   );
