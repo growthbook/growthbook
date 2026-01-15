@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useEffect,
+useMemo,
 useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
@@ -16,12 +17,13 @@ import {
 } from "shared/constants";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import Button from "@/ui/Button";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
+import { GBCuped, GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -158,7 +160,6 @@ function MetricType({
 
   return null;
 }
-
 export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
@@ -182,8 +183,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
-
+  const { hasCommercialFeature, organization, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
@@ -212,32 +212,47 @@ export default function FactMetricPage() {
   const isMetricSlicesFeatureEnabled =
     growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
-
   // Fetch approval flows for this fact metric
   const {
     approvalFlows,
     isLoading: approvalFlowsLoading,
     mutate: mutateApprovalFlows,
   } = useApprovalFlowsEntityId("fact-metric", fmid as string);
-  if (!ready) return <LoadingOverlay />;
+  const [showingApprovalFlow, setShowingApprovalFlow] = useState(false);
+  const [currentApprovalFlow, setCurrentApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
   // get the query param from the url to check if we are going to show an approval flow detail
- const [currentApprovalFlow, setCurrentApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
   useEffect(() => {
-  const { approvalFlowId } = router.query;
-  if(approvalFlowId && !currentApprovalFlow) {
-    const approvalFlow = approvalFlows.find((flow) => flow.id === approvalFlowId);
-    if(approvalFlow) {
-      setCurrentApprovalFlow(approvalFlow);
+    const { approvalFlowId } = router.query;
+    if(approvalFlowId && !currentApprovalFlow) {
+      const approvalFlow = approvalFlows.find((flow) => flow.id === approvalFlowId);
+      if(approvalFlow) {
+        setCurrentApprovalFlow(approvalFlow);
+        setShowingApprovalFlow(true);
+      } else {
+        setShowingApprovalFlow(false);
+      }
     }
-  }
-  const hash = router.asPath.split("#")[1];
-  if (hash === "approvals") {
-    setTab("approvals");
-  }
-},[approvalFlows, router.query, router.asPath, setTab]);
+    const hash = router.asPath.split("#")[1];
+    if (hash === "approvals") {
+      setTab("approvals");
+    }
+  },[approvalFlows, router.query, router.asPath, setTab]);
 
 
-  const factMetric = getFactMetricById(fmid as string);
+  if (!ready) return <LoadingOverlay />;
+  const factMetricOriginal = getFactMetricById(fmid as string);
+  const userOpenApprovalFlow =  useMemo(() => {
+    return approvalFlows.toReversed().find((flow) => flow.status !== "closed" && flow.status !== "merged" && flow.author === userId);
+  }, [approvalFlows, userId]);
+  // merge the original fact metric with the user open approval flows
+  const factMetric =  useMemo(() => {
+    console.log("currentApprovalFlow", userOpenApprovalFlow);
+    if(showingApprovalFlow) {
+      return { ...factMetricOriginal, ...(userOpenApprovalFlow?.proposedChanges || {}) } as typeof factMetricOriginal;
+    } else {
+      return factMetricOriginal;
+    }
+  }, [factMetricOriginal, userOpenApprovalFlow, showingApprovalFlow]);
 
   if (!factMetric) {
     return (
@@ -248,7 +263,7 @@ export default function FactMetricPage() {
     );
   }
 
-  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {}) && ((userOpenApprovalFlow && showingApprovalFlow) || !userOpenApprovalFlow);
   let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
 
   if (
@@ -469,7 +484,7 @@ export default function FactMetricPage() {
           existing={factMetric}
           showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
-          approvalFlows={approvalFlows}
+          isApprovalFlow={showingApprovalFlow}
           mutateApprovalFlows={mutateApprovalFlows}
         />
       )}
@@ -706,14 +721,43 @@ export default function FactMetricPage() {
           </Link>
         </div>
       </div>
+      <Tabs value={tab ?? undefined} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="analysis">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="experiments">
+            Experiments
+          </TabsTrigger>
+          {growthbook.isOn("bandits") && (
+            <TabsTrigger value="bandits">
+              Bandits
+            </TabsTrigger>
+          )}
+            <TabsTrigger value="approvals">
+              Change Log
+            </TabsTrigger>
+        </TabsList>
 
-      <div className="row">
+        <TabsContent value="analysis">
+        <Box>
+        {userOpenApprovalFlow ? (
+            <Callout status="info" contentsAs="div" mb="2" mt="2">
+              <Flex align="center" justify="between">
+                <Text>
+                  { showingApprovalFlow ? `You are seeing a proposed change view of the metric.` : `you are seeing the live version of the metric.`}
+                </Text>
+                <Button variant="ghost" size="xs" onClick={() => setShowingApprovalFlow(!showingApprovalFlow)}>{showingApprovalFlow ? "live version" : "proposed changes"}</Button>
+             </Flex>
+            </Callout>
+            ) : null}
+        <div className="row">
         <div className="col-12 col-md-8">
           <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
               header={"Description"}
-              canCreate={canEdit}
-              canEdit={canEdit}
+              canCreate={canEdit && !showingApprovalFlow}
+              canEdit={canEdit && !showingApprovalFlow}
               value={factMetric.description}
               aiSuggestFunction={async () => {
                 const res = await apiCall<{
@@ -1100,29 +1144,6 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-
-      <Tabs value={tab ?? undefined} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="analysis">
-            <FaChartLine className="mr-1" size={16} />
-            Metric Analysis
-          </TabsTrigger>
-          <TabsTrigger value="experiments">
-            <GBExperiment className="mr-1" />
-            Experiments
-          </TabsTrigger>
-          {growthbook.isOn("bandits") && (
-            <TabsTrigger value="bandits">
-              <GBBandit className="mr-1" />
-              Bandits
-            </TabsTrigger>
-          )}
-            <TabsTrigger value="approvals">
-              Change Log
-            </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="analysis">
           {datasource ? (
             <MetricAnalysis
               factMetric={factMetric}
@@ -1130,6 +1151,7 @@ export default function FactMetricPage() {
               className="tabbed-content"
             />
           ) : null}
+          </Box>
         </TabsContent>
 
         <TabsContent value="experiments">
@@ -1160,6 +1182,7 @@ export default function FactMetricPage() {
             </Box>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+
   );
 }

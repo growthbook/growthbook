@@ -36,16 +36,8 @@ interface Props {
 
 // Convert our conditions to JSON format compatible with evalCondition
 // Uses $in for matching any of the values, $nin for excluding
-function conditionsToJson(
-  conditions: ConditionRow[],
-  officialOnly: boolean
-): Record<string, unknown> {
+function conditionsToJson(conditions: ConditionRow[]): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-
-  // Add official/managedBy condition if enabled
-  if (officialOnly) {
-    result.managedBy = "admin";
-  }
 
   for (const cond of conditions) {
     if (cond.values.length === 0) continue;
@@ -69,23 +61,15 @@ function conditionsToJson(
 // Convert JSON back to our condition structure
 function jsonToConditions(json: Record<string, unknown> | undefined): {
   conditions: ConditionRow[];
-  officialOnly: boolean;
 } {
   if (!json || Object.keys(json).length === 0) {
-    return { conditions: [], officialOnly: false };
+    return { conditions: [] };
   }
 
   const conditions: ConditionRow[] = [];
-  let officialOnly = false;
   const validFields: TargetableField[] = ["tags", "environments", "projects"];
 
   for (const [key, val] of Object.entries(json)) {
-    // Check for official/managedBy
-    if (key === "managedBy" && val === "admin") {
-      officialOnly = true;
-      continue;
-    }
-
     if (!validFields.includes(key as TargetableField)) {
       continue;
     }
@@ -139,7 +123,7 @@ function jsonToConditions(json: Record<string, unknown> | undefined): {
     }
   }
 
-  return { conditions, officialOnly };
+  return { conditions };
 }
 
 export default function ApprovalFlowConditionInput({
@@ -165,9 +149,6 @@ export default function ApprovalFlowConditionInput({
   const initialState = getInitialState();
   const [conditions, setConditions] = useState<ConditionRow[]>(
     initialState.conditions
-  );
-  const [officialOnly, setOfficialOnly] = useState<boolean>(
-    initialState.officialOnly
   );
 
   // Define available fields based on entity type
@@ -204,11 +185,10 @@ export default function ApprovalFlowConditionInput({
   const fieldConfigs = getFieldConfigs();
 
   const handleChange = useCallback(
-    (newConditions: ConditionRow[], newOfficialOnly: boolean) => {
+    (newConditions: ConditionRow[]) => {
       setConditions(newConditions);
-      setOfficialOnly(newOfficialOnly);
 
-      const json = conditionsToJson(newConditions, newOfficialOnly);
+      const json = conditionsToJson(newConditions);
       if (Object.keys(json).length === 0) {
         onChange(undefined);
       } else {
@@ -216,13 +196,6 @@ export default function ApprovalFlowConditionInput({
       }
     },
     [onChange]
-  );
-
-  const handleOfficialOnlyChange = useCallback(
-    (newValue: boolean) => {
-      handleChange(conditions, newValue);
-    },
-    [conditions, handleChange]
   );
 
   const addCondition = useCallback(() => {
@@ -239,15 +212,15 @@ export default function ApprovalFlowConditionInput({
       operator: "$in",
       values: [],
     };
-    handleChange([...conditions, newCondition], officialOnly);
-  }, [conditions, fieldConfigs, handleChange, officialOnly]);
+    handleChange([...conditions, newCondition]);
+  }, [conditions, fieldConfigs, handleChange]);
 
   const removeCondition = useCallback(
     (index: number) => {
       const newConditions = conditions.filter((_, i) => i !== index);
-      handleChange(newConditions, officialOnly);
+      handleChange(newConditions);
     },
-    [conditions, handleChange, officialOnly]
+    [conditions, handleChange]
   );
 
   const updateCondition = useCallback(
@@ -260,9 +233,9 @@ export default function ApprovalFlowConditionInput({
         newConditions[index].values = [];
       }
 
-      handleChange(newConditions, officialOnly);
+      handleChange(newConditions);
     },
-    [conditions, handleChange, officialOnly]
+    [conditions, handleChange]
   );
 
   // Get available fields (excluding already used ones)
@@ -276,33 +249,14 @@ export default function ApprovalFlowConditionInput({
   // Check if we can add more conditions (one per field type)
   const canAddCondition = conditions.length < fieldConfigs.length;
 
-  // Show official toggle for metrics and fact tables
-  const showOfficialToggle =
-    entityType === "metrics" || entityType === "factTables";
-
   return (
     <Box>
-      {/* Official Only Checkbox */}
-      {showOfficialToggle && (
-        <Flex align="center" gap="2" mb="3">
-          <Checkbox
-            id="official-only-checkbox"
-            value={officialOnly}
-            setValue={handleOfficialOnlyChange}
-            label={`Official ${entityType === "metrics" ? "metrics" : "fact tables"} only`}
-            description="Only applies to items managed by admin"
-          />
-        </Flex>
-      )}
-
       {/* Conditions */}
       {conditions.length === 0 ? (
         <Box>
-          {!officialOnly && (
-            <Text size="2" color="gray" className="font-italic">
-              Applies to all {entityType} by default.
-            </Text>
-          )}
+          <Text size="2" color="gray" className="font-italic">
+            Applies to all {entityType} by default.
+          </Text>
           <Box mt="2">
             <Text
               size="2"

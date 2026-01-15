@@ -1,6 +1,6 @@
 import uniqid from "uniqid";
 import { isEqual } from "lodash";
-import { MakeModelClass, UpdateProps } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel";
 import {
   approvalFlowValidator,
   ApprovalFlowInterface,
@@ -11,9 +11,10 @@ import {
   adminCanBypassApprovalFlow,
   ApprovalEntityType,
   getEntityModel,
-userCanReviewEntity,
+  userCanReviewEntity,
 } from "back-end/src/validators/approval-flows";
 import { checkMergeConflicts, MergeResult } from "shared/util";
+// import { requiresResetReviewOnChange } from "back-end/src/validators/approval-flows";
 
 export const COLLECTION_NAME = "approvalflow";
 
@@ -122,15 +123,16 @@ export class ApprovalFlowModel extends BaseClass {
       entityType,
       entityId,
       author,
-      status: { $in: ["draft", "pending-review", "changes-requested"] },
+      status: { $in: ["draft", "pending-review", "changes-requested", "approved"] },
+    }, {
+      sort: {
+        dateCreated: -1,
+      },
+      limit: 1,
     });
 
     // Return the most recent open flow by this author
-    if (flows.length === 0) return null;
-
-    return flows.sort(
-      (a, b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
-    )[0];
+    if (flows.length === 0) return flows[0];
   }
 
   /**
@@ -180,6 +182,7 @@ export class ApprovalFlowModel extends BaseClass {
     }
 
     // Check if user is trying to approve their own changes
+    //Todo: move to the util function in permitions.ts
     if (decision === "approve" && userId === approvalFlow.author) {
       // Only admins or super admins can approve their own changes
       const isAdmin = this.context.superAdmin || 
@@ -191,6 +194,7 @@ export class ApprovalFlowModel extends BaseClass {
         );
       }
     }
+    // this should be moved to the util function in permitions.ts
     if (!this.canUserReview(approvalFlow, userId)) {
       throw new Error("You are not authorized to review this approval flow");
     }
@@ -204,7 +208,6 @@ export class ApprovalFlowModel extends BaseClass {
       createdAt: now,
     };
 
-    // Add to activity log
     const activityEntry: ActivityLogEntry = {
       id: uniqid("activity_"),
       userId,
@@ -226,6 +229,7 @@ export class ApprovalFlowModel extends BaseClass {
       newStatus = "changes-requested";
     } else if (decision === "approve") {
       // Check if requirements are met (at least one non-author approval)
+      //Todo: move to the util function in permitions.ts
       const requirementsMet = this.checkApprovalRequirements({
         ...approvalFlow,
         reviews: updatedReviews,
@@ -295,6 +299,11 @@ export class ApprovalFlowModel extends BaseClass {
         `Cannot update ${approvalFlow.status} approval flow`
       );
     }
+    let newStatus = approvalFlow.status;
+    // const requiresResetReview = requiresResetReviewOnChange(approvalFlow.entityType, approvalFlow.entityId, this.context);
+    // if(requiresResetReview) {
+    //   newStatus = "pending-review";
+    // }
 
     const now = new Date();
     const activityEntry: ActivityLogEntry = {
@@ -308,7 +317,7 @@ export class ApprovalFlowModel extends BaseClass {
     return await this.updateById(approvalFlowId, {
       proposedChanges,
       activityLog: [...approvalFlow.activityLog, activityEntry],
-      status: "pending-review",
+      status: newStatus,
     });
   }
 
@@ -329,6 +338,21 @@ export class ApprovalFlowModel extends BaseClass {
     if (approvalFlow.status !== "approved" && !adminCanBypass) {
       throw new Error(
         "Cannot merge approval flow that is not approved"
+      );
+    }
+
+    // Apply proposed changes to the target entity (e.g. fact-metric)
+    const entityModel = getEntityModel(this.context, approvalFlow.entityType);
+    // do a diff from the entity model and the proposed changes and only update the fields that have changed
+    if(!entityModel) {
+      throw new Error(`Entity model not found for entity type: ${approvalFlow.entityType}`);
+    }
+    const diff = this.getDiff(approvalFlow.originalEntity, entityModel?.getById(approvalFlow.entityId), approvalFlow.proposedChanges);
+    const changes = diff.modified.map((change) => change.field);
+    if (entityModel && changes.length > 0) {
+      await entityModel.updateById(
+        approvalFlow.entityId,
+        approvalFlow.proposedChanges as Record<string, unknown>
       );
     }
 

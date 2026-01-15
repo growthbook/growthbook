@@ -57,17 +57,14 @@ export type RequireReview = {
   requireReviewOn: boolean;
   resetReviewOnChange: boolean; 
   adminCanBypass?: boolean;
-  approverTeams?: string[];
-  // GrowthBook-style condition for advanced targeting
+  approverRoles?: string[];
   condition?: ConditionInterface;
-  // Legacy support: array of project IDs to match
-  projects?: string[];
 };
 export type ApprovalFlow = {
-  metrics: RequireReview[];
+  metrics: (RequireReview & { officialOnly: boolean })[];
   features: RequireReview[];
   experiments: RequireReview[];
-  factTables: RequireReview[];
+  factTables: (RequireReview & { officialOnly: boolean })[];
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;

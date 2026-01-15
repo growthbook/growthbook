@@ -1,19 +1,24 @@
-import React, { useState, useMemo } from "react";
-import { useRouter } from "next/router";
-import { Box, Flex, Text, Card, Heading } from "@radix-ui/themes";
-import { PiCaretDown,PiCaretLeft,PiCopy } from "react-icons/pi";
+import React, { useEffect, useMemo, useState } from "react";
+import { Box, Flex, Text, Card } from "@radix-ui/themes";
+import { PiCaretDown,PiCaretLeft } from "react-icons/pi";
 import { date, ago } from "shared/dates";
 import { ApprovalFlowInterface } from "@/types/approval-flow";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import RadioGroup from "@/ui/RadioGroup";
-import UserAvatar from "@/components/Avatar/UserAvatar";
-import Code from "@/components/SyntaxHighlighting/Code";
 import Field from "@/components/Forms/Field";
 import { useApprovalFlowSQL } from "@/hooks/useApprovalFlowSQL";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Dropdown from "@/components/Dropdown/Dropdown";
+import {
+  canUserBypassApprovalFlow,
+  checkMergeConflicts,
+  MergeResult,
+  requiresReview,
+} from "shared/util";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Callout from "@/ui/Callout";
 
 interface ApprovalFlowDetailProps {
   approvalFlow: ApprovalFlowInterface;
@@ -74,15 +79,22 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const [reviewComment, setReviewComment] = useState("");
   const [reviewDecision, setReviewDecision] = useState<string>("comment");
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const orgSettings = useOrgSettings();
+  const { user } = useUser();
+  const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
 
-  // Get SQL preview data
-  const { currentSql, hasSql } = useApprovalFlowSQL(
-    approvalFlow?.entityType,
-    currentState,
-    approvalFlow?.proposedChanges,
-    getFactTableById
-  );
-
+  useEffect(() => {
+      if (!approvalFlow.originalEntity || !approvalFlow.proposedChanges || !currentState) {
+        setMergeResult(null);
+        return;
+      }
+      const result = checkMergeConflicts(
+        approvalFlow.originalEntity,
+        currentState,
+        approvalFlow.proposedChanges
+      );
+      setMergeResult(result);
+  }, [approvalFlow.id, approvalFlow.originalEntity, approvalFlow.proposedChanges, currentState]);
   // Group activity by date (must be before early return to follow rules of hooks)
   const groupedActivity = useMemo(() => {
     if (!approvalFlow) return {};
@@ -96,7 +108,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         comment: r.comment,
       })),
       ...approvalFlow.activityLog
-        .filter((a) => !["reviewed", "commented"].includes(a.action))
+        .filter((a) => !["reviewed", "commented", "approved", "requested-changes"].includes(a.action))
         .map((a) => ({
           type: "activity" as const,
           id: a.id,
@@ -148,7 +160,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       setReviewDecision("comment");
       setReviewDropdownOpen(false);
     } catch (error) {
-      console.error("Failed to submit review:", error);
       setReviewError(error instanceof Error ? error.message : "Failed to submit review");
     } finally {
       setIsSubmitting(false);
@@ -187,62 +198,93 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     await handleSubmitReview("comment", comment);
   };
 
+  const handleMerge = async () => {
+    setIsSubmitting(true);
+      await apiCall(`/approval-flow/${approvalFlow.id}/merge`, {
+        method: "POST",
+      });
+      mutate();
+      setIsSubmitting(false);
+  };
+
+  const handleClose = async () => {
+    setIsSubmitting(true);
+      await apiCall(`/approval-flow/${approvalFlow.id}/close`, {
+        method: "POST",
+      });
+      mutate();
+      setIsSubmitting(false);
+  };
+  const canMerge = () => {
+    return approvalFlow.status === "approved" || canUserBypassApprovalFlow(orgSettings, approvalFlow.entityType, currentState, user) || !requiresReview(orgSettings, currentState, approvalFlow.entityType);
+  };
+
   const getActivityLabel = (
     item: (typeof groupedActivity)[string][number]
-  ): { label: string; color: string } => {
+  ): { label: string; junctionCopy: string; color: string } => {
     if (item.type === "review") {
       switch (item.decision) {
         case "approve":
-          return { label: "Approved Changes", color: "var(--green-9)" };
+          return { label: "Approved Changes", junctionCopy: "by", color: "var(--green-7)" };
         case "request-changes":
-          return { label: "Requested Changes", color: "var(--orange-9)" };
+          return { label: "Requested Changes", junctionCopy: "by", color: "var(--orange-7)" };
         case "comment":
-          return { label: "left a comment", color: "var(--gray-9)" };
+          return { label: "Comment", junctionCopy: "by", color: "var(--violet-7)" };
         default:
-          console.log("review", item);
-          return { label: "Review", color: "var(--gray-9)" };
+          return { label: "Review", junctionCopy: "by", color: "var(--gray-7)" };
       }
     }
     // Activity log
     switch (item.action) {
       case "merged":
-        return { label: "Merged", color: "var(--purple-9)" };
+        return { label: "Merged", junctionCopy: "by", color: "var(--violet-7)" };
       case "closed":
-        return { label: "Closed", color: "var(--gray-9)" };
+        return { label: "Closed", junctionCopy: "by", color: "var(--red-7)" };
       case "reopened":
-        return { label: "Reopened", color: "var(--blue-9)" };
+        return { label: "Reopened", junctionCopy: "by", color: "var(--blue-7)" };
+      case "created":
+        return { label: "Pending Approval", junctionCopy: "requested by", color: "var(--violet-7)" };
+      case "updated":
+        return { label: "Updated", junctionCopy: "by", color: "var(--violet-7)" };
       default:
-        return { label: item.action, color: "var(--gray-9)" };
+        return { label: item.action, junctionCopy: "by", color: "var(--gray-9)" };
     }
   };
-
-  const backPath =
-    approvalFlow.entityType === "fact-metric"
-      ? "/metrics#approvalflows"
-      : "/fact-tables";
-
   return (
     <div className="container-fluid pagecontents">
       {/* Header */}
-      <Flex justify="between" align="center" mb="4">
-        <button
+      <Box mb="4">
+        <Button
+          variant="ghost"
+          color="violet"
+          size="xs"
           onClick={() => setCurrentApprovalFlow(null)}
-          className="btn btn-link p-0"
-          style={{ textDecoration: "none" }}
-        >
+        > 
           <Flex align="center" gap="1">
             <PiCaretLeft size={12} />
             <span>Back to list</span>
           </Flex>
-        </button>
-
+        </Button>
+      </Box>
+      {mergeResult && !mergeResult.success && (
+        <Callout status="danger">
+          <Text size="2">
+            You have conflicts with the current state of the entity. Please resolve the conflicts
+            before merging.
+          </Text>
+        </Callout>
+      )}
+      <Flex justify="between" align="center" mb="4">
+      <Text size="3" weight="medium">
+        {date(approvalFlow.dateCreated)}
+      </Text>
         {canUserReview && (
           <Dropdown
             uuid="submit-review-dropdown"
             toggle={
-              <button className="btn btn-primary">
+              <Button variant="solid" color="violet">
                 Submit review <PiCaretDown className="ml-1" />
-              </button>
+              </Button>
             }
             caret={false}
             width={320}
@@ -290,7 +332,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
               )}
               <Flex justify="end" gap="2" mt="3">
                 <Button
-                  color="secondary"
+                  variant="soft"
+                  color="red"
                   stopPropagation
                   onClick={() => {
                     setReviewDropdownOpen(false);
@@ -302,7 +345,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                   Cancel
                 </Button>
                 <Button
-                  color="primary"
+                  variant="solid"
+                  color="violet"
                   stopPropagation
                   onClick={() => {
                     handleSubmitReview(
@@ -320,22 +364,19 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         )}
       </Flex>
 
-      <Text size="2" color="gray" mb="4" as="p">
-        {date(approvalFlow.dateCreated)}
-      </Text>
-
-      <Flex gap="5" direction={{ initial: "column", lg: "row" }} mb="5">
-        <Box style={{ flex: 1 }}>
+      <Flex gap="5" direction={{ initial: "column", lg: "row" }} mb="6">
+        <Box p="5" style={{ flex: 1, backgroundColor: "var(--white)", width: "100%", borderRadius: "var(--radius-2)" }}>
           {changedFields.length === 0 ? (
             <Text size="2" color="gray">
               No changes to display.
             </Text>
           ) : (
-            changedFields.map((field) => {
+            <Box style={{ maxWidth: 706, width: "100%", maxHeight: 400, overflow: "scroll",  margin: "0 auto" }}>
+            {changedFields.map((field) => {
               const oldValue = flatCurrent[field];
               const newValue = flatProposed[field];
               return (
-                <Card key={field} mb="2" style={{ padding: "12px 16px" }}>
+                <Card key={field} mb="2" style={{ padding: "12px 16px"}}>
                   <Text weight="medium" size="2" as="p" mb="1">
                     {field}
                   </Text>
@@ -352,49 +393,23 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                   </Flex>
                 </Card>
               );
-            })
+            })}
+            </Box>
           )}
         </Box>
-
-        {/* Right: SQL Preview */}
-        {hasSql && currentSql && (
-          <Box style={{ flex: 1 }}>
-            <Card style={{ padding: 0, overflow: "hidden" }}>
-              <Flex
-                justify="between"
-                align="center"
-                px="3"
-                py="2"
-                style={{ borderBottom: "1px solid var(--gray-4)" }}
-              >
-                <Text weight="medium" size="2">
-                  SQL
-                </Text>
-                <button
-                  className="btn btn-link p-0"
-                  onClick={() => navigator.clipboard.writeText(currentSql)}
-                  title="Copy SQL"
-                >
-                  <PiCopy size={12} style={{ color: "var(--gray-9)" }} />
-                </button>
-              </Flex>
-              <Box style={{ maxHeight: 400, overflow: "auto" }}>
-                <Code language="sql" code={currentSql} />
-              </Box>
-            </Card>
-          </Box>
-        )}
       </Flex>
 
       {/* Comments Section */}
-      <Box mb="5">
-        <Heading size="3" mb="3">
-          Comments ({approvalFlow.reviews.length})
-        </Heading>
-
+      <Box mb="4">
+        <Text size="3" weight="medium">
+            Comments ({approvalFlow.reviews.length})
+        </Text>
+      </Box>
+      <Box mb="5" p="5" style={{ backgroundColor: "var(--white)", borderRadius: "var(--radius-2)" }}>
         {/* Add comment form */}
-        <Box mb="4">
-          <Text size="2" weight="medium" mb="2" as="p">
+        <Box style={{ maxWidth: 720, width: "100%", margin: "0 auto" }}>
+        <Box mb="" p="5" className="appbox" style={{ boxShadow: "0 12px 32px -16px rgba(0, 0, 51, 0.06), 0 8px 40px 0 rgba(0, 0, 0, 0.05), 0 0px 0 1px rgba(0, 0, 51, 0.06)", borderRadius: "var(--radius-2)" }}>
+          <Text size="2" mb="2" as="p">
             Add a comment
           </Text>
           <Field
@@ -406,6 +421,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           />
           <Flex justify="end" mt="2">
             <Button
+              variant="solid"
               color="violet"
               onClick={handleAddComment}
               disabled={!comment.trim() || isSubmitting}
@@ -415,7 +431,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           </Flex>
         </Box>
 
-        <hr className="my-4" />
 
         {/* Activity feed grouped by date */}
         {Object.entries(groupedActivity).map(([dateStr, items]) => (
@@ -425,93 +440,73 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
             </Text>
 
             {items.map((item) => {
-              const { label, color } = getActivityLabel(item);
-              const isComment = item.type === "review" && item.decision === "comment";
+              const { label, color, junctionCopy } = getActivityLabel(item);
               const hasComment = item.type === "review" && item.comment;
-              const isCollapsedItem = collapsedItems.has(item.id);
 
-              if (isComment && hasComment) {
-                // Comment style - show user name and comment inline
-                return (
-                  <Card key={item.id} mb="2" style={{ padding: "12px 16px" }}>
-                    <Text size="2" weight="medium" as="p" mb="2">
-                      {getUserDisplay(item.userId)} {label}
-                    </Text>
-                    <Box
-                      pl="3"
-                      style={{ borderLeft: "2px solid var(--gray-4)" }}
-                    >
-                      <Flex justify="between" align="start">
-                        <Text size="2">{item.comment}</Text>
-                        <Text size="1" color="gray" style={{ whiteSpace: "nowrap", marginLeft: 16 }}>
-                          {ago(item.createdAt)}
-                        </Text>
-                      </Flex>
-                    </Box>
-                  </Card>
-                );
-              }
-
-              // Review/Activity style - colored header bar
               return (
-                <Card
+                <Box
                   key={item.id}
-                  mb="2"
-                  style={{ padding: 0, overflow: "hidden" }}
+                  mb="3"
+                  style={{
+                    padding: "16px",
+                    borderRadius: "var(--radius-5)",
+                    borderTop: "1px solid var(--gray-4)",
+                    borderBottom: "1px solid var(--gray-4)",
+                    borderRight: "1px solid var(--gray-4)",
+                    borderLeft: `5px solid ${color}`,
+                    overflow: "hidden",
+                    boxSizing: "content-box"
+                  }}
                 >
-                  <Box
-                    px="3"
-                    py="2"
-                    style={{
-                      backgroundColor: color,
-                      cursor: hasComment ? "pointer" : "default",
-                    }}
-                    onClick={() => hasComment && toggleCollapsed(item.id)}
-                  >
-                    <Flex justify="between" align="center">
-                      <Text size="2" style={{ color: "white" }}>
-                        {label}
-                      </Text>
-                      {hasComment && (
-                        <PiCaretDown
-                          size={10}
-                          style={{
-                            color: "white",
-                            transform: isCollapsedItem ? "rotate(90deg)" : "none",
-                            transition: "transform 0.2s",
-                          }}
-                        />
-                      )}
-                    </Flex>
-                  </Box>
-                  <Box px="3" py="2">
-                    <Flex justify="between" align="center">
-                      <Flex align="center" gap="2">
-                        <UserAvatar
-                          name={getUserDisplay(item.userId)}
-                          size="sm"
-                          variant="soft"
-                        />
-                        <Text size="2">{getUserDisplay(item.userId)}</Text>
-                      </Flex>
-                      <Text size="1" color="gray">
-                        {ago(item.createdAt)}
-                      </Text>
-                    </Flex>
-                    {!isCollapsedItem && hasComment && item.type === "review" && (
-                      <Box mt="2" pl="4">
-                        <Text size="2" color="gray">
-                          {item.comment}
-                        </Text>
-                      </Box>
-                    )}
-                  </Box>
-                </Card>
+                  <Flex justify="between" align="start" mb="2">
+                    <Text size="2" weight="medium">
+                      {label} <Text size="2" weight="regular" as="span">{junctionCopy}</Text> {getUserDisplay(item.userId)}
+                    </Text>
+                    <Text size="2" weight="light" style={{ whiteSpace: "nowrap", marginLeft: 16 }}>
+                      {ago(item.createdAt)}
+                    </Text>
+                  </Flex>
+
+                  {hasComment ? (
+                    <Text size="2">{item.comment}</Text>
+                  ) : (
+                    <Text size="2" weight="light" style={{ fontStyle: "italic", color: "var(--gray-10)" }}>
+                      No comment
+                    </Text>
+                  )}
+                </Box>
               );
             })}
           </Box>
         ))}
+        </Box>
       </Box>
+
+      {/* Action Buttons */}
+      {isOpen && (
+        <Box mb="5">
+          <Flex gap="3" justify="end">
+            <Button
+              variant="outline"
+              color="red"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
+              Close
+            </Button>
+            <Button
+              variant="solid"
+              color="violet"
+              onClick={handleMerge}
+              disabled={
+                isSubmitting || !canMerge() || (mergeResult && !mergeResult.success)
+              }
+            >
+              Merge
+            </Button>
+          </Flex>
+        </Box>
+      )}
     </div>
   );
 };

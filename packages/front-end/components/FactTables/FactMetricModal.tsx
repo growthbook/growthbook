@@ -73,6 +73,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
 import { DocLink } from "../DocLink";
 import { ApprovalFlowInterface } from "@/types/approval-flow";
+import { datetime } from "shared/dates";
 
 export interface Props {
   close?: () => void;
@@ -85,7 +86,7 @@ export interface Props {
   switchToLegacy?: () => void;
   source: string;
   datasource?: string;
-  approvalFlows?: ApprovalFlowInterface[];
+  isApprovalFlow?: boolean;
   mutateApprovalFlows?: () => void;
 }
 
@@ -1508,7 +1509,7 @@ export default function FactMetricModal({
   switchToLegacy,
   source,
   datasource,
-  approvalFlows,
+  isApprovalFlow = false,
   mutateApprovalFlows,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -1526,49 +1527,6 @@ export default function FactMetricModal({
   const showSQLPreview = true;
 
   const [showExperimentSQL, setShowExperimentSQL] = useState(false);
-  const [selectedApprovalFlow, setSelectedApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
-  // get the latest non-closed approval flow for that user
-  const { userId } = useUser();
-  useEffect(() => {
-    if (!approvalFlows || approvalFlows.length === 0) {
-      setSelectedApprovalFlow(null);
-      return;
-    }
-    // Keep the current selection if it still exists in the list
-    if (
-      selectedApprovalFlow &&
-      approvalFlows.some((flow) => flow.id === selectedApprovalFlow.id)
-    ) {
-      return;
-    }
-    const latestNonClosedApprovalFlow = [...approvalFlows]
-      .filter(
-        (f) =>
-          f.status !== "closed" && f.status !== "merged" && f.author === userId,
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
-      )[0];
-    setSelectedApprovalFlow(latestNonClosedApprovalFlow || null);
-  }, [approvalFlows, userId, selectedApprovalFlow]);
-
-  const approvalFlowOptions = useMemo(
-    () =>
-      (approvalFlows || []).map((flow) => ({
-        value: flow.id,
-        label: `${flow.title || "Untitled"} (${flow.status})`,
-      })),
-    [approvalFlows],
-  );
-
-  const existingWithSelectedApprovalFlow = useMemo(() => {
-    if (!selectedApprovalFlow) return existing;
-    return {
-      ...selectedApprovalFlow?.originalEntity,
-      ...selectedApprovalFlow?.proposedChanges,
-    };
-  }, [selectedApprovalFlow]);
 
   const {
     datasources,
@@ -1600,13 +1558,13 @@ export default function FactMetricModal({
     const baseDefaults = getDefaultFactMetricProps({
       datasources,
       metricDefaults,
-      existing: existingWithSelectedApprovalFlow,
+      existing: existing,
       settings,
       project,
       initialFactTable: initialFactTable
         ? getFactTableById(initialFactTable) || undefined
         : undefined,
-      managedBy: existingWithSelectedApprovalFlow?.managedBy,
+      managedBy: existing?.managedBy,
     });
 
     // Multiple percent values by 100 for the UI
@@ -1622,7 +1580,7 @@ export default function FactMetricModal({
   }, [
     datasources,
     metricDefaults,
-    existingWithSelectedApprovalFlow,
+    existing,
     settings,
     project,
     initialFactTable,
@@ -1678,8 +1636,8 @@ export default function FactMetricModal({
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : "";
 
-  const isNew = !existingWithSelectedApprovalFlow || duplicate || fromTemplate;
-  const initialType = existingWithSelectedApprovalFlow?.metricType;
+  const isNew = !existing || duplicate || fromTemplate;
+  const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
       track("Viewed Create Fact Metric Modal", { source });
@@ -1879,19 +1837,19 @@ export default function FactMetricModal({
 
         if (!isNew) {
           // Track auto slices changes
-          const previousSlices = existingWithSelectedApprovalFlow.metricAutoSlices || [];
+          const previousSlices = existing.metricAutoSlices || [];
           const newSlices = values.metricAutoSlices || [];
           if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
-            if(selectedApprovalFlow){
+            if(isApprovalFlow){
               track("metric-auto-slices-updated-approval-flow", {
-                metricId: existingWithSelectedApprovalFlow.id,
+                metricId: existing.id,
                 previousSlices: previousSlices,
                 newSlices: newSlices,
                 sliceCount: newSlices.length,
               });
             } else {
             track("metric-auto-slices-updated", {
-              metricId: existingWithSelectedApprovalFlow.id,
+              metricId: existing.id,
               previousSlices: previousSlices,
               newSlices: newSlices,
               sliceCount: newSlices.length,
@@ -1920,10 +1878,13 @@ export default function FactMetricModal({
             });
             if(!!response?.awaitingApproval) {
               track("Awaiting Approval for Fact Metric Update", trackProps);
+
             } else {
               track("Edit Fact Metric", trackProps);
               await mutateDefinitions();
             }
+            mutateApprovalFlows?.();
+
           }
         } else {
           // Track auto slices for new metrics
@@ -1971,27 +1932,6 @@ export default function FactMetricModal({
                 Switch to legacy SQL <FaArrowRight />
               </a>
             </Callout>
-          )}
-          {approvalFlowOptions.length > 0 && (
-            <div className="mb-3">
-              <SelectField
-                label="Approval Flow"
-                value={selectedApprovalFlow?.id || ""}
-                options={[
-                  { label: "No approval flow", value: "" },
-                  ...approvalFlowOptions,
-                ]}
-                onChange={(value) => {
-                  const nextFlow =
-                    approvalFlows?.find((flow) => flow.id === value) || null;
-                  setSelectedApprovalFlow(nextFlow);
-                }}
-                placeholder="Select an approval flow"
-              />
-              <HelperText status="info">
-                Selecting an approval flow loads its proposed changes for editing.
-              </HelperText>
-            </div>
           )}
           <Field
             label="Metric Name"

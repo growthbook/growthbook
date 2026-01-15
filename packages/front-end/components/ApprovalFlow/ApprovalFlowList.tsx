@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Badge, Flex, Box, Heading, Text } from "@radix-ui/themes";
-import { date, datetime } from "shared/dates";
+import { datetime } from "shared/dates";
 import { ApprovalFlowInterface,ApprovalFlowStatus } from "@/types/approval-flow";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
@@ -20,6 +20,7 @@ interface ApprovalFlowListProps {
   setApprovalFlow: (flow: ApprovalFlowInterface) => void;
   showEntityType?: boolean;
   showHistory?: boolean;
+  mutate?: () => void;
 }
 
 const ITEMS_PER_PAGE = 7;
@@ -30,6 +31,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
   setApprovalFlow,
   showEntityType = false,
   showHistory = true,
+  mutate,
 }) => {
   const { getUserDisplay } = useUser();
 
@@ -253,7 +255,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                     style={{ cursor: "pointer" }}
                     className="hover-highlight"
                   >
-                    <td>{date(flow.dateCreated)}</td>
+                    <td>{datetime(flow.dateCreated)}</td>
                     <td>{flow.reviews.length}</td>
                     <td>
                       {flow.author ? (

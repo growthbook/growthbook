@@ -14,13 +14,17 @@ interface ApprovalFlowSetting {
   requireReviewOn?: boolean;
   condition?: Record<string, unknown>;
   approverRoles?: string[];
+  officialOnly?: boolean;
   resetReviewOnChange?: boolean;
+  adminCanBypass?: boolean;
 }
 
 const DEFAULT_SETTING: ApprovalFlowSetting = {
   requireReviewOn: true,
   condition: {},
   approverRoles: [],
+  officialOnly: false,
+  adminCanBypass: false,
   resetReviewOnChange: false,
 };
 
@@ -220,6 +224,31 @@ export default function ApprovalFlowSettings() {
                             />
                           </Box>
 
+                          <Flex gap="3" align="center" mb="3">
+                            <Checkbox
+                              id={`toggle-metric-official-only-${i}`}
+                              value={
+                                !!form.watch(
+                                  `approvalFlow.metrics.${i}.officialOnly`
+                                )
+                              }
+                              setValue={(value) => {
+                                form.setValue(
+                                  `approvalFlow.metrics.${i}.officialOnly`,
+                                  value
+                                );
+                              }}
+                            />
+                            <Text
+                              as="label"
+                              size="2"
+                              className="font-weight-semibold"
+                              htmlFor={`toggle-metric-official-only-${i}`}
+                            >
+                              Official metrics only
+                            </Text>
+                          </Flex>
+
                           <Flex gap="3" align="center">
                             <Checkbox
                               id={`toggle-reset-metric-review-on-change-${i}`}
@@ -387,6 +416,31 @@ export default function ApprovalFlowSettings() {
                               placeholder="All Roles (anyone can approve)"
                             />
                           </Box>
+
+                          <Flex gap="3" align="center" mb="3">
+                            <Checkbox
+                              id={`toggle-fact-table-official-only-${i}`}
+                              value={
+                                !!form.watch(
+                                  `approvalFlow.factTables.${i}.officialOnly`
+                                )
+                              }
+                              setValue={(value) => {
+                                form.setValue(
+                                  `approvalFlow.factTables.${i}.officialOnly`,
+                                  value
+                                );
+                              }}
+                            />
+                            <Text
+                              as="label"
+                              size="2"
+                              className="font-weight-semibold"
+                              htmlFor={`toggle-fact-table-official-only-${i}`}
+                            >
+                              Official fact tables only
+                            </Text>
+                          </Flex>
 
                           <Flex gap="3" align="center">
                             <Checkbox

@@ -1,6 +1,8 @@
 import { ApprovalFlow, OrganizationSettings } from "back-end/types/organization";
 import { ApprovalFlowInterface } from "@/types/approval-flow";
 import { UserContextValue } from "./UserContext";
+import { ConditionInterface,
+evalCondition } from "@growthbook/growthbook";
 
 // Entity types that can have approval flows
 // This matches the frontend ApprovalEntityType
@@ -24,10 +26,7 @@ export const getApprovalFlowKey = (
   }
 };
 
-// Check if admin can bypass approval flow
-// Returns true if:
-// 1. User is an admin
-// 2. At least one approval flow setting has adminCanBypass enabled for this entity type
+
 export const canBypassApprovalFlow = (
   settings: OrganizationSettings | undefined,
   approvalFlow: ApprovalFlowInterface,
@@ -44,11 +43,32 @@ export const canBypassApprovalFlow = (
   }
 
   const approvalFlowSettings = settings?.approvalFlow?.[approvalFlowKey];
-  if (!Array.isArray(approvalFlowSettings) || approvalFlowSettings.length === 0) {
+  if (!Array.isArray(approvalFlowSettings)) {
     return false;
   }
 
-  // Check if any setting has adminCanBypass enabled
-  // Admin bypass is a global setting for the entity type, not condition-specific
-  return approvalFlowSettings.some((setting) => setting.adminCanBypass === true);
+  // Get the entity from originalEntity (the entity state when approval flow was created)
+  const entity = approvalFlow.originalEntity;
+  if (!entity) {
+    return false;
+  }
+
+  // Find the matching setting and check if adminCanBypass is enabled
+  return approvalFlowSettings.some((setting) => {
+    // Check if adminCanBypass is enabled for this setting
+    if (setting.adminCanBypass !== true) {
+      return false;
+    }
+
+    // Check if approval is enabled for this setting
+    if (!setting.requireReviewOn) {
+      return false;
+    }
+
+    // If there's a condition, evaluate it using the GrowthBook SDK
+    if (setting.condition) {
+      const matches = evalCondition(entity, setting.condition as ConditionInterface);
+      return matches;
+    }
+  });
 };

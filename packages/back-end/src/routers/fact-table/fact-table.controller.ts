@@ -39,6 +39,7 @@ import {
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import { checkApprovalIsRequired } from "back-end/src/enterprise/approval-flows/helpers";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -592,23 +593,14 @@ export const putFactMetric = async (
   // Check if approval is required for this fact metric update
   const approvalFlowSettings = context.org.settings?.approvalFlow?.metrics || [];
   // TODO: move this to its own function inside the approvals validator
-  const requiresApproval = approvalFlowSettings.some((setting) => {
-    // Check if approval is enabled
-    if (!setting.requireReviewOn) return false;
-
-    // Check if this fact metric's projects match the approval flow settings
-    const metricProjects = factMetric.projects || [];
-    const settingProjects = setting.projects || [];
-    
-    // If no projects specified in settings, applies to all
-    if (settingProjects.length === 0) return true;
-    
-    // Check if any of the fact metric's projects are in the approval settings
-    return metricProjects.some((p) => settingProjects.includes(p));
-  });
-
-  if (requiresApproval) {
-
+  const requiresApproval = await checkApprovalIsRequired("fact-metric", factMetric.id, context);
+  
+  if (requiresApproval) { 
+    // check if there is an approval flow for this user and entity id
+    const previousApprovalFlow = await context.models.approvalFlow.getOpenByEntityAndAuthor("fact-metric", factMetric.id, context.userId);
+    if (previousApprovalFlow) {
+      throw new Error("An approval flow already exists for this user and entity");
+    }
     const approvalFlow = await context.models.approvalFlow.create({
       entityType: "fact-metric",
       entityId: factMetric.id,
@@ -618,7 +610,7 @@ export const putFactMetric = async (
       author: context.userId,
       reviews: [],
       proposedChanges: data,
-      baseVersion: 0, // TODO: Add version tracking to fact metrics
+      originalEntity: factMetric,
       activityLog: [], // Will be populated by beforeCreate hook
     });
     console.log("approvalFlow", approvalFlow);
