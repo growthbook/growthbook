@@ -78,7 +78,6 @@ const BreakDownResults: FC<{
   metricsFilter?: string[];
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
   renderMetricName?: (
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
@@ -132,7 +131,6 @@ const BreakDownResults: FC<{
   metricsFilter,
   experimentType,
   ssrPolyfills,
-  hideDetails,
   renderMetricName,
   noStickyHeader,
   sortBy,
@@ -261,9 +259,6 @@ const BreakDownResults: FC<{
                 ) : (
                   <div style={{ marginBottom: 2 }}>
                     {getRenderLabelColumn({
-                      statsEngine,
-                      hideDetails,
-                      experimentType,
                       className: "",
                     })({
                       label: table.metric.name,

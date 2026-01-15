@@ -85,7 +85,6 @@ const CompactResults: FC<{
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
@@ -149,7 +148,6 @@ const CompactResults: FC<{
   noTooltip,
   experimentType,
   ssrPolyfills,
-  hideDetails,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   customMetricSlices,
@@ -425,9 +423,6 @@ const CompactResults: FC<{
           setDifferenceType={setDifferenceType}
           totalMetricsCount={totalMetricsCount}
           renderLabelColumn={getRenderLabelColumn({
-            statsEngine,
-            hideDetails,
-            experimentType,
             pinnedMetricSlices,
             togglePinnedMetricSlice,
             expandedMetrics,
@@ -486,9 +481,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails,
-              experimentType: undefined,
               pinnedMetricSlices,
               togglePinnedMetricSlice,
               expandedMetrics,
@@ -547,9 +539,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails,
-              experimentType: undefined,
               pinnedMetricSlices,
               togglePinnedMetricSlice,
               expandedMetrics,
@@ -615,10 +604,6 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  // TODO: Remove these 3 props
-  statsEngine,
-  hideDetails,
-  experimentType: _experimentType,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   expandedMetrics,
@@ -629,9 +614,6 @@ export function getRenderLabelColumn({
   sliceTagsFilter,
   className = "pl-3",
 }: {
-  statsEngine?: StatsEngine;
-  hideDetails?: boolean;
-  experimentType?: ExperimentType;
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,

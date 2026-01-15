@@ -202,9 +202,6 @@ export default function ExperimentMetricBlock({
               resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
             } Metrics`}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails: false,
-              experimentType: undefined,
               pinnedMetricSlices: effectivePinnedMetricSlices,
               togglePinnedMetricSlice: isEditing
                 ? togglePinnedMetricSlice
