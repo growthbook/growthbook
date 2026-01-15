@@ -267,7 +267,7 @@ export abstract class BaseModel<
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
-  ): Promise<z.infer<ApiT> | null> {
+  ): Promise<z.infer<ApiT>> {
     const id = req.params.id;
     const doc = await this.getById(id);
     if (!doc) throw new Error("Not found");
@@ -275,7 +275,7 @@ export abstract class BaseModel<
   }
   protected async handleApiCreate(
     req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
-  ): Promise<z.infer<ApiT> | null> {
+  ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
     return this.toApiInterface(await this.create(toCreate));
@@ -309,7 +309,7 @@ export abstract class BaseModel<
       z.ZodType<UpdateProps<z.infer<T>>>,
       z.ZodTypeAny
     >,
-  ): Promise<z.infer<ApiT> | null> {
+  ): Promise<z.infer<ApiT>> {
     const id = req.params.id;
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
