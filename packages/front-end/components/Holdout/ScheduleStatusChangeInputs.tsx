@@ -1,48 +1,45 @@
 import { format as formatTimeZone } from "date-fns-tz";
-import React, { useEffect, useState } from "react";
-import { getValidDate } from "shared/dates";
-import { HoldoutUpdateSchedule } from "shared/validators";
+import React from "react";
+import { HoldoutInterface } from "shared/validators";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { UseFormReturn } from "react-hook-form";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { format } from "date-fns";
+import { getValidDate } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import Field from "@/components/Forms/Field";
 
 interface Props {
-  defaultValue: HoldoutUpdateSchedule;
-  onChange: (value: HoldoutUpdateSchedule) => void;
-  disabled?: boolean;
+  form: UseFormReturn<Pick<HoldoutInterface, "scheduledStatusUpdates">>;
+  holdout: HoldoutInterface;
+  experiment: ExperimentInterfaceStringDates;
 }
 
 export default function ScheduleStatusChangeInputs({
-  defaultValue,
-  onChange,
-  disabled,
+  form,
+  holdout,
+  experiment,
 }: Props) {
-  const [schedule, setSchedule] = useState<HoldoutUpdateSchedule>({
-    startAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-    startAnalysisPeriodAt: new Date(Date.now() + 65 * 24 * 60 * 60 * 1000),
-    stopAt: new Date(Date.now() + 95 * 24 * 60 * 60 * 1000),
-  });
+  const isRunning = experiment.status === "running";
+  const isStopped = experiment.status === "stopped";
 
-  //   useEffect(() => {
-  //     props.onChange(rules);
-  //   }, [props, props.defaultValue, rules]);
+  const holdoutStatus =
+    experiment.status === "draft"
+      ? "draft"
+      : isRunning && !holdout.analysisStartDate
+        ? "running"
+        : isRunning && holdout.analysisStartDate
+          ? "analysis-period"
+          : "stopped";
 
-  //   function dateIsValid(date: Date) {
-  //     return date instanceof Date && !isNaN(date.valueOf());
-  //   }
+  const startDate = form.watch("scheduledStatusUpdates.startAt");
+  const startAnalysisPeriodDate = form.watch(
+    "scheduledStatusUpdates.startAnalysisPeriodAt",
+  );
+  const stopDate = form.watch("scheduledStatusUpdates.stopAt");
 
-  //   const onChange = (value: Date | undefined, property: string, i: number) => {
-  //     if (i === 0) setDate0(value);
-  //     if (i === 1) setDate1(value);
-  //     if (value && !dateIsValid(value)) return;
-
-  //     const newRules = [...rules];
-  //     newRules[i][property] = value ?? null;
-  //     setRules(newRules);
-  //   };
-  const startDate = schedule.startAt;
-  const startAnalysisPeriodDate = schedule.startAnalysisPeriodAt;
-  const stopDate = schedule.stopAt;
+  const dateFormat = "MM/dd/yyyy, hh:mm a";
 
   const dateError =
     (startDate &&
@@ -60,18 +57,32 @@ export default function ScheduleStatusChangeInputs({
           </Text>
 
           <Flex direction="row" align="center">
-            <DatePicker
-              date={schedule.startAt}
-              setDate={(d) => {
-                setSchedule({ ...schedule, startAt: d });
-              }}
-              disableBefore={new Date()}
-              scheduleEndDate={
-                schedule.startAnalysisPeriodAt
-                  ? getValidDate(schedule.startAnalysisPeriodAt)
-                  : undefined
-              }
-            />
+            {!isRunning && !isStopped ? (
+              <DatePicker
+                date={form.watch("scheduledStatusUpdates.startAt")}
+                setDate={(d) => {
+                  form.setValue("scheduledStatusUpdates.startAt", d);
+                }}
+                disableBefore={new Date()}
+                scheduleEndDate={form.watch(
+                  "scheduledStatusUpdates.startAnalysisPeriodAt",
+                )}
+              />
+            ) : (
+              <Box mb="4">
+                <Field
+                  value={
+                    holdout.scheduledStatusUpdates?.startAt
+                      ? format(
+                          getValidDate(holdout.scheduledStatusUpdates?.startAt),
+                          dateFormat,
+                        )
+                      : ""
+                  }
+                  disabled
+                />
+              </Box>
+            )}
             <span className="pl-2">({formatTimeZone(new Date(), "z")})</span>
           </Flex>
         </Flex>
@@ -81,16 +92,33 @@ export default function ScheduleStatusChangeInputs({
           </Text>
 
           <Flex direction="row" align="center">
-            <DatePicker
-              date={schedule.startAnalysisPeriodAt}
-              setDate={(d) => {
-                setSchedule({ ...schedule, startAnalysisPeriodAt: d });
-              }}
-              disableBefore={new Date()}
-              scheduleStartDate={
-                schedule.startAt ? getValidDate(schedule.startAt) : undefined
-              }
-            />
+            {!isStopped && holdoutStatus !== "analysis-period" ? (
+              <DatePicker
+                date={form.watch(
+                  "scheduledStatusUpdates.startAnalysisPeriodAt",
+                )}
+                setDate={(d) => {
+                  form.setValue(
+                    "scheduledStatusUpdates.startAnalysisPeriodAt",
+                    d,
+                  );
+                }}
+                disableBefore={new Date()}
+                scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
+              />
+            ) : (
+              <Box mb="4">
+                <Field
+                  value={format(
+                    getValidDate(
+                      holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
+                    ),
+                    dateFormat,
+                  )}
+                  disabled
+                />
+              </Box>
+            )}
             <span className="pl-2">({formatTimeZone(new Date(), "z")})</span>
           </Flex>
         </Flex>
@@ -101,16 +129,14 @@ export default function ScheduleStatusChangeInputs({
 
           <Flex direction="row" align="center">
             <DatePicker
-              date={schedule.stopAt}
+              date={form.watch("scheduledStatusUpdates.stopAt")}
               setDate={(d) => {
-                setSchedule({ ...schedule, stopAt: d });
+                form.setValue("scheduledStatusUpdates.stopAt", d);
               }}
               disableBefore={new Date()}
-              scheduleStartDate={
-                schedule.startAnalysisPeriodAt
-                  ? getValidDate(schedule.startAnalysisPeriodAt)
-                  : undefined
-              }
+              scheduleStartDate={form.watch(
+                "scheduledStatusUpdates.startAnalysisPeriodAt",
+              )}
             />
             <span className="pl-2">({formatTimeZone(new Date(), "z")})</span>
           </Flex>

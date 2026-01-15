@@ -2,9 +2,10 @@ import { HoldoutInterface } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
+import Callout from "@/ui/Callout";
 import ScheduleStatusChangeInputs from "./ScheduleStatusChangeInputs";
 
 const EditScheduleModal = ({
@@ -18,32 +19,54 @@ const EditScheduleModal = ({
   close: () => void;
   mutate: () => void;
 }) => {
-  const permissionsUtils = usePermissionsUtil();
   const { apiCall } = useAuth();
 
-  const form = useForm<Partial<HoldoutInterface>>({
+  const form = useForm<Pick<HoldoutInterface, "scheduledStatusUpdates">>({
     defaultValues: {
-      scheduledStatusUpdates: holdout.scheduledStatusUpdates || {
-        startAt: undefined,
-        startAnalysisPeriodAt: undefined,
-        stopAt: undefined,
+      scheduledStatusUpdates: {
+        startAt: holdout.scheduledStatusUpdates?.startAt
+          ? getValidDate(holdout.scheduledStatusUpdates.startAt)
+          : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        startAnalysisPeriodAt: holdout.scheduledStatusUpdates
+          ?.startAnalysisPeriodAt
+          ? getValidDate(holdout.scheduledStatusUpdates.startAnalysisPeriodAt)
+          : new Date(Date.now() + 65 * 24 * 60 * 60 * 1000),
+        stopAt: holdout.scheduledStatusUpdates?.stopAt
+          ? getValidDate(holdout.scheduledStatusUpdates.stopAt)
+          : new Date(Date.now() + 95 * 24 * 60 * 60 * 1000),
       },
     },
   });
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
+    // Convert Date objects to ISO strings for API
+    const scheduledStatusUpdates = rawValue.scheduledStatusUpdates
+      ? {
+          startAt: rawValue.scheduledStatusUpdates.startAt
+            ? new Date(rawValue.scheduledStatusUpdates.startAt).toISOString()
+            : undefined,
+          startAnalysisPeriodAt: rawValue.scheduledStatusUpdates
+            .startAnalysisPeriodAt
+            ? new Date(
+                rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
+              ).toISOString()
+            : undefined,
+          stopAt: rawValue.scheduledStatusUpdates.stopAt
+            ? new Date(rawValue.scheduledStatusUpdates.stopAt).toISOString()
+            : undefined,
+        }
+      : undefined;
+
     await apiCall<{
       holdout: HoldoutInterface;
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({
-        scheduledStatusUpdates: rawValue.scheduledStatusUpdates,
+        scheduledStatusUpdates,
       }),
     });
     mutate();
   });
-
-  const scheduledStatusUpdates = form.watch("scheduledStatusUpdates") || {};
 
   return (
     <Modal
@@ -60,19 +83,16 @@ const EditScheduleModal = ({
             Schedule the start, analysis period start, and stop of the holdout.
           </Text>
         </Box>
-        {/* {experiment.status === "running" && (
-          <Callout status="warning" mb="4">
-            <Text>
-              Proceed with caution. Holdout is running. Adding or removing
-              environments could impact results.{" "}
-            </Text>
+        {!holdout.scheduledStatusUpdates && (
+          <Callout status="info" mb="4">
+            This holdout currently has no schedule set. Fields have been
+            pre-filled with some default values.
           </Callout>
-        )} */}
+        )}
         <ScheduleStatusChangeInputs
-          defaultValue={scheduledStatusUpdates}
-          onChange={(value) => {
-            form.setValue("scheduledStatusUpdates", value);
-          }}
+          form={form}
+          holdout={holdout}
+          experiment={experiment}
         />
       </div>
     </Modal>

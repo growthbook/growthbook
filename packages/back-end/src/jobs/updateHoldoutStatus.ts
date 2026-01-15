@@ -5,10 +5,13 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { HoldoutModel } from "../models/HoldoutModel";
-import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
-import { getAffectedSDKPayloadKeys } from "../util/holdouts";
-import { refreshSDKPayloadCache } from "../services/features";
+import { HoldoutModel } from "back-end/src/models/HoldoutModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 type UpdateSingleHoldoutJob = Job<{
   holdoutId: string;
@@ -117,7 +120,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
           experiment: holdoutExperiment,
           changes: { phases, status: "running" },
         });
-        await refreshSDKPayloadCache({
+        queueSDKPayloadRefresh({
           context,
           payloadKeys: getAffectedSDKPayloadKeys(
             holdout,
@@ -149,7 +152,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
           experiment: holdoutExperiment,
           changes: { phases, status: "running" },
         });
-        await refreshSDKPayloadCache({
+        queueSDKPayloadRefresh({
           context,
           payloadKeys: getAffectedSDKPayloadKeys(
             holdout,
@@ -180,7 +183,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
             status: "stopped",
           },
         });
-        await refreshSDKPayloadCache({
+        queueSDKPayloadRefresh({
           context,
           payloadKeys: getAffectedSDKPayloadKeys(
             holdout,

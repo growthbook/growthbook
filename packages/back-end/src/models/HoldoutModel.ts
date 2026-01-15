@@ -1,6 +1,6 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
-import { getCollection } from "../util/mongo.util";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
