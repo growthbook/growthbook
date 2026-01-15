@@ -30,42 +30,24 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   generatePinnedSliceKey,
+  getMetricLink,
   SliceLevelsData,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
+import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Link from "@/ui/Link";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import { ExperimentTab } from "./TabbedPage";
-import MetricDetailsModal from "./MetricDetailsModal";
-
-// Helper function to extract slice name from row for search
-function getSliceNameFromRow(row: ExperimentTableRow): string {
-  if (!row.isSliceRow || !row.sliceLevels || row.sliceLevels.length === 0) {
-    return "";
-  }
-
-  return row.sliceLevels
-    .map((dl) => {
-      if (dl.levels.length === 0) {
-        const emptyValue = dl.datatype === "string" ? "other" : "null";
-        return `${dl.column}: ${emptyValue}`;
-      }
-      const value = dl.levels[0];
-      if (dl.datatype === "boolean") {
-        return `${dl.column}: ${value}`;
-      }
-      return value;
-    })
-    .join(" + ");
-}
+import MetricDrilldownModal, {
+  MetricDrilldownTab,
+} from "./MetricDrilldownModal";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -216,14 +198,12 @@ const CompactResults: FC<{
     }));
   };
 
-  const [openMetricIdDetailsModal, setOpenMetricIdDetailsModal] = useState<
-    string | null
-  >(null);
-  const [openMetricDetailsTab, setOpenMetricDetailsTab] = useState<
-    "overview" | "slices" | "debug"
-  >("overview");
-  const [openMetricSliceSearchTerm, setOpenMetricSliceSearchTerm] =
-    useState("");
+  const [openMetricDrilldownModalInfo, setOpenMetricDrilldownModalInfo] =
+    useState<{
+      metricRow: ExperimentTableRow;
+      initialTab?: MetricDrilldownTab;
+      initialSliceSearchTerm?: string;
+    } | null>(null);
 
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
@@ -369,26 +349,25 @@ const CompactResults: FC<{
     });
   }, [rows, hasSliceFilter, expandedMetrics]);
 
-  // Derive helper values for MetricDetailsModal
-  const selectedMetricRow = useMemo(() => {
-    if (!openMetricIdDetailsModal) return null;
-    // Use unfiltered rows so we can find any metric, not just expanded ones
-    return rows.find(
-      (row) => row.metric.id === openMetricIdDetailsModal && !row.isSliceRow,
-    );
-  }, [openMetricIdDetailsModal, rows]);
-
-  const variationNames = useMemo(
-    () => variations.map((v) => v.name),
-    [variations],
-  );
-
-  const showVariations = useMemo(() => {
-    if (!variationFilter || variationFilter.length === 0) {
-      return variations.map(() => true);
+  const handleRowClick = (row: ExperimentTableRow) => {
+    if (row.isSliceRow) {
+      const targetRow = filteredRows.find(
+        (r) => r.metric.id === row.parentRowId,
+      );
+      setOpenMetricDrilldownModalInfo({
+        // FIXME: I don't think this is the best fallback
+        metricRow: targetRow ?? row,
+        initialTab: "slices",
+        // FIXME: What happens if it is not a string and a React element?
+        initialSliceSearchTerm: row.label.toString() ?? "",
+      });
+    } else {
+      setOpenMetricDrilldownModalInfo({
+        metricRow: row,
+        initialTab: "overview",
+      });
     }
-    return variations.map((_, i) => variationFilter.includes(i));
-  }, [variationFilter, variations]);
+  };
 
   return (
     <>
@@ -427,6 +406,7 @@ const CompactResults: FC<{
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={filteredRows.filter((r) => r.resultGroup === "goal")}
+          onRowClick={handleRowClick}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -457,28 +437,7 @@ const CompactResults: FC<{
             shouldShowMetricSlices: true,
             getChildRowCounts,
             sliceTagsFilter,
-            onMetricLabelClick: (
-              metricId: string,
-              tab?: "overview" | "slices" | "debug",
-              sliceSearchTerm?: string,
-            ) => {
-              setOpenMetricIdDetailsModal(metricId);
-              setOpenMetricDetailsTab(tab || "overview");
-              setOpenMetricSliceSearchTerm(sliceSearchTerm || "");
-            },
           })}
-          onRowClick={(row) => {
-            setOpenMetricIdDetailsModal(row.metric.id);
-            if (row.isSliceRow) {
-              setOpenMetricDetailsTab("slices");
-              // Extract slice name from the row
-              const sliceName = getSliceNameFromRow(row);
-              setOpenMetricSliceSearchTerm(sliceName);
-            } else {
-              setOpenMetricDetailsTab("overview");
-              setOpenMetricSliceSearchTerm("");
-            }
-          }}
           isTabActive={isTabActive}
           noStickyHeader={noStickyHeader}
           noTooltip={noTooltip}
@@ -514,6 +473,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
+            onRowClick={handleRowClick}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -538,28 +498,7 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
-              onMetricLabelClick: (
-                metricId: string,
-                tab?: "overview" | "slices" | "debug",
-                sliceSearchTerm?: string,
-              ) => {
-                setOpenMetricIdDetailsModal(metricId);
-                setOpenMetricDetailsTab(tab || "overview");
-                setOpenMetricSliceSearchTerm(sliceSearchTerm || "");
-              },
             })}
-            onRowClick={(row) => {
-              setOpenMetricIdDetailsModal(row.metric.id);
-              if (row.isSliceRow) {
-                setOpenMetricDetailsTab("slices");
-                // Extract slice name from the row
-                const sliceName = getSliceNameFromRow(row);
-                setOpenMetricSliceSearchTerm(sliceName);
-              } else {
-                setOpenMetricDetailsTab("overview");
-                setOpenMetricSliceSearchTerm("");
-              }
-            }}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
@@ -595,6 +534,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
+            onRowClick={handleRowClick}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
@@ -619,28 +559,7 @@ const CompactResults: FC<{
               shouldShowMetricSlices: true,
               getChildRowCounts,
               sliceTagsFilter,
-              onMetricLabelClick: (
-                metricId: string,
-                tab?: "overview" | "slices" | "debug",
-                sliceSearchTerm?: string,
-              ) => {
-                setOpenMetricIdDetailsModal(metricId);
-                setOpenMetricDetailsTab(tab || "overview");
-                setOpenMetricSliceSearchTerm(sliceSearchTerm || "");
-              },
             })}
-            onRowClick={(row) => {
-              setOpenMetricIdDetailsModal(row.metric.id);
-              if (row.isSliceRow) {
-                setOpenMetricDetailsTab("slices");
-                // Extract slice name from the row
-                const sliceName = getSliceNameFromRow(row);
-                setOpenMetricSliceSearchTerm(sliceName);
-              } else {
-                setOpenMetricDetailsTab("overview");
-                setOpenMetricSliceSearchTerm("");
-              }
-            }}
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
@@ -662,19 +581,20 @@ const CompactResults: FC<{
         <></>
       )}
 
-      {openMetricIdDetailsModal && selectedMetricRow && (
-        <MetricDetailsModal
-          metric={selectedMetricRow.metric}
-          row={selectedMetricRow}
-          statsEngine={statsEngine}
+      {openMetricDrilldownModalInfo !== null && (
+        <MetricDrilldownModal
           open={true}
-          close={() => setOpenMetricIdDetailsModal(null)}
+          close={() => setOpenMetricDrilldownModalInfo(null)}
+          row={openMetricDrilldownModalInfo.metricRow}
+          initialTab={openMetricDrilldownModalInfo.initialTab}
+          initialSliceSearchTerm={
+            openMetricDrilldownModalInfo.initialSliceSearchTerm
+          }
+          statsEngine={statsEngine}
           experimentId={experimentId}
           phase={phase}
           experimentStatus={status}
           differenceType={differenceType}
-          variationNames={variationNames}
-          showVariations={showVariations}
           pValueAdjustmentEnabled={!!pValueCorrection}
           firstDateToRender={new Date(startDate)}
           goalMetrics={goalMetrics}
@@ -682,17 +602,15 @@ const CompactResults: FC<{
           guardrailMetrics={guardrailMetrics}
           allRows={rows}
           baselineRow={baselineRow}
-          variationFilter={variationFilter}
           metricOverrides={metricOverrides}
           variations={variations}
+          variationFilter={variationFilter}
           startDate={startDate}
           endDate={endDate}
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          initialTab={openMetricDetailsTab}
-          initialSliceSearchTerm={openMetricSliceSearchTerm}
           snapshot={snapshot}
           analysis={analysis}
         />
@@ -703,8 +621,9 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  statsEngine: _statsEngine,
-  hideDetails: _hideDetails,
+  // TODO: Remove these 3 props
+  statsEngine,
+  hideDetails,
   experimentType: _experimentType,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
@@ -715,7 +634,6 @@ export function getRenderLabelColumn({
   pinSource,
   sliceTagsFilter,
   className = "pl-3",
-  onMetricLabelClick,
 }: {
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
@@ -738,40 +656,24 @@ export function getRenderLabelColumn({
   pinSource?: "experiment" | "custom" | "none";
   sliceTagsFilter?: string[];
   className?: string;
-  onMetricLabelClick?: (
-    metricId: string,
-    tab?: "overview" | "slices" | "debug",
-    sliceSearchTerm?: string,
-  ) => void;
 }) {
   return function renderLabelColumn({
     label,
-    onClickLabel: _onClickLabel,
     metric,
     row,
     maxRows,
     location,
   }: {
     label: string | ReactElement;
-    onClickLabel?: () => void;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;
     location?: "goal" | "secondary" | "guardrail";
   }) {
-    const isSliceRow = !!row?.isSliceRow;
-    const onClickLabel = onMetricLabelClick
-      ? () => {
-          if (isSliceRow && row) {
-            const sliceName = getSliceNameFromRow(row);
-            onMetricLabelClick(metric.id, "slices", sliceName);
-          } else {
-            onMetricLabelClick(metric.id, "overview", "");
-          }
-        }
-      : undefined;
     const expandedKey = `${metric.id}:${location}`;
     const isExpanded = !!expandedMetrics?.[expandedKey];
+
+    const isSliceRow = !!row?.isSliceRow;
 
     // Slice row
     if (isSliceRow) {
@@ -999,7 +901,12 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Link weight="bold" color="dark" onClick={onClickLabel}>
+              <Link
+                color="dark"
+                weight="bold"
+                target="_blank"
+                href={getMetricLink(metric.id)}
+              >
                 {label}
                 {metric.managedBy ? (
                   <HiBadgeCheck

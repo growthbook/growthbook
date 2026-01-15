@@ -25,21 +25,6 @@ import {
 } from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
-export interface SupplementalExperimentResults {
-  expected?: number;
-  ci?: [number | null, number | null];
-  pValue?: number;
-  chanceToWin?: number;
-  risk?: [number, number];
-  riskType?: RiskType;
-  uplift?: {
-    dist: string;
-    mean?: number;
-    stddev?: number;
-  };
-  errorMessage?: string;
-}
-
 export interface SnapshotMetric {
   value: number;
   cr: number;
@@ -65,11 +50,6 @@ export interface SnapshotMetric {
   chanceToWin?: number;
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResultsCupedUnadjusted?: SupplementalExperimentResults;
-  supplementalResultsUncapped?: SupplementalExperimentResults;
-  supplementalResultsUnstratified?: SupplementalExperimentResults;
-  supplementalResultsFlatPrior?: SupplementalExperimentResults;
-  supplementalResultsNoVarianceReduction?: SupplementalExperimentResults;
 }
 
 export interface SnapshotVariation {

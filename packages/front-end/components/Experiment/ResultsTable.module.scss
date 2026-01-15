@@ -24,12 +24,3 @@
     overflow: visible;
   }
 }
-
-// Make metric name underline when hovering over clickable row
-.clickableRow {
-  &:hover {
-    :global(a) {
-      text-decoration: underline;
-    }
-  }
-}
