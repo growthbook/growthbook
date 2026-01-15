@@ -1,9 +1,11 @@
-.modalHeader {
+.metricDrilldownModalHeader {
   padding: var(--space-7) var(--space-7) 0;
+
+  > div {
+    width: 100%;
+  }
 }
-.modalHeader > div {
-  width: 100%;
-}
-.modalBody {
+
+.metricDrilldownModalBody {
   padding: 0 var(--space-7) var(--space-7);
 }

@@ -41,13 +41,13 @@ import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import MetricDrilldownModal, {
+  MetricDrilldownTab,
+} from "@/components/MetricDrilldown/MetricDrilldownModal";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import { ExperimentTab } from "./TabbedPage";
-import MetricDrilldownModal, {
-  MetricDrilldownTab,
-} from "./MetricDrilldownModal";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -583,36 +583,35 @@ const CompactResults: FC<{
 
       {openMetricDrilldownModalInfo !== null && (
         <MetricDrilldownModal
-          open={true}
-          close={() => setOpenMetricDrilldownModalInfo(null)}
-          row={openMetricDrilldownModalInfo.metricRow}
-          initialTab={openMetricDrilldownModalInfo.initialTab}
-          initialSliceSearchTerm={
-            openMetricDrilldownModalInfo.initialSliceSearchTerm
-          }
           statsEngine={statsEngine}
-          experimentId={experimentId}
-          phase={phase}
-          experimentStatus={status}
-          differenceType={differenceType}
-          pValueAdjustmentEnabled={!!pValueCorrection}
-          firstDateToRender={new Date(startDate)}
-          goalMetrics={goalMetrics}
-          secondaryMetrics={secondaryMetrics}
-          guardrailMetrics={guardrailMetrics}
-          allRows={rows}
-          baselineRow={baselineRow}
-          metricOverrides={metricOverrides}
-          variations={variations}
-          variationFilter={variationFilter}
-          startDate={startDate}
-          endDate={endDate}
-          reportDate={reportDate}
-          isLatestPhase={isLatestPhase}
-          pValueCorrection={pValueCorrection}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          snapshot={snapshot}
-          analysis={analysis}
+          row={openMetricDrilldownModalInfo.metricRow}
+          close={() => setOpenMetricDrilldownModalInfo(null)}
+          initialTab={openMetricDrilldownModalInfo.initialTab}
+          // initialSliceSearchTerm={
+          //   openMetricDrilldownModalInfo.initialSliceSearchTerm
+          // }
+          // experimentId={experimentId}
+          // phase={phase}
+          // experimentStatus={status}
+          // differenceType={differenceType}
+          // pValueAdjustmentEnabled={!!pValueCorrection}
+          // firstDateToRender={new Date(startDate)}
+          // goalMetrics={goalMetrics}
+          // secondaryMetrics={secondaryMetrics}
+          // guardrailMetrics={guardrailMetrics}
+          // allRows={rows}
+          // baselineRow={baselineRow}
+          // metricOverrides={metricOverrides}
+          // variations={variations}
+          // variationFilter={variationFilter}
+          // startDate={startDate}
+          // endDate={endDate}
+          // reportDate={reportDate}
+          // isLatestPhase={isLatestPhase}
+          // pValueCorrection={pValueCorrection}
+          // sequentialTestingEnabled={sequentialTestingEnabled}
+          // snapshot={snapshot}
+          // analysis={analysis}
         />
       )}
     </>
