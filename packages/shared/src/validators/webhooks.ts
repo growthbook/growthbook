@@ -36,7 +36,7 @@ export const webhookSchema = z.strictObject({
   useSdkMode: z.boolean(),
   sdks: z.array(z.string()),
   /** @deprecated */
-  created: z.date(),
+  created: z.date().optional(),
   sendPayload: z.boolean().optional(),
   payloadFormat: payloadFormatValidator.optional(),
   payloadKey: z.string().optional(),

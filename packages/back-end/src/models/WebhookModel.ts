@@ -57,6 +57,8 @@ export class SdkWebhookModel extends BaseClass {
         newDoc.payloadFormat = "standard-no-payload";
       }
     }
+    if (!castDoc.dateCreated && castDoc.created)
+      newDoc.dateCreated = castDoc.created;
     return newDoc;
   }
 
@@ -110,7 +112,7 @@ export class SdkWebhookModel extends BaseClass {
   }
 
   public static async dangerousFindSdkWebhookByIdAcrossOrgs(id: string) {
-    const doc = getCollection(COLLECTION_NAME).findOne({
+    const doc = await getCollection(COLLECTION_NAME).findOne({
       id,
     });
     return doc ? this.migrate(removeMongooseFields(doc)) : null;
@@ -123,12 +125,11 @@ export class SdkWebhookModel extends BaseClass {
     });
   }
 
-  public getCreateProps(sdkConnectionId: string) {
+  public getDefaultCreateProps(sdkConnectionId: string) {
     return {
       environment: "",
       project: "",
       error: "",
-      created: new Date(),
       lastSuccess: null,
       signingKey: "wk_" + md5(uniqid()).slice(0, 16),
       useSdkMode: true,

@@ -218,7 +218,7 @@ export const getSDKConnectionsWebhooks = async (
       "endpoint",
       "lastSuccess",
       "error",
-      "created",
+      "dateCreated",
     ]);
     webhook.sdks.forEach((sdkId) => {
       if (!webhooksByConnection[sdkId]) {
@@ -294,7 +294,7 @@ export async function postSDKConnectionWebhook(
   }
 
   const webhook = await context.models.sdkWebhooks.create({
-    ...context.models.sdkWebhooks.getCreateProps(id),
+    ...context.models.sdkWebhooks.getDefaultCreateProps(id),
     ...createSdkWebhookValidator.parse(req.body),
   });
   return res.status(200).json({

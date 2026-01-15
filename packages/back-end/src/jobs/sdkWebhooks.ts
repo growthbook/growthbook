@@ -436,7 +436,6 @@ export async function fireGlobalSdkWebhooks(
         payloadFormat: format,
         payloadKey,
         organization: context.org?.id,
-        created: new Date(),
         dateCreated: new Date(),
         dateUpdated: new Date(),
         error: "",

@@ -381,7 +381,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
         );
 
         const createdWebhook = await context.models.sdkWebhooks.create({
-          ...context.models.sdkWebhooks.getCreateProps(sdkConnection.id),
+          ...context.models.sdkWebhooks.getDefaultCreateProps(sdkConnection.id),
           name: "Sync vercel integration edge config",
           endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
           payloadFormat: "vercelNativeIntegration",
