@@ -1,0 +1,30 @@
+// FIXME: Ideally ResultsTable would have this style or a variation and not be overriden here
+.metricDrilldownOverviewResultsTableWrapper {
+  :global {
+    .experiment-results th.axis-col {
+      box-shadow: none;
+    }
+
+    .results-group-row {
+      box-shadow: 0 0 0 1px var(--gray-a3);
+      border-radius: var(--radius-3);
+    }
+
+    .experiment-results
+      tbody
+      tr:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
+      box-shadow: none;
+    }
+
+    .experiment-results
+      tbody
+      tr:not(.results-label-row):not(.slice-header-row)
+      td:not(.graph-cell):not(:last-child) {
+      box-shadow: var(--gray-a3) -1px 0 inset;
+    }
+
+    .experiment-results tbody tr:not(.slice-header-row) {
+      box-shadow: var(--gray-a3) 0 -1px inset;
+    }
+  }
+}

@@ -1,8 +1,18 @@
-import { FC } from "react";
+import { FC, useState, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getMetricLink } from "shared/experiments";
-import { StatsEngine } from "shared/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "shared/types/stats";
+import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
+import { ExperimentReportVariation } from "shared/types/report";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotAnalysis,
+} from "shared/types/experiment-snapshot";
 import Modal from "@/components/Modal";
 import { ExperimentTableRow } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
@@ -11,6 +21,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import { useKeydown } from "@/hooks/useKeydown";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import styles from "./MetricDrilldownModal.module.scss";
+import MetricDrilldownOverview from "./MetricDrilldownOverview";
 
 export type MetricDrilldownTab = "overview" | "slices" | "debug";
 
@@ -19,32 +30,31 @@ interface MetricDrilldownModalProps {
   statsEngine: StatsEngine;
   close: () => void;
   initialTab?: MetricDrilldownTab;
-  // experimentId: string;
-  // phase: number;
-  // experimentStatus: ExperimentStatus;
-  // differenceType: DifferenceType;
-  // variationNames: string[];
-  // showVariations: boolean[];
-  // pValueAdjustmentEnabled: boolean;
-  // firstDateToRender: Date;
-  // sliceId?: string;
-  // allRows?: ExperimentTableRow[];
-  // baselineRow: number;
-  // variationFilter?: number[];
-  // goalMetrics?: string[];
-  // secondaryMetrics?: string[];
-  // guardrailMetrics?: string[];
-  // metricOverrides?: MetricOverride[];
-  // variations: ExperimentReportVariation[];
-  // startDate: string;
-  // endDate: string;
-  // reportDate: Date;
-  // isLatestPhase: boolean;
-  // pValueCorrection?: PValueCorrection;
-  // sequentialTestingEnabled?: boolean;
-  // initialSliceSearchTerm?: string;
-  // snapshot?: ExperimentSnapshotInterface;
-  // analysis?: ExperimentSnapshotAnalysis;
+  experimentId: string;
+  phase: number;
+  experimentStatus: ExperimentStatus;
+  differenceType: DifferenceType;
+  initialShowVariations: boolean[];
+  pValueAdjustmentEnabled: boolean;
+  firstDateToRender: Date;
+  sliceId?: string;
+  allRows?: ExperimentTableRow[];
+  baselineRow?: number;
+  variationFilter?: number[];
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+  metricOverrides?: MetricOverride[];
+  variations: ExperimentReportVariation[];
+  startDate: string;
+  endDate: string;
+  reportDate: Date;
+  isLatestPhase: boolean;
+  pValueCorrection?: PValueCorrection;
+  sequentialTestingEnabled?: boolean;
+  initialSliceSearchTerm?: string;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
 }
 
 const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
@@ -52,29 +62,43 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   statsEngine,
   close,
   initialTab = "overview",
+  experimentId,
+  phase,
+  experimentStatus,
+  differenceType,
+  initialShowVariations,
+  pValueAdjustmentEnabled,
+  firstDateToRender,
+  sliceId,
+  baselineRow = 0,
+  variationFilter,
+  goalMetrics = [],
+  secondaryMetrics = [],
+  guardrailMetrics = [],
+  variations,
+  startDate,
+  endDate,
+  reportDate,
+  isLatestPhase,
+  pValueCorrection,
+  sequentialTestingEnabled,
 }) => {
   const { metric } = row;
 
-  // const [activeTab, setActiveTab] = useState<MetricDrilldownTab>(initialTab);
+  // Create local state for filters that can be modified within the modal
+  const [localBaselineRow, setLocalBaselineRow] = useState(baselineRow);
+  const [localVariationFilter, setLocalVariationFilter] = useState<
+    number[] | undefined
+  >(variationFilter);
+  const [localDifferenceType, setLocalDifferenceType] =
+    useState<DifferenceType>(differenceType);
 
-  // // Create local state for filters that can be modified within the modal
-  // const [localBaselineRow, setLocalBaselineRow] = useState(baselineRow);
-  // const [localVariationFilter, setLocalVariationFilter] =
-  //   useState<number[]>(variationFilter);
-  // const [localDifferenceType, setLocalDifferenceType] =
-  //   useState<DifferenceType>(differenceType);
-
-  // // Reset to initial tab when modal reopens or initialTab changes
-  // useEffect(() => {
-  //   setActiveTab(initialTab);
-  // }, [initialTab]);
-
-  // // Reset local filters when parent filters change (modal reopens)
-  // useEffect(() => {
-  //   setLocalBaselineRow(baselineRow);
-  //   setLocalVariationFilter(variationFilter);
-  //   setLocalDifferenceType(differenceType);
-  // }, [baselineRow, variationFilter, differenceType]);
+  // Reset local filters when parent filters change (modal reopens)
+  useEffect(() => {
+    setLocalBaselineRow(baselineRow);
+    setLocalVariationFilter(variationFilter);
+    setLocalDifferenceType(differenceType);
+  }, [baselineRow, variationFilter, differenceType]);
 
   useKeydown("Escape", close);
 
@@ -129,7 +153,31 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
         submit={close}
         autoFocusSelector=""
       >
-        <TabsContent value="overview">Overview</TabsContent>
+        <TabsContent value="overview">
+          <MetricDrilldownOverview
+            row={row}
+            experimentId={experimentId}
+            reportDate={reportDate}
+            isLatestPhase={isLatestPhase}
+            phase={phase}
+            startDate={startDate}
+            endDate={endDate}
+            experimentStatus={experimentStatus}
+            variations={variations}
+            localBaselineRow={localBaselineRow}
+            setLocalBaselineRow={setLocalBaselineRow}
+            localVariationFilter={localVariationFilter}
+            setLocalVariationFilter={setLocalVariationFilter}
+            goalMetrics={goalMetrics}
+            secondaryMetrics={secondaryMetrics}
+            guardrailMetrics={guardrailMetrics}
+            statsEngine={statsEngine}
+            pValueCorrection={pValueCorrection}
+            localDifferenceType={localDifferenceType}
+            setLocalDifferenceType={setLocalDifferenceType}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+          />
+        </TabsContent>
         <TabsContent value="slices">Slices</TabsContent>
         <TabsContent value="debug">Debug</TabsContent>
       </Modal>

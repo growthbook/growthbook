@@ -590,26 +590,29 @@ const CompactResults: FC<{
           // initialSliceSearchTerm={
           //   openMetricDrilldownModalInfo.initialSliceSearchTerm
           // }
-          // experimentId={experimentId}
-          // phase={phase}
-          // experimentStatus={status}
-          // differenceType={differenceType}
-          // pValueAdjustmentEnabled={!!pValueCorrection}
-          // firstDateToRender={new Date(startDate)}
-          // goalMetrics={goalMetrics}
-          // secondaryMetrics={secondaryMetrics}
-          // guardrailMetrics={guardrailMetrics}
+          experimentId={experimentId}
+          phase={phase}
+          experimentStatus={status}
+          differenceType={differenceType}
+          pValueAdjustmentEnabled={!!pValueCorrection}
+          firstDateToRender={new Date(startDate)}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
           // allRows={rows}
-          // baselineRow={baselineRow}
+          baselineRow={baselineRow}
           // metricOverrides={metricOverrides}
-          // variations={variations}
-          // variationFilter={variationFilter}
-          // startDate={startDate}
-          // endDate={endDate}
-          // reportDate={reportDate}
-          // isLatestPhase={isLatestPhase}
-          // pValueCorrection={pValueCorrection}
-          // sequentialTestingEnabled={sequentialTestingEnabled}
+          variations={variations}
+          initialShowVariations={variations.map(
+            (_, i) => !variationFilter?.includes(i),
+          )}
+          variationFilter={variationFilter}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
           // snapshot={snapshot}
           // analysis={analysis}
         />

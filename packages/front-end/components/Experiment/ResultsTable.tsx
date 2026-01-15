@@ -114,6 +114,7 @@ export type ResultsTableProps = {
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
   showTimeSeriesButton?: boolean;
+  forceTimeSeriesVisible?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   sortBy?: "significance" | "change" | "custom" | null;
@@ -181,6 +182,7 @@ export default function ResultsTable({
   isBandit,
   ssrPolyfills,
   showTimeSeriesButton = false,
+  forceTimeSeriesVisible = false,
   columnsFilter,
   isHoldout,
   sortBy,
@@ -751,12 +753,13 @@ export default function ResultsTable({
                 ? `${tableId}-${row.metric.id}-${row.sliceId}`
                 : `${tableId}-${row.metric.id}-${i}`;
 
-              const timeSeriesButton = showTimeSeriesButton ? (
-                <TimeSeriesButton
-                  onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
-                  isActive={visibleTimeSeriesRowIds.includes(rowId)}
-                />
-              ) : null;
+              const timeSeriesButton =
+                showTimeSeriesButton && !forceTimeSeriesVisible ? (
+                  <TimeSeriesButton
+                    onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
+                    isActive={visibleTimeSeriesRowIds.includes(rowId)}
+                  />
+                ) : null;
 
               const includedLabelColumns = columnsToDisplay.filter((col) =>
                 [
@@ -1256,7 +1259,8 @@ export default function ResultsTable({
                           })}
 
                         {!row.labelOnly &&
-                          visibleTimeSeriesRowIds.includes(rowId) && (
+                          (forceTimeSeriesVisible ||
+                            visibleTimeSeriesRowIds.includes(rowId)) && (
                             <tr
                               style={
                                 !row.isSliceRow
