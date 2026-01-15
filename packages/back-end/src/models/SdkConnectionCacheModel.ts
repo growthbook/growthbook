@@ -36,12 +36,12 @@ export class SdkConnectionCacheModel extends BaseClass {
     const existing = await this.getById(id);
     const updateData: {
       contents: string;
-      auditContext?: SdkConnectionCacheAuditContext;
+      audit?: SdkConnectionCacheAuditContext;
     } = {
       contents,
     };
     if (auditContext) {
-      updateData.auditContext = auditContext;
+      updateData.audit = auditContext;
     }
     if (existing) {
       return this.update(existing, updateData);

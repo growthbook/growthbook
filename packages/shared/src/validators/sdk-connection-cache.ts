@@ -9,7 +9,7 @@ export const sdkConnectionCacheAuditContextValidator = z.object({
 
 export const sdkConnectionCacheValidator = baseSchema.extend({
   contents: z.string(),
-  auditContext: sdkConnectionCacheAuditContextValidator.optional(),
+  audit: sdkConnectionCacheAuditContextValidator.optional(),
 });
 
 export type SdkConnectionCacheAuditContext = z.infer<
