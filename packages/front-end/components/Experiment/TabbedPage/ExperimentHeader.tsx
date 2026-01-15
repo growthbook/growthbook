@@ -57,8 +57,8 @@ import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
-import TemplateForm from "../Templates/TemplateForm";
-import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
+import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
+import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,

@@ -189,6 +189,7 @@ export class OpenIdAuthConnection implements AuthConnection {
             rateLimit: false,
             jwksRequestsPerMinute: 10,
             jwksUri,
+            requestAgent: getHttpOptions().agent,
           }),
           audience: connection.clientId,
           issuer,

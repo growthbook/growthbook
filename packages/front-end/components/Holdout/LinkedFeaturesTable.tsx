@@ -5,7 +5,7 @@ import { date } from "shared/dates";
 import { FeatureInterface } from "shared/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
-import ValueDisplay from "../Features/ValueDisplay";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 
 interface Props {
   holdout: HoldoutInterface;

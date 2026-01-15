@@ -24,7 +24,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
-  refreshSDKPayloadCache,
+  queueSDKPayloadRefresh,
   URLRedirectExperiment,
   VisualExperiment,
 } from "back-end/src/services/features";
@@ -252,6 +252,7 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
+  postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
@@ -1747,9 +1748,7 @@ const onExperimentUpdate = async ({
       isEqual,
     );
 
-    refreshSDKPayloadCache({ context, payloadKeys }).catch((e) => {
-      logger.error(e, "Error refreshing SDK payload cache");
-    });
+    queueSDKPayloadRefresh({ context, payloadKeys });
   }
 
   if (context.org.isVercelIntegration)
@@ -1772,9 +1771,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache({ context, payloadKeys }).catch((e) => {
-    logger.error(e, "Error refreshing SDK payload cache");
-  });
+  queueSDKPayloadRefresh({ context, payloadKeys });
 
   if (context.org.isVercelIntegration)
     await deleteVercelExperimentationItemFromExperiment({
