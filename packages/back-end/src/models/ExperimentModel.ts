@@ -16,6 +16,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
+import { ApiExperiment } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -112,6 +113,7 @@ const experimentSchema = new mongoose.Schema({
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
+  dateApiUpdated: Date,
   tags: [String],
   description: String,
   // Observations is not used anymore, keeping here so it will continue being saved in Mongo if present
@@ -590,6 +592,19 @@ export async function updateExperiment({
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
+  // Check if API-visible changes exist by computing the diff
+  // Only update dateApiUpdated if there would be actual changes in the API representation
+  const updatedExperiment = { ...experiment, ...allChanges };
+  const apiChanges = await computeExperimentApiChanges({
+    context,
+    previous: experiment,
+    current: updatedExperiment,
+  });
+
+  if (apiChanges) {
+    allChanges.dateApiUpdated = allChanges.dateUpdated;
+  }
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -889,6 +904,83 @@ export async function getExperimentsForActivityFeed(
 }
 
 /**
+ * Helper function to compute API representation changes between two experiments
+ * Returns the diff and API representations if there are changes, or null if no changes
+ */
+async function computeExperimentApiChanges({
+  context,
+  previous,
+  current,
+}: {
+  context: ReqContext | ApiReqContext;
+  previous: ExperimentInterface;
+  current: ExperimentInterface;
+}): Promise<{
+  changes: DiffResult;
+  previousApiExperiment: ApiExperiment;
+  currentApiExperiment: ApiExperiment;
+} | null> {
+  if (current.type === "holdout") return null;
+
+  try {
+    const previousApiExperimentPromise = toExperimentApiInterface(
+      context,
+      previous as ExperimentInterfaceExcludingHoldouts,
+    );
+    const currentApiExperimentPromise = toExperimentApiInterface(
+      context,
+      current as ExperimentInterfaceExcludingHoldouts,
+    );
+    const [previousApiExperiment, currentApiExperiment] = await Promise.all([
+      previousApiExperimentPromise,
+      currentApiExperimentPromise,
+    ]);
+
+    const changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
+      ignoredKeys: ["dateUpdated"],
+      nestedObjectConfigs: [
+        {
+          key: "phases",
+          idField: "__index",
+          ignoredKeys: [
+            "dateStarted",
+            "dateEnded",
+            "bucketVersion",
+            "minBucketVersion",
+          ],
+        },
+        {
+          key: "variations",
+          idField: "variationId",
+          ignoredKeys: ["screenshots"],
+        },
+        {
+          key: "metricOverrides",
+          idField: "id",
+        },
+      ],
+    });
+
+    // Check if diff has any changes
+    const hasChanges =
+      Object.keys(changes.added).length > 0 ||
+      Object.keys(changes.removed).length > 0 ||
+      changes.modified.length > 0;
+
+    if (!hasChanges) return null;
+
+    return {
+      changes,
+      previousApiExperiment,
+      currentApiExperiment,
+    };
+  } catch (e) {
+    logger.error(e, "error computing experiment API changes");
+    return null;
+  }
+}
+
+/**
  * Finds an experiment for an organization
  * @param experimentId
  * @param context
@@ -964,20 +1056,19 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
-  if (current.type === "holdout") return;
+  // Compute API changes - returns null if no changes or if experiment is a holdout
+  const apiChangesResult = await computeExperimentApiChanges({
+    context,
+    previous,
+    current,
+  });
 
-  const previousApiExperimentPromise = toExperimentApiInterface(
-    context,
-    previous as ExperimentInterfaceExcludingHoldouts,
-  );
-  const currentApiExperimentPromise = toExperimentApiInterface(
-    context,
-    current as ExperimentInterfaceExcludingHoldouts,
-  );
-  const [previousApiExperiment, currentApiExperiment] = await Promise.all([
-    previousApiExperimentPromise,
-    currentApiExperimentPromise,
-  ]);
+  // Skip event creation if there are no actual API changes
+  if (!apiChangesResult) return;
+
+  const { changes, previousApiExperiment, currentApiExperiment } =
+    apiChangesResult;
+
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
@@ -985,36 +1076,6 @@ export const logExperimentUpdated = async ({
   const changedEnvs = hasPayloadChanges
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
-
-  let changes: DiffResult | undefined;
-  try {
-    changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
-      ignoredKeys: ["dateUpdated"],
-      nestedObjectConfigs: [
-        {
-          key: "phases",
-          idField: "__index",
-          ignoredKeys: [
-            "dateStarted",
-            "dateEnded",
-            "bucketVersion",
-            "minBucketVersion",
-          ],
-        },
-        {
-          key: "variations",
-          idField: "variationId",
-          ignoredKeys: ["screenshots"],
-        },
-        {
-          key: "metricOverrides",
-          idField: "id",
-        },
-      ],
-    });
-  } catch (e) {
-    logger.error(e, "error creating change patch");
-  }
 
   await createEvent({
     context,

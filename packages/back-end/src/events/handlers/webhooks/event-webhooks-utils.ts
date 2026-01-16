@@ -244,16 +244,20 @@ export function getObjectDiff(
                       currItem,
                       nestedConfig?.ignoredKeys || [],
                     );
-                    const change: ItemChange = {
-                      id: currItemId,
-                      newValue: {
-                        ...(currItem as Record<string, unknown>),
-                        __index: index,
-                      },
-                      fieldChanges,
-                    };
-                    modifiedItems.push(change);
-                    modifiedById.set(currItemId, change);
+                    // Only add to modifiedItems if there are actual field changes
+                    // (after filtering out ignored keys like screenshots)
+                    if (fieldChanges.length > 0) {
+                      const change: ItemChange = {
+                        id: currItemId,
+                        newValue: {
+                          ...(currItem as Record<string, unknown>),
+                          __index: index,
+                        },
+                        fieldChanges,
+                      };
+                      modifiedItems.push(change);
+                      modifiedById.set(currItemId, change);
+                    }
                   }
                 });
 
@@ -551,8 +555,128 @@ export function getObjectDiff(
             };
             result.modified.push(hierarchicalMod);
           }
+        } else if (Array.isArray(prev[key]) && Array.isArray(curr[key])) {
+          // Handle top-level arrays with nested config
+          const prevArray = prev[key] as unknown[];
+          const currArray = curr[key] as unknown[];
+
+          // Check if this is an array of primitives
+          const isPrimitiveArray =
+            currArray.length > 0 &&
+            (typeof currArray[0] === "string" ||
+              typeof currArray[0] === "number" ||
+              typeof currArray[0] === "boolean");
+
+          if (isPrimitiveArray) {
+            const simpleMod: SimpleModification = {
+              key,
+              oldValue: prevArray,
+              newValue: currArray,
+            };
+            result.modified.push(simpleMod);
+          } else if (nestedConfig.idField) {
+            // For arrays of objects with idField, apply detailed comparison
+            const idField = nestedConfig.idField;
+            const prevItems = prevArray as Record<string, unknown>[];
+            const currItems = currArray as Record<string, unknown>[];
+
+            const prevItemsMap = new Map(
+              prevItems.map((item) => [item[idField] as string, item]),
+            );
+            const currItemsMap = new Map(
+              currItems.map((item) => [item[idField] as string, item]),
+            );
+
+            const addedItems: Record<string, unknown>[] = [];
+            const removedItems: Record<string, unknown>[] = [];
+            const modifiedItems: ItemChange[] = [];
+
+            // Find added items
+            currItems.forEach((item, index) => {
+              const itemId = item[idField] as string;
+              if (!prevItemsMap.has(itemId)) {
+                const itemWithIndex = {
+                  ...(item as Record<string, unknown>),
+                  __index: index,
+                };
+                addedItems.push(itemWithIndex);
+              }
+            });
+
+            // Find removed items
+            prevItems.forEach((item, index) => {
+              const itemId = item[idField] as string;
+              if (!currItemsMap.has(itemId)) {
+                const itemWithIndex = {
+                  ...(item as Record<string, unknown>),
+                  __index: index,
+                };
+                removedItems.push(itemWithIndex);
+              }
+            });
+
+            // Find modified items
+            currItems.forEach((currItem, index) => {
+              const currItemId = currItem[idField] as string;
+              const prevItem = prevItemsMap.get(currItemId);
+              if (prevItem && !isEqual(prevItem, currItem)) {
+                const fieldChanges = getItemFieldChanges(
+                  prevItem,
+                  currItem,
+                  nestedConfig.ignoredKeys || [],
+                );
+                // Only add to modifiedItems if there are actual field changes
+                if (fieldChanges.length > 0) {
+                  const change: ItemChange = {
+                    id: currItemId,
+                    newValue: {
+                      ...(currItem as Record<string, unknown>),
+                      __index: index,
+                    },
+                    fieldChanges,
+                  };
+                  modifiedItems.push(change);
+                }
+              }
+            });
+
+            // Only create modification if there are actual changes
+            if (
+              addedItems.length > 0 ||
+              removedItems.length > 0 ||
+              modifiedItems.length > 0
+            ) {
+              const itemChanges: ItemChanges = {
+                added: addedItems.length > 0 ? addedItems : undefined,
+                removed: removedItems.length > 0 ? removedItems : undefined,
+                modified: modifiedItems.length > 0 ? modifiedItems : undefined,
+              };
+
+              const hierarchicalMod: HierarchicalModification = {
+                key,
+                added: {},
+                removed: {},
+                modified: [],
+                values: [
+                  {
+                    key: "items",
+                    changes: itemChanges,
+                  },
+                ],
+              };
+              result.modified.push(hierarchicalMod);
+            }
+          } else {
+            // No idField, treat as simple modification
+            const simpleMod: SimpleModification = {
+              key,
+              oldValue: prevArray,
+              newValue: currArray,
+            };
+            result.modified.push(simpleMod);
+          }
         } else {
-          // Generic array handling for other nested configs
+          // Non-array object without specific handling
           const simpleMod: SimpleModification = {
             key,
             oldValue: prev[key],
@@ -561,36 +685,16 @@ export function getObjectDiff(
           result.modified.push(simpleMod);
         }
       } else if (Array.isArray(prev[key]) && Array.isArray(curr[key])) {
-        // Handle arrays automatically - no config needed for arrays of primitives
+        // Handle arrays without nested config (fallback for arrays without idField)
         const prevArray = prev[key] as unknown[];
         const currArray = curr[key] as unknown[];
 
-        // Check if this is an array of primitives (strings, numbers, booleans)
-        const isPrimitiveArray =
-          currArray.length > 0 &&
-          (typeof currArray[0] === "string" ||
-            typeof currArray[0] === "number" ||
-            typeof currArray[0] === "boolean");
-
-        if (isPrimitiveArray) {
-          // For arrays of primitives, just treat as a simple field change
-          // The Slack formatter will handle the display properly
-          const simpleMod: SimpleModification = {
-            key,
-            oldValue: prevArray,
-            newValue: currArray,
-          };
-          result.modified.push(simpleMod);
-        } else {
-          // For arrays of objects, we need nested config to know the ID field
-          // If no config, fall through to simple field change
-          const simpleMod: SimpleModification = {
-            key,
-            oldValue: prevArray,
-            newValue: currArray,
-          };
-          result.modified.push(simpleMod);
-        }
+        const simpleMod: SimpleModification = {
+          key,
+          oldValue: prevArray,
+          newValue: currArray,
+        };
+        result.modified.push(simpleMod);
       } else if (
         typeof prev[key] === "object" &&
         prev[key] !== null &&
