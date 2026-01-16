@@ -14,6 +14,11 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   additionalIndexes: [{ fields: { organization: 1, id: 1 } }],
+  defaultValues: {
+    owner: "",
+    tags: [],
+    archived: false,
+  },
 });
 
 export class MetricGroupModel extends BaseClass {

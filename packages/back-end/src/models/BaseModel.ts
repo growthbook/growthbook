@@ -561,7 +561,7 @@ export abstract class BaseModel<
     // Add default values if values are not provided
     if (this.config.defaultValues) {
       for (const [key, value] of Object.entries(this.config.defaultValues)) {
-        if (!props[key as keyof CreateProps<z.infer<T>>]) {
+        if (props[key as keyof CreateProps<z.infer<T>>] === undefined) {
           props[key as keyof CreateProps<z.infer<T>>] = value;
         }
       }

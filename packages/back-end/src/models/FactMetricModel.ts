@@ -35,6 +35,10 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+    projects: [],
+  },
 });
 
 // extra checks on user filter

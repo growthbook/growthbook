@@ -286,7 +286,7 @@
       },
     },
     {
-      "files": ["./packages/shared/src/validators/*"],
+      "files": ["./packages/shared/src/validators/*","./packages/back-end/src/routers/**/*"],
       "rules": {
         "no-restricted-syntax": [
           "error",

@@ -22,6 +22,10 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    description: "",
+    settings: {},
+  },
 });
 
 interface CreateProjectProps {
