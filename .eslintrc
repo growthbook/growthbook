@@ -2,22 +2,22 @@
   "env": {
     "node": true,
     "browser": true,
-    "es6": true,
+    "es6": true
   },
   "settings": {
     "react": {
-      "version": "detect",
+      "version": "detect"
     },
     "import/parsers": {
-      "@typescript-eslint/parser": [".ts", ".tsx"],
+      "@typescript-eslint/parser": [".ts", ".tsx"]
     },
     "import/resolver": {
       "node": true,
       "typescript": {
         "alwaysTryTypes": true,
-        "project": ["packages/*/tsconfig.json"],
-      },
-    },
+        "project": ["packages/*/tsconfig.json"]
+      }
+    }
   },
   "parser": "@typescript-eslint/parser",
   "plugins": [
@@ -25,7 +25,7 @@
     "@typescript-eslint",
     "prettier",
     "@next/eslint-plugin-next",
-    "no-async-foreach",
+    "no-async-foreach"
   ],
   "extends": [
     "eslint:recommended",
@@ -36,18 +36,18 @@
     "plugin:@typescript-eslint/recommended",
     "plugin:prettier/recommended",
     "plugin:@next/eslint-plugin-next/recommended",
-    "plugin:react-hooks/recommended",
+    "plugin:react-hooks/recommended"
   ],
   "parserOptions": {
     "ecmaFeatures": {
-      "jsx": true,
+      "jsx": true
     },
     "ecmaVersion": 2018,
-    "sourceType": "module",
+    "sourceType": "module"
   },
   "globals": {
     "Atomics": "readonly",
-    "SharedArrayBuffer": "readonly",
+    "SharedArrayBuffer": "readonly"
   },
   "rules": {
     "no-unused-expressions": [
@@ -55,8 +55,8 @@
       {
         "allowShortCircuit": true,
         "enforceForJSX": true,
-        "allowTernary": true,
-      },
+        "allowTernary": true
+      }
     ],
     "no-async-foreach/no-async-foreach": 2,
     "@next/next/no-html-link-for-pages": ["warn", "./packages/front-end/pages"],
@@ -67,15 +67,15 @@
     "@typescript-eslint/no-inferrable-types": [
       "warn",
       {
-        "ignoreParameters": true,
-      },
+        "ignoreParameters": true
+      }
     ],
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
         "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_",
-      },
+        "varsIgnorePattern": "^_"
+      }
     ],
     "no-console": ["warn"],
     "no-restricted-imports": "off",
@@ -94,21 +94,21 @@
           "parent",
           "sibling",
           "index",
-          "unknown",
-        ],
-      },
+          "unknown"
+        ]
+      }
     ],
-    "@typescript-eslint/prefer-ts-expect-error": "error",
+    "@typescript-eslint/prefer-ts-expect-error": "error"
   },
   "overrides": [
     {
       "files": [
         "./packages/sdk-js/rollup.config.js",
-        "./packages/sdk-react/rollup.config.js",
+        "./packages/sdk-react/rollup.config.js"
       ],
       "rules": {
-        "import/no-named-as-default": "off",
-      },
+        "import/no-named-as-default": "off"
+      }
     },
     {
       "files": ["./packages/front-end/**/*.ts*"],
@@ -135,22 +135,22 @@
                   "Select",
                   "Switch",
                   "Table",
-                  "Tabs",
-                ],
-              },
+                  "Tabs"
+                ]
+              }
             ],
             "patterns": [
               {
-                "group": ["..*"],
+                "group": ["..*"]
               },
               {
                 "group": ["*back-end*", "**/sdk-{js,react}*"],
-                "message": "front-end can only import from shared or itself.",
-              },
-            ],
-          },
-        ],
-      },
+                "message": "front-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "files": ["./packages/front-end/**/*.ts*"],
@@ -159,14 +159,14 @@
           "error",
           {
             "selector": "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='pushState']",
-            "message": "Don't use window.history.pushState directly. Use router.push(url, undefined, { shallow: true }) from next/router instead.",
+            "message": "Don't use window.history.pushState directly. Use router.push(url, undefined, { shallow: true }) from next/router instead."
           },
           {
             "selector": "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='replaceState']",
-            "message": "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
-          },
-        ],
-      },
+            "message": "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead."
+          }
+        ]
+      }
     },
     {
       "files": [
@@ -205,29 +205,29 @@
         "./packages/front-end/services/features.ts",
         "./packages/front-end/services/search.tsx",
         "./packages/front-end/services/useGlobalMenu.ts",
-        "./packages/front-end/services/useSwitchOrg.ts",
+        "./packages/front-end/services/useSwitchOrg.ts"
       ],
       "rules": {
-        "react-hooks/exhaustive-deps": "off",
-      },
+        "react-hooks/exhaustive-deps": "off"
+      }
     },
     {
       "rules": {
-        "no-console": "off",
+        "no-console": "off"
       },
       "files": [
         "./packages/sdk-js/**/*",
         "./packages/front-end/**/*",
         "./packages/back-end/test/**/*",
         "./packages/back-end/src/scripts/**/*",
-        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
-      ],
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ]
     },
     {
       "files": ["./packages/back-end/**/*"],
       "excludedFiles": [
         "./packages/back-end/src/util/http.util.ts",
-        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
       ],
       "rules": {
         "no-restricted-imports": [
@@ -237,21 +237,21 @@
               {
                 "name": "node-fetch",
                 "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
-                "importNames": ["default"],
-              },
+                "importNames": ["default"]
+              }
             ],
             "patterns": [
               {
-                "group": ["..*"],
+                "group": ["..*"]
               },
               {
                 "group": ["*front-end*", "**/sdk-{js,react}*"],
-                "message": "back-end can only import from shared or itself.",
-              },
-            ],
-          },
-        ],
-      },
+                "message": "back-end can only import from shared or itself."
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "files": ["./packages/shared/**/*"],
@@ -262,12 +262,12 @@
             "patterns": [
               {
                 "group": ["*back-end*", "*front-end*"],
-                "message": "shared cannot import from back-end or front-end.",
-              },
-            ],
-          },
-        ],
-      },
+                "message": "shared cannot import from back-end or front-end."
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "files": ["./packages/sdk-{js,react}/**/*"],
@@ -278,12 +278,12 @@
             "patterns": [
               {
                 "group": ["*back-end*", "*front-end*", "**/shared*"],
-                "message": "SDK packages cannot import from internal packages.",
-              },
-            ],
-          },
-        ],
-      },
+                "message": "SDK packages cannot import from internal packages."
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "files": ["./packages/shared/src/validators/*"],
@@ -292,10 +292,10 @@
           "error",
           {
             "selector": "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
-            "message": "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
-          },
-        ],
-      },
-    },
-  ],
+            "message": "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead."
+          }
+        ]
+      }
+    }
+  ]
 }
