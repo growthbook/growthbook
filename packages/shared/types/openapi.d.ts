@@ -531,6 +531,8 @@ export interface components {
           metricId?: string;
           metricIds: (string)[];
           variationIds: (string)[];
+          /** @enum {string} */
+          differenceType: "absolute" | "relative" | "scaled";
           sliceTagsFilter: (string)[];
           metricTagFilter: (string)[];
           sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -14453,6 +14455,8 @@ export interface operations {
                   metricId?: string;
                   metricIds: (string)[];
                   variationIds: (string)[];
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
                   sliceTagsFilter: (string)[];
                   metricTagFilter: (string)[];
                   sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -14587,6 +14591,8 @@ export interface operations {
               metricId?: string;
               metricIds: (string)[];
               variationIds: (string)[];
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
               sliceTagsFilter: (string)[];
               metricTagFilter: (string)[];
               sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -14736,6 +14742,8 @@ export interface operations {
               metricId?: string;
               metricIds: (string)[];
               variationIds: (string)[];
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
               sliceTagsFilter: (string)[];
               metricTagFilter: (string)[];
               sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -14908,6 +14916,8 @@ export interface operations {
                   metricId?: string;
                   metricIds: (string)[];
                   variationIds: (string)[];
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
                   sliceTagsFilter: (string)[];
                   metricTagFilter: (string)[];
                   sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -15102,6 +15112,8 @@ export interface operations {
                     metricId?: string;
                     metricIds: (string)[];
                     variationIds: (string)[];
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
                     sliceTagsFilter: (string)[];
                     metricTagFilter: (string)[];
                     sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -15233,6 +15245,8 @@ export interface operations {
               metricId?: string;
               metricIds: (string)[];
               variationIds: (string)[];
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
               sliceTagsFilter: (string)[];
               metricTagFilter: (string)[];
               sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -15422,6 +15436,8 @@ export interface operations {
                   metricId?: string;
                   metricIds: (string)[];
                   variationIds: (string)[];
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
                   sliceTagsFilter: (string)[];
                   metricTagFilter: (string)[];
                   sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
@@ -15604,6 +15620,8 @@ export interface operations {
                     metricId?: string;
                     metricIds: (string)[];
                     variationIds: (string)[];
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
                     sliceTagsFilter: (string)[];
                     metricTagFilter: (string)[];
                     sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;

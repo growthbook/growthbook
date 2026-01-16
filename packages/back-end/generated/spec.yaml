@@ -6412,6 +6412,12 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                differenceType:
+                                  type: string
+                                  enum:
+                                    - absolute
+                                    - relative
+                                    - scaled
                                 sliceTagsFilter:
                                   type: array
                                   items:
@@ -6447,6 +6453,7 @@ paths:
                                 - experimentId
                                 - metricIds
                                 - variationIds
+                                - differenceType
                                 - sliceTagsFilter
                                 - metricTagFilter
                                 - sortBy
@@ -6875,6 +6882,12 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              differenceType:
+                                type: string
+                                enum:
+                                  - absolute
+                                  - relative
+                                  - scaled
                               sliceTagsFilter:
                                 type: array
                                 items:
@@ -6907,6 +6920,7 @@ paths:
                               - experimentId
                               - metricIds
                               - variationIds
+                              - differenceType
                               - sliceTagsFilter
                               - metricTagFilter
                               - sortBy
@@ -7402,6 +7416,12 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              differenceType:
+                                type: string
+                                enum:
+                                  - absolute
+                                  - relative
+                                  - scaled
                               sliceTagsFilter:
                                 type: array
                                 items:
@@ -7437,6 +7457,7 @@ paths:
                               - experimentId
                               - metricIds
                               - variationIds
+                              - differenceType
                               - sliceTagsFilter
                               - metricTagFilter
                               - sortBy
@@ -7964,6 +7985,12 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                differenceType:
+                                  type: string
+                                  enum:
+                                    - absolute
+                                    - relative
+                                    - scaled
                                 sliceTagsFilter:
                                   type: array
                                   items:
@@ -7999,6 +8026,7 @@ paths:
                                 - experimentId
                                 - metricIds
                                 - variationIds
+                                - differenceType
                                 - sliceTagsFilter
                                 - metricTagFilter
                                 - sortBy
@@ -8399,6 +8427,12 @@ paths:
                             type: array
                             items:
                               type: string
+                          differenceType:
+                            type: string
+                            enum:
+                              - absolute
+                              - relative
+                              - scaled
                           sliceTagsFilter:
                             type: array
                             items:
@@ -8431,6 +8465,7 @@ paths:
                           - experimentId
                           - metricIds
                           - variationIds
+                          - differenceType
                           - sliceTagsFilter
                           - metricTagFilter
                           - sortBy
@@ -9021,6 +9056,12 @@ paths:
                                   type: array
                                   items:
                                     type: string
+                                differenceType:
+                                  type: string
+                                  enum:
+                                    - absolute
+                                    - relative
+                                    - scaled
                                 sliceTagsFilter:
                                   type: array
                                   items:
@@ -9056,6 +9097,7 @@ paths:
                                 - experimentId
                                 - metricIds
                                 - variationIds
+                                - differenceType
                                 - sliceTagsFilter
                                 - metricTagFilter
                                 - sortBy
@@ -9609,6 +9651,12 @@ paths:
                                     type: array
                                     items:
                                       type: string
+                                  differenceType:
+                                    type: string
+                                    enum:
+                                      - absolute
+                                      - relative
+                                      - scaled
                                   sliceTagsFilter:
                                     type: array
                                     items:
@@ -9644,6 +9692,7 @@ paths:
                                   - experimentId
                                   - metricIds
                                   - variationIds
+                                  - differenceType
                                   - sliceTagsFilter
                                   - metricTagFilter
                                   - sortBy
@@ -10201,6 +10250,12 @@ paths:
                                     type: array
                                     items:
                                       type: string
+                                  differenceType:
+                                    type: string
+                                    enum:
+                                      - absolute
+                                      - relative
+                                      - scaled
                                   sliceTagsFilter:
                                     type: array
                                     items:
@@ -10236,6 +10291,7 @@ paths:
                                   - experimentId
                                   - metricIds
                                   - variationIds
+                                  - differenceType
                                   - sliceTagsFilter
                                   - metricTagFilter
                                   - sortBy
@@ -10872,6 +10928,12 @@ components:
                     type: array
                     items:
                       type: string
+                  differenceType:
+                    type: string
+                    enum:
+                      - absolute
+                      - relative
+                      - scaled
                   sliceTagsFilter:
                     type: array
                     items:
@@ -10907,6 +10969,7 @@ components:
                   - experimentId
                   - metricIds
                   - variationIds
+                  - differenceType
                   - sliceTagsFilter
                   - metricTagFilter
                   - sortBy
