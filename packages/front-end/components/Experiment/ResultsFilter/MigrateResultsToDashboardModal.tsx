@@ -383,7 +383,6 @@ export default function MigrateResultsToDashboardModal({
               title: blockName || defaultBlockName,
               metricIds: metricsFilter || [],
               variationIds: (variationFilter || []).map(String),
-              sliceTagsFilter: sliceTagsFilter || [],
               metricTagFilter: metricTagFilter || [],
               sortBy: sortBy as ExperimentSortBy,
               sortDirection: sortDirection as "asc" | "desc" | null,
@@ -394,6 +393,7 @@ export default function MigrateResultsToDashboardModal({
                 differenceType: differenceType || "relative",
               }),
               ...(blockType === "experiment-metric" && {
+                sliceTagsFilter: sliceTagsFilter || [],
                 baselineRow: baselineRow ?? 0,
                 differenceType: differenceType || "relative",
               }),
