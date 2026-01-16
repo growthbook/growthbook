@@ -299,6 +299,7 @@ export function useExperimentDimensionRows({
           ? sortMetricsByCustomOrder(
               metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
               customMetricOrder,
+              ssrPolyfills?.metricGroups || metricGroups,
             )
           : sortBy === "metricTags" &&
               metricTagFilter &&

@@ -329,6 +329,7 @@ export function useExperimentTableRows({
         ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
             customMetricOrder,
+            metricGroups,
           )
         : sortBy === "metricTags" &&
             metricTagFilter &&
@@ -360,6 +361,7 @@ export function useExperimentTableRows({
         ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
             customMetricOrder,
+            metricGroups,
           )
         : sortBy === "metricTags" &&
             metricTagFilter &&
@@ -391,6 +393,7 @@ export function useExperimentTableRows({
         ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
             customMetricOrder,
+            metricGroups,
           )
         : sortBy === "metricTags" &&
             metricTagFilter &&
@@ -753,6 +756,7 @@ export function generateRowsForMetric({
 export function sortMetricsByCustomOrder(
   metrics: ExperimentMetricInterface[],
   customOrder: string[],
+  metricGroups?: MetricGroupInterface[],
 ): string[] {
   // Filter out special metric selector IDs
   const filteredCustomOrder = customOrder.filter(
@@ -760,13 +764,35 @@ export function sortMetricsByCustomOrder(
       !METRIC_SELECTOR_IDS.includes(id as (typeof METRIC_SELECTOR_IDS)[number]),
   );
   const metricIds = metrics.map((m) => m.id);
-  const orderedMetrics = filteredCustomOrder.filter((id) =>
-    metricIds.includes(id),
-  );
-  const unorderedMetrics = metricIds.filter(
-    (id) => !filteredCustomOrder.includes(id),
-  );
-  return [...orderedMetrics, ...unorderedMetrics];
+
+  // Pre-expand all groups in the custom order
+  const expandedOrder: string[] = [];
+  const seenMetrics = new Set<string>();
+
+  filteredCustomOrder.forEach((id) => {
+    if (isMetricGroupId(id) && metricGroups) {
+      // Expand the group and add metrics in order, skipping duplicates
+      const group = metricGroups.find((g) => g.id === id);
+      if (group) {
+        group.metrics.forEach((metricId) => {
+          if (!seenMetrics.has(metricId) && metricIds.includes(metricId)) {
+            expandedOrder.push(metricId);
+            seenMetrics.add(metricId);
+          }
+        });
+      }
+    } else {
+      // Individual metric - add if not seen and exists in metrics
+      if (!seenMetrics.has(id) && metricIds.includes(id)) {
+        expandedOrder.push(id);
+        seenMetrics.add(id);
+      }
+    }
+  });
+
+  // Add any remaining metrics that weren't in the custom order
+  const unorderedMetrics = metricIds.filter((id) => !seenMetrics.has(id));
+  return [...expandedOrder, ...unorderedMetrics];
 }
 
 export function sortMetricsByTags(
