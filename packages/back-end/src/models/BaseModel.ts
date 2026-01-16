@@ -81,6 +81,17 @@ type AuditLogConfig<Entity extends EntityType> = {
   deleteEvent: EventTypes<Entity>;
 };
 
+// DeepPartial makes all properties (including nested) optional
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: T[P] extends (infer U)[]
+        ? DeepPartial<U>[]
+        : T[P] extends readonly (infer U)[]
+          ? readonly DeepPartial<U>[]
+          : DeepPartial<T[P]>;
+    }
+  : T;
+
 export interface ModelConfig<
   T extends BaseSchema,
   Entity extends EntityType,
@@ -103,7 +114,7 @@ export interface ModelConfig<
   indexesToRemove?: string[];
   baseQuery?: ScopedFilterQuery<T>;
   apiConfig?: ApiModelConfig<ApiT>;
-  defaultValues?: Partial<CreateProps<z.infer<T>>>;
+  defaultValues?: DeepPartial<CreateProps<z.infer<T>>>;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -448,6 +459,38 @@ export abstract class BaseModel<
   protected _generateUid() {
     return uuidv4().replace(/-/g, "");
   }
+
+  /**
+   * Recursively applies default values to props, only setting values that are undefined.
+   * Handles nested objects by merging them deeply.
+   */
+  protected _applyDefaultValues(
+    props: Record<string, unknown>,
+    defaults: Record<string, unknown>,
+  ): void {
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+      const currentValue = props[key];
+
+      if (currentValue === undefined) {
+        // If the value is undefined, apply the default
+        props[key] = defaultValue;
+      } else if (
+        defaultValue !== null &&
+        typeof defaultValue === "object" &&
+        !Array.isArray(defaultValue) &&
+        currentValue !== null &&
+        typeof currentValue === "object" &&
+        !Array.isArray(currentValue)
+      ) {
+        // If both are objects (not arrays), recursively merge nested defaults
+        this._applyDefaultValues(
+          currentValue as Record<string, unknown>,
+          defaultValue as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -560,11 +603,10 @@ export abstract class BaseModel<
 
     // Add default values if values are not provided
     if (this.config.defaultValues) {
-      for (const [key, value] of Object.entries(this.config.defaultValues)) {
-        if (props[key as keyof CreateProps<z.infer<T>>] === undefined) {
-          props[key as keyof CreateProps<z.infer<T>>] = value;
-        }
-      }
+      this._applyDefaultValues(
+        props as Record<string, unknown>,
+        this.config.defaultValues as Record<string, unknown>,
+      );
     }
 
     const ids: Identifiers = {
