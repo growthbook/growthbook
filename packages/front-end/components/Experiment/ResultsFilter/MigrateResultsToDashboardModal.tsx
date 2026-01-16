@@ -9,6 +9,7 @@ import {
   DashboardEditLevel,
   DashboardShareLevel,
 } from "shared/enterprise";
+import { ExperimentSortBy } from "shared/experiments";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import cronstrue from "cronstrue";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -133,7 +134,8 @@ export default function MigrateResultsToDashboardModal({
     });
   }, [dashboards, userId, permissionsUtil, experiment.project]);
 
-  const defaultDashboard = filteredDashboards.find((dash) => dash.isDefault);
+  const defaultDashboard =
+    filteredDashboards.find((dash) => dash.isDefault) || filteredDashboards[0];
 
   const dimensionName = dimension
     ? getDimensionById(dimension)?.name ||
@@ -212,7 +214,6 @@ export default function MigrateResultsToDashboardModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedDashboardId, setSavedDashboardId] = useState<string | null>(null);
-  const [wasCreatingNew, setWasCreatingNew] = useState(false);
   const [step, setStep] = useState(0);
 
   const savedDashboardName = savedDashboardId
@@ -227,6 +228,10 @@ export default function MigrateResultsToDashboardModal({
     () => getDefaultBlockName(blockType),
     [blockType, getDefaultBlockName],
   );
+
+  const isCreatingNew = dashboardId === "__create__";
+  const confirmationStep = isCreatingNew ? 2 : 1;
+  const canGoBack = step < confirmationStep;
 
   const refreshInterval = useMemo(() => {
     if (!updateSchedule) return `every ${defaultRefreshInterval} hours`;
@@ -245,20 +250,26 @@ export default function MigrateResultsToDashboardModal({
 
   // Initialize dashboardId with default or first available
   useEffect(() => {
-    // Only set dashboard when modal is open and loading is complete
+    // Only set dashboardId when modal is open and loading is complete
     if (!open || loadingDashboards) return;
-
-    const currentDashboardId = form.getValues("dashboardId");
-    // Override "__create__" if dashboards are available
-    if (currentDashboardId === "__create__" && filteredDashboards.length > 0) {
-      form.setValue(
-        "dashboardId",
-        defaultDashboard?.id ?? filteredDashboards[0].id,
-      );
-    } else if (filteredDashboards.length === 0) {
-      form.setValue("dashboardId", "__create__");
+    // Only set dashboardId when on the first step
+    if (step > 0) return;
+    // Only set if we're on the default selection and we received a valid list of dashboards
+    if (
+      form.watch("dashboardId") === defaultFormValues.dashboardId &&
+      defaultDashboard
+    ) {
+      form.setValue("dashboardId", defaultDashboard?.id);
     }
-  }, [open, filteredDashboards, defaultDashboard, form, loadingDashboards]);
+  }, [
+    open,
+    filteredDashboards,
+    defaultFormValues.dashboardId,
+    defaultDashboard,
+    step,
+    form,
+    loadingDashboards,
+  ]);
 
   // Update block name when block type changes
   useEffect(() => {
@@ -270,7 +281,6 @@ export default function MigrateResultsToDashboardModal({
     if (!open) {
       setError(null);
       setSavedDashboardId(null);
-      setWasCreatingNew(false);
       setStep(0);
       form.reset(getDefaultFormValues());
     }
@@ -301,25 +311,6 @@ export default function MigrateResultsToDashboardModal({
     const selectedDashboard = dashboards.find((d) => d.id === dashboardId);
     if (!selectedDashboard || !selectedDashboard.blocks) return false;
 
-    // Map sortBy: "metrics" and "metricTags" are used consistently in both experiment results and dashboards
-    const mappedSortBy:
-      | "metrics"
-      | "metricTags"
-      | "significance"
-      | "change"
-      | null =
-      sortBy === "metrics" ||
-      sortBy === "metricTags" ||
-      sortBy === "significance" ||
-      sortBy === "change"
-        ? (sortBy as "metrics" | "metricTags" | "significance" | "change")
-        : null;
-
-    const mappedSortDirection: "asc" | "desc" | null =
-      sortDirection === "asc" || sortDirection === "desc"
-        ? (sortDirection as "asc" | "desc")
-        : null;
-
     // Construct the new block structure for comparison
     const newBlockForComparison: BlockComparisonFields = {
       type: blockType,
@@ -327,8 +318,8 @@ export default function MigrateResultsToDashboardModal({
       variationIds: (variationFilter || []).map(String),
       sliceTagsFilter: sliceTagsFilter || [],
       metricTagFilter: metricTagFilter || [],
-      sortBy: mappedSortBy,
-      sortDirection: mappedSortDirection,
+      sortBy: sortBy as ExperimentSortBy,
+      sortDirection: sortDirection as "asc" | "desc" | null,
       ...(blockType === "experiment-dimension" && {
         dimensionId: dimension || "",
         baselineRow: baselineRow ?? 0,
@@ -362,161 +353,141 @@ export default function MigrateResultsToDashboardModal({
     baselineRow,
   ]);
 
-  const handleSubmit = async () => {
-    if (isSubmitting) return;
+  const handleSubmit =
+    step === confirmationStep
+      ? undefined
+      : async () => {
+          if (isSubmitting) return;
 
-    // Validate based on current step
-    if (step === 0) {
-      // Page 1: Validate dashboard selection
-      if (dashboardId !== "__create__" && !dashboardId) {
-        setError("Please select a dashboard");
-        return;
-      }
-      if (dashboardId === "__create__") {
-        // For new dashboard, advance to page 2
-        setStep(1);
-        return;
-      }
-      // For existing dashboard, proceed with submission
-    } else if (step === 1) {
-      // Page 2 (new dashboard only): Validate dashboard name
-      if (!form.watch("newDashboardTitle").trim()) {
-        setError("Dashboard name is required");
-        return;
-      }
-      // Proceed with submission
-    } else {
-      // Already on confirmation page
-      return;
-    }
+          // Validate based on current step
+          if (step === 0) {
+            // Page 1: Validate dashboard selection
+            if (dashboardId !== "__create__" && !dashboardId) {
+              setError("Please select a dashboard");
+              return;
+            }
+            if (dashboardId === "__create__") {
+              // For new dashboard, advance to page 2
+              setStep(1);
+              return;
+            }
+            // For existing dashboard, proceed with submission
+          } else if (step === 1) {
+            // Page 2 (new dashboard only): Validate dashboard name
+            if (!form.watch("newDashboardTitle").trim()) {
+              setError("Dashboard name is required");
+              return;
+            }
+            // Proceed with submission
+          } else {
+            // Already on confirmation page
+            return;
+          }
 
-    setError(null);
-    setIsSubmitting(true);
+          setError(null);
+          setIsSubmitting(true);
 
-    try {
-      // Map sortBy: "metrics" and "metricTags" are used consistently in both experiment results and dashboards
-      const mappedSortBy:
-        | "metrics"
-        | "metricTags"
-        | "significance"
-        | "change"
-        | null =
-        sortBy === "metrics" ||
-        sortBy === "metricTags" ||
-        sortBy === "significance" ||
-        sortBy === "change"
-          ? (sortBy as "metrics" | "metricTags" | "significance" | "change")
-          : null;
+          try {
+            // Create the new block using CREATE_BLOCK_TYPE, then override with our values
+            const baseBlock = CREATE_BLOCK_TYPE[blockType]({
+              experiment,
+              metricGroups,
+            });
 
-      // Create the new block using CREATE_BLOCK_TYPE, then override with our values
-      const baseBlock = CREATE_BLOCK_TYPE[blockType]({
-        experiment,
-        metricGroups,
-      });
+            const newBlock = {
+              ...baseBlock,
+              title: blockName || defaultBlockName,
+              metricIds: metricsFilter || [],
+              variationIds: (variationFilter || []).map(String),
+              sliceTagsFilter: sliceTagsFilter || [],
+              metricTagFilter: metricTagFilter || [],
+              sortBy: sortBy as ExperimentSortBy,
+              sortDirection: sortDirection as "asc" | "desc" | null,
+              ...(blockType === "experiment-dimension" && {
+                dimensionId: dimension || "",
+                dimensionValues: [],
+                baselineRow: baselineRow ?? 0,
+                differenceType: differenceType || "relative",
+              }),
+              ...(blockType === "experiment-metric" && {
+                baselineRow: baselineRow ?? 0,
+                differenceType: differenceType || "relative",
+              }),
+            };
 
-      const mappedSortDirection: "asc" | "desc" | null =
-        sortDirection === "asc" || sortDirection === "desc"
-          ? (sortDirection as "asc" | "desc")
-          : null;
+            let res: { status: number; dashboard: DashboardInterface };
+            let finalDashboardId: string;
 
-      const newBlock = {
-        ...baseBlock,
-        title: blockName || defaultBlockName,
-        metricIds: metricsFilter || [],
-        variationIds: (variationFilter || []).map(String),
-        sliceTagsFilter: sliceTagsFilter || [],
-        metricTagFilter: metricTagFilter || [],
-        sortBy: mappedSortBy,
-        sortDirection: mappedSortDirection,
-        ...(blockType === "experiment-dimension" && {
-          dimensionId: dimension || "",
-          dimensionValues: [],
-          baselineRow: baselineRow ?? 0,
-          differenceType: differenceType || "relative",
-        }),
-        ...(blockType === "experiment-metric" && {
-          baselineRow: baselineRow ?? 0,
-          differenceType: differenceType || "relative",
-        }),
-      };
+            if (dashboardId === "__create__") {
+              // Create new dashboard with the block included
+              const blocks = [getBlockData(newBlock)];
+              const formValues = form.getValues();
+              res = await apiCall<{
+                status: number;
+                dashboard: DashboardInterface;
+              }>(`/dashboards`, {
+                method: "POST",
+                body: JSON.stringify({
+                  title: formValues.newDashboardTitle,
+                  shareLevel: formValues.newDashboardShareLevel,
+                  editLevel: formValues.newDashboardEditLevel,
+                  enableAutoUpdates: formValues.newDashboardEnableAutoUpdates,
+                  experimentId: experiment.id,
+                  projects: experiment.project ? [experiment.project] : [],
+                  userId: userId,
+                  blocks,
+                }),
+              });
+              finalDashboardId = res.dashboard.id;
+            } else {
+              // Update existing dashboard
+              const selectedDashboard = dashboards.find(
+                (d) => d.id === dashboardId,
+              );
+              if (!selectedDashboard) {
+                setError("Dashboard not found");
+                setIsSubmitting(false);
+                return;
+              }
 
-      let res: { status: number; dashboard: DashboardInterface };
-      let finalDashboardId: string;
+              const updatedBlocks = [
+                ...(selectedDashboard.blocks || []).map(getBlockData),
+                getBlockData(newBlock),
+              ];
 
-      if (dashboardId === "__create__") {
-        // Create new dashboard with the block included
-        const blocks = [getBlockData(newBlock)];
-        const formValues = form.getValues();
-        res = await apiCall<{
-          status: number;
-          dashboard: DashboardInterface;
-        }>(`/dashboards`, {
-          method: "POST",
-          body: JSON.stringify({
-            title: formValues.newDashboardTitle,
-            shareLevel: formValues.newDashboardShareLevel,
-            editLevel: formValues.newDashboardEditLevel,
-            enableAutoUpdates: formValues.newDashboardEnableAutoUpdates,
-            experimentId: experiment.id,
-            projects: experiment.project ? [experiment.project] : [],
-            userId: userId,
-            blocks,
-          }),
-        });
-        finalDashboardId = res.dashboard.id;
-      } else {
-        // Update existing dashboard
-        const selectedDashboard = dashboards.find((d) => d.id === dashboardId);
-        if (!selectedDashboard) {
-          setError("Dashboard not found");
-          setIsSubmitting(false);
-          return;
-        }
+              res = await apiCall<{
+                status: number;
+                dashboard: DashboardInterface;
+              }>(`/dashboards/${dashboardId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  blocks: updatedBlocks,
+                }),
+              });
+              finalDashboardId = dashboardId;
+            }
 
-        const updatedBlocks = [
-          ...(selectedDashboard.blocks || []).map(getBlockData),
-          getBlockData(newBlock),
-        ];
-
-        res = await apiCall<{
-          status: number;
-          dashboard: DashboardInterface;
-        }>(`/dashboards/${dashboardId}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            blocks: updatedBlocks,
-          }),
-        });
-        finalDashboardId = dashboardId;
-      }
-
-      if (res.status === 200) {
-        await mutateDashboards();
-        setSavedDashboardId(finalDashboardId);
-        setWasCreatingNew(dashboardId === "__create__");
-        setError(null);
-        // Advance to confirmation page
-        // For existing dashboard: step 0 -> step 1 (confirmation)
-        // For new dashboard: step 1 -> step 2 (confirmation)
-        setStep(dashboardId === "__create__" ? 2 : 1);
-      } else {
-        setError("Failed to add block to dashboard");
-      }
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to add block to dashboard",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Determine which pages to show based on flow
-  const isCreatingNew = dashboardId === "__create__";
-  const confirmationStep = isCreatingNew ? 2 : 1;
-  const canGoBack = step < confirmationStep && !savedDashboardId;
+            if (res.status === 200) {
+              await mutateDashboards();
+              setSavedDashboardId(finalDashboardId);
+              setError(null);
+              // Advance to confirmation page
+              // For existing dashboard: step 0 -> step 1 (confirmation)
+              // For new dashboard: step 1 -> step 2 (confirmation)
+              setStep(isCreatingNew ? 2 : 1);
+            } else {
+              setError("Failed to add block to dashboard");
+            }
+          } catch (error) {
+            setError(
+              error instanceof Error
+                ? error.message
+                : "Failed to add block to dashboard",
+            );
+          } finally {
+            setIsSubmitting(false);
+          }
+        };
 
   // Calculate CTA text and enabled state
   const getCtaText = () => {
@@ -554,10 +525,10 @@ export default function MigrateResultsToDashboardModal({
 
   // Get secondary CTA (View Dashboard link when saved)
   const getSecondaryCTA = () => {
-    if (!savedDashboardId) return undefined;
+    if (step !== confirmationStep) return undefined;
     return (
       <LinkButton
-        href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
+        href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${dashboardId}`}
         external={true}
       >
         View Dashboard <PiArrowSquareOut />
@@ -591,9 +562,10 @@ export default function MigrateResultsToDashboardModal({
               : "Capture the current settings of this Experiment Results view to use in a Dashboard"
           }
           close={close}
-          submit={savedDashboardId ? undefined : handleSubmit}
+          submit={handleSubmit}
           cta={getCtaText()}
           ctaEnabled={getCtaEnabled() && !isSubmitting}
+          secondaryCTA={getSecondaryCTA()}
           loading={isSubmitting}
           size="lg"
           step={step}
@@ -602,7 +574,6 @@ export default function MigrateResultsToDashboardModal({
           closeCta={savedDashboardId ? "Close" : "Cancel"}
           hideNav={true}
           autoCloseOnSubmit={false}
-          secondaryCTA={getSecondaryCTA()}
           trackingEventModalType="migrate-results-to-dashboard"
           trackingEventModalSource="experiment-results"
           useRadixButton={true}
@@ -654,7 +625,7 @@ export default function MigrateResultsToDashboardModal({
           <Page display="Confirmation" enabled={!!savedDashboardId}>
             {savedDashboardId ? (
               <ConfirmationPage
-                wasCreatingNew={wasCreatingNew}
+                isNewDashboard={isCreatingNew}
                 blockType={blockType}
               />
             ) : (

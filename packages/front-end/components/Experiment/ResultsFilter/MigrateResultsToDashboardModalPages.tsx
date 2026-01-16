@@ -329,10 +329,10 @@ export function NewDashboardSettingsPage({
 }
 
 export function ConfirmationPage({
-  wasCreatingNew,
+  isNewDashboard,
   blockType,
 }: {
-  wasCreatingNew: boolean;
+  isNewDashboard: boolean;
   blockType:
     | "experiment-metric"
     | "experiment-time-series"
@@ -349,7 +349,7 @@ export function ConfirmationPage({
   return (
     <Box my="4">
       <Text>
-        {wasCreatingNew ? (
+        {isNewDashboard ? (
           <>
             Your new dashboard has been created, and the{" "}
             <strong>{blockTypeDisplay}</strong> block has been added to it.
