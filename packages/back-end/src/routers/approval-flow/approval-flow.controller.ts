@@ -10,6 +10,7 @@ import {
 } from "shared/validators";
 import { ApprovalFlowModel } from "back-end/src/models/ApprovalFlowModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
+import { getEntityModel } from "back-end/src/enterprise/approval-flows/helpers";
 
 // region GET /approval-flow
 
@@ -80,22 +81,30 @@ export const postApprovalFlow = async (
     proposedChanges,
   } = req.body;
 
-  // TODO: Check permissions based on entity type
-  // For now, we'll assume users can create approval flows if they can edit the entity
+  const entityModel = getEntityModel(context, entityType);
+  if (!entityModel) {
+    throw new Error(`Entity model not found for entity type: ${entityType}`);
+  }
+  const originalEntity = await entityModel.getById(entityId);
+  if (!originalEntity) {
+    throw new Error(`Original entity not found for entity type: ${entityType} and entity id: ${entityId}`);
+  }
 
   const approvalFlowModel = new ApprovalFlowModel(context);
 
   const approvalFlow = await approvalFlowModel.create({
-    entityType,
-    entityId,
+    entity: {
+      entityType,
+      entityId,
+      originalEntity,
+      proposedChanges,
+    },
     title,
     description: description || "",
     status: "pending-review",
     author: userId,
     reviews: [],
-    proposedChanges,
-    activityLog: [], // Will be populated by beforeCreate hook
-    originalEntity: {}, // Will be populated by beforeCreate hook
+    activityLog: [],
   });
 
   res.status(200).json({
@@ -171,7 +180,6 @@ export const getApprovalFlowsByEntity = async (
     entityType,
     entityId
   );
-  console.log("approvalFlows", approvalFlows);
 
   res.status(200).json({
     status: 200,
@@ -336,66 +344,12 @@ export const postMerge = async (
   const approvalFlow = await approvalFlowModel.getById(id);
 
   if (!approvalFlow) {
+    console.log("approval flow not found");
     return res.status(404).json({
       message: "Approval flow not found",
     });
   }
-
-  // Apply the changes to the entity
-  if (approvalFlow.entityType === "fact-metric") {
-    // Apply changes to fact metric
-    try {
-      await context.models.factMetrics.updateById(
-        approvalFlow.entityId,
-        approvalFlow.proposedChanges
-      );
-    } catch (error) {
-      return res.status(500).json({
-        message: `Failed to apply changes to fact metric: ${error.message}`,
-      });
-    }
-  } else if (approvalFlow.entityType === "metric") {
-    // Get the current metric and apply changes
-    const metric = await getMetricById(context, approvalFlow.entityId);
-    if (!metric) {
-      return res.status(404).json({
-        message: "Metric not found",
-      });
-    }
-
-    try {
-      const { updateMetric } = await import("back-end/src/models/MetricModel");
-      await updateMetric(
-        context,
-        metric,
-        approvalFlow.proposedChanges as Partial<typeof metric>
-      );
-    } catch (error) {
-      return res.status(500).json({
-        message: `Failed to apply changes to metric: ${error.message}`,
-      });
-    }
-  } else if (approvalFlow.entityType === "fact-table") {
-    // Get the current fact table and apply changes
-    const { getFactTable, updateFactTable } = await import(
-      "back-end/src/models/FactTableModel"
-    );
-    const factTable = await getFactTable(context, approvalFlow.entityId);
-    if (!factTable) {
-      return res.status(404).json({
-        message: "Fact table not found",
-      });
-    }
-
-    try {
-      await updateFactTable(context, factTable, approvalFlow.proposedChanges);
-    } catch (error) {
-      return res.status(500).json({
-        message: `Failed to apply changes to fact table: ${error.message}`,
-      });
-    }
-  }
-
+  console.log("approval flow found");
   // Mark the approval flow as merged
   const mergedApprovalFlow = await approvalFlowModel.merge(id, userId);
 

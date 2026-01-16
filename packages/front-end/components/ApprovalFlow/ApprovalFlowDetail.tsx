@@ -18,11 +18,11 @@ import {
 } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import { ApprovalEntityType, ApprovalFlowEntity } from "shared/src/validators/approval-flows";
+import { ApprovalEntityType, ApprovalFlowEntity, ApprovalFlowEntityType } from "shared/src/validators/approval-flows";
 import LoadingOverlay from "@/components/LoadingOverlay";
 interface ApprovalFlowDetailProps {
   approvalFlow: ApprovalFlowInterface;
-  currentState: ApprovalFlowEntity;
+  currentState: ApprovalFlowEntityType["originalEntity"];
   mutate?: () => void;
   setCurrentApprovalFlow: (flow: ApprovalFlowInterface | null) => void;
 }
@@ -85,17 +85,17 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
 
   useEffect(() => {
-      if (!approvalFlow.originalEntity || !approvalFlow.proposedChanges || !currentState) {
+      if (!approvalFlow.entity.originalEntity || !approvalFlow.entity.proposedChanges || !currentState) {
         setMergeResult(null);
         return;
       }
       const result = checkMergeConflicts(
-        approvalFlow.originalEntity,
+        approvalFlow.entity.originalEntity,
         currentState,
-        approvalFlow.proposedChanges
+        approvalFlow.entity.proposedChanges
       );
       setMergeResult(result);
-  }, [approvalFlow.id, approvalFlow.originalEntity, approvalFlow.proposedChanges, currentState]);
+  }, [approvalFlow.id, approvalFlow.entity.originalEntity, approvalFlow.entity.proposedChanges, currentState]);
   // Group activity by date (must be before early return to follow rules of hooks)
   if (!approvalFlow) return <LoadingOverlay />;
 
@@ -134,7 +134,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const isOpen =
     approvalFlow.status !== "merged" && approvalFlow.status !== "closed";
   const canUserReview = canUserReviewEntity({
-    entityType: approvalFlow.entityType as ApprovalEntityType,
+    entityType: approvalFlow.entity.entityType as ApprovalEntityType,
     approvalFlow,
     entity: currentState,
     approvalFlowSettings: orgSettings.approvalFlow,
@@ -179,7 +179,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   };
 
   // Calculate diff
-  const flatProposed = flattenObject(approvalFlow.proposedChanges);
+  const flatProposed = flattenObject(approvalFlow.entity.proposedChanges);
   const flatCurrent: Record<string, unknown> = {};
   for (const key of Object.keys(flatProposed)) {
     const keys = key.split(".");
@@ -254,7 +254,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     }
   };
   const canMerge = () => {
-    return approvalFlow.status === "approved" || canAdminBypassApprovalFlow(approvalFlow.entityType as ApprovalEntityType, currentState, orgSettings.approvalFlow, superAdmin, user?.role) || !requiresApprovalForEntity(approvalFlow.entityType as ApprovalEntityType, currentState , orgSettings.approvalFlow);
+    return approvalFlow.status === "approved" || canAdminBypassApprovalFlow(approvalFlow.entity.entityType as ApprovalEntityType, currentState, orgSettings.approvalFlow, superAdmin, user?.role) || !requiresApprovalForEntity(approvalFlow.entity.entityType as ApprovalEntityType, currentState , orgSettings.approvalFlow);
   };
 
   const getActivityLabel = (

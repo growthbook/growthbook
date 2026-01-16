@@ -6,12 +6,9 @@ import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { ApprovalEntityType } from "shared/validators";
 
-export type ApprovalEntityType =
-  | "metrics"
-  | "features"
-  | "experiments"
-  | "factTables";
+
 
 // The fields that can be targeted for each entity type
 type TargetableField = "tags" | "environments" | "projects";
@@ -163,14 +160,14 @@ export default function ApprovalFlowConditionInput({
     });
 
     // Environments - only for features
-    if (entityType === "features") {
-      configs.push({
-        field: "environments",
-        label: "Environments",
-        getOptions: () =>
-          environments.map((e) => ({ value: e.id, label: e.id })),
-      });
-    }
+    // if (entityType === "features") {
+    //   configs.push({
+    //     field: "environments",
+    //     label: "Environments",
+    //     getOptions: () =>
+    //       environments.map((e) => ({ value: e.id, label: e.id })),
+    //   });
+    // }
 
     // Projects - available for all entity types
     configs.push({

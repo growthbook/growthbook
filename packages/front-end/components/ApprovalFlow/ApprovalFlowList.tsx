@@ -8,7 +8,7 @@ import { useUser } from "@/services/UserContext";
 import UserAvatar from "../Avatar/UserAvatar";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import {
   FilterDropdown,
   useSearchFiltersBase,
@@ -35,7 +35,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
 
   // Get unique entity types for the filter
   const entityTypes = useMemo(() => {
-    const types = new Set(approvalFlows.map((f) => f.entityType));
+    const types = new Set(approvalFlows.map((f) => f.entity.entityType));
     return Array.from(types);
   }, [approvalFlows]);
 
@@ -52,6 +52,10 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     };
     return labels[entityType] || entityType;
   };
+  const approvalItems = useAddComputedFields(approvalFlows, (item) => ({
+    ...item,
+    entityType: item.entity.entityType,
+  }));
 
   const {
     items,
@@ -60,14 +64,14 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     syntaxFilters,
     setSearchValue,
   } = useSearch({
-    items: approvalFlows,
+    items: approvalItems,
     localStorageKey: "approvalFlowList",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
     searchFields: ["title"],
     searchTermFilters: {
       status: (item) => item.status,
-      type: (item) => item.entityType,
+      entityType: (item) => item.entity.entityType,
       author: (item) => [item.author, getUserDisplay(item.author)],
     },
   });
@@ -241,7 +245,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                   <SortableTH field="dateCreated">Date</SortableTH>
                   <th>Comments</th>
                   <th>Requested by</th>
-                  {showEntityType && <SortableTH field="entityType">type</SortableTH>}
+                  {showEntityType && <SortableTH field="entityType">Type</SortableTH>}
                   <th>Status</th>
                 </tr>
               </thead>
@@ -269,7 +273,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                         "--"
                       )}
                     </td>
-                    {showEntityType && <td>{getEntityTypeLabel(flow.entityType)}</td>}
+                    {showEntityType && <td>{getEntityTypeLabel(flow.entity.entityType)}</td>}
                     <td>{getStatusBadge(flow.status)}</td>
                   </tr>
                 ))}

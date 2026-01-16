@@ -155,53 +155,6 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  // Check if approval is required for this fact table update
-  const approvalFlowSettings = context.org.settings?.approvalFlow?.factTables || [];
-  const requiresApproval = approvalFlowSettings.some((setting) => {
-    // Check if approval is enabled
-    if (!setting.requireReviewOn) return false;
-
-    // Check if this fact table's projects match the approval flow settings
-    const factTableProjects = factTable.projects || [];
-    const settingProjects = setting.projects || [];
-    
-    // If no projects specified in settings, applies to all
-    if (settingProjects.length === 0) return true;
-    
-    // Check if any of the fact table's projects are in the approval settings
-    return factTableProjects.some((p) => settingProjects.includes(p));
-  });
-
-  if (requiresApproval) {
-    // Create an approval flow instead of directly updating
-    const approvalFlow = await context.models.approvalFlow.create({
-      entityType: "fact-table",
-      entityId: factTable.id,
-      title: `Update ${factTable.name}`,
-      description: "Requesting approval for fact table changes",
-      status: "pending-review",
-      author: context.userId,
-      reviews: [],
-      proposedChanges: data,
-      baseVersion: 0, // TODO: Add version tracking to fact tables
-      activityLog: [], // Will be populated by beforeCreate hook
-    });
-
-    res.status(200).json({
-      status: 200,
-      requiresApproval: true,
-      approvalFlow,
-    } as any);
-
-    await req.audit({
-      event: "approvalFlow.create",
-      entity: {
-        object: "approvalFlow",
-        id: approvalFlow.id,
-      },
-    });
-  } else {
-    // No approval required, update directly
     // Update the columns
     if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
       const originalColumns = cloneDeep(factTable.columns || []);
@@ -273,7 +226,6 @@ export const putFactTable = async (
     res.status(200).json({
       status: 200,
     });
-  }
 };
 
 export const archiveFactTable = async (
@@ -602,16 +554,18 @@ export const putFactMetric = async (
       throw new Error("An approval flow already exists for this user and entity"); 
     }
     const approvalFlow = await context.models.approvalFlow.create({
-      entityType: "fact-metric",
-      entityId: factMetric.id,
+      entity: {
+        entityType: "fact-metric",
+        entityId: factMetric.id,
+        originalEntity: factMetric,
+        proposedChanges: data,
+      },
       title: `Update ${factMetric.name}`,
       description: "Requesting approval for fact metric changes",
       status: "pending-review",
       author: context.userId,
       reviews: [],
-      proposedChanges: data,
-      originalEntity: factMetric,
-      activityLog: [], // Will be populated by beforeCreate hook
+      activityLog: [],
     });
     console.log("approvalFlow", approvalFlow);
 

@@ -3,7 +3,7 @@ import z from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawApprovalFlowController from "./approval-flow.controller";
-import { approvalFlowCreateValidator } from "shared/validators";
+import { approvalFlowCreateValidator, factMetricValidator, entityValidator } from "shared/validators";
 
 const router = express.Router();
 
@@ -90,9 +90,8 @@ router.put(
       .strict(),
     body: z
       .object({
-        proposedChanges: z.record(z.unknown()),
-      })
-      .strict(),
+        proposedChanges: z.union([factMetricValidator.partial()]),
+      }).strict(),
   }),
   approvalFlowController.putProposedChanges
 );
@@ -154,56 +153,6 @@ router.get(
   }),
   approvalFlowController.getRevisionHistory
 );
-
-// // Revert to a previous merged approval flow state
-// router.post(
-//   "/:id/revert",
-//   validateRequestMiddleware({
-//     params: z
-//       .object({
-//         id: z.string(),
-//       })
-//       .strict(),
-//     body: z
-//       .object({
-//         title: z.string().optional(),
-//         description: z.string().optional(),
-//       })
-//       .strict(),
-//   }),
-//   approvalFlowController.postRevert
-// );
-
-// // Check for merge conflicts
-// router.get(
-//   "/:id/conflicts",
-//   validateRequestMiddleware({
-//     params: z
-//       .object({
-//         id: z.string(),
-//       })
-//       .strict(),
-//   }),
-//   approvalFlowController.getConflicts
-// );
-
-// // Resolve merge conflicts
-// router.post(
-//   "/:id/resolve-conflicts",
-//   validateRequestMiddleware({
-//     params: z
-//       .object({
-//         id: z.string(),
-//       })
-//       .strict(),
-//     body: z
-//       .object({
-//         resolvedChanges: z.record(z.unknown()),
-//       })
-//       .strict(),
-//   }),
-//   approvalFlowController.postResolveConflicts
-// );
 
 export { router as approvalFlowRouter };
 

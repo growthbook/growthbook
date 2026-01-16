@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { factMetricValidator } from "shared/validators";
+import { factMetricValidator } from "./fact-table";
 
 // Approval flow statuses (similar to GitHub PR states)
 export const approvalFlowStatusArray = [
@@ -35,10 +35,6 @@ export const reviewValidator = z.object({
   createdAt: z.date(),
 });
 
-// The actual changes being proposed
-// This is a flexible object that can contain different fields based on the entity type
-export const proposedChangesValidator = z.record(z.string(), z.unknown());
-
 // Activity log entry (for timeline/history)
 export const activityLogEntryValidator = z.object({
   id: z.string(),
@@ -57,28 +53,26 @@ export const activityLogEntryValidator = z.object({
   details: z.string().optional(),
   createdAt: z.date(),
 });
-
-
-
-export const approvalFlowCreateValidator = z.object({
-  entityType: z.enum(approvalEntityTypeArray),
-  entityId: z.string(),
-  title: z.string(),
-  description: z.string().optional(),
-  proposedChanges: proposedChangesValidator,
-});
-export type ApprovalFlowCreateInterface = z.infer<typeof approvalFlowCreateValidator>;
-
 // Fact metric approval flow with entity-specific fields
 export const factMetricApprovalFlowValidator = z.object({
   entityType: z.literal("fact-metric"),
-  entity: factMetricValidator,
+  originalEntity: factMetricValidator,
+  proposedChanges: factMetricValidator.partial(),
+  entityId: z.string(),
 });
 
 //TODO: figure out a good way to get this to work
-export const originalEntityValidator = z.discriminatedUnion("entityType", [
+export const entityValidator = z.discriminatedUnion("entityType", [
   factMetricApprovalFlowValidator,
 ]);
+export type ApprovalFlowEntityType = z.infer<typeof entityValidator>;
+
+export const approvalFlowCreateValidator = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  entity: entityValidator,
+});
+export type ApprovalFlowCreateInterface = z.infer<typeof approvalFlowCreateValidator>;
 
 // Base approval flow fields (common to all entity types)
 export const approvalFlowValidator = approvalFlowCreateValidator.extend({
@@ -94,15 +88,10 @@ export const approvalFlowValidator = approvalFlowCreateValidator.extend({
   dateCreated: z.date(),
   dateUpdated: z.date(),
   organization: z.string(),
-  originalEntity: z.record(z.string(), z.unknown()),
 });
-
-
-
 
 export type ApprovalFlowInterface = z.infer<typeof approvalFlowValidator>;
 export type Review = z.infer<typeof reviewValidator>;
-export type ProposedChanges = z.infer<typeof proposedChangesValidator>;
 export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
 
 // Conflict information computed on-the-fly (not stored)

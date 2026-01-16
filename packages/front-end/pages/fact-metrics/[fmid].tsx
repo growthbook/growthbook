@@ -265,7 +265,7 @@ export default function FactMetricPage() {
   // merge the original fact metric with the user open approval flows
   const factMetric =  useMemo(() => {
     if(showingApprovalFlow && userOpenApprovalFlow) {
-      return { ...factMetricOriginal, ...(userOpenApprovalFlow?.proposedChanges || {}) } as typeof factMetricOriginal;
+      return { ...factMetricOriginal, ...(userOpenApprovalFlow?.entity.proposedChanges || {}) } as typeof factMetricOriginal;
     } else {
       return factMetricOriginal;
     }
@@ -1183,7 +1183,7 @@ export default function FactMetricPage() {
             ) : (
               <ApprovalFlowDetail
                 approvalFlow={currentApprovalFlow}
-                currentState={factMetric}
+                currentState={factMetricOriginal}
                 mutate={mutateApprovalFlows}
                 setCurrentApprovalFlow={setCurrentApprovalFlow}
               />

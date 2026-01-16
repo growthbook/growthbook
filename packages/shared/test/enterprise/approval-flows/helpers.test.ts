@@ -98,21 +98,27 @@ describe("enterprise/approval-flows helpers", () => {
   });
 
   describe("canUserReviewEntity", () => {
-    const createMockApprovalFlow = (status = "pending-review", author = "author1") => ({
-      id: "af1",
-      entityType: "fact-metric" as const,
-      entityId: "entity1",
-      title: "Test Approval Flow",
-      proposedChanges: {},
-      status: status as any,
-      author,
-      reviews: [],
-      activityLog: [],
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: "org1",
-      originalEntity: {},
-    });
+    const createMockApprovalFlow = (status = "pending-review", author = "author1") =>
+      ({
+        id: "af1",
+        entityType: "fact-metric" as const,
+        entity: {
+          entityType: "fact-metric" as const,
+          entityId: "entity1",
+          originalEntity: {},
+          proposedChanges: {},
+        },
+        title: "Test Approval Flow",
+        proposedChanges: {},
+        status: status as any,
+        author,
+        reviews: [],
+        activityLog: [],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        organization: "org1",
+        originalEntity: {},
+      } as any);
 
     it("returns false when settings are missing", () => {
       const entity = { id: "entity1" };

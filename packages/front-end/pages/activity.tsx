@@ -37,7 +37,7 @@ const Activity: FC = () => {
       "fact-table": "fact-table",
     }
     router.push(
-      `/${mapEntityType[flow.entityType]}/${flow.entityId}?approvalFlowId=${encodeURIComponent(flow.id)}#approvals`,
+      `/${mapEntityType[flow.entity.entityType]}/${flow.entity.entityId}?approvalFlowId=${encodeURIComponent(flow.id)}#approvals`,
     );
   }
         

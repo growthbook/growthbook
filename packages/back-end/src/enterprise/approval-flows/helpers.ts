@@ -11,8 +11,6 @@ export const getEntityModel = (
   switch (entityType) {
     case "fact-metric":
       return context.models.factMetrics;
-    case "fact-table":
-      return context.models.factTables;
     default:
       return null;
   }

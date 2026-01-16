@@ -61,13 +61,8 @@ export const getApprovalFlowKey = (
   entityType: ApprovalEntityType
 ): keyof ApprovalFlow | null => {
   switch (entityType) {
-    case "experiment":
-      return "experiments";
     case "fact-metric":
-    case "metric":
       return "metrics";
-    case "fact-table":
-      return "factTables";
     default:
       return null;
   }

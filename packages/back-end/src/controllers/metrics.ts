@@ -528,9 +528,9 @@ export async function putMetric(
   const context = getContextFromReq(req);
   const { id } = req.params;
   const metric = await getMetricById(context, id);
-  // if (!metric) {
+  if (!metric) {
     throw new Error("Could not find metric");
-  // }
+  }
 
   const updates: Partial<MetricInterface> = {};
 
@@ -541,60 +541,6 @@ export async function putMetric(
     }
   });
 
-  // Check if approval is required for this metric update
-  const approvalFlowSettings = context.org.settings?.approvalFlow?.metrics || [];
-  // TODO: move this to its own function inside the approvals validator
-  const requiresApproval = approvalFlowSettings.some((setting) => {
-    console.o
-    // Check if approval is enabled
-    if (!setting.requireReviewOn) return false;
-
-    // Check if this metric's projects match the approval flow settings
-    const metricProjects = metric.projects || [];
-    const settingProjects = setting.projects || [];
-    
-    // If no projects specified in settings, applies to all
-    if (settingProjects.length === 0) return true;
-    
-    // Check if any of the metric's projects are in the approval settings
-    return metricProjects.some((p) => settingProjects.includes(p));
-  });
-
-  if (requiresApproval) {
-    // Create an approval flow instead of directly updating
-    const { ApprovalFlowModel } = await import(
-      "back-end/src/models/ApprovalFlowModel"
-    );
-    const approvalFlowModel = new ApprovalFlowModel(context);
-
-    const approvalFlow = await approvalFlowModel.create({
-      entityType: "metric",
-      entityId: metric.id,
-      title: `Update ${metric.name}`,
-      description: "Requesting approval for metric changes",
-      status: "pending-review",
-      author: context.userId,
-      reviews: [],
-      proposedChanges: updates,
-      baseVersion: 0, // TODO: Add version tracking to metrics
-      activityLog: [], // Will be populated by beforeCreate hook
-    });
-
-    res.status(200).json({
-      status: 200,
-      requiresApproval: true,
-      approvalFlow,
-    });
-
-    await req.audit({
-      event: "approvalFlow.create",
-      entity: {
-        object: "approvalFlow",
-        id: approvalFlow.id,
-      },
-      details: auditDetailsCreate(approvalFlow),
-    });
-  } else {
     // No approval required, update directly
     await updateMetric(context, metric, updates);
 
@@ -613,7 +559,6 @@ export async function putMetric(
         ...updates,
       }),
     });
-  }
 }
 
 export const getMetricExperimentResults = async (

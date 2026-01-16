@@ -1656,12 +1656,13 @@ export default function FactMetricModal({
             "datasource",
           ]);
           if(isApprovalFlow){
-            const response = await apiCall<{ awaitingApproval?: boolean }>(`/approval-flow/${approvalFlowId}/proposed-changes`, {
+             await apiCall<{ awaitingApproval?: boolean }>(`/approval-flow/${approvalFlowId}/proposed-changes`, {
               method: "PUT",
               body: JSON.stringify({
                 proposedChanges: updatePayload,
               }),
             });
+            track("Approval Flow Proposed Changes", trackProps);
             mutateApprovalFlows?.();
           } else {
             if (!existing?.id) {

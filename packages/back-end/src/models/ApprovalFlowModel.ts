@@ -54,12 +54,12 @@ export class ApprovalFlowModel extends BaseClass {
    */
   protected async beforeCreate(doc: ApprovalFlowInterface) {
     // set the current entity state as the original entity
-      const entityModel = getEntityModel(this.context, doc.entityType);
-      const originalEntity = await entityModel?.getById(doc.entityId);
+      const entityModel = getEntityModel(this.context, doc.entity.entityType);
+      const originalEntity = await entityModel?.getById(doc.entity.entityId);
       if (!originalEntity) {
-        throw new Error(`Original entity not found for ${doc.entityType} ${doc.entityId}`);
+        throw new Error(`Original entity not found for ${doc.entity.entityType} ${doc.entity.entityId}`);
       }
-      doc.originalEntity = originalEntity;
+      doc.entity.originalEntity = originalEntity;
     // Ensure activity log has creation entry
     if (!doc.activityLog || doc.activityLog.length === 0) {
       const creationEntry: ActivityLogEntry = {
@@ -96,7 +96,7 @@ export class ApprovalFlowModel extends BaseClass {
     entityType: ApprovalEntityType,
     entityId: string
   ): Promise<ApprovalFlowInterface[]> {
-    return await this._find({ entityType, entityId });
+    return await this._find({ "entity.entityType": entityType, "entity.entityId": entityId });
   }
 
   /**
@@ -107,8 +107,8 @@ export class ApprovalFlowModel extends BaseClass {
     entityId: string
   ): Promise<ApprovalFlowInterface[]> {
     return await this._find({
-      entityType,
-      entityId,
+      "entity.entityType": entityType,
+      "entity.entityId": entityId,
       status: { $in: ["draft", "pending-review", "changes-requested"] },
     });
   }
@@ -123,8 +123,8 @@ export class ApprovalFlowModel extends BaseClass {
     author: string
   ): Promise<ApprovalFlowInterface | null | undefined> {
     const flows = await this._find({
-      entityType,
-      entityId,
+      "entity.entityType": entityType,
+      "entity.entityId": entityId,
       author,
       status: { $in: ["draft", "pending-review", "changes-requested", "approved"] },
     }, {
@@ -186,22 +186,22 @@ export class ApprovalFlowModel extends BaseClass {
 
     // Check if user is trying to approve their own changes
     //Todo: move to the util function in permitions.ts
-    if ((decision === "approve" || decision === "request-changes") && (userId === approvalFlow.author && !canAdminBypassApprovalFlow(approvalFlow.entityType, approvalFlow.originalEntity as ApprovalFlowEntity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role))) {
+    if ((decision === "approve" || decision === "request-changes") && (userId === approvalFlow.author && !canAdminBypassApprovalFlow(approvalFlow.entity.entityType, approvalFlow.entity.originalEntity as ApprovalFlowEntity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role))) {
         throw new Error(
           "You cannot approve your own"
         );
     }
-    const entityModel = getEntityModel(this.context, approvalFlow.entityType);
+    const entityModel = getEntityModel(this.context, approvalFlow.entity.entityType);
     if (!entityModel) {
-      throw new Error(`Entity model not found for entity type: ${approvalFlow.entityType}`);
+      throw new Error(`Entity model not found for entity type: ${approvalFlow.entity.entityType}`);
     }
-    const entity = await entityModel?.getById(approvalFlow.entityId);
+    const entity = await entityModel?.getById(approvalFlow.entity.entityId);
     if (!entity) {
-      throw new Error(`Entity not found for entity type: ${approvalFlow.entityType} and entity id: ${approvalFlow.entityId}`);
+      throw new Error(`Entity not found for entity type: ${approvalFlow.entity.entityType} and entity id: ${approvalFlow.entity.entityId}`);
     }
     // this should be moved to the util function in permitions.ts
     if (!canUserReviewEntity({
-      entityType: approvalFlow.entityType,
+      entityType: approvalFlow.entity.entityType,
       approvalFlow,
       entity,
       approvalFlowSettings: this.context.org.settings?.approvalFlow,
@@ -325,9 +325,12 @@ export class ApprovalFlowModel extends BaseClass {
       details: "Updated proposed changes",
       createdAt: now,
     };
-
+    console.log(approvalFlow.entity, "approvalflow")
     return await this.updateById(approvalFlowId, {
-      proposedChanges,
+      entity: {
+        ...approvalFlow.entity,
+        proposedChanges,
+      },
       activityLog: [...approvalFlow.activityLog, activityEntry],
       status: newStatus,
     });
@@ -347,30 +350,36 @@ export class ApprovalFlowModel extends BaseClass {
 
 
     // Apply proposed changes to the target entity (e.g. fact-metric)
-    const entityModel = getEntityModel(this.context, approvalFlow.entityType);
+    const entityModel = getEntityModel(this.context, approvalFlow.entity.entityType);
     // do a diff from the entity model and the proposed changes and only update the fields that have changed
     if(!entityModel) {
-      throw new Error(`Entity model not found for entity type: ${approvalFlow.entityType}`);
+      console.log(approvalFlow.entity.entityType, "entity type");
+      throw new Error(`Entity model not found for entity type: ${approvalFlow.entity.entityType}`);
     }
-    const entity = await entityModel?.getById(approvalFlow.entityId);
+    const entity = await entityModel?.getById(approvalFlow.entity.entityId);
     if (!entity) {
-      throw new Error(`Entity not found for entity type: ${approvalFlow.entityType} and entity id: ${approvalFlow.entityId}`);
+      console.log(approvalFlow.entity.entityType, "entity type");
+      throw new Error(`Entity not found for entity type: ${approvalFlow.entity.entityType} and entity id: ${approvalFlow.entity.entityId}`);
     }
-    const adminCanBypass = canAdminBypassApprovalFlow(approvalFlow.entityType, entity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role);
+    const adminCanBypass = canAdminBypassApprovalFlow(approvalFlow.entity.entityType, entity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role);
 
     // Check if approved
     if (approvalFlow.status !== "approved" && !adminCanBypass) {
+      console.log(approvalFlow.status, "status");
       throw new Error(
         "Cannot merge approval flow that is not approved"
       );
     }
 
-    const diff = this.getDiff(approvalFlow.originalEntity, entity, approvalFlow.proposedChanges);
+    const diff = this.getDiff(approvalFlow.entity.originalEntity, entity, approvalFlow.entity.proposedChanges);
+    console.log(diff, "diff");
     const changes = diff.modified.map((change) => change.field);
+    console.log(changes, "changes");
     if (entityModel && changes.length > 0) {
+      console.log(approvalFlow.entity.proposedChanges, "proposed changes");
       await entityModel.updateById(
-        approvalFlow.entityId,
-        approvalFlow.proposedChanges as Record<string, unknown>
+        approvalFlow.entity.entityId,
+        approvalFlow.entity.proposedChanges as Record<string, unknown>
       );
     }
 
@@ -580,15 +589,17 @@ export class ApprovalFlowModel extends BaseClass {
     };
 
     return await this.create({
-      entityType: targetRevision.entityType,
-      entityId: targetRevision.entityId,
+      entity: {
+        entityType: targetRevision.entity.entityType,
+        entityId: targetRevision.entity.entityId,
+        proposedChanges: targetRevision.entity.proposedChanges,
+        originalEntity: targetRevision.entity.originalEntity,
+      },  
       title: revertTitle,
       description: revertDescription,
       status: "draft",
       author: userId,
       reviews: [],
-      proposedChanges: targetRevision.proposedChanges,
-      originalEntity: {}, // Will be populated by beforeCreate hook
       activityLog: [activityEntry],
     });
   }
@@ -646,7 +657,10 @@ export class ApprovalFlowModel extends BaseClass {
     };
 
     return await this.updateById(approvalFlowId, {
-      proposedChanges: resolvedChanges,
+      entity: {
+        ...approvalFlow.entity,
+        proposedChanges: resolvedChanges,
+      },
       activityLog: [...approvalFlow.activityLog, activityEntry],
     });
   }

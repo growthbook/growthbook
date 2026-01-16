@@ -1,5 +1,5 @@
 import useApi from "./useApi";
-import { ApprovalFlowInterface } from "shared/validators";
+import { ApprovalEntityType, ApprovalFlowInterface } from "shared/validators";
 
 export function useApprovalFlows() {
   const { data, error, mutate } = useApi<{
@@ -15,7 +15,7 @@ export function useApprovalFlows() {
 }
 
 export function useApprovalFlowsEntityType(
-  entityType: "metric" | "fact-metric" | "fact-table" | "experiment",
+  entityType: ApprovalEntityType,
 ) {
   const { data, error, mutate } = useApi<{
     approvalFlows: ApprovalFlowInterface[];
@@ -30,7 +30,7 @@ export function useApprovalFlowsEntityType(
 }
 
 export function useApprovalFlowsEntityId(
-  entityType: "metric" | "fact-metric" | "fact-table" | "experiment",
+  entityType: ApprovalEntityType,
   entityId: string,
 ) {
   const { data, error, mutate } = useApi<{
@@ -57,7 +57,7 @@ export function useApprovalFlow(approvalFlowId: string) {
 }
 
 export function useRevisionHistory(
-  entityType: "metric" | "fact-metric" | "fact-table" | "experiment",
+  entityType: ApprovalEntityType,
   entityId: string
 ) {
   const { data, error, mutate } = useApi<{
