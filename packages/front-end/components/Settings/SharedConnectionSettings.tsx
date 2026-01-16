@@ -1,5 +1,7 @@
 import { DataSourceSettings } from "shared/types/datasource";
 import { ChangeEventHandler } from "react";
+import { PiCaretRightFill } from "react-icons/pi";
+import Collapsible from "react-collapsible";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 
@@ -12,10 +14,24 @@ export default function SharedConnectionSettings({
   settings,
   onSettingChange,
 }: Props) {
+  // Auto-expand if either setting has a value
+  const hasExistingSettings =
+    settings.maxConcurrentQueries !== undefined ||
+    settings.queryCacheTTLMins !== undefined;
+
   return (
-    <>
-      <div className="row">
-        <div className="col-md-12">
+    <div className="mb-3">
+      <Collapsible
+        trigger={
+          <div className="link-purple font-weight-bold mb-2">
+            <PiCaretRightFill className="chevron mr-1" />
+            Advanced Settings
+          </div>
+        }
+        open={hasExistingSettings}
+        transitionTime={100}
+      >
+        <div className="rounded px-3 pt-3 pb-1 bg-highlight">
           <Field
             name="maxConcurrentQueries"
             type="number"
@@ -37,8 +53,28 @@ export default function SharedConnectionSettings({
             onChange={onSettingChange}
             min={0}
           />
+          <Field
+            name="queryCacheTTLMins"
+            type="number"
+            label={
+              <>
+                Query Cache TTL (minutes, optional){" "}
+                <Tooltip
+                  body={
+                    "When running queries against this datasource, results from identical queries " +
+                    "run within this time window will be reused instead of executing a new query. " +
+                    "This helps reduce load on your data warehouse and speeds up experiment updates."
+                  }
+                />
+              </>
+            }
+            helpText="Leave empty to use the global default (QUERY_CACHE_TTL_MINS environment variable, default 60 minutes)"
+            value={settings.queryCacheTTLMins || ""}
+            onChange={onSettingChange}
+            min={0}
+          />
         </div>
-      </div>
-    </>
+      </Collapsible>
+    </div>
   );
 }
