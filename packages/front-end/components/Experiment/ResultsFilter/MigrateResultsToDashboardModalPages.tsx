@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -8,21 +8,29 @@ import {
   DashboardEditLevel,
   DashboardShareLevel,
 } from "shared/enterprise";
+import {
+  parseSliceQueryString,
+  isSliceTagSelectAll,
+  isMetricGroupId,
+} from "shared/experiments";
+import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Metadata from "@/ui/Metadata";
-import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import DashboardSelector from "@/enterprise/components/Dashboards/DashboardSelector";
 import { autoUpdateDisabledMessage } from "@/enterprise/components/Dashboards/DashboardsTab";
+import Link from "@/ui/Link";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
+import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
 
 type FormValues = {
   dashboardId: string;
-  blockType:
-    | "experiment-metric"
-    | "experiment-time-series"
-    | "experiment-dimension";
+  blockType: "experiment-metric" | "experiment-dimension";
   blockName: string;
   newDashboardTitle: string;
   newDashboardShareLevel: DashboardShareLevel;
@@ -52,6 +60,9 @@ type SharedProps = {
   onDashboardSelect: (value: string) => void;
   onCreateNew: () => void;
   error: string | null;
+  refreshInterval?: string;
+  updateSchedule?: { type: string };
+  defaultFormValues: FormValues;
 };
 
 export function SelectDashboardAndBlockPage({
@@ -76,16 +87,31 @@ export function SelectDashboardAndBlockPage({
   onDashboardSelect,
   onCreateNew,
   error,
+  refreshInterval,
+  updateSchedule,
+  defaultFormValues,
 }: SharedProps) {
-  const blockType = form.watch("blockType");
   const dashboardId = form.watch("dashboardId");
   const isCreatingNew = dashboardId === "__create__";
+
+  // Auto-focus the dashboard name field when creating a new dashboard
+  useEffect(() => {
+    if (isCreatingNew) {
+      // Small delay to ensure the field is rendered
+      setTimeout(() => {
+        const input = document.getElementById("dashboard-name-input");
+        if (input instanceof HTMLInputElement) {
+          input.focus();
+        }
+      }, 0);
+    }
+  }, [isCreatingNew]);
 
   const metricTagCount = metricTagFilter?.length || 0;
   const metricsCount = metricsFilter?.length || 0;
   const sliceTagsCount = sliceTagsFilter?.length || 0;
 
-  const baselineText = React.useMemo(() => {
+  const baselineText = useMemo(() => {
     if (baselineRow === undefined || !experiment.variations[baselineRow]) {
       return null;
     }
@@ -93,7 +119,7 @@ export function SelectDashboardAndBlockPage({
     return `${baselineRow} - ${variation.name}`;
   }, [baselineRow, experiment.variations]);
 
-  const variationsText = React.useMemo(() => {
+  const variationsText = useMemo(() => {
     const baselineIndex = baselineRow ?? 0;
     const visibleIndices = experiment.variations
       .map((_, index) => index)
@@ -113,7 +139,49 @@ export function SelectDashboardAndBlockPage({
     return visibleIndices.map((index) => `#${index}`).join(", ");
   }, [variationFilter, experiment.variations, baselineRow]);
 
-  const sortByDisplay = React.useMemo(() => {
+  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
+
+  const sliceTagsDisplay = useMemo(() => {
+    return sliceTagsFilter
+      .map((tag) => {
+        // Check if it's a "select all" tag
+        const selectAllResult = isSliceTagSelectAll(tag);
+        if (selectAllResult.isSelectAll && selectAllResult.column) {
+          return `${selectAllResult.column}: All`;
+        }
+        // Parse regular slice tag (e.g., "dim:browser=Chrome&dim:country=AU")
+        const sliceLevels = parseSliceQueryString(tag);
+        if (sliceLevels.length === 0) {
+          return tag; // Fallback to original if parsing fails
+        }
+        return sliceLevels
+          .map((level) => {
+            const value = level.levels[0] || "other";
+            return `${level.column}=${value}`;
+          })
+          .join(" + ");
+      })
+      .join(", ");
+  }, [sliceTagsFilter]);
+
+  const metricsDisplay = useMemo(() => {
+    return metricsFilter
+      .map((metricId) => {
+        if (isMetricGroupId(metricId)) {
+          const group = getMetricGroupById(metricId);
+          return group ? group.name : metricId;
+        }
+        const metric = getExperimentMetricById(metricId);
+        return metric ? metric.name : metricId;
+      })
+      .join(", ");
+  }, [metricsFilter, getExperimentMetricById, getMetricGroupById]);
+  const metricFiltersTagsDisplay = useMemo(() => {
+    // commma-separated list of metric tags
+    return metricTagFilter.join(", ");
+  }, [metricTagFilter]);
+
+  const sortByDisplay = useMemo(() => {
     if (sortBy === "metrics") return "Metric order";
     if (sortBy === "metricTags") return "Metric tags";
     if (sortBy === "significance") return "Significance";
@@ -121,13 +189,13 @@ export function SelectDashboardAndBlockPage({
     return "Default";
   }, [sortBy]);
 
-  const sortDirectionDisplay = React.useMemo(() => {
+  const sortDirectionDisplay = useMemo(() => {
     if (sortDirection === "asc") return "Ascending";
     if (sortDirection === "desc") return "Descending";
     return "";
   }, [sortDirection]);
 
-  const differenceTypeDisplay = React.useMemo(() => {
+  const differenceTypeDisplay = useMemo(() => {
     if (differenceType === "absolute") return "Absolute";
     if (differenceType === "scaled") return "Scaled";
     return "Relative";
@@ -164,6 +232,107 @@ export function SelectDashboardAndBlockPage({
           />
         </Box>
 
+        {isCreatingNew && (
+          <>
+            <Box mt="4">
+              <Field
+                id="dashboard-name-input"
+                label="Dashboard Name"
+                {...form.register("newDashboardTitle")}
+                placeholder="Dashboard name"
+                labelClassName="font-weight-bold"
+                containerClassName="mb-0"
+                onFocus={(e) => {
+                  if (e.target.value === defaultFormValues.newDashboardTitle) {
+                    e.target.select();
+                  }
+                }}
+              />
+            </Box>
+
+            <Box mt="4">
+              <Collapsible
+                trigger={
+                  <Link className="font-weight-bold">
+                    <Text>
+                      <PiCaretRightFill className="chevron mr-1" />
+                      Dashboard Settings
+                    </Text>
+                  </Link>
+                }
+                open={false}
+                transitionTime={100}
+              >
+                <Box className="bg-highlight rounded p-3" mt="3">
+                  <Flex direction="column" gap="5">
+                    {refreshInterval && (
+                      <Checkbox
+                        label="Auto-update dashboard data"
+                        description={`An automatic data refresh will occur ${refreshInterval}.`}
+                        disabled={updateSchedule?.type === "never"}
+                        disabledMessage={autoUpdateDisabledMessage}
+                        value={form.watch("newDashboardEnableAutoUpdates")}
+                        setValue={(checked) =>
+                          form.setValue(
+                            "newDashboardEnableAutoUpdates",
+                            checked,
+                          )
+                        }
+                      />
+                    )}
+                    <SelectField
+                      label="View access"
+                      containerClassName="mb-0"
+                      options={[
+                        { label: "Organization members", value: "published" },
+                        {
+                          label: "Only me",
+                          value: "private",
+                        },
+                      ]}
+                      value={form.watch("newDashboardShareLevel")}
+                      onChange={(value) => {
+                        form.setValue(
+                          "newDashboardShareLevel",
+                          value as DashboardShareLevel,
+                        );
+                        if (value === "private") {
+                          form.setValue("newDashboardEditLevel", "private");
+                        }
+                      }}
+                    />
+                    <SelectField
+                      label="Edit access"
+                      containerClassName="mb-0"
+                      disabled={
+                        form.watch("newDashboardShareLevel") === "private"
+                      }
+                      options={[
+                        {
+                          label:
+                            "Any organization members with editing permission",
+                          value: "published",
+                        },
+                        {
+                          label: "Only me",
+                          value: "private",
+                        },
+                      ]}
+                      value={form.watch("newDashboardEditLevel")}
+                      onChange={(value) =>
+                        form.setValue(
+                          "newDashboardEditLevel",
+                          value as DashboardEditLevel,
+                        )
+                      }
+                    />
+                  </Flex>
+                </Box>
+              </Collapsible>
+            </Box>
+          </>
+        )}
+
         <Box mt="4">
           <Field
             label="Block Name"
@@ -172,38 +341,24 @@ export function SelectDashboardAndBlockPage({
             labelClassName="font-weight-bold"
             containerClassName="mb-0"
           />
-        </Box>
 
-        <Box mt="4">
-          <Box mb="2">
-            <Text weight="bold" size="2">
-              Block Type
+          <Box mt="2">
+            <Text size="2" mt="2" color="gray">
+              <Flex align="center" display="inline-flex" gap="1">
+                <span>Will be imported as </span>
+                <Avatar radius="small" color="indigo" variant="soft" size="sm">
+                  {dimension
+                    ? BLOCK_TYPE_INFO["experiment-dimension"].icon
+                    : BLOCK_TYPE_INFO["experiment-metric"].icon}
+                </Avatar>
+
+                <Text weight="bold" color="indigo">
+                  {dimension ? "Dimension Results" : "Metric Results"}
+                </Text>
+                <span> block</span>
+              </Flex>
             </Text>
           </Box>
-          {dimension ? (
-            <Text>Dimension Results</Text>
-          ) : (
-            <RadioGroup
-              gap="0"
-              value={blockType}
-              setValue={(value) =>
-                form.setValue(
-                  "blockType",
-                  value as
-                    | "experiment-metric"
-                    | "experiment-time-series"
-                    | "experiment-dimension",
-                )
-              }
-              options={[
-                { value: "experiment-metric", label: "Metric Results" },
-                {
-                  value: "experiment-time-series",
-                  label: "Timeseries Results",
-                },
-              ]}
-            />
-          )}
         </Box>
 
         {hasMatchingBlock && (
@@ -223,15 +378,37 @@ export function SelectDashboardAndBlockPage({
 
         <Flex direction="column" gap="1">
           <Metadata label="Unit Dimension" value={dimensionName} />
-          {sliceTagsCount > 0 && (
-            <Metadata label="Slices" value={String(sliceTagsCount)} />
-          )}
-          {metricsCount > 0 && (
-            <Metadata label="Metrics" value={String(metricsCount)} />
-          )}
-          {metricTagCount > 0 && (
-            <Metadata label="Metric Tags" value={String(metricTagCount)} />
-          )}
+          {sliceTagsCount > 0 || metricsCount > 0 || metricTagCount > 0 ? (
+            <Box my="1">
+              <Text>
+                Filters{" "}
+                <Badge
+                  radius="full"
+                  label={String(sliceTagsCount + metricsCount + metricTagCount)}
+                />
+              </Text>
+              <Box ml="2" mb="1">
+                {sliceTagsCount > 0 && (
+                  <Metadata
+                    label="Slices"
+                    value={<Text size="1">{sliceTagsDisplay}</Text>}
+                  />
+                )}
+                {metricsCount > 0 && (
+                  <Metadata
+                    label="Metrics"
+                    value={<Text size="1">{metricsDisplay}</Text>}
+                  />
+                )}
+                {metricTagCount > 0 && (
+                  <Metadata
+                    label="Metric Tags"
+                    value={<Text size="1">{metricFiltersTagsDisplay}</Text>}
+                  />
+                )}
+              </Box>
+            </Box>
+          ) : null}
           {baselineText && <Metadata label="Baseline" value={baselineText} />}
           <Metadata label="Variations" value={variationsText} />
           <Metadata label="Difference Type" value={differenceTypeDisplay} />
@@ -333,17 +510,12 @@ export function ConfirmationPage({
   blockType,
 }: {
   isNewDashboard: boolean;
-  blockType:
-    | "experiment-metric"
-    | "experiment-time-series"
-    | "experiment-dimension";
+  blockType: "experiment-metric" | "experiment-dimension";
 }) {
   const getBlockTypeDisplay = () => {
-    if (blockType === "experiment-time-series") return "Time Series";
     if (blockType === "experiment-dimension") return "Dimension Results";
     return "Metric Results";
   };
-
   const blockTypeDisplay = getBlockTypeDisplay();
 
   return (

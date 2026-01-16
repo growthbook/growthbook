@@ -24,7 +24,6 @@ import { getExperimentRefreshFrequency } from "@/services/env";
 import LinkButton from "@/ui/LinkButton";
 import {
   SelectDashboardAndBlockPage,
-  NewDashboardSettingsPage,
   ConfirmationPage,
 } from "./MigrateResultsToDashboardModalPages";
 
@@ -145,19 +144,11 @@ export default function MigrateResultsToDashboardModal({
 
   // Generate default block name based on block type
   const getDefaultBlockName = useCallback(
-    (
-      blockType:
-        | "experiment-metric"
-        | "experiment-time-series"
-        | "experiment-dimension",
-    ) => {
+    (blockType: "experiment-metric" | "experiment-dimension") => {
       if (blockType === "experiment-dimension") {
         return dimensionName !== "None"
           ? `Dimension Results: ${dimensionName}`
           : "Dimension Results";
-      }
-      if (blockType === "experiment-time-series") {
-        return "Timeseries Results";
       }
       return "Metric Results";
     },
@@ -166,22 +157,15 @@ export default function MigrateResultsToDashboardModal({
 
   const getDefaultFormValues = useCallback((): {
     dashboardId: string;
-    blockType:
-      | "experiment-metric"
-      | "experiment-time-series"
-      | "experiment-dimension";
+    blockType: "experiment-metric" | "experiment-dimension";
     blockName: string;
     newDashboardTitle: string;
     newDashboardShareLevel: DashboardShareLevel;
     newDashboardEditLevel: DashboardEditLevel;
     newDashboardEnableAutoUpdates: boolean;
   } => {
-    const initialBlockType:
-      | "experiment-metric"
-      | "experiment-time-series"
-      | "experiment-dimension" = dimension
-      ? "experiment-dimension"
-      : "experiment-metric";
+    const initialBlockType: "experiment-metric" | "experiment-dimension" =
+      dimension ? "experiment-dimension" : "experiment-metric";
     return {
       dashboardId: "__create__",
       blockType: initialBlockType,
@@ -197,10 +181,7 @@ export default function MigrateResultsToDashboardModal({
 
   const form = useForm<{
     dashboardId: string;
-    blockType:
-      | "experiment-metric"
-      | "experiment-time-series"
-      | "experiment-dimension";
+    blockType: "experiment-metric" | "experiment-dimension";
     blockName: string;
     newDashboardTitle: string;
     newDashboardShareLevel: DashboardShareLevel;
@@ -215,6 +196,7 @@ export default function MigrateResultsToDashboardModal({
   const [error, setError] = useState<string | null>(null);
   const [savedDashboardId, setSavedDashboardId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const savedDashboardName = savedDashboardId
     ? dashboards.find((d) => d.id === savedDashboardId)?.title
@@ -230,7 +212,7 @@ export default function MigrateResultsToDashboardModal({
   );
 
   const isCreatingNew = dashboardId === "__create__";
-  const confirmationStep = isCreatingNew ? 2 : 1;
+  const confirmationStep = 1; // Confirmation is always page 2 (index 1)
   const canGoBack = step < confirmationStep;
 
   const refreshInterval = useMemo(() => {
@@ -254,6 +236,8 @@ export default function MigrateResultsToDashboardModal({
     if (!open || loadingDashboards) return;
     // Only set dashboardId when on the first step
     if (step > 0) return;
+    // Skip if we've already submitted (to prevent overriding after creation)
+    if (hasSubmitted) return;
     // Only set if we're on the default selection and we received a valid list of dashboards
     if (
       form.watch("dashboardId") === defaultFormValues.dashboardId &&
@@ -269,18 +253,25 @@ export default function MigrateResultsToDashboardModal({
     step,
     form,
     loadingDashboards,
+    savedDashboardId,
+    hasSubmitted,
   ]);
 
-  // Update block name when block type changes
+  // Update block type and block name when dimension changes
   useEffect(() => {
+    const newBlockType = dimension
+      ? "experiment-dimension"
+      : "experiment-metric";
+    form.setValue("blockType", newBlockType);
     form.setValue("blockName", defaultBlockName);
-  }, [defaultBlockName, form]);
+  }, [dimension, defaultBlockName, form]);
 
   // Reset form and step when modal closes
   useEffect(() => {
     if (!open) {
       setError(null);
       setSavedDashboardId(null);
+      setHasSubmitted(false);
       setStep(0);
       form.reset(getDefaultFormValues());
     }
@@ -329,9 +320,6 @@ export default function MigrateResultsToDashboardModal({
         baselineRow: baselineRow ?? 0,
         differenceType: differenceType || "relative",
       }),
-      ...(blockType === "experiment-time-series" && {
-        differenceType: differenceType || "relative",
-      }),
     };
 
     // Check if any existing block matches
@@ -361,22 +349,17 @@ export default function MigrateResultsToDashboardModal({
 
           // Validate based on current step
           if (step === 0) {
-            // Page 1: Validate dashboard selection
+            // Page 1: Validate dashboard selection and dashboard name if creating new
             if (dashboardId !== "__create__" && !dashboardId) {
               setError("Please select a dashboard");
               return;
             }
             if (dashboardId === "__create__") {
-              // For new dashboard, advance to page 2
-              setStep(1);
-              return;
-            }
-            // For existing dashboard, proceed with submission
-          } else if (step === 1) {
-            // Page 2 (new dashboard only): Validate dashboard name
-            if (!form.watch("newDashboardTitle").trim()) {
-              setError("Dashboard name is required");
-              return;
+              // Validate dashboard name is required when creating new
+              if (!form.watch("newDashboardTitle").trim()) {
+                setError("Dashboard name is required");
+                return;
+              }
             }
             // Proceed with submission
           } else {
@@ -386,6 +369,7 @@ export default function MigrateResultsToDashboardModal({
 
           setError(null);
           setIsSubmitting(true);
+          setHasSubmitted(true);
 
           try {
             // Create the new block using CREATE_BLOCK_TYPE, then override with our values
@@ -468,13 +452,11 @@ export default function MigrateResultsToDashboardModal({
             }
 
             if (res.status === 200) {
-              await mutateDashboards();
               setSavedDashboardId(finalDashboardId);
+              mutateDashboards();
               setError(null);
               // Advance to confirmation page
-              // For existing dashboard: step 0 -> step 1 (confirmation)
-              // For new dashboard: step 1 -> step 2 (confirmation)
-              setStep(isCreatingNew ? 2 : 1);
+              setStep(1);
             } else {
               setError("Failed to add block to dashboard");
             }
@@ -484,6 +466,7 @@ export default function MigrateResultsToDashboardModal({
                 ? error.message
                 : "Failed to add block to dashboard",
             );
+            setHasSubmitted(false);
           } finally {
             setIsSubmitting(false);
           }
@@ -492,7 +475,6 @@ export default function MigrateResultsToDashboardModal({
   // Calculate CTA text and enabled state
   const getCtaText = () => {
     if (savedDashboardId) return undefined;
-    if (step === 0 && isCreatingNew) return undefined; // Will show "Next"
     if (step === confirmationStep) return undefined; // Confirmation page
     return (
       <>
@@ -506,19 +488,14 @@ export default function MigrateResultsToDashboardModal({
     if (savedDashboardId) return false;
     if (step === confirmationStep) return false;
     if (step === 0) {
+      // If creating new, need dashboard name
       if (isCreatingNew) {
-        // Can proceed to next page if dashboard is selected
-        return dashboardId === "__create__";
-      } else {
-        // Can save if dashboard is selected
-        return Boolean(
-          dashboardId && dashboardId !== "__create__" && dashboardId !== "",
-        );
+        return Boolean(form.watch("newDashboardTitle").trim());
       }
-    }
-    if (step === 1) {
-      // New dashboard settings page
-      return Boolean(form.watch("newDashboardTitle").trim());
+      // If using existing dashboard, need dashboard selected
+      return Boolean(
+        dashboardId && dashboardId !== "__create__" && dashboardId !== "",
+      );
     }
     return false;
   };
@@ -526,9 +503,12 @@ export default function MigrateResultsToDashboardModal({
   // Get secondary CTA (View Dashboard link when saved)
   const getSecondaryCTA = () => {
     if (step !== confirmationStep) return undefined;
+    // Use savedDashboardId if available, otherwise use dashboardId from form
+    if (!savedDashboardId || savedDashboardId === "__create__")
+      return undefined;
     return (
       <LinkButton
-        href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${dashboardId}`}
+        href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}#dashboards/${savedDashboardId}`}
         external={true}
       >
         View Dashboard <PiArrowSquareOut />
@@ -601,26 +581,11 @@ export default function MigrateResultsToDashboardModal({
               onDashboardSelect={handleDashboardSelect}
               onCreateNew={handleCreateNew}
               error={error}
+              refreshInterval={refreshInterval}
+              updateSchedule={updateSchedule}
+              defaultFormValues={defaultFormValues}
             />
           </Page>
-
-          {isCreatingNew && (
-            <Page
-              display="Dashboard Settings"
-              enabled={dashboardId === "__create__"}
-              validate={async () => {
-                if (!form.watch("newDashboardTitle").trim()) {
-                  throw new Error("Dashboard name is required");
-                }
-              }}
-            >
-              <NewDashboardSettingsPage
-                form={form}
-                refreshInterval={refreshInterval}
-                updateSchedule={updateSchedule}
-              />
-            </Page>
-          )}
 
           <Page display="Confirmation" enabled={!!savedDashboardId}>
             {savedDashboardId ? (
