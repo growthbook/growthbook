@@ -2,11 +2,11 @@
 
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
-import mongoose, { FilterQuery, trusted } from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, keysIn, orderBy, pick } from "lodash";
+import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
