@@ -474,6 +474,25 @@ export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
+function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "absolute" &&
+    !!metric.cappingSettings.value &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isSliceMetric(metric: ExperimentMetricInterface) {
+  return parseSliceMetricId(metric.id).isSliceMetric;
+}
+
+export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    !isSliceMetric(metric)
+  );
+}
+
 export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {

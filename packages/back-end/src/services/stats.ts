@@ -270,6 +270,7 @@ export function getMetricSettingsForStatsEngine(
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+
   let denominator: undefined | ExperimentMetricInterface = undefined;
   if (denominatorDoc) {
     denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
@@ -330,6 +331,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
+    capped: metric.cappingSettings.type !== "",
   };
 }
 
@@ -445,6 +447,13 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
+const getFormattedCI = (
+  ci?: [number | null, number | null],
+): [number, number] | undefined => {
+  if (!ci) return undefined;
+  return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
+};
+
 function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
@@ -498,13 +507,37 @@ function parseStatsEngineResult({
           data.users = Math.max(data.users, v.users);
 
           // translate null in CI to infinity
-          const ci: [number, number] | undefined = v.ci
-            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
-            : undefined;
+          const ci = getFormattedCI(v.ci);
+          const ciCupedUnadjusted = getFormattedCI(
+            v.supplementalResultsCupedUnadjusted?.ci,
+          );
+          const ciUncapped = getFormattedCI(v.supplementalResultsUncapped?.ci);
+          const ciUnstratified = getFormattedCI(
+            v.supplementalResultsUnstratified?.ci,
+          );
           const parsedVariation = {
             ...v,
             ci,
           };
+          // Update CI values in supplemental results
+          if (v.supplementalResultsCupedUnadjusted) {
+            v.supplementalResultsCupedUnadjusted.ci = ciCupedUnadjusted;
+          }
+          if (v.supplementalResultsUncapped) {
+            v.supplementalResultsUncapped.ci = ciUncapped;
+          }
+          if (
+            "supplementalResultsFlatPrior" in v &&
+            v.supplementalResultsFlatPrior
+          ) {
+            const ciFlatPrior = getFormattedCI(
+              v.supplementalResultsFlatPrior?.ci,
+            );
+            v.supplementalResultsFlatPrior.ci = ciFlatPrior;
+          }
+          if (v.supplementalResultsUnstratified) {
+            v.supplementalResultsUnstratified.ci = ciUnstratified;
+          }
           data.metrics[metric] = {
             ...parsedVariation,
             buckets: [],

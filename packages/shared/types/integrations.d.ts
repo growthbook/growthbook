@@ -121,6 +121,7 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
   capCoalesceMetric: string;
@@ -131,6 +132,10 @@ export type FactMetricData = {
   denominatorAggFns: FactMetricAggregationMetadata;
   covariateNumeratorAggFns: FactMetricAggregationMetadata;
   covariateDenominatorAggFns: FactMetricAggregationMetadata;
+  uncappedCoalesceMetric: string;
+  uncappedCoalesceDenominator: string;
+  uncappedCoalesceCovariate: string;
+  uncappedCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;
