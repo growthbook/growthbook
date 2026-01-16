@@ -33,7 +33,6 @@ import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
-import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -82,6 +81,7 @@ export type ResultsTableProps = {
   startDate: string;
   endDate: string;
   rows: ExperimentTableRow[];
+  onRowClick?: (row: ExperimentTableRow) => void;
   dimension?: string;
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
@@ -112,7 +112,8 @@ export type ResultsTableProps = {
   isBandit?: boolean;
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
-  disableTimeSeriesButton?: boolean;
+  showTimeSeriesButton?: boolean;
+  forceTimeSeriesVisible?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   sortBy?: "significance" | "change" | "custom" | null;
@@ -128,6 +129,7 @@ export type ResultsTableProps = {
   mutate?: () => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
+  initialVisibleTimeSeriesRowIds?: string[];
 };
 
 const ROW_HEIGHT = 46;
@@ -167,6 +169,7 @@ export default function ResultsTable({
   startDate,
   endDate,
   renderLabelColumn,
+  onRowClick,
   resultGroup,
   dateCreated,
   statsEngine,
@@ -178,7 +181,8 @@ export default function ResultsTable({
   noTooltip,
   isBandit,
   ssrPolyfills,
-  disableTimeSeriesButton,
+  showTimeSeriesButton = false,
+  forceTimeSeriesVisible = false,
   columnsFilter,
   isHoldout,
   sortBy,
@@ -192,6 +196,7 @@ export default function ResultsTable({
   mutate,
   setDifferenceType,
   totalMetricsCount,
+  initialVisibleTimeSeriesRowIds = [],
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -304,22 +309,26 @@ export default function ResultsTable({
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
 
-  const { isAuthenticated } = useAuth();
-  let showTimeSeriesButton =
-    isAuthenticated &&
-    baselineRow === 0 &&
-    tableRowAxis === "metric" &&
-    !disableTimeSeriesButton;
-
-  // Disable time series button for stopped experiments before we added this feature (& therefore data)
+  // Force disabling of time series button for stopped experiments before we added this feature (& therefore data)
   if (status === "stopped" && endDate <= "2025-04-03") {
     showTimeSeriesButton = false;
   }
 
   const [visibleTimeSeriesRowIds, setVisibleTimeSeriesRowIds] = useState<
     string[]
-  >([]);
+  >(initialVisibleTimeSeriesRowIds);
+
+  // Track which rows were initially visible (to skip animation for them)
+  // This will be cleared when user toggles so animation works for user interactions
+  const initiallyVisibleRowIdsRef = useRef(
+    new Set(initialVisibleTimeSeriesRowIds),
+  );
+
   const toggleVisibleTimeSeriesRowId = (rowId: string) => {
+    // Clear the initially visible set on first user toggle so animations work
+    if (initiallyVisibleRowIdsRef.current.size > 0) {
+      initiallyVisibleRowIdsRef.current.clear();
+    }
     setVisibleTimeSeriesRowIds((prev) =>
       prev.includes(rowId)
         ? prev.filter((id) => id !== rowId)
@@ -329,8 +338,11 @@ export default function ResultsTable({
 
   // Ensure we close all of them if dimension changes
   useEffect(() => {
+    if (initialVisibleTimeSeriesRowIds.length > 0) {
+      return;
+    }
     setVisibleTimeSeriesRowIds([]);
-  }, [tableRowAxis]);
+  }, [tableRowAxis, initialVisibleTimeSeriesRowIds.length]);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -750,14 +762,17 @@ export default function ResultsTable({
               let alreadyShownQueryError = false;
               let alreadyShownQuantileError = false;
 
-              const rowId = `${row.metric.id}-${i}`;
+              const rowId = row.sliceId
+                ? `${id}-${row.metric.id}-${row.sliceId}`
+                : `${id}-${row.metric.id}-${i}`;
 
-              const timeSeriesButton = showTimeSeriesButton ? (
-                <TimeSeriesButton
-                  onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
-                  isActive={visibleTimeSeriesRowIds.includes(rowId)}
-                />
-              ) : null;
+              const timeSeriesButton =
+                showTimeSeriesButton && !forceTimeSeriesVisible ? (
+                  <TimeSeriesButton
+                    onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
+                    isActive={visibleTimeSeriesRowIds.includes(rowId)}
+                  />
+                ) : null;
 
               const includedLabelColumns = columnsToDisplay.filter((col) =>
                 [
@@ -778,7 +793,27 @@ export default function ResultsTable({
                         className={clsx("results-group-row", {
                           "slice-row": row.isSliceRow,
                         })}
-                        key={i}
+                        key={`${rowId}-tbody`}
+                        style={{
+                          cursor: onRowClick ? "pointer" : undefined,
+                        }}
+                        onClick={
+                          onRowClick
+                            ? (e) => {
+                                // Don't trigger row click if clicking on interactive elements
+                                const target = e.target as HTMLElement;
+                                if (
+                                  target.closest("a") ||
+                                  target.closest("button") ||
+                                  target.closest("[role='button']")
+                                ) {
+                                  return;
+                                }
+
+                                onRowClick(row);
+                              }
+                            : undefined
+                        }
                       >
                         {(() => {
                           const drawRowProps = {
@@ -833,6 +868,7 @@ export default function ResultsTable({
                         })()}
 
                         {!row.labelOnly &&
+                          // tbody with key={`${i}-variations`}
                           orderedVariations.map((v, j) => {
                             const stats = row.variations[v.index] || {
                               value: 0,
@@ -1236,7 +1272,8 @@ export default function ResultsTable({
                           })}
 
                         {!row.labelOnly &&
-                          visibleTimeSeriesRowIds.includes(rowId) && (
+                          (forceTimeSeriesVisible ||
+                            visibleTimeSeriesRowIds.includes(rowId)) && (
                             <tr
                               style={
                                 !row.isSliceRow
@@ -1248,7 +1285,14 @@ export default function ResultsTable({
                                 colSpan={columnsToDisplay.length}
                                 style={{ padding: 0 }}
                               >
-                                <div className={styles.expandAnimation}>
+                                <div
+                                  className={
+                                    forceTimeSeriesVisible ||
+                                    initiallyVisibleRowIdsRef.current.has(rowId)
+                                      ? undefined
+                                      : styles.expandAnimation
+                                  }
+                                >
                                   <div className={styles.timeSeriesCell}>
                                     <ExperimentMetricTimeSeriesGraphWrapper
                                       experimentId={experimentId}

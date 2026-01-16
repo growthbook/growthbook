@@ -30,16 +30,20 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   generatePinnedSliceKey,
+  getMetricLink,
   SliceLevelsData,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
+import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import MetricDrilldownModal, {
+  MetricDrilldownTab,
+} from "@/components/MetricDrilldown/MetricDrilldownModal";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -81,8 +85,6 @@ const CompactResults: FC<{
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
-  disableTimeSeriesButton?: boolean;
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
@@ -146,8 +148,6 @@ const CompactResults: FC<{
   noTooltip,
   experimentType,
   ssrPolyfills,
-  hideDetails,
-  disableTimeSeriesButton,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   customMetricSlices,
@@ -195,6 +195,13 @@ const CompactResults: FC<{
       [key]: !prev[key],
     }));
   };
+
+  const [openMetricDrilldownModalInfo, setOpenMetricDrilldownModalInfo] =
+    useState<{
+      metricRow: ExperimentTableRow;
+      initialTab?: MetricDrilldownTab;
+      initialSliceSearchTerm?: string;
+    } | null>(null);
 
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
@@ -340,6 +347,26 @@ const CompactResults: FC<{
     });
   }, [rows, hasSliceFilter, expandedMetrics]);
 
+  const handleRowClick = (row: ExperimentTableRow) => {
+    if (row.isSliceRow) {
+      const targetRow = filteredRows.find(
+        (r) => r.metric.id === row.parentRowId,
+      );
+      setOpenMetricDrilldownModalInfo({
+        // FIXME: I don't think this is the best fallback
+        metricRow: targetRow ?? row,
+        initialTab: "slices",
+        // FIXME: What happens if it is not a string and a React element?
+        initialSliceSearchTerm: row.label.toString() ?? "",
+      });
+    } else {
+      setOpenMetricDrilldownModalInfo({
+        metricRow: row,
+        initialTab: "overview",
+      });
+    }
+  };
+
   return (
     <>
       {!mainTableOnly && (
@@ -377,6 +404,7 @@ const CompactResults: FC<{
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={filteredRows.filter((r) => r.resultGroup === "goal")}
+          onRowClick={handleRowClick}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -395,9 +423,6 @@ const CompactResults: FC<{
           setDifferenceType={setDifferenceType}
           totalMetricsCount={totalMetricsCount}
           renderLabelColumn={getRenderLabelColumn({
-            statsEngine,
-            hideDetails,
-            experimentType,
             pinnedMetricSlices,
             togglePinnedMetricSlice,
             expandedMetrics,
@@ -414,7 +439,6 @@ const CompactResults: FC<{
           isBandit={isBandit}
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
-          disableTimeSeriesButton={disableTimeSeriesButton}
           isHoldout={experimentType === "holdout"}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -444,6 +468,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
+            onRowClick={handleRowClick}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -456,9 +481,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails,
-              experimentType: undefined,
               pinnedMetricSlices,
               togglePinnedMetricSlice,
               expandedMetrics,
@@ -474,7 +496,6 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
@@ -505,6 +526,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
+            onRowClick={handleRowClick}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
@@ -517,9 +539,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails,
-              experimentType: undefined,
               pinnedMetricSlices,
               togglePinnedMetricSlice,
               expandedMetrics,
@@ -535,7 +554,6 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
@@ -551,15 +569,41 @@ const CompactResults: FC<{
       ) : (
         <></>
       )}
+
+      {openMetricDrilldownModalInfo !== null && (
+        <MetricDrilldownModal
+          statsEngine={statsEngine}
+          row={openMetricDrilldownModalInfo.metricRow}
+          close={() => setOpenMetricDrilldownModalInfo(null)}
+          initialTab={openMetricDrilldownModalInfo.initialTab}
+          experimentId={experimentId}
+          phase={phase}
+          experimentStatus={status}
+          differenceType={differenceType}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
+          baselineRow={baselineRow}
+          variations={variations}
+          variationFilter={variationFilter}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          allRows={rows}
+          initialSliceSearchTerm={
+            openMetricDrilldownModalInfo.initialSliceSearchTerm
+          }
+        />
+      )}
     </>
   );
 };
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  statsEngine,
-  hideDetails,
-  experimentType: _experimentType,
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   expandedMetrics,
@@ -570,9 +614,6 @@ export function getRenderLabelColumn({
   sliceTagsFilter,
   className = "pl-3",
 }: {
-  statsEngine?: StatsEngine;
-  hideDetails?: boolean;
-  experimentType?: ExperimentType;
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
@@ -836,19 +877,11 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Tooltip
-                body={
-                  <MetricTooltipBody
-                    metric={metric}
-                    row={row}
-                    statsEngine={statsEngine}
-                    hideDetails={hideDetails}
-                  />
-                }
-                tipPosition="right"
-                className="d-inline-block font-weight-bold metric-label"
-                flipTheme={false}
-                usePortal={true}
+              <Link
+                color="dark"
+                weight="bold"
+                target="_blank"
+                href={getMetricLink(metric.id)}
               >
                 {label}
                 {metric.managedBy ? (
@@ -860,7 +893,7 @@ export function getRenderLabelColumn({
                     }}
                   />
                 ) : null}
-              </Tooltip>
+              </Link>
             </span>
           </span>
         </div>

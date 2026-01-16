@@ -22,12 +22,15 @@ export type PValueErrorMessage =
   | "NUMERICAL_PVALUE_NOT_CONVERGED"
   | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
 
-interface BaseVariationResponse {
+interface BaselineResponse {
   cr: number;
   value: number;
   users: number;
   denominator?: number;
   stats: MetricStats;
+}
+
+interface TestResult {
   expected?: number;
   uplift?: {
     dist: string;
@@ -41,15 +44,36 @@ interface BaseVariationResponse {
   realizedSettings?: RealizedSettings;
 }
 
-interface BayesianVariationResponse extends BaseVariationResponse {
+export interface BayesianTestResult extends TestResult {
   chanceToWin?: number;
   risk?: [number, number];
   riskType?: RiskType;
 }
 
-interface FrequentistVariationResponse extends BaseVariationResponse {
+export interface FrequentistTestResult extends TestResult {
   pValue?: number;
   pValueErrorMessage?: PValueErrorMessage;
+}
+
+interface BayesianVariationResponse
+  extends BaselineResponse,
+    BayesianTestResult {
+  power?: MetricPowerResponseFromStatsEngine;
+  supplementalResultsCupedUnadjusted?: BayesianTestResult;
+  supplementalResultsUncapped?: BayesianTestResult;
+  supplementalResultsUnstratified?: BayesianTestResult;
+  supplementalResultsFlatPrior?: BayesianTestResult;
+  supplementalResultsNoVarianceReduction?: BayesianTestResult;
+}
+
+interface FrequentistVariationResponse
+  extends BaselineResponse,
+    FrequentistTestResult {
+  power?: MetricPowerResponseFromStatsEngine;
+  supplementalResultsCupedUnadjusted?: FrequentistTestResult;
+  supplementalResultsUncapped?: FrequentistTestResult;
+  supplementalResultsUnstratified?: FrequentistTestResult;
+  supplementalResultsNoVarianceReduction?: FrequentistTestResult;
 }
 
 // Keep in sync with gbstats PowerResponse
@@ -171,6 +195,7 @@ export interface MetricSettingsForStatsEngine {
   prior_stddev?: number;
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
+  capped: boolean;
 }
 
 export interface QueryResultsForStatsEngine {

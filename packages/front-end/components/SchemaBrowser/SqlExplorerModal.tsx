@@ -728,6 +728,7 @@ export default function SqlExplorerModal({
       <Modal
         bodyClassName="p-0"
         borderlessHeader={true}
+        backgroundlessHeader={true}
         close={close}
         loading={loading}
         closeCta="Close"
@@ -744,7 +745,6 @@ export default function SqlExplorerModal({
                 : undefined
         }
         header={header || `${id ? "Update" : "Create"} SQL Query`}
-        headerClassName={styles["modal-header-backgroundless"]}
         open={showModal}
         showHeaderCloseButton={true}
         size="max"

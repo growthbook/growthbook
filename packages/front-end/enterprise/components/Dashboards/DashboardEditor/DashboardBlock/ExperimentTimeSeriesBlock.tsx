@@ -144,9 +144,6 @@ export default function ExperimentTimeSeriesBlock({
 
   // Create the render label function
   const renderLabelColumn = getRenderLabelColumn({
-    statsEngine,
-    hideDetails: false,
-    experimentType: undefined,
     pinnedMetricSlices: effectivePinnedMetricSlices,
     togglePinnedMetricSlice: isEditing ? togglePinnedMetricSlice : undefined,
     expandedMetrics,
