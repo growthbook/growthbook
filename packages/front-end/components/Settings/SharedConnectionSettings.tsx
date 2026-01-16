@@ -1,5 +1,5 @@
 import { DataSourceSettings } from "shared/types/datasource";
-import { ChangeEventHandler } from "react";
+import { ChangeEventHandler, useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -16,8 +16,9 @@ export default function SharedConnectionSettings({
 }: Props) {
   // Auto-expand if either setting has a value
   const hasExistingSettings =
-    settings.maxConcurrentQueries !== undefined ||
-    settings.queryCacheTTLMins !== undefined;
+    !!settings.maxConcurrentQueries || !!settings.queryCacheTTLMins;
+
+  const [open, setOpen] = useState(hasExistingSettings);
 
   return (
     <div className="mb-3">
@@ -28,7 +29,8 @@ export default function SharedConnectionSettings({
             Advanced Settings
           </div>
         }
-        open={hasExistingSettings}
+        open={open}
+        onClose={() => setOpen(false)}
         transitionTime={100}
       >
         <div className="rounded px-3 pt-3 pb-1 bg-highlight">
@@ -63,7 +65,7 @@ export default function SharedConnectionSettings({
                   body={
                     "When running queries against this datasource, results from identical queries " +
                     "run within this time window will be reused instead of executing a new query. " +
-                    "This helps reduce load on your data warehouse and speeds up experiment updates."
+                    "This helps prevent errant updates from hitting your warehouse multiple times. "
                   }
                 />
               </>
