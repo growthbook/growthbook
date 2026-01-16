@@ -627,9 +627,10 @@ export abstract class QueryRunner<
         // Use datasource-specific cache TTL if set, otherwise use global default
         const queryCacheTTLSetting =
           this.integration.datasource.settings.queryCacheTTLMins;
-        const cacheTTLMins = queryCacheTTLSetting
+        const parsedTTL = queryCacheTTLSetting
           ? parseInt(queryCacheTTLSetting)
-          : undefined;
+          : NaN;
+        const cacheTTLMins = isNaN(parsedTTL) ? undefined : parsedTTL;
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
