@@ -21,6 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
+import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "./SnapshotProvider";
 
 export function canShowRefreshMenuItem({
@@ -98,6 +99,7 @@ export default function ResultMoreMenu({
   project,
   legacyQueries,
   legacyQueryError,
+  onAddToDashboard,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
@@ -115,10 +117,12 @@ export default function ResultMoreMenu({
   project?: string;
   legacyQueries?: Queries;
   legacyQueryError?: string;
+  onAddToDashboard?: () => void;
 }) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { mutateDefinitions } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const { latest, snapshot } = useSnapshot();
@@ -127,6 +131,7 @@ export default function ResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
 
   const isExperimentIncludedInIncrementalRefresh = experiment
     ? getIsExperimentIncludedInIncrementalRefresh(
@@ -440,7 +445,8 @@ export default function ResultMoreMenu({
             )}
           {(canEdit && editMetrics && !isBandit) ||
           canDownloadJupyterNotebook ||
-          results ? (
+          results ||
+          onAddToDashboard ? (
             <DropdownMenuSeparator />
           ) : null}
           {canEdit && editMetrics && !isBandit && (
@@ -453,11 +459,24 @@ export default function ResultMoreMenu({
               >
                 Add / remove metrics
               </DropdownMenuItem>
-              {canDownloadJupyterNotebook || results ? (
+              {canDownloadJupyterNotebook || results || onAddToDashboard ? (
                 <DropdownMenuSeparator />
               ) : null}
             </>
           )}
+          {results &&
+            onAddToDashboard &&
+            hasCommercialFeature("dashboards") &&
+            !isHoldout && (
+              <DropdownMenuItem
+                onClick={() => {
+                  onAddToDashboard();
+                  setDropdownOpen(false);
+                }}
+              >
+                Add to Dashboard...
+              </DropdownMenuItem>
+            )}
           {canDownloadJupyterNotebook && (
             <DropdownMenuItem onClick={handleDownloadNotebook}>
               Download notebook

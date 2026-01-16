@@ -1,6 +1,4 @@
 import { formatDistance } from "date-fns";
-import { CSSProperties } from "react";
-import clsx from "clsx";
 import { RowResults } from "@/services/experiments";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
@@ -17,34 +15,28 @@ export default function NotEnoughData({
   rowResults,
   showTimeRemaining = false,
   showPercentComplete = false,
-  noStyle = false,
-  style,
-  showBaselineZero = false,
 }: {
   rowResults: RowResults;
   showTimeRemaining?: boolean;
   showPercentComplete?: boolean;
-  noStyle?: boolean;
-  style?: CSSProperties;
-  showBaselineZero?: boolean;
 }) {
   const enoughDataMeta = rowResults.enoughDataMeta;
   return (
-    <div className="not-enough-data" style={style}>
+    <div className="not-enough-data">
       <div>
-        <div
-          className="font-weight-normal main-text"
-          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
+        <em
+          className="text-muted font-weight-normal"
+          style={{ fontSize: "10.5px", lineHeight: "14px" }}
         >
-          not enough data
-        </div>
+          Not enough data
+        </em>
       </div>
       {showTimeRemaining &&
         enoughDataMeta.reason === "notEnoughData" &&
         enoughDataMeta.showTimeRemaining && (
           <div
-            className={clsx("text-muted time-remaining", { small: !noStyle })}
-            style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "12px" }}
+            className="text-muted time-remaining"
+            style={{ fontSize: "10.5px", lineHeight: "18px" }}
           >
             {(enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
               <>
@@ -53,17 +45,13 @@ export default function NotEnoughData({
                 </span>{" "}
                 left
               </>
-            ) : showBaselineZero ? (
-              "0 value in baseline"
             ) : (
               "try updating now"
             )}
           </div>
         )}
       {showPercentComplete && enoughDataMeta.reason === "notEnoughData" ? (
-        <div
-          className={clsx("text-muted percent-complete", { small: !noStyle })}
-        >
+        <div className="text-muted percent-complete small">
           <span className="percent-complete-numerator">
             {numberFormatter.format(enoughDataMeta.percentCompleteNumerator)}
           </span>{" "}

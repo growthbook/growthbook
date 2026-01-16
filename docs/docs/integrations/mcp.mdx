@@ -262,10 +262,10 @@ Claude Desktop ships with its own version of Node, which means it's not required
 ### Experiments
 
 - `get_experiments`: List experiments in GrowthBook.
-    - This tool has 3 modes:
-        1. `metadata`: The default response from the GrowthBook API, including basic information about experiments.
-        2. `full`: Metadata about experiments plus results. Warning: This returns a large payload, which fills up the context window quickly.
-        3. `summary`: Presents a high-level summary of experiments and their results, combining experiment metadata, results, and metrics.
+  - This tool has 3 modes:
+    1. `metadata`: The default response from the GrowthBook API, including basic information about experiments.
+    2. `full`: Metadata about experiments plus results. Warning: This returns a large payload, which fills up the context window quickly.
+    3. `summary`: Presents a high-level summary of experiments and their results, combining experiment metadata, results, and metrics.
 - `get_experiment`: Fetch details for a specific experiment by ID. (Supports `metadata` and `full` modes. See above for details.)
 - `get_attributes`: List user attributes tracked in GrowthBook (useful for targeting).
 - `create_experiment`: Creates a feature-flag linked experiment. Note that this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
