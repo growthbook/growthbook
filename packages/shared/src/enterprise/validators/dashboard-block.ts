@@ -187,6 +187,7 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     metricId: z.string().optional(), // Deprecated
     metricIds: z.array(z.string()),
     variationIds: z.array(z.string()),
+    differenceType: z.enum(differenceTypes),
     snapshotId: z.string(),
     sliceTagsFilter: z.array(z.string()),
     metricTagFilter: z.array(z.string()),

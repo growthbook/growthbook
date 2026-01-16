@@ -115,7 +115,16 @@ function shouldShowEditorField(
     variationIds: ["experiment-metric", "experiment-dimension"],
   };
   const SPECIAL_FIELDS_BY_BLOCK_TYPE: Record<string, DashboardBlockType[]> = {
-    _toggleSortByMetricIds: ["experiment-metric", "experiment-dimension"],
+    _toggleSortByMetricIds: [
+      "experiment-metric",
+      "experiment-dimension",
+      "experiment-time-series",
+    ],
+    _toggleSortByMetricTags: [
+      "experiment-metric",
+      "experiment-dimension",
+      "experiment-time-series",
+    ],
   };
 
   if (!block) return true;
@@ -1028,29 +1037,31 @@ export default function EditSingleBlock({
                         <div className="pb-1 pt-2">{group.label}</div>
                       )}
                     />
-                    {shouldShowEditorField(block, "_toggleSortByMetricIds") && (
-                      <Checkbox
-                        value={
-                          blockHasFieldOfType(
-                            block,
-                            "sortBy",
-                            (val) => val === null || typeof val === "string",
-                          ) && block.sortBy === "metrics"
-                        }
-                        setValue={(checked) => {
-                          setBlock({
-                            ...block,
-                            sortBy: checked
-                              ? ("metrics" as (typeof block)["sortBy"])
-                              : null,
-                            sortDirection: null,
-                          });
-                        }}
-                        label="Sort results by order of metrics"
-                        weight="regular"
-                        containerClassName="mt-3 mb-0"
-                      />
-                    )}
+                    {shouldShowEditorField(block, "_toggleSortByMetricIds") &&
+                      blockHasFieldOfType(block, "metricIds", isStringArray) &&
+                      (block.metricIds?.length || 0) > 0 && (
+                        <Checkbox
+                          value={
+                            blockHasFieldOfType(
+                              block,
+                              "sortBy",
+                              (val) => val === null || typeof val === "string",
+                            ) && block.sortBy === "metrics"
+                          }
+                          setValue={(checked) => {
+                            setBlock({
+                              ...block,
+                              sortBy: checked
+                                ? ("metrics" as (typeof block)["sortBy"])
+                                : null,
+                              sortDirection: null,
+                            });
+                          }}
+                          label="Sort results by order of metrics"
+                          weight="regular"
+                          containerClassName="mt-3 mb-0"
+                        />
+                      )}
                   </Box>
                   {blockHasFieldOfType(
                     block,
@@ -1081,28 +1092,34 @@ export default function EditSingleBlock({
                                 formatMetricTagOptionLabel(option)
                               }
                             />
-                            <Checkbox
-                              value={
-                                blockHasFieldOfType(
-                                  block,
-                                  "sortBy",
-                                  (val) =>
-                                    val === null || typeof val === "string",
-                                ) && block.sortBy === "metricTags"
-                              }
-                              setValue={(checked) => {
-                                setBlock({
-                                  ...block,
-                                  sortBy: checked
-                                    ? ("metricTags" as (typeof block)["sortBy"])
-                                    : null,
-                                  sortDirection: null,
-                                });
-                              }}
-                              label="Sort results by order of metric tags"
-                              weight="regular"
-                              containerClassName="mt-3 mb-0"
-                            />
+                            {shouldShowEditorField(
+                              block,
+                              "_toggleSortByMetricTags",
+                            ) &&
+                              (block.metricTagFilter?.length || 0) > 0 && (
+                                <Checkbox
+                                  value={
+                                    blockHasFieldOfType(
+                                      block,
+                                      "sortBy",
+                                      (val) =>
+                                        val === null || typeof val === "string",
+                                    ) && block.sortBy === "metricTags"
+                                  }
+                                  setValue={(checked) => {
+                                    setBlock({
+                                      ...block,
+                                      sortBy: checked
+                                        ? ("metricTags" as (typeof block)["sortBy"])
+                                        : null,
+                                      sortDirection: null,
+                                    });
+                                  }}
+                                  label="Sort results by order of metric tags"
+                                  weight="regular"
+                                  containerClassName="mt-3 mb-0"
+                                />
+                              )}
                           </Box>
                         ) : (
                           <Link
@@ -1234,29 +1251,26 @@ export default function EditSingleBlock({
             )}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
               shouldShowEditorField(block, "differenceType") && (
-                <>
-                  <SelectField
-                    label="Difference Type"
-                    labelClassName="font-weight-bold"
-                    containerClassName="mb-0"
-                    value={block.differenceType}
-                    onChange={(value) =>
-                      setBlock({
-                        ...block,
-                        differenceType: isDifferenceType(value)
-                          ? value
-                          : "absolute",
-                      })
-                    }
-                    options={[
-                      { label: "Relative", value: "relative" },
-                      { label: "Absolute", value: "absolute" },
-                      { label: "Scaled", value: "scaled" },
-                    ]}
-                    sort={false}
-                  />
-                  <Separator style={{ width: "100%" }} />
-                </>
+                <SelectField
+                  label="Difference Type"
+                  labelClassName="font-weight-bold"
+                  containerClassName="mb-0"
+                  value={block.differenceType}
+                  onChange={(value) =>
+                    setBlock({
+                      ...block,
+                      differenceType: isDifferenceType(value)
+                        ? value
+                        : "absolute",
+                    })
+                  }
+                  options={[
+                    { label: "Relative", value: "relative" },
+                    { label: "Absolute", value: "absolute" },
+                    { label: "Scaled", value: "scaled" },
+                  ]}
+                  sort={false}
+                />
               )}
             {blockHasFieldOfType(block, "baselineRow", isNumber) &&
               shouldShowEditorField(block, "baselineRow") && (

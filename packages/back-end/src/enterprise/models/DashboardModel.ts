@@ -21,6 +21,7 @@ import {
   DashboardBlockInterface,
   LegacyDashboardBlockInterface,
   convertPinnedSlicesToSliceTags,
+  isDifferenceType,
 } from "shared/enterprise";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
@@ -621,6 +622,10 @@ export function migrateBlock(
           ? convertPinnedSlicesToSliceTags(pinnedSlices)
           : doc.sliceTagsFilter || [];
       const metricTagFilter = doc.metricTagFilter || [];
+      const differenceType =
+        "differenceType" in doc && isDifferenceType(doc.differenceType)
+          ? doc.differenceType
+          : "relative";
       return {
         ...omit(doc, [
           "pinnedMetricSlices",
@@ -631,6 +636,7 @@ export function migrateBlock(
         metricIds: migratedMetricIds,
         sliceTagsFilter,
         metricTagFilter,
+        differenceType,
         sortBy,
         sortDirection,
       } as DashboardBlockInterface | CreateDashboardBlockInterface;

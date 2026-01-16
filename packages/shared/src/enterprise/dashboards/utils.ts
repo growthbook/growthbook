@@ -213,6 +213,7 @@ export const CREATE_BLOCK_TYPE: {
     metricIds: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
+    differenceType: "relative",
     sliceTagsFilter: [],
     metricTagFilter: [],
     sortBy: null,
