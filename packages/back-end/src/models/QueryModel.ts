@@ -153,6 +153,7 @@ export async function getRecentQuery(
   organization: string,
   datasource: string,
   query: string,
+  onlyOriginalQueries: boolean = true,
 ) {
   // Only re-use queries that were run recently
   const earliestDate = new Date();
@@ -166,6 +167,8 @@ export async function getRecentQuery(
       $gt: earliestDate,
     },
     status: { $in: ["succeeded", "running"] },
+    // Exclude documents that were created from cache - they shouldn't reset the TTL
+    ...(onlyOriginalQueries && { cachedQueryUsed: { $exists: false } }),
   })
     .sort({ createdAt: -1 })
     .limit(1);
