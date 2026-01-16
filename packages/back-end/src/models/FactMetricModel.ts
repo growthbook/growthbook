@@ -37,7 +37,7 @@ const BaseClass = MakeModelClass({
   readonlyFields: ["datasource"],
   defaultValues: {
     owner: "",
-    projects: [],
+    tags: [],
   },
 });
 
