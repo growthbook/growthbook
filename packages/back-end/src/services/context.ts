@@ -20,6 +20,13 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  BadRequestError,
+  UnauthorizedError,
+  PlanDoesNotAllowError,
+  NotFoundError,
+  InternalServerError,
+} from "back-end/src/util/errors";
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -240,6 +247,26 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  public throwBadRequestError(message: string) {
+    throw new BadRequestError(message);
+  }
+
+  public throwUnauthorizedError(message: string) {
+    throw new UnauthorizedError(message);
+  }
+
+  public throwPlanDoesNotAllowError(message: string) {
+    throw new PlanDoesNotAllowError(message);
+  }
+
+  public throwNotFoundError(message?: string) {
+    throw new NotFoundError(message);
+  }
+
+  public throwInternalServerError(message: string) {
+    throw new InternalServerError(message);
   }
 
   // Check permissions
