@@ -6,7 +6,7 @@ import mongoose, { FilterQuery, trusted } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, orderBy, pick } from "lodash";
+import { isEqual, keysIn, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
@@ -103,6 +103,7 @@ export interface ModelConfig<
   indexesToRemove?: string[];
   baseQuery?: ScopedFilterQuery<T>;
   apiConfig?: ApiModelConfig<ApiT>;
+  defaultValues?: Partial<CreateProps<z.infer<T>>>;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -555,6 +556,15 @@ export abstract class BaseModel<
     // Add default owner if empty
     if ("owner" in props && !props.owner) {
       props.owner = this.context.userName || "";
+    }
+
+    // Add default values if values are not provided
+    if (this.config.defaultValues) {
+      for (const [key, value] of Object.entries(this.config.defaultValues)) {
+        if (!props[key as keyof CreateProps<z.infer<T>>]) {
+          props[key as keyof CreateProps<z.infer<T>>] = value;
+        }
+      }
     }
 
     const ids: Identifiers = {
