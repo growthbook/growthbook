@@ -1,4 +1,7 @@
-import { sdkConnectionCacheValidator } from "shared/validators";
+import {
+  SdkConnectionCacheAuditContext,
+  sdkConnectionCacheValidator,
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -25,11 +28,24 @@ export class SdkConnectionCacheModel extends BaseClass {
     return true;
   }
 
-  public async upsert(id: string, contents: string) {
+  public async upsert(
+    id: string,
+    contents: string,
+    auditContext?: SdkConnectionCacheAuditContext,
+  ) {
     const existing = await this.getById(id);
-    if (existing) {
-      return this.update(existing, { contents });
+    const updateData: {
+      contents: string;
+      audit?: SdkConnectionCacheAuditContext;
+    } = {
+      contents,
+    };
+    if (auditContext) {
+      updateData.audit = auditContext;
     }
-    return this.create({ id, contents });
+    if (existing) {
+      return this.update(existing, updateData);
+    }
+    return this.create({ id, ...updateData });
   }
 }
