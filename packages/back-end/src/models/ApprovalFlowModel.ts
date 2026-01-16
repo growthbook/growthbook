@@ -11,15 +11,16 @@ import {
   ApprovalEntityType,
   ApprovalFlowEntity,
 } from "shared/validators";
-import { getEntityModel } from "../enterprise/approval-flows/helpers";
 import { 
   canAdminBypassApprovalFlow,
   canUserReviewEntity,
   checkMergeConflicts,
   type MergeResult,
 } from "shared/enterprise";
+import { getEntityModel } from "back-end/src/enterprise/approval-flows";
 
 export const COLLECTION_NAME = "approvalflow";
+
 
 const BaseClass = MakeModelClass({
   schema: approvalFlowValidator,
@@ -266,7 +267,7 @@ export class ApprovalFlowModel extends BaseClass {
   private checkApprovalRequirements(
     approvalFlow: ApprovalFlowInterface
   ): boolean {
-    const { reviews, author } = approvalFlow;
+    const { reviews } = approvalFlow;
 
     if (reviews.length === 0) {
       return false;
@@ -325,11 +326,13 @@ export class ApprovalFlowModel extends BaseClass {
       details: "Updated proposed changes",
       createdAt: now,
     };
-    console.log(approvalFlow.entity, "approvalflow")
     return await this.updateById(approvalFlowId, {
       entity: {
         ...approvalFlow.entity,
-        proposedChanges,
+        proposedChanges: {
+         ...approvalFlow.entity.proposedChanges,
+         ...proposedChanges,
+        },
       },
       activityLog: [...approvalFlow.activityLog, activityEntry],
       status: newStatus,
@@ -353,30 +356,24 @@ export class ApprovalFlowModel extends BaseClass {
     const entityModel = getEntityModel(this.context, approvalFlow.entity.entityType);
     // do a diff from the entity model and the proposed changes and only update the fields that have changed
     if(!entityModel) {
-      console.log(approvalFlow.entity.entityType, "entity type");
       throw new Error(`Entity model not found for entity type: ${approvalFlow.entity.entityType}`);
     }
     const entity = await entityModel?.getById(approvalFlow.entity.entityId);
     if (!entity) {
-      console.log(approvalFlow.entity.entityType, "entity type");
       throw new Error(`Entity not found for entity type: ${approvalFlow.entity.entityType} and entity id: ${approvalFlow.entity.entityId}`);
     }
     const adminCanBypass = canAdminBypassApprovalFlow(approvalFlow.entity.entityType, entity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role);
 
     // Check if approved
     if (approvalFlow.status !== "approved" && !adminCanBypass) {
-      console.log(approvalFlow.status, "status");
       throw new Error(
         "Cannot merge approval flow that is not approved"
       );
     }
 
     const diff = this.getDiff(approvalFlow.entity.originalEntity, entity, approvalFlow.entity.proposedChanges);
-    console.log(diff, "diff");
     const changes = diff.modified.map((change) => change.field);
-    console.log(changes, "changes");
     if (entityModel && changes.length > 0) {
-      console.log(approvalFlow.entity.proposedChanges, "proposed changes");
       await entityModel.updateById(
         approvalFlow.entity.entityId,
         approvalFlow.entity.proposedChanges as Record<string, unknown>

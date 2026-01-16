@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Flex, Text, Card } from "@radix-ui/themes";
 import { PiCaretDown,PiCaretLeft } from "react-icons/pi";
 import { date, ago } from "shared/dates";
@@ -18,8 +18,10 @@ import {
 } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import { ApprovalEntityType, ApprovalFlowEntity, ApprovalFlowEntityType } from "shared/src/validators/approval-flows";
+import { ApprovalEntityType, ApprovalFlowEntityType } from "shared/src/validators/approval-flows";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { FactMetricInterface } from "shared/types/fact-table";
 interface ApprovalFlowDetailProps {
   approvalFlow: ApprovalFlowInterface;
   currentState: ApprovalFlowEntityType["originalEntity"];
@@ -72,7 +74,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const { getUserDisplay, userId, superAdmin } = useUser();
   const { apiCall } = useAuth();
   const [comment, setComment] = useState("");
-  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewDropdownOpen, setReviewDropdownOpen] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
@@ -83,6 +84,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const orgSettings = useOrgSettings();
   const { user } = useUser();
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
+  const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
       if (!approvalFlow.entity.originalEntity || !approvalFlow.entity.proposedChanges || !currentState) {
@@ -141,7 +143,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     userRole: user?.role,
     userId: userId || "",
   });
-  console.log("canUserReview", canUserReview);
   // Handle submitting a review
   const handleSubmitReview = async (
     decision: "approve" | "request-changes" | "comment",
@@ -183,7 +184,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const flatCurrent: Record<string, unknown> = {};
   for (const key of Object.keys(flatProposed)) {
     const keys = key.split(".");
-    let value: unknown = currentState;
+    let value: unknown = approvalFlow.status === "merged" ? approvalFlow.entity.originalEntity : currentState;
     for (const k of keys) {
       value = (value as Record<string, unknown>)?.[k];
       if (value === undefined) break;
@@ -194,16 +195,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const changedFields = Object.keys(flatProposed).filter(
     (key) => formatValue(flatCurrent[key]) !== formatValue(flatProposed[key])
   );
-
-  const toggleCollapsed = (id: string) => {
-    const newCollapsedItems = new Set(collapsedItems);
-    if (newCollapsedItems.has(id)) {
-      newCollapsedItems.delete(id);
-    } else {
-      newCollapsedItems.add(id);
-    }
-    setCollapsedItems(newCollapsedItems);
-  };
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
@@ -253,8 +244,17 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       setIsSubmitting(false);
     }
   };
+  const getPermissionsForEntity = (entityType: ApprovalEntityType) => {
+    switch (entityType) {
+      case "fact-metric":
+        return permissionsUtil.canUpdateFactMetric(currentState as FactMetricInterface, approvalFlow.entity.proposedChanges);
+      default:
+        return false;
+    }
+  };
+  
   const canMerge = () => {
-    return approvalFlow.status === "approved" || canAdminBypassApprovalFlow(approvalFlow.entity.entityType as ApprovalEntityType, currentState, orgSettings.approvalFlow, superAdmin, user?.role) || !requiresApprovalForEntity(approvalFlow.entity.entityType as ApprovalEntityType, currentState , orgSettings.approvalFlow);
+    return (approvalFlow.status === "approved" || canAdminBypassApprovalFlow(approvalFlow.entity.entityType as ApprovalEntityType, currentState, orgSettings.approvalFlow, superAdmin, user?.role) || !requiresApprovalForEntity(approvalFlow.entity.entityType as ApprovalEntityType, currentState , orgSettings.approvalFlow)) && getPermissionsForEntity(approvalFlow.entity.entityType as ApprovalEntityType);
   };
 
   const getActivityLabel = (
@@ -305,7 +305,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         </Button>
       </Box>
       {mergeResult && !mergeResult.success && (
-        <Callout status="error">
+        <Callout status="error" mb="4">
           <Text size="2">
             You have conflicts with the current state of the entity. Please resolve the conflicts
             before merging.
@@ -313,9 +313,16 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         </Callout>
       )}
       {mergeError && (
-        <Callout status="error">
+        <Callout status="error" mb="4">
           <Text size="2">
             {mergeError}
+          </Text>
+        </Callout>
+      )}
+      {approvalFlow.status === "merged" && (
+        <Callout status="info" mb="4">
+          <Text size="2">
+            This approval flow has been merged.
           </Text>
         </Callout>
       )}
@@ -327,7 +334,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
           <Dropdown
             uuid="submit-review-dropdown"
             toggle={
-              <Button variant="solid" color={!canMerge() || !!(!!mergeResult && !mergeResult.success)? "violet" : "gray"} disabled={!canUserReview}>
+              <Button variant="solid" color={!canMerge() || !!(!!mergeResult && !mergeResult.success)? "violet" : "gray"} disabled={approvalFlow.status === "closed" || approvalFlow.status === "merged"}>
                 Submit review <PiCaretDown className="ml-1" />
               </Button>
             }
@@ -356,16 +363,19 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                       value: "request-changes",
                       label: "Request Changes",
                       description: "Submit feedback that must be addressed",
+                      disabled: !canUserReview,
                     },
                     {
-                      value: "comment",
-                      label: "Leave a comment",
-                      description: "Submit general feedback without explicit approval.",
+                      value: "Archive",
+                      label: "Archive",
+                      description: "Archive the approval flow.",
+                      disabled: false
                     },
                     {
                       value: "approve",
                       label: "Approve",
                       description: "Approve and allow merging",
+                      disabled: !canUserReview,
                     },
                   ]}
                 />
@@ -394,10 +404,14 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                   color="violet"
                   stopPropagation
                   onClick={() => {
-                    handleSubmitReview(
-                      reviewDecision as "approve" | "request-changes" | "comment",
-                      reviewComment
-                    );
+                    if (reviewDecision === "Archive") {
+                      handleClose();
+                    } else {
+                      handleSubmitReview(
+                        reviewDecision as "approve" | "request-changes",
+                        reviewComment
+                      );
+                    }
                   }}
                   disabled={isSubmitting}
                 >
@@ -414,7 +428,7 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
                 isSubmitting || !canMerge() || !!(!!mergeResult && !mergeResult.success)
               }
             >
-              Merge
+              Publish
           </Button>
         </Flex>
       </Flex>

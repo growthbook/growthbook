@@ -5,12 +5,10 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   ApprovalFlowInterface,
   ApprovalEntityType,
-  ApprovalFlowCreateInterface,
   ReviewDecision,
 } from "shared/validators";
 import { ApprovalFlowModel } from "back-end/src/models/ApprovalFlowModel";
-import { getMetricById } from "back-end/src/models/MetricModel";
-import { getEntityModel } from "back-end/src/enterprise/approval-flows/helpers";
+import { getEntityModel } from "back-end/src/enterprise/approval-flows";
 
 // region GET /approval-flow
 
@@ -344,12 +342,10 @@ export const postMerge = async (
   const approvalFlow = await approvalFlowModel.getById(id);
 
   if (!approvalFlow) {
-    console.log("approval flow not found");
     return res.status(404).json({
       message: "Approval flow not found",
     });
   }
-  console.log("approval flow found");
   // Mark the approval flow as merged
   const mergedApprovalFlow = await approvalFlowModel.merge(id, userId);
 

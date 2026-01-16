@@ -3,8 +3,9 @@ import Link from "next/link";
 import { useEffect,
 useMemo,
 useState } from "react";
-import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import {
+  FactMetricInterface,
   FactMetricType,
   FactTableInterface,
   RowFilter,
@@ -255,9 +256,6 @@ export default function FactMetricPage() {
       setTab("approvals");
     }
   },[approvalFlows, router.query, router.asPath, setTab]);
-
-
-  if (!ready) return <LoadingOverlay />;
   const factMetricOriginal = getFactMetricById(fmid as string);
   const userOpenApprovalFlow =  useMemo(() => {
     return approvalFlows.toReversed().find((flow) => flow.status !== "closed" && flow.status !== "merged" && flow.author === userId);
@@ -270,6 +268,9 @@ export default function FactMetricPage() {
       return factMetricOriginal;
     }
   }, [factMetricOriginal, userOpenApprovalFlow, showingApprovalFlow]);
+
+  if (!ready) return <LoadingOverlay />;
+
 
   if (!factMetric) {
     return (
@@ -464,10 +465,19 @@ export default function FactMetricPage() {
           cta="Delete"
           submitColor="danger"
           submit={async () => {
-            await apiCall(`/fact-metrics/${factMetric.id}`, {
-              method: "DELETE",
-            });
-            mutateDefinitions();
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { archived: true },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else {
+              await apiCall(`/fact-metrics/${factMetric.id}`, {
+                method: "DELETE",
+              });
+            }
             setShowDeleteModal(false);
             router.push("/metrics");
           }}
@@ -508,13 +518,23 @@ export default function FactMetricPage() {
           }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { projects },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else {
             await apiCall(`/fact-metrics/${factMetric.id}`, {
               method: "PUT",
               body: JSON.stringify({
                 projects,
               }),
             });
-          }}
+          }
+        }}
           mutate={mutateDefinitions}
           entityName="Metric"
         />
@@ -525,10 +545,20 @@ export default function FactMetricPage() {
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
-            await apiCall(`/fact-metrics/${factMetric.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ owner }),
-            });
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { owner },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else { 
+              await apiCall(`/fact-metrics/${factMetric.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ owner }),
+              });
+            }
           }}
           mutate={mutateDefinitions}
         />
@@ -537,10 +567,20 @@ export default function FactMetricPage() {
         <EditTagsForm
           tags={factMetric.tags}
           save={async (tags) => {
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { tags },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else {
             await apiCall(`/fact-metrics/${factMetric.id}`, {
               method: "PUT",
               body: JSON.stringify({ tags }),
             });
+            }
           }}
           cancel={() => setEditTagsModal(false)}
           mutate={mutateDefinitions}
@@ -639,12 +679,22 @@ export default function FactMetricPage() {
               <DropdownMenuItem
                 onClick={async () => {
                   setOpenDropdown(false);
-                  await apiCall(`/fact-metrics/${factMetric.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      archived: !factMetric.archived,
-                    }),
-                  });
+                  if(userOpenApprovalFlow) {
+                    await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        proposedChanges: { archived: !factMetric.archived },
+                      }),
+                    });
+                    mutateApprovalFlows?.();
+                  } else {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        archived: !factMetric.archived,
+                      }),
+                    });
+                  }
                   mutateDefinitions();
                 }}
               >
@@ -1183,7 +1233,7 @@ export default function FactMetricPage() {
             ) : (
               <ApprovalFlowDetail
                 approvalFlow={currentApprovalFlow}
-                currentState={factMetricOriginal}
+                currentState={factMetricOriginal as FactMetricInterface}
                 mutate={mutateApprovalFlows}
                 setCurrentApprovalFlow={setCurrentApprovalFlow}
               />

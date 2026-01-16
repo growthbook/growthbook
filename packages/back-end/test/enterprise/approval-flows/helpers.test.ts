@@ -1,4 +1,4 @@
-import { getEntityModel } from "../../../src/enterprise/approval-flows/helpers";
+import { getEntityModel } from "../../../src/enterprise/approval-flows";
 
 describe("back-end enterprise/approval-flows helpers", () => {
   describe("getEntityModel", () => {
