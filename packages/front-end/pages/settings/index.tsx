@@ -172,6 +172,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -229,6 +230,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
+    embeddingModel: form.watch("embeddingModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",

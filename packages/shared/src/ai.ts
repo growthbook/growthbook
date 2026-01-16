@@ -1,14 +1,32 @@
 // AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic";
+export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 
-export type EmbeddingModel =
-  | "text-embedding-3-small"
-  | "text-embedding-3-large"
-  | "text-embedding-ada-002";
-
-// Available models for each provider
+// Available text generation models for each provider
 export const AI_PROVIDER_MODEL_MAP = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+  openai: [
+    // GPT-5 series
+    "gpt-5.2",
+    "gpt-5.2-pro",
+    "gpt-5.1-codex",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex-mini",
+    "gpt-5",
+    "gpt-5-nano",
+    "gpt-5-mini",
+    "gpt-5-pro",
+    "gpt-5-codex",
+    // GPT-4 series
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4o",
+    "gpt-4o-mini",
+    // O series (reasoning models)
+    "o4-mini",
+    "o3",
+    "o3-mini",
+    "o1",
+  ],
   anthropic: [
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-5-20250929",
@@ -18,6 +36,30 @@ export const AI_PROVIDER_MODEL_MAP = {
     "claude-3-7-sonnet-20250219",
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
+  ],
+  xai: [
+    "grok-code-fast-1",
+    "grok-4-fast-non-reasoning",
+    "grok-4-fast-reasoning",
+    "grok-4",
+    "grok-3",
+    "grok-3-mini",
+    "grok-3-fast",
+    "grok-3-mini-fast",
+    "grok-2",
+  ],
+  mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  google: [
+    "gemini-3-pro-preview",
+    "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-pro-latest",
   ],
 } as const;
 
@@ -32,6 +74,39 @@ export function getProviderFromModel(model: AIModel): AIProvider {
     }
   }
   throw new Error(`Model ${model} is not supported.`);
+}
+
+// Available embedding models for each provider
+export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
+  openai: [
+    "text-embedding-3-small",
+    "text-embedding-3-large",
+    "text-embedding-ada-002",
+  ],
+  mistral: ["mistral-embed", "codestral-embed"],
+  google: [
+    "text-embedding-005",
+    "text-multilingual-embedding-002",
+    "gemini-embedding-001",
+  ],
+} as const;
+
+// Derive EmbeddingModel type from the models defined in AI_PROVIDER_EMBEDDING_MODEL_MAP
+export type EmbeddingModel =
+  (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
+
+// Helper to determine which provider an embedding model belongs to
+export function getProviderFromEmbeddingModel(
+  model: EmbeddingModel,
+): AIProvider {
+  for (const [provider, models] of Object.entries(
+    AI_PROVIDER_EMBEDDING_MODEL_MAP,
+  )) {
+    if (models.includes(model as never)) {
+      return provider as AIProvider;
+    }
+  }
+  throw new Error(`Embedding model ${model} is not supported.`);
 }
 
 export interface AITokenUsageInterface {
