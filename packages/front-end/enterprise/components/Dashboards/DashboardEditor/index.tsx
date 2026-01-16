@@ -116,11 +116,7 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
 export const isBlockTypeAllowed = (
   blockType: DashboardBlockType,
   isGeneralDashboard: boolean,
-  isIncrementalRefreshExperiment: boolean,
 ): boolean => {
-  if (isIncrementalRefreshExperiment && blockType === "experiment-dimension") {
-    return false;
-  }
   if (isGeneralDashboard) {
     return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
   } else {
@@ -134,14 +130,12 @@ function AddBlockDropdown({
   onDropdownOpen,
   onDropdownClose,
   isGeneralDashboard = false,
-  isIncrementalRefreshExperiment = false,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
   onDropdownOpen?: () => void;
   onDropdownClose?: () => void;
   isGeneralDashboard?: boolean;
-  isIncrementalRefreshExperiment?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -165,11 +159,7 @@ function AddBlockDropdown({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(
-            bType,
-            isGeneralDashboard,
-            isIncrementalRefreshExperiment,
-          ),
+          isBlockTypeAllowed(bType, isGeneralDashboard),
         );
 
         // Don't render the subgroup if no block types are allowed
@@ -241,7 +231,6 @@ interface Props {
   mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
-  isIncrementalRefreshExperiment: boolean;
   setIsEditing?: (v: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
   editBlockProps?: EditBlockProps;

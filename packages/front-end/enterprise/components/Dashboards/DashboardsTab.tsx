@@ -17,7 +17,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
-import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -165,10 +164,6 @@ function DashboardsTab({
   if (dashboard?.editLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
-
-  const isIncrementalRefreshExperiment =
-    useExperimentPipelineMode(experiment ?? undefined) ===
-    "incremental-refresh";
 
   useEffect(() => {
     if (dashboard) {
@@ -505,9 +500,6 @@ function DashboardsTab({
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
                         isGeneralDashboard={false}
-                        isIncrementalRefreshExperiment={
-                          isIncrementalRefreshExperiment
-                        }
                         enterEditModeForBlock={enterEditModeForBlock}
                         setBlock={canEdit ? memoizedSetBlock : undefined}
                         mutate={mutateDashboards}

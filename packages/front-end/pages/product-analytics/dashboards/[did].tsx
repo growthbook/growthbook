@@ -194,7 +194,6 @@ function SingleDashboardPage() {
             initialShareLevel={dashboard.shareLevel}
             dashboardOwnerId={dashboard.userId}
             isGeneralDashboard={true}
-            isIncrementalRefreshExperiment={false}
             isEditing={false}
             title={dashboard.title}
             blocks={dashboard.blocks}
