@@ -20,7 +20,10 @@ import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
   LegacyDashboardBlockInterface,
+  convertPinnedSlicesToSliceTags,
+  isDifferenceType,
 } from "shared/enterprise";
+import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
 import {
   MakeModelClass,
@@ -479,27 +482,165 @@ export function migrateBlock(
     | CreateDashboardBlockInterface,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
-    case "experiment-metric":
+    case "experiment-metric": {
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const metricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricIds ?? [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "custom"
+      if (metricSelector !== "custom") {
+        if (!migratedMetricIds.includes(metricSelector)) {
+          migratedMetricIds.unshift(metricSelector);
+        }
+      }
+
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
+      const sortBy =
+        sortByRaw === "custom"
+          ? "metrics"
+          : sortByRaw === "metrics" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
+      const pinnedSlices =
+        "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
+          ? doc.pinnedMetricSlices
+          : [];
+      const sliceTagsFilter =
+        pinnedSlices.length > 0
+          ? convertPinnedSlicesToSliceTags(pinnedSlices)
+          : doc.sliceTagsFilter || [];
+      const metricTagFilter = doc.metricTagFilter || [];
       return {
-        ...doc,
-        metricSelector: doc.metricSelector || "custom",
-        pinSource: doc.pinSource || "experiment",
-        pinnedMetricSlices: doc.pinnedMetricSlices || [],
-      };
-    case "experiment-dimension":
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
+        metricIds: migratedMetricIds,
+        sliceTagsFilter,
+        metricTagFilter,
+        sortBy,
+        sortDirection,
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
+    }
+    case "experiment-dimension": {
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const dimensionMetricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricIds ?? [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "custom"
+      if (dimensionMetricSelector !== "custom") {
+        if (!migratedMetricIds.includes(dimensionMetricSelector)) {
+          migratedMetricIds.unshift(dimensionMetricSelector);
+        }
+      }
+
+      const metricTagFilter = doc.metricTagFilter || [];
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
+      const sortBy =
+        sortByRaw === "custom"
+          ? "metrics"
+          : sortByRaw === "metrics" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
       return {
-        ...doc,
-        metricSelector: doc.metricSelector || "custom",
-      };
-    case "experiment-time-series":
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
+        metricIds: migratedMetricIds,
+        metricTagFilter,
+        sortBy,
+        sortDirection,
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
+    }
+    case "experiment-time-series": {
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const timeSeriesMetricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricId
+        ? [doc.metricId]
+        : (doc.metricIds ?? []);
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "custom"
+      if (timeSeriesMetricSelector !== "custom") {
+        if (!migratedMetricIds.includes(timeSeriesMetricSelector)) {
+          migratedMetricIds.unshift(timeSeriesMetricSelector);
+        }
+      }
+
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
+      const sortBy =
+        sortByRaw === "custom"
+          ? "metrics"
+          : sortByRaw === "metrics" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
+      const pinnedSlices =
+        "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
+          ? doc.pinnedMetricSlices
+          : [];
+      const sliceTagsFilter =
+        pinnedSlices.length > 0
+          ? convertPinnedSlicesToSliceTags(pinnedSlices)
+          : doc.sliceTagsFilter || [];
+      const metricTagFilter = doc.metricTagFilter || [];
+      const differenceType =
+        "differenceType" in doc && isDifferenceType(doc.differenceType)
+          ? doc.differenceType
+          : "relative";
       return {
-        ...doc,
-        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
-        metricId: undefined,
-        metricSelector: doc.metricSelector || "custom",
-        pinSource: doc.pinSource || "experiment",
-        pinnedMetricSlices: doc.pinnedMetricSlices || [],
-      };
+        ...omit(doc, [
+          "pinnedMetricSlices",
+          "pinSource",
+          "metricId",
+          "metricSelector",
+        ]),
+        metricIds: migratedMetricIds,
+        sliceTagsFilter,
+        metricTagFilter,
+        differenceType,
+        sortBy,
+        sortDirection,
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
+    }
     case "experiment-description":
       return {
         ...doc,

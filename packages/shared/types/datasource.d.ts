@@ -282,6 +282,7 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
+  queryCacheTTLMins?: string;
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
