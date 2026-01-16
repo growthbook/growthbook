@@ -584,7 +584,16 @@ export abstract class BaseModel<
     writeOptions?: WriteOptions,
     forceCanCreate?: boolean,
   ) {
-    const props = this.createValidator.parse(rawData);
+    // Apply default values BEFORE parsing to ensure required fields with defaults are populated
+    const dataWithDefaults = { ...rawData };
+    if (this.config.defaultValues) {
+      this._applyDefaultValues(
+        dataWithDefaults as Record<string, unknown>,
+        this.config.defaultValues as Record<string, unknown>,
+      );
+    }
+
+    const props = this.createValidator.parse(dataWithDefaults);
 
     if ("organization" in props) {
       throw new Error("Cannot set organization field");
@@ -599,14 +608,6 @@ export abstract class BaseModel<
     // Add default owner if empty
     if ("owner" in props && !props.owner) {
       props.owner = this.context.userName || "";
-    }
-
-    // Add default values if values are not provided
-    if (this.config.defaultValues) {
-      this._applyDefaultValues(
-        props as Record<string, unknown>,
-        this.config.defaultValues as Record<string, unknown>,
-      );
     }
 
     const ids: Identifiers = {
