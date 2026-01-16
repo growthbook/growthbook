@@ -38,6 +38,7 @@
   "dependencies": {
     "dd-trace": "^5.46.0",
     "patch-package": "^8.0.0",
+    "rollup": "^4.52.4",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
@@ -89,5 +90,7 @@
   "license": "Mixed",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "main": "index.js",
+  "author": "Priyanshu <priyanshugupta8720@gmail.com>"
 }

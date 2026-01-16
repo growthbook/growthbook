@@ -96,8 +96,8 @@ export const postBulkImportFacts = createApiRequestHandler(
         if (data.datasource && existing.datasource !== data.datasource) {
           throw new Error("Cannot change data source for existing fact table");
         }
-
-        await updateFactTable(req.context, existing, data);
+        //  added columns field in updateFactTable
+        await updateFactTable(req.context, existing, {...data,columns:data.columns});
         if (needsColumnRefresh(data)) {
           await queueFactTableColumnsRefresh(existing);
         }
@@ -116,6 +116,8 @@ export const postBulkImportFacts = createApiRequestHandler(
           owner: "",
           projects: [],
           tags: [],
+          // Added clolumn here
+          columns:data.columns,
           ...data,
         };
 
