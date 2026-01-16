@@ -1,5 +1,5 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { metricGroupValidator } from "back-end/src/routers/metric-group/metric-group.validators";
+import { metricGroupValidator } from "shared/src/validators/metric-group";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
