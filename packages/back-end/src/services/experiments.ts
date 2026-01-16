@@ -1633,6 +1633,7 @@ export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricGroups: MetricGroupInterface[],
+  expandedMetricMap: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -1657,11 +1658,12 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
+  const metricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: experiment,
+    expandedMetricMap,
+    includeActivationMetric: false,
     metricGroups,
-  );
+  });
 
   const variationIds = experiment.variations.map((v) => v.id);
 

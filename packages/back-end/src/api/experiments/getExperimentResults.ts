@@ -1,9 +1,12 @@
 import { GetExperimentResultsResponse } from "shared/types/openapi";
 import { getExperimentResultsValidator } from "shared/validators";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { toSnapshotApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 export const getExperimentResults = createApiRequestHandler(
   getExperimentResultsValidator,
@@ -25,8 +28,22 @@ export const getExperimentResults = createApiRequestHandler(
   if (!snapshot) {
     throw new Error("No results found for that experiment");
   }
+
   const metricGroups = await req.context.models.metricGroups.getAll();
-  const result = toSnapshotApiInterface(experiment, snapshot, metricGroups);
+  const metricMap = await getMetricMap(req.context);
+  const factTableMap = await getFactTableMap(req.context);
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+  const result = toSnapshotApiInterface(
+    experiment,
+    snapshot,
+    metricGroups,
+    metricMap,
+  );
 
   return {
     result: result,
