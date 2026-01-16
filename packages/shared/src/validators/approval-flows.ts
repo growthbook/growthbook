@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { ConditionInterface,
-evalCondition } from "@growthbook/growthbook";
+import { factMetricValidator } from "shared/validators";
 
 // Approval flow statuses (similar to GitHub PR states)
 export const approvalFlowStatusArray = [
+  "draft",
   "pending-review",
   "approved",
   "changes-requested",
-  "merged", //TODO change to published
-  "closed", //TODO move to archived
+  "merged",
+  "closed",
 ] as const;
 export type ApprovalFlowStatus = (typeof approvalFlowStatusArray)[number];
 
@@ -22,9 +22,7 @@ export type ReviewDecision = (typeof reviewDecisionArray)[number];
 
 // Entity types that can have approval flows
 export const approvalEntityTypeArray = [
-  // "experiment",
   "fact-metric",
-  // "fact-table",
 ] as const;
 export type ApprovalEntityType = (typeof approvalEntityTypeArray)[number];
 
@@ -33,7 +31,7 @@ export const reviewValidator = z.object({
   id: z.string(),
   userId: z.string(),
   decision: z.enum(reviewDecisionArray),
-  comment: z.string().optional(),
+  comment: z.string(),
   createdAt: z.date(),
 });
 
@@ -52,8 +50,8 @@ export const activityLogEntryValidator = z.object({
     "approved",
     "requested-changes",
     "commented",
-    "merged", //TODO change to published
-    "closed", //TODO move to archived
+    "merged",
+    "closed",
     "reopened",
   ]),
   details: z.string().optional(),
@@ -71,8 +69,19 @@ export const approvalFlowCreateValidator = z.object({
 });
 export type ApprovalFlowCreateInterface = z.infer<typeof approvalFlowCreateValidator>;
 
-// Main approval flow schema
-const approvalFlowBaseValidator = approvalFlowCreateValidator.extend({
+// Fact metric approval flow with entity-specific fields
+export const factMetricApprovalFlowValidator = z.object({
+  entityType: z.literal("fact-metric"),
+  entity: factMetricValidator,
+});
+
+//TODO: figure out a good way to get this to work
+export const originalEntityValidator = z.discriminatedUnion("entityType", [
+  factMetricApprovalFlowValidator,
+]);
+
+// Base approval flow fields (common to all entity types)
+export const approvalFlowValidator = approvalFlowCreateValidator.extend({
   status: z.enum(approvalFlowStatusArray).default("pending-review"),
   author: z.string(),
   reviews: z.array(reviewValidator),
@@ -81,11 +90,15 @@ const approvalFlowBaseValidator = approvalFlowCreateValidator.extend({
   closedAt: z.date().optional(),
   mergedBy: z.string().optional(),
   closedBy: z.string().optional(),
-  originalEntity: z.record(z.string(), z.unknown()),
   id: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date(),
+  organization: z.string(),
+  originalEntity: z.record(z.string(), z.unknown()),
 });
 
-export const approvalFlowValidator = approvalFlowBaseValidator.strict();
+
+
 
 export type ApprovalFlowInterface = z.infer<typeof approvalFlowValidator>;
 export type Review = z.infer<typeof reviewValidator>;
@@ -108,3 +121,16 @@ export type MergeResult = {
   fieldsChanged: string[];
   mergedChanges?: Record<string, unknown>;
 };
+
+// Validator for entities that can have approval flows
+// Includes fields commonly used in approval flow conditions
+export const approvalFlowEntityValidator = z.object({
+  id: z.string(),
+  managedBy: z.enum(["", "api", "admin"]).optional(),
+  verified: z.boolean().optional(),
+  projects: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+}).strip();
+
+export type ApprovalFlowEntity = z.infer<typeof approvalFlowEntityValidator>;
+

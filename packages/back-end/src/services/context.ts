@@ -90,6 +90,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "approvalFlow"
   | "sqlResultChunks"
   | "sdkConnectionCache";
 

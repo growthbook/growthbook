@@ -2,6 +2,9 @@ import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
+import { ReqContext } from "back-end/types/organization";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -12,11 +15,7 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ReqContext } from "back-end/types/request";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+} from "back-end/types/fact-table";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -33,13 +32,14 @@ import {
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   runRefreshColumnsQuery,
   runColumnTopValuesQuery,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
-import { checkApprovalIsRequired } from "back-end/src/enterprise/approval-flows/helpers";
+import { requiresApprovalForEntity } from "shared/enterprise";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -593,13 +593,13 @@ export const putFactMetric = async (
   // Check if approval is required for this fact metric update
   const approvalFlowSettings = context.org.settings?.approvalFlow?.metrics || [];
   // TODO: move this to its own function inside the approvals validator
-  const requiresApproval = await checkApprovalIsRequired("fact-metric", factMetric.id, context);
+  const requiresApproval = requiresApprovalForEntity("fact-metric", factMetric, context.org.settings?.approvalFlow);
   
   if (requiresApproval) { 
     // check if there is an approval flow for this user and entity id
     const previousApprovalFlow = await context.models.approvalFlow.getOpenByEntityAndAuthor("fact-metric", factMetric.id, context.userId);
     if (previousApprovalFlow) {
-      throw new Error("An approval flow already exists for this user and entity");
+      throw new Error("An approval flow already exists for this user and entity"); 
     }
     const approvalFlow = await context.models.approvalFlow.create({
       entityType: "fact-metric",

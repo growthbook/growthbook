@@ -7,7 +7,7 @@ import {
   ApprovalEntityType,
   ApprovalFlowCreateInterface,
   ReviewDecision,
-} from "back-end/src/validators/approval-flows";
+} from "shared/validators";
 import { ApprovalFlowModel } from "back-end/src/models/ApprovalFlowModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
 

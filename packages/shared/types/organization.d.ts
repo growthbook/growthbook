@@ -29,7 +29,7 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
-import { ApprovalFlowInterface } from "back-end/src/validators/approval-flows";
+import { ApprovalFlowInterface } from "../src/validators/approval-flows";
 import { ConditionInterface } from "@growthbook/growthbook";
 
 export type EnvScopedPermission = (typeof ENV_SCOPED_PERMISSIONS)[number];

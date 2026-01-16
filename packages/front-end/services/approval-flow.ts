@@ -1,5 +1,5 @@
-import { ApprovalFlow, OrganizationSettings } from "back-end/types/organization";
-import { ApprovalFlowInterface } from "@/types/approval-flow";
+import { ApprovalFlow, OrganizationSettings } from "shared/types/organization";
+import { ApprovalFlowInterface } from "shared/validators";
 import { UserContextValue } from "./UserContext";
 import { ConditionInterface,
 evalCondition } from "@growthbook/growthbook";

@@ -2,28 +2,28 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Box, Flex, Text, Card } from "@radix-ui/themes";
 import { PiCaretDown,PiCaretLeft } from "react-icons/pi";
 import { date, ago } from "shared/dates";
-import { ApprovalFlowInterface } from "@/types/approval-flow";
+import { ApprovalFlowInterface } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Field from "@/components/Forms/Field";
-import { useApprovalFlowSQL } from "@/hooks/useApprovalFlowSQL";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import {
-  canUserBypassApprovalFlow,
   checkMergeConflicts,
   MergeResult,
-  requiresReview,
-} from "shared/util";
+  canAdminBypassApprovalFlow,
+  requiresApprovalForEntity,
+  canUserReviewEntity,
+} from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-
+import { ApprovalEntityType, ApprovalFlowEntity } from "shared/src/validators/approval-flows";
+import LoadingOverlay from "@/components/LoadingOverlay";
 interface ApprovalFlowDetailProps {
   approvalFlow: ApprovalFlowInterface;
-  currentState: Record<string, unknown>;
-  mutate: () => void;
+  currentState: ApprovalFlowEntity;
+  mutate?: () => void;
   setCurrentApprovalFlow: (flow: ApprovalFlowInterface | null) => void;
 }
 
@@ -69,9 +69,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   mutate,
   setCurrentApprovalFlow,
 }) => {
-  const { getUserDisplay, userId } = useUser();
+  const { getUserDisplay, userId, superAdmin } = useUser();
   const { apiCall } = useAuth();
-  const { getFactTableById } = useDefinitions();
   const [comment, setComment] = useState("");
   const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,6 +78,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
   const [reviewComment, setReviewComment] = useState("");
   const [reviewDecision, setReviewDecision] = useState<string>("comment");
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const orgSettings = useOrgSettings();
   const { user } = useUser();
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
@@ -96,8 +97,8 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       setMergeResult(result);
   }, [approvalFlow.id, approvalFlow.originalEntity, approvalFlow.proposedChanges, currentState]);
   // Group activity by date (must be before early return to follow rules of hooks)
-  const groupedActivity = useMemo(() => {
-    if (!approvalFlow) return {};
+  if (!approvalFlow) return <LoadingOverlay />;
+
     const allActivity = [
       ...approvalFlow.reviews.map((r) => ({
         type: "review" as const,
@@ -122,23 +123,25 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    const grouped: Record<string, typeof allActivity> = {};
+    const groupedActivity: Record<string, typeof allActivity> = {};
     allActivity.forEach((item) => {
       const dateKey = date(item.createdAt);
-      if (!grouped[dateKey]) grouped[dateKey] = [];
-      grouped[dateKey].push(item);
+      if (!groupedActivity[dateKey]) groupedActivity[dateKey] = [];
+      groupedActivity[dateKey].push(item);
     });
 
-    return grouped;
-  }, [approvalFlow?.reviews, approvalFlow?.activityLog]);
-
-  if (!approvalFlow) return null;
 
   const isOpen =
     approvalFlow.status !== "merged" && approvalFlow.status !== "closed";
-  const isAuthor = userId === approvalFlow.author;
-  const canUserReview =true || (isOpen && !isAuthor);
-
+  const canUserReview = canUserReviewEntity({
+    entityType: approvalFlow.entityType as ApprovalEntityType,
+    approvalFlow,
+    entity: currentState,
+    approvalFlowSettings: orgSettings.approvalFlow,
+    userRole: user?.role,
+    userId: userId || "",
+  });
+  console.log("canUserReview", canUserReview);
   // Handle submitting a review
   const handleSubmitReview = async (
     decision: "approve" | "request-changes" | "comment",
@@ -147,18 +150,27 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
     setIsSubmitting(true);
     setReviewError(null);
     try {
-      await apiCall(`/approval-flow/${approvalFlow.id}/review`, {
+      const response = await apiCall<{ approvalFlow: ApprovalFlowInterface }>(`/approval-flow/${approvalFlow.id}/review`, {
         method: "POST",
         body: JSON.stringify({
           decision,
           comment: reviewCommentText,
         }),
       });
-      mutate();
+      
+      // Update the current approval flow with the response
+      if (response.approvalFlow) {
+        setCurrentApprovalFlow(response.approvalFlow);
+      }
+      
+      // Also refresh the list in the background
+      mutate?.();
+      
       setComment("");
       setReviewComment("");
       setReviewDecision("comment");
       setReviewDropdownOpen(false);
+
     } catch (error) {
       setReviewError(error instanceof Error ? error.message : "Failed to submit review");
     } finally {
@@ -200,23 +212,49 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
 
   const handleMerge = async () => {
     setIsSubmitting(true);
-      await apiCall(`/approval-flow/${approvalFlow.id}/merge`, {
+    setMergeError(null);
+    try {
+      const response = await apiCall<{ approvalFlow: ApprovalFlowInterface }>(`/approval-flow/${approvalFlow.id}/merge`, {
         method: "POST",
       });
-      mutate();
+      
+      // Update the current approval flow with the response
+      if (response.approvalFlow) {
+        setCurrentApprovalFlow(response.approvalFlow);
+      }
+      
+      // Also refresh the list in the background
+      mutate?.();
+    } catch (error) {
+      setMergeError(error instanceof Error ? error.message : "Failed to merge");
+    } finally {
       setIsSubmitting(false);
+    }
   };
 
   const handleClose = async () => {
     setIsSubmitting(true);
-      await apiCall(`/approval-flow/${approvalFlow.id}/close`, {
+    setCloseError(null);
+    try {
+      const response = await apiCall<{ approvalFlow: ApprovalFlowInterface }>(`/approval-flow/${approvalFlow.id}/close`, {
         method: "POST",
       });
-      mutate();
+      
+      // Update the current approval flow with the response
+      if (response.approvalFlow) {
+        setCurrentApprovalFlow(response.approvalFlow);
+      }
+      
+      // Also refresh the list in the background
+      mutate?.();
+    } catch (error) {
+      setCloseError(error instanceof Error ? error.message : "Failed to close");
+    } finally {
       setIsSubmitting(false);
+    }
   };
   const canMerge = () => {
-    return approvalFlow.status === "approved" || canUserBypassApprovalFlow(orgSettings, approvalFlow.entityType, currentState, user) || !requiresReview(orgSettings, currentState, approvalFlow.entityType);
+    return approvalFlow.status === "approved" || canAdminBypassApprovalFlow(approvalFlow.entityType as ApprovalEntityType, currentState, orgSettings.approvalFlow, superAdmin, user?.role) || !requiresApprovalForEntity(approvalFlow.entityType as ApprovalEntityType, currentState , orgSettings.approvalFlow);
   };
 
   const getActivityLabel = (
@@ -267,10 +305,17 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         </Button>
       </Box>
       {mergeResult && !mergeResult.success && (
-        <Callout status="danger">
+        <Callout status="error">
           <Text size="2">
             You have conflicts with the current state of the entity. Please resolve the conflicts
             before merging.
+          </Text>
+        </Callout>
+      )}
+      {mergeError && (
+        <Callout status="error">
+          <Text size="2">
+            {mergeError}
           </Text>
         </Callout>
       )}
@@ -278,11 +323,11 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       <Text size="3" weight="medium">
         {date(approvalFlow.dateCreated)}
       </Text>
-        {canUserReview && (
+        <Flex gap="2">
           <Dropdown
             uuid="submit-review-dropdown"
             toggle={
-              <Button variant="solid" color="violet">
+              <Button variant="solid" color={!canMerge() || !!(!!mergeResult && !mergeResult.success)? "violet" : "gray"} disabled={!canUserReview}>
                 Submit review <PiCaretDown className="ml-1" />
               </Button>
             }
@@ -361,7 +406,17 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
               </Flex>
             </Box>
           </Dropdown>
-        )}
+          <Button
+              variant="solid"
+              color="violet"
+              onClick={handleMerge}
+              disabled={
+                isSubmitting || !canMerge() || !!(!!mergeResult && !mergeResult.success)
+              }
+            >
+              Merge
+          </Button>
+        </Flex>
       </Flex>
 
       <Flex gap="5" direction={{ initial: "column", lg: "row" }} mb="6">
@@ -406,7 +461,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
         </Text>
       </Box>
       <Box mb="5" p="5" style={{ backgroundColor: "var(--white)", borderRadius: "var(--radius-2)" }}>
-        {/* Add comment form */}
         <Box style={{ maxWidth: 720, width: "100%", margin: "0 auto" }}>
         <Box mb="" p="5" className="appbox" style={{ boxShadow: "0 12px 32px -16px rgba(0, 0, 51, 0.06), 0 8px 40px 0 rgba(0, 0, 0, 0.05), 0 0px 0 1px rgba(0, 0, 51, 0.06)", borderRadius: "var(--radius-2)" }}>
           <Text size="2" mb="2" as="p">
@@ -485,6 +539,13 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
       {/* Action Buttons */}
       {isOpen && (
         <Box mb="5">
+          {closeError && (
+            <Callout status="error" mb="3">
+              <Text size="2">
+                {closeError}
+              </Text>
+            </Callout>
+          )}
           <Flex gap="3" justify="end">
             <Button
               variant="outline"
@@ -493,16 +554,6 @@ const ApprovalFlowDetail: React.FC<ApprovalFlowDetailProps> = ({
               disabled={isSubmitting}
             >
               Close
-            </Button>
-            <Button
-              variant="solid"
-              color="violet"
-              onClick={handleMerge}
-              disabled={
-                isSubmitting || !canMerge() || (mergeResult && !mergeResult.success)
-              }
-            >
-              Merge
             </Button>
           </Flex>
         </Box>

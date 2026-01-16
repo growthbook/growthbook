@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { FactMetricInterface, FactTableInterface } from "back-end/types/fact-table";
 import { getFactMetricSQL } from "@/services/fact-metric-sql";
-import { ApprovalEntityType } from "@/types/approval-flow";
+import { ApprovalEntityType } from "shared/validators";
 
 // Deep merge helper for nested objects
 function deepMerge(

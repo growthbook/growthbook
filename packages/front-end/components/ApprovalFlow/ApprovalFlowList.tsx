@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Badge, Flex, Box, Heading, Text } from "@radix-ui/themes";
 import { datetime } from "shared/dates";
-import { ApprovalFlowInterface,ApprovalFlowStatus } from "@/types/approval-flow";
+import { ApprovalFlowInterface, ApprovalFlowStatus } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
@@ -20,7 +20,6 @@ interface ApprovalFlowListProps {
   setApprovalFlow: (flow: ApprovalFlowInterface) => void;
   showEntityType?: boolean;
   showHistory?: boolean;
-  mutate?: () => void;
 }
 
 const ITEMS_PER_PAGE = 7;
@@ -31,7 +30,6 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
   setApprovalFlow,
   showEntityType = false,
   showHistory = true,
-  mutate,
 }) => {
   const { getUserDisplay } = useUser();
 
@@ -243,7 +241,7 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                   <SortableTH field="dateCreated">Date</SortableTH>
                   <th>Comments</th>
                   <th>Requested by</th>
-                  {showEntityType && <SortableTH field="type">type</SortableTH>}
+                  {showEntityType && <SortableTH field="entityType">type</SortableTH>}
                   <th>Status</th>
                 </tr>
               </thead>

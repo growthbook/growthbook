@@ -9,7 +9,7 @@ import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
 import { useApprovalFlows } from "@/hooks/useApprovalFlows";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Box } from "@radix-ui/themes";
-import { ApprovalFlowInterface } from "@/types/approval-flow";
+import { ApprovalFlowInterface } from "shared/validators";
 import router, { useRouter } from "next/router";
 
 const Activity: FC = () => {

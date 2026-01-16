@@ -75,7 +75,7 @@ import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
-import { ApprovalFlowInterface } from "@/types/approval-flow";
+import { ApprovalFlowInterface } from "shared/validators";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 function FactTableLink({ id }: { id?: string }) {
@@ -237,18 +237,17 @@ export default function FactMetricPage() {
     isLoading: approvalFlowsLoading,
     mutate: mutateApprovalFlows,
   } = useApprovalFlowsEntityId("fact-metric", fmid as string);
-  const [showingApprovalFlow, setShowingApprovalFlow] = useState(false);
+  const [showingApprovalFlow, setShowingApprovalFlow] = useState(true);
   const [currentApprovalFlow, setCurrentApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
   // get the query param from the url to check if we are going to show an approval flow detail
   useEffect(() => {
     const { approvalFlowId } = router.query;
-    if(approvalFlowId && !currentApprovalFlow) {
+    if(approvalFlowId) {
       const approvalFlow = approvalFlows.find((flow) => flow.id === approvalFlowId);
       if(approvalFlow) {
         setCurrentApprovalFlow(approvalFlow);
-        setShowingApprovalFlow(true);
       } else {
-        setShowingApprovalFlow(false);
+        setCurrentApprovalFlow(null);
       }
     }
     const hash = router.asPath.split("#")[1];
@@ -265,8 +264,7 @@ export default function FactMetricPage() {
   }, [approvalFlows, userId]);
   // merge the original fact metric with the user open approval flows
   const factMetric =  useMemo(() => {
-    console.log("currentApprovalFlow", userOpenApprovalFlow);
-    if(showingApprovalFlow) {
+    if(showingApprovalFlow && userOpenApprovalFlow) {
       return { ...factMetricOriginal, ...(userOpenApprovalFlow?.proposedChanges || {}) } as typeof factMetricOriginal;
     } else {
       return factMetricOriginal;

@@ -8,13 +8,16 @@ import {
   ReviewDecision,
   Review,
   ActivityLogEntry,
-  adminCanBypassApprovalFlow,
   ApprovalEntityType,
-  getEntityModel,
-  userCanReviewEntity,
-} from "back-end/src/validators/approval-flows";
-import { checkMergeConflicts, MergeResult } from "shared/util";
-// import { requiresResetReviewOnChange } from "back-end/src/validators/approval-flows";
+  ApprovalFlowEntity,
+} from "shared/validators";
+import { getEntityModel } from "../enterprise/approval-flows/helpers";
+import { 
+  canAdminBypassApprovalFlow,
+  canUserReviewEntity,
+  checkMergeConflicts,
+  type MergeResult,
+} from "shared/enterprise";
 
 export const COLLECTION_NAME = "approvalflow";
 
@@ -118,7 +121,7 @@ export class ApprovalFlowModel extends BaseClass {
     entityType: ApprovalEntityType,
     entityId: string,
     author: string
-  ): Promise<ApprovalFlowInterface | null> {
+  ): Promise<ApprovalFlowInterface | null | undefined> {
     const flows = await this._find({
       entityType,
       entityId,
@@ -183,19 +186,28 @@ export class ApprovalFlowModel extends BaseClass {
 
     // Check if user is trying to approve their own changes
     //Todo: move to the util function in permitions.ts
-    if (decision === "approve" && userId === approvalFlow.author) {
-      // Only admins or super admins can approve their own changes
-      const isAdmin = this.context.superAdmin || 
-                     this.context?.role === "admin";
-      
-      if (!isAdmin) {
+    if ((decision === "approve" || decision === "request-changes") && (userId === approvalFlow.author && !canAdminBypassApprovalFlow(approvalFlow.entityType, approvalFlow.originalEntity as ApprovalFlowEntity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role))) {
         throw new Error(
-          "You cannot approve your own approval flow. Only admins or other users can approve."
+          "You cannot approve your own"
         );
-      }
+    }
+    const entityModel = getEntityModel(this.context, approvalFlow.entityType);
+    if (!entityModel) {
+      throw new Error(`Entity model not found for entity type: ${approvalFlow.entityType}`);
+    }
+    const entity = await entityModel?.getById(approvalFlow.entityId);
+    if (!entity) {
+      throw new Error(`Entity not found for entity type: ${approvalFlow.entityType} and entity id: ${approvalFlow.entityId}`);
     }
     // this should be moved to the util function in permitions.ts
-    if (!this.canUserReview(approvalFlow, userId)) {
+    if (!canUserReviewEntity({
+      entityType: approvalFlow.entityType,
+      approvalFlow,
+      entity,
+      approvalFlowSettings: this.context.org.settings?.approvalFlow,
+      userRole: this.context.role,
+      userId,
+    }) && decision !== "comment") {
       throw new Error("You are not authorized to review this approval flow");
     }
 
@@ -332,7 +344,19 @@ export class ApprovalFlowModel extends BaseClass {
     if (!approvalFlow) {
       throw new Error("Approval flow not found");
     }
-    const adminCanBypass = adminCanBypassApprovalFlow(this.context, approvalFlow);
+
+
+    // Apply proposed changes to the target entity (e.g. fact-metric)
+    const entityModel = getEntityModel(this.context, approvalFlow.entityType);
+    // do a diff from the entity model and the proposed changes and only update the fields that have changed
+    if(!entityModel) {
+      throw new Error(`Entity model not found for entity type: ${approvalFlow.entityType}`);
+    }
+    const entity = await entityModel?.getById(approvalFlow.entityId);
+    if (!entity) {
+      throw new Error(`Entity not found for entity type: ${approvalFlow.entityType} and entity id: ${approvalFlow.entityId}`);
+    }
+    const adminCanBypass = canAdminBypassApprovalFlow(approvalFlow.entityType, entity, this.context.org.settings?.approvalFlow, this.context.superAdmin, this.context.role);
 
     // Check if approved
     if (approvalFlow.status !== "approved" && !adminCanBypass) {
@@ -341,13 +365,7 @@ export class ApprovalFlowModel extends BaseClass {
       );
     }
 
-    // Apply proposed changes to the target entity (e.g. fact-metric)
-    const entityModel = getEntityModel(this.context, approvalFlow.entityType);
-    // do a diff from the entity model and the proposed changes and only update the fields that have changed
-    if(!entityModel) {
-      throw new Error(`Entity model not found for entity type: ${approvalFlow.entityType}`);
-    }
-    const diff = this.getDiff(approvalFlow.originalEntity, entityModel?.getById(approvalFlow.entityId), approvalFlow.proposedChanges);
+    const diff = this.getDiff(approvalFlow.originalEntity, entity, approvalFlow.proposedChanges);
     const changes = diff.modified.map((change) => change.field);
     if (entityModel && changes.length > 0) {
       await entityModel.updateById(
@@ -444,20 +462,6 @@ export class ApprovalFlowModel extends BaseClass {
   }
 
   /**
-   * Check if a user can review an approval flow
-   * Anyone with edit permissions for the entity can review except the author (cannot approve own changes)
-   */
-  private canUserReview(
-    approvalFlow: ApprovalFlowInterface,
-    userId: string
-  ): boolean {
-    // Can't review merged or closed flows
-    if (approvalFlow.status === "merged" || approvalFlow.status === "closed") {
-      return false;
-    }
-   
-    return userCanReviewEntity(approvalFlow.entityType, this.context, approvalFlow.originalEntity);
-  }
  
   /**
    * Get approval flow status summary

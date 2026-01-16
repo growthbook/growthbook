@@ -3,7 +3,7 @@ import z from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawApprovalFlowController from "./approval-flow.controller";
-import { approvalFlowCreateValidator } from "back-end/src/validators/approval-flows";
+import { approvalFlowCreateValidator } from "shared/validators";
 
 const router = express.Router();
 

@@ -1,5 +1,5 @@
 import useApi from "./useApi";
-import { ApprovalFlowInterface } from "@/types/approval-flow";
+import { ApprovalFlowInterface } from "shared/validators";
 
 export function useApprovalFlows() {
   const { data, error, mutate } = useApi<{
