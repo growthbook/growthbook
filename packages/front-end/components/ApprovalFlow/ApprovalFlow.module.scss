@@ -1,0 +1,109 @@
+.approvalFlowCard {
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+}
+
+.diffContainer {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  
+  .diffRemoved {
+    background-color: #ffeef0;
+    border-color: #f85149;
+    
+    &::before {
+      content: '- ';
+      color: #f85149;
+      font-weight: bold;
+    }
+  }
+  
+  .diffAdded {
+    background-color: #e6ffec;
+    border-color: #2da44e;
+    
+    &::before {
+      content: '+ ';
+      color: #2da44e;
+      font-weight: bold;
+    }
+  }
+}
+
+.reviewItem {
+  border-left: 3px solid transparent;
+  
+  &.approved {
+    border-left-color: #2da44e;
+  }
+  
+  &.changesRequested {
+    border-left-color: #f85149;
+  }
+  
+  &.commented {
+    border-left-color: #8b949e;
+  }
+}
+
+.activityTimeline {
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #d0d7de;
+  }
+  
+  .activityItem {
+    position: relative;
+    padding-left: 50px;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 8px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background-color: #fff;
+      border: 2px solid #d0d7de;
+    }
+  }
+}
+
+.statusBadge {
+  &.draft {
+    background-color: #6c757d;
+  }
+  
+  &.pendingReview {
+    background-color: #ffc107;
+  }
+  
+  &.approved {
+    background-color: #28a745;
+  }
+  
+  &.changesRequested {
+    background-color: #dc3545;
+  }
+  
+  &.merged {
+    background-color: #6f42c1;
+  }
+  
+  &.closed {
+    background-color: #6c757d;
+  }
+}
+

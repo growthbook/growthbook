@@ -8,3 +8,4 @@ export * from "./validators/decision-criteria";
 export * from "./validators/dashboard";
 export * from "./validators/dashboard-block";
 export * from "./validators/dashboard-template";
+export * from "./approval-flows";

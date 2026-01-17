@@ -1,6 +1,6 @@
 import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
@@ -68,9 +68,9 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
+import { DocLink } from "../DocLink";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
-import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
-import { DocLink } from "@/components/DocLink";
 
 export interface Props {
   close?: () => void;
@@ -83,6 +83,8 @@ export interface Props {
   switchToLegacy?: () => void;
   source: string;
   datasource?: string;
+  approvalFlowId?: string;
+  mutateApprovalFlows?: () => void;
 }
 
 function QuantileSelector({
@@ -1277,6 +1279,8 @@ export default function FactMetricModal({
   switchToLegacy,
   source,
   datasource,
+  approvalFlowId,
+  mutateApprovalFlows,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -1306,7 +1310,7 @@ export default function FactMetricModal({
   const { demoDataSourceId } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
-
+  const isApprovalFlow = !!approvalFlowId;
   const validDatasources = datasources
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
@@ -1320,29 +1324,46 @@ export default function FactMetricModal({
   const showSwitchToLegacy =
     filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
-  const defaultValues = getDefaultFactMetricProps({
+  const defaultValues = useMemo(() => {
+    const baseDefaults = getDefaultFactMetricProps({
+      datasources,
+      metricDefaults,
+      existing: existing,
+      settings,
+      project,
+      initialFactTable: initialFactTable
+        ? getFactTableById(initialFactTable) || undefined
+        : undefined,
+      managedBy: existing?.managedBy,
+    });
+
+    // Multiple percent values by 100 for the UI
+    // These are corrected in the submit method later
+    return {
+      ...baseDefaults,
+      winRisk: baseDefaults.winRisk * 100,
+      loseRisk: baseDefaults.loseRisk * 100,
+      minPercentChange: baseDefaults.minPercentChange * 100,
+      maxPercentChange: baseDefaults.maxPercentChange * 100,
+      targetMDE: baseDefaults.targetMDE * 100,
+    };
+  }, [
     datasources,
     metricDefaults,
     existing,
     settings,
     project,
-    initialFactTable: initialFactTable
-      ? getFactTableById(initialFactTable) || undefined
-      : undefined,
-    managedBy: existing?.managedBy,
-  });
-
-  // Multiple percent values by 100 for the UI
-  // These are corrected in the submit method later
-  defaultValues.winRisk = defaultValues.winRisk * 100;
-  defaultValues.loseRisk = defaultValues.loseRisk * 100;
-  defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
-  defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
-  defaultValues.targetMDE = defaultValues.targetMDE * 100;
+    initialFactTable,
+    getFactTableById,
+  ]);
 
   const form = useForm<CreateFactMetricProps>({
     defaultValues,
   });
+
+  useEffect(() => {
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
@@ -1614,6 +1635,14 @@ export default function FactMetricModal({
           const previousSlices = existing.metricAutoSlices || [];
           const newSlices = values.metricAutoSlices || [];
           if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+            if(isApprovalFlow){
+              track("metric-auto-slices-updated-approval-flow", {
+                metricId: existing.id,
+                previousSlices: previousSlices,
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            } else {
             track("metric-auto-slices-updated", {
               metricId: existing.id,
               previousSlices: previousSlices,
@@ -1621,16 +1650,38 @@ export default function FactMetricModal({
               sliceCount: newSlices.length,
             });
           }
+          }
 
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
-          await apiCall(`/fact-metrics/${existing.id}`, {
-            method: "PUT",
-            body: JSON.stringify(updatePayload),
-          });
-          track("Edit Fact Metric", trackProps);
-          await mutateDefinitions();
+          if(isApprovalFlow){
+             await apiCall<{ awaitingApproval?: boolean }>(`/approval-flow/${approvalFlowId}/proposed-changes`, {
+              method: "PUT",
+              body: JSON.stringify({
+                proposedChanges: updatePayload,
+              }),
+            });
+            track("Approval Flow Proposed Changes", trackProps);
+            mutateApprovalFlows?.();
+          } else {
+            if (!existing?.id) {
+              throw new Error("Missing fact metric id");
+            }
+            const response = await apiCall<{ awaitingApproval?: boolean }>(`/fact-metrics/${existing.id}`, {
+              method: "PUT",
+              body: JSON.stringify(updatePayload),
+            });
+            if(!!response?.awaitingApproval) {
+              track("Awaiting Approval for Fact Metric Update", trackProps);
+
+            } else {
+              track("Edit Fact Metric", trackProps);
+              await mutateDefinitions();
+            }
+            mutateApprovalFlows?.();
+
+          }
         } else {
           // Track auto slices for new metrics
           const newSlices = values.metricAutoSlices || [];

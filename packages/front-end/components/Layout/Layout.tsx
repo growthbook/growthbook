@@ -98,7 +98,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer|approval-flows)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
@@ -146,6 +146,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Dashboard",
         href: "/dashboard",
         path: /^dashboard/,
+      },
+      {
+        name: "Approval Flows",
+        href: "/approval-flows",
+        path: /^approval-flows/,
       },
       {
         name: "Learnings",

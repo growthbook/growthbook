@@ -1,8 +1,11 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useState } from "react";
-import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
+import { useEffect,
+useMemo,
+useState } from "react";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import {
+  FactMetricInterface,
   FactMetricType,
   FactTableInterface,
   RowFilter,
@@ -17,16 +20,16 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import Button from "@/ui/Button";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { getRowFilterSQL } from "shared/src/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
+import { GBCuped, GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -52,6 +55,8 @@ import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import ApprovalFlowList from "@/components/ApprovalFlow/ApprovalFlowList";
+import { useApprovalFlowsEntityId } from "@/hooks/useApprovalFlows";
 import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
@@ -70,6 +75,8 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import ApprovalFlowDetail from "@/components/ApprovalFlow/ApprovalFlowDetail";
+import { ApprovalFlowInterface } from "shared/validators";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 function FactTableLink({ id }: { id?: string }) {
@@ -173,7 +180,6 @@ function RowFilterCodeDisplay({
 
   return <Code language="sql" code={text} expandable filename={"SQL"} />;
 }
-
 export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
@@ -190,15 +196,14 @@ export default function FactMetricPage() {
   const [openDropdown, setOpenDropdown] = useState(false);
   const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
     useState(false);
-
+ 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
     "analysis",
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
-
+  const { hasCommercialFeature, organization, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
@@ -227,10 +232,45 @@ export default function FactMetricPage() {
   const isMetricSlicesFeatureEnabled =
     growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  // Fetch approval flows for this fact metric
+  const {
+    approvalFlows,
+    isLoading: approvalFlowsLoading,
+    mutate: mutateApprovalFlows,
+  } = useApprovalFlowsEntityId("fact-metric", fmid as string);
+  const [showingApprovalFlow, setShowingApprovalFlow] = useState(true);
+  const [currentApprovalFlow, setCurrentApprovalFlow] = useState<ApprovalFlowInterface | null>(null);
+  // get the query param from the url to check if we are going to show an approval flow detail
+  useEffect(() => {
+    const { approvalFlowId } = router.query;
+    if(approvalFlowId) {
+      const approvalFlow = approvalFlows.find((flow) => flow.id === approvalFlowId);
+      if(approvalFlow) {
+        setCurrentApprovalFlow(approvalFlow);
+      } else {
+        setCurrentApprovalFlow(null);
+      }
+    }
+    const hash = router.asPath.split("#")[1];
+    if (hash === "approvals") {
+      setTab("approvals");
+    }
+  },[approvalFlows, router.query, router.asPath, setTab]);
+  const factMetricOriginal = getFactMetricById(fmid as string);
+  const userOpenApprovalFlow =  useMemo(() => {
+    return approvalFlows.toReversed().find((flow) => flow.status !== "closed" && flow.status !== "merged" && flow.author === userId);
+  }, [approvalFlows, userId]);
+  // merge the original fact metric with the user open approval flows
+  const factMetric =  useMemo(() => {
+    if(showingApprovalFlow && userOpenApprovalFlow) {
+      return { ...factMetricOriginal, ...(userOpenApprovalFlow?.entity.proposedChanges || {}) } as typeof factMetricOriginal;
+    } else {
+      return factMetricOriginal;
+    }
+  }, [factMetricOriginal, userOpenApprovalFlow, showingApprovalFlow]);
 
   if (!ready) return <LoadingOverlay />;
 
-  const factMetric = getFactMetricById(fmid as string);
 
   if (!factMetric) {
     return (
@@ -241,7 +281,7 @@ export default function FactMetricPage() {
     );
   }
 
-  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {}) && ((userOpenApprovalFlow && showingApprovalFlow) || !userOpenApprovalFlow);
   let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
 
   if (
@@ -425,10 +465,19 @@ export default function FactMetricPage() {
           cta="Delete"
           submitColor="danger"
           submit={async () => {
-            await apiCall(`/fact-metrics/${factMetric.id}`, {
-              method: "DELETE",
-            });
-            mutateDefinitions();
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { archived: true },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else {
+              await apiCall(`/fact-metrics/${factMetric.id}`, {
+                method: "DELETE",
+              });
+            }
             setShowDeleteModal(false);
             router.push("/metrics");
           }}
@@ -447,6 +496,8 @@ export default function FactMetricPage() {
           existing={factMetric}
           showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
+          approvalFlowId={userOpenApprovalFlow?.id}
+          mutateApprovalFlows={mutateApprovalFlows}
         />
       )}
       {editProjectsOpen && (
@@ -467,13 +518,23 @@ export default function FactMetricPage() {
           }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { projects },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else {
             await apiCall(`/fact-metrics/${factMetric.id}`, {
               method: "PUT",
               body: JSON.stringify({
                 projects,
               }),
             });
-          }}
+          }
+        }}
           mutate={mutateDefinitions}
           entityName="Metric"
         />
@@ -484,10 +545,20 @@ export default function FactMetricPage() {
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
-            await apiCall(`/fact-metrics/${factMetric.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ owner }),
-            });
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { owner },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else { 
+              await apiCall(`/fact-metrics/${factMetric.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ owner }),
+              });
+            }
           }}
           mutate={mutateDefinitions}
         />
@@ -496,10 +567,20 @@ export default function FactMetricPage() {
         <EditTagsForm
           tags={factMetric.tags}
           save={async (tags) => {
+            if(userOpenApprovalFlow) {
+              await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: { tags },
+                }),
+              });
+              mutateApprovalFlows?.();
+            } else {
             await apiCall(`/fact-metrics/${factMetric.id}`, {
               method: "PUT",
               body: JSON.stringify({ tags }),
             });
+            }
           }}
           cancel={() => setEditTagsModal(false)}
           mutate={mutateDefinitions}
@@ -598,12 +679,22 @@ export default function FactMetricPage() {
               <DropdownMenuItem
                 onClick={async () => {
                   setOpenDropdown(false);
-                  await apiCall(`/fact-metrics/${factMetric.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      archived: !factMetric.archived,
-                    }),
-                  });
+                  if(userOpenApprovalFlow) {
+                    await apiCall(`/approval-flow/${userOpenApprovalFlow.id}/proposed-changes`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        proposedChanges: { archived: !factMetric.archived },
+                      }),
+                    });
+                    mutateApprovalFlows?.();
+                  } else {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        archived: !factMetric.archived,
+                      }),
+                    });
+                  }
                   mutateDefinitions();
                 }}
               >
@@ -682,14 +773,43 @@ export default function FactMetricPage() {
           </Link>
         </div>
       </div>
+      <Tabs value={tab ?? undefined} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="analysis">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="experiments">
+            Experiments
+          </TabsTrigger>
+          {growthbook.isOn("bandits") && (
+            <TabsTrigger value="bandits">
+              Bandits
+            </TabsTrigger>
+          )}
+            <TabsTrigger value="approvals">
+              Change Log
+            </TabsTrigger>
+        </TabsList>
 
-      <div className="row">
+        <TabsContent value="analysis">
+        <Box>
+        {userOpenApprovalFlow ? (
+            <Callout status="info" contentsAs="div" mb="2" mt="2">
+              <Flex align="center" justify="between">
+                <Text>
+                  { showingApprovalFlow ? `You are seeing a proposed change view of the metric.` : `you are seeing the live version of the metric.`}
+                </Text>
+                <Button variant="ghost" size="xs" onClick={() => setShowingApprovalFlow(!showingApprovalFlow)}>{showingApprovalFlow ? "live version" : "proposed changes"}</Button>
+             </Flex>
+            </Callout>
+            ) : null}
+        <div className="row">
         <div className="col-12 col-md-8">
           <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
               header={"Description"}
-              canCreate={canEdit}
-              canEdit={canEdit}
+              canCreate={canEdit && !showingApprovalFlow}
+              canEdit={canEdit && !showingApprovalFlow}
               value={factMetric.description}
               aiSuggestFunction={async () => {
                 const res = await apiCall<{
@@ -1083,26 +1203,6 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-
-      <Tabs value={tab ?? undefined} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="analysis">
-            <FaChartLine className="mr-1" size={16} />
-            Metric Analysis
-          </TabsTrigger>
-          <TabsTrigger value="experiments">
-            <GBExperiment className="mr-1" />
-            Experiments
-          </TabsTrigger>
-          {growthbook.isOn("bandits") && (
-            <TabsTrigger value="bandits">
-              <GBBandit className="mr-1" />
-              Bandits
-            </TabsTrigger>
-          )}
-        </TabsList>
-
-        <TabsContent value="analysis">
           {datasource ? (
             <MetricAnalysis
               factMetric={factMetric}
@@ -1110,6 +1210,7 @@ export default function FactMetricPage() {
               className="tabbed-content"
             />
           ) : null}
+          </Box>
         </TabsContent>
 
         <TabsContent value="experiments">
@@ -1121,7 +1222,26 @@ export default function FactMetricPage() {
             <MetricExperiments metric={factMetric} bandits={true} />
           </TabsContent>
         )}
+        <TabsContent value="approvals">
+          <Box p="4">
+        {!currentApprovalFlow ? (
+              <ApprovalFlowList
+                approvalFlows={approvalFlows}
+                isLoading={approvalFlowsLoading}
+                setApprovalFlow={setCurrentApprovalFlow}
+                />
+            ) : (
+              <ApprovalFlowDetail
+                approvalFlow={currentApprovalFlow}
+                currentState={factMetricOriginal as FactMetricInterface}
+                mutate={mutateApprovalFlows}
+                setCurrentApprovalFlow={setCurrentApprovalFlow}
+              />
+            )}
+            </Box>
+        </TabsContent>
       </Tabs>
-    </div>
+      </div>
+
   );
 }

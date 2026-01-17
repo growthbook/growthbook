@@ -29,6 +29,8 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
+import { ApprovalFlowInterface } from "../src/validators/approval-flows";
+import { ConditionInterface } from "@growthbook/growthbook";
 
 export type EnvScopedPermission = (typeof ENV_SCOPED_PERMISSIONS)[number];
 export type ProjectScopedPermission =
@@ -54,9 +56,16 @@ export type UserPermissions = {
 };
 export type RequireReview = {
   requireReviewOn: boolean;
-  resetReviewOnChange: boolean;
-  environments: string[];
-  projects: string[];
+  resetReviewOnChange: boolean; 
+  adminCanBypass?: boolean;
+  approverRoles?: string[];
+  condition?: ConditionInterface;
+};
+export type ApprovalFlow = {
+  metrics: (RequireReview & { officialOnly: boolean })[];
+  features: RequireReview[];
+  experiments: RequireReview[];
+  factTables: (RequireReview & { officialOnly: boolean })[];
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -229,6 +238,8 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  approvalFlow?: ApprovalFlow;
+  requireMetricReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;

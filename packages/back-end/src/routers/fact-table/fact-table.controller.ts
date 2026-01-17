@@ -2,6 +2,9 @@ import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
+import { ReqContext } from "back-end/types/organization";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -12,11 +15,7 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "shared/types/fact-table";
-import { DataSourceInterface } from "shared/types/datasource";
-import { ReqContext } from "back-end/types/request";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+} from "back-end/types/fact-table";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -33,12 +32,14 @@ import {
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   runRefreshColumnsQuery,
   runColumnTopValuesQuery,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import { requiresApprovalForEntity } from "shared/enterprise";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -154,77 +155,77 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
-  // Update the columns
-  if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
-    const originalColumns = cloneDeep(factTable.columns || []);
-    data.columns = await runRefreshColumnsQuery(context, datasource, {
-      ...factTable,
-      ...data,
-    } as FactTableInterface);
-    data.columnsError = null;
+    // Update the columns
+    if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
+      const originalColumns = cloneDeep(factTable.columns || []);
+      data.columns = await runRefreshColumnsQuery(context, datasource, {
+        ...factTable,
+        ...data,
+      } as FactTableInterface);
+      data.columnsError = null;
 
-    if (!data.columns.some((col) => !col.deleted)) {
-      throw new Error("SQL did not return any rows");
-    }
+      if (!data.columns.some((col) => !col.deleted)) {
+        throw new Error("SQL did not return any rows");
+      }
 
-    // Check for removed columns and trigger cleanup
-    const removedColumns = detectRemovedColumns(originalColumns, data.columns);
+      // Check for removed columns and trigger cleanup
+      const removedColumns = detectRemovedColumns(originalColumns, data.columns);
 
-    if (removedColumns.length > 0) {
-      await cleanupMetricAutoSlices({
-        context,
-        factTableId: factTable.id,
-        removedColumns,
-      });
-    }
-  }
-
-  // If dim parameter is provided, refresh top values for that specific column
-  if (req.query?.dim) {
-    const columnName = req.query.dim;
-    const column = factTable.columns.find((col) => col.column === columnName);
-
-    if (
-      column &&
-      canInlineFilterColumn(factTable, column.column) &&
-      column.datatype === "string"
-    ) {
-      try {
-        const topValues = await runColumnTopValuesQuery(
+      if (removedColumns.length > 0) {
+        await cleanupMetricAutoSlices({
           context,
-          datasource,
-          factTable,
-          column,
-        );
-
-        const maxSliceLevels =
-          context.org.settings?.maxMetricSliceLevels ??
-          DEFAULT_MAX_METRIC_SLICE_LEVELS;
-        const constrainedTopValues = topValues.slice(0, maxSliceLevels);
-
-        // Update the column with new top values
-        await updateColumn({
-          factTable,
-          column: column.column,
-          changes: {
-            topValues: constrainedTopValues,
-          },
-        });
-      } catch (e) {
-        logger.error(e, "Error running top values query for specific column", {
-          column: columnName,
+          factTableId: factTable.id,
+          removedColumns,
         });
       }
     }
-  }
 
-  await updateFactTable(context, factTable, data);
+    // If dim parameter is provided, refresh top values for that specific column
+    if (req.query?.dim) {
+      const columnName = req.query.dim;
+      const column = factTable.columns.find((col) => col.column === columnName);
 
-  await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
+      if (
+        column &&
+        canInlineFilterColumn(factTable, column.column) &&
+        column.datatype === "string"
+      ) {
+        try {
+          const topValues = await runColumnTopValuesQuery(
+            context,
+            datasource,
+            factTable,
+            column,
+          );
 
-  res.status(200).json({
-    status: 200,
-  });
+          const maxSliceLevels =
+            context.org.settings?.maxMetricSliceLevels ??
+            DEFAULT_MAX_METRIC_SLICE_LEVELS;
+          const constrainedTopValues = topValues.slice(0, maxSliceLevels);
+
+          // Update the column with new top values
+          await updateColumn({
+            factTable,
+            column: column.column,
+            changes: {
+              topValues: constrainedTopValues,
+            },
+          });
+        } catch (e) {
+          logger.error(e, "Error running top values query for specific column", {
+            column: columnName,
+          });
+        }
+      }
+    }
+
+    await updateFactTable(context, factTable, data);
+
+    await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
+
+    res.status(200).json({
+      status: 200,
+    });
 };
 
 export const archiveFactTable = async (
@@ -535,11 +536,60 @@ export const putFactMetric = async (
   const context = getContextFromReq(req);
   const data = context.models.factMetrics.updateValidator.parse(req.body);
 
-  await context.models.factMetrics.updateById(req.params.id, data);
+  // Get the current fact metric
+  const factMetric = await context.models.factMetrics.getById(req.params.id);
+  if (!factMetric) {
+    throw new Error("Could not find fact metric");
+  }
 
-  res.status(200).json({
-    status: 200,
-  });
+  // Check if approval is required for this fact metric update
+  const approvalFlowSettings = context.org.settings?.approvalFlow?.metrics || [];
+  // TODO: move this to its own function inside the approvals validator
+  const requiresApproval = requiresApprovalForEntity("fact-metric", factMetric, context.org.settings?.approvalFlow);
+  
+  if (requiresApproval) { 
+    // check if there is an approval flow for this user and entity id
+    const previousApprovalFlow = await context.models.approvalFlow.getOpenByEntityAndAuthor("fact-metric", factMetric.id, context.userId);
+    if (previousApprovalFlow) {
+      throw new Error("An approval flow already exists for this user and entity"); 
+    }
+    const approvalFlow = await context.models.approvalFlow.create({
+      entity: {
+        entityType: "fact-metric",
+        entityId: factMetric.id,
+        originalEntity: factMetric,
+        proposedChanges: data,
+      },
+      title: `Update ${factMetric.name}`,
+      description: "Requesting approval for fact metric changes",
+      status: "pending-review",
+      author: context.userId,
+      reviews: [],
+      activityLog: [],
+    });
+    console.log("approvalFlow", approvalFlow);
+
+    res.status(200).json({
+      status: 200,
+      requiresApproval: true,
+      approvalFlow,
+    } as any);
+
+    await req.audit({
+      event: "approvalFlow.create",
+      entity: {
+        object: "approvalFlow",
+        id: approvalFlow.id,
+      }
+    });
+  } else {
+    // No approval required, update directly
+    await context.models.factMetrics.updateById(req.params.id, data);
+
+    res.status(200).json({
+      status: 200,
+    });
+  }
 };
 
 export const deleteFactMetric = async (

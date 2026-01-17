@@ -64,6 +64,7 @@ import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { getExperimentMetricsByIds } from "./experiments";
+import { ApprovalFlowModel } from "back-end/src/models/ApprovalFlowModel";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
@@ -96,6 +97,7 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "approvalFlow"
   | "sqlResultChunks"
   | "sdkConnectionCache";
 
@@ -125,6 +127,7 @@ export const modelClasses = {
   incrementalRefresh: IncrementalRefreshModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
+  approvalFlow: ApprovalFlowModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -159,6 +162,7 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      approvalFlow: new ApprovalFlowModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
     };
