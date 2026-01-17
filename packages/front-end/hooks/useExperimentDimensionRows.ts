@@ -8,6 +8,7 @@ import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  ExperimentSortBy,
   quantileMetricType,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -26,6 +27,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import {
   filterMetricsByTags,
   sortMetricsByCustomOrder,
+  sortMetricsByTags,
 } from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
@@ -37,7 +39,7 @@ export interface UseExperimentDimensionRowsParams {
   ssrPolyfills?: SSRPolyfills;
   metricTagFilter?: string[];
   metricsFilter?: string[];
-  sortBy?: "significance" | "change" | "custom" | null;
+  sortBy?: ExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -88,15 +90,51 @@ export function useExperimentDimensionRows({
     useMemo(() => {
       const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
 
-      // Filter by metric groups if filter is active
-      let filteredGoalMetrics = goalMetrics;
-      let filteredSecondaryMetrics = secondaryMetrics;
-      let filteredGuardrailMetrics = guardrailMetrics;
+      // Check for selector IDs in metricsFilter (they constrain which categories to show)
+      const hasGoalSelector =
+        metricsFilter?.includes("experiment-goal") ?? false;
+      const hasSecondarySelector =
+        metricsFilter?.includes("experiment-secondary") ?? false;
+      const hasGuardrailSelector =
+        metricsFilter?.includes("experiment-guardrail") ?? false;
 
-      if (metricsFilter && metricsFilter.length > 0) {
+      // Filter out selector IDs from the actual metric filter
+      const actualMetricFilter =
+        metricsFilter?.filter(
+          (id) =>
+            ![
+              "experiment-goal",
+              "experiment-secondary",
+              "experiment-guardrail",
+            ].includes(id),
+        ) ?? [];
+
+      // Determine which categories to include based on selector IDs
+      // If no selectors are present, include all categories (equivalent to "all")
+      const includeGoals =
+        hasGoalSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeSecondaries =
+        hasSecondarySelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeGuardrails =
+        hasGuardrailSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+
+      // Filter by metric groups if filter is active
+      let filteredGoalMetrics: string[] = [];
+      let filteredSecondaryMetrics: string[] = [];
+      let filteredGuardrailMetrics: string[] = [];
+
+      if (
+        actualMetricFilter.length > 0 ||
+        hasGoalSelector ||
+        hasSecondarySelector ||
+        hasGuardrailSelector
+      ) {
         // Create a set of allowed metric IDs from expanded groups and individual metrics
         const allowedMetricIds = new Set<string>();
-        metricsFilter.forEach((id) => {
+        actualMetricFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
             if (group) {
@@ -110,49 +148,72 @@ export function useExperimentDimensionRows({
         });
 
         // Filter metrics by group or allowed metric IDs
+        // Only include categories that are selected via selector IDs
         // For groups, expand them first and check if any expanded metric matches
-        filteredGoalMetrics = goalMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          // If it's a group, expand it and check if any metric matches
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              return group.metrics.some((metricId) =>
-                allowedMetricIds.has(metricId),
-              );
+        if (includeGoals) {
+          filteredGoalMetrics = goalMetrics.filter((id) => {
+            // If no actual metric filter, include all goal metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within goal category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            // If it's a group, expand it and check if any metric matches
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              if (group) {
+                return group.metrics.some((metricId) =>
+                  allowedMetricIds.has(metricId),
+                );
+              }
             }
-          }
-          return false;
-        });
-        filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          // If it's a group, expand it and check if any metric matches
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              return group.metrics.some((metricId) =>
-                allowedMetricIds.has(metricId),
-              );
+            return false;
+          });
+        }
+
+        if (includeSecondaries) {
+          filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
+            // If no actual metric filter, include all secondary metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within secondary category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            // If it's a group, expand it and check if any metric matches
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              if (group) {
+                return group.metrics.some((metricId) =>
+                  allowedMetricIds.has(metricId),
+                );
+              }
             }
-          }
-          return false;
-        });
-        filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          // If it's a group, expand it and check if any metric matches
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            if (group) {
-              return group.metrics.some((metricId) =>
-                allowedMetricIds.has(metricId),
-              );
+            return false;
+          });
+        }
+
+        if (includeGuardrails) {
+          filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
+            // If no actual metric filter, include all guardrail metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within guardrail category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            // If it's a group, expand it and check if any metric matches
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              if (group) {
+                return group.metrics.some((metricId) =>
+                  allowedMetricIds.has(metricId),
+                );
+              }
             }
-          }
-          return false;
-        });
+            return false;
+          });
+        }
+      } else {
+        // No filter at all - include all metrics
+        filteredGoalMetrics = goalMetrics;
+        filteredSecondaryMetrics = secondaryMetrics;
+        filteredGuardrailMetrics = guardrailMetrics;
       }
 
       const expandedGoals = expandMetricGroups(
@@ -232,14 +293,23 @@ export function useExperimentDimensionRows({
         metricTagFilter,
       );
 
-      // Apply custom ordering if sortBy is "custom"
+      // Apply custom ordering if sortBy is "metrics" or "metricTags"
       const sortedMetricIds =
-        sortBy === "custom" && customMetricOrder
+        sortBy === "metrics" && customMetricOrder
           ? sortMetricsByCustomOrder(
               metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
               customMetricOrder,
+              ssrPolyfills?.metricGroups || metricGroups,
             )
-          : filteredMetricIds;
+          : sortBy === "metricTags" &&
+              metricTagFilter &&
+              metricTagFilter.length > 0
+            ? sortMetricsByTags(
+                metricDefs.filter((m) => filteredMetricIds.includes(m.id)),
+                metricTagFilter,
+                ssrPolyfills?.metricGroups || metricGroups,
+              )
+            : filteredMetricIds;
 
       return sortedMetricIds
         .map((metricId) => {
@@ -247,6 +317,13 @@ export function useExperimentDimensionRows({
             ssrPolyfills?.getExperimentMetricById?.(metricId) ||
             getExperimentMetricById(metricId);
           if (!metric) return null;
+
+          // Apply filtering first (independent of sorting)
+          const filteredMetrics = filterMetricsByTags(
+            [metric],
+            metricTagFilter,
+          );
+          if (filteredMetrics.length === 0) return null;
 
           const { newMetric, overrideFields } = applyMetricOverrides(
             metric,
@@ -325,6 +402,7 @@ export function useExperimentDimensionRows({
     return tables;
   }, [
     results,
+    metricGroups,
     metricOverrides,
     ssrPolyfills,
     metricTagFilter,

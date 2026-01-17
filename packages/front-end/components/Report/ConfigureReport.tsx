@@ -468,16 +468,6 @@ export default function ConfigureReport({
                     slices,
                   )
                 }
-                pinnedMetricSlices={
-                  form.watch("experimentAnalysisSettings.pinnedMetricSlices") ??
-                  []
-                }
-                setPinnedMetricSlices={(slices) =>
-                  form.setValue(
-                    "experimentAnalysisSettings.pinnedMetricSlices",
-                    slices,
-                  )
-                }
               />
             </div>
 

@@ -324,7 +324,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
-      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
