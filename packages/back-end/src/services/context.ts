@@ -63,6 +63,7 @@ import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -97,7 +98,8 @@ export type ModelName =
   | "customHooks"
   | "incrementalRefresh"
   | "sqlResultChunks"
-  | "sdkConnectionCache";
+  | "sdkConnectionCache"
+  | "sdkWebhooks";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -125,6 +127,7 @@ export const modelClasses = {
   incrementalRefresh: IncrementalRefreshModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
+  sdkWebhooks: SdkWebhookModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -161,6 +164,7 @@ export class ReqContextClass {
       incrementalRefresh: new IncrementalRefreshModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
+      sdkWebhooks: new SdkWebhookModel(this),
     };
   }
 
