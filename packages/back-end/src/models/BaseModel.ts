@@ -2,11 +2,11 @@
 
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
-import mongoose, { FilterQuery, trusted } from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, orderBy, pick } from "lodash";
+import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
@@ -81,6 +81,17 @@ type AuditLogConfig<Entity extends EntityType> = {
   deleteEvent: EventTypes<Entity>;
 };
 
+// DeepPartial makes all properties (including nested) optional
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: T[P] extends (infer U)[]
+        ? DeepPartial<U>[]
+        : T[P] extends readonly (infer U)[]
+          ? readonly DeepPartial<U>[]
+          : DeepPartial<T[P]>;
+    }
+  : T;
+
 export interface ModelConfig<
   T extends BaseSchema,
   Entity extends EntityType,
@@ -103,6 +114,7 @@ export interface ModelConfig<
   indexesToRemove?: string[];
   baseQuery?: ScopedFilterQuery<T>;
   apiConfig?: ApiModelConfig<ApiT>;
+  defaultValues?: DeepPartial<CreateProps<z.infer<T>>>;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -447,6 +459,38 @@ export abstract class BaseModel<
   protected _generateUid() {
     return uuidv4().replace(/-/g, "");
   }
+
+  /**
+   * Recursively applies default values to props, only setting values that are undefined.
+   * Handles nested objects by merging them deeply.
+   */
+  protected _applyDefaultValues(
+    props: Record<string, unknown>,
+    defaults: Record<string, unknown>,
+  ): void {
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+      const currentValue = props[key];
+
+      if (currentValue === undefined) {
+        // If the value is undefined, apply the default
+        props[key] = defaultValue;
+      } else if (
+        defaultValue !== null &&
+        typeof defaultValue === "object" &&
+        !Array.isArray(defaultValue) &&
+        currentValue !== null &&
+        typeof currentValue === "object" &&
+        !Array.isArray(currentValue)
+      ) {
+        // If both are objects (not arrays), recursively merge nested defaults
+        this._applyDefaultValues(
+          currentValue as Record<string, unknown>,
+          defaultValue as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -540,7 +584,16 @@ export abstract class BaseModel<
     writeOptions?: WriteOptions,
     forceCanCreate?: boolean,
   ) {
-    const props = this.createValidator.parse(rawData);
+    // Apply default values BEFORE parsing to ensure required fields with defaults are populated
+    const dataWithDefaults = { ...rawData };
+    if (this.config.defaultValues) {
+      this._applyDefaultValues(
+        dataWithDefaults as Record<string, unknown>,
+        this.config.defaultValues as Record<string, unknown>,
+      );
+    }
+
+    const props = this.createValidator.parse(dataWithDefaults);
 
     if ("organization" in props) {
       throw new Error("Cannot set organization field");

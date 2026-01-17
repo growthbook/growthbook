@@ -43,7 +43,7 @@ export const experimentTemplateInterface = z
       coverage: z.number(),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
-      condition: z.string().default("{}"),
+      condition: z.string(),
     }),
 
     customMetricSlices: z.array(customMetricSlice).optional(),

@@ -190,7 +190,7 @@ const TemplateForm: FC<Props> = ({
     if (onCreate) {
       onCreate(res.template.id);
     } else if (isEmpty(initialValue) || isNewTemplate) {
-      router.push(`/experiments#templates`);
+      router.push(`/experiments/templates`);
     }
   });
 
