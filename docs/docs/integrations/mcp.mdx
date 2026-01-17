@@ -235,6 +235,32 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
 
 ![GrowthBook MCP in VS Code Copilot](/images/integrations/mcp/mcp-vscode.png)
 
+### Claude Code
+
+Claude Code uses command-line commands to add MCP servers. Run the following command in your terminal:
+
+```bash
+claude mcp add --transport stdio --env GB_API_KEY=YOUR_API_KEY --env GB_API_URL=YOUR_API_URL --env GB_APP_ORIGIN=YOUR_APP_ORIGIN --env GB_EMAIL=YOUR_EMAIL growthbook -- npx -y @growthbook/mcp@latest
+```
+
+:::tip Command structure
+All options (`--transport`, `--env`, etc.) must come **before** the server name. The `--` (double dash) separates the server name from the command and arguments that get passed to the MCP server.
+:::
+
+You can verify the server was added by running:
+
+```bash
+claude mcp get growthbook
+```
+
+To see all configured MCP servers, use:
+
+```bash
+claude mcp list
+```
+
+Within Claude Code, you can check server status using the `/mcp` command.
+
 ### Claude Desktop
 
 We have an official extension in the Connectors Directory.
@@ -294,6 +320,12 @@ Claude Desktop ships with its own version of Node, which means it's not required
 ### Documentation Search
 
 - `search_growthbook_docs`: Search the GrowthBook documentation for information on how to use a feature, by keyword or question.
+
+## Video Tutorial
+
+Watch this video for a complete walkthrough of setting up and using the GrowthBook MCP Server:
+
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/fUp6VC1k6kA" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
 
 ## Next steps
 

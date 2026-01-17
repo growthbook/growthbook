@@ -6,11 +6,9 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
-import { WebhookInterface } from "shared/types/webhook";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
@@ -969,18 +967,4 @@ export function migrateSdkWebhookLogModel(
     delete doc.webhookReduestId;
   }
   return doc;
-}
-
-export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
-  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
-  if (!doc.payloadFormat) {
-    if (doc.httpMethod === "GET") {
-      newDoc.payloadFormat = "none";
-    } else if (doc.sendPayload) {
-      newDoc.payloadFormat = "standard";
-    } else {
-      newDoc.payloadFormat = "standard-no-payload";
-    }
-  }
-  return newDoc;
 }
