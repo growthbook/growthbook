@@ -58,7 +58,10 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import {
+  getAllFeatures,
+  hasNonDemoFeature,
+} from "back-end/src/models/FeatureModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
@@ -113,6 +116,7 @@ import {
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
+  hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
   findAllAuditsByEntityType,
@@ -2436,4 +2440,16 @@ export async function postAgreeToAgreement(
   } catch (e) {
     return res.status(500).json({ status: 500, message: e.message });
   }
+}
+
+export async function getFeatureExpUsage(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+  const hasFeatures = await hasNonDemoFeature(context);
+  const hasExperiments = await hasNonDemoExperiment(context);
+
+  return res.status(200).json({
+    status: 200,
+    hasFeatures,
+    hasExperiments,
+  });
 }

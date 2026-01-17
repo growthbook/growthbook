@@ -8,6 +8,8 @@ import { evalCondition } from "@growthbook/growthbook";
 import {
   FeatureInterface,
   FeatureRule,
+  FeatureRuleWithoutValues,
+  FeatureWithoutValues,
   ForceRule,
   RolloutRule,
   SchemaField,
@@ -30,7 +32,7 @@ import {
   expandNestedSavedGroups,
 } from "../sdk-versioning";
 import {
-  getMatchingRules,
+  getMatchingRulesWithoutValues,
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
@@ -269,7 +271,7 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 
 const areRulesOneSided = (
-  rules: FeatureRule[], // can assume all rules are enabled
+  rules: FeatureRuleWithoutValues[], // can assume all rules are enabled
 ) => {
   const rolloutRules = rules.filter(isRolloutRule);
   const forceRules = rules.filter(isForceRule);
@@ -288,8 +290,8 @@ const areRulesOneSided = (
 };
 
 interface IsFeatureStaleInterface {
-  feature: FeatureInterface;
-  features?: FeatureInterface[];
+  feature: FeatureWithoutValues;
+  features?: FeatureWithoutValues[];
   experiments?: ExperimentInterfaceStringDates[];
   dependentExperiments?: ExperimentInterfaceStringDates[];
   environments?: string[];
@@ -301,7 +303,7 @@ export function isFeatureStale({
   dependentExperiments,
   environments = [],
 }: IsFeatureStaleInterface): { stale: boolean; reason?: StaleFeatureReason } {
-  const featuresMap = new Map<string, FeatureInterface>();
+  const featuresMap = new Map<string, FeatureWithoutValues>();
   if (features) {
     for (const f of features) {
       featuresMap.set(f.id, f);
@@ -322,7 +324,7 @@ export function isFeatureStale({
   }
 
   const visit = (
-    feature: FeatureInterface,
+    feature: FeatureWithoutValues,
   ): { stale: boolean; reason?: StaleFeatureReason } => {
     if (visitedFeatures.has(feature.id)) {
       return { stale: false };
@@ -677,8 +679,8 @@ export function getDefaultPrerequisiteCondition(
 }
 
 export function isFeatureCyclic(
-  feature: FeatureInterface,
-  featuresMap: Map<string, FeatureInterface>,
+  feature: FeatureWithoutValues,
+  featuresMap: Map<string, FeatureWithoutValues>,
   revision?: FeatureRevisionInterface,
   envs?: string[],
 ): [boolean, string | null] {
@@ -695,7 +697,7 @@ export function isFeatureCyclic(
     envs = Object.keys(newFeature.environmentSettings || {});
   }
 
-  const visit = (feature: FeatureInterface): [boolean, string | null] => {
+  const visit = (feature: FeatureWithoutValues): [boolean, string | null] => {
     if (stack.has(feature.id)) return [true, feature.id];
     if (visited.has(feature.id)) return [false, null];
 
@@ -835,13 +837,13 @@ export function evalDeterministicPrereqValue(
 }
 
 export function getDependentFeatures(
-  feature: FeatureInterface,
-  features: FeatureInterface[],
+  feature: FeatureWithoutValues,
+  features: FeatureWithoutValues[],
   environments: string[],
 ): string[] {
   const dependentFeatures = features.filter((f) => {
     const prerequisites = f.prerequisites || [];
-    const rules = getMatchingRules(
+    const rules = getMatchingRulesWithoutValues(
       f,
       (r) =>
         !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
@@ -853,7 +855,7 @@ export function getDependentFeatures(
 }
 
 export function getDependentExperiments(
-  feature: FeatureInterface,
+  feature: FeatureWithoutValues,
   experiments: ExperimentInterfaceStringDates[],
 ): ExperimentInterfaceStringDates[] {
   return experiments.filter((e) => {
@@ -1032,7 +1034,7 @@ export function filterProjectsByEnvironmentWithNull(
 }
 
 export function featureHasEnvironment(
-  feature: FeatureInterface,
+  feature: Pick<FeatureInterface, "project">,
   environment: Environment,
 ): boolean {
   const featureProjects = feature.project ? [feature.project] : [];
@@ -1070,7 +1072,7 @@ export function experimentHasEnvironment(
 
 export function filterEnvironmentsByFeature(
   environments: Environment[],
-  feature: FeatureInterface,
+  feature: Pick<FeatureInterface, "project">,
 ): Environment[] {
   return environments.filter((env) => featureHasEnvironment(feature, env));
 }
