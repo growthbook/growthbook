@@ -82,7 +82,9 @@ export async function postReformat(
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
+    req.organization,
+  );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

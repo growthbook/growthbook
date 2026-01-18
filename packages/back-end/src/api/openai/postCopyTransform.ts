@@ -59,7 +59,7 @@ export const postCopyTransform = createApiRequestHandler(validation)(async (
 
   if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-  if (await secondsUntilAICanBeUsedAgain(context)) {
+  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,

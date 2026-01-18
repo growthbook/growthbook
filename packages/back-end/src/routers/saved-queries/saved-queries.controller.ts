@@ -306,7 +306,7 @@ export async function postGenerateSQL(
       message: "Datasource not found",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,

@@ -216,7 +216,7 @@ export async function postAIExperimentAnalysis(
     });
   }
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -406,7 +406,7 @@ export async function postSimilarExperiments(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
@@ -546,7 +546,7 @@ export async function postRegenerateEmbeddings(
       message: "AI configuration not set or enabled",
     });
   }
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context);
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
   if (secondsUntilReset > 0) {
     return res.status(429).json({
       status: 429,
