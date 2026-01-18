@@ -14,7 +14,12 @@ import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud, hasOpenAIKey, hasAnthropicKey } from "@/services/env";
+import {
+  isCloud,
+  hasOpenAIKey,
+  hasAnthropicKey,
+  hasOllamaServer,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -55,6 +60,9 @@ const hasAPIforModel = (model: AIModel | string) => {
   }
   if (provider === "anthropic") {
     return hasAnthropicKey();
+  }
+  if (provider === "ollama") {
+    return hasOllamaServer();
   }
   return false;
 };
@@ -315,8 +323,21 @@ export default function AISettings({
                       );
                     });
 
+                    const promptUsesOllama = prompts.some((prompt) => {
+                      const promptModel = promptForm.watch(
+                        `${prompt.promptType}-model`,
+                      );
+                      return (
+                        promptModel &&
+                        getProviderFromModel(promptModel) === "ollama"
+                      );
+                    });
+
                     const showAnthropicKey =
                       defaultProvider === "anthropic" || promptUsesAnthropic;
+
+                    const showOllamaServer =
+                      defaultProvider === "ollama" || promptUsesOllama;
 
                     return (
                       <>
@@ -343,6 +364,37 @@ export default function AISettings({
                                   environment variables as{" "}
                                   <code>ANTHROPIC_API_KEY</code>. See more in
                                   our{" "}
+                                  <a href="https://docs.growthbook.io/self-host/env">
+                                    self-hosting docs
+                                  </a>
+                                  .
+                                </Callout>
+                              </Box>
+                            )}
+                          </Box>
+                        )}
+                        {showOllamaServer && (
+                          <Box mb="6" width="100%">
+                            <Text
+                              as="label"
+                              size="3"
+                              className="font-weight-semibold"
+                            >
+                              Ollama API Server
+                            </Text>
+                            {hasOllamaServer() ? (
+                              <Box>
+                                Your Ollama API Server is correctly set in your
+                                environment variable{" "}
+                                <code>OLLAMA_BASE_URL</code>.
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Callout status="warning">
+                                  You must set your Ollama API Server to use
+                                  Ollama models. Please define it in your
+                                  environment variables as{" "}
+                                  <code>OLLAMA_BASE_URL</code>. See more in our{" "}
                                   <a href="https://docs.growthbook.io/self-host/env">
                                     self-hosting docs
                                   </a>

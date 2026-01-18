@@ -221,6 +221,8 @@ export interface OrganizationSettings {
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
+  /** @deprecated */
+  ollamaDefaultModel?: AIModel;
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;

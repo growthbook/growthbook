@@ -26,6 +26,7 @@ const env: EnvironmentInitValue = {
   experimentRefreshFrequency: 6,
   hasOpenAIKey: false,
   hasAnthropicKey: false,
+  hasOllamaServer: false,
   uploadMethod: "local",
 };
 
@@ -118,6 +119,9 @@ export function getStripePublishableKey() {
 }
 export function hasOpenAIKey() {
   return env.hasOpenAIKey || false;
+}
+export function hasOllamaServer() {
+  return env.hasOllamaServer || false;
 }
 
 export function hasAnthropicKey() {

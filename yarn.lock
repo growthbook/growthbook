@@ -49,10 +49,26 @@
     "@standard-schema/spec" "^1.0.0"
     eventsource-parser "^3.0.6"
 
+"@ai-sdk/provider-utils@^3.0.19":
+  version "3.0.20"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/provider-utils/-/provider-utils-3.0.20.tgz#61d7741065550833eae3ac6440d943e9d3d25120"
+  integrity sha512-iXHVe0apM2zUEzauqJwqmpC37A5rihrStAih5Ks+JE32iTe4LZ58y17UGBjpQQTCRw9YxMeo2UFLxLpBluyvLQ==
+  dependencies:
+    "@ai-sdk/provider" "2.0.1"
+    "@standard-schema/spec" "^1.0.0"
+    eventsource-parser "^3.0.6"
+
 "@ai-sdk/provider@2.0.0":
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/@ai-sdk/provider/-/provider-2.0.0.tgz#b853c739d523b33675bc74b6c506b2c690bc602b"
   integrity sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==
+  dependencies:
+    json-schema "^0.4.0"
+
+"@ai-sdk/provider@2.0.1", "@ai-sdk/provider@^2.0.0":
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/provider/-/provider-2.0.1.tgz#4aba415f1815da33a7a81e5f41a0219af53278c0"
+  integrity sha512-KCUwswvsC5VsW2PWFqF8eJgSCu5Ysj7m1TxiHTVA6g7k360bk0RNQENT8KTMAYEs+8fWPD3Uu4dEmzGHc+jGng==
   dependencies:
     json-schema "^0.4.0"
 
@@ -11903,6 +11919,15 @@ aggregate-error@^3.0.0:
     clean-stack "^2.0.0"
     indent-string "^4.0.0"
 
+ai-sdk-ollama@^2.0.0:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/ai-sdk-ollama/-/ai-sdk-ollama-2.2.0.tgz#42d8696168393a8d5afaf249d828a67935d427ba"
+  integrity sha512-M7zDxlmnnIyFQCDxgQj+ln4g1KeUWDLfO5a3aZbY334xJUSlrZOqEoRDxNEpmuiZF/NCP7QpxQ4oQA7HEECHBA==
+  dependencies:
+    "@ai-sdk/provider" "^2.0.0"
+    "@ai-sdk/provider-utils" "^3.0.19"
+    ollama "^0.6.3"
+
 ai@^5.0.115:
   version "5.0.115"
   resolved "https://registry.yarnpkg.com/ai/-/ai-5.0.115.tgz#a04ff38a340bc4e3cd7e7f444577fa4eb36d129a"
@@ -20810,6 +20835,13 @@ oidc-token-hash@^5.0.3:
   resolved "https://registry.npmjs.org/oidc-token-hash/-/oidc-token-hash-5.0.3.tgz"
   integrity sha512-IF4PcGgzAr6XXSff26Sk/+P4KZFJVuHAJZj3wgO3vX2bMdNVp/QXTP3P7CEm9V1IdG8lDLY3HhiqpsE/nOwpPw==
 
+ollama@^0.6.3:
+  version "0.6.3"
+  resolved "https://registry.yarnpkg.com/ollama/-/ollama-0.6.3.tgz#b188573dd0ccb3b4759c1f8fa85067cb17f6673c"
+  integrity sha512-KEWEhIqE5wtfzEIZbDCLH51VFZ6Z3ZSa6sIOg/E/tBV8S51flyqBOXi+bRxlOYKDf8i327zG9eSTb8IJxvm3Zg==
+  dependencies:
+    whatwg-fetch "^3.6.20"
+
 on-exit-leak-free@^2.1.0:
   version "2.1.0"
   resolved "https://registry.npmjs.org/on-exit-leak-free/-/on-exit-leak-free-2.1.0.tgz"
@@ -25579,6 +25611,11 @@ whatwg-encoding@^1.0.5:
   integrity sha512-b5lim54JOPN9HtzvK9HFXvBma/rnfFeqsic0hSpjtDbVxR3dJKLc+KB4V6GgiGOvl7CY/KNh8rxSo9DKQrnUEw==
   dependencies:
     iconv-lite "0.4.24"
+
+whatwg-fetch@^3.6.20:
+  version "3.6.20"
+  resolved "https://registry.npmjs.org/whatwg-fetch/-/whatwg-fetch-3.6.20.tgz"
+  integrity sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==
 
 whatwg-mimetype@^2.3.0:
   version "2.3.0"

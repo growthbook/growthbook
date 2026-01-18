@@ -1,6 +1,7 @@
 import { generateText, generateObject, embed } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOllama } from "ai-sdk-ollama";
 import {
   encoding_for_model,
   get_encoding,
@@ -23,11 +24,12 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 export const getAIProviderClass = (
   context: ReqContext | ApiReqContext,
   model: AIModel,
-): ReturnType<typeof createAnthropic> | ReturnType<typeof createOpenAI> => {
-  const { aiEnabled, openAIAPIKey, anthropicAPIKey } = getAISettingsForOrg(
-    context,
-    true,
-  );
+):
+  | ReturnType<typeof createAnthropic>
+  | ReturnType<typeof createOllama>
+  | ReturnType<typeof createOpenAI> => {
+  const { aiEnabled, openAIAPIKey, anthropicAPIKey, ollamaBaseUrl } =
+    getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
     throw new Error("AI is not enabled for this organization.");
@@ -41,6 +43,13 @@ export const getAIProviderClass = (
     }
     return createAnthropic({
       apiKey: anthropicAPIKey,
+    });
+  } else if (selectedProvider === "ollama") {
+    if (!ollamaBaseUrl) {
+      throw new Error("OLLAMA_BASE_URL is not set.");
+    }
+    return createOllama({
+      baseURL: ollamaBaseUrl,
     });
   } else {
     // selectedProvider === "openai"

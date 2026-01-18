@@ -33,6 +33,7 @@ export interface EnvironmentInitValue {
   experimentRefreshFrequency: number;
   hasOpenAIKey?: boolean;
   hasAnthropicKey?: boolean;
+  hasOllamaServer?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
 }
 
@@ -64,6 +65,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     EXPERIMENT_REFRESH_FREQUENCY,
     OPENAI_API_KEY,
     ANTHROPIC_API_KEY,
+    OLLAMA_BASE_URL,
     UPLOAD_METHOD,
   } = process.env;
 
@@ -146,6 +148,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       : 6,
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
+    hasOllamaServer: !!OLLAMA_BASE_URL || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 

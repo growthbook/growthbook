@@ -1,5 +1,5 @@
 // AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic";
+export type AIProvider = "openai" | "anthropic" | "ollama";
 
 export type EmbeddingModel =
   | "text-embedding-3-small"
@@ -19,6 +19,7 @@ export const AI_PROVIDER_MODEL_MAP = {
     "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
   ],
+  ollama: [],
 } as const;
 
 // Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP

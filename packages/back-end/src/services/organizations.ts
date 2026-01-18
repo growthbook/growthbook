@@ -187,16 +187,19 @@ export function getAISettingsForOrg(
   openAIAPIKey: string;
   anthropicAPIKey: string;
   defaultAIModel: AIModel;
+  ollamaBaseUrl: string;
   embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
+  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
 
   const hasValidKey = !!(openAIKey || anthropicKey);
+  const hasValidUrl = !!ollamaBaseUrl;
 
   const aiEnabled = IS_CLOUD
     ? !!context.org.settings?.aiEnabled
-    : !!(context.org.settings?.aiEnabled && hasValidKey);
+    : !!(context.org.settings?.aiEnabled && (hasValidKey || hasValidUrl));
 
   return {
     aiEnabled,
@@ -204,10 +207,12 @@ export function getAISettingsForOrg(
     anthropicAPIKey: includeKey ? anthropicKey : "",
     defaultAIModel:
       context.org.settings?.defaultAIModel ||
+      context.org.settings?.ollamaDefaultModel ||
       context.org.settings?.openAIDefaultModel ||
       "gpt-4o-mini",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
+    ollamaBaseUrl,
   };
 }
 
