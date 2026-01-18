@@ -6,7 +6,7 @@ import {
   FactMetricType,
   FactTableInterface,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
@@ -710,6 +710,8 @@ export default function FactMetricPage() {
                       throw new Error(
                         `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                       );
+                    } else if (responseData.message) {
+                      throw new Error(responseData.message);
                     } else {
                       throw new Error("Error getting AI suggestion");
                     }

@@ -1,5 +1,5 @@
+import { ExperimentInterface } from "shared/types/experiment";
 import { hasActualChanges } from "back-end/src/models/ExperimentModel";
-import { ExperimentInterface } from "back-end/types/experiment";
 
 describe("ExperimentModel", () => {
   const experiment: ExperimentInterface = {

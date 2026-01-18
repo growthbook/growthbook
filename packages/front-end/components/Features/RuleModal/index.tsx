@@ -4,10 +4,10 @@ import {
   FeatureInterface,
   FeatureRule,
   ScheduleRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
@@ -15,7 +15,7 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -25,12 +25,12 @@ import { Text } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
+  SafeRolloutRule,
 } from "shared/validators";
-import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
-} from "back-end/types/feature-rule";
+} from "shared/types/feature-rule";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,

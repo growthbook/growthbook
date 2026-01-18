@@ -4,12 +4,15 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { HoldoutInterface } from "shared/validators";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { DataSourceInterface } from "shared/types/datasource";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
@@ -29,7 +32,6 @@ import {
   getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
-import { FeatureInterface } from "back-end/types/feature";
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
@@ -38,11 +40,9 @@ import {
 } from "back-end/src/controllers/experiments";
 import { validateExperimentData } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 /**
  * GET /holdout/:id
@@ -431,10 +431,13 @@ export const editStatus = async (
       },
     });
 
-    await refreshSDKPayloadCache(
+    queueSDKPayloadRefresh({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+    });
   } else if (req.body.status === "running") {
     // check to see if already in analysis period
     if (!phases[0]) {
@@ -477,10 +480,13 @@ export const editStatus = async (
       changes: { phases, status: "running" },
     });
 
-    await refreshSDKPayloadCache(
+    queueSDKPayloadRefresh({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+    });
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
@@ -493,10 +499,13 @@ export const editStatus = async (
       analysisStartDate: undefined,
     });
 
-    await refreshSDKPayloadCache(
+    queueSDKPayloadRefresh({
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-    );
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+    });
   }
 
   return res.status(200).json({ status: 200 });
@@ -567,10 +576,13 @@ export const deleteHoldout = async (
 
   await context.models.holdout.delete(holdout);
 
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      holdout,
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+  });
 
   return res.status(200).json({ status: 200 });
 };

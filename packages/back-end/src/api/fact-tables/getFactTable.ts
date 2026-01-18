@@ -1,10 +1,10 @@
-import { GetFactTableResponse } from "back-end/types/openapi";
+import { GetFactTableResponse } from "shared/types/openapi";
+import { getFactTableValidator } from "shared/validators";
 import {
   getFactTable as findFactTableById,
   toFactTableApiInterface,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFactTableValidator } from "back-end/src/validators/openapi";
 
 export const getFactTable = createApiRequestHandler(getFactTableValidator)(
   async (req): Promise<GetFactTableResponse> => {

@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import {
+  SignedImageUrlResponse,
+  SignedUploadUrlResponse,
+  UploadResponse,
+} from "shared/types/upload";
+import {
   uploadFile,
   getSignedImageUrl,
   getSignedUploadUrl,
@@ -11,11 +16,6 @@ import {
   getContextFromReq,
   getOrganizationById,
 } from "back-end/src/services/organizations";
-import {
-  SignedImageUrlResponse,
-  SignedUploadUrlResponse,
-  UploadResponse,
-} from "back-end/types/upload";
 import { UPLOAD_METHOD } from "back-end/src/util/secrets";
 import { getExperimentByUid } from "back-end/src/models/ExperimentModel";
 import {
@@ -43,18 +43,21 @@ export async function putUpload(
   req: AuthRequest<Buffer>,
   res: Response<UploadResponse>,
 ) {
+  const context = getContextFromReq(req);
+
   // Only handle direct uploads for local storage
   if (UPLOAD_METHOD !== "local") {
-    throw new Error(
+    context.throwBadRequestError(
       "Direct uploads are only supported for local storage. Use /upload/signed-url-for-upload for cloud storage.",
     );
   }
 
   const contentType = req.headers["content-type"] as string;
-  const context = getContextFromReq(req);
 
   if (context.org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   // The user can upload images if they have permission to add comments globally, or in atleast 1 project
@@ -63,7 +66,7 @@ export async function putUpload(
   }
 
   if (!(contentType in mimetypes)) {
-    throw new Error(
+    context.throwBadRequestError(
       `Invalid image file type. Only ${Object.keys(mimetypes).join(
         ", ",
       )} accepted.`,
@@ -85,24 +88,27 @@ export async function putUpload(
 }
 
 export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const org = context.org;
 
   if (org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
 
   const orgFromPath = path.split("/")[0];
   if (orgFromPath !== org.id) {
-    throw new Error("Invalid organization");
+    context.throwBadRequestError("Invalid organization");
   }
 
   const ext = path.split(".")?.pop()?.toLowerCase() ?? "";
   const contentType = extensionsToMimetype[ext] ?? "";
 
   if (!contentType) {
-    throw new Error(`Invalid file extension: ${ext}`);
+    context.throwBadRequestError(`Invalid file extension: ${ext}`);
   }
 
   res.status(200).contentType(contentType);
@@ -115,17 +121,20 @@ export async function getSignedImageToken(
   req: AuthRequest<{ path: string }>,
   res: Response<SignedImageUrlResponse>,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const org = context.org;
 
   if (org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   const fullPath = req.path.substring("/signed-url/".length);
 
   const orgFromPath = fullPath.split("/")[0];
   if (orgFromPath !== org.id) {
-    throw new Error("Invalid organization");
+    context.throwBadRequestError("Invalid organization");
   }
 
   const signedUrl = await getSignedImageUrl(
@@ -146,10 +155,12 @@ export async function getSignedUploadToken(
   res: Response<SignedUploadUrlResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = getContextFromReq(req);
+  const org = context.org;
 
   if (org.settings?.blockFileUploads) {
-    throw new Error("File uploads are disabled for this organization");
+    context.throwBadRequestError(
+      "File uploads are disabled for this organization",
+    );
   }
 
   // The user can upload images if they have permission to add comments globally, or in at least 1 project
@@ -160,7 +171,7 @@ export async function getSignedUploadToken(
   const contentType = req.body?.contentType;
 
   if (!contentType || !(contentType in mimetypes)) {
-    throw new Error(
+    return context.throwBadRequestError(
       `Invalid or missing content type. Only ${Object.keys(mimetypes).join(
         ", ",
       )} accepted.`,
@@ -173,7 +184,7 @@ export async function getSignedUploadToken(
   const fileName = "img_" + uuidv4();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
 
-  const { signedUrl, fileUrl } = await getSignedUploadUrl(
+  const { signedUrl, fileUrl, fields } = await getSignedUploadUrl(
     filePath,
     contentType,
     SIGNED_IMAGE_EXPIRY_MINUTES,
@@ -183,6 +194,7 @@ export async function getSignedUploadToken(
     signedUrl,
     fileUrl,
     filePath,
+    fields, // Include POST form fields for S3
     expiresAt: new Date(
       Date.now() + SIGNED_IMAGE_EXPIRY_MINUTES * 60 * 1000,
     ).toISOString(),

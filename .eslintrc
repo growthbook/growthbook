@@ -81,6 +81,7 @@
     "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
+    "react/no-unknown-property": ["error", { "ignore": ["jsx", "global"] }],
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
     "import/order": [
@@ -107,16 +108,6 @@
       ],
       "rules": {
         "import/no-named-as-default": "off"
-      }
-    },
-    {
-      "files": [
-        "./packages/back-end/src/**/*.ts*",
-        "./packages/back-end/types/**/*.ts*",
-        "./packages/front-end/**/*.ts*"
-      ],
-      "rules": {
-        "no-restricted-imports": ["error", { "patterns": ["..*"] }]
       }
     },
     {
@@ -147,7 +138,32 @@
                   "Tabs"
                 ]
               }
+            ],
+            "patterns": [
+              {
+                "group": ["..*"]
+              },
+              {
+                "group": ["*back-end*", "**/sdk-{js,react}*"],
+                "message": "front-end can only import from shared or itself."
+              }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/front-end/**/*.ts*"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='pushState']",
+            "message": "Don't use window.history.pushState directly. Use router.push(url, undefined, { shallow: true }) from next/router instead."
+          },
+          {
+            "selector": "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='replaceState']",
+            "message": "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead."
           }
         ]
       }
@@ -158,7 +174,6 @@
         "./packages/front-end/components/Auth/InAppHelp.tsx",
         "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
         "./packages/front-end/components/Experiment/ImportExperimentModal.tsx",
-        "./packages/front-end/components/Experiment/ManualSnapshotForm.tsx",
         "./packages/front-end/components/Experiment/NewExperimentForm.tsx",
         "./packages/front-end/components/Experiment/VisualEditorScriptMissing.tsx",
         "./packages/front-end/components/Features/CodeSnippetModal.tsx",
@@ -209,6 +224,11 @@
       ]
     },
     {
+      "files": ["./packages/back-end/**/*"],
+      "excludedFiles": [
+        "./packages/back-end/src/util/http.util.ts",
+        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -219,15 +239,63 @@
                 "message": "Use `import { fetch } from \"back-end/src/util/http.util\";` instead.",
                 "importNames": ["default"]
               }
+            ],
+            "patterns": [
+              {
+                "group": ["..*"]
+              },
+              {
+                "group": ["*front-end*", "**/sdk-{js,react}*"],
+                "message": "back-end can only import from shared or itself."
+              }
             ]
           }
         ]
-      },
-      "files": ["./packages/back-end/**/*"],
-      "excludedFiles": [
-        "./packages/back-end/src/util/http.util.ts",
-        "./packages/back-end/**/*.test.{ts,tsx,js,jsx}"
-      ]
+      }
+    },
+    {
+      "files": ["./packages/shared/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*"],
+                "message": "shared cannot import from back-end or front-end."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/sdk-{js,react}/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*back-end*", "*front-end*", "**/shared*"],
+                "message": "SDK packages cannot import from internal packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/shared/src/validators/*"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
+            "message": "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead."
+          }
+        ]
+      }
     }
   ]
 }

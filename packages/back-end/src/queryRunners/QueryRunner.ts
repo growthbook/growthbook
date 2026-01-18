@@ -6,7 +6,7 @@ import {
   QueryPointer,
   QueryStatus,
   QueryType,
-} from "back-end/types/query";
+} from "shared/types/query";
 import {
   countRunningQueries,
   createNewQuery,
@@ -624,10 +624,18 @@ export abstract class QueryRunner<
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);
       try {
+        // Use datasource-specific cache TTL if set, otherwise use global default
+        const queryCacheTTLSetting =
+          this.integration.datasource.settings.queryCacheTTLMins;
+        const parsedTTL = queryCacheTTLSetting
+          ? parseInt(queryCacheTTLSetting)
+          : NaN;
+        const cacheTTLMins = isNaN(parsedTTL) ? undefined : parsedTTL;
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
           query,
+          cacheTTLMins,
         );
         if (existing) {
           // Query still running, periodically check the status

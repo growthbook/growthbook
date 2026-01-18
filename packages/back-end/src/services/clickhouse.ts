@@ -4,6 +4,13 @@ import generator from "generate-password";
 import { AIPromptType } from "shared/ai";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
+  GrowthbookClickhouseDataSource,
+  DataSourceParams,
+  MaterializedColumn,
+} from "shared/types/datasource";
+import { DailyUsage } from "shared/types/organization";
+import { FactTableColumnType } from "shared/types/fact-table";
+import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
   CLICKHOUSE_ADMIN_PASSWORD,
@@ -14,15 +21,8 @@ import {
   CLICKHOUSE_DEV_PREFIX,
   CLICKHOUSE_OVERAGE_TABLE,
 } from "back-end/src/util/secrets";
-import {
-  GrowthbookClickhouseDataSource,
-  DataSourceParams,
-  MaterializedColumn,
-} from "back-end/types/datasource";
-import { DailyUsage } from "back-end/types/organization";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { FactTableColumnType } from "back-end/types/fact-table";
 import {
   getFactTablesForDatasource,
   updateFactTable,
@@ -541,8 +541,8 @@ export async function logCloudAIUsage({
 }: {
   organization: string;
   model: string;
-  numPromptTokensUsed: number;
-  numCompletionTokensUsed: number;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
   type: AIPromptType;
   temperature?: number;
   usedDefaultPrompt: boolean;

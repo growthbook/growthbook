@@ -1,4 +1,4 @@
-import { MetricType } from "back-end/types/metric";
+import { MetricType } from "shared/types/metric";
 import {
   ColumnInterface,
   ColumnRef,
@@ -6,7 +6,7 @@ import {
   CreateFactMetricProps,
   FactMetricInterface,
   RowFilter,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
   ExperimentMetricInterface,
@@ -27,8 +27,8 @@ import {
 import {
   MetricDefaults,
   OrganizationSettings,
-} from "back-end/types/organization";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";

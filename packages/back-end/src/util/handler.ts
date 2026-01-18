@@ -1,17 +1,17 @@
 import { Request, RequestHandler } from "express";
-import { z, Schema, ZodNever, output } from "zod";
+import { z, ZodType, ZodNever, output } from "zod";
+import { ApiPaginationFields } from "shared/types/openapi";
+import { UserInterface } from "shared/types/user";
+import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ApiPaginationFields } from "back-end/types/openapi";
-import { UserInterface } from "back-end/types/user";
-import { OrganizationInterface } from "back-end/types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
-type ApiRequest<
+export type ApiRequest<
   ResponseType = never,
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 > = ApiRequestLocals &
   Request<
     z.infer<ParamsSchema>,
@@ -20,7 +20,13 @@ type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-function validate<T extends Schema>(
+export type ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {
+  bodySchema?: BodySchema;
+  querySchema?: QuerySchema;
+  paramsSchema?: ParamsSchema;
+};
+
+function validate<T extends ZodType>(
   schema: T,
   value: unknown,
 ):
@@ -49,18 +55,14 @@ function validate<T extends Schema>(
 }
 
 export function createApiRequestHandler<
-  ParamsSchema extends Schema = Schema<never>,
-  BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>,
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
 >({
   paramsSchema,
   bodySchema,
   querySchema,
-}: {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
-} = {}) {
+}: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema> = {}) {
   return <ResponseType>(
     handler: (
       req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
@@ -79,7 +81,7 @@ export function createApiRequestHandler<
           if (!validated.success) {
             allErrors.push(`Request params: ` + validated.errors.join(", "));
           } else {
-            req.params = validated.data;
+            req.params = validated.data as z.output<ParamsSchema>;
           }
         }
         if (querySchema && !(querySchema instanceof ZodNever)) {

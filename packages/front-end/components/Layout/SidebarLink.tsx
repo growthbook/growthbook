@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "back-end/types/organization";
+import { GlobalPermission } from "shared/types/organization";
 import { Permissions } from "shared/permissions";
 import { SegmentInterface } from "shared/types/segment";
 import { SavedQuery } from "shared/validators";

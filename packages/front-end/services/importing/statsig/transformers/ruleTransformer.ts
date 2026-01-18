@@ -1,5 +1,5 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { StatsigCondition } from "@/services/importing/statsig/types";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
@@ -15,8 +15,8 @@ export type TransformedCondition = {
     condition: string;
   }>; // Array of prerequisite feature conditions
   scheduleRules?: [
-    start: { timestamp: string; enabled: boolean },
-    end: { timestamp: string; enabled: boolean },
+    start: { timestamp: string | null; enabled: boolean },
+    end: { timestamp: string | null; enabled: boolean },
   ];
 };
 
@@ -81,7 +81,6 @@ export function transformStatsigConditionsToGB(
           return;
         }
         case "passes_segment": {
-          // These become saved groups with inclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
           if (savedGroupId) {
@@ -90,13 +89,15 @@ export function transformStatsigConditionsToGB(
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
-            // Fallback to using the name if ID not found
-            savedGroups.push({ ids: [segmentName], match: "all" });
+            // For first-pass imports where the referenced group has not been
+            // created yet, use a placeholder ID. A second import pass can then
+            // re-run with a fully-populated savedGroupIdMap and replace this
+            // with the real ID.
+            savedGroups.push({ ids: ["__unknown_group__"], match: "all" });
           }
           return;
         }
         case "fails_segment": {
-          // These become saved groups with exclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
           if (savedGroupId) {
@@ -105,8 +106,11 @@ export function transformStatsigConditionsToGB(
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
-            // Fallback to using the name if ID not found
-            savedGroups.push({ ids: [segmentName], match: "none" });
+            // For first-pass imports where the referenced group has not been
+            // created yet, use a placeholder ID. A second import pass can then
+            // re-run with a fully-populated savedGroupIdMap and replace this
+            // with the real ID.
+            savedGroups.push({ ids: ["__unknown_group__"], match: "none" });
           }
           return;
         }
@@ -124,20 +128,25 @@ export function transformStatsigConditionsToGB(
   // Convert targeting conditions to GrowthBook format
   const conditionString =
     targetingConditions.length > 0
-      ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
+      ? transformTargetingConditions(
+          targetingConditions,
+          savedGroupIdMap,
+          skipAttributeMapping,
+        )
       : "{}";
 
-  // Create schedule rules tuple if we have both start and end times
+  // Create schedule rules tuple if we have at least one time
+  // ScheduleRules requires exactly 2 elements, so we use null for missing times
   const scheduleRules:
     | [
-        start: { timestamp: string; enabled: boolean },
-        end: { timestamp: string; enabled: boolean },
+        start: { timestamp: string | null; enabled: boolean },
+        end: { timestamp: string | null; enabled: boolean },
       ]
     | undefined =
-    startTime && endTime
+    startTime || endTime
       ? [
-          { timestamp: startTime, enabled: true },
-          { timestamp: endTime, enabled: false },
+          { timestamp: startTime || null, enabled: true },
+          { timestamp: endTime || null, enabled: false },
         ]
       : undefined;
 
@@ -154,6 +163,7 @@ export function transformStatsigConditionsToGB(
  */
 function transformTargetingConditions(
   conditions: StatsigCondition[],
+  savedGroupIdMap?: Map<string, string>,
   skipAttributeMapping: boolean = false,
 ): string {
   // Map Statsig operators to GrowthBook operators
@@ -273,6 +283,10 @@ function transformTargetingConditions(
         targetValue;
     }
   });
+
+  if (Object.keys(conditionObj).length === 0) {
+    return "{}";
+  }
 
   return JSON.stringify(conditionObj);
 }

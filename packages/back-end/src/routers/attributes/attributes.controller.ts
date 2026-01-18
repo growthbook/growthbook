@@ -1,7 +1,7 @@
 import type { Response } from "express";
+import { SDKAttribute } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { SDKAttribute } from "back-end/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 
@@ -29,7 +29,7 @@ export const postAttribute = async (
   const attributeSchema = org.settings?.attributeSchema || [];
 
   if (attributeSchema.some((a) => a.property === property)) {
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
   }
 
   const newAttribute: SDKAttribute = {
@@ -97,7 +97,7 @@ export const putAttribute = async (
   );
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   const existing = attributeSchema[index];
@@ -111,7 +111,7 @@ export const putAttribute = async (
     attributeSchema.some((a) => a.property === property)
   ) {
     // If the name is being changed, check if the new name already exists
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
   }
 
   // Update the attribute
@@ -168,7 +168,7 @@ export const deleteAttribute = async (
   const index = attributeSchema.findIndex((a) => a.property === id);
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   // Check permissions on existing project list

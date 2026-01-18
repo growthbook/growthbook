@@ -56,38 +56,15 @@ import {
   DataSourceInterface,
   DataSourceProperties,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { AdditionalQueryMetadata } from "shared/types/query";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { DimensionInterface } from "shared/types/dimension";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import { ReqContext } from "back-end/types/request";
-import { AdditionalQueryMetadata } from "back-end/types/query";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { DimensionInterface } from "back-end/types/dimension";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { MetricInterface, MetricType } from "back-end/types/metric";
 
 export type { MetricAnalysisParams };
-
-export class MissingDatasourceParamsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MissingDatasourceParamsError";
-  }
-}
-
-export class DataSourceNotSupportedError extends Error {
-  constructor() {
-    super("This data source is not supported yet.");
-    this.name = "DataSourceNotSupportedError";
-  }
-}
-
-export class SQLExecutionError extends Error {
-  query: string;
-  constructor(message: string, query: string) {
-    super(message);
-    this.name = "SQLExecutionError";
-    this.query = query;
-  }
-}
 
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;

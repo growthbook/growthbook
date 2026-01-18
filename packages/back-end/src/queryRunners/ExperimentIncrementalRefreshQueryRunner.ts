@@ -3,7 +3,6 @@ import {
   isFactMetric,
   isRegressionAdjusted,
 } from "shared/experiments";
-import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -16,18 +15,19 @@ import {
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
-import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
-} from "back-end/types/query";
+} from "shared/types/query";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { ApiReqContext } from "back-end/types/api";
 import {
   findSnapshotById,
   updateSnapshot,
@@ -35,7 +35,6 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -44,12 +43,12 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
-import { applyMetricOverrides } from "back-end/src/util/integration";
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { getExperimentById } from "../models/ExperimentModel";
+import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
-  MAX_METRICS_PER_QUERY,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
@@ -86,10 +85,17 @@ export interface MetricSourceGroups {
   metrics: FactMetricInterface[];
 }
 
-export function getIncrementalRefreshMetricSources(
-  metrics: FactMetricInterface[],
-  existingMetricSources: IncrementalRefreshInterface["metricSources"],
-): {
+export function getIncrementalRefreshMetricSources({
+  metrics,
+  existingMetricSources,
+  integration,
+  snapshotSettings,
+}: {
+  metrics: FactMetricInterface[];
+  existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  integration: SourceIntegrationInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): {
   metrics: FactMetricInterface[];
   groupId: string;
   factTableId: string;
@@ -149,7 +155,21 @@ export function getIncrementalRefreshMetricSources(
     }
 
     // if a new group, ensure chunks are small enough
-    const chunks = chunk(group.metrics, MAX_METRICS_PER_QUERY);
+    const chunks = chunkMetrics({
+      metrics: group.metrics.map((m) => {
+        const metric = cloneDeep(m);
+        // TODO(overrides): refactor overrides to beginning of analysis
+        applyMetricOverrides(metric, snapshotSettings);
+        return {
+          metric,
+          regressionAdjusted:
+            isRegressionAdjusted(metric) &&
+            snapshotSettings.regressionAdjustmentEnabled,
+        };
+      }),
+      maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
+      isBandit: !!snapshotSettings.banditSettings,
+    });
     chunks.forEach((chunk, i) => {
       const randomId = Math.random().toString(36).substring(2, 15);
       finalGroups.push({
@@ -449,10 +469,12 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  const metricSourceGroups = getIncrementalRefreshMetricSources(
-    selectedMetrics.filter((m) => isFactMetric(m)),
-    existingSources ?? [],
-  );
+  const metricSourceGroups = getIncrementalRefreshMetricSources({
+    metrics: selectedMetrics.filter((m) => isFactMetric(m)),
+    existingMetricSources: existingSources ?? [],
+    integration,
+    snapshotSettings,
+  });
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
@@ -708,12 +730,17 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(maxTimestampMetricsSourceQuery);
 
+    const dimensionsForPrecomputation = org.settings
+      ?.disablePrecomputedDimensions
+      ? []
+      : eligibleDimensionsWithSlicesUnderMaxCells;
+
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensionsForPrecomputation: eligibleDimensionsWithSlicesUnderMaxCells,
+        dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
       }),

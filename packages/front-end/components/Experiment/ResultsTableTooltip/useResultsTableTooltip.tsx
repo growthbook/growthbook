@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import {
@@ -53,12 +53,16 @@ export function useResultsTableTooltip({
   );
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
+  const [hoveredXViewport, setHoveredXViewport] = useState<number | null>(null);
+  const [hoveredYViewport, setHoveredYViewport] = useState<number | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
 
   const clearHover = () => {
     hideTooltip();
     setHoveredX(null);
     setHoveredY(null);
+    setHoveredXViewport(null);
+    setHoveredYViewport(null);
     setHoveredMetricRow(null);
     setHoveredVariationRow(null);
   };
@@ -140,6 +144,9 @@ export function useResultsTableTooltip({
     if (hoveredX === null && hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
+      // viewport coordinates for portaling
+      setHoveredXViewport(targetLeft);
+      setHoveredYViewport(targetTop);
     }
 
     // Show tooltip logic
@@ -209,6 +216,8 @@ export function useResultsTableTooltip({
     tooltipData: tooltipData as TooltipData,
     hoveredX,
     hoveredY,
+    hoveredXViewport,
+    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,

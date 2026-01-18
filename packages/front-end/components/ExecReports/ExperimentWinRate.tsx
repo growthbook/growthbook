@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import format from "date-fns/format";
 import RateDial from "@/components/ExecReports/RateDial";
 import Tooltip from "@/components/Tooltip/Tooltip";

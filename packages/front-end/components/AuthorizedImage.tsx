@@ -1,6 +1,6 @@
 import React, { useEffect, useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { SignedImageUrlResponse } from "back-end/types/upload";
+import { SignedImageUrlResponse } from "shared/types/upload";
 import { useAuth } from "@/services/auth";
 import { getApiHost, getGcsDomain, getS3Domain } from "@/services/env";
 import LoadingSpinner from "./LoadingSpinner";

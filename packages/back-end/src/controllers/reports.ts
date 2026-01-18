@@ -11,7 +11,7 @@ import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -106,7 +106,6 @@ export async function postReportFromSnapshot(
       "dateStarted",
       "dateEnded",
       "customMetricSlices",
-      "pinnedMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -484,7 +483,6 @@ export async function putReport(
           "dateStarted",
           "dateEnded",
           "customMetricSlices",
-          "pinnedMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(

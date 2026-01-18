@@ -1,17 +1,17 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Environment } from "back-end/types/organization";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Environment } from "shared/types/organization";
 import { SavedGroupInterface } from "shared/types/groups";
 import { TagInterface } from "shared/types/tag";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface } from "shared/types/project";
 import { cloneDeep, omit } from "lodash";
 import {
   FactMetricInterface,
   FactTableInterface,
   CreateFactMetricProps,
   CreateFactTableProps,
-} from "back-end/types/fact-table";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+} from "shared/types/fact-table";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ApiCallType } from "@/services/auth";
 import { transformStatsigMetricSourceToFactTable } from "@/services/importing/statsig/transformers/metricSourceTransformer";
 import { transformStatsigMetricToMetric } from "@/services/importing/statsig/transformers/metricTransformer";
@@ -1537,6 +1537,117 @@ export async function runImport(options: RunImportOptions) {
   const PQueue = (await import("p-queue")).default;
   const queue = new PQueue({ concurrency: 6 });
 
+  // Helper to (re)populate the queue with Saved Group (Segment) import jobs.
+  // When retryUnknownOnly is true, only segments whose transformed condition
+  // still contains the "__unknown_group__" placeholder will be processed.
+  // Each segment will only be retried for unknown groups at most once.
+  const repopulateSegmentQueue = (retryUnknownOnly: boolean) => {
+    data.segments?.forEach((segment, index) => {
+      if (
+        !canProcessItem(segment.status) ||
+        !shouldImportItem("segments", index, segment)
+      ) {
+        return;
+      }
+
+      if (retryUnknownOnly) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const segAny = segment as any;
+        if (
+          segAny._unknownGroupsRetried ||
+          !segment.transformedSavedGroup?.condition?.includes(
+            "__unknown_group__",
+          )
+        ) {
+          // Skip segments that either don't have unresolved nested group
+          // references or have already been retried once.
+          return;
+        }
+        segAny._unknownGroupsRetried = true;
+      }
+
+      queue.add(async () => {
+        // Reset status to pending when (re-)running
+        segment.status = "pending";
+        try {
+          const seg = segment.segment as StatsigSavedGroup;
+
+          // Transform Statsig segment to GrowthBook saved group using the
+          // latest savedGroupIdMap (which will be more complete on retries).
+          const savedGroupData = await transformStatsigSegmentToSavedGroup(
+            seg,
+            existingAttributeSchema,
+            apiCall,
+            project,
+            skipAttributeMapping,
+            savedGroupIdMap,
+          );
+
+          // Keep the transformed version on the segment for UI/debugging
+          segment.transformedSavedGroup = savedGroupData;
+
+          // Check if saved group already exists (by groupName)
+          const existingSavedGroup = existingSavedGroupsMap.get(
+            savedGroupData.groupName,
+          );
+          const isUpdate = !!existingSavedGroup;
+
+          let res: { savedGroup: SavedGroupInterface };
+          if (isUpdate) {
+            // Use PUT to update existing saved group, always skipping cycle checks
+            const putRes = await apiCall(
+              `/saved-groups/${existingSavedGroup.id}?skipCycleCheck=1`,
+              {
+                method: "PUT",
+                body: JSON.stringify(savedGroupData),
+              },
+            );
+            // PUT returns { status: 200 } or { savedGroup: ... }, handle both
+            if ((putRes as { savedGroup?: SavedGroupInterface }).savedGroup) {
+              res = putRes as { savedGroup: SavedGroupInterface };
+              // Keep the in-memory map in sync with the latest saved group
+              existingSavedGroupsMap.set(
+                savedGroupData.groupName,
+                res.savedGroup,
+              );
+            } else {
+              // If PUT doesn't return the saved group, fall back to the existing one
+              res = { savedGroup: existingSavedGroup };
+            }
+          } else {
+            // Use POST to create new saved group, always skipping cycle checks
+            res = await apiCall("/saved-groups?skipCycleCheck=1", {
+              method: "POST",
+              body: JSON.stringify(savedGroupData),
+            });
+            // Newly created saved group should be available for subsequent passes
+            existingSavedGroupsMap.set(
+              savedGroupData.groupName,
+              res.savedGroup,
+            );
+          }
+
+          segment.status = "completed";
+          segment.exists = isUpdate;
+          segment.existingSavedGroup = existingSavedGroup;
+          // Clear any previous error message from earlier attempts so the UI
+          // reflects the latest successful import state.
+          segment.error = undefined;
+
+          // Map Statsig segment name to GrowthBook saved group ID
+          savedGroupIdMap.set(seg.id, res.savedGroup.id);
+        } catch (e) {
+          const isUpdate = !!segment.existingSavedGroup;
+          segment.status = "failed";
+          segment.exists = isUpdate;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          segment.error = (e as any)?.message || String(e);
+        }
+        update();
+      });
+    });
+  };
+
   // Import Environments in a single API call
   queue.add(async () => {
     const envsToAdd: Environment[] = [];
@@ -1581,80 +1692,14 @@ export async function runImport(options: RunImportOptions) {
   });
   await queue.onIdle();
 
-  // Import Saved Groups (Segments)
-  data.segments?.forEach((segment, index) => {
-    if (
-      canProcessItem(segment.status) &&
-      shouldImportItem("segments", index, segment)
-    ) {
-      queue.add(async () => {
-        // Reset status to pending when re-running
-        segment.status = "pending";
-        try {
-          const seg = segment.segment as StatsigSavedGroup;
-
-          // Transform Statsig segment to GrowthBook saved group
-          const savedGroupData = await transformStatsigSegmentToSavedGroup(
-            seg,
-            existingAttributeSchema,
-            apiCall,
-            project,
-            skipAttributeMapping,
-            savedGroupIdMap,
-          );
-
-          // Check if saved group already exists (by groupName)
-          const existingSavedGroup = existingSavedGroupsMap.get(
-            savedGroupData.groupName,
-          );
-          const isUpdate = !!existingSavedGroup;
-
-          let res: { savedGroup: SavedGroupInterface };
-          if (isUpdate) {
-            // Use PUT to update existing saved group
-            const putRes = await apiCall(
-              `/saved-groups/${existingSavedGroup.id}`,
-              {
-                method: "PUT",
-                body: JSON.stringify(savedGroupData),
-              },
-            );
-            // PUT returns { status: 200 } or { savedGroup: ... }, handle both
-            if (putRes.savedGroup) {
-              res = putRes as { savedGroup: SavedGroupInterface };
-            } else {
-              // If PUT doesn't return the saved group, fetch it or use existing
-              // For now, use the existing one (API may not return the updated object)
-              res = { savedGroup: existingSavedGroup };
-            }
-          } else {
-            // Use POST to create new saved group
-            res = await apiCall("/saved-groups", {
-              method: "POST",
-              body: JSON.stringify(savedGroupData),
-            });
-          }
-
-          segment.status = "completed";
-          segment.exists = isUpdate;
-          segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
-          segment.existingSavedGroup = existingSavedGroup;
-
-          // Map Statsig segment name to GrowthBook saved group ID
-          savedGroupIdMap.set(seg.id, res.savedGroup.id);
-        } catch (e) {
-          const existingSavedGroup = existingSavedGroupsMap.get(
-            (segment.segment as StatsigSavedGroup)?.id || "",
-          );
-          const isUpdate = !!existingSavedGroup;
-          segment.status = "failed";
-          segment.exists = isUpdate;
-          segment.error = e.message;
-        }
-        update();
-      });
-    }
-  });
+  // Import Saved Groups (Segments) in two phases:
+  // 1) First pass processes all selected segments.
+  // 2) Second pass only retries those whose transformed condition still
+  //    contains the "__unknown_group__" placeholder (nested segments that
+  //    couldn't be resolved on the first pass).
+  repopulateSegmentQueue(false);
+  await queue.onIdle();
+  repopulateSegmentQueue(true);
   await queue.onIdle();
 
   // Build combined features map for prerequisite lookups

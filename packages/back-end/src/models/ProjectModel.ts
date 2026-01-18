@@ -1,10 +1,10 @@
-import { ManagedBy } from "shared/validators";
-import { ApiProject } from "back-end/types/openapi";
+import { ApiProject } from "shared/types/openapi";
 import {
+  ManagedBy,
   ProjectInterface,
   ProjectSettings,
   projectValidator,
-} from "back-end/src/validators/projects";
+} from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 type MigratedProject = Omit<ProjectInterface, "settings"> & {
@@ -22,6 +22,10 @@ const BaseClass = MakeModelClass({
     deleteEvent: "project.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    description: "",
+    settings: {},
+  },
 });
 
 interface CreateProjectProps {

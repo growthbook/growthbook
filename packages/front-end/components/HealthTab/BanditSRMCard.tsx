@@ -3,8 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSRMHealthData, getSRMValue } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,

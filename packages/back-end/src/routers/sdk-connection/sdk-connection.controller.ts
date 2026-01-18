@@ -11,14 +11,8 @@ import {
   WebhookInterface,
   WebhookSummary,
 } from "shared/types/webhook";
+import { createSdkWebhookValidator } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
-import {
-  countSdkWebhooksByOrg,
-  createSdkWebhook,
-  findAllSdkWebhooksByConnection,
-  findAllSdkWebhooksByConnectionIds,
-} from "back-end/src/models/WebhookModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -29,6 +23,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -80,15 +75,20 @@ export const postSDKConnection = async (
     hashSecureAttributes = false;
   }
 
-  const doc = await createSDKConnection({
+  const doc = await createSDKConnection(context, {
     ...params,
     encryptPayload,
     hashSecureAttributes,
     remoteEvalEnabled,
     organization: org.id,
   });
-  const isUsingProxy = !!(doc.proxy.enabled && doc.proxy.host);
-  triggerSingleSDKWebhookJobs(context, doc, {}, doc.proxy, isUsingProxy);
+
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [doc],
+  });
+
   res.status(200).json({
     status: 200,
     connection: doc,
@@ -204,10 +204,10 @@ export const getSDKConnectionsWebhooks = async (
   const context = getContextFromReq(req);
   const connections = await findSDKConnectionsByOrganization(context);
   const connectionIds = connections.map((conn) => conn.id);
-  const allWebhooks = await findAllSdkWebhooksByConnectionIds(
-    context,
-    connectionIds,
-  );
+  const allWebhooks =
+    await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds(
+      connectionIds,
+    );
 
   const webhooksByConnection: Record<string, WebhookSummary[]> = {};
 
@@ -218,7 +218,7 @@ export const getSDKConnectionsWebhooks = async (
       "endpoint",
       "lastSuccess",
       "error",
-      "created",
+      "dateCreated",
     ]);
     webhook.sdks.forEach((sdkId) => {
       if (!webhooksByConnection[sdkId]) {
@@ -249,7 +249,8 @@ export const getSDKConnectionWebhooks = async (
     throw new Error("Could not find SDK connection");
   }
 
-  const webhooks = await findAllSdkWebhooksByConnection(context, id);
+  const webhooks =
+    await context.models.sdkWebhooks.findAllSdkWebhooksByConnection(id);
 
   // If user does not have write access, remove the shared secret
   if (!context.permissions.canUpdateSDKWebhook(conn)) {
@@ -281,7 +282,9 @@ export async function postSDKConnectionWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const webhookcount = await countSdkWebhooksByOrg(org.id);
+  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg(
+    org.id,
+  );
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
     "multiple-sdk-webhooks",
@@ -290,7 +293,10 @@ export async function postSDKConnectionWebhook(
     throw new Error("your webhook limit has been reached");
   }
 
-  const webhook = await createSdkWebhook(context, id, req.body);
+  const webhook = await context.models.sdkWebhooks.create({
+    ...context.models.sdkWebhooks.getDefaultCreateProps(id),
+    ...createSdkWebhookValidator.parse(req.body),
+  });
   return res.status(200).json({
     status: 200,
     webhook,

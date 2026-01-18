@@ -1,5 +1,5 @@
 import { FC, ChangeEventHandler } from "react";
-import { PrestoConnectionParams } from "back-end/types/integrations/presto";
+import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
 import HostWarning from "./HostWarning";
@@ -83,6 +83,19 @@ const PrestoForm: FC<{
           value={params.port || 0}
           onChange={onParamChange}
         />
+      </div>
+      <div className="form-group col-md-12">
+        <label>Query User</label>
+        <input
+          type="text"
+          className="form-control"
+          name="user"
+          value={params.user || "growthbook"}
+          onChange={onParamChange}
+        />
+        <small className="form-text text-muted">
+          The user to connect as. Defaults to &quot;growthbook&quot;.
+        </small>
       </div>
       <div className="col-md-12">
         <SelectField

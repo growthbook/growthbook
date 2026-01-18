@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 

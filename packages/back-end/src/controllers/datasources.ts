@@ -13,11 +13,10 @@ import { TemplateVariables } from "shared/types/sql";
 import { factTableColumnTypes } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   DataSourceParams,
   DataSourceType,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceInterface,
   ExposureQuery,
@@ -26,7 +25,12 @@ import {
   MaterializedColumn,
   MaterializedColumnType,
   GrowthbookClickhouseSettings,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { SQLExecutionError } from "back-end/src/util/errors";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getSourceIntegrationObject,
   getNonSensitiveParams,
@@ -52,7 +56,6 @@ import {
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getMetricsByDatasource } from "back-end/src/models/MetricModel";
 import { deleteInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
 import { deleteInformationSchemaTablesByInformationSchemaId } from "back-end/src/models/InformationSchemaTablesModel";
@@ -63,10 +66,7 @@ import {
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
-import {
-  SourceIntegrationInterface,
-  SQLExecutionError,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   _dangerousRecreateClickhouseTables,
@@ -74,9 +74,8 @@ import {
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
-import { FactTableColumnType } from "back-end/types/fact-table";
-import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
-import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -537,7 +536,7 @@ export async function putDataSource(
 export async function postValidatePipelineSettings(
   req: AuthRequest<
     {
-      pipelineSettings: DataSourceSettings["pipelineSettings"];
+      pipelineSettings: DataSourcePipelineSettings;
     },
     { id: string }
   >,

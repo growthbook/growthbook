@@ -1,7 +1,7 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { useState } from "react";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";

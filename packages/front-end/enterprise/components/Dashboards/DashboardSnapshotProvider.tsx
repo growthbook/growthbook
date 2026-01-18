@@ -7,26 +7,24 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import {
   blockHasFieldOfType,
   getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
   snapshotSatisfiesBlock,
+  DashboardInterface,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { Queries, QueryStatus } from "back-end/types/query";
+import { Queries, QueryStatus } from "shared/types/query";
 import { SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { getValidDate } from "shared/dates";
 import { isEqual } from "lodash";
 import useApi from "@/hooks/useApi";
@@ -285,9 +283,7 @@ export function useDashboardSnapshot(
   const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
 
   const snapshot =
-    isDefined(blockSnapshotId) && blockSnapshotId.length > 0
-      ? blockSnapshot
-      : defaultSnapshot;
+    blockSnapshotId && blockSnapshot ? blockSnapshot : defaultSnapshot;
   const mutateSnapshot = isDefined(blockSnapshotId)
     ? mutateSnapshotsMap
     : mutateDefault;

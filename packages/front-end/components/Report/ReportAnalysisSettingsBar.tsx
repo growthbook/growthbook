@@ -1,5 +1,5 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
@@ -218,6 +218,7 @@ export default function ReportAnalysisSettingsBar({
                 cancelEndpoint={`/report/${report.id}/cancel`}
                 color="outline-primary"
                 useRadixButton={true}
+                radixVariant="soft"
                 onSubmit={async () => {
                   try {
                     const res = await apiCall<{

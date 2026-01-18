@@ -1,5 +1,5 @@
-import { metricGroupValidator } from "back-end/src/routers/metric-group/metric-group.validators";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { metricGroupValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -14,6 +14,11 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   additionalIndexes: [{ fields: { organization: 1, id: 1 } }],
+  defaultValues: {
+    owner: "",
+    tags: [],
+    archived: false,
+  },
 });
 
 export class MetricGroupModel extends BaseClass {

@@ -337,7 +337,7 @@ pre {
   font-size: 12px;
   color: var(--text-color-table);
   pointer-events: all;
-  transition: 250ms all;
+  transition: 150ms all;
 
   .arrow {
     position: absolute;
@@ -2626,6 +2626,11 @@ li.metrics a span img {
 
 html {
   scroll-behavior: smooth;
+  body[data-scroll-locked] {
+    // fixes Radix <Select> layout shift
+    overflow: visible !important;
+    margin-right: 0 !important;
+  } 
 }
 
 .variationWrap {
@@ -2739,16 +2744,16 @@ html {
       .gb-select__input-container {
         margin: 0 !important;
         padding: 0 !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
         .gb-select__input {
-          max-width: 220px !important;
+          max-width: 250px !important;
         }
       }
       .gb-select__single-value {
         margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
         color: var(--text-dark) !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
       }
     }
     .gb-select__indicators {
@@ -2823,13 +2828,9 @@ html {
   position: relative;
   .gb-multi-select__menu-portal {
     position: absolute !important;
-    top: -8px;
-    left: 290px;
-    @media (max-width: 520px) {
-      top: auto;
-      bottom: 0;
-      left: 0;
-    }
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 

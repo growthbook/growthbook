@@ -20,24 +20,14 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { TiktokenModel } from "@dqbd/tiktoken";
+import { AIModel, EmbeddingModel } from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { SegmentInterface } from "shared/types/segment";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
-import {
-  createOrganization,
-  findAllOrganizations,
-  findOrganizationById,
-  findOrganizationByInviteKey,
-  findOrganizationsByDomain,
-  updateOrganization,
-} from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
+} from "shared/types/fact-table";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -49,7 +39,22 @@ import {
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
+import { DimensionInterface } from "shared/types/dimension";
+import { DataSourceInterface } from "shared/types/datasource";
+import { LegacyExperimentPhase } from "shared/types/experiment";
+import { PValueCorrection } from "shared/types/stats";
+import {
+  createOrganization,
+  findAllOrganizations,
+  findOrganizationById,
+  findOrganizationByInviteKey,
+  findOrganizationsByDomain,
+  updateOrganization,
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
 import { ConfigFile } from "back-end/src/init/config";
@@ -63,17 +68,13 @@ import {
   getMetricById,
   updateMetric,
 } from "back-end/src/models/MetricModel";
-import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { DimensionInterface } from "back-end/types/dimension";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { logger } from "back-end/src/util/logger";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-import { LegacyExperimentPhase } from "back-end/types/experiment";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
@@ -81,7 +82,6 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
-import { PValueCorrection } from "back-end/types/stats";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
@@ -184,36 +184,35 @@ export function getAISettingsForOrg(
   includeKey: boolean = false,
 ): {
   aiEnabled: boolean;
-  aiProvider: "openai" | "ollama" | null;
   openAIAPIKey: string;
-  openAIDefaultModel: TiktokenModel;
+  anthropicAPIKey: string;
+  defaultAIModel: AIModel;
   ollamaBaseUrl: string;
-  ollamaDefaultModel: string;
+  embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
   const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || "";
+
+  const hasValidKey = !!(openAIKey || anthropicKey);
+  const hasValidUrl = !!ollamaBaseUrl;
+
   const aiEnabled = IS_CLOUD
-    ? context.org.settings?.aiEnabled !== false
-    : !!(
-        context.org.settings?.aiEnabled &&
-        ((context.org.settings?.aiProvider === "openai" && openAIKey) ||
-          (context.org.settings?.aiProvider === "ollama" &&
-            !!context.org.settings?.ollamaDefaultModel &&
-            ollamaBaseUrl))
-      );
-
-  const openAIDefaultModel =
-    context.org.settings?.openAIDefaultModel || "gpt-4o-mini";
-
-  const ollamaDefaultModel = context.org.settings?.ollamaDefaultModel || "";
+    ? !!context.org.settings?.aiEnabled
+    : !!(context.org.settings?.aiEnabled && (hasValidKey || hasValidUrl));
 
   return {
     aiEnabled,
-    aiProvider: context.org.settings?.aiProvider || null,
     openAIAPIKey: includeKey ? openAIKey : "",
-    openAIDefaultModel,
+    anthropicAPIKey: includeKey ? anthropicKey : "",
+    defaultAIModel:
+      context.org.settings?.defaultAIModel ||
+      context.org.settings?.ollamaDefaultModel ||
+      context.org.settings?.openAIDefaultModel ||
+      "gpt-4o-mini",
+    embeddingModel:
+      context.org.settings?.embeddingModel || "text-embedding-ada-002",
     ollamaBaseUrl,
-    ollamaDefaultModel,
   };
 }
 

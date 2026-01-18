@@ -2,8 +2,8 @@ import { FC, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";

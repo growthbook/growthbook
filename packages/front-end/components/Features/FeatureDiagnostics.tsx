@@ -1,11 +1,11 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { OrganizationSettings } from "back-end/types/organization";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
-import { QueryStatistics } from "back-end/types/query";
+import { QueryStatistics } from "shared/types/query";
 import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { format } from "date-fns";
@@ -22,7 +22,7 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import EmptyState from "@/components/EmptyState";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
-import Field from "../Forms/Field";
+import Field from "@/components/Forms/Field";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;

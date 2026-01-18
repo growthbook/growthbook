@@ -6,43 +6,41 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
-import { WebhookInterface } from "shared/types/webhook";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportInterface,
   LegacyReportInterface,
-} from "back-end/types/report";
-import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
-import { LegacyMetricInterface, MetricInterface } from "back-end/types/metric";
+} from "shared/types/report";
+import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
-} from "back-end/types/datasource";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
+} from "shared/types/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
-} from "back-end/types/feature";
-import { OrganizationInterface } from "back-end/types/organization";
-import { getConfigOrganizationSettings } from "back-end/src/init/config";
+} from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   ExperimentInterface,
   LegacyExperimentInterface,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   LegacyExperimentSnapshotInterface,
   ExperimentSnapshotInterface,
   MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
+import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import { getConfigOrganizationSettings } from "back-end/src/init/config";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
@@ -519,6 +517,18 @@ export function upgradeOrganizationDoc(
     }));
   }
 
+  // Migrate postStratificationDisabled to postStratificationEnabled
+  // If postStratificationEnabled is undefined OR true, it means ON
+  // Only if postStratificationEnabled is explicitly false should it be OFF
+  if (org.settings?.postStratificationDisabled !== undefined) {
+    // Convert from inverted logic: disabled=true -> enabled=false
+    if (org.settings.postStratificationEnabled === undefined) {
+      org.settings.postStratificationEnabled =
+        !org.settings.postStratificationDisabled;
+    }
+    delete org.settings.postStratificationDisabled;
+  }
+
   return org;
 }
 
@@ -838,7 +848,6 @@ export function migrateSnapshot(
     });
 
     snapshot.settings = {
-      manual: !!manual,
       dimensions: snapshot.dimension
         ? [
             {
@@ -863,6 +872,8 @@ export function migrateSnapshot(
       skipPartialData: !!skipPartialData,
       attributionModel: "firstExposure",
       variations,
+      // Deprecated manual setting
+      ...(manual !== undefined ? { manual: !!manual } : {}),
     };
   } else {
     // Add new settings field in case it is missing
@@ -956,18 +967,4 @@ export function migrateSdkWebhookLogModel(
     delete doc.webhookReduestId;
   }
   return doc;
-}
-
-export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
-  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
-  if (!doc.payloadFormat) {
-    if (doc.httpMethod === "GET") {
-      newDoc.payloadFormat = "none";
-    } else if (doc.sendPayload) {
-      newDoc.payloadFormat = "standard";
-    } else {
-      newDoc.payloadFormat = "standard-no-payload";
-    }
-  }
-  return newDoc;
 }

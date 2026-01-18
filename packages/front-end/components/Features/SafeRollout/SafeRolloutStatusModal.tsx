@@ -1,9 +1,9 @@
-import { SafeRolloutInterface } from "shared/validators";
 import {
+  SafeRolloutInterface,
   FeatureInterface,
   FeatureValueType,
   SafeRolloutRule,
-} from "back-end/src/validators/features";
+} from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import {
@@ -11,7 +11,7 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
-import { ExperimentResultStatus } from "back-end/types/experiment";
+import { ExperimentResultStatus } from "shared/types/experiment";
 import { useEffect, useMemo } from "react";
 import { featureRequiresReview } from "shared/util";
 import { useAuth } from "@/services/auth";

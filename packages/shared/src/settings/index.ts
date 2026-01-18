@@ -13,6 +13,7 @@ import {
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
+import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver";
 export * from "./types";
 export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
 
@@ -92,6 +93,7 @@ export const resolvers: Record<
       report: true,
     },
   ),
+  postStratificationEnabled: postStratificationEnabledResolver(),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,

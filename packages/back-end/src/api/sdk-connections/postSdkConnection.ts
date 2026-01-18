@@ -1,10 +1,10 @@
-import { PostSdkConnectionResponse } from "back-end/types/openapi";
+import { PostSdkConnectionResponse } from "shared/types/openapi";
+import { postSdkConnectionValidator } from "shared/validators";
 import {
   toApiSDKConnectionInterface,
   createSDKConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postSdkConnectionValidator } from "back-end/src/validators/openapi";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePostPayload } from "./validations";
 
@@ -19,7 +19,7 @@ export const postSdkConnection = createApiRequestHandler(
   if (!req.context.permissions.canCreateSDKConnection(params))
     req.context.permissions.throwPermissionError();
 
-  const connection = await createSDKConnection(params);
+  const connection = await createSDKConnection(req.context, params);
 
   await req.audit({
     event: "sdk-connection.create",

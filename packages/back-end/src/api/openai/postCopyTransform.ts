@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiVisualChangeset } from "back-end/types/openapi";
+import { ApiVisualChangeset } from "shared/types/openapi";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
@@ -7,7 +7,7 @@ import {
 import {
   secondsUntilAICanBeUsedAgain,
   simpleCompletion,
-} from "back-end/src/enterprise/services/providerAI";
+} from "back-end/src/enterprise/services/ai";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;

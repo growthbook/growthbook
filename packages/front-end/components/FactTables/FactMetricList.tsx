@@ -1,7 +1,7 @@
 import {
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";

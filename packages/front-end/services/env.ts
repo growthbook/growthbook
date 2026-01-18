@@ -25,6 +25,7 @@ const env: EnvironmentInitValue = {
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
   hasOpenAIKey: false,
+  hasAnthropicKey: false,
   hasOllamaServer: false,
   uploadMethod: "local",
 };
@@ -121,6 +122,10 @@ export function hasOpenAIKey() {
 }
 export function hasOllamaServer() {
   return env.hasOllamaServer || false;
+}
+
+export function hasAnthropicKey() {
+  return env.hasAnthropicKey || false;
 }
 
 export function getExperimentRefreshFrequency() {
