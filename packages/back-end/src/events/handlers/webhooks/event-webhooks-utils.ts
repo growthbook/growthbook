@@ -555,8 +555,8 @@ export function getObjectDiff(
             };
             result.modified.push(hierarchicalMod);
           }
-        } else if (Array.isArray(prev[key]) && Array.isArray(curr[key])) {
-          // Handle top-level arrays with nested config
+        } else {
+          // Array handling for other nested configs
           const prevArray = prev[key] as unknown[];
           const currArray = curr[key] as unknown[];
 
@@ -666,23 +666,7 @@ export function getObjectDiff(
               };
               result.modified.push(hierarchicalMod);
             }
-          } else {
-            // No idField, treat as simple modification
-            const simpleMod: SimpleModification = {
-              key,
-              oldValue: prevArray,
-              newValue: currArray,
-            };
-            result.modified.push(simpleMod);
           }
-        } else {
-          // Non-array object without specific handling
-          const simpleMod: SimpleModification = {
-            key,
-            oldValue: prev[key],
-            newValue: curr[key],
-          };
-          result.modified.push(simpleMod);
         }
       } else if (Array.isArray(prev[key]) && Array.isArray(curr[key])) {
         // Handle arrays without nested config (fallback for arrays without idField)
