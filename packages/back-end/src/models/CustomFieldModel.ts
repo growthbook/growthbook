@@ -2,7 +2,12 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
+  apiCustomFieldInterface,
+  apiCreateCustomFieldBody,
+  apiUpdateCustomFieldBody,
+  ApiCustomField,
 } from "shared/validators";
+import { ApiRequest } from "back-end/src/util/handler";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -16,6 +21,18 @@ const BaseClass = MakeModelClass({
     deleteEvent: "customField.delete",
   },
   globallyUniqueIds: false,
+  apiConfig: {
+    modelKey: "customFields",
+    modelSingular: "customField",
+    modelPlural: "customFields",
+    apiInterface: apiCustomFieldInterface,
+    schemas: {
+      createBody: apiCreateCustomFieldBody,
+      updateBody: apiUpdateCustomFieldBody,
+    },
+    pathBase: "/custom-fields",
+    includeDefaultCrud: true,
+  },
 });
 
 export type CustomField = z.infer<typeof customFieldsPropsValidator>;
@@ -124,6 +141,14 @@ export class CustomFieldModel extends BaseClass {
     };
     const existing = await this.getCustomFields();
     if (existing) {
+      const idMatch = existing.fields.find(
+        ({ id }) => id === newCustomField.id,
+      );
+      if (idMatch) {
+        this.context.throwBadRequestError(
+          "Failed to add custom field. Key not unique!",
+        );
+      }
       const newFields = [...existing.fields, newCustomField];
       const updated = await this.update(existing, { fields: newFields });
       if (!updated) {
@@ -192,5 +217,88 @@ export class CustomFieldModel extends BaseClass {
     const newFields = [...existing.fields];
     newFields.splice(newIndex, 0, newFields.splice(oldIndex, 1)[0]);
     return await this._updateOne(existing, { fields: newFields });
+  }
+
+  public async handleApiGet(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<ApiCustomField | void> {
+    const id = req.params.id;
+    const doc = await this.getById(id);
+    if (!doc) return req.context.throwNotFoundError();
+    return this.toApiInterface(doc);
+  }
+  public async handleApiCreate(
+    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<ApiCustomField> {
+    const parsedBody = apiCreateCustomFieldBody.parse(req.body);
+    const containerObject = await this.addCustomField(parsedBody);
+    const created = containerObject.fields.find(
+      ({ id }) => id === parsedBody.id,
+    );
+    return this.singleFieldToApiInterface(created!);
+  }
+
+  public async handleApiList(
+    req: ApiRequest<
+      unknown,
+      z.ZodTypeAny,
+      z.ZodTypeAny,
+      z.ZodType<{ projectId?: string }>
+    >,
+  ): Promise<ApiCustomField[]> {
+    const projectId = req.query.projectId;
+    const fields = projectId
+      ? await this.getCustomFieldsByProject(projectId)
+      : (await this.getCustomFields())?.fields;
+    return (fields ?? []).map(this.singleFieldToApiInterface);
+  }
+
+  public async handleApiDelete(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<string> {
+    const id = req.params.id;
+    await this.deleteCustomField(id);
+    return id;
+  }
+
+  public async handleApiUpdate(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<ApiCustomField | void> {
+    const id = req.params.id;
+    const parsedBody = apiUpdateCustomFieldBody.parse(req.body);
+    const containerObject = await this.updateCustomField(id, parsedBody);
+    if (!containerObject)
+      return this.context.throwInternalServerError(
+        "Failed to update custom field",
+      );
+    const updated = containerObject.fields.find(
+      ({ id: fieldId }) => fieldId === id,
+    );
+    return this.singleFieldToApiInterface(updated!);
+  }
+
+  public singleFieldToApiInterface(f: CustomField): ApiCustomField {
+    return {
+      ...f,
+      dateCreated: f.dateCreated.toISOString(),
+      dateUpdated: f.dateUpdated.toISOString(),
+      active: f.active ?? true,
+      projects: f.projects?.filter((p) => p !== ""),
+    };
   }
 }

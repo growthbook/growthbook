@@ -88,8 +88,6 @@ export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.numbe
 
 export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
 
-export const apiCustomFieldValidator = z.object({ "id": z.string(), "name": z.string(), "type": z.string(), "section": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "active": z.boolean(), "required": z.boolean(), "projects": z.array(z.string()).optional(), "values": z.string().optional() }).strict()
-
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional() }).strict(),
@@ -663,11 +661,5 @@ export const getQueryValidator = {
 export const getSettingsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: z.never(),
-};
-
-export const getCustomFieldsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.object({ "projectId": z.string().optional() }).strict(),
   paramsSchema: z.never(),
 };
