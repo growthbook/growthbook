@@ -481,7 +481,9 @@ export function queueSDKPayloadRefresh(data: {
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
 }) {
-  refreshSDKPayloadCache(data).catch((e) => {
+  // Capture stack trace at the entry point to include the original caller
+  const stackTrace = new Error().stack || "";
+  refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
 }
@@ -493,6 +495,7 @@ async function refreshSDKPayloadCache({
   sdkConnections: sdkConnectionsToUpdate = [],
   treatEmptyProjectAsGlobal = false,
   auditContext: initialAuditContext,
+  stackTrace,
 }: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
@@ -500,6 +503,7 @@ async function refreshSDKPayloadCache({
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
+  stackTrace?: string;
 }) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
@@ -728,7 +732,7 @@ async function refreshSDKPayloadCache({
                 event: initialAuditContext.event,
                 model: initialAuditContext.model,
                 id: initialAuditContext.id,
-                stack: new Error().stack || "",
+                stack: stackTrace || "",
                 connection: connection as unknown as Record<string, unknown>,
               }
             : undefined;
