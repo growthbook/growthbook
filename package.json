@@ -71,7 +71,8 @@
     "overrides": {
       "@growthbook/growthbook": "1.6.2",
       "vite": "^6.0.0",
-      "execa": "^5.0.0"
+      "execa": "^5.0.0",
+      "@opentelemetry/api-logs": "0.57.2"
     },
     "patchedDependencies": {
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
@@ -94,5 +95,5 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@10.28.1"
 }

@@ -24,7 +24,7 @@ RUN apt-get update && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
   apt-get install -yqq nodejs && \
-  npm install -g pnpm@9.15.0 && \
+  npm install -g pnpm@10.28.1 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
@@ -75,7 +75,7 @@ RUN apt-get update && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
   apt-get install -yqq nodejs && \
-  npm install -g pnpm@9.15.0 && \
+  npm install -g pnpm@10.28.1 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
