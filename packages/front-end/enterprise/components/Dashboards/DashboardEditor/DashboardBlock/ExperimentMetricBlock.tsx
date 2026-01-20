@@ -194,7 +194,7 @@ export default function ExperimentMetricBlock({
             isTabActive={isTabActive}
             isGoalMetrics={resultGroup === "goal"}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={true}
+            showTimeSeriesButton={true}
             sortBy={blockSortBy}
             setSortBy={isEditing ? setSortBy : undefined}
             sortDirection={blockSortDirection ?? null}

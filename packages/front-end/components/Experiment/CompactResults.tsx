@@ -25,15 +25,11 @@ import {
   PiArrowSquareOut,
   PiCaretCircleRight,
   PiCaretCircleDown,
-  PiPushPinFill,
 } from "react-icons/pi";
-import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  generatePinnedSliceKey,
   getMetricLink,
-  SliceLevelsData,
   ExperimentSortBy,
   SetExperimentSortBy,
 } from "shared/experiments";
@@ -90,13 +86,6 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   pinnedMetricSlices?: string[];
-  togglePinnedMetricSlice?: (
-    metricId: string,
-    sliceLevels: SliceLevelsData[],
-    location?: "goal" | "secondary" | "guardrail",
-  ) => void;
-  hideDetails?: boolean;
-  disableTimeSeriesButton?: boolean;
   customMetricSlices?: Array<{
     slices: Array<{
       column: string;
@@ -155,9 +144,6 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   pinnedMetricSlices,
-  togglePinnedMetricSlice,
-  hideDetails,
-  disableTimeSeriesButton,
   customMetricSlices,
   sortBy,
   setSortBy,
@@ -458,10 +444,6 @@ const CompactResults: FC<{
           setDifferenceType={setDifferenceType}
           totalMetricsCount={totalMetricsCount}
           renderLabelColumn={getRenderLabelColumn({
-            pinnedMetricSlices,
-            togglePinnedMetricSlice,
-            statsEngine,
-            hideDetails,
             expandedMetrics,
             toggleExpandedMetric,
             getExperimentMetricById,
@@ -518,10 +500,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              pinnedMetricSlices,
-              togglePinnedMetricSlice,
-              statsEngine,
-              hideDetails,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -578,10 +556,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              pinnedMetricSlices,
-              togglePinnedMetricSlice,
-              statsEngine,
-              hideDetails,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -645,24 +619,12 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  pinnedMetricSlices,
-  togglePinnedMetricSlice,
-  statsEngine,
-  hideDetails,
   expandedMetrics,
   toggleExpandedMetric,
   shouldShowMetricSlices,
   getChildRowCounts,
   sliceTagsFilter,
 }: {
-  pinnedMetricSlices?: string[];
-  togglePinnedMetricSlice?: (
-    metricId: string,
-    sliceLevels: SliceLevelsData[],
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => void;
-  statsEngine?: StatsEngine;
-  hideDetails?: boolean;
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
     metricId: string,

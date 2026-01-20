@@ -62,7 +62,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
-import { RadixTheme } from "@/services/RadixTheme";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -526,7 +525,6 @@ export default function ResultsTable({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
-    TooltipInPortal,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -559,40 +557,6 @@ export default function ResultsTable({
 
   return (
     <div className="position-relative" ref={containerRef}>
-      {tooltipOpen &&
-        tooltipData &&
-        hoveredX !== null &&
-        hoveredY !== null &&
-        hoveredMetricRow !== null &&
-        hoveredVariationRow !== null && (
-          <TooltipInPortal
-            key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-            unstyled
-          >
-            <RadixTheme>
-              <CSSTransition
-                in={true}
-                timeout={200}
-                classNames="tooltip-animate"
-                appear={true}
-              >
-                <ResultsTableTooltip
-                  left={hoveredX}
-                  top={hoveredY}
-                  data={tooltipData}
-                  tooltipOpen={tooltipOpen}
-                  close={closeTooltip}
-                  differenceType={differenceType}
-                  onPointerMove={resetTimeout}
-                  onClick={resetTimeout}
-                  onPointerLeave={leaveRow}
-                  isBandit={isBandit}
-                  ssrPolyfills={ssrPolyfills}
-                />
-              </CSSTransition>
-            </RadixTheme>
-          </TooltipInPortal>
-        )}
       <CSSTransition
         key={`${hoveredMetricRow}-${hoveredVariationRow}`}
         in={isTransitioning}

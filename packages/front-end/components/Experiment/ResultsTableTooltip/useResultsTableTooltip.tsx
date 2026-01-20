@@ -40,7 +40,7 @@ export function useResultsTableTooltip({
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
     useTooltip<TooltipData>();
 
-  const { containerRef, TooltipInPortal } = useTooltipInPortal({
+  const { containerRef } = useTooltipInPortal({
     scroll: true,
     detectBounds: false,
   });
@@ -219,6 +219,5 @@ export function useResultsTableTooltip({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
-    TooltipInPortal,
   };
 }
