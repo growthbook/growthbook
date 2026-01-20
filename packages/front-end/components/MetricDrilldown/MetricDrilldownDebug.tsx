@@ -5,7 +5,7 @@ import {
   StatsEngine,
   PValueCorrection,
 } from "shared/types/stats";
-import { Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -43,11 +43,8 @@ interface MetricDrilldownDebugProps {
  */
 function createRowLabel(metricName: string, description: string) {
   return (
-    <Flex direction="column" gap="1" ml="4">
-      <Text weight="medium">{metricName}</Text>
-      <Text size="1" style={{ color: "var(--color-text-low)" }}>
-        {description}
-      </Text>
+    <Flex direction="column" gap="1" ml="2">
+      <Text weight="medium">{description}</Text>
     </Flex>
   );
 }
@@ -284,12 +281,14 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     <>
       {/* Show empty state if no supplemental data is available */}
       {!hasAnySupplementalData && (
-        <EmptyState
-          title="No data available"
-          description="When data becomes available, it will automatically populate this tab. This tab shows comparisons to help you understand the impact of variance reduction techniques like CUPED (regression adjustment using pre-experiment data) and post-stratification (balancing across user attributes), as well as the effect of metric capping and Bayesian priors on your results."
-          leftButton={null}
-          rightButton={null}
-        />
+        <Box mt="7">
+          <EmptyState
+            title="No data available"
+            description="When data becomes available, it will automatically populate this tab. This tab shows comparisons to help you understand the impact of variance reduction techniques like CUPED (regression adjustment using pre-experiment data) and post-stratification (balancing across user attributes), as well as the effect of metric capping and Bayesian priors on your results."
+            leftButton={null}
+            rightButton={null}
+          />
+        </Box>
       )}
 
       {varianceReductionRows.length > 0 && (

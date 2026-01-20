@@ -40,12 +40,10 @@ export function useResultsTableTooltip({
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
     useTooltip<TooltipData>();
 
-  const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
-    {
-      scroll: true,
-      detectBounds: false,
-    },
-  );
+  const { containerRef, TooltipInPortal } = useTooltipInPortal({
+    scroll: true,
+    detectBounds: false,
+  });
 
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
@@ -138,8 +136,8 @@ export function useResultsTableTooltip({
     }
 
     if (hoveredX === null && hoveredY === null) {
-      setHoveredX(targetLeft - containerBounds.left);
-      setHoveredY(targetTop - containerBounds.top);
+      setHoveredX(targetLeft);
+      setHoveredY(targetTop);
     }
 
     // Show tooltip logic

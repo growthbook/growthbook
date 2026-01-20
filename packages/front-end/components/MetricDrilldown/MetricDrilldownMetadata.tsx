@@ -4,7 +4,6 @@ import { quantileMetricType, isFactMetric } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
 import Metadata from "@/ui/Metadata";
-import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
 import { getPercentileLabel } from "@/services/metrics";
 import {
@@ -43,19 +42,6 @@ export function MetricDrilldownMetadata({
           </Flex>
         }
       />
-
-      {(metric.tags?.length ?? 0) > 0 ? (
-        <Metadata
-          label="Tags"
-          value={
-            <SortedTags
-              tags={metric.tags}
-              shouldShowEllipsis={false}
-              useFlex={true}
-            />
-          }
-        />
-      ) : null}
 
       {quantileMetricType(metric) !== "" ? (
         <>

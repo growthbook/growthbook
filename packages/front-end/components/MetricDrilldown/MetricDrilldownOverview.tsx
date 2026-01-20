@@ -1,4 +1,4 @@
-import { Box, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import {
   DifferenceType,
   PValueCorrection,
@@ -6,8 +6,11 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
+import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
+import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
+import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 
 interface MetricDrilldownOverviewProps {
   row: ExperimentTableRow;
@@ -67,8 +70,29 @@ function MetricDrilldownOverview({
     : secondaryMetrics.includes(metric.id)
       ? "secondary"
       : "guardrail";
+
+  const labelHeader =
+    resultGroup === "goal"
+      ? "Goal Metric"
+      : resultGroup === "secondary"
+        ? "Secondary Metric"
+        : "Guardrail Metric";
+
+  // Create a clean row without slice-specific properties for the overview
+  // This ensures the metric is always rendered as a standard metric row, not as a slice
+  const cleanRow: ExperimentTableRow = {
+    ...row,
+    label: metric.name, // Use metric name instead of potentially being a slice label
+    isSliceRow: false,
+    parentRowId: undefined,
+    sliceId: undefined,
+    sliceLevels: undefined,
+    allSliceLevels: undefined,
+    isHiddenByFilter: false,
+  };
+
   return (
-    <Box>
+    <Flex direction="column" gap="6">
       <ResultsTable
         experimentId={experimentId}
         dateCreated={reportDate}
@@ -82,11 +106,11 @@ function MetricDrilldownOverview({
         setBaselineRow={setLocalBaselineRow}
         variationFilter={localVariationFilter}
         setVariationFilter={setLocalVariationFilter}
-        rows={[row]}
+        rows={[cleanRow]}
         id={tableId}
         resultGroup={resultGroup}
         tableRowAxis="metric"
-        labelHeader=""
+        labelHeader={labelHeader}
         renderLabelColumn={({ label }) => (
           <Text weight="bold" ml="4">
             {label}
@@ -104,7 +128,20 @@ function MetricDrilldownOverview({
         isHoldout={false}
         forceTimeSeriesVisible={true}
       />
-    </Box>
+
+      <Flex direction="column" gap="2">
+        <Text size="4" weight="medium">
+          Metric definition
+        </Text>
+        <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
+        <Flex direction="row" gap="5">
+          <MetricDrilldownMetricCard metric={metric} type="numerator" />
+          {isRatioMetric(metric) && (
+            <MetricDrilldownMetricCard metric={metric} type="denominator" />
+          )}
+        </Flex>
+      </Flex>
+    </Flex>
   );
 }
 

@@ -1,5 +1,5 @@
 import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -22,6 +22,7 @@ import {
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
 import {
+  PiArrowSquareOut,
   PiCaretCircleRight,
   PiCaretCircleDown,
   PiPushPinFill,
@@ -34,7 +35,6 @@ import {
   SliceLevelsData,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
-import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -44,10 +44,11 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import MetricDrilldownModal, {
   MetricDrilldownTab,
 } from "@/components/MetricDrilldown/MetricDrilldownModal";
+import ResultsTable from "@/components/Experiment/ResultsTable";
 import DataQualityWarning from "./DataQualityWarning";
-import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import { ExperimentTab } from "./TabbedPage";
+import styles from "./CompactResults.module.scss";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -185,6 +186,8 @@ const CompactResults: FC<{
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
   >({});
+  // Stable empty object for modal rows (all metrics expanded)
+  const emptyExpandedMetrics = useMemo(() => ({}), []);
   const toggleExpandedMetric = (
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
@@ -225,6 +228,32 @@ const CompactResults: FC<{
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
+  });
+
+  // Get unfiltered rows for the modal (without sliceTagsFilter)
+  // This ensures all slices are available in the drilldown modal
+  const { rows: unfilteredRows } = useExperimentTableRows({
+    results,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    metricOverrides,
+    ssrPolyfills,
+    customMetricSlices,
+    pinnedMetricSlices,
+    metricTagFilter,
+    metricsFilter,
+    sliceTagsFilter: undefined, // No slice filter for modal
+    sortBy,
+    sortDirection,
+    analysisBarSettings,
+    statsEngine,
+    pValueCorrection,
+    settingsForSnapshotMetrics,
+    shouldShowMetricSlices: true,
+    enableExpansion: true,
+    enablePinning: true,
+    expandedMetrics: emptyExpandedMetrics, // All metrics expanded for modal
   });
 
   const expandedGoals = useMemo(
@@ -348,20 +377,22 @@ const CompactResults: FC<{
   }, [rows, hasSliceFilter, expandedMetrics]);
 
   const handleRowClick = (row: ExperimentTableRow) => {
+    // Always get the main (non-slice) metric row from unfilteredRows for proper data
+    const metricId = row.isSliceRow ? row.parentRowId : row.metric.id;
+    const mainMetricRow = unfilteredRows.find(
+      (r) => !r.isSliceRow && r.metric.id === metricId,
+    );
+
     if (row.isSliceRow) {
-      const targetRow = filteredRows.find(
-        (r) => r.metric.id === row.parentRowId,
-      );
       setOpenMetricDrilldownModalInfo({
-        // FIXME: I don't think this is the best fallback
-        metricRow: targetRow ?? row,
+        metricRow: mainMetricRow ?? row,
         initialTab: "slices",
         // FIXME: What happens if it is not a string and a React element?
         initialSliceSearchTerm: row.label.toString() ?? "",
       });
     } else {
       setOpenMetricDrilldownModalInfo({
-        metricRow: row,
+        metricRow: mainMetricRow ?? row,
         initialTab: "overview",
       });
     }
@@ -592,7 +623,7 @@ const CompactResults: FC<{
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          allRows={rows}
+          allRows={unfilteredRows}
           initialSliceSearchTerm={
             openMetricDrilldownModalInfo.initialSliceSearchTerm
           }
@@ -870,6 +901,7 @@ export function getRenderLabelColumn({
               </div>
             ) : null}
             <span
+              className="metric-label-cell"
               style={{
                 lineHeight: "1.1em",
                 wordBreak: "break-word",
@@ -877,23 +909,62 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Link
-                color="dark"
-                weight="bold"
-                target="_blank"
-                href={getMetricLink(metric.id)}
-              >
-                {label}
-                {metric.managedBy ? (
-                  <HiBadgeCheck
-                    style={{
-                      marginTop: "-2px",
-                      marginLeft: "2px",
-                      color: "var(--blue-11)",
-                    }}
-                  />
-                ) : null}
-              </Link>
+              <Text weight="bold">
+                {typeof label === "string" ? (
+                  <>
+                    {label.includes(" ")
+                      ? label.slice(0, label.lastIndexOf(" ") + 1)
+                      : ""}
+                    <span className={styles.metricLabelLastWord}>
+                      {label.includes(" ")
+                        ? label.slice(label.lastIndexOf(" ") + 1)
+                        : label}
+                      {metric.managedBy ? (
+                        <HiBadgeCheck
+                          style={{
+                            marginTop: "-2px",
+                            marginLeft: "2px",
+                            color: "var(--blue-11)",
+                          }}
+                        />
+                      ) : null}
+                      <a
+                        href={getMetricLink(metric.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.metricExternalLink}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <PiArrowSquareOut size={14} />
+                      </a>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {label}
+                    <span className={styles.metricLabelLastWord}>
+                      {metric.managedBy ? (
+                        <HiBadgeCheck
+                          style={{
+                            marginTop: "-2px",
+                            marginLeft: "2px",
+                            color: "var(--blue-11)",
+                          }}
+                        />
+                      ) : null}
+                      <a
+                        href={getMetricLink(metric.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.metricExternalLink}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <PiArrowSquareOut size={14} />
+                      </a>
+                    </span>
+                  </>
+                )}
+              </Text>
             </span>
           </span>
         </div>

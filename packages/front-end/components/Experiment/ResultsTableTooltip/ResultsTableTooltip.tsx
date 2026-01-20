@@ -111,6 +111,7 @@ export default function ResultsTableTooltip({
         height: TOOLTIP_HEIGHT,
         left,
         top,
+        zIndex: 9999,
       }}
     >
       <div

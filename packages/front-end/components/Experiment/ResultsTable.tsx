@@ -57,6 +57,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import { RadixTheme } from "@/services/RadixTheme";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -130,6 +131,7 @@ export type ResultsTableProps = {
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
   initialVisibleTimeSeriesRowIds?: string[];
+  onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -197,6 +199,7 @@ export default function ResultsTable({
   setDifferenceType,
   totalMetricsCount,
   initialVisibleTimeSeriesRowIds = [],
+  onVisibleTimeSeriesRowIdsChange,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -329,11 +332,14 @@ export default function ResultsTable({
     if (initiallyVisibleRowIdsRef.current.size > 0) {
       initiallyVisibleRowIdsRef.current.clear();
     }
-    setVisibleTimeSeriesRowIds((prev) =>
-      prev.includes(rowId)
+    setVisibleTimeSeriesRowIds((prev) => {
+      const newIds = prev.includes(rowId)
         ? prev.filter((id) => id !== rowId)
-        : [...prev, rowId],
-    );
+        : [...prev, rowId];
+      // Notify parent of the change so it can persist state across tab switches
+      onVisibleTimeSeriesRowIdsChange?.(newIds);
+      return newIds;
+    });
   };
 
   // Ensure we close all of them if dimension changes
@@ -504,6 +510,7 @@ export default function ResultsTable({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
+    TooltipInPortal,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -527,34 +534,40 @@ export default function ResultsTable({
 
   return (
     <div className="position-relative" ref={containerRef}>
-      <CSSTransition
-        key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-        in={
-          tooltipOpen &&
-          tooltipData &&
-          hoveredX !== null &&
-          hoveredY !== null &&
-          hoveredMetricRow !== null &&
-          hoveredVariationRow !== null
-        }
-        timeout={200}
-        classNames="tooltip-animate"
-        appear={true}
-      >
-        <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
-          data={tooltipData}
-          tooltipOpen={tooltipOpen}
-          close={closeTooltip}
-          differenceType={differenceType}
-          onPointerMove={resetTimeout}
-          onClick={resetTimeout}
-          onPointerLeave={leaveRow}
-          isBandit={isBandit}
-          ssrPolyfills={ssrPolyfills}
-        />
-      </CSSTransition>
+      {tooltipOpen &&
+        tooltipData &&
+        hoveredX !== null &&
+        hoveredY !== null &&
+        hoveredMetricRow !== null &&
+        hoveredVariationRow !== null && (
+          <TooltipInPortal
+            key={`${hoveredMetricRow}-${hoveredVariationRow}`}
+            unstyled
+          >
+            <RadixTheme>
+              <CSSTransition
+                in={true}
+                timeout={200}
+                classNames="tooltip-animate"
+                appear={true}
+              >
+                <ResultsTableTooltip
+                  left={hoveredX}
+                  top={hoveredY}
+                  data={tooltipData}
+                  tooltipOpen={tooltipOpen}
+                  close={closeTooltip}
+                  differenceType={differenceType}
+                  onPointerMove={resetTimeout}
+                  onClick={resetTimeout}
+                  onPointerLeave={leaveRow}
+                  isBandit={isBandit}
+                  ssrPolyfills={ssrPolyfills}
+                />
+              </CSSTransition>
+            </RadixTheme>
+          </TooltipInPortal>
+        )}
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>
@@ -767,7 +780,9 @@ export default function ResultsTable({
                 : `${id}-${row.metric.id}-${i}`;
 
               const timeSeriesButton =
-                showTimeSeriesButton && !forceTimeSeriesVisible ? (
+                showTimeSeriesButton &&
+                !forceTimeSeriesVisible &&
+                !(tableRowAxis === "dimension" && !row.isSliceRow) ? (
                   <TimeSeriesButton
                     onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
                     isActive={visibleTimeSeriesRowIds.includes(rowId)}

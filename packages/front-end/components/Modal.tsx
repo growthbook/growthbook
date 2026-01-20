@@ -74,6 +74,7 @@ type ModalProps = {
   borderlessHeader?: boolean;
   backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
+  onBackdropClick?: () => void;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -124,6 +125,7 @@ const Modal: FC<ModalProps> = ({
   borderlessHeader = false,
   backgroundlessHeader = false,
   borderlessFooter = false,
+  onBackdropClick,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
@@ -399,6 +401,16 @@ const Modal: FC<ModalProps> = ({
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
       onClick={(e) => {
+        const target = e.target as HTMLElement;
+        // Don't trigger backdrop click if clicking inside modal content
+        // or inside Radix UI portals (dropdowns, popovers, etc.)
+        const isInsideModalContent = target.closest(".modal-content");
+        const isInsideRadixPortal = target.closest(
+          "[data-radix-popper-content-wrapper]",
+        );
+        if (onBackdropClick && !isInsideModalContent && !isInsideRadixPortal) {
+          onBackdropClick();
+        }
         e.stopPropagation();
       }}
     >

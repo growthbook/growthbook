@@ -126,6 +126,7 @@ export default function MetricName({
   showLink,
   badgeColor,
   officialBadgePosition = "right",
+  officialBadgeLeftGap = true,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -138,6 +139,7 @@ export default function MetricName({
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";
+  officialBadgeLeftGap?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -263,7 +265,7 @@ export default function MetricName({
             disableTooltip={disableTooltip}
             showOfficialLabel={showOfficialLabel}
             color={badgeColor}
-            leftGap={true}
+            leftGap={officialBadgeLeftGap}
           />
         ) : null}
       </span>

@@ -15,7 +15,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
 import { useKeydown } from "@/hooks/useKeydown";
-import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
+import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { MetricDrilldownOwnerTags } from "./MetricDrilldownOwnerTags";
 import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
@@ -112,6 +113,7 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
     });
 
   useKeydown("Escape", close);
+  useBodyScrollLock(true);
 
   return (
     <Tabs defaultValue={initialTab}>
@@ -121,33 +123,46 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
         backgroundlessHeader={true}
         headerClassName={styles.metricDrilldownModalHeader}
         bodyClassName={styles.metricDrilldownModalBody}
+        onBackdropClick={close}
         header={
-          <Text size="6" weight="bold">
-            <MetricName
-              id={metric.id}
-              showOfficialLabel
-              disableTooltip
-              officialBadgePosition="right"
-            />
-          </Text>
+          <Flex align="center" gap="2">
+            <Text size="6" weight="bold">
+              <MetricName
+                id={metric.id}
+                showOfficialLabel
+                disableTooltip
+                officialBadgePosition="right"
+                officialBadgeLeftGap={false}
+              />
+            </Text>
+            <Link
+              href={getMetricLink(metric.id)}
+              target="_blank"
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
+              <PiArrowSquareOut size={16} />
+            </Link>
+          </Flex>
         }
         subHeader={
           <Box mt="3">
-            <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-              {/* TODO: Check how it renders with long / markdown descriptions */}
-              {metric.description}
-            </Text>
+            {metric.description ? (
+              <Text
+                size="2"
+                style={{
+                  color: "var(--color-text-mid)",
+                  display: "block",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {metric.description}
+              </Text>
+            ) : null}
 
             <Flex gap="5" mt="2">
-              <Link
-                href={getMetricLink(metric.id)}
-                target="_blank"
-                weight="bold"
-              >
-                View details <PiArrowSquareOut />
-              </Link>
-
-              <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
+              <MetricDrilldownOwnerTags row={row} />
             </Flex>
 
             <TabsList mt="5">

@@ -1,5 +1,6 @@
 import { FC, useMemo, useState } from "react";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { PiInfo } from "react-icons/pi";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   DifferenceType,
   StatsEngine,
@@ -7,7 +8,7 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
-import { Box, Flex, Text, TextField } from "@radix-ui/themes";
+import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -66,9 +67,9 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   searchTerm,
   setSearchTerm,
   visibleTimeSeriesRowIds,
-  setVisibleTimeSeriesRowIds: _setVisibleTimeSeriesRowIds,
+  setVisibleTimeSeriesRowIds,
 }) => {
-  const { getFactTableById } = useDefinitions();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
   const tableId = `${experimentId}_${metric.id}_slices`;
 
   // Add state for sorting
@@ -79,6 +80,25 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     null,
   );
 
+  // Get the main row (non-slice row) for this metric
+  // Ensure it's a clean row without slice properties for proper rendering
+  const mainRow = useMemo(() => {
+    const row = allRows.find((r) => !r.isSliceRow && r.metric.id === metric.id);
+    if (!row) return undefined;
+
+    // Create a clean row to ensure it renders as a standard metric row
+    return {
+      ...row,
+      label: metric.name,
+      isSliceRow: false,
+      parentRowId: undefined,
+      sliceId: undefined,
+      sliceLevels: undefined,
+      allSliceLevels: undefined,
+      isHiddenByFilter: false,
+    } as ExperimentTableRow;
+  }, [allRows, metric.id, metric.name]);
+
   // Filter to get slice rows for this metric
   // Always show ALL slices in the modal regardless of expansion state in main table
   const sliceRows = useMemo(() => {
@@ -87,7 +107,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     );
   }, [allRows, metric.id]);
 
-  // Filter slices based on search term
+  // Filter slices based on search term (but not the main row)
   const filteredSliceRows = useMemo(() => {
     if (!searchTerm) return sliceRows;
 
@@ -99,34 +119,65 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     });
   }, [sliceRows, searchTerm]);
 
-  // Check if slices are available but not configured
-  const hasSlicesAvailable = useMemo(() => {
-    if (!isFactMetric(metric)) return false;
+  // Sort filtered slices based on sortBy and sortDirection
+  const sortedSliceRows = useMemo(() => {
+    if (!sortBy || !sortDirection) return filteredSliceRows;
 
-    const factTable = getFactTableById(metric.numerator.factTableId);
-    if (!factTable) return false;
+    // Find the first non-baseline variation index to use for sorting
+    const sortVariationIndex =
+      baselineRow === 0 ? 1 : baselineRow === 1 ? 0 : 1;
 
-    // Check if fact table has any auto slice columns
-    const hasAutoSliceColumns = factTable.columns.some(
-      (col) => col.isAutoSliceColumn && !col.deleted,
-    );
+    return [...filteredSliceRows].sort((a, b) => {
+      const aVariation = a.variations[sortVariationIndex];
+      const bVariation = b.variations[sortVariationIndex];
 
-    return hasAutoSliceColumns;
-  }, [metric, getFactTableById]);
+      let aValue: number | undefined;
+      let bValue: number | undefined;
+
+      if (sortBy === "significance") {
+        // For bayesian, use chanceToWin; for frequentist, use pValue
+        if (statsEngine === "bayesian") {
+          aValue = aVariation?.chanceToWin;
+          bValue = bVariation?.chanceToWin;
+        } else {
+          aValue = aVariation?.pValue;
+          bValue = bVariation?.pValue;
+        }
+      } else if (sortBy === "change") {
+        aValue = aVariation?.uplift?.mean;
+        bValue = bVariation?.uplift?.mean;
+      }
+
+      // Handle undefined values - push them to the end
+      if (aValue === undefined && bValue === undefined) return 0;
+      if (aValue === undefined) return 1;
+      if (bValue === undefined) return -1;
+
+      const comparison = aValue - bValue;
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [filteredSliceRows, sortBy, sortDirection, baselineRow, statsEngine]);
+
+  // Combine main row with sorted slices (main row always first)
+  const rowsToRender = useMemo(() => {
+    return mainRow ? [mainRow, ...sortedSliceRows] : sortedSliceRows;
+  }, [mainRow, sortedSliceRows]);
 
   // Determine what to render
   const hasSliceData = sliceRows.length > 0;
-  const showEmptyState = !hasSliceData && hasSlicesAvailable;
+  const showEmptyState = !hasSliceData;
 
   // Render empty state
   if (showEmptyState) {
     return (
-      <EmptyState
-        title="View Analysis for Slices"
-        description="Introducing Slices, metric dimensions that can be pre-defined at a global or local level and reused for granular analysis. Configure Slices in Fact Tables > Edit Columns to make them available in Experiments."
-        leftButton={null}
-        rightButton={null}
-      />
+      <Box mt="7">
+        <EmptyState
+          title="View Analysis for Slices"
+          description="Introducing Slices, metric dimensions that can be pre-defined at a global or local level and reused for granular analysis. Configure Slices in Fact Tables > Edit Columns to make them available in Experiments."
+          leftButton={null}
+          rightButton={null}
+        />
+      </Box>
     );
   }
 
@@ -168,17 +219,28 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         setBaselineRow={setBaselineRow}
         variationFilter={variationFilter}
         setVariationFilter={setVariationFilter}
-        rows={filteredSliceRows}
+        rows={rowsToRender}
         id={tableId}
         resultGroup="secondary"
         tableRowAxis="dimension"
-        labelHeader="Slice"
+        labelHeader={
+          <Flex align="center" gap="1">
+            Slices{" "}
+            <Tooltip content="Configure available slices on Fact Tables > Edit Columns">
+              <Text color="violet">
+                <PiInfo size={15} />
+              </Text>
+            </Tooltip>
+          </Flex>
+        }
         renderLabelColumn={({ label, row }) => (
-          <Flex direction="column" gap="1" ml="4">
+          <Flex direction="column" gap="1" ml={row.isSliceRow ? "4" : "3"}>
             <Text weight="medium">{label}</Text>
-            <Text size="1" style={{ color: "var(--color-text-low)" }}>
-              {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
-            </Text>
+            {row.isSliceRow && (
+              <Text size="1" style={{ color: "var(--color-text-low)" }}>
+                {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
+              </Text>
+            )}
           </Flex>
         )}
         statsEngine={statsEngine}
@@ -197,7 +259,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         sortDirection={sortDirection}
         setSortDirection={setSortDirection}
         initialVisibleTimeSeriesRowIds={visibleTimeSeriesRowIds}
-        totalMetricsCount={sliceRows.length}
+        onVisibleTimeSeriesRowIdsChange={setVisibleTimeSeriesRowIds}
+        totalMetricsCount={rowsToRender.length}
       />
     </Box>
   );
