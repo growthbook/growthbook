@@ -1072,7 +1072,7 @@ export function CaseInsensitiveRegexWarning({
     >
       {hasSDKWithCaseInsensitiveRegex
         ? "Some of your SDK Connections in this project may not support case-insensitive regex."
-        : "None of your SDK Connections in this project support case-insensitive regex. Either upgrade your SDKs to version 1.6.3+ or use case-sensitive regex operators instead."}
+        : "None of your SDK Connections in this project support case-insensitive regex. Either upgrade your SDKs or use case-sensitive regex operators instead."}
       <Link
         href={"/sdks"}
         weight="bold"
