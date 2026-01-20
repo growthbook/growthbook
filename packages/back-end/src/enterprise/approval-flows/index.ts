@@ -6,7 +6,7 @@ import type { ApprovalEntityType } from "shared/validators";
 // This is backend-only as it requires access to the database models
 export const getEntityModel = (
   context: ReqContext | ApiReqContext,
-  entityType: ApprovalEntityType
+  entityType: ApprovalEntityType,
 ) => {
   switch (entityType) {
     case "fact-metric":
@@ -15,4 +15,3 @@ export const getEntityModel = (
       return null;
   }
 };
-  

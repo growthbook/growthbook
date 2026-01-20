@@ -404,8 +404,9 @@ export default function FeatureSettings() {
                               <MultiSelectField
                                 id={`approver-teams-${i}`}
                                 value={
-                                  form.watch(`requireReviews.${i}.approverTeams`) ||
-                                  []
+                                  form.watch(
+                                    `requireReviews.${i}.approverTeams`,
+                                  ) || []
                                 }
                                 onChange={(approverTeams) => {
                                   form.setValue(

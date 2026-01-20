@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
-import { Badge, Flex, Box, Heading, Text } from "@radix-ui/themes";
+import { Flex, Box, Heading, Text } from "@radix-ui/themes";
+import Badge from "@/ui/Badge";
 import { datetime } from "shared/dates";
-import { ApprovalFlowInterface, ApprovalFlowStatus } from "shared/validators";
+import { ApprovalFlowInterface } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
@@ -57,34 +58,26 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     entityType: item.entity.entityType,
   }));
 
-  const {
-    items,
-    searchInputProps,
-    SortableTH,
-    syntaxFilters,
-    setSearchValue,
-  } = useSearch({
-    items: approvalItems,
-    localStorageKey: "approvalFlowList",
-    defaultSortField: "dateCreated",
-    defaultSortDir: -1,
-    searchFields: ["title"],
-    searchTermFilters: {
-      status: (item) => item.status,
-      entityType: (item) => item.entity.entityType,
-      author: (item) => [item.author, getUserDisplay(item.author)],
-    },
-  });
+  const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
+    useSearch({
+      items: approvalItems,
+      localStorageKey: "approvalFlowList",
+      defaultSortField: "dateCreated",
+      defaultSortDir: -1,
+      searchFields: ["title"],
+      searchTermFilters: {
+        status: (item) => item.status,
+        entityType: (item) => item.entity.entityType,
+        author: (item) => [item.author, getUserDisplay(item.author)],
+      },
+    });
 
-  const {
-    dropdownFilterOpen,
-    setDropdownFilterOpen,
-    updateQuery,
-  } = useSearchFiltersBase({
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  });
+  const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
+    useSearchFiltersBase({
+      searchInputProps,
+      syntaxFilters,
+      setSearchValue,
+    });
 
   // Split into requests (open) and history (merged)
   const { openFlows, historyFlows } = useMemo(() => {
@@ -118,12 +111,12 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     // Sort by date descending
     open.sort(
       (a, b) =>
-        new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+        new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
     );
     history.sort(
       (a, b) =>
         new Date(b.mergedAt || b.dateCreated).getTime() -
-        new Date(a.mergedAt || a.dateCreated).getTime()
+        new Date(a.mergedAt || a.dateCreated).getTime(),
     );
 
     return { openFlows: open, historyFlows: history };
@@ -158,15 +151,21 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
     const badge = badges[status] || badges.draft;
 
     return (
-      <Badge color={badge.color} size="1" radius="full">
-        {badge.text}
-      </Badge>
+      <Badge label={badge.text} color={badge.color} variant="soft" />
     );
   };
-    const approvalFlowStatusItems = [
-    { name: "Pending review", id: "pending-review", searchValue: "pending-review" },
+  const approvalFlowStatusItems = [
+    {
+      name: "Pending review",
+      id: "pending-review",
+      searchValue: "pending-review",
+    },
     { name: "Approved", id: "approved", searchValue: "approved" },
-    { name: "Changes requested", id: "changes-requested", searchValue: "changes-requested" },
+    {
+      name: "Changes requested",
+      id: "changes-requested",
+      searchValue: "changes-requested",
+    },
   ];
 
   if (isLoading) {
@@ -245,7 +244,9 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                   <SortableTH field="dateCreated">Date</SortableTH>
                   <th>Comments</th>
                   <th>Requested by</th>
-                  {showEntityType && <SortableTH field="entityType">Type</SortableTH>}
+                  {showEntityType && (
+                    <SortableTH field="entityType">Type</SortableTH>
+                  )}
                   <th>Status</th>
                 </tr>
               </thead>
@@ -273,7 +274,9 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
                         "--"
                       )}
                     </td>
-                    {showEntityType && <td>{getEntityTypeLabel(flow.entity.entityType)}</td>}
+                    {showEntityType && (
+                      <td>{getEntityTypeLabel(flow.entity.entityType)}</td>
+                    )}
                     <td>{getStatusBadge(flow.status)}</td>
                   </tr>
                 ))}
@@ -295,76 +298,80 @@ const ApprovalFlowList: React.FC<ApprovalFlowListProps> = ({
       {/* History Section */}
       {showHistory && (
         <Box>
-        <Heading size="4" mb="3">
-          History
-        </Heading>
+          <Heading size="4" mb="3">
+            History
+          </Heading>
 
-        {paginatedHistory.length === 0 ? (
-          <Text size="2" color="gray">
-            No history found.
-          </Text>
-        ) : (
-          <>
-            <table className="table gbtable">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Comments</th>
-                  <th>Details</th>
-                  <th>Changed by</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedHistory.map((flow) => (
-                  <tr
-                    key={flow.id}
-                    onClick={() => setApprovalFlow(flow)}
-                    style={{ cursor: "pointer" }}
-                    className="hover-highlight"
-                  >
-                    <td>{datetime(flow.mergedAt || flow.dateCreated)}</td>
-                    <td>{flow.reviews.length > 0 ? flow.reviews.length : "--"}</td>
-                    <td>
-                      <Text
-                        size="2"
-                        color="violet"
-                        style={{ cursor: "pointer" }}
-                      >
-                        Diff summary...
-                      </Text>
-                    </td>
-                    <td>
-                      {flow.mergedBy || flow.author ? (
-                        <Flex align="center" gap="2">
-                          <UserAvatar
-                            name={getUserDisplay(flow.mergedBy || flow.author)}
-                            size="sm"
-                            variant="soft"
-                          />
-                          <span>
-                            {getUserDisplay(flow.mergedBy || flow.author)}
-                          </span>
-                        </Flex>
-                      ) : (
-                        "--"
-                      )}
-                    </td>
+          {paginatedHistory.length === 0 ? (
+            <Text size="2" color="gray">
+              No history found.
+            </Text>
+          ) : (
+            <>
+              <table className="table gbtable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Comments</th>
+                    <th>Details</th>
+                    <th>Changed by</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {paginatedHistory.map((flow) => (
+                    <tr
+                      key={flow.id}
+                      onClick={() => setApprovalFlow(flow)}
+                      style={{ cursor: "pointer" }}
+                      className="hover-highlight"
+                    >
+                      <td>{datetime(flow.mergedAt || flow.dateCreated)}</td>
+                      <td>
+                        {flow.reviews.length > 0 ? flow.reviews.length : "--"}
+                      </td>
+                      <td>
+                        <Text
+                          size="2"
+                          color="violet"
+                          style={{ cursor: "pointer" }}
+                        >
+                          Diff summary...
+                        </Text>
+                      </td>
+                      <td>
+                        {flow.mergedBy || flow.author ? (
+                          <Flex align="center" gap="2">
+                            <UserAvatar
+                              name={getUserDisplay(
+                                flow.mergedBy || flow.author,
+                              )}
+                              size="sm"
+                              variant="soft"
+                            />
+                            <span>
+                              {getUserDisplay(flow.mergedBy || flow.author)}
+                            </span>
+                          </Flex>
+                        ) : (
+                          "--"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            {historyFlows.length > ITEMS_PER_PAGE && (
-              <Pagination
-                numItemsTotal={historyFlows.length}
-                perPage={ITEMS_PER_PAGE}
-                currentPage={historyPage}
-                onPageChange={setHistoryPage}
-              />
-            )}
-          </>
-        )}
-      </Box>
+              {historyFlows.length > ITEMS_PER_PAGE && (
+                <Pagination
+                  numItemsTotal={historyFlows.length}
+                  perPage={ITEMS_PER_PAGE}
+                  currentPage={historyPage}
+                  onPageChange={setHistoryPage}
+                />
+              )}
+            </>
+          )}
+        </Box>
       )}
     </Box>
   );

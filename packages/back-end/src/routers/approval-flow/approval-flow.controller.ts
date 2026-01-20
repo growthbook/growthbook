@@ -27,7 +27,7 @@ type GetAllApprovalFlowsResponse = {
  */
 export const getAllApprovalFlows = async (
   req: GetAllApprovalFlowsRequest,
-  res: Response<GetAllApprovalFlowsResponse | ApiErrorResponse>
+  res: Response<GetAllApprovalFlowsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -66,18 +66,13 @@ type CreateApprovalFlowResponse = {
  */
 export const postApprovalFlow = async (
   req: CreateApprovalFlowRequest,
-  res: Response<CreateApprovalFlowResponse | ApiErrorResponse>
+  res: Response<CreateApprovalFlowResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
 
-  const {
-    entityType,
-    entityId,
-    title,
-    description,
-    proposedChanges,
-  } = req.body;
+  const { entityType, entityId, title, description, proposedChanges } =
+    req.body;
 
   const entityModel = getEntityModel(context, entityType);
   if (!entityModel) {
@@ -85,7 +80,9 @@ export const postApprovalFlow = async (
   }
   const originalEntity = await entityModel.getById(entityId);
   if (!originalEntity) {
-    throw new Error(`Original entity not found for entity type: ${entityType} and entity id: ${entityId}`);
+    throw new Error(
+      `Original entity not found for entity type: ${entityType} and entity id: ${entityId}`,
+    );
   }
 
   const approvalFlowModel = new ApprovalFlowModel(context);
@@ -133,7 +130,7 @@ type GetApprovalFlowsByEntityTypeResponse = {
  */
 export const getApprovalFlowsByEntityType = async (
   req: GetApprovalFlowsByEntityTypeRequest,
-  res: Response<GetApprovalFlowsByEntityTypeResponse | ApiErrorResponse>
+  res: Response<GetApprovalFlowsByEntityTypeResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { entityType } = req.params;
@@ -168,7 +165,7 @@ type GetApprovalFlowsByEntityResponse = {
  */
 export const getApprovalFlowsByEntity = async (
   req: GetApprovalFlowsByEntityRequest,
-  res: Response<GetApprovalFlowsByEntityResponse | ApiErrorResponse>
+  res: Response<GetApprovalFlowsByEntityResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { entityType, entityId } = req.params;
@@ -176,7 +173,7 @@ export const getApprovalFlowsByEntity = async (
   const approvalFlowModel = new ApprovalFlowModel(context);
   const approvalFlows = await approvalFlowModel.getByEntity(
     entityType,
-    entityId
+    entityId,
   );
 
   res.status(200).json({
@@ -204,7 +201,7 @@ type GetApprovalFlowResponse = {
  */
 export const getApprovalFlow = async (
   req: GetApprovalFlowRequest,
-  res: Response<GetApprovalFlowResponse | ApiErrorResponse>
+  res: Response<GetApprovalFlowResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -249,7 +246,7 @@ type PostReviewResponse = {
  */
 export const postReview = async (
   req: PostReviewRequest,
-  res: Response<PostReviewResponse | ApiErrorResponse>
+  res: Response<PostReviewResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
@@ -261,7 +258,7 @@ export const postReview = async (
     id,
     userId,
     decision,
-    comment
+    comment,
   );
 
   res.status(200).json({
@@ -294,7 +291,7 @@ type PutProposedChangesResponse = {
  */
 export const putProposedChanges = async (
   req: PutProposedChangesRequest,
-  res: Response<PutProposedChangesResponse | ApiErrorResponse>
+  res: Response<PutProposedChangesResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
@@ -305,7 +302,7 @@ export const putProposedChanges = async (
   const approvalFlow = await approvalFlowModel.updateProposedChanges(
     id,
     proposedChanges,
-    userId
+    userId,
   );
 
   res.status(200).json({
@@ -332,7 +329,7 @@ type PostMergeResponse = {
  */
 export const postMerge = async (
   req: PostMergeRequest,
-  res: Response<PostMergeResponse | ApiErrorResponse>
+  res: Response<PostMergeResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
@@ -377,7 +374,7 @@ type PostCloseResponse = {
  */
 export const postClose = async (
   req: PostCloseRequest,
-  res: Response<PostCloseResponse | ApiErrorResponse>
+  res: Response<PostCloseResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
@@ -410,7 +407,7 @@ type PostReopenResponse = {
  */
 export const postReopen = async (
   req: PostReopenRequest,
-  res: Response<PostReopenResponse | ApiErrorResponse>
+  res: Response<PostReopenResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { userId } = context;
@@ -445,7 +442,7 @@ type GetRevisionHistoryResponse = {
  */
 export const getRevisionHistory = async (
   req: GetRevisionHistoryRequest,
-  res: Response<GetRevisionHistoryResponse | ApiErrorResponse>
+  res: Response<GetRevisionHistoryResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { entityType, entityId } = req.params;
@@ -453,7 +450,7 @@ export const getRevisionHistory = async (
   const approvalFlowModel = new ApprovalFlowModel(context);
   const revisions = await approvalFlowModel.getEntityRevisionHistory(
     entityType,
-    entityId
+    entityId,
   );
 
   res.status(200).json({
@@ -462,4 +459,3 @@ export const getRevisionHistory = async (
 };
 
 // endregion GET /approval-flow/entity/:entityType/:entityId/history
-

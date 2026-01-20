@@ -14,9 +14,7 @@ export function useApprovalFlows() {
   };
 }
 
-export function useApprovalFlowsEntityType(
-  entityType: ApprovalEntityType,
-) {
+export function useApprovalFlowsEntityType(entityType: ApprovalEntityType) {
   const { data, error, mutate } = useApi<{
     approvalFlows: ApprovalFlowInterface[];
   }>(`/approval-flow/entity/${entityType}`);
@@ -42,7 +40,7 @@ export function useApprovalFlowsEntityId(
     error,
     mutate,
   };
-}  
+}
 export function useApprovalFlow(approvalFlowId: string) {
   const { data, error, mutate } = useApi<{
     approvalFlow: ApprovalFlowInterface;
@@ -58,7 +56,7 @@ export function useApprovalFlow(approvalFlowId: string) {
 
 export function useRevisionHistory(
   entityType: ApprovalEntityType,
-  entityId: string
+  entityId: string,
 ) {
   const { data, error, mutate } = useApi<{
     revisions: ApprovalFlowInterface[];
@@ -71,4 +69,3 @@ export function useRevisionHistory(
     mutate,
   };
 }
-

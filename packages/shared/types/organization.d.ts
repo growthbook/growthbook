@@ -56,7 +56,7 @@ export type UserPermissions = {
 };
 export type RequireReview = {
   requireReviewOn: boolean;
-  resetReviewOnChange: boolean; 
+  resetReviewOnChange: boolean;
   adminCanBypass?: boolean;
   approverRoles?: string[];
   condition?: ConditionInterface;

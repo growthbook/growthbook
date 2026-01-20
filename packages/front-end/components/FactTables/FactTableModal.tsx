@@ -153,7 +153,7 @@ export default function FactTableModal({
               method: "PUT",
               body: JSON.stringify(data),
             });
-            
+
             if (res.requiresApproval && res.approvalFlow) {
               track("Create Approval Flow for Fact Table");
               // Navigate to fact table page where they can see the approval flow

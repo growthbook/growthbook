@@ -58,7 +58,7 @@ export type UserContextValue = {
  * Map entity types to their approval flow setting keys in the organization settings
  */
 export const getApprovalFlowKey = (
-  entityType: ApprovalEntityType
+  entityType: ApprovalEntityType,
 ): keyof ApprovalFlow | null => {
   switch (entityType) {
     case "fact-metric":
@@ -73,7 +73,7 @@ export const getApprovalFlowKey = (
  * Empty conditions mean the rule applies to all entities
  */
 export const isEmptyCondition = (
-  condition: ConditionInterface | undefined
+  condition: ConditionInterface | undefined,
 ): boolean => {
   if (!condition) return true;
   // Check if the condition object is empty or only has empty values
@@ -100,7 +100,7 @@ export const isEmptyCondition = (
 export const requiresApprovalForEntity = (
   entityType: ApprovalEntityType,
   entity: ApprovalFlowEntity,
-  approvalFlowSettings?: ApprovalFlowSettings
+  approvalFlowSettings?: ApprovalFlowSettings,
 ): boolean => {
   // Get the approval flow settings key for this entity type
   const approvalFlowKey = getApprovalFlowKey(entityType);
@@ -116,7 +116,7 @@ export const requiresApprovalForEntity = (
 
   // Check if any setting requires approval (without needing the entity yet)
   const hasAnyRequireReviewOn = typedSettings.some(
-    (setting) => setting.requireReviewOn
+    (setting) => setting.requireReviewOn,
   );
   if (!hasAnyRequireReviewOn) {
     return false;
@@ -138,7 +138,7 @@ export const requiresApprovalForEntity = (
 
     const conditionResult = evalCondition(
       entity,
-      setting.condition as ConditionInterface
+      setting.condition as ConditionInterface,
     );
     return conditionResult;
   });
@@ -161,12 +161,12 @@ export const canUserReviewEntity = ({
   userRole,
   userId,
 }: {
-  entityType: ApprovalEntityType,
-  approvalFlow: ApprovalFlowInterface,
-  entity: ApprovalFlowEntity | Record<string, unknown>,
-  approvalFlowSettings: ApprovalFlowSettings | undefined,
-  userRole: string | null | undefined,
-  userId: string,
+  entityType: ApprovalEntityType;
+  approvalFlow: ApprovalFlowInterface;
+  entity: ApprovalFlowEntity | Record<string, unknown>;
+  approvalFlowSettings: ApprovalFlowSettings | undefined;
+  userRole: string | null | undefined;
+  userId: string;
 }): boolean => {
   const approvalFlowKey = getApprovalFlowKey(entityType);
   if (!approvalFlowKey || !approvalFlowSettings) {
@@ -178,7 +178,11 @@ export const canUserReviewEntity = ({
     return false;
   }
   const typedSettings = settings as RequireReviewSetting[];
-  if(approvalFlow.status === "merged" || approvalFlow.status === "closed" || approvalFlow.author === userId) {
+  if (
+    approvalFlow.status === "merged" ||
+    approvalFlow.status === "closed" ||
+    approvalFlow.author === userId
+  ) {
     return false;
   }
   return typedSettings.some((setting) => {
@@ -195,7 +199,7 @@ export const canUserReviewEntity = ({
     if (!isEmptyCondition(setting.condition)) {
       const conditionResult = evalCondition(
         entity,
-        setting.condition as ConditionInterface
+        setting.condition as ConditionInterface,
       );
       if (!conditionResult) {
         return false;
@@ -215,7 +219,7 @@ export const canUserReviewEntity = ({
 export const requiresResetOnChange = (
   entityType: ApprovalEntityType,
   entity: ApprovalFlowEntity | Record<string, unknown>,
-  approvalFlowSettings?: ApprovalFlowSettings
+  approvalFlowSettings?: ApprovalFlowSettings,
 ): boolean => {
   const approvalFlowKey = getApprovalFlowKey(entityType);
   if (!approvalFlowKey || !approvalFlowSettings) {
@@ -254,7 +258,7 @@ export const canAdminBypassApprovalFlow = (
   entity: ApprovalFlowEntity,
   approvalFlowSettings: ApprovalFlowSettings | undefined,
   superAdmin: boolean | undefined,
-  userRole: string | null | undefined
+  userRole: string | null | undefined,
 ): boolean => {
   if (!superAdmin || userRole !== "admin") {
     return false;
@@ -293,7 +297,7 @@ export const canAdminBypassApprovalFlow = (
 export function checkMergeConflicts(
   baseState: Record<string, unknown>,
   liveState: Record<string, unknown>,
-  proposedChanges: Record<string, unknown>
+  proposedChanges: Record<string, unknown>,
 ): MergeResult {
   const conflicts: Conflict[] = [];
   const fieldsChanged: string[] = [];
@@ -337,5 +341,4 @@ export function checkMergeConflicts(
     fieldsChanged,
     mergedChanges: conflicts.length === 0 ? mergedChanges : undefined,
   };
-};
-
+}

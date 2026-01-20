@@ -541,24 +541,24 @@ export async function putMetric(
     }
   });
 
-    // No approval required, update directly
-    await updateMetric(context, metric, updates);
+  // No approval required, update directly
+  await updateMetric(context, metric, updates);
 
-    res.status(200).json({
-      status: 200,
-    });
+  res.status(200).json({
+    status: 200,
+  });
 
-    await req.audit({
-      event: "metric.update",
-      entity: {
-        object: "metric",
-        id: metric.id,
-      },
-      details: auditDetailsUpdate(metric, {
-        ...metric,
-        ...updates,
-      }),
-    });
+  await req.audit({
+    event: "metric.update",
+    entity: {
+      object: "metric",
+      id: metric.id,
+    },
+    details: auditDetailsUpdate(metric, {
+      ...metric,
+      ...updates,
+    }),
+  });
 }
 
 export const getMetricExperimentResults = async (

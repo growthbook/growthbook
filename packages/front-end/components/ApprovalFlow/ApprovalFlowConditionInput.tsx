@@ -3,12 +3,9 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/ui/Checkbox";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ApprovalEntityType } from "shared/validators";
-
-
 
 // The fields that can be targeted for each entity type
 type TargetableField = "tags" | "environments" | "projects";
@@ -145,7 +142,7 @@ export default function ApprovalFlowConditionInput({
 
   const initialState = getInitialState();
   const [conditions, setConditions] = useState<ConditionRow[]>(
-    initialState.conditions
+    initialState.conditions,
   );
 
   // Define available fields based on entity type
@@ -192,7 +189,7 @@ export default function ApprovalFlowConditionInput({
         onChange(json);
       }
     },
-    [onChange]
+    [onChange],
   );
 
   const addCondition = useCallback(() => {
@@ -217,7 +214,7 @@ export default function ApprovalFlowConditionInput({
       const newConditions = conditions.filter((_, i) => i !== index);
       handleChange(newConditions);
     },
-    [conditions, handleChange]
+    [conditions, handleChange],
   );
 
   const updateCondition = useCallback(
@@ -232,13 +229,13 @@ export default function ApprovalFlowConditionInput({
 
       handleChange(newConditions);
     },
-    [conditions, handleChange]
+    [conditions, handleChange],
   );
 
   // Get available fields (excluding already used ones)
   const getAvailableFields = (currentField: TargetableField) => {
     const usedFields = new Set(
-      conditions.map((c) => c.field).filter((f) => f !== currentField)
+      conditions.map((c) => c.field).filter((f) => f !== currentField),
     );
     return fieldConfigs.filter((f) => !usedFields.has(f.field));
   };
@@ -269,7 +266,7 @@ export default function ApprovalFlowConditionInput({
         <Box className="appbox bg-light p-3">
           {conditions.map((condition, index) => {
             const fieldConfig = fieldConfigs.find(
-              (c) => c.field === condition.field
+              (c) => c.field === condition.field,
             );
             if (!fieldConfig) return null;
 

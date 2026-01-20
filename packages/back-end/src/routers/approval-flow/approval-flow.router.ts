@@ -1,19 +1,19 @@
 import express from "express";
-import z from "zod";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawApprovalFlowController from "./approval-flow.controller";
-import { approvalFlowCreateValidator, factMetricValidator, entityValidator } from "shared/validators";
+import {
+  approvalFlowCreateValidator,
+  factMetricValidator,
+} from "shared/validators";
 
 const router = express.Router();
 
 const approvalFlowController = wrapController(rawApprovalFlowController);
 
 // Get all approval flows for the organization
-router.get(
-  "/",
-  approvalFlowController.getAllApprovalFlows
-);
+router.get("/", approvalFlowController.getAllApprovalFlows);
 
 // Create a new approval flow (or update existing one if user has an open draft)
 router.post(
@@ -21,7 +21,7 @@ router.post(
   validateRequestMiddleware({
     body: approvalFlowCreateValidator.strict(),
   }),
-  approvalFlowController.postApprovalFlow
+  approvalFlowController.postApprovalFlow,
 );
 
 // Get approval flows for an entity
@@ -30,21 +30,35 @@ router.get(
   validateRequestMiddleware({
     params: z
       .object({
-        entityType: z.enum(["experiment", "fact-metric", "fact-table", "metric"]),
+        entityType: z.enum([
+          "experiment",
+          "fact-metric",
+          "fact-table",
+          "metric",
+        ]),
         entityId: z.string(),
       })
       .strict(),
   }),
-  approvalFlowController.getApprovalFlowsByEntity
+  approvalFlowController.getApprovalFlowsByEntity,
 );
 
 // Get all approval flows for a specific entity type
 router.get(
   "/entity/:entityType",
   validateRequestMiddleware({
-    params: z.object({ entityType: z.enum(["experiment", "fact-metric", "fact-table", "metric"]) }).strict(),
+    params: z
+      .object({
+        entityType: z.enum([
+          "experiment",
+          "fact-metric",
+          "fact-table",
+          "metric",
+        ]),
+      })
+      .strict(),
   }),
-  approvalFlowController.getApprovalFlowsByEntityType
+  approvalFlowController.getApprovalFlowsByEntityType,
 );
 
 // Get a specific approval flow
@@ -57,7 +71,7 @@ router.get(
       })
       .strict(),
   }),
-  approvalFlowController.getApprovalFlow
+  approvalFlowController.getApprovalFlow,
 );
 
 // Add a review to an approval flow
@@ -76,7 +90,7 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postReview
+  approvalFlowController.postReview,
 );
 
 // Update proposed changes in an approval flow
@@ -91,9 +105,10 @@ router.put(
     body: z
       .object({
         proposedChanges: z.union([factMetricValidator.partial()]),
-      }).strict(),
+      })
+      .strict(),
   }),
-  approvalFlowController.putProposedChanges
+  approvalFlowController.putProposedChanges,
 );
 
 // Merge an approval flow
@@ -106,7 +121,7 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postMerge
+  approvalFlowController.postMerge,
 );
 
 // Close an approval flow
@@ -124,7 +139,7 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postClose
+  approvalFlowController.postClose,
 );
 
 // Reopen a closed approval flow
@@ -137,7 +152,7 @@ router.post(
       })
       .strict(),
   }),
-  approvalFlowController.postReopen
+  approvalFlowController.postReopen,
 );
 
 // Get revision history for an entity
@@ -146,13 +161,17 @@ router.get(
   validateRequestMiddleware({
     params: z
       .object({
-        entityType: z.enum(["experiment", "fact-metric", "fact-table", "metric"]),
+        entityType: z.enum([
+          "experiment",
+          "fact-metric",
+          "fact-table",
+          "metric",
+        ]),
         entityId: z.string(),
       })
       .strict(),
   }),
-  approvalFlowController.getRevisionHistory
+  approvalFlowController.getRevisionHistory,
 );
 
 export { router as approvalFlowRouter };
-

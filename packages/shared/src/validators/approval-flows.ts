@@ -21,9 +21,7 @@ export const reviewDecisionArray = [
 export type ReviewDecision = (typeof reviewDecisionArray)[number];
 
 // Entity types that can have approval flows
-export const approvalEntityTypeArray = [
-  "fact-metric",
-] as const;
+export const approvalEntityTypeArray = ["fact-metric"] as const;
 export type ApprovalEntityType = (typeof approvalEntityTypeArray)[number];
 
 // Review/Comment validator
@@ -72,7 +70,9 @@ export const approvalFlowCreateValidator = z.object({
   description: z.string().optional(),
   entity: entityValidator,
 });
-export type ApprovalFlowCreateInterface = z.infer<typeof approvalFlowCreateValidator>;
+export type ApprovalFlowCreateInterface = z.infer<
+  typeof approvalFlowCreateValidator
+>;
 
 // Base approval flow fields (common to all entity types)
 export const approvalFlowValidator = approvalFlowCreateValidator.extend({
@@ -113,13 +113,14 @@ export type MergeResult = {
 
 // Validator for entities that can have approval flows
 // Includes fields commonly used in approval flow conditions
-export const approvalFlowEntityValidator = z.object({
-  id: z.string(),
-  managedBy: z.enum(["", "api", "admin"]).optional(),
-  verified: z.boolean().optional(),
-  projects: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
-}).strip();
+export const approvalFlowEntityValidator = z
+  .object({
+    id: z.string(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
+    verified: z.boolean().optional(),
+    projects: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+  })
+  .strip();
 
 export type ApprovalFlowEntity = z.infer<typeof approvalFlowEntityValidator>;
-

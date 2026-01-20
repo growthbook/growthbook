@@ -294,9 +294,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             newVal[k] = {
               metrics: existingApprovalFlow.metrics || newVal[k]?.metrics || [],
               factTables:
-                existingApprovalFlow.factTables ||
-                newVal[k]?.factTables ||
-                [],
+                existingApprovalFlow.factTables || newVal[k]?.factTables || [],
               features:
                 existingApprovalFlow.features || newVal[k]?.features || [],
               experiments:
@@ -453,7 +451,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 AI Settings
               </PremiumTooltip>
             </TabsTrigger>
-            <TabsTrigger value="approval-flow"><PremiumTooltip commercialFeature="require-approvals">Approval Flow</PremiumTooltip></TabsTrigger>
+            <TabsTrigger value="approval-flow">
+              <PremiumTooltip commercialFeature="require-approvals">
+                Approval Flow
+              </PremiumTooltip>
+            </TabsTrigger>
           </StickyTabsList>
           <Box mt="4">
             <TabsContent value="experiment">

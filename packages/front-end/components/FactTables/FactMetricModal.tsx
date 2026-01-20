@@ -1635,7 +1635,7 @@ export default function FactMetricModal({
           const previousSlices = existing.metricAutoSlices || [];
           const newSlices = values.metricAutoSlices || [];
           if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
-            if(isApprovalFlow){
+            if (isApprovalFlow) {
               track("metric-auto-slices-updated-approval-flow", {
                 metricId: existing.id,
                 previousSlices: previousSlices,
@@ -1643,44 +1643,48 @@ export default function FactMetricModal({
                 sliceCount: newSlices.length,
               });
             } else {
-            track("metric-auto-slices-updated", {
-              metricId: existing.id,
-              previousSlices: previousSlices,
-              newSlices: newSlices,
-              sliceCount: newSlices.length,
-            });
-          }
+              track("metric-auto-slices-updated", {
+                metricId: existing.id,
+                previousSlices: previousSlices,
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            }
           }
 
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
-          if(isApprovalFlow){
-             await apiCall<{ awaitingApproval?: boolean }>(`/approval-flow/${approvalFlowId}/proposed-changes`, {
-              method: "PUT",
-              body: JSON.stringify({
-                proposedChanges: updatePayload,
-              }),
-            });
+          if (isApprovalFlow) {
+            await apiCall<{ awaitingApproval?: boolean }>(
+              `/approval-flow/${approvalFlowId}/proposed-changes`,
+              {
+                method: "PUT",
+                body: JSON.stringify({
+                  proposedChanges: updatePayload,
+                }),
+              },
+            );
             track("Approval Flow Proposed Changes", trackProps);
             mutateApprovalFlows?.();
           } else {
             if (!existing?.id) {
               throw new Error("Missing fact metric id");
             }
-            const response = await apiCall<{ awaitingApproval?: boolean }>(`/fact-metrics/${existing.id}`, {
-              method: "PUT",
-              body: JSON.stringify(updatePayload),
-            });
-            if(!!response?.awaitingApproval) {
+            const response = await apiCall<{ awaitingApproval?: boolean }>(
+              `/fact-metrics/${existing.id}`,
+              {
+                method: "PUT",
+                body: JSON.stringify(updatePayload),
+              },
+            );
+            if (!!response?.awaitingApproval) {
               track("Awaiting Approval for Fact Metric Update", trackProps);
-
             } else {
               track("Edit Fact Metric", trackProps);
               await mutateDefinitions();
             }
             mutateApprovalFlows?.();
-
           }
         } else {
           // Track auto slices for new metrics
