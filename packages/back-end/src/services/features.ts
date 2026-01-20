@@ -482,7 +482,8 @@ export function queueSDKPayloadRefresh(data: {
   auditContext?: { event: string; model: string; id?: string };
 }) {
   // Capture stack trace at the entry point to include the original caller
-  const stackTrace = new Error().stack || "";
+  const rawStack = new Error().stack || "";
+  const stackTrace = rawStack.replace(/^Error\n/, ""); // Remove "Error" since this is informational only
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
