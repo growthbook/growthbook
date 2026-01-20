@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.6.3** - Jan 20, 2026
+
+- Add support for case-insensitive regex targeting: `$regexi`
+
 ## **1.6.2** - Oct 30, 2025
 
 - Fix bug where `getAllResults` always returned an empty map

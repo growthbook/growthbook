@@ -349,8 +349,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const prerequisiteAlert = hasSDKWithNoPrerequisites ? (
     <Callout status={hasSDKWithPrerequisites ? "warning" : "error"} mb="4">
       {hasSDKWithPrerequisites
-        ? "Some of your SDK Connections in this Project may not support Prerequisite evaluation, which is mandatory for Holdouts."
-        : "None of your SDK Connections in this Project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
+        ? "Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
+        : "None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
       <Link
         href={"/sdks"}
         weight="bold"

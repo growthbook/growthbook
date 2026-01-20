@@ -72,6 +72,10 @@ function operatorToText({
       return `matches the pattern`;
     case "$notRegex":
       return `does not match the pattern`;
+    case "$regexi":
+      return `matches the pattern (case insensitive)`;
+    case "$notRegexi":
+      return `does not match the pattern (case insensitive)`;
   }
   return operator;
 }
