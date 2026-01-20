@@ -272,7 +272,7 @@ export default function BanditSummaryTooltip({
                   percentFormatter.format(data?.probability ?? 0)
                 ) : (
                   <em className="text-muted">
-                    <small>not enough data</small>
+                    <small>Not enough data</small>
                   </em>
                 )}
               </div>

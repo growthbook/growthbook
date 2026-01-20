@@ -528,10 +528,6 @@ export default function ExperimentRefNewFields({
             setCustomMetricSlices={(slices) =>
               form.setValue("customMetricSlices", slices)
             }
-            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
-            setPinnedMetricSlices={(slices) =>
-              form.setValue("pinnedMetricSlices", slices)
-            }
           />
 
           <hr className="mt-4" />

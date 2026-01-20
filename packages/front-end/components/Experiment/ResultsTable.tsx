@@ -31,7 +31,12 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+  SetExperimentSortBy,
+  isFactMetric,
+} from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import {
   ExperimentTableRow,
@@ -117,8 +122,8 @@ export type ResultsTableProps = {
   forceTimeSeriesVisible?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
-  sortBy?: "significance" | "change" | "custom" | null;
-  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
+  sortBy?: ExperimentSortBy;
+  setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   setBaselineRow?: (baselineRow: number) => void;
@@ -370,6 +375,15 @@ export default function ResultsTable({
     return () =>
       globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
+
+  // Watch for table container resizes (e.g., sidebar opening/closing)
+  useEffect(() => {
+    if (!tableContainerRef.current) return;
+    const resizeObserver = new ResizeObserver(() => onResize());
+    resizeObserver.observe(tableContainerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
@@ -504,6 +518,8 @@ export default function ResultsTable({
     tooltipData,
     hoveredX,
     hoveredY,
+    hoveredXViewport,
+    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,
@@ -531,6 +547,15 @@ export default function ResultsTable({
   const appliedPValueCorrection = hasGoalMetrics
     ? (pValueCorrection ?? null)
     : null;
+
+  const [transitionClassName, setTransitionClassName] = useState<string>("");
+  const isTransitioning =
+    tooltipOpen &&
+    tooltipData &&
+    hoveredX !== null &&
+    hoveredY !== null &&
+    hoveredMetricRow !== null &&
+    hoveredVariationRow !== null;
 
   return (
     <div className="position-relative" ref={containerRef}>
@@ -568,6 +593,44 @@ export default function ResultsTable({
             </RadixTheme>
           </TooltipInPortal>
         )}
+      <CSSTransition
+        key={`${hoveredMetricRow}-${hoveredVariationRow}`}
+        in={isTransitioning}
+        timeout={200}
+        classNames="tooltip-animate"
+        appear={true}
+        onEnter={() => setTransitionClassName("tooltip-animate-appear")}
+        onEntering={() =>
+          setTransitionClassName(
+            "tooltip-animate-appear tooltip-animate-appear-active",
+          )
+        }
+        onEntered={() => setTransitionClassName("tooltip-animate-appear-done")}
+        onExit={() => setTransitionClassName("tooltip-animate-exit")}
+        onExiting={() =>
+          setTransitionClassName(
+            "tooltip-animate-exit tooltip-animate-exit-active",
+          )
+        }
+        onExited={() => setTransitionClassName("")}
+      >
+        <div>
+          <ResultsTableTooltip
+            left={hoveredXViewport ?? hoveredX ?? 0}
+            top={hoveredYViewport ?? hoveredY ?? 0}
+            data={tooltipData}
+            tooltipOpen={tooltipOpen}
+            close={closeTooltip}
+            differenceType={differenceType}
+            onPointerMove={resetTimeout}
+            onClick={resetTimeout}
+            onPointerLeave={leaveRow}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
+            transitionClassName={transitionClassName}
+          />
+        </div>
+      </CSSTransition>
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>
@@ -699,11 +762,13 @@ export default function ResultsTable({
                         })}
                         style={{
                           width:
-                            (globalThis.window?.innerWidth ?? 900) < 900
+                            (tableContainerRef?.current?.clientWidth ?? 900) <
+                            900
                               ? graphCellWidth
                               : undefined,
                           minWidth:
-                            (globalThis.window?.innerWidth ?? 900) >= 900
+                            (tableContainerRef?.current?.clientWidth ?? 900) >=
+                            900
                               ? graphCellWidth
                               : undefined,
                         }}

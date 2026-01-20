@@ -15,6 +15,7 @@ const BaseModel = MakeModelClass({
       dateUpdated: z.date(),
       name: z.string(),
       readonlyField: z.string().optional(),
+      testDefaultField: z.string().optional(),
     })
     .strict(),
   collectionName: "test_model",
@@ -65,6 +66,13 @@ class TestModel extends BaseModel<WriteOptions> {
 
   public find(...args) {
     return this._find(...args);
+  }
+
+  public applyDefaultValues(
+    props: Record<string, unknown>,
+    defaults: Record<string, unknown>,
+  ): void {
+    return this._applyDefaultValues(props, defaults);
   }
 
   protected canRead(...args): boolean {
@@ -438,6 +446,136 @@ describe("BaseModel", () => {
     });
     expect(model.afterCreateMock).toHaveBeenCalledWith(expectedModel, {
       option: true,
+    });
+  });
+
+  describe("_applyDefaultValues", () => {
+    it("applies default values when properties are undefined", () => {
+      const model = new TestModel(defaultContext);
+      const props = { name: "test" };
+      const defaults = { testDefaultField: "default", otherField: "other" };
+
+      model.applyDefaultValues(props, defaults);
+
+      expect(props).toEqual({
+        name: "test",
+        testDefaultField: "default",
+        otherField: "other",
+      });
+    });
+
+    it("does not overwrite existing values", () => {
+      const model = new TestModel(defaultContext);
+      const props = { name: "test", testDefaultField: "existing" };
+      const defaults = { testDefaultField: "default" };
+
+      model.applyDefaultValues(props, defaults);
+
+      expect(props.testDefaultField).toBe("existing");
+    });
+
+    it("merges nested objects recursively", () => {
+      const model = new TestModel(defaultContext);
+      const props = {
+        name: "test",
+        nested: {
+          existing: "value",
+        },
+      };
+      const defaults = {
+        testDefaultField: "default",
+        nested: {
+          newField: "newValue",
+          existing: "shouldNotOverwrite",
+        },
+      };
+
+      model.applyDefaultValues(props, defaults);
+
+      expect(props).toEqual({
+        name: "test",
+        testDefaultField: "default",
+        nested: {
+          existing: "value",
+          newField: "newValue",
+        },
+      });
+    });
+
+    it("applies defaults to undefined nested objects", () => {
+      const model = new TestModel(defaultContext);
+      const props = { name: "test" };
+      const defaults = {
+        nested: {
+          field1: "value1",
+          field2: "value2",
+        },
+      };
+
+      model.applyDefaultValues(props, defaults);
+
+      expect(props).toEqual({
+        name: "test",
+        nested: {
+          field1: "value1",
+          field2: "value2",
+        },
+      });
+    });
+
+    it("does not merge arrays", () => {
+      const model = new TestModel(defaultContext);
+      const props = { name: "test", tags: ["existing"] };
+      const defaults = { tags: ["default1", "default2"] };
+
+      model.applyDefaultValues(props, defaults);
+
+      // Arrays should not be merged - existing array is preserved
+      expect(props.tags).toEqual(["existing"]);
+    });
+
+    it("handles null values correctly", () => {
+      const model = new TestModel(defaultContext);
+      const props: Record<string, unknown> = { name: "test", nullable: null };
+      const defaults = { nullable: "default", other: null };
+
+      model.applyDefaultValues(props, defaults);
+
+      // null is not undefined, so it should not be overwritten
+      expect(props.nullable).toBe(null);
+      // null in defaults should be applied if value is undefined
+      expect(props.other).toBe(null);
+    });
+
+    it("handles deeply nested objects", () => {
+      const model = new TestModel(defaultContext);
+      const props = {
+        level1: {
+          level2: {
+            existing: "value",
+          },
+        },
+      };
+      const defaults = {
+        level1: {
+          level2: {
+            newField: "newValue",
+          },
+          otherField: "other",
+        },
+      };
+
+      model.applyDefaultValues(props, defaults);
+
+      expect(props).toEqual({
+        level1: {
+          level2: {
+            existing: "value",
+            newField: "newValue",
+          },
+          otherField: "other",
+        },
+      });
     });
   });
 

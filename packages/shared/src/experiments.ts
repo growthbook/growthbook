@@ -48,6 +48,14 @@ import { stringToBoolean } from "./util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
+export type ExperimentSortBy =
+  | "significance"
+  | "change"
+  | "metrics"
+  | "metricTags"
+  | null;
+export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
+
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
 }
@@ -601,6 +609,23 @@ export function parseSliceQueryString(
   return sliceLevels;
 }
 
+export function isSliceTagSelectAll(tagId: string): {
+  isSelectAll: boolean;
+  column?: string;
+} {
+  // Handle "select all" format: dim:column (no equals sign)
+  if (!tagId.includes("=")) {
+    const columnMatch = tagId.match(/^dim:(.+)$/);
+    if (columnMatch) {
+      return {
+        isSelectAll: true,
+        column: decodeURIComponent(columnMatch[1]),
+      };
+    }
+  }
+  return { isSelectAll: false };
+}
+
 export function parseSliceMetricId(
   metricId: string,
   factTableMap?: Record<string, FactTableInterface>,
@@ -632,27 +657,6 @@ export function parseSliceMetricId(
     baseMetricId,
     sliceLevels: sliceLevels,
   };
-}
-
-/**
- * Generates a pinned slice key for a metric with slice levels
- */
-export function generatePinnedSliceKey(
-  metricId: string,
-  sliceLevels: SliceLevelsData[],
-  location: "goal" | "secondary" | "guardrail",
-): string {
-  // Convert SliceLevelsData to SliceLevel format, handling boolean "null" values
-  const sliceLevelsForString = sliceLevels.map((dl) => {
-    // For boolean "null" slices, use empty array to generate ?dim:col= format
-    const isBooleanNull = dl.levels[0] === "null" && dl.datatype === "boolean";
-
-    const levels = isBooleanNull ? [] : dl.levels;
-    return { column: dl.column, datatype: dl.datatype, levels };
-  });
-
-  const sliceKeyParts = generateSliceStringFromLevels(sliceLevelsForString);
-  return `${metricId}?${sliceKeyParts}&location=${location}`;
 }
 
 export function getMetricLink(id: string): string {
@@ -1441,6 +1445,11 @@ export function createCustomSliceDataForMetric({
   });
 
   return customSliceData;
+}
+
+export function generateSelectAllSliceString(column: string): string {
+  // Generate "select all" tag format: dim:column (no equals sign)
+  return `dim:${encodeURIComponent(column)}`;
 }
 
 export function generateSliceString(slices: Record<string, string>): string {

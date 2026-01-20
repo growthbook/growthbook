@@ -246,7 +246,7 @@ const Modal: FC<ModalProps> = ({
       )}
       <div
         className={`modal-body ${bodyClassName} ${
-          !header && (!close || !showHeaderCloseButton) ? "ml-4 mt-2" : ""
+          !header && (!close || !showHeaderCloseButton) ? "mt-2" : ""
         }`}
         ref={bodyRef}
         style={
@@ -331,7 +331,12 @@ const Modal: FC<ModalProps> = ({
                 className={fullWidthSubmit ? "w-100" : ""}
               >
                 {useRadixButton ? (
-                  <Button type="submit" disabled={!ctaEnabled} ml="3">
+                  <Button
+                    type="submit"
+                    disabled={!ctaEnabled}
+                    ml="3"
+                    color={submitColor === "danger" ? "red" : undefined}
+                  >
                     {cta}
                   </Button>
                 ) : (
