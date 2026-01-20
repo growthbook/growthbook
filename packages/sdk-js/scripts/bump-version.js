@@ -10,6 +10,11 @@ const packageJson = require("../package.json");
 // Get type of version bump from the script input
 const type = process.argv[2];
 
+if (!type) {
+  console.error("Error: Version bump type is required (major, minor, or patch)");
+  process.exit(1);
+}
+
 const version = packageJson.version.split(".");
 let major = parseInt(version[0]);
 let minor = parseInt(version[1]);
