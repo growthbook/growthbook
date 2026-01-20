@@ -283,8 +283,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       {!hasAnySupplementalData && (
         <Box mt="7">
           <EmptyState
-            title="No data available"
-            description="When data becomes available, it will automatically populate this tab. This tab shows comparisons to help you understand the impact of variance reduction techniques like CUPED (regression adjustment using pre-experiment data) and post-stratification (balancing across user attributes), as well as the effect of metric capping and Bayesian priors on your results."
+            description="When analysis adjustments like CUPED, post-stratification, or metric capping are applied, this tab will show the individual impact of each technique on your results."
             leftButton={null}
             rightButton={null}
           />

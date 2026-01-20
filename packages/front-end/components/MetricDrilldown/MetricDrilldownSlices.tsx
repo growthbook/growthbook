@@ -172,10 +172,19 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     return (
       <Box mt="7">
         <EmptyState
-          title="View Analysis for Slices"
-          description="Introducing Slices, metric dimensions that can be pre-defined at a global or local level and reused for granular analysis. Configure Slices in Fact Tables > Edit Columns to make them available in Experiments."
+          title="No Metric Slices Configured"
+          description="Metric slices let you see separate breakdowns for each value of a dimension (e.g., revenue by product type). Configure slices in your Fact Table columns to enable granular analysis."
           leftButton={null}
-          rightButton={null}
+          rightButton={
+            <a
+              href="https://docs.growthbook.io/app/metrics#metric-slices"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline-primary"
+            >
+              Learn more
+            </a>
+          }
         />
       </Box>
     );
