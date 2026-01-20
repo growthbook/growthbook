@@ -67,9 +67,6 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
-      {
-        caseInsensitiveRegex: "≥ v1.6.3",
-      },
     ],
   },
   react: {
@@ -145,9 +142,6 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
-      },
-      {
-        caseInsensitiveRegex: "≥ v1.6.3",
       },
     ],
   },
@@ -295,9 +289,6 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
-      },
-      {
-        caseInsensitiveRegex: "≥ v1.6.3",
       },
     ],
   },
@@ -775,9 +766,6 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
-      },
-      {
-        caseInsensitiveRegex: "≥ v1.6.3",
       },
     ],
   },
