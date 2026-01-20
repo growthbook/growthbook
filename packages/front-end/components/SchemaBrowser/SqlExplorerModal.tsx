@@ -49,11 +49,11 @@ import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
 import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { filterOptions } from "../DataViz/DataVizFilter";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { filterOptions } from "@/components/DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 

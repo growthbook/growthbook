@@ -1,7 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { MakeModelClass } from "./BaseModel";
@@ -19,6 +19,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "safeRollout.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    autoSnapshots: true,
+  },
 });
 
 export class SafeRolloutModel extends BaseClass {
@@ -79,7 +82,7 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
-      await refreshSDKPayloadCache({
+      queueSDKPayloadRefresh({
         context: this.context,
         payloadKeys: getAffectedSDKPayloadKeys(
           [feature],

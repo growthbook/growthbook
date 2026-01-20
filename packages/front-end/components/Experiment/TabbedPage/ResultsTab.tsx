@@ -94,16 +94,13 @@ export default function ResultsTab({
     getDatasourceById,
     getExperimentMetricById,
     getProjectById,
-    metrics,
     datasources,
     getSegmentById,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
 
-  const [allowManualDatasource, setAllowManualDatasource] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-  const [analysisModal, setAnalysisModal] = useState(false);
 
   const router = useRouter();
 
@@ -129,6 +126,7 @@ export default function ResultsTab({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
+    !analysis?.settings ||
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const hasResults =
@@ -168,7 +166,11 @@ export default function ResultsTab({
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"
           ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
-            <Link type="button" onClick={() => setAnalysisModal(true)} mr="2">
+            <Link
+              type="button"
+              onClick={() => setAnalysisSettingsOpen(true)}
+              mr="2"
+            >
               Edit Settings
             </Link>
           ) : null}
@@ -190,6 +192,16 @@ export default function ResultsTab({
                     : "Disabled"
                 }
               />
+              {!organization?.settings?.disablePrecomputedDimensions ? (
+                <Metadata
+                  label="Post-Stratification"
+                  value={
+                    analysis?.settings?.postStratificationEnabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+              ) : null}
               {analysis?.settings?.statsEngine === "frequentist" ? (
                 <Metadata
                   label="Sequential"
@@ -266,7 +278,7 @@ export default function ResultsTab({
       </Box>
 
       <div className="appbox">
-        {analysisSettingsOpen && (
+        {analysisSettingsOpen ? (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
@@ -278,36 +290,25 @@ export default function ResultsTab({
             editVariationIds={false}
             source={"results-tab"}
           />
-        )}
-        {analysisModal && (
-          <AnalysisForm
-            cancel={() => setAnalysisModal(false)}
-            envs={envs}
-            experiment={experiment}
-            mutate={mutate}
-            phase={experiment.phases.length - 1}
-            editDates={true}
-            editVariationIds={false}
-            editMetrics={true}
-            source={"results-tab"}
-          />
-        )}
+        ) : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
-            baselineRow={analysisBarSettings.baselineRow}
+            variationFilter={analysisBarSettings.variationFilter}
             setVariationFilter={(v: number[]) =>
               setAnalysisBarSettings({
                 ...analysisBarSettings,
                 variationFilter: v,
               })
             }
+            baselineRow={analysisBarSettings.baselineRow}
             setBaselineRow={(b: number) =>
               setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
             }
+            differenceType={analysisBarSettings.differenceType}
             setDifferenceType={(d: DifferenceType) =>
               setAnalysisBarSettings({
                 ...analysisBarSettings,
@@ -337,6 +338,8 @@ export default function ResultsTab({
             availableSliceTags={availableSliceTags}
             sliceTagsFilter={sliceTagsFilter}
             setSliceTagsFilter={setSliceTagsFilter}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -347,7 +350,6 @@ export default function ResultsTab({
             <>
               {experiment.status === "running" &&
               !experiment.datasource &&
-              !allowManualDatasource &&
               !snapshot &&
               !experiment.id.match(/^exp_sample/) ? (
                 <div className="alert-cool-1 text-center m-4 px-3 py-4">
@@ -380,19 +382,6 @@ export default function ResultsTab({
                         Connect to your Data
                       </NextLink>
                     </>
-                  )}
-                  {metrics.length > 0 && (
-                    <div className="mt-3">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setAllowManualDatasource(true);
-                        }}
-                      >
-                        continue with manually entered data
-                      </a>
-                    </div>
                   )}
                 </div>
               ) : (

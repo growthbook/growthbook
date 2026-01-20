@@ -57,7 +57,6 @@ export type ExperimentSnapshotReportArgs = {
       levels: string[];
     }>;
   }>;
-  pinnedMetricSlices?: string[];
 };
 
 export interface ExperimentReportMetadata {

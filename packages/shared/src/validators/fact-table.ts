@@ -72,6 +72,9 @@ export const createFactTablePropsValidator = z
     name: z.string(),
     description: z.string(),
     id: z.string().optional(),
+    // Only being used in middleware for fact-table POST request so this is safe
+    // Remove when we migrate FactTableModel to use the BaseModel and use defaultValues instead
+    // eslint-disable-next-line no-restricted-syntax
     owner: z.string().default(""),
     projects: z.array(z.string()),
     tags: z.array(z.string()),
@@ -206,13 +209,13 @@ export const factMetricValidator = z
     id: z.string(),
     organization: z.string(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    owner: z.string().default(""),
+    owner: z.string(),
     datasource: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
     description: z.string(),
-    tags: z.array(z.string()).default([]),
+    tags: z.array(z.string()),
     projects: z.array(z.string()),
     inverse: z.boolean(),
     archived: z.boolean().optional(),

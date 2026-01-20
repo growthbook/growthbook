@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
-import Modal from "../Modal";
-import Tooltip from "../Tooltip/Tooltip";
+import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";
 
 interface Props {

@@ -14,7 +14,7 @@ import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/update
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
-import { usingFileConfig } from "../init/config";
+import { usingFileConfig } from "back-end/src/init/config";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(

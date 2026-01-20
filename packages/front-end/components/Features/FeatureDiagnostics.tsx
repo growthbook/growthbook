@@ -22,7 +22,7 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import EmptyState from "@/components/EmptyState";
 import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
-import Field from "../Forms/Field";
+import Field from "@/components/Forms/Field";
 
 type FeatureEvaluationDiagnosticsQueryResults = {
   rows?: FeatureEvalDiagnosticsQueryResponseRows;

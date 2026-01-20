@@ -22,8 +22,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import MultipleExposuresCard from "../HealthTab/MultipleExposuresCard";
-import SRMCard from "../HealthTab/SRMCard";
+import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
+import SRMCard from "@/components/HealthTab/SRMCard";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 

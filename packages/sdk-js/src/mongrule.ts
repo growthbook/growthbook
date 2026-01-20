@@ -60,11 +60,15 @@ function getPath(obj: TestedObj, path: string) {
 }
 
 // Transform a regex string into a real RegExp object
-function getRegex(regex: string): RegExp {
-  if (!_regexCache[regex]) {
-    _regexCache[regex] = new RegExp(regex.replace(/([^\\])\//g, "$1\\/"));
+function getRegex(regex: string, insensitive = false): RegExp {
+  const cacheKey = `${regex}${insensitive ? "/i" : ""}`;
+  if (!_regexCache[cacheKey]) {
+    _regexCache[cacheKey] = new RegExp(
+      regex.replace(/([^\\])\//g, "$1\\/"),
+      insensitive ? "i" : undefined,
+    );
   }
-  return _regexCache[regex];
+  return _regexCache[cacheKey];
 }
 
 // Evaluate a single value against a condition
@@ -217,6 +221,12 @@ function evalOperatorCondition(
     case "$regex":
       try {
         return getRegex(expected).test(actual);
+      } catch (e) {
+        return false;
+      }
+    case "$regexi":
+      try {
+        return getRegex(expected, true).test(actual);
       } catch (e) {
         return false;
       }

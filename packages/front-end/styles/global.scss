@@ -2626,6 +2626,11 @@ li.metrics a span img {
 
 html {
   scroll-behavior: smooth;
+  body[data-scroll-locked] {
+    // fixes Radix <Select> layout shift
+    overflow: visible !important;
+    margin-right: 0 !important;
+  }
 }
 
 .variationWrap {
@@ -2823,13 +2828,9 @@ html {
   position: relative;
   .gb-multi-select__menu-portal {
     position: absolute !important;
-    top: -8px;
-    left: 290px;
-    @media (max-width: 520px) {
-      top: auto;
-      bottom: 0;
-      left: 0;
-    }
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 

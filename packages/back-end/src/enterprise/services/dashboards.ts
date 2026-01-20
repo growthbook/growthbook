@@ -44,6 +44,7 @@ export async function updateExperimentDashboards({
   mainSnapshot,
   statsEngine,
   regressionAdjustmentEnabled,
+  postStratificationEnabled,
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
@@ -53,6 +54,7 @@ export async function updateExperimentDashboards({
   mainSnapshot: ExperimentSnapshotInterface;
   statsEngine: StatsEngine;
   regressionAdjustmentEnabled: boolean;
+  postStratificationEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -128,13 +130,14 @@ export async function updateExperimentDashboards({
         isEqual,
       );
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings(
+    const analysisSettings = getDefaultExperimentAnalysisSettings({
       statsEngine,
       experiment,
-      context.org,
+      organization: context.org,
       regressionAdjustmentEnabled,
-      snapshotSettings.dimensionId,
-    );
+      postStratificationEnabled,
+      dimension: snapshotSettings.dimensionId,
+    });
 
     const queryRunner = await createSnapshot({
       experiment,

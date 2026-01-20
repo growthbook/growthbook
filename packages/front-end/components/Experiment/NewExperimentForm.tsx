@@ -81,7 +81,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -324,7 +324,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
-      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
