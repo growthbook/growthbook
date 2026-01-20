@@ -19,7 +19,6 @@ import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { isDefined } from "shared/util";
 
-import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -45,6 +44,9 @@ interface Props {
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
   close: () => void;
+  // for quick editing a block from the display view
+  initialEditBlockIndex?: number | null;
+  onConsumeInitialEditBlockIndex?: () => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -54,12 +56,11 @@ export default function DashboardWorkspace({
   mutate,
   submitDashboard,
   close,
+  initialEditBlockIndex,
+  onConsumeInitialEditBlockIndex,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
-  const isIncrementalRefreshExperiment =
-    useExperimentPipelineMode(experiment ?? undefined) ===
-    "incremental-refresh";
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");
     for (const element of bodyElements) {
@@ -141,6 +142,16 @@ export default function DashboardWorkspace({
   const [editingBlockIndex, setEditingBlockIndex] = useState<
     number | undefined
   >(undefined);
+
+  // One-shot edit (and scroll) when entering edit mode from a specific block.
+  useEffect(() => {
+    if (!isDefined(initialEditBlockIndex)) return;
+    // This sets editingBlockIndex + stagedEditBlock and relies on DashboardBlock's
+    // existing scroll behavior (it scrolls when `editingBlock` is true).
+    editBlock(initialEditBlockIndex);
+    onConsumeInitialEditBlockIndex?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditBlockIndex, onConsumeInitialEditBlockIndex]);
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
     undefined,
   );
@@ -157,13 +168,7 @@ export default function DashboardWorkspace({
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     // Validate that the block type is allowed for this dashboard type
-    if (
-      !isBlockTypeAllowed(
-        bType,
-        isGeneralDashboard,
-        isIncrementalRefreshExperiment,
-      )
-    ) {
+    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
       );
@@ -371,7 +376,6 @@ export default function DashboardWorkspace({
               blocks={effectiveBlocks}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
-              isIncrementalRefreshExperiment={isIncrementalRefreshExperiment}
               enableAutoUpdates={dashboard.enableAutoUpdates}
               nextUpdate={
                 experiment

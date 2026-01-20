@@ -2626,6 +2626,11 @@ li.metrics a span img {
 
 html {
   scroll-behavior: smooth;
+  body[data-scroll-locked] {
+    // fixes Radix <Select> layout shift
+    overflow: visible !important;
+    margin-right: 0 !important;
+  }
 }
 
 .variationWrap {

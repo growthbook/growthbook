@@ -36,7 +36,7 @@ async function run() {
   // Step 3: Add additional named types for easier access
   // Export each schema as a named type
   output += `import { z } from "zod";\n`;
-  output += `import * as openApiValidators from "shared/src/validators/openapi";\n`;
+  output += `import * as openApiValidators from "shared/validators";\n`;
   output += "\n// Schemas\n";
   Object.entries(api.components.schemas).forEach(([k, schema]) => {
     if (schema.$skipValidatorGeneration) return;

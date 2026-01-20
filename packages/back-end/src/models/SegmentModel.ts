@@ -16,6 +16,9 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+  },
 });
 
 type LegacySegmentInterface = Omit<SegmentInterface, "type"> & {

@@ -6,7 +6,7 @@ export const segmentValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    owner: z.string().default(""),
+    owner: z.string(),
     datasource: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
