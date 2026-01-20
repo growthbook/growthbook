@@ -25,8 +25,8 @@ export const getExperimentResults = createApiRequestHandler(
   if (!snapshot) {
     throw new Error("No results found for that experiment");
   }
-  const metricGroups = await req.context.models.metricGroups.getAll();
-  const result = toSnapshotApiInterface(experiment, snapshot, metricGroups);
+
+  const result = toSnapshotApiInterface(experiment, snapshot);
 
   return {
     result: result,

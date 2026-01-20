@@ -153,11 +153,12 @@ export async function getRecentQuery(
   organization: string,
   datasource: string,
   query: string,
-  onlyOriginalQueries: boolean = true,
+  cacheTTLMins?: number,
 ) {
   // Only re-use queries that were run recently
+  const ttl = cacheTTLMins ?? QUERY_CACHE_TTL_MINS;
   const earliestDate = new Date();
-  earliestDate.setMinutes(earliestDate.getMinutes() - QUERY_CACHE_TTL_MINS);
+  earliestDate.setMinutes(earliestDate.getMinutes() - ttl);
 
   const latest = await QueryModel.find({
     organization,
@@ -168,7 +169,7 @@ export async function getRecentQuery(
     },
     status: { $in: ["succeeded", "running"] },
     // Exclude documents that were created from cache - they shouldn't reset the TTL
-    ...(onlyOriginalQueries && { cachedQueryUsed: { $exists: false } }),
+    cachedQueryUsed: { $exists: false },
   })
     .sort({ createdAt: -1 })
     .limit(1);

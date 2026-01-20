@@ -19,6 +19,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "safeRollout.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    autoSnapshots: true,
+  },
 });
 
 export class SafeRolloutModel extends BaseClass {

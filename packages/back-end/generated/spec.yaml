@@ -2140,11 +2140,6 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                pinnedMetricSlices:
-                  type: array
-                  items:
-                    type: string
-                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
                 customMetricSlices:
                   type: array
                   items:
@@ -2507,11 +2502,6 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
-                pinnedMetricSlices:
-                  type: array
-                  items:
-                    type: string
-                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
                 customMetricSlices:
                   type: array
                   items:
@@ -6231,13 +6221,6 @@ paths:
                                   type: string
                                 experimentId:
                                   type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -6265,16 +6248,30 @@ paths:
                                       - Chance to Win
                                       - CI Graph
                                       - Lift
-                                pinSource:
-                                  type: string
-                                  enum:
-                                    - experiment
-                                    - custom
-                                    - none
-                                pinnedMetricSlices:
+                                sliceTagsFilter:
                                   type: array
                                   items:
                                     type: string
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -6284,13 +6281,15 @@ paths:
                                 - description
                                 - snapshotId
                                 - experimentId
-                                - metricSelector
+                                - metricIds
                                 - variationIds
                                 - baselineRow
                                 - differenceType
                                 - columnsFilter
-                                - pinSource
-                                - pinnedMetricSlices
+                                - sliceTagsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -6317,13 +6316,6 @@ paths:
                                   type: array
                                   items:
                                     type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -6351,6 +6343,26 @@ paths:
                                       - Chance to Win
                                       - CI Graph
                                       - Lift
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -6362,11 +6374,14 @@ paths:
                                 - experimentId
                                 - dimensionId
                                 - dimensionValues
-                                - metricSelector
+                                - metricIds
                                 - variationIds
                                 - baselineRow
                                 - differenceType
                                 - columnsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -6389,13 +6404,6 @@ paths:
                                   type: string
                                 metricId:
                                   type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -6404,16 +6412,36 @@ paths:
                                   type: array
                                   items:
                                     type: string
-                                pinSource:
+                                differenceType:
                                   type: string
                                   enum:
-                                    - experiment
-                                    - custom
-                                    - none
-                                pinnedMetricSlices:
+                                    - absolute
+                                    - relative
+                                    - scaled
+                                sliceTagsFilter:
                                   type: array
                                   items:
                                     type: string
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -6423,10 +6451,13 @@ paths:
                                 - description
                                 - snapshotId
                                 - experimentId
-                                - metricSelector
+                                - metricIds
                                 - variationIds
-                                - pinSource
-                                - pinnedMetricSlices
+                                - differenceType
+                                - sliceTagsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -6678,13 +6709,6 @@ paths:
                                 type: string
                               experimentId:
                                 type: string
-                              metricSelector:
-                                type: string
-                                enum:
-                                  - experiment-goal
-                                  - experiment-secondary
-                                  - experiment-guardrail
-                                  - custom
                               metricIds:
                                 type: array
                                 items:
@@ -6712,29 +6736,45 @@ paths:
                                     - Chance to Win
                                     - CI Graph
                                     - Lift
-                              pinSource:
-                                type: string
-                                enum:
-                                  - experiment
-                                  - custom
-                                  - none
-                              pinnedMetricSlices:
+                              sliceTagsFilter:
                                 type: array
                                 items:
                                   type: string
+                              metricTagFilter:
+                                type: array
+                                items:
+                                  type: string
+                              sortBy:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - metrics
+                                      - metricTags
+                                      - significance
+                                      - change
+                                  - type: 'null'
+                              sortDirection:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - asc
+                                      - desc
+                                  - type: 'null'
                             required:
                               - type
                               - title
                               - description
                               - snapshotId
                               - experimentId
-                              - metricSelector
+                              - metricIds
                               - variationIds
                               - baselineRow
                               - differenceType
                               - columnsFilter
-                              - pinSource
-                              - pinnedMetricSlices
+                              - sliceTagsFilter
+                              - metricTagFilter
+                              - sortBy
+                              - sortDirection
                             additionalProperties: false
                           - type: object
                             properties:
@@ -6755,13 +6795,6 @@ paths:
                                 type: array
                                 items:
                                   type: string
-                              metricSelector:
-                                type: string
-                                enum:
-                                  - experiment-goal
-                                  - experiment-secondary
-                                  - experiment-guardrail
-                                  - custom
                               metricIds:
                                 type: array
                                 items:
@@ -6789,6 +6822,26 @@ paths:
                                     - Chance to Win
                                     - CI Graph
                                     - Lift
+                              metricTagFilter:
+                                type: array
+                                items:
+                                  type: string
+                              sortBy:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - metrics
+                                      - metricTags
+                                      - significance
+                                      - change
+                                  - type: 'null'
+                              sortDirection:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - asc
+                                      - desc
+                                  - type: 'null'
                             required:
                               - type
                               - title
@@ -6797,11 +6850,14 @@ paths:
                               - experimentId
                               - dimensionId
                               - dimensionValues
-                              - metricSelector
+                              - metricIds
                               - variationIds
                               - baselineRow
                               - differenceType
                               - columnsFilter
+                              - metricTagFilter
+                              - sortBy
+                              - sortDirection
                             additionalProperties: false
                           - type: object
                             properties:
@@ -6818,13 +6874,6 @@ paths:
                                 type: string
                               metricId:
                                 type: string
-                              metricSelector:
-                                type: string
-                                enum:
-                                  - experiment-goal
-                                  - experiment-secondary
-                                  - experiment-guardrail
-                                  - custom
                               metricIds:
                                 type: array
                                 items:
@@ -6833,26 +6882,49 @@ paths:
                                 type: array
                                 items:
                                   type: string
-                              pinSource:
+                              differenceType:
                                 type: string
                                 enum:
-                                  - experiment
-                                  - custom
-                                  - none
-                              pinnedMetricSlices:
+                                  - absolute
+                                  - relative
+                                  - scaled
+                              sliceTagsFilter:
                                 type: array
                                 items:
                                   type: string
+                              metricTagFilter:
+                                type: array
+                                items:
+                                  type: string
+                              sortBy:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - metrics
+                                      - metricTags
+                                      - significance
+                                      - change
+                                  - type: 'null'
+                              sortDirection:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - asc
+                                      - desc
+                                  - type: 'null'
                             required:
                               - type
                               - title
                               - description
                               - snapshotId
                               - experimentId
-                              - metricSelector
+                              - metricIds
                               - variationIds
-                              - pinSource
-                              - pinnedMetricSlices
+                              - differenceType
+                              - sliceTagsFilter
+                              - metricTagFilter
+                              - sortBy
+                              - sortDirection
                             additionalProperties: false
                           - type: object
                             properties:
@@ -7153,13 +7225,6 @@ paths:
                                 type: string
                               experimentId:
                                 type: string
-                              metricSelector:
-                                type: string
-                                enum:
-                                  - experiment-goal
-                                  - experiment-secondary
-                                  - experiment-guardrail
-                                  - custom
                               metricIds:
                                 type: array
                                 items:
@@ -7187,16 +7252,30 @@ paths:
                                     - Chance to Win
                                     - CI Graph
                                     - Lift
-                              pinSource:
-                                type: string
-                                enum:
-                                  - experiment
-                                  - custom
-                                  - none
-                              pinnedMetricSlices:
+                              sliceTagsFilter:
                                 type: array
                                 items:
                                   type: string
+                              metricTagFilter:
+                                type: array
+                                items:
+                                  type: string
+                              sortBy:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - metrics
+                                      - metricTags
+                                      - significance
+                                      - change
+                                  - type: 'null'
+                              sortDirection:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - asc
+                                      - desc
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -7206,13 +7285,15 @@ paths:
                               - description
                               - snapshotId
                               - experimentId
-                              - metricSelector
+                              - metricIds
                               - variationIds
                               - baselineRow
                               - differenceType
                               - columnsFilter
-                              - pinSource
-                              - pinnedMetricSlices
+                              - sliceTagsFilter
+                              - metricTagFilter
+                              - sortBy
+                              - sortDirection
                             additionalProperties: false
                           - type: object
                             properties:
@@ -7239,13 +7320,6 @@ paths:
                                 type: array
                                 items:
                                   type: string
-                              metricSelector:
-                                type: string
-                                enum:
-                                  - experiment-goal
-                                  - experiment-secondary
-                                  - experiment-guardrail
-                                  - custom
                               metricIds:
                                 type: array
                                 items:
@@ -7273,6 +7347,26 @@ paths:
                                     - Chance to Win
                                     - CI Graph
                                     - Lift
+                              metricTagFilter:
+                                type: array
+                                items:
+                                  type: string
+                              sortBy:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - metrics
+                                      - metricTags
+                                      - significance
+                                      - change
+                                  - type: 'null'
+                              sortDirection:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - asc
+                                      - desc
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -7284,11 +7378,14 @@ paths:
                               - experimentId
                               - dimensionId
                               - dimensionValues
-                              - metricSelector
+                              - metricIds
                               - variationIds
                               - baselineRow
                               - differenceType
                               - columnsFilter
+                              - metricTagFilter
+                              - sortBy
+                              - sortDirection
                             additionalProperties: false
                           - type: object
                             properties:
@@ -7311,13 +7408,6 @@ paths:
                                 type: string
                               metricId:
                                 type: string
-                              metricSelector:
-                                type: string
-                                enum:
-                                  - experiment-goal
-                                  - experiment-secondary
-                                  - experiment-guardrail
-                                  - custom
                               metricIds:
                                 type: array
                                 items:
@@ -7326,16 +7416,36 @@ paths:
                                 type: array
                                 items:
                                   type: string
-                              pinSource:
+                              differenceType:
                                 type: string
                                 enum:
-                                  - experiment
-                                  - custom
-                                  - none
-                              pinnedMetricSlices:
+                                  - absolute
+                                  - relative
+                                  - scaled
+                              sliceTagsFilter:
                                 type: array
                                 items:
                                   type: string
+                              metricTagFilter:
+                                type: array
+                                items:
+                                  type: string
+                              sortBy:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - metrics
+                                      - metricTags
+                                      - significance
+                                      - change
+                                  - type: 'null'
+                              sortDirection:
+                                anyOf:
+                                  - type: string
+                                    enum:
+                                      - asc
+                                      - desc
+                                  - type: 'null'
                             required:
                               - organization
                               - id
@@ -7345,10 +7455,13 @@ paths:
                               - description
                               - snapshotId
                               - experimentId
-                              - metricSelector
+                              - metricIds
                               - variationIds
-                              - pinSource
-                              - pinnedMetricSlices
+                              - differenceType
+                              - sliceTagsFilter
+                              - metricTagFilter
+                              - sortBy
+                              - sortDirection
                             additionalProperties: false
                           - type: object
                             properties:
@@ -7681,13 +7794,6 @@ paths:
                                   type: string
                                 experimentId:
                                   type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -7715,16 +7821,30 @@ paths:
                                       - Chance to Win
                                       - CI Graph
                                       - Lift
-                                pinSource:
-                                  type: string
-                                  enum:
-                                    - experiment
-                                    - custom
-                                    - none
-                                pinnedMetricSlices:
+                                sliceTagsFilter:
                                   type: array
                                   items:
                                     type: string
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -7734,13 +7854,15 @@ paths:
                                 - description
                                 - snapshotId
                                 - experimentId
-                                - metricSelector
+                                - metricIds
                                 - variationIds
                                 - baselineRow
                                 - differenceType
                                 - columnsFilter
-                                - pinSource
-                                - pinnedMetricSlices
+                                - sliceTagsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -7767,13 +7889,6 @@ paths:
                                   type: array
                                   items:
                                     type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -7801,6 +7916,26 @@ paths:
                                       - Chance to Win
                                       - CI Graph
                                       - Lift
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -7812,11 +7947,14 @@ paths:
                                 - experimentId
                                 - dimensionId
                                 - dimensionValues
-                                - metricSelector
+                                - metricIds
                                 - variationIds
                                 - baselineRow
                                 - differenceType
                                 - columnsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -7839,13 +7977,6 @@ paths:
                                   type: string
                                 metricId:
                                   type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -7854,16 +7985,36 @@ paths:
                                   type: array
                                   items:
                                     type: string
-                                pinSource:
+                                differenceType:
                                   type: string
                                   enum:
-                                    - experiment
-                                    - custom
-                                    - none
-                                pinnedMetricSlices:
+                                    - absolute
+                                    - relative
+                                    - scaled
+                                sliceTagsFilter:
                                   type: array
                                   items:
                                     type: string
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -7873,10 +8024,13 @@ paths:
                                 - description
                                 - snapshotId
                                 - experimentId
-                                - metricSelector
+                                - metricIds
                                 - variationIds
-                                - pinSource
-                                - pinnedMetricSlices
+                                - differenceType
+                                - sliceTagsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -8100,13 +8254,6 @@ paths:
                             type: string
                           experimentId:
                             type: string
-                          metricSelector:
-                            type: string
-                            enum:
-                              - experiment-goal
-                              - experiment-secondary
-                              - experiment-guardrail
-                              - custom
                           metricIds:
                             type: array
                             items:
@@ -8134,29 +8281,45 @@ paths:
                                 - Chance to Win
                                 - CI Graph
                                 - Lift
-                          pinSource:
-                            type: string
-                            enum:
-                              - experiment
-                              - custom
-                              - none
-                          pinnedMetricSlices:
+                          sliceTagsFilter:
                             type: array
                             items:
                               type: string
+                          metricTagFilter:
+                            type: array
+                            items:
+                              type: string
+                          sortBy:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - metrics
+                                  - metricTags
+                                  - significance
+                                  - change
+                              - type: 'null'
+                          sortDirection:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - asc
+                                  - desc
+                              - type: 'null'
                         required:
                           - type
                           - title
                           - description
                           - snapshotId
                           - experimentId
-                          - metricSelector
+                          - metricIds
                           - variationIds
                           - baselineRow
                           - differenceType
                           - columnsFilter
-                          - pinSource
-                          - pinnedMetricSlices
+                          - sliceTagsFilter
+                          - metricTagFilter
+                          - sortBy
+                          - sortDirection
                         additionalProperties: false
                       - type: object
                         properties:
@@ -8177,13 +8340,6 @@ paths:
                             type: array
                             items:
                               type: string
-                          metricSelector:
-                            type: string
-                            enum:
-                              - experiment-goal
-                              - experiment-secondary
-                              - experiment-guardrail
-                              - custom
                           metricIds:
                             type: array
                             items:
@@ -8211,6 +8367,26 @@ paths:
                                 - Chance to Win
                                 - CI Graph
                                 - Lift
+                          metricTagFilter:
+                            type: array
+                            items:
+                              type: string
+                          sortBy:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - metrics
+                                  - metricTags
+                                  - significance
+                                  - change
+                              - type: 'null'
+                          sortDirection:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - asc
+                                  - desc
+                              - type: 'null'
                         required:
                           - type
                           - title
@@ -8219,11 +8395,14 @@ paths:
                           - experimentId
                           - dimensionId
                           - dimensionValues
-                          - metricSelector
+                          - metricIds
                           - variationIds
                           - baselineRow
                           - differenceType
                           - columnsFilter
+                          - metricTagFilter
+                          - sortBy
+                          - sortDirection
                         additionalProperties: false
                       - type: object
                         properties:
@@ -8240,13 +8419,6 @@ paths:
                             type: string
                           metricId:
                             type: string
-                          metricSelector:
-                            type: string
-                            enum:
-                              - experiment-goal
-                              - experiment-secondary
-                              - experiment-guardrail
-                              - custom
                           metricIds:
                             type: array
                             items:
@@ -8255,26 +8427,49 @@ paths:
                             type: array
                             items:
                               type: string
-                          pinSource:
+                          differenceType:
                             type: string
                             enum:
-                              - experiment
-                              - custom
-                              - none
-                          pinnedMetricSlices:
+                              - absolute
+                              - relative
+                              - scaled
+                          sliceTagsFilter:
                             type: array
                             items:
                               type: string
+                          metricTagFilter:
+                            type: array
+                            items:
+                              type: string
+                          sortBy:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - metrics
+                                  - metricTags
+                                  - significance
+                                  - change
+                              - type: 'null'
+                          sortDirection:
+                            anyOf:
+                              - type: string
+                                enum:
+                                  - asc
+                                  - desc
+                              - type: 'null'
                         required:
                           - type
                           - title
                           - description
                           - snapshotId
                           - experimentId
-                          - metricSelector
+                          - metricIds
                           - variationIds
-                          - pinSource
-                          - pinnedMetricSlices
+                          - differenceType
+                          - sliceTagsFilter
+                          - metricTagFilter
+                          - sortBy
+                          - sortDirection
                         additionalProperties: false
                       - type: object
                         properties:
@@ -8670,13 +8865,6 @@ paths:
                                   type: string
                                 experimentId:
                                   type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -8704,16 +8892,30 @@ paths:
                                       - Chance to Win
                                       - CI Graph
                                       - Lift
-                                pinSource:
-                                  type: string
-                                  enum:
-                                    - experiment
-                                    - custom
-                                    - none
-                                pinnedMetricSlices:
+                                sliceTagsFilter:
                                   type: array
                                   items:
                                     type: string
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -8723,13 +8925,15 @@ paths:
                                 - description
                                 - snapshotId
                                 - experimentId
-                                - metricSelector
+                                - metricIds
                                 - variationIds
                                 - baselineRow
                                 - differenceType
                                 - columnsFilter
-                                - pinSource
-                                - pinnedMetricSlices
+                                - sliceTagsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -8756,13 +8960,6 @@ paths:
                                   type: array
                                   items:
                                     type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -8790,6 +8987,26 @@ paths:
                                       - Chance to Win
                                       - CI Graph
                                       - Lift
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -8801,11 +9018,14 @@ paths:
                                 - experimentId
                                 - dimensionId
                                 - dimensionValues
-                                - metricSelector
+                                - metricIds
                                 - variationIds
                                 - baselineRow
                                 - differenceType
                                 - columnsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -8828,13 +9048,6 @@ paths:
                                   type: string
                                 metricId:
                                   type: string
-                                metricSelector:
-                                  type: string
-                                  enum:
-                                    - experiment-goal
-                                    - experiment-secondary
-                                    - experiment-guardrail
-                                    - custom
                                 metricIds:
                                   type: array
                                   items:
@@ -8843,16 +9056,36 @@ paths:
                                   type: array
                                   items:
                                     type: string
-                                pinSource:
+                                differenceType:
                                   type: string
                                   enum:
-                                    - experiment
-                                    - custom
-                                    - none
-                                pinnedMetricSlices:
+                                    - absolute
+                                    - relative
+                                    - scaled
+                                sliceTagsFilter:
                                   type: array
                                   items:
                                     type: string
+                                metricTagFilter:
+                                  type: array
+                                  items:
+                                    type: string
+                                sortBy:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - metrics
+                                        - metricTags
+                                        - significance
+                                        - change
+                                    - type: 'null'
+                                sortDirection:
+                                  anyOf:
+                                    - type: string
+                                      enum:
+                                        - asc
+                                        - desc
+                                    - type: 'null'
                               required:
                                 - organization
                                 - id
@@ -8862,10 +9095,13 @@ paths:
                                 - description
                                 - snapshotId
                                 - experimentId
-                                - metricSelector
+                                - metricIds
                                 - variationIds
-                                - pinSource
-                                - pinnedMetricSlices
+                                - differenceType
+                                - sliceTagsFilter
+                                - metricTagFilter
+                                - sortBy
+                                - sortDirection
                               additionalProperties: false
                             - type: object
                               properties:
@@ -9224,13 +9460,6 @@ paths:
                                     type: string
                                   experimentId:
                                     type: string
-                                  metricSelector:
-                                    type: string
-                                    enum:
-                                      - experiment-goal
-                                      - experiment-secondary
-                                      - experiment-guardrail
-                                      - custom
                                   metricIds:
                                     type: array
                                     items:
@@ -9258,16 +9487,30 @@ paths:
                                         - Chance to Win
                                         - CI Graph
                                         - Lift
-                                  pinSource:
-                                    type: string
-                                    enum:
-                                      - experiment
-                                      - custom
-                                      - none
-                                  pinnedMetricSlices:
+                                  sliceTagsFilter:
                                     type: array
                                     items:
                                       type: string
+                                  metricTagFilter:
+                                    type: array
+                                    items:
+                                      type: string
+                                  sortBy:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - metrics
+                                          - metricTags
+                                          - significance
+                                          - change
+                                      - type: 'null'
+                                  sortDirection:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - asc
+                                          - desc
+                                      - type: 'null'
                                 required:
                                   - organization
                                   - id
@@ -9277,13 +9520,15 @@ paths:
                                   - description
                                   - snapshotId
                                   - experimentId
-                                  - metricSelector
+                                  - metricIds
                                   - variationIds
                                   - baselineRow
                                   - differenceType
                                   - columnsFilter
-                                  - pinSource
-                                  - pinnedMetricSlices
+                                  - sliceTagsFilter
+                                  - metricTagFilter
+                                  - sortBy
+                                  - sortDirection
                                 additionalProperties: false
                               - type: object
                                 properties:
@@ -9310,13 +9555,6 @@ paths:
                                     type: array
                                     items:
                                       type: string
-                                  metricSelector:
-                                    type: string
-                                    enum:
-                                      - experiment-goal
-                                      - experiment-secondary
-                                      - experiment-guardrail
-                                      - custom
                                   metricIds:
                                     type: array
                                     items:
@@ -9344,6 +9582,26 @@ paths:
                                         - Chance to Win
                                         - CI Graph
                                         - Lift
+                                  metricTagFilter:
+                                    type: array
+                                    items:
+                                      type: string
+                                  sortBy:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - metrics
+                                          - metricTags
+                                          - significance
+                                          - change
+                                      - type: 'null'
+                                  sortDirection:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - asc
+                                          - desc
+                                      - type: 'null'
                                 required:
                                   - organization
                                   - id
@@ -9355,11 +9613,14 @@ paths:
                                   - experimentId
                                   - dimensionId
                                   - dimensionValues
-                                  - metricSelector
+                                  - metricIds
                                   - variationIds
                                   - baselineRow
                                   - differenceType
                                   - columnsFilter
+                                  - metricTagFilter
+                                  - sortBy
+                                  - sortDirection
                                 additionalProperties: false
                               - type: object
                                 properties:
@@ -9382,13 +9643,6 @@ paths:
                                     type: string
                                   metricId:
                                     type: string
-                                  metricSelector:
-                                    type: string
-                                    enum:
-                                      - experiment-goal
-                                      - experiment-secondary
-                                      - experiment-guardrail
-                                      - custom
                                   metricIds:
                                     type: array
                                     items:
@@ -9397,16 +9651,36 @@ paths:
                                     type: array
                                     items:
                                       type: string
-                                  pinSource:
+                                  differenceType:
                                     type: string
                                     enum:
-                                      - experiment
-                                      - custom
-                                      - none
-                                  pinnedMetricSlices:
+                                      - absolute
+                                      - relative
+                                      - scaled
+                                  sliceTagsFilter:
                                     type: array
                                     items:
                                       type: string
+                                  metricTagFilter:
+                                    type: array
+                                    items:
+                                      type: string
+                                  sortBy:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - metrics
+                                          - metricTags
+                                          - significance
+                                          - change
+                                      - type: 'null'
+                                  sortDirection:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - asc
+                                          - desc
+                                      - type: 'null'
                                 required:
                                   - organization
                                   - id
@@ -9416,10 +9690,13 @@ paths:
                                   - description
                                   - snapshotId
                                   - experimentId
-                                  - metricSelector
+                                  - metricIds
                                   - variationIds
-                                  - pinSource
-                                  - pinnedMetricSlices
+                                  - differenceType
+                                  - sliceTagsFilter
+                                  - metricTagFilter
+                                  - sortBy
+                                  - sortDirection
                                 additionalProperties: false
                               - type: object
                                 properties:
@@ -9782,13 +10059,6 @@ paths:
                                     type: string
                                   experimentId:
                                     type: string
-                                  metricSelector:
-                                    type: string
-                                    enum:
-                                      - experiment-goal
-                                      - experiment-secondary
-                                      - experiment-guardrail
-                                      - custom
                                   metricIds:
                                     type: array
                                     items:
@@ -9816,16 +10086,30 @@ paths:
                                         - Chance to Win
                                         - CI Graph
                                         - Lift
-                                  pinSource:
-                                    type: string
-                                    enum:
-                                      - experiment
-                                      - custom
-                                      - none
-                                  pinnedMetricSlices:
+                                  sliceTagsFilter:
                                     type: array
                                     items:
                                       type: string
+                                  metricTagFilter:
+                                    type: array
+                                    items:
+                                      type: string
+                                  sortBy:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - metrics
+                                          - metricTags
+                                          - significance
+                                          - change
+                                      - type: 'null'
+                                  sortDirection:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - asc
+                                          - desc
+                                      - type: 'null'
                                 required:
                                   - organization
                                   - id
@@ -9835,13 +10119,15 @@ paths:
                                   - description
                                   - snapshotId
                                   - experimentId
-                                  - metricSelector
+                                  - metricIds
                                   - variationIds
                                   - baselineRow
                                   - differenceType
                                   - columnsFilter
-                                  - pinSource
-                                  - pinnedMetricSlices
+                                  - sliceTagsFilter
+                                  - metricTagFilter
+                                  - sortBy
+                                  - sortDirection
                                 additionalProperties: false
                               - type: object
                                 properties:
@@ -9868,13 +10154,6 @@ paths:
                                     type: array
                                     items:
                                       type: string
-                                  metricSelector:
-                                    type: string
-                                    enum:
-                                      - experiment-goal
-                                      - experiment-secondary
-                                      - experiment-guardrail
-                                      - custom
                                   metricIds:
                                     type: array
                                     items:
@@ -9902,6 +10181,26 @@ paths:
                                         - Chance to Win
                                         - CI Graph
                                         - Lift
+                                  metricTagFilter:
+                                    type: array
+                                    items:
+                                      type: string
+                                  sortBy:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - metrics
+                                          - metricTags
+                                          - significance
+                                          - change
+                                      - type: 'null'
+                                  sortDirection:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - asc
+                                          - desc
+                                      - type: 'null'
                                 required:
                                   - organization
                                   - id
@@ -9913,11 +10212,14 @@ paths:
                                   - experimentId
                                   - dimensionId
                                   - dimensionValues
-                                  - metricSelector
+                                  - metricIds
                                   - variationIds
                                   - baselineRow
                                   - differenceType
                                   - columnsFilter
+                                  - metricTagFilter
+                                  - sortBy
+                                  - sortDirection
                                 additionalProperties: false
                               - type: object
                                 properties:
@@ -9940,13 +10242,6 @@ paths:
                                     type: string
                                   metricId:
                                     type: string
-                                  metricSelector:
-                                    type: string
-                                    enum:
-                                      - experiment-goal
-                                      - experiment-secondary
-                                      - experiment-guardrail
-                                      - custom
                                   metricIds:
                                     type: array
                                     items:
@@ -9955,16 +10250,36 @@ paths:
                                     type: array
                                     items:
                                       type: string
-                                  pinSource:
+                                  differenceType:
                                     type: string
                                     enum:
-                                      - experiment
-                                      - custom
-                                      - none
-                                  pinnedMetricSlices:
+                                      - absolute
+                                      - relative
+                                      - scaled
+                                  sliceTagsFilter:
                                     type: array
                                     items:
                                       type: string
+                                  metricTagFilter:
+                                    type: array
+                                    items:
+                                      type: string
+                                  sortBy:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - metrics
+                                          - metricTags
+                                          - significance
+                                          - change
+                                      - type: 'null'
+                                  sortDirection:
+                                    anyOf:
+                                      - type: string
+                                        enum:
+                                          - asc
+                                          - desc
+                                      - type: 'null'
                                 required:
                                   - organization
                                   - id
@@ -9974,10 +10289,13 @@ paths:
                                   - description
                                   - snapshotId
                                   - experimentId
-                                  - metricSelector
+                                  - metricIds
                                   - variationIds
-                                  - pinSource
-                                  - pinnedMetricSlices
+                                  - differenceType
+                                  - sliceTagsFilter
+                                  - metricTagFilter
+                                  - sortBy
+                                  - sortDirection
                                 additionalProperties: false
                               - type: object
                                 properties:
@@ -10419,13 +10737,6 @@ components:
                     type: string
                   experimentId:
                     type: string
-                  metricSelector:
-                    type: string
-                    enum:
-                      - experiment-goal
-                      - experiment-secondary
-                      - experiment-guardrail
-                      - custom
                   metricIds:
                     type: array
                     items:
@@ -10453,16 +10764,30 @@ components:
                         - Chance to Win
                         - CI Graph
                         - Lift
-                  pinSource:
-                    type: string
-                    enum:
-                      - experiment
-                      - custom
-                      - none
-                  pinnedMetricSlices:
+                  sliceTagsFilter:
                     type: array
                     items:
                       type: string
+                  metricTagFilter:
+                    type: array
+                    items:
+                      type: string
+                  sortBy:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - metrics
+                          - metricTags
+                          - significance
+                          - change
+                      - type: 'null'
+                  sortDirection:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - asc
+                          - desc
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -10472,13 +10797,15 @@ components:
                   - description
                   - snapshotId
                   - experimentId
-                  - metricSelector
+                  - metricIds
                   - variationIds
                   - baselineRow
                   - differenceType
                   - columnsFilter
-                  - pinSource
-                  - pinnedMetricSlices
+                  - sliceTagsFilter
+                  - metricTagFilter
+                  - sortBy
+                  - sortDirection
                 additionalProperties: false
               - type: object
                 properties:
@@ -10505,13 +10832,6 @@ components:
                     type: array
                     items:
                       type: string
-                  metricSelector:
-                    type: string
-                    enum:
-                      - experiment-goal
-                      - experiment-secondary
-                      - experiment-guardrail
-                      - custom
                   metricIds:
                     type: array
                     items:
@@ -10539,6 +10859,26 @@ components:
                         - Chance to Win
                         - CI Graph
                         - Lift
+                  metricTagFilter:
+                    type: array
+                    items:
+                      type: string
+                  sortBy:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - metrics
+                          - metricTags
+                          - significance
+                          - change
+                      - type: 'null'
+                  sortDirection:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - asc
+                          - desc
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -10550,11 +10890,14 @@ components:
                   - experimentId
                   - dimensionId
                   - dimensionValues
-                  - metricSelector
+                  - metricIds
                   - variationIds
                   - baselineRow
                   - differenceType
                   - columnsFilter
+                  - metricTagFilter
+                  - sortBy
+                  - sortDirection
                 additionalProperties: false
               - type: object
                 properties:
@@ -10577,13 +10920,6 @@ components:
                     type: string
                   metricId:
                     type: string
-                  metricSelector:
-                    type: string
-                    enum:
-                      - experiment-goal
-                      - experiment-secondary
-                      - experiment-guardrail
-                      - custom
                   metricIds:
                     type: array
                     items:
@@ -10592,16 +10928,36 @@ components:
                     type: array
                     items:
                       type: string
-                  pinSource:
+                  differenceType:
                     type: string
                     enum:
-                      - experiment
-                      - custom
-                      - none
-                  pinnedMetricSlices:
+                      - absolute
+                      - relative
+                      - scaled
+                  sliceTagsFilter:
                     type: array
                     items:
                       type: string
+                  metricTagFilter:
+                    type: array
+                    items:
+                      type: string
+                  sortBy:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - metrics
+                          - metricTags
+                          - significance
+                          - change
+                      - type: 'null'
+                  sortDirection:
+                    anyOf:
+                      - type: string
+                        enum:
+                          - asc
+                          - desc
+                      - type: 'null'
                 required:
                   - organization
                   - id
@@ -10611,10 +10967,13 @@ components:
                   - description
                   - snapshotId
                   - experimentId
-                  - metricSelector
+                  - metricIds
                   - variationIds
-                  - pinSource
-                  - pinnedMetricSlices
+                  - differenceType
+                  - sliceTagsFilter
+                  - metricTagFilter
+                  - sortBy
+                  - sortDirection
                 additionalProperties: false
               - type: object
                 properties:
@@ -12033,11 +12392,6 @@ components:
         customFields:
           type: object
           additionalProperties: true
-        pinnedMetricSlices:
-          type: array
-          items:
-            type: string
-          description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
         customMetricSlices:
           type: array
           items:
