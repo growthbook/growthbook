@@ -142,6 +142,22 @@ function DashboardsTab({
       ? temporaryDashboard
       : dashboards.find((d) => d.id === dashboardId);
 
+  // Update temporary dashboard without making API call
+  const updateTemporaryDashboard = useCallback(
+    (update: {
+      blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+    }) => {
+      setTemporaryDashboard((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+        } as DashboardInterface;
+      });
+    },
+    [],
+  );
+
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
@@ -286,6 +302,7 @@ function DashboardsTab({
               setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
             }
           }}
+          updateTemporaryDashboard={updateTemporaryDashboard}
           isTabActive={isTabActive}
           dashboardFirstSave={dashboardFirstSave}
           initialEditBlockIndex={initialEditBlockIndex}
