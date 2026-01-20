@@ -283,6 +283,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       {!hasAnySupplementalData && (
         <Box mt="7">
           <EmptyState
+            title="No Analysis Adjustments"
             description="When analysis adjustments like CUPED, post-stratification, or metric capping are applied, this tab will show the individual impact of each technique on your results."
             leftButton={null}
             rightButton={null}

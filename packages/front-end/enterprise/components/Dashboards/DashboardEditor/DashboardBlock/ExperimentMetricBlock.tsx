@@ -170,12 +170,6 @@ export default function ExperimentMetricBlock({
             resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
             labelHeader={`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             renderLabelColumn={getRenderLabelColumn({
-              pinnedMetricSlices: effectivePinnedMetricSlices,
-              togglePinnedMetricSlice: isEditing
-                ? togglePinnedMetricSlice
-                : undefined,
-              statsEngine,
-              hideDetails: false,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,

@@ -74,7 +74,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
 
   // Add state for sorting
   const [sortBy, setSortBy] = useState<
-    "significance" | "change" | "custom" | null
+    "significance" | "change" | "metrics" | "metricTags" | null
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     null,

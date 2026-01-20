@@ -262,11 +262,7 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn({
-                      className: "",
-                      statsEngine,
-                      hideDetails,
-                    })({
+                    {getRenderLabelColumn({})({
                       label: table.metric.name,
                       metric: table.metric,
                       row: table.rows[0],

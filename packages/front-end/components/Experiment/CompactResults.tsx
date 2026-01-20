@@ -85,7 +85,6 @@ const CompactResults: FC<{
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  pinnedMetricSlices?: string[];
   customMetricSlices?: Array<{
     slices: Array<{
       column: string;
@@ -143,7 +142,6 @@ const CompactResults: FC<{
   noTooltip,
   experimentType,
   ssrPolyfills,
-  pinnedMetricSlices,
   customMetricSlices,
   sortBy,
   setSortBy,
@@ -231,7 +229,6 @@ const CompactResults: FC<{
     metricOverrides,
     ssrPolyfills,
     customMetricSlices,
-    pinnedMetricSlices,
     metricTagFilter,
     metricsFilter,
     sliceTagsFilter: undefined, // No slice filter for modal
@@ -243,7 +240,6 @@ const CompactResults: FC<{
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
-    enablePinning: true,
     expandedMetrics: emptyExpandedMetrics, // All metrics expanded for modal
   });
 

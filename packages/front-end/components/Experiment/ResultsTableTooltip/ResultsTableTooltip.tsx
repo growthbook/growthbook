@@ -112,11 +112,9 @@ export default function ResultsTableTooltip({
         position: "fixed",
         width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
         height: TOOLTIP_HEIGHT,
-        left,
-        top,
-        zIndex: 9999,
         left: typeof window !== "undefined" ? left : 0,
         top: typeof window !== "undefined" ? top : 0,
+        zIndex: 9999,
         pointerEvents: "none",
       }}
     >
