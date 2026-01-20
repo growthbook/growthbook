@@ -20,6 +20,7 @@ export type Operator =
   | "$lt"
   | "$lte"
   | "$regex"
+  | "$regexi"
   | "$ne"
   | "$eq"
   | "$size"
@@ -52,6 +53,7 @@ export type OperatorConditionValue = {
   $lt?: number | string;
   $lte?: number | string;
   $regex?: string;
+  $regexi?: string;
   $ne?: number | string;
   $eq?: number | string;
   $exists?: boolean;
