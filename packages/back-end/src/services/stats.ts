@@ -462,12 +462,14 @@ function parseStatsEngineResult({
 
   const experimentReportResults: ExperimentReportResults[] = [];
   // TODO fix for dimension slices and move to health query
-  const multipleExposures = Math.max(
-    ...queryResults.map(
-      (q) =>
-        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
-    ),
+  const multipleExposuresValues = queryResults.map(
+    (q) =>
+      q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
   );
+  const multipleExposures =
+    multipleExposuresValues.length > 0
+      ? Math.max(...multipleExposuresValues)
+      : 0;
 
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<string, ExperimentReportResultDimension> =
