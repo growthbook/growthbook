@@ -11,16 +11,16 @@ overrides:
 
 patchedDependencies:
   '@ephys/zod-to-ts@2.3.2':
-    hash: gmqhichmhm246swj7562vworwm
+    hash: 9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a
     path: patches/@ephys__zod-to-ts@2.3.2.patch
   '@types/presto-client@1.0.2':
-    hash: bv7qcx3y4ykvpvp7odxdubazpe
+    hash: 20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef
     path: patches/@types__presto-client@1.0.2.patch
   agenda@5.0.0:
-    hash: 22tgtweyd5fuhnx2hdyly6czu4
+    hash: 043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8
     path: patches/agenda@5.0.0.patch
   presto-client@1.1.0:
-    hash: mbeixnouradmtp2ryk6uz642k4
+    hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
     path: patches/presto-client@1.1.0.patch
 
 importers:
@@ -156,7 +156,7 @@ importers:
         version: 1.23.0(@opentelemetry/api@1.4.1)
       '@opentelemetry/sdk-logs':
         specifier: ~0.50.0
-        version: 0.50.0(@opentelemetry/api-logs@0.50.0)(@opentelemetry/api@1.4.1)
+        version: 0.50.0(@opentelemetry/api-logs@0.57.2)(@opentelemetry/api@1.4.1)
       '@opentelemetry/sdk-metrics':
         specifier: ~1.23.0
         version: 1.23.0(@opentelemetry/api@1.4.1)
@@ -183,10 +183,10 @@ importers:
         version: 4.1.0
       '@types/presto-client':
         specifier: ^1.0.2
-        version: 1.0.2(patch_hash=bv7qcx3y4ykvpvp7odxdubazpe)
+        version: 1.0.2(patch_hash=20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef)
       agenda:
         specifier: ^5.0.0
-        version: 5.0.0(patch_hash=22tgtweyd5fuhnx2hdyly6czu4)
+        version: 5.0.0(patch_hash=043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8)
       ai:
         specifier: ^5.0.115
         version: 5.0.115(zod@4.1.12)
@@ -336,7 +336,7 @@ importers:
         version: 10.5.0
       presto-client:
         specifier: ^1.1.0
-        version: 1.1.0(patch_hash=mbeixnouradmtp2ryk6uz642k4)
+        version: 1.1.0(patch_hash=9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb)
       proxy-agent:
         specifier: ^6.5.0
         version: 6.5.0
@@ -376,34 +376,6 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.1.12
-    optionalDependencies:
-      '@apidevtools/swagger-parser':
-        specifier: ^10.1.0
-        version: 10.1.0(openapi-types@12.1.3)
-      concurrently:
-        specifier: ^7.4.0
-        version: 7.4.0
-      json-schema-to-zod:
-        specifier: ^2.6.1
-        version: 2.6.1
-      nodemon:
-        specifier: ^2.0.20
-        version: 2.0.20
-      objects-to-csv:
-        specifier: ^1.3.6
-        version: 1.3.6
-      openapi-typescript:
-        specifier: ^6.1.1
-        version: 6.1.1
-      pino-pretty:
-        specifier: ^13.0.0
-        version: 13.0.0
-      swagger-cli:
-        specifier: ^4.0.4
-        version: 4.0.4(openapi-types@12.1.3)
-      ts-node:
-        specifier: ^10.9.1
-        version: 10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)
     devDependencies:
       '@slack/types':
         specifier: ^1.7.0
@@ -543,6 +515,34 @@ importers:
       typescript:
         specifier: 5.7.3
         version: 5.7.3
+    optionalDependencies:
+      '@apidevtools/swagger-parser':
+        specifier: ^10.1.0
+        version: 10.1.0(openapi-types@12.1.3)
+      concurrently:
+        specifier: ^7.4.0
+        version: 7.4.0
+      json-schema-to-zod:
+        specifier: ^2.6.1
+        version: 2.6.1
+      nodemon:
+        specifier: ^2.0.20
+        version: 2.0.20
+      objects-to-csv:
+        specifier: ^1.3.6
+        version: 1.3.6
+      openapi-typescript:
+        specifier: ^6.1.1
+        version: 6.1.1
+      pino-pretty:
+        specifier: ^13.0.0
+        version: 13.0.0
+      swagger-cli:
+        specifier: ^4.0.4
+        version: 4.0.4(openapi-types@12.1.3)
+      ts-node:
+        specifier: ^10.9.1
+        version: 10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)
 
   packages/front-end:
     dependencies:
@@ -828,10 +828,6 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.1.12
-    optionalDependencies:
-      '@babel/core':
-        specifier: ^7.26.10
-        version: 7.28.5
     devDependencies:
       '@swc/cli':
         specifier: ^0.1.57
@@ -908,6 +904,10 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.8.6)(jsdom@16.7.0)(sass@1.94.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+    optionalDependencies:
+      '@babel/core':
+        specifier: ^7.26.10
+        version: 7.28.5
 
   packages/sdk-js:
     dependencies:
@@ -1129,7 +1129,7 @@ importers:
     devDependencies:
       '@ephys/zod-to-ts':
         specifier: ^2.3.2
-        version: 2.3.2(patch_hash=gmqhichmhm246swj7562vworwm)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)
+        version: 2.3.2(patch_hash=9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)
       '@swc-node/register':
         specifier: ^1.9.0
         version: 1.9.0(@swc/core@1.3.4)(@swc/types@0.1.25)(typescript@5.7.3)
@@ -16960,7 +16960,7 @@ snapshots:
 
   '@emotion/weak-memoize@0.2.5': {}
 
-  '@ephys/zod-to-ts@2.3.2(patch_hash=gmqhichmhm246swj7562vworwm)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)':
+  '@ephys/zod-to-ts@2.3.2(patch_hash=9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a)(babel-plugin-macros@3.1.0)(typescript@5.7.3)(zod@4.1.12)':
     dependencies:
       '@sequelize/utils': 7.0.0-alpha.47
       dedent: 1.7.1(babel-plugin-macros@3.1.0)
@@ -18741,6 +18741,13 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/api-logs': 0.50.0
+      '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.4.1)
+      '@opentelemetry/resources': 1.23.0(@opentelemetry/api@1.4.1)
+
+  '@opentelemetry/sdk-logs@0.50.0(@opentelemetry/api-logs@0.57.2)(@opentelemetry/api@1.4.1)':
+    dependencies:
+      '@opentelemetry/api': 1.4.1
+      '@opentelemetry/api-logs': 0.57.2
       '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.4.1)
       '@opentelemetry/resources': 1.23.0(@opentelemetry/api@1.4.1)
 
@@ -21749,7 +21756,7 @@ snapshots:
       pg-protocol: 1.6.0
       pg-types: 2.2.0
 
-  '@types/presto-client@1.0.2(patch_hash=bv7qcx3y4ykvpvp7odxdubazpe)': {}
+  '@types/presto-client@1.0.2(patch_hash=20780fa0030ee3a8a3f0b1333ae07e63c6fc7e12fc1986b7c9fefefe0a9b42ef)': {}
 
   '@types/prettier@2.3.2': {}
 
@@ -22341,7 +22348,7 @@ snapshots:
 
   acorn@8.15.0: {}
 
-  agenda@5.0.0(patch_hash=22tgtweyd5fuhnx2hdyly6czu4):
+  agenda@5.0.0(patch_hash=043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8):
     dependencies:
       cron-parser: 3.5.0
       date.js: 0.3.3
@@ -28256,7 +28263,7 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  presto-client@1.1.0(patch_hash=mbeixnouradmtp2ryk6uz642k4):
+  presto-client@1.1.0(patch_hash=9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb):
     dependencies:
       follow-redirects: 1.15.6(debug@4.4.3)
     transitivePeerDependencies:
