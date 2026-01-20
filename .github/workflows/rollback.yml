@@ -50,11 +50,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
+      - name: Deploy ECR image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
+      - name: Deploy ECR image to ECS for GrowthBook Cloud API Python
         run: aws ecs update-service --cluster prod-api-python --service prod-api-python --force-new-deployment --region us-east-1
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
+      - name: Deploy ECR image to ECS for GrowthBook Cloud API Jobs
         run: aws ecs update-service --cluster prod-api-jobs --service prod-api-jobs --force-new-deployment --region us-east-1
