@@ -51,8 +51,9 @@ export const setupApp = () => {
 
       await mongoInit();
       await queueInit();
+
       // This seems to help:
-      setTimeout(resolve, 100);
+      setTimeout(resolve, 400);
     }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
