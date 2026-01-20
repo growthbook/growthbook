@@ -37,6 +37,8 @@ interface BaseVariationResponse {
   ci?: [number | null, number | null];
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
+  // Added later to gbstats model, leave as undefined
+  realizedSettings?: RealizedSettings;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
@@ -81,7 +83,10 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
-// Keep below classes in sync with gbstats
+export type RealizedSettings = {
+  postStratificationApplied: boolean;
+};
+
 export type ExperimentMetricAnalysis = {
   metric: string;
   analyses: {

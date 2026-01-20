@@ -205,7 +205,7 @@ export default function DashboardShareModal({
             </Callout>
           ) : (
             <Callout status="warning" size="sm">
-              {`This report is discoverable within your organization. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
+              {`This dashboard is discoverable within your organization. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
             </Callout>
           )}
           <div className="mt-3">

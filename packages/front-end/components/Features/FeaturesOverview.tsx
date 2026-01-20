@@ -753,7 +753,7 @@ export default function FeaturesOverview({
                 </tbody>
               </table>
             ) : (
-              <div className="row mt-3">
+              <Flex mt="4" justify="start" align="center" gap="4">
                 {environments.length > 0 ? (
                   environments.map((en) => (
                     <Flex
@@ -792,7 +792,7 @@ export default function FeaturesOverview({
                     </div>
                   </div>
                 )}
-              </div>
+              </Flex>
             )}
 
             {hasConditionalState && (
