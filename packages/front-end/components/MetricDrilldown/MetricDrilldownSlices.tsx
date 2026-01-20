@@ -12,8 +12,10 @@ import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
@@ -70,6 +72,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
 }) => {
   const { getFactTableById: _getFactTableById } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
   // Add state for sorting
@@ -166,6 +170,20 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   // Determine what to render
   const hasSliceData = sliceRows.length > 0;
   const showEmptyState = !hasSliceData;
+
+  // Render upgrade callout for users without the feature
+  if (!hasSliceData && !hasMetricSlicesFeature) {
+    return (
+      <Box mt="5">
+        <PremiumEmptyState
+          title="Metric Slices"
+          description="Discover which segments are driving your results. Automatically break down any metric by dimensions like product type, country, or device—no need to create separate metrics."
+          commercialFeature="metric-slices"
+          learnMoreLink="https://docs.growthbook.io/app/metrics#metric-slices"
+        />
+      </Box>
+    );
+  }
 
   // Render empty state
   if (showEmptyState) {

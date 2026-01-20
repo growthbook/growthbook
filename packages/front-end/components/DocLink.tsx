@@ -102,6 +102,7 @@ const docSections = {
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",
   holdouts: "/app/holdouts",
+  metricSlices: "/app/metrics#metric-slices",
   autoSlices: "/app/metrics#auto-slices",
   customSlices: "/app/metrics#custom-slices",
 };

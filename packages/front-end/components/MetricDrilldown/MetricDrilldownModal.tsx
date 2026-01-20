@@ -16,6 +16,7 @@ import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
 import { useKeydown } from "@/hooks/useKeydown";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { MetricDrilldownOwnerTags } from "./MetricDrilldownOwnerTags";
 import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
@@ -167,7 +168,15 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
 
             <TabsList mt="5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="slices">Slices</TabsTrigger>
+              <TabsTrigger value="slices">
+                <Flex align="center" gap="1">
+                  Slices
+                  <PaidFeatureBadge
+                    commercialFeature="metric-slices"
+                    useTip={false}
+                  />
+                </Flex>
+              </TabsTrigger>
               <TabsTrigger value="debug">Debug</TabsTrigger>
             </TabsList>
           </Box>
