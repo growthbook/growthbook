@@ -18,12 +18,14 @@ export default function SingleRoleSelector({
   setValue,
   label,
   includeAdminRole = false,
+  includeProjectAdminRole = false,
   disabled = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
   label: ReactNode;
   includeAdminRole?: boolean;
+  includeProjectAdminRole?: boolean;
   disabled?: boolean;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
@@ -41,6 +43,10 @@ export default function SingleRoleSelector({
 
   if (!includeAdminRole) {
     roleOptions = roleOptions.filter((r) => r.id !== "admin");
+  }
+
+  if (!includeProjectAdminRole) {
+    roleOptions = roleOptions.filter((r) => r.id !== "projectAdmin");
   }
 
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions

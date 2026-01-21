@@ -30,6 +30,7 @@ const ChangeProjectRoleModal: FC<{
           limitAccessByEnvironment: value.limitAccessByEnvironment,
         }}
         includeAdminRole={false}
+        includeProjectAdminRole={true}
         setValue={(newRoleInfo) => {
           setValue({
             ...value,
