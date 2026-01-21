@@ -5,6 +5,7 @@
  */
 
 import * as dotenv from "dotenv";
+// eslint-disable-next-line no-restricted-imports
 import { logger } from "../src/util/logger";
 
 // Load environment variables from .env.local
