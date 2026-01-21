@@ -406,14 +406,9 @@ const Modal: FC<ModalProps> = ({
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
       onClick={(e) => {
-        const target = e.target as HTMLElement;
-        // Don't trigger backdrop click if clicking inside modal content
-        // or inside Radix UI portals (dropdowns, popovers, etc.)
-        const isInsideModalContent = target.closest(".modal-content");
-        const isInsideRadixPortal = target.closest(
-          "[data-radix-popper-content-wrapper]",
-        );
-        if (onBackdropClick && !isInsideModalContent && !isInsideRadixPortal) {
+        // Only trigger backdrop click if clicking directly on the modal backdrop,
+        // not on any child elements (modal content, tooltips, etc.)
+        if (onBackdropClick && e.target === e.currentTarget) {
           onBackdropClick();
         }
         e.stopPropagation();
