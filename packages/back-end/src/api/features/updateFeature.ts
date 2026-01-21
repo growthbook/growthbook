@@ -279,7 +279,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       details: auditDetailsUpdate(feature, updatedFeature),
     });
 
-    const groupMap = await getSavedGroupMap(req.organization);
+    const groupMap = await getSavedGroupMap(req.context);
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,

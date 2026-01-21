@@ -60,7 +60,8 @@ RUN \
   && find node_modules -name "*.map" -delete \
   && find node_modules -name "CHANGELOG*" -delete \
   && find node_modules -name "LICENSE*" -delete \
-  && find node_modules -name "README*" -delete
+  && find node_modules -name "README*" -delete \
+  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
 RUN pnpm postinstall
 
 
