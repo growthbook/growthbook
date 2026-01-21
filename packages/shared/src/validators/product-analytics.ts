@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { rowFilterValidator } from "./fact-table";
-import { withExtendedDimensions, withXAxes } from "./saved-queries";
 
 const metricDatasetValidator = z
   .object({
@@ -39,6 +38,10 @@ const sqlDatasetValidator = z
     datasource: z.string(),
     sql: z.string(),
     timestampColumn: z.string(),
+    columnTypes: z.record(
+      z.string(),
+      z.enum(["string", "number", "date", "boolean", "other"]),
+    ),
     values: z.array(
       z.object({
         valueType: z.enum(valueType),
@@ -56,6 +59,34 @@ const datasetValidator = z.discriminatedUnion("type", [
   sqlDatasetValidator,
 ]);
 
+const dynamicDimensionValidator = z.object({
+  dimensionType: z.literal("dynamic"),
+  column: z.string(),
+  maxValues: z.number(),
+});
+
+const staticDimensionValidator = z.object({
+  dimensionType: z.literal("static"),
+  column: z.string(),
+  values: z.array(z.string()),
+});
+
+const sliceDimensionValidator = z.object({
+  dimensionType: z.literal("slice"),
+  slices: z.array(
+    z.object({
+      name: z.string(),
+      filters: z.array(rowFilterValidator),
+    }),
+  ),
+});
+
+const dimensionValidator = z.discriminatedUnion("dimensionType", [
+  dynamicDimensionValidator,
+  staticDimensionValidator,
+  sliceDimensionValidator,
+]);
+
 const chartTypes = ["bar", "line", "area", "table"] as const;
 
 const dateRangePredefined = [
@@ -63,17 +94,31 @@ const dateRangePredefined = [
   "last7Days",
   "last30Days",
   "last90Days",
-  "custom",
+  "customLookback",
+  "customDateRange",
 ] as const;
 
-const productAnalyticsExplorerValidator = z
+const dateGranularity = [
+  "auto",
+  "hour",
+  "day",
+  "week",
+  "month",
+  "year",
+] as const;
+
+export const productAnalyticsExplorerValidator = z
   .object({
     dataset: datasetValidator.nullable(),
-    ...withExtendedDimensions.shape,
-    ...withXAxes.shape,
+    xAxis: z.object({
+      column: z.string(),
+      dateGranularity: z.enum(dateGranularity).nullable(),
+    }),
+    dimensions: z.array(dimensionValidator),
     chartType: z.enum(chartTypes),
     dateRange: z.object({
       predefined: z.enum(dateRangePredefined),
+      lookbackDays: z.number().nullable(),
       startDate: z.date().nullable(),
       endDate: z.date().nullable(),
     }),

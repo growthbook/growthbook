@@ -15,15 +15,14 @@ WITH
       timestamp >= '2026-01-01' AND timestamp <= '2026-01-31'
       -- Filter on all distinct metric conditions ORed together
       -- This can help engines take advantage of partitions
+      -- This also makes top dimension values more accurate
       AND (
         event_type = 'purchase'
       )
   ),
 
-  -- Dynamically calculate top dimension values
+  -- Dynamic dimensions where we don't know the top values ahead of time
   -- This takes into account the date/metric filters on the fact table
-  -- TODO: what if there are multiple fact tables?
-  -- Each dimension gets a separate CTE
   _dimension0_top AS (
     SELECT browser
     FROM _factTable0
@@ -32,64 +31,72 @@ WITH
     LIMIT 5
   ),
 
-  -- Calculate dimension and event values for each metric
-  _factTable0_event AS (
-    -- Event-level values
+  -- Calculate dimension and metric values for each row
+  _factTable0_rows AS (
     SELECT
-      -- Date grouping
-      date_trunc(timestamp, day) as day,
-      -- Dimension grouping
-      CASE WHEN browser IN (SELECT browser FROM _dimension0_top)
-          THEN browser
+      -- X-axis
+      date_trunc(timestamp, day) as x_axis,
+      -- Dynamic dimension
+      CASE 
+        WHEN browser IN (SELECT browser FROM _dimension0_top) THEN browser
         ELSE 'other'
       END AS dimension0,
+      -- Static dimension
+      CASE 
+        WHEN browser IN ('chrome', 'safari', 'firefox') THEN browser 
+        ELSE 'other' 
+      END AS dimension1,
+      -- Slice dimension
+      CASE
+        WHEN (browser = 'chrome') THEN 'Chrome'
+        WHEN (browser = 'safari') THEN 'Safari'
+        WHEN (browser = 'firefox') THEN 'Firefox'
+        ELSE 'other'
+      END AS dimension2,
       -- Select units for any unit count metrics
       user_id as unit0,
       -- Count metric (purchases)
-      -- Each matching row gets a value of 1
       CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m0_value,
-      -- Sum metric (revenue)
-      -- Each matching row gets the amount value
+      -- Sum/Min/Max metric (revenue)
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m1_value,
       -- Unit count metric (users who purchased)
-      -- Each matching row gets a value of 1
       CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m2_value,
       -- Distinct count metric (unique countries who purchased)
-      -- Each matching row gets the country value
       CASE WHEN (event_type = 'purchase') THEN country ELSE NULL END as m3_value,
       -- Ratio (average order value)
-      -- Each matching row gets the amount value for numerator
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m4_value,
-      -- Each matching row gets a value of 1 for denominator
       CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m4_denominator
-      -- Unit count with threshold
-      -- Each matching row gets the amount value
+      -- Unit count with threshold (amount > 100)
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m5_value,
       -- Quantile metric (P90 revenue)
-      -- Each matching row gets the amount value
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m6_value
     FROM _factTable0
   ),
 
   -- Aggregate unit count metrics by unit
-  -- Each unit gets a separate CTE
+  -- Each unit gets separate CTEs
   _factTable0_unit0 AS (
     SELECT
-      day,
+      unit0,
+      x_axis,
       dimension0,
+      dimension1,
+      dimension2,
       -- Unit count metric
       MAX(m2_value) as m2_value,
       -- Unit count with threshold
       CASE WHEN SUM(m5_value) > 100 THEN 1 ELSE NULL END as m5_value
-    FROM _factTable0
-    GROUP BY unit0, day, dimension0
+    FROM _factTable0_rows
+    GROUP BY unit0, x_axis, dimension0, dimension1, dimension2
   ),
 
-  -- Aggregate unit count metrics by day
+  -- Aggregate unit count metrics by x_axis/dimension
   _factTable0_unit0_daily AS (
     SELECT
-      day,
+      x_axis,
       dimension0,
+      dimension1,
+      dimension2,
       -- Count metric (skip)
       NULL as m0_value,
       -- Sum metric (skip)
@@ -106,14 +113,16 @@ WITH
       -- Quantile metric (skip)
       NULL as m6_value
     FROM _factTable0_unit0
-    GROUP BY day, dimension0
+    GROUP BY x_axis, dimension0, dimension1, dimension2
   ),
 
-  -- Aggregate event level metrics by day
+  -- Aggregate event level metrics by x_axis/dimension
   _factTable0_event_daily AS (
     SELECT
-      day,
+      x_axis,
       dimension0,
+      dimension1,
+      dimension2,
       -- Count metric
       SUM(m0_value) as m0_value,
       -- Sum metric
@@ -127,10 +136,10 @@ WITH
       SUM(m4_denominator) as m4_denominator,
       -- Unit count with threshold (skip)
       NULL as m5_value,
-      -- Quantile metric
+      -- Quantile metric (event level)
       PERCENTILE_APPROX(m6_value, 0.9) as m6_value
-    FROM _factTable0
-    GROUP BY day, dimension0
+    FROM _factTable0_rows
+    GROUP BY x_axis, dimension0, dimension1, dimension2
   ),
 
   -- Combine all daily CTEs
@@ -141,10 +150,12 @@ WITH
     SELECT * FROM _factTable0_event_daily  
   )
 
--- Aggregate to return a single row per day/dimension
+-- Aggregate to return a single row per x_axis/dimension
 SELECT
-  day,
+  x_axis,
   dimension0,
+  dimension1,
+  dimension2,
   SUM(m0_value) as m0_value,
   SUM(m1_value) as m1_value,
   SUM(m2_value) as m2_value,
@@ -154,6 +165,6 @@ SELECT
   SUM(m5_value) as m5_value,
   MAX(m6_value) as m6_value
 FROM _combined
-GROUP BY day, dimension0
+GROUP BY x_axis, dimension0, dimension1, dimension2
 -- Sanity check limit
 LIMIT 1000;

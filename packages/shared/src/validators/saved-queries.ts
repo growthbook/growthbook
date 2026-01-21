@@ -12,7 +12,7 @@ const dateAggregationEnum = z.enum([
   "year",
 ]);
 
-export const xAxisConfigurationValidator = z.object({
+const xAxisConfigurationValidator = z.object({
   fieldName: z.string(),
   type: z.enum(["string", "number", "date"]),
   sort: z.enum(["none", "asc", "desc", "valueAsc", "valueDesc"]),
@@ -155,7 +155,7 @@ const withXAxis = z.object({
   xAxis: xAxisConfigurationValidator,
 });
 
-export const withXAxes = z.object({
+const withXAxes = z.object({
   xAxes: z.array(xAxisConfigurationValidator).nonempty(),
 });
 
@@ -166,7 +166,7 @@ const withBaseDimensions = z.object({
     .optional(),
 });
 
-export const withExtendedDimensions = z.object({
+const withExtendedDimensions = z.object({
   dimension: z
     .array(extendedDimensionAxisConfigurationValidator)
     .nonempty()
