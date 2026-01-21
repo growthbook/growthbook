@@ -332,7 +332,7 @@ gb.setRenderer(() => {
 
 ## Experimentation (A/B Testing)
 
-In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and is needed to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.). For more details refer to [Data Source Configuration](/app/datasources). 
 
 **Note**: If you use the `third-party-tracking` plugin, you don't need to specify a `trackingCallback` since the plugin will handle that for you automatically.
 
