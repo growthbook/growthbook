@@ -56,6 +56,7 @@ import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
@@ -99,7 +100,8 @@ export type ModelName =
   | "incrementalRefresh"
   | "sqlResultChunks"
   | "sdkConnectionCache"
-  | "sdkWebhooks";
+  | "sdkWebhooks"
+  | "savedGroups";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -128,6 +130,7 @@ export const modelClasses = {
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
+  savedGroups: SavedGroupModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -165,6 +168,7 @@ export class ReqContextClass {
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
+      savedGroups: new SavedGroupModel(this),
     };
   }
 

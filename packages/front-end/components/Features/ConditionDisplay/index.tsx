@@ -2,7 +2,7 @@ import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupWithoutValues } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
