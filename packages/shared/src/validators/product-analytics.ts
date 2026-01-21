@@ -107,6 +107,8 @@ const dateGranularity = [
   "year",
 ] as const;
 
+const lookbackUnit = ["hour", "day", "week", "month"] as const;
+
 export const productAnalyticsExplorerValidator = z
   .object({
     dataset: datasetValidator.nullable(),
@@ -118,7 +120,8 @@ export const productAnalyticsExplorerValidator = z
     chartType: z.enum(chartTypes),
     dateRange: z.object({
       predefined: z.enum(dateRangePredefined),
-      lookbackDays: z.number().nullable(),
+      lookbackValue: z.number().nullable(),
+      lookbackUnit: z.enum(lookbackUnit).nullable(),
       startDate: z.date().nullable(),
       endDate: z.date().nullable(),
     }),
