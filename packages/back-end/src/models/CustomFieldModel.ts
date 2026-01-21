@@ -226,10 +226,10 @@ export class CustomFieldModel extends BaseClass {
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
-  ): Promise<ApiCustomField | void> {
+  ): Promise<ApiCustomField> {
     const id = req.params.id;
     const doc = await this.getById(id);
-    if (!doc) return req.context.throwNotFoundError();
+    if (!doc) req.context.throwNotFoundError();
     return this.toApiInterface(doc);
   }
   public async handleApiCreate(
@@ -240,7 +240,9 @@ export class CustomFieldModel extends BaseClass {
     const created = containerObject.fields.find(
       ({ id }) => id === parsedBody.id,
     );
-    return this.singleFieldToApiInterface(created!);
+    if (!created)
+      this.context.throwInternalServerError("Failed to create custom field");
+    return this.singleFieldToApiInterface(created);
   }
 
   public async handleApiList(
@@ -283,13 +285,13 @@ export class CustomFieldModel extends BaseClass {
     const parsedBody = apiUpdateCustomFieldBody.parse(req.body);
     const containerObject = await this.updateCustomField(id, parsedBody);
     if (!containerObject)
-      return this.context.throwInternalServerError(
-        "Failed to update custom field",
-      );
+      this.context.throwInternalServerError("Failed to update custom field");
     const updated = containerObject.fields.find(
       ({ id: fieldId }) => fieldId === id,
     );
-    return this.singleFieldToApiInterface(updated!);
+    if (!updated)
+      this.context.throwInternalServerError("Failed to update custom field");
+    return this.singleFieldToApiInterface(updated);
   }
 
   public singleFieldToApiInterface(f: CustomField): ApiCustomField {

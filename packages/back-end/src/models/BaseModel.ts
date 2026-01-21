@@ -279,10 +279,10 @@ export abstract class BaseModel<
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
-  ): Promise<z.infer<ApiT> | void> {
+  ): Promise<z.infer<ApiT>> {
     const id = req.params.id;
     const doc = await this.getById(id);
-    if (!doc) return req.context.throwNotFoundError();
+    if (!doc) req.context.throwNotFoundError();
     return this.toApiInterface(doc);
   }
   public async handleApiCreate(
