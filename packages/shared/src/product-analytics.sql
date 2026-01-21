@@ -91,7 +91,7 @@ WITH
   ),
 
   -- Aggregate unit count metrics by x_axis/dimension
-  _factTable0_unit0_daily AS (
+  _factTable0_unit0_rollup AS (
     SELECT
       x_axis,
       dimension0,
@@ -117,7 +117,7 @@ WITH
   ),
 
   -- Aggregate event level metrics by x_axis/dimension
-  _factTable0_event_daily AS (
+  _factTable0_event_rollup AS (
     SELECT
       x_axis,
       dimension0,
@@ -142,12 +142,12 @@ WITH
     GROUP BY x_axis, dimension0, dimension1, dimension2
   ),
 
-  -- Combine all daily CTEs
-  -- Each metric value will appear in only 1 daily CTE (with nulls in the rest)
-  _combined AS (
-    SELECT * FROM _factTable0_unit0_daily
+  -- Combine all rollup CTEs
+  -- Each metric value will appear in only 1 rollup CTE (with nulls in the rest)
+  _combined_rollup AS (
+    SELECT * FROM _factTable0_unit0_rollup
     UNION ALL
-    SELECT * FROM _factTable0_event_daily  
+    SELECT * FROM _factTable0_event_rollup  
   )
 
 -- Aggregate to return a single row per x_axis/dimension
@@ -164,7 +164,7 @@ SELECT
   SUM(m4_denominator) as m4_denominator,
   SUM(m5_value) as m5_value,
   MAX(m6_value) as m6_value
-FROM _combined
+FROM _combined_rollup
 GROUP BY x_axis, dimension0, dimension1, dimension2
 -- Sanity check limit
 LIMIT 1000;
