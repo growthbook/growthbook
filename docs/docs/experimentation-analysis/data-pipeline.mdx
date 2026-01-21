@@ -32,6 +32,8 @@ On each experiment update, GrowthBook only scans new data in your warehouse to k
 
 Specifically, for the experiment assignment query and fact tables, GrowthBook uses the max timestamp seen in the previous update and only scans for data since that last update, inserting that data into materialized intermediate tables to be used for analysis.
 
+![A flow diagram illustrating an incremental data refresh pipeline for experimentation, organized into three interconnected tracks: Units, Metrics, and CUPED. New data inputs on the left—such as recent experiment exposures and metric facts—merge with existing historical data to update intermediate materialized tables in the center. Data flows sequentially from the Units table to the Metrics tables and then to the CUPED tables. Finally, the processed data from all three stages feeds into a single "Statistics" output on the right to compute analysis results.](/images/incremental-refresh-diagram.jpg)
+
 ### Main benefits
 
 - Dramatic reduction in the number of rows scanned per update, as GrowthBook only has to scan your experiment assignment queries and fact tables for data in partitions that are on or after the last timestamp seen in the previous update.

@@ -29,6 +29,7 @@ export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./types";
+export * from "./errors";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -540,4 +541,8 @@ export function parseProcessLogBase() {
     : {
         base: parsedLogBase,
       };
+}
+
+export function capitalizeFirstCharacter(s: string) {
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }

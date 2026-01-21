@@ -2,13 +2,7 @@ import type { Response } from "express";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { fetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-
-class UnrecoverableApiError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UnrecoverableApiError";
-  }
-}
+import { UnrecoverableApiError } from "back-end/src/util/errors";
 
 // Allowed HTTP methods for proxy requests
 const ALLOWED_HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"] as const;

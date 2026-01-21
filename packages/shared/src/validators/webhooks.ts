@@ -11,23 +11,41 @@ export const payloadFormatValidator = z.enum([
   "none",
 ]);
 
+export const webhookMethods = [
+  "GET",
+  "PUT",
+  "POST",
+  "DELETE",
+  "PURGE",
+  "PATCH",
+] as const;
+
+export const webhookSchema = z.strictObject({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.date(),
+  dateUpdated: z.date(),
+  name: z.string(),
+  endpoint: z.string(),
+  project: z.string().optional(),
+  environment: z.string().optional(),
+  featuresOnly: z.boolean().optional(),
+  signingKey: z.string(),
+  lastSuccess: z.date().nullable(),
+  error: z.string(),
+  useSdkMode: z.boolean(),
+  sdks: z.array(z.string()),
+  /** @deprecated */
+  created: z.date().optional(),
+  sendPayload: z.boolean().optional(),
+  payloadFormat: payloadFormatValidator.optional(),
+  payloadKey: z.string().optional(),
+  headers: z.string().optional(),
+  httpMethod: z.enum(webhookMethods).optional(),
+  managedBy: managedByValidator.optional(),
+});
+
 export type WebhookPayloadFormat = z.infer<typeof payloadFormatValidator>;
-
-export const updateSdkWebhookValidator = z
-  .object({
-    name: z.string().optional(),
-    endpoint: z.string().optional(),
-    payloadFormat: payloadFormatValidator.optional(),
-    payloadKey: z.string().optional(),
-    sdks: z.array(z.string()).optional(),
-    httpMethod: z
-      .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
-      .optional(),
-    headers: z.string().optional(),
-  })
-  .strict();
-
-export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
 
 export const createSdkWebhookValidator = z
   .object({
@@ -42,3 +60,10 @@ export const createSdkWebhookValidator = z
   .strict();
 
 export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
+
+export const updateSdkWebhookValidator = createSdkWebhookValidator
+  .omit({ managedBy: true })
+  .extend({ sdks: z.array(z.string()) })
+  .partial();
+
+export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
