@@ -36,7 +36,7 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
@@ -88,7 +88,6 @@ import {
   getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
-import { getAllSavedGroups } from "back-end/src/models/SavedGroupModel";
 import { ReqContext } from "back-end/types/request";
 import {
   getSDKPayload,
@@ -367,9 +366,10 @@ export function generateAutoExperimentsPayload({
 }
 
 export async function getSavedGroupMap(
-  organization: OrganizationInterface,
+  context: ReqContext | ApiReqContext,
   savedGroups?: SavedGroupInterface[],
 ): Promise<GroupMap> {
+  const organization = context.org;
   const attributes = organization.settings?.attributeSchema;
 
   const attributeMap: AttributeMap = new Map();
@@ -380,7 +380,7 @@ export async function getSavedGroupMap(
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
-      ? await getAllSavedGroups(organization.id)
+      ? await context.models.savedGroups.getAll()
       : savedGroups;
 
   function getGroupValues(
@@ -525,8 +525,8 @@ async function refreshSDKPayloadCache({
   const experimentMap = await getAllPayloadExperiments(context);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const savedGroups = await getAllSavedGroups(context.org.id);
-  const groupMap = await getSavedGroupMap(context.org, savedGroups);
+  const savedGroups = await context.models.savedGroups.getAll();
+  const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
   const allVisualExperiments = await getAllVisualExperiments(
     context,
@@ -1008,9 +1008,8 @@ export async function getFeatureDefinitions({
       let secureAttributeSalt: string | undefined = undefined;
       const { features, experiments, savedGroupsInUse, holdouts } =
         cached.contents;
-      const allSavedGroups = await getAllSavedGroups(context.org.id);
-      const usedSavedGroups = allSavedGroups.filter((sg) =>
-        savedGroupsInUse?.includes(sg.id),
+      const usedSavedGroups = await context.models.savedGroups.getByIds(
+        savedGroupsInUse || [],
       );
       if (hashSecureAttributes) {
         // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
@@ -1059,13 +1058,13 @@ export async function getFeatureDefinitions({
     attributes = context.org.settings?.attributeSchema;
   }
   // TODO: filter by projects
-  const allSavedGroups = await getAllSavedGroups(context.org.id);
+  const allSavedGroups = await context.models.savedGroups.getAll();
 
   // Generate the feature definitions
   const features = await getAllFeatures(context, {
     projects: filterByProjects && projects ? projects : undefined,
   });
-  const groupMap = await getSavedGroupMap(context.org, allSavedGroups);
+  const groupMap = await getSavedGroupMap(context, allSavedGroups);
   const experimentMap = await getAllPayloadExperiments(
     context,
     filterByProjects && projects ? projects : undefined,

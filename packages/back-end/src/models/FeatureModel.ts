@@ -427,7 +427,7 @@ export const createFeatureEvent = async <
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
   const event: CreateEventParams<"feature", Event> = await (async () => {
-    const groupMap = await getSavedGroupMap(eventData.context.org);
+    const groupMap = await getSavedGroupMap(eventData.context);
     const experimentMap = await getExperimentMapForFeature(
       eventData.context,
       eventData.data.object.id,
