@@ -277,6 +277,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
+          //TODO: Will need to update this if the user has a project admin role or canManageTeam
           permissionsUtils.canManageSomeProjects(),
       },
       {

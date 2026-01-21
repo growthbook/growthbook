@@ -12,6 +12,7 @@ export default function RoleSelector({
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal?: () => void;
 }) {
+  console.log("value", value);
   return (
     <div>
       <SingleRoleSelector
