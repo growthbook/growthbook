@@ -19,12 +19,14 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
+  BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_FLOAT_COLS,
   BASE_METRIC_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
   RATIO_METRIC_CUPED_FLOAT_COLS,
+  RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   RATIO_METRIC_FLOAT_COLS,
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
@@ -107,11 +109,16 @@ export function getNonQuantileFloatColumns({
         return [];
       case "mean":
       case "dailyParticipation":
-        return BASE_METRIC_FLOAT_COLS_UNCAPPED;
+        return [
+          ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
+          ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
+        ];
       case "ratio":
         return [
           ...BASE_METRIC_FLOAT_COLS_UNCAPPED,
           ...RATIO_METRIC_FLOAT_COLS_UNCAPPED,
+          ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
+          ...(regressionAdjusted ? RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
         ];
       case "quantile":
         return [];
