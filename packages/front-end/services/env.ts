@@ -26,6 +26,9 @@ const env: EnvironmentInitValue = {
   experimentRefreshFrequency: 6,
   hasOpenAIKey: false,
   hasAnthropicKey: false,
+  hasXaiKey: false,
+  hasMistralKey: false,
+  hasGoogleAIKey: false,
   uploadMethod: "local",
 };
 
@@ -122,6 +125,18 @@ export function hasOpenAIKey() {
 
 export function hasAnthropicKey() {
   return env.hasAnthropicKey || false;
+}
+
+export function hasXaiKey() {
+  return env.hasXaiKey || false;
+}
+
+export function hasMistralKey() {
+  return env.hasMistralKey || false;
+}
+
+export function hasGoogleAIKey() {
+  return env.hasGoogleAIKey || false;
 }
 
 export function getExperimentRefreshFrequency() {
