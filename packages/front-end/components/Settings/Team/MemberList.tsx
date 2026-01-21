@@ -18,18 +18,21 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
+import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
 
 const MemberList: FC<{
   mutate: () => void;
   project: string;
   canEditRoles?: boolean;
+  canEditProjectRoles?: boolean; // Some users with the project-admin role can't edit global roles, but they can edit roles for a specific project
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
 }> = ({
   mutate,
   project,
   canEditRoles = true,
+  canEditProjectRoles = false,
   canDeleteMembers = true,
   canInviteMembers = true,
 }) => {
@@ -37,6 +40,7 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
+  const [projectRoleModal, setProjectRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] =
     useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
@@ -53,6 +57,7 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
+  const projectRoleModalUser = users.get(projectRoleModal);
 
   const members = Array.from(users).sort((a, b) =>
     a[1].name.localeCompare(b[1].name),
@@ -81,6 +86,28 @@ const MemberList: FC<{
     <>
       {canInviteMembers && inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
+      )}
+      {projectRoleModal && projectRoleModalUser && (
+        <ChangeProjectRoleModal
+          memberName={projectRoleModalUser.name || projectRoleModalUser.email}
+          projectRole={
+            projectRoleModalUser.projectRoles?.find(
+              (r) => r.project === project,
+            ) || {
+              role: projectRoleModalUser.role,
+              environments: projectRoleModalUser.environments || [],
+              limitAccessByEnvironment:
+                projectRoleModalUser.limitAccessByEnvironment || false,
+              project: project,
+            }
+          }
+          close={() => setProjectRoleModal(null)}
+          onConfirm={async (value) => {
+            //MKTODO: Make API call to update project role for the user
+            // We need to make a new endpoint just for this
+            console.log("onConfirm was called with value: ", value);
+          }}
+        />
       )}
       {canEditRoles && roleModal && roleModalUser && (
         <ChangeRoleModal
@@ -217,18 +244,31 @@ const MemberList: FC<{
                     <td>{member.teams ? member.teams.length : 0}</td>
 
                     <td>
-                      {canEditRoles && member.id !== userId && (
+                      {member.id !== userId && (
                         <>
                           <MoreMenu>
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setRoleModal(member.id);
-                              }}
-                            >
-                              Edit Role
-                            </button>
+                            {canEditRoles && (
+                              <button
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setRoleModal(member.id);
+                                }}
+                              >
+                                Edit Role
+                              </button>
+                            )}
+                            {!canEditRoles && canEditProjectRoles && (
+                              <button
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setProjectRoleModal(member.id);
+                                }}
+                              >
+                                Edit Project Role
+                              </button>
+                            )}
                             {canDeleteMembers && !usingSSO() && (
                               <button
                                 className="dropdown-item"
