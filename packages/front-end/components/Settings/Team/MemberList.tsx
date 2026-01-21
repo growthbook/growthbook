@@ -103,9 +103,11 @@ const MemberList: FC<{
           }
           close={() => setProjectRoleModal(null)}
           onConfirm={async (value) => {
-            //MKTODO: Make API call to update project role for the user
-            // We need to make a new endpoint just for this
-            console.log("onConfirm was called with value: ", value);
+            await apiCall(`/member/${projectRoleModal}/project-role`, {
+              method: "PUT",
+              body: JSON.stringify({ projectRole: value }),
+            });
+            mutate();
           }}
         />
       )}
