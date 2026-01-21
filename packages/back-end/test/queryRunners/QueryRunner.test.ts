@@ -37,7 +37,7 @@ class TestQueryRunner extends QueryRunner<
 
   public setQueuedQueryTimer(queryId: string, timer: NodeJS.Timeout) {
     // @ts-expect-error Setting private prop for testing
-    this.queuedQueryTimers[queryId] = timer;
+    this.pendingTimers[queryId] = timer;
   }
 
   public executeQuerySpy = jest.fn();
