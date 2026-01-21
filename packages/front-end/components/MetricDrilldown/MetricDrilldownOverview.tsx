@@ -28,7 +28,6 @@ interface MetricDrilldownOverviewProps {
   setLocalVariationFilter: (filter: number[] | undefined) => void;
   goalMetrics: string[];
   secondaryMetrics: string[];
-  guardrailMetrics: string[];
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   localDifferenceType: DifferenceType;
@@ -52,7 +51,6 @@ function MetricDrilldownOverview({
   setLocalVariationFilter,
   goalMetrics,
   secondaryMetrics,
-  guardrailMetrics: _guardrailMetrics,
   statsEngine,
   pValueCorrection,
   localDifferenceType,

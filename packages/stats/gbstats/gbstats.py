@@ -199,9 +199,6 @@ def get_metric_dfs(
     dimension_column_name = (
         "" if not dimension else get_dimension_column_name(dimension)
     )
-    dimension_column_name = (
-        "" if not dimension else get_dimension_column_name(dimension)
-    )
 
     if post_stratify:
         # if post-stratifying, then we need to create a strata column

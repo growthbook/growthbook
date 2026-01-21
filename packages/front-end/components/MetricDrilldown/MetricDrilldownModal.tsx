@@ -38,7 +38,6 @@ interface MetricDrilldownModalProps {
   variationFilter?: number[];
   goalMetrics?: string[];
   secondaryMetrics?: string[];
-  guardrailMetrics?: string[];
   variations: ExperimentReportVariation[];
   startDate: string;
   endDate: string;
@@ -63,7 +62,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   variationFilter,
   goalMetrics = [],
   secondaryMetrics = [],
-  guardrailMetrics = [],
   variations,
   startDate,
   endDate,
@@ -205,7 +203,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
             setLocalVariationFilter={setLocalVariationFilter}
             goalMetrics={goalMetrics}
             secondaryMetrics={secondaryMetrics}
-            guardrailMetrics={guardrailMetrics}
             statsEngine={statsEngine}
             pValueCorrection={pValueCorrection}
             localDifferenceType={localDifferenceType}

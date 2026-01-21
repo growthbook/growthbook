@@ -11,7 +11,6 @@ import { ExperimentReportVariation } from "shared/types/report";
 import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
 import { ExperimentTableRow } from "@/services/experiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
@@ -71,7 +70,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   visibleTimeSeriesRowIds,
   setVisibleTimeSeriesRowIds,
 }) => {
-  const { getFactTableById: _getFactTableById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;

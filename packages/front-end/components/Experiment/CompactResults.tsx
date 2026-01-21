@@ -373,8 +373,7 @@ const CompactResults: FC<{
       setOpenMetricDrilldownModalInfo({
         metricRow: mainMetricRow ?? row,
         initialTab: "slices",
-        // FIXME: What happens if it is not a string and a React element?
-        initialSliceSearchTerm: row.label.toString() ?? "",
+        initialSliceSearchTerm: typeof row.label === "string" ? row.label : "",
       });
     } else {
       setOpenMetricDrilldownModalInfo({
@@ -593,7 +592,6 @@ const CompactResults: FC<{
           differenceType={differenceType}
           goalMetrics={goalMetrics}
           secondaryMetrics={secondaryMetrics}
-          guardrailMetrics={guardrailMetrics}
           baselineRow={baselineRow}
           variations={variations}
           variationFilter={variationFilter}
