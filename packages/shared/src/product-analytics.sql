@@ -23,7 +23,7 @@ WITH
 
   -- Dynamic dimensions where we don't know the top values ahead of time
   -- This takes into account the date/metric filters on the fact table
-  _dimension0_top AS (
+  _dimension1_top AS (
     SELECT browser
     FROM _factTable0
     GROUP BY browser
@@ -38,7 +38,7 @@ WITH
       date_trunc(timestamp, day) as dimension0,
       -- Dynamic dimension
       CASE 
-        WHEN browser IN (SELECT browser FROM _dimension0_top) THEN browser
+        WHEN browser IN (SELECT browser FROM _dimension1_top) THEN browser
         ELSE 'other'
       END AS dimension1,
       -- Static dimension
