@@ -34,25 +34,25 @@ WITH
   -- Calculate dimension and metric values for each row
   _factTable0_rows AS (
     SELECT
-      -- X-axis
-      date_trunc(timestamp, day) as x_axis,
+      -- Date dimension
+      date_trunc(timestamp, day) as dimension0,
       -- Dynamic dimension
       CASE 
         WHEN browser IN (SELECT browser FROM _dimension0_top) THEN browser
         ELSE 'other'
-      END AS dimension0,
+      END AS dimension1,
       -- Static dimension
       CASE 
         WHEN browser IN ('chrome', 'safari', 'firefox') THEN browser 
         ELSE 'other' 
-      END AS dimension1,
+      END AS dimension2,
       -- Slice dimension
       CASE
         WHEN (browser = 'chrome') THEN 'Chrome'
         WHEN (browser = 'safari') THEN 'Safari'
         WHEN (browser = 'firefox') THEN 'Firefox'
         ELSE 'other'
-      END AS dimension2,
+      END AS dimension3,
       -- Select units for any unit count metrics
       user_id as unit0,
       -- Count metric (purchases)
@@ -78,25 +78,25 @@ WITH
   _factTable0_unit0 AS (
     SELECT
       unit0,
-      x_axis,
       dimension0,
       dimension1,
       dimension2,
+      dimension3,
       -- Unit count metric
       MAX(m2_value) as m2_value,
       -- Unit count with threshold
       CASE WHEN SUM(m5_value) > 100 THEN 1 ELSE NULL END as m5_value
     FROM _factTable0_rows
-    GROUP BY unit0, x_axis, dimension0, dimension1, dimension2
+    GROUP BY unit0, dimension0, dimension1, dimension2, dimension3
   ),
 
-  -- Aggregate unit count metrics by x_axis/dimension
+  -- Aggregate unit count metrics by dimension
   _factTable0_unit0_rollup AS (
     SELECT
-      x_axis,
       dimension0,
       dimension1,
       dimension2,
+      dimension3,
       -- Count metric (skip)
       NULL as m0_value,
       -- Sum metric (skip)
@@ -113,16 +113,16 @@ WITH
       -- Quantile metric (skip)
       NULL as m6_value
     FROM _factTable0_unit0
-    GROUP BY x_axis, dimension0, dimension1, dimension2
+    GROUP BY dimension0, dimension1, dimension2, dimension3
   ),
 
-  -- Aggregate event level metrics by x_axis/dimension
+  -- Aggregate event level metrics by dimension
   _factTable0_event_rollup AS (
     SELECT
-      x_axis,
       dimension0,
       dimension1,
       dimension2,
+      dimension3,
       -- Count metric
       SUM(m0_value) as m0_value,
       -- Sum metric
@@ -139,7 +139,7 @@ WITH
       -- Quantile metric (event level)
       PERCENTILE_APPROX(m6_value, 0.9) as m6_value
     FROM _factTable0_rows
-    GROUP BY x_axis, dimension0, dimension1, dimension2
+    GROUP BY dimension0, dimension1, dimension2, dimension3
   ),
 
   -- Combine all rollup CTEs
@@ -150,12 +150,12 @@ WITH
     SELECT * FROM _factTable0_event_rollup  
   )
 
--- Aggregate to return a single row per x_axis/dimension
+-- Aggregate to return a single row per dimension
 SELECT
-  x_axis,
   dimension0,
   dimension1,
   dimension2,
+  dimension3,
   SUM(m0_value) as m0_value,
   SUM(m1_value) as m1_value,
   SUM(m2_value) as m2_value,
@@ -165,6 +165,6 @@ SELECT
   SUM(m5_value) as m5_value,
   MAX(m6_value) as m6_value
 FROM _combined_rollup
-GROUP BY x_axis, dimension0, dimension1, dimension2
+GROUP BY dimension0, dimension1, dimension2, dimension3
 -- Sanity check limit
 LIMIT 1000;

@@ -59,6 +59,21 @@ const datasetValidator = z.discriminatedUnion("type", [
   sqlDatasetValidator,
 ]);
 
+const dateGranularity = [
+  "auto",
+  "hour",
+  "day",
+  "week",
+  "month",
+  "year",
+] as const;
+
+const dateDimensionValidator = z.object({
+  dimensionType: z.literal("date"),
+  column: z.string().nullable(),
+  dateGranularity: z.enum(dateGranularity),
+});
+
 const dynamicDimensionValidator = z.object({
   dimensionType: z.literal("dynamic"),
   column: z.string(),
@@ -82,6 +97,7 @@ const sliceDimensionValidator = z.object({
 });
 
 const dimensionValidator = z.discriminatedUnion("dimensionType", [
+  dateDimensionValidator,
   dynamicDimensionValidator,
   staticDimensionValidator,
   sliceDimensionValidator,
@@ -98,24 +114,12 @@ const dateRangePredefined = [
   "customDateRange",
 ] as const;
 
-const dateGranularity = [
-  "auto",
-  "hour",
-  "day",
-  "week",
-  "month",
-  "year",
-] as const;
-
 const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
-export const productAnalyticsExplorerValidator = z
+// The config defined in the UI
+export const productAnalyticsConfigValidator = z
   .object({
     dataset: datasetValidator.nullable(),
-    xAxis: z.object({
-      column: z.string(),
-      dateGranularity: z.enum(dateGranularity).nullable(),
-    }),
     dimensions: z.array(dimensionValidator),
     chartType: z.enum(chartTypes),
     dateRange: z.object({
@@ -127,3 +131,29 @@ export const productAnalyticsExplorerValidator = z
     }),
   })
   .strict();
+
+// For SQL datasets, we need to know the column types
+// This is the shape of the response from the warehouse / API
+const columnType = ["string", "number", "date", "boolean", "other"] as const;
+export const sqlDatasetColumnResponseRowValidator = z.object({
+  column: z.string(),
+  type: z.enum(columnType),
+});
+export const sqlDatasetColumnResponseValidator = z.object({
+  columns: z.array(sqlDatasetColumnResponseRowValidator),
+});
+
+// The shape of the final result data from the warehouse / API
+export const productAnalyticsResultRowValidator = z.object({
+  dimensions: z.array(z.string()),
+  values: z.array(
+    z.object({
+      metricId: z.string(),
+      value: z.number(),
+      denominator: z.number().nullable(),
+    }),
+  ),
+});
+export const productAnalyticsResultValidator = z.object({
+  rows: z.array(productAnalyticsResultRowValidator),
+});
