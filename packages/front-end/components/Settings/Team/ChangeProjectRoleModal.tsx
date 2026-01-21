@@ -1,6 +1,7 @@
 import React, { FC, useState } from "react";
 import { ProjectMemberRole } from "shared/types/organization";
 import Modal from "@/components/Modal";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SingleRoleSelector from "./SingleRoleSelector";
 
 const ChangeProjectRoleModal: FC<{
@@ -10,6 +11,7 @@ const ChangeProjectRoleModal: FC<{
   onConfirm: (data: ProjectMemberRole) => Promise<void>;
 }> = ({ memberName, projectRole, close, onConfirm }) => {
   const [value, setValue] = useState(projectRole);
+  const { getProjectById } = useDefinitions();
   return (
     <Modal
       trackingEventModalType=""
@@ -29,6 +31,7 @@ const ChangeProjectRoleModal: FC<{
           environments: value.environments,
           limitAccessByEnvironment: value.limitAccessByEnvironment,
         }}
+        label={`Project: ${getProjectById(value.project)?.name}`}
         includeAdminRole={false}
         includeProjectAdminRole={true}
         setValue={(newRoleInfo) => {
