@@ -175,7 +175,7 @@ export class CustomFieldModel extends BaseClass {
     const newFields = existing.fields.map((field) => {
       if (field.id === customFieldId) {
         return {
-          field,
+          ...field,
           ...customFieldUpdates,
           id: customFieldId,
           dateCreated: field.dateCreated,
@@ -228,9 +228,9 @@ export class CustomFieldModel extends BaseClass {
     >,
   ): Promise<ApiCustomField> {
     const id = req.params.id;
-    const doc = await this.getById(id);
+    const doc = await this.getCustomFieldByFieldId(id);
     if (!doc) req.context.throwNotFoundError();
-    return this.toApiInterface(doc);
+    return this.singleFieldToApiInterface(doc);
   }
   public async handleApiCreate(
     req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
