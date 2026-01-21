@@ -19,7 +19,7 @@ on:
 jobs:
   # Linting, type-checking, and tests
   ci:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-4
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
