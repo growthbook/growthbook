@@ -168,7 +168,7 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
 
 app.use(cookieParser());
 
-// Health check route (does not require JWT or cors)
+// Health check route  (does not require JWT or cors)
 app.get("/healthcheck", (req, res) => {
   // TODO: more robust health check?
   res.status(200).json({

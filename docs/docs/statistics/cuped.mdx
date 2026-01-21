@@ -1,7 +1,7 @@
 ---
 title: CUPED
 description: Regression Adjustment (CUPED) + post-stratification
-sidebar_label: CUPEDps
+sidebar_label: CUPED + Post-stratification
 slug: cuped
 ---
 
@@ -146,3 +146,5 @@ $$
 where $\bar{Y}$ is the post-exposure metric average, $\bar{X}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y, X) / \text{Var}(X)$. We describe CUPED for ratio metrics and how to estimate uncertainty [here](/statistics/cuped-technical).
 
 As discussed above, we could use any correlated data instead of $X$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. To resolve this, we have added post-stratification to CUPED, creating CUPEDps, which allows you to use key user dimensions to improve variance reduction beyond vanilla CUPED.
+
+We describe technical details of post-stratification [here](/statistics/post-stratification).

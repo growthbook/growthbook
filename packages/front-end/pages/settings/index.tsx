@@ -14,6 +14,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
@@ -180,7 +181,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
       savedGroupSizeLimit: undefined,
-      postStratificationDisabled: settings.postStratificationDisabled ?? false,
+      postStratificationEnabled:
+        settings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
     },
   });
   const { apiCall } = useAuth();
@@ -525,7 +528,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 setSubmitError(null);
                 if (!ctaEnabled) return;
                 await saveSettings();
-                await savePrompts();
+                // Only save prompts if the prompt form has changes
+                if (promptForm.formState.isDirty) {
+                  await savePrompts();
+                }
               }}
               setError={setSubmitError}
             >

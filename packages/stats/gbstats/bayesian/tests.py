@@ -11,14 +11,11 @@ from gbstats.messages import (
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
+from gbstats.models.results import BayesianTestResult, Uplift
 from gbstats.models.tests import (
     BaseConfig,
     BaseABTest,
     TestStatistic,
-)
-from gbstats.frequentist.tests import (
-    TestResult,
-    Uplift,
 )
 from gbstats.utils import (
     truncated_normal_mean,
@@ -43,17 +40,6 @@ class BayesianConfig(BaseConfig):
 @dataclass
 class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
-
-
-# Results
-RiskType = Literal["absolute", "relative"]
-
-
-@dataclass
-class BayesianTestResult(TestResult):
-    chance_to_win: float
-    risk: List[float]
-    risk_type: RiskType
 
 
 class BayesianABTest(BaseABTest):

@@ -7,38 +7,33 @@
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
-    "type-check": "wsrun -m type-check",
-    "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
-    "doc-gen": "cd docs && yarn && yarn gen",
-    "unused-export-check": "wsrun -m unused-export-check",
-    "test": "wsrun -m test",
-    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
-    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
-    "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && wsrun -p 'back-end' -c dev",
-    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
-    "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
-    "build": "yarn build:deps && yarn build:app",
-    "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
-    "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
-    "start:with-datadog": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-datadog",
+    "type-check": "pnpm -r --workspace-concurrency=1 run type-check",
+    "clean": "pnpm -r run clean && pnpm store prune && rimraf node_modules",
+    "doc-gen": "cd docs && pnpm install && pnpm gen",
+    "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
+    "test": "pnpm -r --workspace-concurrency=1 run test",
+    "dev:apps": "pnpm --filter back-end --filter front-end --filter shared -r --parallel run dev",
+    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm dev:apps",
+    "dev:back-end": ". $(cd packages/stats && poetry env info --path)/bin/activate && pnpm --filter back-end run dev",
+    "build:deps": "pnpm --filter @growthbook/growthbook --filter @growthbook/growthbook-react --filter shared run build",
+    "build:app": "pnpm --filter back-end --filter front-end run build",
+    "build": "pnpm build:deps && pnpm build:app",
+    "start": "pnpm --filter back-end --filter front-end -r --parallel run start",
+    "start:with-tracing": "pnpm --filter back-end --filter front-end -r --parallel run start:with-tracing",
+    "start:with-datadog": "pnpm --filter back-end --filter front-end -r --parallel run start:with-datadog",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
-    "setup": "yarn build:deps & wsrun -p 'stats' -c setup & (cd docs && yarn) & wait",
-    "prepare": "husky install",
+    "setup": "pnpm build:deps & pnpm --filter stats run setup & (cd docs && pnpm install) & wait",
+    "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
     "plop": "plop",
-    "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
-    "generate-api-types": "yarn workspace back-end generate-api-types",
-    "ci": "yarn lint:ci && yarn run type-check && yarn run test",
-    "postinstall": "patch-package && if command -v poetry >/dev/null 2>&1; then yarn update-stats-deps; fi",
-    "generate-sdk-report": "yarn workspace shared generate-sdk-report",
-    "bump-sdk-version": "yarn workspace @growthbook/growthbook bump-version"
+    "migrate-encryption-key": "pnpm --filter back-end migrate-encryption-key",
+    "generate-api-types": "pnpm --filter back-end generate-api-types",
+    "ci": "pnpm lint:ci && pnpm run type-check && pnpm run test",
+    "postinstall": "if command -v poetry >/dev/null 2>&1; then pnpm update-stats-deps; fi",
+    "generate-sdk-report": "pnpm --filter shared generate-sdk-report",
+    "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "dependencies": {
-    "dd-trace": "^5.46.0",
-    "patch-package": "^8.0.0",
-    "wsrun": "^5.2.4"
+    "dd-trace": "^5.46.0"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^12.2.3",
@@ -58,6 +53,7 @@
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^3.6.2",
+    "rimraf": "^3.0.2",
     "typescript": "5.7.3"
   },
   "lint-staged": {
@@ -65,16 +61,27 @@
       "prettier --write"
     ],
     "./**/*.{ts,tsx}": [
-      "yarn eslint  --fix --max-warnings 0 --cache --cache-strategy content"
+      "pnpm eslint --fix --max-warnings 0 --cache --cache-strategy content"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
-      "yarn workspace stats lint"
+      "pnpm --filter stats lint"
     ]
   },
-  "resolutions": {
-    "@growthbook/growthbook": "1.6.2",
-    "vite": "^6.0.0",
-    "execa": "^5.0.0"
+  "pnpm": {
+    "overrides": {
+      "@growthbook/growthbook": "1.6.2",
+      "vite": "^6.0.0",
+      "execa": "^5.0.0",
+      "form-data@2": "2.5.5",
+      "form-data@3": "3.0.4",
+      "form-data@4": "4.0.5"
+    },
+    "patchedDependencies": {
+      "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
+      "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
+      "agenda@5.0.0": "patches/agenda@5.0.0.patch",
+      "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch"
+    }
   },
   "prettier": {
     "overrides": [
@@ -89,5 +96,6 @@
   "license": "Mixed",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "packageManager": "pnpm@9.15.0"
 }

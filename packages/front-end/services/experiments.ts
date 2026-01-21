@@ -16,7 +16,11 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
-import { FactTableInterface } from "shared/types/fact-table";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
@@ -25,10 +29,19 @@ import {
   getMetricSampleSize,
   hasEnoughData,
   isBinomialMetric,
+  isFactMetric,
+  isMetricGroupId,
   isRatioMetric,
   isSuspiciousUplift,
   quantileMetricType,
+  expandMetricGroups,
+  createAutoSliceDataForMetric,
+  generateSliceString,
+  generateSelectAllSliceString,
+  parseSliceQueryString,
+  SliceDataForMetric,
 } from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -176,8 +189,8 @@ export type ExperimentTableRow = {
     levels: string[];
   }>;
   allSliceLevels?: string[];
-  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
-  isPinned?: boolean; // True if this slice level row is pinned
+  isHiddenByFilter?: boolean;
+  labelOnly?: boolean;
 };
 
 export function getRisk(
@@ -279,7 +292,7 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
-    // Skip metric slice rows that are hidden (not expanded or pinned)
+    // Skip metric slice rows that are hidden (not expanded)
     if (row.isHiddenByFilter) {
       return;
     }
@@ -873,7 +886,7 @@ export function getRowResults({
 
 export function getEffectLabel(differenceType: DifferenceType): string {
   if (differenceType === "absolute") {
-    return "Absolute Change";
+    return "Change";
   }
   if (differenceType === "scaled") {
     return "Scaled Impact";
@@ -1005,4 +1018,323 @@ export function getIsExperimentIncludedInIncrementalRefresh(
   }
 
   return includedExperimentIds.includes(experimentId);
+}
+
+// Extracts available metrics and groups (for result filtering) from experiment metrics
+export function getAvailableMetricsFilters({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricGroups,
+  getExperimentMetricById,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+}): {
+  groups: { id: string; name: string }[];
+  metrics: { id: string; name: string }[];
+} {
+  // Get all unique metric IDs (expanded from groups)
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+  const allExpandedMetricIds = new Set([
+    ...expandedGoals,
+    ...expandedSecondaries,
+    ...expandedGuardrails,
+  ]);
+
+  // Get groups
+  const groupIdsMap = new Map<string, boolean>();
+  [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach((id) => {
+    if (isMetricGroupId(id)) {
+      groupIdsMap.set(id, true);
+    }
+  });
+  const groupIds = Array.from(groupIdsMap.keys());
+  const groups: { id: string; name: string }[] = groupIds
+    .map((id) => {
+      const group = metricGroups.find((g) => g.id === id);
+      return group ? { id: group.id, name: group.name } : null;
+    })
+    .filter((g): g is { id: string; name: string } => g !== null);
+
+  // Get individual metrics (allExpandedMetricIds only contains individual metric IDs, not groups)
+  const metrics: { id: string; name: string }[] = Array.from(
+    allExpandedMetricIds,
+  )
+    .map((id) => {
+      const metric = getExperimentMetricById(id);
+      return metric ? { id: metric.id, name: metric.name } : null;
+    })
+    .filter((m): m is { id: string; name: string } => m !== null);
+
+  return { groups, metrics };
+}
+
+// Extracts available metric tags (for result filtering) from expanded experiment metrics
+export function getAvailableMetricTags({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricGroups,
+  getExperimentMetricById,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+}): string[] {
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+
+  const allMetricTagsSet: Set<string> = new Set();
+  [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
+    (metricId) => {
+      const metric = getExperimentMetricById(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    },
+  );
+  return Array.from(allMetricTagsSet);
+}
+
+export interface AvailableSliceTag {
+  id: string;
+  datatypes: Record<string, FactTableColumnType>;
+  isSelectAll?: boolean;
+}
+
+// Extracts all available slice tags (for result filtering) from experiment metrics.
+// Includes both auto slices and custom slices, plus "select all" options for each column.
+export function getAvailableSliceTags({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  customMetricSlices,
+  metricGroups,
+  factTables,
+  getExperimentMetricById,
+  getFactTableById,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }> | null;
+  metricGroups: MetricGroupInterface[];
+  factTables: FactTableInterface[];
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getFactTableById: (id: string) => FactTableInterface | null;
+}): AvailableSliceTag[] {
+  const sliceTagsMap = new Map<
+    string,
+    { datatypes: Record<string, FactTableColumnType>; isSelectAll?: boolean }
+  >();
+
+  // Build factTableMap for parseSliceQueryString
+  const factTableMap: Record<string, FactTableInterface> = {};
+  factTables.forEach((table) => {
+    factTableMap[table.id] = table;
+  });
+
+  // Expand all metrics
+  const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaries = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrails = expandMetricGroups(guardrailMetrics, metricGroups);
+
+  // Track all columns that appear in slices for "select all" generation
+  const columnSet = new Set<string>();
+  const columnDatatypeMap = new Map<string, FactTableColumnType>();
+
+  // Extract from customMetricSlices
+  // For custom slices, only generate the exact combinations defined (no permutations)
+  if (customMetricSlices && customMetricSlices.length > 0) {
+    customMetricSlices.forEach((group) => {
+      // Build the exact slice combination for this group
+      const slices: Record<string, string> = {};
+
+      group.slices.forEach((slice) => {
+        // Use the first level for each column (custom slices define one combination)
+        const level = slice.levels[0] || "";
+        slices[slice.column] = level;
+      });
+
+      // Generate a single tag for this exact combination
+      const tag = generateSliceString(slices);
+      // Parse the tag to get datatypes using parseSliceQueryString
+      const sliceLevels = parseSliceQueryString(tag, factTableMap);
+      const datatypes: Record<string, FactTableColumnType> = {};
+      sliceLevels.forEach((sl) => {
+        datatypes[sl.column] = sl.datatype;
+        // Track column for "select all" generation
+        columnSet.add(sl.column);
+        if (sl.datatype) {
+          columnDatatypeMap.set(sl.column, sl.datatype);
+        }
+      });
+      sliceTagsMap.set(tag, { datatypes });
+    });
+  }
+
+  // Extract from auto slice data for all fact metrics
+  const allMetricIds = [
+    ...expandedGoals,
+    ...expandedSecondaries,
+    ...expandedGuardrails,
+  ];
+
+  allMetricIds.forEach((metricId) => {
+    const metric = getExperimentMetricById(metricId);
+
+    if (metric && isFactMetric(metric)) {
+      const factMetric = metric as FactMetricInterface;
+      const factTableId = factMetric.numerator?.factTableId;
+
+      if (factTableId) {
+        const factTable = getFactTableById(factTableId);
+
+        if (factTable) {
+          const autoSliceData = createAutoSliceDataForMetric({
+            parentMetric: metric,
+            factTable,
+            includeOther: true,
+          });
+
+          // Extract tags from slice data
+          autoSliceData.forEach((slice: SliceDataForMetric) => {
+            // Generate single dimension tags
+            slice.sliceLevels.forEach((sliceLevel) => {
+              const value = sliceLevel.levels[0] || "";
+              const tag = generateSliceString({ [sliceLevel.column]: value });
+              const datatypes = sliceLevel.datatype
+                ? { [sliceLevel.column]: sliceLevel.datatype }
+                : {};
+              sliceTagsMap.set(tag, { datatypes });
+              // Track column for "select all" generation
+              columnSet.add(sliceLevel.column);
+              if (sliceLevel.datatype) {
+                columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
+              }
+            });
+
+            // Generate combined tag for multi-dimensional slices
+            if (slice.sliceLevels.length > 1) {
+              const slices: Record<string, string> = {};
+              slice.sliceLevels.forEach((sl) => {
+                slices[sl.column] = sl.levels[0] || "";
+              });
+              const comboTag = generateSliceString(slices);
+              // Parse the tag to get datatypes using parseSliceQueryString
+              const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
+              const datatypes: Record<string, FactTableColumnType> = {};
+              sliceLevels.forEach((sl) => {
+                datatypes[sl.column] = sl.datatype;
+                // Track column for "select all" generation
+                columnSet.add(sl.column);
+                if (sl.datatype) {
+                  columnDatatypeMap.set(sl.column, sl.datatype);
+                }
+              });
+              sliceTagsMap.set(comboTag, { datatypes });
+            }
+          });
+        }
+      }
+    }
+  });
+
+  // Generate "select all" tags for each column (format: dim:column, no equals sign)
+  columnSet.forEach((column) => {
+    const datatype = columnDatatypeMap.get(column) || "string";
+    const selectAllTag = generateSelectAllSliceString(column);
+    sliceTagsMap.set(selectAllTag, {
+      datatypes: { [column]: datatype },
+      isSelectAll: true,
+    });
+  });
+
+  const sliceTags = Array.from(sliceTagsMap.entries()).map(
+    ([id, { datatypes, isSelectAll }]) => ({ id, datatypes, isSelectAll }),
+  );
+
+  // Sort slices: group by column(s), put "select all" first, then regular values, then empty values
+  return sliceTags.sort((a, b) => {
+    // Extract column name from tag
+    const getColumnFromTag = (tag: string): string => {
+      if (!tag.startsWith("dim:")) return "";
+      const withoutDim = tag.substring(4);
+      const equalsIndex = withoutDim.indexOf("=");
+      return decodeURIComponent(
+        withoutDim.slice(0, equalsIndex >= 0 ? equalsIndex : undefined),
+      );
+    };
+
+    const aColumn = getColumnFromTag(a.id);
+    const bColumn = getColumnFromTag(b.id);
+    const columnCompare = aColumn.localeCompare(bColumn);
+    if (columnCompare !== 0) return columnCompare;
+
+    // Same column: "select all" comes first
+    if (a.isSelectAll && !b.isSelectAll) return -1;
+    if (!a.isSelectAll && b.isSelectAll) return 1;
+
+    // Both are regular slices, parse normally
+    const aLevels = a.isSelectAll
+      ? []
+      : parseSliceQueryString(a.id, factTableMap);
+    const bLevels = b.isSelectAll
+      ? []
+      : parseSliceQueryString(b.id, factTableMap);
+
+    // For same first column, check if it's a multi-column slice
+    if (aLevels.length !== bLevels.length) {
+      // Single column slices come before multi-column
+      return aLevels.length - bLevels.length;
+    }
+
+    // Compare each column level
+    for (let i = 0; i < Math.min(aLevels.length, bLevels.length); i++) {
+      const aValue = aLevels[i]?.levels[0] || "";
+      const bValue = bLevels[i]?.levels[0] || "";
+      const aDatatype = aLevels[i]?.datatype;
+      const bDatatype = bLevels[i]?.datatype;
+
+      // Empty values go to the end
+      if (aValue === "" && bValue !== "") return 1;
+      if (aValue !== "" && bValue === "") return -1;
+
+      // Both non-empty or both empty: compare normally
+      if (aValue !== bValue) {
+        // Special handling for boolean: true comes before false
+        if (aDatatype === "boolean" && bDatatype === "boolean") {
+          if (aValue === "true" && bValue === "false") return -1;
+          if (aValue === "false" && bValue === "true") return 1;
+        }
+        return aValue.localeCompare(bValue);
+      }
+    }
+
+    // Fallback to ID comparison
+    return a.id.localeCompare(b.id);
+  });
 }

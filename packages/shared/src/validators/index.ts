@@ -33,3 +33,5 @@ export * from "./metric-analysis";
 export * from "./population-data";
 export * from "./saved-group";
 export * from "./url-redirects";
+export * from "./sdk-connection-cache";
+export * from "./metric-group";

@@ -139,6 +139,7 @@ export interface DataSourceProperties {
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
   hasIncrementalRefresh?: boolean;
+  maxColumns: number;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -281,6 +282,7 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
+  queryCacheTTLMins?: string;
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {

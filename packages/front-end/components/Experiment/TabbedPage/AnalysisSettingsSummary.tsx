@@ -1,10 +1,10 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
+import { FactTableColumnType } from "shared/types/fact-table";
 import React, { useMemo, useState } from "react";
+import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import clsx from "clsx";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -14,9 +14,16 @@ import {
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { ExperimentSnapshotReportArgs } from "shared/types/report";
+import { getSnapshotAnalysis } from "shared/util";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { getValidDate } from "shared/dates";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { startCase } from "lodash";
-import { PiPencilSimpleFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { trackSnapshot } from "@/services/track";
@@ -24,48 +31,80 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import { isOutdated } from "@/components/Experiment/AnalysisSettingsBar";
-import RunQueriesButton, {
-  getQueryStatus,
-} from "@/components/Queries/RunQueriesButton";
-import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
+import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
+import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import Link from "@/ui/Link";
+import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
+  variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
-  reportArgs?: ExperimentSnapshotReportArgs;
+  dimension?: string;
+  setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  metricsFilter?: string[];
+  setMetricsFilter?: (filters: string[]) => void;
+  availableMetricsFilters?: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
+  availableMetricTags?: string[];
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
+  sortBy?: "significance" | "change" | "custom" | null;
+  sortDirection?: "asc" | "desc" | null;
 }
 
 const numberFormatter = Intl.NumberFormat();
 
 export default function AnalysisSettingsSummary({
   experiment,
-  envs,
   mutate,
   statsEngine,
   editMetrics,
-  baselineRow,
+  variationFilter,
   setVariationFilter,
+  baselineRow,
   setBaselineRow,
+  differenceType,
   setDifferenceType,
-  reportArgs,
+  dimension,
+  setDimension,
+  metricTagFilter,
+  setMetricTagFilter,
+  metricsFilter,
+  setMetricsFilter,
+  availableMetricsFilters = { groups: [], metrics: [] },
+  availableMetricTags = [],
+  availableSliceTags = [],
+  sliceTagsFilter,
+  setSliceTagsFilter,
+  sortBy,
+  sortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -91,30 +130,34 @@ export default function AnalysisSettingsSummary({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
+  const hasPostStratificationFeature = hasCommercialFeature(
+    "post-stratification",
+  );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   const {
     snapshot,
     latest,
     analysis,
-    dimension,
+    dimension: _snapshotDimension,
+    precomputedDimensions,
     mutateSnapshot,
     setAnalysisSettings,
     setSnapshotType,
+    setDimension: setSnapshotDimension,
     phase,
   } = useSnapshot();
 
-  const { mutateDashboards } = useExperimentDashboards(experiment.id);
-
-  const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
-    experiment,
-    {},
-  );
-
-  const isBandit = experiment.type === "multi-armed-bandit";
-
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasValidStatsEngine =
+    !analysis?.settings ||
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+
   const [refreshError, setRefreshError] = useState("");
+  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [migrateToDashboardModalOpen, setMigrateToDashboardModalOpen] =
+    useState(false);
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
@@ -149,8 +192,6 @@ export default function AnalysisSettingsSummary({
 
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
-
-  const [analysisModal, setAnalysisModal] = useState(false);
 
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
@@ -235,6 +276,7 @@ export default function AnalysisSettingsSummary({
     orgSettings,
     statsEngine,
     hasRegressionAdjustmentFeature,
+    hasPostStratificationFeature,
     hasSequentialFeature,
     phase,
     unjoinableMetrics,
@@ -243,310 +285,553 @@ export default function AnalysisSettingsSummary({
 
   const ds = getDatasourceById(experiment.datasource);
 
-  const goals: string[] = [];
-  expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) goals.push(name);
-    },
-  );
-  const secondary: string[] = [];
-  expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) secondary.push(name);
-    },
-  );
-  const guardrails: string[] = [];
-  expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) guardrails.push(name);
-    },
-  );
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const numMetrics = goals.length + secondary.length + guardrails.length;
+  const { allMetrics, filteredMetrics } = useMemo(() => {
+    const allMetricsArrays = [
+      experiment.goalMetrics ?? [],
+      experiment.secondaryMetrics ?? [],
+      experiment.guardrailMetrics ?? [],
+    ];
+
+    const expandedGoals = expandMetricGroups(
+      experiment.goalMetrics ?? [],
+      metricGroups,
+    );
+    const expandedSecondaries = expandMetricGroups(
+      experiment.secondaryMetrics ?? [],
+      metricGroups,
+    );
+    const expandedGuardrails = expandMetricGroups(
+      experiment.guardrailMetrics ?? [],
+      metricGroups,
+    );
+
+    const allExpandedIds = [
+      ...expandedGoals,
+      ...expandedSecondaries,
+      ...expandedGuardrails,
+    ];
+    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    allExpandedIds.forEach((id) => {
+      const metric = getExperimentMetricById(id);
+      if (metric && !allMetricsMap.has(id)) {
+        allMetricsMap.set(id, metric);
+      }
+    });
+    const allMetrics = Array.from(allMetricsMap.values());
+
+    const hasFilter = (metricsFilter?.length ?? 0) > 0;
+    const groupsToUse = hasFilter
+      ? metricGroups.filter((g) => metricsFilter!.includes(g.id))
+      : metricGroups;
+
+    // Create a set of allowed metric IDs from expanded groups and individual metrics
+    const allowedMetricIds = hasFilter
+      ? (() => {
+          const allowed = new Set<string>();
+          metricsFilter!.forEach((id) => {
+            const group = metricGroups.find((g) => g.id === id);
+            if (group) {
+              group.metrics.forEach((metricId) => allowed.add(metricId));
+            } else {
+              allowed.add(id);
+            }
+          });
+          return allowed;
+        })()
+      : null;
+
+    const processMetrics = (metrics: string[]) => {
+      let filtered = metrics;
+      if (allowedMetricIds && metricsFilter) {
+        filtered = filtered.filter(
+          (id) => metricsFilter.includes(id) || allowedMetricIds.has(id),
+        );
+      }
+      const expanded = expandMetricGroups(filtered, groupsToUse);
+      const defs = expanded
+        .map((id) => getExperimentMetricById(id))
+        .filter((m): m is ExperimentMetricInterface => !!m);
+      return filterMetricsByTags(defs, metricTagFilter);
+    };
+
+    const filteredIds = allMetricsArrays.flatMap(processMetrics);
+    const filteredMetricsMap = new Map<string, ExperimentMetricInterface>();
+    filteredIds.forEach((id) => {
+      const metric = getExperimentMetricById(id);
+      if (metric && !filteredMetricsMap.has(id)) {
+        filteredMetricsMap.set(id, metric);
+      }
+    });
+    const filteredMetrics = Array.from(filteredMetricsMap.values());
+
+    return {
+      allMetrics,
+      filteredMetrics,
+    };
+  }, [
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    metricGroups,
+    metricsFilter,
+    metricTagFilter,
+    getExperimentMetricById,
+  ]);
+
+  function isDifferent(
+    val1?: string | boolean | number | null,
+    val2?: string | boolean | number | null,
+  ) {
+    if (!val1 && !val2) return false;
+    return val1 !== val2;
+  }
+
+  function isDifferentStringArray(
+    val1?: string[] | null,
+    val2?: string[] | null,
+  ) {
+    if (!val1 && !val2) return false;
+    if (!val1 || !val2) return true;
+    if (val1.length !== val2.length) return true;
+    return val1.some((v) => !val2.includes(v));
+  }
+
+  function isStringArrayMissingElements(
+    strings: string[] = [],
+    elements: string[] = [],
+  ) {
+    if (!elements.length) return false;
+    if (elements.length > strings.length) return true;
+    return elements.some((v) => !strings.includes(v));
+  }
+
+  function isDifferentDate(
+    val1: Date,
+    val2: Date,
+    threshold: number = 86400000,
+  ) {
+    // 86400000 = 1 day
+    return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
+  }
+
+  function isOutdated({
+    experiment: exp,
+    snapshot: snap,
+    metricGroups: mg = [],
+    orgSettings: org,
+    statsEngine: engine,
+    hasRegressionAdjustmentFeature,
+    hasPostStratificationFeature,
+    hasSequentialFeature,
+    phase: currentPhase,
+    unjoinableMetrics: unjoinable,
+    conversionWindowMetrics: conversion,
+  }: {
+    experiment?: ExperimentInterfaceStringDates;
+    snapshot?: ExperimentSnapshotInterface;
+    metricGroups?: MetricGroupInterface[];
+    orgSettings: OrganizationSettings;
+    statsEngine: StatsEngine;
+    hasRegressionAdjustmentFeature: boolean;
+    hasPostStratificationFeature: boolean;
+    hasSequentialFeature: boolean;
+    phase?: number;
+    unjoinableMetrics?: Set<string>;
+    conversionWindowMetrics?: Set<string>;
+  }): { outdated: boolean; reasons: string[] } {
+    const snapshotSettings = snap?.settings;
+    const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
+    if (!exp || !snapshotSettings || !analysisSettings) {
+      return { outdated: false, reasons: [] };
+    }
+
+    const reasons: string[] = [];
+
+    if (
+      isDifferent(
+        analysisSettings.statsEngine || DEFAULT_STATS_ENGINE,
+        engine || DEFAULT_STATS_ENGINE,
+      )
+    ) {
+      reasons.push("Stats engine changed");
+    }
+    if (isDifferent(exp.activationMetric, snapshotSettings.activationMetric)) {
+      reasons.push("Activation metric changed");
+    }
+    if (isDifferent(exp.segment, snapshotSettings.segment)) {
+      reasons.push("Segment changed");
+    }
+    if (isDifferent(exp.queryFilter, snapshotSettings.queryFilter)) {
+      reasons.push("Query filter changed");
+    }
+    if (isDifferent(exp.skipPartialData, snapshotSettings.skipPartialData)) {
+      reasons.push("In-progress conversion behavior changed");
+    }
+    if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
+      reasons.push("Experiment assignment query changed");
+    }
+    if (
+      isDifferent(
+        exp.attributionModel || "firstExposure",
+        snapshotSettings.attributionModel || "firstExposure",
+      )
+    ) {
+      reasons.push("Attribution model changed");
+    }
+
+    const snapshotMetrics = Array.from(
+      new Set(
+        expandMetricGroups(
+          getAllMetricIdsFromExperiment(snapshotSettings, false, mg),
+          mg,
+        ),
+      ),
+    ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
+
+    let experimentMetrics = Array.from(
+      new Set(
+        expandMetricGroups(getAllMetricIdsFromExperiment(exp, false, mg), mg),
+      ),
+    ).filter((m) => (unjoinable ? !unjoinable.has(m) : true));
+
+    if (exp.type === "holdout" && conversion?.size) {
+      experimentMetrics = experimentMetrics.filter((m) => !conversion.has(m));
+    }
+    if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
+      reasons.push("Metrics changed");
+    }
+
+    if (
+      isDifferentStringArray(
+        exp.variations.map((v) => v.key),
+        snapshotSettings.variations.map((v) => v.id),
+      )
+    ) {
+      reasons.push("Variations changed");
+    }
+    if (
+      isDifferentDate(
+        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
+        getValidDate(snapshotSettings.startDate),
+      ) ||
+      isDifferentDate(
+        getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
+        getValidDate(snapshotSettings.endDate),
+      )
+    ) {
+      reasons.push("Analysis dates changed");
+    }
+    if (
+      isDifferent(
+        analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+        org.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+      )
+    ) {
+      reasons.push("P-value threshold changed");
+    }
+
+    const experimentRegressionAdjustmentEnabled =
+      !hasRegressionAdjustmentFeature
+        ? false
+        : !!exp.regressionAdjustmentEnabled;
+    if (
+      isDifferent(
+        experimentRegressionAdjustmentEnabled,
+        !!analysisSettings?.regressionAdjusted,
+      )
+    ) {
+      reasons.push("CUPED settings changed");
+    }
+
+    const experimentPostStratificationEnabled =
+      !hasPostStratificationFeature || org.disablePrecomputedDimensions
+        ? false
+        : (exp.postStratificationEnabled ??
+          org.postStratificationEnabled ??
+          DEFAULT_POST_STRATIFICATION_ENABLED);
+    if (
+      isDifferent(
+        experimentPostStratificationEnabled,
+        !!analysisSettings?.postStratificationEnabled,
+      )
+    ) {
+      reasons.push("Post-stratification settings changed");
+    }
+
+    const experimentSequentialEnabled =
+      engine !== "frequentist" || !hasSequentialFeature
+        ? false
+        : (exp.sequentialTestingEnabled ?? !!org.sequentialTestingEnabled);
+    const experimentSequentialTuningParameter: number =
+      exp.sequentialTestingTuningParameter ??
+      org.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+    if (
+      (isDifferent(
+        experimentSequentialEnabled,
+        !!analysisSettings?.sequentialTesting,
+      ) ||
+        (experimentSequentialEnabled &&
+          experimentSequentialTuningParameter !==
+            analysisSettings?.sequentialTestingTuningParameter)) &&
+      engine === "frequentist"
+    ) {
+      reasons.push("Sequential testing settings changed");
+    }
+
+    return { outdated: reasons.length > 0, reasons };
+  }
+
+  // Determine if any filters are currently set
+  const hasActiveFilters =
+    (metricTagFilter?.length || 0) > 0 ||
+    (metricsFilter?.length || 0) > 0 ||
+    (sliceTagsFilter?.length || 0) > 0;
+
+  // Determine if any filter types are available/enabled
+  const hasAvailableSlices =
+    availableSliceTags.length > 0 && hasMetricSlicesFeature;
+  const hasAvailableMetrics =
+    availableMetricsFilters.groups.length > 0 ||
+    availableMetricsFilters.metrics.length > 0;
+  const hasAvailableTags = availableMetricTags.length > 0;
+
+  const hasAnyAvailableFilter =
+    hasAvailableSlices || hasAvailableMetrics || hasAvailableTags;
+
+  // Render if filters are active OR at least one filter type is available
+  const shouldRenderMetricFilter = hasActiveFilters || hasAnyAvailableFilter;
 
   return (
-    <div className="px-3 py-2">
-      {analysisModal && (
-        <AnalysisForm
-          cancel={() => setAnalysisModal(false)}
-          envs={envs}
-          experiment={experiment}
-          mutate={mutate}
-          phase={experiment.phases.length - 1}
-          editDates={true}
-          editVariationIds={false}
-          editMetrics={true}
-          source={"analysis-settings-summary"}
-        />
-      )}
-      <div className="row align-items-center justify-content-end">
-        <div className="col-auto">
-          <div className="row align-items-center text-muted">
-            <div className="col-auto">
-              {!(isBandit && experiment.status === "running") &&
-              canEditAnalysisSettings ? (
-                <div className="cursor-pointer">
-                  <Link
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAnalysisModal(true);
-                    }}
-                  >
-                    <span className="text-dark">Analysis Settings</span>
-                    <PiPencilSimpleFill className="ml-2" />
-                  </Link>
-                </div>
-              ) : (
-                <span>Analysis Settings</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="col flex-1" />
-        <div className="col-auto" style={{ fontSize: "12px" }}>
-          <Metadata
-            label={unitDisplayName}
-            value={numberFormatter.format(totalUnits ?? 0)}
-          />
-        </div>
-        <div className="col-auto">
-          <div className="row align-items-center justify-content-end">
-            <div className="col-auto">
-              {hasData &&
-                (outdated && status !== "running" ? (
-                  <OutdatedBadge reasons={reasons} />
-                ) : (
-                  <QueriesLastRun
-                    status={status}
-                    dateCreated={snapshot?.dateCreated}
-                    nextUpdate={experiment.nextSnapshotAttempt}
-                  />
-                ))}
-            </div>
+    <Box px="3" pt="3" mb="3">
+      <Flex
+        align="center"
+        justify="between"
+        gapX="6"
+        gapY="2"
+        pr="1"
+        wrap="wrap-reverse"
+      >
+        <Box
+          style={{
+            flex: "1 0 auto",
+            display: "flex",
+            justifyContent: "flex-end",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <Flex align="center" gap="4">
+            {snapshot ? (
+              <Metadata
+                label={unitDisplayName}
+                value={numberFormatter.format(totalUnits ?? 0)}
+                style={{ whiteSpace: "nowrap" }}
+              />
+            ) : null}
 
-            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-              numMetrics > 0 && (
-                <div className="col-auto">
-                  {experiment.datasource &&
+            <Flex align="center" gap="2">
+              <QueriesLastRun
+                status={status}
+                dateCreated={snapshot?.dateCreated}
+                latestQueryDate={latest?.dateCreated}
+                nextUpdate={experiment.nextSnapshotAttempt}
+                autoUpdateEnabled={experiment.autoSnapshots}
+                showAutoUpdateWidget={true}
+                queries={
                   latest &&
-                  latest.queries?.length > 0 ? (
-                    <RunQueriesButton
-                      cta="Update"
-                      cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                      mutate={() => {
-                        mutateSnapshot();
-                        mutate();
-                        mutateDashboards();
-                      }}
-                      model={latest}
-                      icon="refresh"
-                      color="outline-primary"
-                      resetFilters={async () => {
-                        // todo: remove baseline resetter (here and below) once refactored.
-                        if (baselineRow !== 0) {
-                          setBaselineRow?.(0);
-                          setVariationFilter?.([]);
-                        }
-                        setDifferenceType("relative");
-                        experiment.type === "multi-armed-bandit"
-                          ? setSnapshotType("exploratory")
-                          : setSnapshotType(undefined);
-                      }}
-                      onSubmit={async () => {
-                        await apiCall<{
-                          snapshot: ExperimentSnapshotInterface;
-                        }>(`/experiment/${experiment.id}/snapshot`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            phase,
-                            dimension,
-                          }),
-                        })
-                          .then((res) => {
-                            trackSnapshot(
-                              "create",
-                              "RunQueriesButton",
-                              datasource?.type || null,
-                              res.snapshot,
-                            );
-
-                            setAnalysisSettings(null);
-                            mutateSnapshot();
-                            mutate();
-                            setRefreshError("");
-                          })
-                          .catch((e) => {
-                            setRefreshError(e.message);
-                          });
-                      }}
-                    />
-                  ) : (
-                    <RefreshSnapshotButton
-                      mutate={() => {
-                        mutateSnapshot();
-                        mutate();
-                      }}
-                      phase={phase}
-                      experiment={experiment}
-                      lastAnalysis={analysis}
-                      dimension={dimension}
-                      setError={(error) => setRefreshError(error ?? "")}
-                      setAnalysisSettings={setAnalysisSettings}
-                      resetFilters={() => {
-                        if (baselineRow !== 0) {
-                          setBaselineRow?.(0);
-                          setVariationFilter?.([]);
-                        }
-                        setDifferenceType("relative");
-                        experiment.type === "multi-armed-bandit"
-                          ? setSnapshotType("exploratory")
-                          : setSnapshotType(undefined);
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-
-            {ds &&
-              permissionsUtil.canRunExperimentQueries(ds) &&
-              latest &&
-              (status === "failed" || status === "partially-succeeded") && (
-                <div className="col-auto pl-1">
-                  <ViewAsyncQueriesButton
-                    queries={latest.queries.map((q) => q.query)}
-                    error={latest.error}
-                    color={clsx(
-                      {
-                        "outline-danger":
-                          status === "failed" ||
-                          status === "partially-succeeded",
-                      },
-                      " ",
-                    )}
-                    display={null}
-                    status={status}
-                    icon={
-                      <span
-                        className="position-relative pr-2"
-                        style={{ marginRight: 6 }}
-                      >
-                        <span className="text-main">
-                          <FaDatabase />
-                        </span>
-                        <FaExclamationTriangle
-                          className="position-absolute"
-                          style={{
-                            top: -6,
-                            right: -4,
-                          }}
-                        />
-                      </span>
-                    }
-                    condensed={true}
-                  />
-                </div>
-              )}
-
-            <div className="col-auto px-0">
-              <ResultMoreMenu
-                experiment={experiment}
-                snapshotId={snapshot?.id || ""}
-                datasource={datasource}
-                forceRefresh={
-                  numMetrics > 0
-                    ? async () => {
-                        await apiCall<{
-                          snapshot: ExperimentSnapshotInterface;
-                        }>(`/experiment/${experiment.id}/snapshot?force=true`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            phase,
-                            dimension,
-                          }),
-                        })
-                          .then((res) => {
-                            setAnalysisSettings(null);
-                            if (baselineRow !== 0) {
-                              setBaselineRow?.(0);
-                              setVariationFilter?.([]);
-                            }
-                            setDifferenceType("relative");
-                            trackSnapshot(
-                              "create",
-                              "ForceRerunQueriesButton",
-                              datasource?.type || null,
-                              res.snapshot,
-                            );
-                            mutateSnapshot();
-                            mutate();
-                            setRefreshError("");
-                          })
-                          .catch((e) => {
-                            console.error(e);
-                            setRefreshError(e.message);
-                          });
-                      }
+                  (status === "failed" || status === "partially-succeeded")
+                    ? latest.queries.map((q) => q.query)
                     : undefined
                 }
-                editMetrics={editMetrics}
-                notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-                notebookFilename={experiment.trackingKey}
-                reportArgs={reportArgs}
-                queries={
-                  latest && latest.status !== "error" && latest.queries
-                    ? latest.queries
-                    : snapshot?.queries
+                onViewQueries={
+                  latest &&
+                  (status === "failed" || status === "partially-succeeded")
+                    ? () => setQueriesModalOpen(true)
+                    : undefined
                 }
-                queryError={snapshot?.error}
-                supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                hasData={hasData}
-                metrics={useMemo(() => {
-                  const metricMap = new Map<
-                    string,
-                    ExperimentMetricInterface
-                  >();
-                  const allBaseMetrics = [...metrics, ...factMetrics];
-                  allBaseMetrics.forEach((metric) =>
-                    metricMap.set(metric.id, metric),
-                  );
-                  const factTableMap = new Map(
-                    factTables.map((table) => [table.id, table]),
-                  );
-
-                  // Expand slice metrics and add them to the map
-                  expandAllSliceMetricsInMap({
-                    metricMap,
-                    factTableMap,
-                    experiment,
-                    metricGroups,
-                  });
-
-                  return getAllExpandedMetricIdsFromExperiment({
-                    exp: experiment,
-                    expandedMetricMap: metricMap,
-                    includeActivationMetric: false,
-                    metricGroups,
-                  });
-                }, [
-                  experiment,
-                  metrics,
-                  factMetrics,
-                  factTables,
-                  metricGroups,
-                ])}
-                results={analysis?.results}
-                variations={variations}
-                trackingKey={experiment.trackingKey}
-                dimension={dimension}
-                project={experiment.project}
               />
-            </div>
-          </div>
-        </div>
-      </div>
+              {hasData && outdated && status !== "running" ? (
+                <OutdatedBadge
+                  label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
+                  reasons={reasons}
+                  hasData={hasData && hasValidStatsEngine}
+                />
+              ) : null}
+            </Flex>
+
+            {ds &&
+            permissionsUtil.canRunExperimentQueries(ds) &&
+            allMetrics.length > 0 ? (
+              <RefreshResultsButton
+                entityType={
+                  experiment.type === "holdout" ? "holdout" : "experiment"
+                }
+                entityId={experiment.id}
+                datasourceId={experiment.datasource}
+                latest={latest}
+                onSubmitSuccess={(snapshot) => {
+                  trackSnapshot(
+                    "create",
+                    "RunQueriesButton",
+                    datasource?.type || null,
+                    snapshot,
+                  );
+                  setAnalysisSettings(null);
+                }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
+                resetFilters={async () => {
+                  if (baselineRow !== 0) {
+                    setBaselineRow?.(0);
+                    setVariationFilter?.([]);
+                  }
+                  setDifferenceType("relative");
+                  if (experiment.type === "multi-armed-bandit") {
+                    setSnapshotType?.("exploratory");
+                  } else {
+                    setSnapshotType?.(undefined);
+                  }
+                }}
+                experiment={experiment}
+                phase={phase}
+                dimension={dimension}
+                setAnalysisSettings={setAnalysisSettings}
+              />
+            ) : null}
+
+            <ResultMoreMenu
+              experiment={experiment}
+              datasource={datasource}
+              forceRefresh={
+                allMetrics.length > 0
+                  ? async () => {
+                      await apiCall<{
+                        snapshot: ExperimentSnapshotInterface;
+                      }>(`/experiment/${experiment.id}/snapshot?force=true`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          phase,
+                          dimension,
+                        }),
+                      })
+                        .then((res) => {
+                          setAnalysisSettings(null);
+                          if (baselineRow !== 0) {
+                            setBaselineRow?.(0);
+                            setVariationFilter?.([]);
+                          }
+                          setDifferenceType("relative");
+                          trackSnapshot(
+                            "create",
+                            "ForceRerunQueriesButton",
+                            datasource?.type || null,
+                            res.snapshot,
+                          );
+                          mutateSnapshot();
+                          mutate();
+                          setRefreshError("");
+                        })
+                        .catch((e) => {
+                          console.error(e);
+                          setRefreshError(e.message);
+                        });
+                    }
+                  : undefined
+              }
+              editMetrics={editMetrics}
+              notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+              notebookFilename={experiment.trackingKey}
+              supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+              hasData={hasData}
+              metrics={useMemo(() => {
+                const metricMap = new Map<string, ExperimentMetricInterface>();
+                const allBaseMetrics = [...metrics, ...factMetrics];
+                allBaseMetrics.forEach((metric) =>
+                  metricMap.set(metric.id, metric),
+                );
+                const factTableMap = new Map(
+                  factTables.map((table) => [table.id, table]),
+                );
+
+                // Expand slice metrics and add them to the map
+                expandAllSliceMetricsInMap({
+                  metricMap,
+                  factTableMap,
+                  experiment,
+                  metricGroups,
+                });
+
+                return getAllExpandedMetricIdsFromExperiment({
+                  exp: experiment,
+                  expandedMetricMap: metricMap,
+                  includeActivationMetric: false,
+                  metricGroups,
+                });
+              }, [experiment, metrics, factMetrics, factTables, metricGroups])}
+              results={analysis?.results}
+              variations={variations}
+              trackingKey={experiment.trackingKey}
+              dimension={dimension}
+              project={experiment.project}
+              onAddToDashboard={() => setMigrateToDashboardModalOpen(true)}
+            />
+          </Flex>
+        </Box>
+
+        <Box style={{ flex: "1 0 auto", order: -1, whiteSpace: "nowrap" }}>
+          <Flex align="center">
+            {setDimension && (
+              <DimensionChooser
+                value={dimension ?? ""}
+                setValue={setDimension}
+                precomputedDimensions={precomputedDimensions}
+                activationMetric={!!experiment.activationMetric}
+                datasourceId={experiment.datasource}
+                exposureQueryId={experiment.exposureQueryId}
+                userIdType={userIdType as "user" | "anonymous" | undefined}
+                analysis={analysis}
+                snapshot={snapshot}
+                mutate={mutateSnapshot}
+                setAnalysisSettings={setAnalysisSettings}
+                setSnapshotDimension={setSnapshotDimension}
+              />
+            )}
+            {shouldRenderMetricFilter && (
+              <>
+                {setDimension && (
+                  <Separator orientation="vertical" ml="5" mr="2" />
+                )}
+                <ResultsFilter
+                  availableMetricTags={availableMetricTags}
+                  metricTagFilter={metricTagFilter}
+                  setMetricTagFilter={setMetricTagFilter}
+                  availableMetricsFilters={availableMetricsFilters}
+                  metricsFilter={metricsFilter}
+                  setMetricsFilter={setMetricsFilter}
+                  availableSliceTags={availableSliceTags}
+                  sliceTagsFilter={sliceTagsFilter}
+                  setSliceTagsFilter={setSliceTagsFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                  dimension={dimension}
+                />
+              </>
+            )}
+          </Flex>
+        </Box>
+      </Flex>
+
+      {filteredMetrics.length < allMetrics.length && (
+        <Box mt="2">
+          <Text>
+            Showing {filteredMetrics.length} of {allMetrics.length} metrics
+          </Text>
+        </Box>
+      )}
+
       {refreshError && (
         <>
           <Callout status="error" mt="2">
@@ -566,6 +851,30 @@ export default function AnalysisSettingsSummary({
           )}
         </>
       )}
-    </div>
+      {queriesModalOpen &&
+        latest &&
+        (status === "failed" || status === "partially-succeeded") && (
+          <AsyncQueriesModal
+            close={() => setQueriesModalOpen(false)}
+            queries={latest.queries.map((q) => q.query)}
+            savedQueries={[]}
+            error={latest.error}
+          />
+        )}
+      <MigrateResultsToDashboardModal
+        open={migrateToDashboardModalOpen}
+        close={() => setMigrateToDashboardModalOpen(false)}
+        experiment={experiment}
+        dimension={dimension}
+        metricTagFilter={metricTagFilter}
+        metricsFilter={metricsFilter}
+        sliceTagsFilter={sliceTagsFilter}
+        baselineRow={baselineRow}
+        variationFilter={variationFilter}
+        sortBy={sortBy ?? null}
+        sortDirection={sortDirection ?? null}
+        differenceType={differenceType}
+      />
+    </Box>
   );
 }

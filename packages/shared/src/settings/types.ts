@@ -81,6 +81,7 @@ interface BaseSettings {
   regressionAdjustmentDays: number;
   sequentialTestingEnabled: boolean;
   sequentialTestingTuningParameter: number;
+  postStratificationEnabled: boolean;
   attributionModel: AttributionModel;
   srmThreshold: number;
   secureAttributeSalt: string;

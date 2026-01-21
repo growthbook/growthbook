@@ -19,7 +19,7 @@ export const postSdkConnection = createApiRequestHandler(
   if (!req.context.permissions.canCreateSDKConnection(params))
     req.context.permissions.throwPermissionError();
 
-  const connection = await createSDKConnection(params);
+  const connection = await createSDKConnection(req.context, params);
 
   await req.audit({
     event: "sdk-connection.create",

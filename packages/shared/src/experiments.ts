@@ -1,7 +1,12 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
+import {
+  DEFAULT_GUARDRAIL_ALPHA,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared/constants";
 import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
@@ -40,13 +45,16 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { TemplateVariables } from "../types/sql";
 import { stringToBoolean } from "./util";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-} from "./constants";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
+
+export type ExperimentSortBy =
+  | "significance"
+  | "change"
+  | "metrics"
+  | "metricTags"
+  | null;
+export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
@@ -457,6 +465,15 @@ export function isRegressionAdjusted(
   );
 }
 
+export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "percentile" &&
+    !!metric.cappingSettings.value &&
+    metric.cappingSettings.value < 1 &&
+    isCappableMetricType(metric)
+  );
+}
+
 export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
@@ -533,23 +550,14 @@ export interface SliceMetricInfo {
   sliceLevels: SliceLevelsData[];
 }
 
-export function parseSliceMetricId(
-  metricId: string,
+/**
+ * Parses a slice query string (e.g., "dim:browser=Chrome&dim:country=AU")
+ * and returns the slice levels with datatypes.
+ */
+export function parseSliceQueryString(
+  queryString: string,
   factTableMap?: Record<string, FactTableInterface>,
-): SliceMetricInfo {
-  const questionMarkIndex = metricId.indexOf("?");
-  if (questionMarkIndex === -1) {
-    return {
-      isSliceMetric: false,
-      baseMetricId: metricId,
-      sliceLevels: [],
-    };
-  }
-
-  const baseMetricId = metricId.substring(0, questionMarkIndex);
-  const queryString = metricId.substring(questionMarkIndex + 1);
-
-  // Parse query parameters using URLSearchParams
+): SliceLevelsData[] {
   const sliceLevels: SliceLevelsData[] = [];
   const params = new URLSearchParams(queryString);
 
@@ -579,6 +587,44 @@ export function parseSliceMetricId(
     }
   }
 
+  return sliceLevels;
+}
+
+export function isSliceTagSelectAll(tagId: string): {
+  isSelectAll: boolean;
+  column?: string;
+} {
+  // Handle "select all" format: dim:column (no equals sign)
+  if (!tagId.includes("=")) {
+    const columnMatch = tagId.match(/^dim:(.+)$/);
+    if (columnMatch) {
+      return {
+        isSelectAll: true,
+        column: decodeURIComponent(columnMatch[1]),
+      };
+    }
+  }
+  return { isSelectAll: false };
+}
+
+export function parseSliceMetricId(
+  metricId: string,
+  factTableMap?: Record<string, FactTableInterface>,
+): SliceMetricInfo {
+  const questionMarkIndex = metricId.indexOf("?");
+  if (questionMarkIndex === -1) {
+    return {
+      isSliceMetric: false,
+      baseMetricId: metricId,
+      sliceLevels: [],
+    };
+  }
+
+  const baseMetricId = metricId.substring(0, questionMarkIndex);
+  const queryString = metricId.substring(questionMarkIndex + 1);
+
+  const sliceLevels = parseSliceQueryString(queryString, factTableMap);
+
   if (sliceLevels.length === 0) {
     return {
       isSliceMetric: false,
@@ -592,27 +638,6 @@ export function parseSliceMetricId(
     baseMetricId,
     sliceLevels: sliceLevels,
   };
-}
-
-/**
- * Generates a pinned slice key for a metric with slice levels
- */
-export function generatePinnedSliceKey(
-  metricId: string,
-  sliceLevels: SliceLevelsData[],
-  location: "goal" | "secondary" | "guardrail",
-): string {
-  // Convert SliceLevelsData to SliceLevel format, handling boolean "null" values
-  const sliceLevelsForString = sliceLevels.map((dl) => {
-    // For boolean "null" slices, use empty array to generate ?dim:col= format
-    const isBooleanNull = dl.levels[0] === "null" && dl.datatype === "boolean";
-
-    const levels = isBooleanNull ? [] : dl.levels;
-    return { column: dl.column, datatype: dl.datatype, levels };
-  });
-
-  const sliceKeyParts = generateSliceStringFromLevels(sliceLevelsForString);
-  return `${metricId}?${sliceKeyParts}&location=${location}`;
 }
 
 export function getMetricLink(id: string): string {
@@ -1401,6 +1426,11 @@ export function createCustomSliceDataForMetric({
   });
 
   return customSliceData;
+}
+
+export function generateSelectAllSliceString(column: string): string {
+  // Generate "select all" tag format: dim:column (no equals sign)
+  return `dim:${encodeURIComponent(column)}`;
 }
 
 export function generateSliceString(slices: Record<string, string>): string {

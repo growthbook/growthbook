@@ -97,10 +97,20 @@ const AnalysisForm: FC<{
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment,
+  });
+
+  // Get parent settings (without experiment scope) for displaying defaults
+  const { settings: parentScopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
+  );
+  const hasPostStratificationFeature = hasCommercialFeature(
+    "post-stratification",
   );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
@@ -154,7 +164,6 @@ const AnalysisForm: FC<{
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       customMetricSlices: experiment.customMetricSlices || [],
-      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -162,6 +171,7 @@ const AnalysisForm: FC<{
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
+      postStratificationEnabled: experiment.postStratificationEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -599,38 +609,103 @@ const AnalysisForm: FC<{
           onChange={(v) => {
             form.setValue("statsEngine", v);
           }}
-          parentSettings={scopedSettings}
+          parentSettings={parentScopedSettings}
           allowUndefined={!isBandit}
           disabled={isBandit}
         />
-        {isBandit && (
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
-              </PremiumTooltip>
-            }
-            style={{ width: 200 }}
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            disabled={
-              !hasRegressionAdjustmentFeature ||
-              (isBandit && experiment.status !== "draft")
-            }
-          />
+        {!isHoldout && (
+          <>
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="regression-adjustment">
+                  <GBCuped /> Use CUPED
+                </PremiumTooltip>
+              }
+              style={{ width: 200 }}
+              labelClassName="font-weight-bold"
+              value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              disabled={
+                !hasRegressionAdjustmentFeature ||
+                (isBandit && experiment.status !== "draft")
+              }
+            />
+            {!orgSettings.disablePrecomputedDimensions ? (
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="post-stratification">
+                    Use Post-Stratification
+                  </PremiumTooltip>
+                }
+                style={{ width: 200 }}
+                labelClassName="font-weight-bold"
+                value={
+                  form.watch("postStratificationEnabled") == null
+                    ? ""
+                    : form.watch("postStratificationEnabled")
+                      ? "on"
+                      : "off"
+                }
+                onChange={(v) => {
+                  form.setValue(
+                    "postStratificationEnabled",
+                    v === "" ? null : v === "on",
+                  );
+                }}
+                options={[
+                  {
+                    label: "Organization default",
+                    value: "",
+                  },
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                formatOptionLabel={({ value, label }) => {
+                  if (value === "") {
+                    return <em className="text-muted">{label}</em>;
+                  }
+                  return label;
+                }}
+                sort={false}
+                helpText={
+                  <span>
+                    (
+                    {parentScopedSettings.postStratificationEnabled.meta
+                      ?.scopeApplied &&
+                      parentScopedSettings.postStratificationEnabled.meta
+                        ?.scopeApplied + " "}
+                    default:{" "}
+                    {parentScopedSettings.postStratificationEnabled.value
+                      ? "On"
+                      : "Off"}
+                    )
+                  </span>
+                }
+                disabled={
+                  !hasPostStratificationFeature ||
+                  (isBandit && experiment.status !== "draft")
+                }
+              />
+            ) : null}
+          </>
         )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" &&
@@ -753,10 +828,6 @@ const AnalysisForm: FC<{
               customMetricSlices={form.watch("customMetricSlices") || []}
               setCustomMetricSlices={(slices) =>
                 form.setValue("customMetricSlices", slices)
-              }
-              pinnedMetricSlices={form.watch("pinnedMetricSlices") || []}
-              setPinnedMetricSlices={(slices) =>
-                form.setValue("pinnedMetricSlices", slices)
               }
             />
 

@@ -4,13 +4,27 @@ import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
 import { isString } from "shared/util";
 import {
+  ApiCreateDashboardBlockInterface,
+  ApiDashboardBlockInterface,
   blockHasFieldOfType,
+  dashboardBlockHasIds,
+  apiCreateDashboardBody,
+  apiDashboardInterface,
+  ApiDashboardInterface,
+  ApiGetDashboardsForExperimentReturn,
+  apiGetDashboardsForExperimentReturn,
+  apiGetDashboardsForExperimentValidator,
+  apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
   LegacyDashboardBlockInterface,
+  convertPinnedSlicesToSliceTags,
+  isDifferenceType,
 } from "shared/enterprise";
+import omit from "lodash/omit";
+import { getValidDate } from "shared/dates";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -20,6 +34,7 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -49,6 +64,37 @@ const BaseClass = MakeModelClass({
   baseQuery: {
     isDefault: false,
     isDeleted: false,
+  },
+  apiConfig: {
+    modelKey: "dashboards",
+    modelSingular: "dashboard",
+    modelPlural: "dashboards",
+    apiInterface: apiDashboardInterface,
+    schemas: {
+      createBody: apiCreateDashboardBody,
+      updateBody: apiUpdateDashboardBody,
+    },
+    pathBase: "/dashboards",
+    includeDefaultCrud: true,
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "/by-experiment/:experimentId",
+        verb: "get",
+        operationId: "getDashboardsForExperiment",
+        validator: apiGetDashboardsForExperimentValidator,
+        zodReturnObject: apiGetDashboardsForExperimentReturn,
+        summary: "Get all dashboards for an experiment",
+        reqHandler: async (
+          req,
+        ): Promise<ApiGetDashboardsForExperimentReturn> => ({
+          dashboards: (
+            await req.context.models.dashboards.findByExperiment(
+              req.params.experimentId,
+            )
+          ).map(req.context.models.dashboards.toApiInterface),
+        }),
+      }),
+    ],
   },
 });
 
@@ -239,6 +285,22 @@ export class DashboardModel extends BaseClass {
     });
   }
 
+  protected async customValidation(toSave: DashboardDocument) {
+    if (toSave.experimentId) {
+      if (toSave.updateSchedule) {
+        throw new Error(
+          "Cannot specify an update schedule for experiment dashboards",
+        );
+      }
+    } else {
+      if (toSave.enableAutoUpdates && !toSave.updateSchedule) {
+        throw new Error(
+          "Must define an update schedule to enable auto updates",
+        );
+      }
+    }
+  }
+
   protected async afterCreate(doc: DashboardDocument) {
     const queryIdSet = getSavedQueryIds(doc);
     for (const queryId of queryIdSet) {
@@ -315,6 +377,71 @@ export class DashboardModel extends BaseClass {
       };
     });
   }
+
+  public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {
+    return {
+      ...removeMongooseFields(dashboard),
+      blocks: dashboard.blocks.map(toBlockApiInterface),
+      dateCreated: dashboard.dateCreated.toISOString(),
+      dateUpdated: dashboard.dateUpdated.toISOString(),
+      nextUpdate: dashboard.nextUpdate?.toISOString(),
+      lastUpdated: dashboard.lastUpdated?.toISOString(),
+    };
+  }
+
+  protected async processApiCreateBody(rawBody: unknown) {
+    const {
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId,
+      title,
+      projects,
+      blocks,
+    } = apiCreateDashboardBody.parse(rawBody);
+    const createdBlocks = await Promise.all(
+      blocks.map((blockData) =>
+        generateDashboardBlockIds(
+          this.context.org.id,
+          fromBlockApiInterface(blockData),
+        ),
+      ),
+    );
+    return {
+      uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
+      isDefault: false,
+      isDeleted: false,
+      userId: this.context.userId,
+      editLevel,
+      shareLevel,
+      enableAutoUpdates,
+      updateSchedule,
+      experimentId: experimentId || undefined,
+      title,
+      projects,
+      blocks: createdBlocks,
+    };
+  }
+  protected async processApiUpdateBody(rawBody: unknown) {
+    const { blocks: blockUpdates, ...otherUpdates } =
+      apiUpdateDashboardBody.parse(rawBody);
+    const updates: UpdateProps<DashboardInterface> = otherUpdates;
+    if (blockUpdates) {
+      const migratedBlocks = blockUpdates
+        .map(fromBlockApiInterface)
+        .map(migrateBlock);
+      const createdBlocks = await Promise.all(
+        migratedBlocks.map((blockData) =>
+          dashboardBlockHasIds(blockData)
+            ? blockData
+            : generateDashboardBlockIds(this.context.org.id, blockData),
+        ),
+      );
+      updates.blocks = createdBlocks;
+    }
+    return updates;
+  }
 }
 
 function getSavedQueryIds(doc: DashboardDocument): Set<string> {
@@ -355,27 +482,165 @@ export function migrateBlock(
     | CreateDashboardBlockInterface,
 ): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
-    case "experiment-metric":
+    case "experiment-metric": {
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const metricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricIds ?? [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "custom"
+      if (metricSelector !== "custom") {
+        if (!migratedMetricIds.includes(metricSelector)) {
+          migratedMetricIds.unshift(metricSelector);
+        }
+      }
+
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
+      const sortBy =
+        sortByRaw === "custom"
+          ? "metrics"
+          : sortByRaw === "metrics" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
+      const pinnedSlices =
+        "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
+          ? doc.pinnedMetricSlices
+          : [];
+      const sliceTagsFilter =
+        pinnedSlices.length > 0
+          ? convertPinnedSlicesToSliceTags(pinnedSlices)
+          : doc.sliceTagsFilter || [];
+      const metricTagFilter = doc.metricTagFilter || [];
       return {
-        ...doc,
-        metricSelector: doc.metricSelector || "custom",
-        pinSource: doc.pinSource || "experiment",
-        pinnedMetricSlices: doc.pinnedMetricSlices || [],
-      };
-    case "experiment-dimension":
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
+        metricIds: migratedMetricIds,
+        sliceTagsFilter,
+        metricTagFilter,
+        sortBy,
+        sortDirection,
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
+    }
+    case "experiment-dimension": {
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const dimensionMetricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricIds ?? [];
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "custom"
+      if (dimensionMetricSelector !== "custom") {
+        if (!migratedMetricIds.includes(dimensionMetricSelector)) {
+          migratedMetricIds.unshift(dimensionMetricSelector);
+        }
+      }
+
+      const metricTagFilter = doc.metricTagFilter || [];
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
+      const sortBy =
+        sortByRaw === "custom"
+          ? "metrics"
+          : sortByRaw === "metrics" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
       return {
-        ...doc,
-        metricSelector: doc.metricSelector || "custom",
-      };
-    case "experiment-time-series":
+        ...omit(doc, ["pinnedMetricSlices", "pinSource", "metricSelector"]),
+        metricIds: migratedMetricIds,
+        metricTagFilter,
+        sortBy,
+        sortDirection,
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
+    }
+    case "experiment-time-series": {
+      // Check if this is a legacy block with metricSelector
+      const legacyDoc = doc as LegacyDashboardBlockInterface;
+      const timeSeriesMetricSelector =
+        ("metricSelector" in legacyDoc ? legacyDoc.metricSelector : "custom") ??
+        "custom";
+
+      // Convert metricSelector to metricIds
+      const existingMetricIds = doc.metricId
+        ? [doc.metricId]
+        : (doc.metricIds ?? []);
+      const migratedMetricIds = [...existingMetricIds];
+      // Add selector ID to metricIds if it's not "custom"
+      if (timeSeriesMetricSelector !== "custom") {
+        if (!migratedMetricIds.includes(timeSeriesMetricSelector)) {
+          migratedMetricIds.unshift(timeSeriesMetricSelector);
+        }
+      }
+
+      const sortByRaw =
+        "sortBy" in doc && typeof doc.sortBy === "string"
+          ? (doc.sortBy as string)
+          : null;
+      // Map legacy "custom" to "metrics", otherwise use the value if it's valid
+      const sortBy =
+        sortByRaw === "custom"
+          ? "metrics"
+          : sortByRaw === "metrics" ||
+              sortByRaw === "significance" ||
+              sortByRaw === "change"
+            ? sortByRaw
+            : null;
+      const sortDirection =
+        "sortDirection" in doc && typeof doc.sortDirection === "string"
+          ? doc.sortDirection
+          : null;
+      const pinnedSlices =
+        "pinnedMetricSlices" in doc && Array.isArray(doc.pinnedMetricSlices)
+          ? doc.pinnedMetricSlices
+          : [];
+      const sliceTagsFilter =
+        pinnedSlices.length > 0
+          ? convertPinnedSlicesToSliceTags(pinnedSlices)
+          : doc.sliceTagsFilter || [];
+      const metricTagFilter = doc.metricTagFilter || [];
+      const differenceType =
+        "differenceType" in doc && isDifferenceType(doc.differenceType)
+          ? doc.differenceType
+          : "relative";
       return {
-        ...doc,
-        metricIds: doc.metricId ? [doc.metricId] : (doc.metricIds ?? undefined),
-        metricId: undefined,
-        metricSelector: doc.metricSelector || "custom",
-        pinSource: doc.pinSource || "experiment",
-        pinnedMetricSlices: doc.pinnedMetricSlices || [],
-      };
+        ...omit(doc, [
+          "pinnedMetricSlices",
+          "pinSource",
+          "metricId",
+          "metricSelector",
+        ]),
+        metricIds: migratedMetricIds,
+        sliceTagsFilter,
+        metricTagFilter,
+        differenceType,
+        sortBy,
+        sortDirection,
+      } as DashboardBlockInterface | CreateDashboardBlockInterface;
+    }
     case "experiment-description":
       return {
         ...doc,
@@ -422,5 +687,48 @@ export function migrateBlock(
     }
     default:
       return doc;
+  }
+}
+
+function toBlockApiInterface(
+  block: DashboardBlockInterface,
+): ApiDashboardBlockInterface {
+  switch (block.type) {
+    case "metric-explorer":
+      return {
+        ...block,
+        analysisSettings: {
+          ...block.analysisSettings,
+          startDate: getValidDate(
+            block.analysisSettings.startDate,
+          ).toISOString(),
+          endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
+        },
+      };
+    default:
+      return block;
+  }
+}
+
+export function fromBlockApiInterface(
+  apiBlock: ApiDashboardBlockInterface | ApiCreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  switch (apiBlock.type) {
+    case "metric-explorer":
+      return {
+        ...apiBlock,
+        analysisSettings: {
+          ...apiBlock.analysisSettings,
+          startDate: getValidDate(apiBlock.analysisSettings.startDate),
+          endDate: getValidDate(apiBlock.analysisSettings.endDate),
+        },
+      };
+    case "sql-explorer":
+      return {
+        ...apiBlock,
+        blockConfig: apiBlock.blockConfig ?? [],
+      };
+    default:
+      return apiBlock;
   }
 }

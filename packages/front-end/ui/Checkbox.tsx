@@ -21,7 +21,7 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
 
 export type Props = {
   label?: string | ReactElement;
-  labelSize?: Responsive<"2" | "3">;
+  labelSize?: Responsive<"1" | "2" | "3">;
   id?: string;
   disabled?: boolean;
   disabledMessage?: string;
