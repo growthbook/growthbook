@@ -8,6 +8,7 @@ import {
   ApiCustomField,
 } from "shared/validators";
 import { ApiRequest } from "back-end/src/util/handler";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -31,7 +32,33 @@ const BaseClass = MakeModelClass({
       updateBody: apiUpdateCustomFieldBody,
     },
     pathBase: "/custom-fields",
-    includeDefaultCrud: true,
+    includeDefaultCrud: false,
+    crudActions: ["create", "delete", "get", "update"],
+    customHandlers: [
+      defineCustomApiHandler({
+        pathFragment: "/",
+        verb: "get",
+        operationId: "listCustomFields",
+        validator: {
+          bodySchema: z.never(),
+          querySchema: z.strictObject({ projectId: z.string().optional() }),
+          paramsSchema: z.never(),
+        },
+        zodReturnObject: z.array(apiCustomFieldInterface),
+        summary: "Get all custom fields",
+        reqHandler: async (req): Promise<ApiCustomField[]> => {
+          const projectId = req.query.projectId;
+          const fields = projectId
+            ? await req.context.models.customFields.getCustomFieldsByProject(
+                projectId,
+              )
+            : (await req.context.models.customFields.getCustomFields())?.fields;
+          return (fields ?? []).map(
+            req.context.models.customFields.singleFieldToApiInterface,
+          );
+        },
+      }),
+    ],
   },
 });
 
@@ -243,21 +270,6 @@ export class CustomFieldModel extends BaseClass {
     if (!created)
       this.context.throwInternalServerError("Failed to create custom field");
     return this.singleFieldToApiInterface(created);
-  }
-
-  public async handleApiList(
-    req: ApiRequest<
-      unknown,
-      z.ZodTypeAny,
-      z.ZodTypeAny,
-      z.ZodType<{ projectId?: string }>
-    >,
-  ): Promise<ApiCustomField[]> {
-    const projectId = req.query.projectId;
-    const fields = projectId
-      ? await this.getCustomFieldsByProject(projectId)
-      : (await this.getCustomFields())?.fields;
-    return (fields ?? []).map(this.singleFieldToApiInterface);
   }
 
   public async handleApiDelete(
