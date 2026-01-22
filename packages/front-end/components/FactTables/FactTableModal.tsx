@@ -95,6 +95,14 @@ export default function FactTableModal({
     );
   }, [isNew]);
 
+  const autoUpdateFrequencyHours = getAutoSliceUpdateFrequencyHours();
+  const autoUpdateFrequencyDays =
+    Math.round((autoUpdateFrequencyHours / 24) * 10) / 10; // Round to 1 decimal place
+  const autoUpdateFrequencyText =
+    autoUpdateFrequencyDays >= 1
+      ? `${autoUpdateFrequencyDays} ${autoUpdateFrequencyDays === 1 ? "day" : "days"}`
+      : `${autoUpdateFrequencyHours} ${autoUpdateFrequencyHours === 1 ? "hour" : "hours"}`;
+
   return (
     <>
       {sqlOpen && (
@@ -294,27 +302,18 @@ export default function FactTableModal({
           </div>
         ) : null}
 
-        {hasCommercialFeature("metric-slices") &&
-          (() => {
-            const frequencyHours = getAutoSliceUpdateFrequencyHours();
-            const frequencyDays = Math.round((frequencyHours / 24) * 10) / 10; // Round to 1 decimal place
-            const frequencyText =
-              frequencyDays >= 1
-                ? `${frequencyDays} ${frequencyDays === 1 ? "day" : "days"}`
-                : `${frequencyHours} ${frequencyHours === 1 ? "hour" : "hours"}`;
-            return (
-              <div className="mt-4">
-                <Checkbox
-                  label="Auto-update slice levels"
-                  description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${frequencyText}. Locked slice levels will always be preserved.`}
-                  value={form.watch("autoSliceUpdatesEnabled") ?? false}
-                  setValue={(value) => {
-                    form.setValue("autoSliceUpdatesEnabled", value);
-                  }}
-                />
-              </div>
-            );
-          })()}
+        {hasCommercialFeature("metric-slices") && (
+          <div className="mt-4">
+            <Checkbox
+              label="Auto-update slice levels"
+              description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${autoUpdateFrequencyText}. Locked slice levels will always be preserved.`}
+              value={form.watch("autoSliceUpdatesEnabled") ?? false}
+              setValue={(value) => {
+                form.setValue("autoSliceUpdatesEnabled", value);
+              }}
+            />
+          </div>
+        )}
       </Modal>
     </>
   );
