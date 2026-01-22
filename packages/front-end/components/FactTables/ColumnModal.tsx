@@ -699,16 +699,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         </Text>
                       )}
                     </Flex>
-                    {!factTable.autoSliceUpdatesEnabled && (
-                      <RadixButton
-                        size="xs"
-                        variant="outline"
-                        onClick={refreshTopValues}
-                        loading={refreshingTopValues}
-                      >
-                        <PiArrowClockwise /> Use Top Values
-                      </RadixButton>
-                    )}
+                    <RadixButton
+                      size="xs"
+                      variant="outline"
+                      onClick={refreshTopValues}
+                      loading={refreshingTopValues}
+                    >
+                      <PiArrowClockwise />{" "}
+                      {!factTable.autoSliceUpdatesEnabled
+                        ? "Use Top Values"
+                        : "Update"}
+                    </RadixButton>
                   </Flex>
 
                   {autoSlicesWarning ||
