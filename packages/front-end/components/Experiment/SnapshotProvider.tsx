@@ -1,4 +1,4 @@
-import React, { useState, ReactNode, useContext } from "react";
+import React, { useState, ReactNode, useContext, useCallback } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   SnapshotType,
@@ -8,6 +8,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 
 const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
@@ -138,4 +139,110 @@ export default function SnapshotProvider({
 
 export function useSnapshot() {
   return useContext(snapshotContext);
+}
+
+/**
+ * LocalSnapshotProvider provides an isolated snapshot context for components
+ * that need to manage their own snapshot state independently from the parent.
+ *
+ * This is used by MetricDrilldownModal to allow changing baseline/variation
+ * settings without affecting the main results table.
+ *
+ * Components inside this provider will use useSnapshot() and automatically
+ * get the local context values instead of the parent's values.
+ */
+export interface LocalSnapshotProviderProps {
+  experiment: ExperimentInterfaceStringDates;
+  snapshot: ExperimentSnapshotInterface;
+  phase: number;
+  dimension: string;
+  /** Initial analysis settings to inherit from parent context */
+  initialAnalysisSettings?: ExperimentSnapshotAnalysisSettings | null;
+  children: ReactNode;
+}
+
+export function LocalSnapshotProvider({
+  experiment,
+  snapshot: initialSnapshot,
+  phase,
+  dimension,
+  initialAnalysisSettings: parentAnalysisSettings,
+  children,
+}: LocalSnapshotProviderProps) {
+  const { apiCall } = useAuth();
+
+  // Local state - initialized from props
+  const [localSnapshot, setLocalSnapshot] =
+    useState<ExperimentSnapshotInterface>(initialSnapshot);
+  const [loading, setLoading] = useState(false);
+
+  // Initialize analysis settings from parent's settings if provided,
+  // otherwise fall back to the snapshot's default analysis
+  const defaultAnalysisSettings = initialSnapshot
+    ? getSnapshotAnalysis(initialSnapshot)?.settings ?? null
+    : null;
+  const [analysisSettings, setAnalysisSettings] =
+    useState<ExperimentSnapshotAnalysisSettings | null>(
+      parentAnalysisSettings ?? defaultAnalysisSettings,
+    );
+
+  // Local mutate function - fetches into local state only, not parent
+  const mutateSnapshot = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiCall<{
+        snapshot: ExperimentSnapshotInterface;
+      }>(
+        `/experiment/${experiment.id}/snapshot/${phase}` +
+          (dimension ? "/" + dimension : ""),
+      );
+      if (response.snapshot) {
+        setLocalSnapshot(response.snapshot);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, experiment.id, phase, dimension]);
+
+  // Compute analysis from local snapshot + local settings
+  const analysis = localSnapshot
+    ? ((getSnapshotAnalysis(
+        localSnapshot,
+        analysisSettings,
+      ) as ExperimentSnapshotAnalysis) ?? undefined)
+    : undefined;
+
+  return (
+    <snapshotContext.Provider
+      value={{
+        experiment,
+        snapshot: localSnapshot,
+        dimensionless: localSnapshot,
+        latest: localSnapshot,
+        analysis,
+        latestAnalysis: analysis,
+        mutateSnapshot,
+        phase,
+        dimension,
+        analysisSettings,
+        precomputedDimensions: getPrecomputedDimensions(
+          localSnapshot,
+          localSnapshot,
+        ),
+        setPhase: () => {
+          // No-op for local provider - phase is fixed
+        },
+        setDimension: () => {
+          // No-op for local provider - dimension is fixed
+        },
+        setAnalysisSettings,
+        setSnapshotType: () => {
+          // No-op for local provider
+        },
+        loading,
+      }}
+    >
+      {children}
+    </snapshotContext.Provider>
+  );
 }

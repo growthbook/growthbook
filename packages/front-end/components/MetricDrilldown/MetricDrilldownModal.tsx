@@ -1,14 +1,18 @@
-import { FC, useState } from "react";
+import { FC, useState, useMemo, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { getMetricLink } from "shared/experiments";
+import { getMetricLink, ExperimentMetricInterface } from "shared/experiments";
 import {
   DifferenceType,
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus } from "shared/types/experiment";
-import { ExperimentReportVariation } from "shared/types/report";
+import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+  MetricSnapshotSettings,
+} from "shared/types/report";
 import Modal from "@/components/Modal";
 import { ExperimentTableRow } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
@@ -17,6 +21,12 @@ import MetricName from "@/components/Metrics/MetricName";
 import { useKeydown } from "@/hooks/useKeydown";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import {
+  useSnapshot,
+  LocalSnapshotProvider,
+} from "@/components/Experiment/SnapshotProvider";
 import { MetricDrilldownOwnerTags } from "./MetricDrilldownOwnerTags";
 import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
@@ -26,58 +36,341 @@ import MetricDrilldownDebug from "./MetricDrilldownDebug";
 export type MetricDrilldownTab = "overview" | "slices" | "debug";
 
 interface MetricDrilldownModalProps {
+  // The clicked metric row - used to identify which metric to display
   row: ExperimentTableRow;
-  statsEngine: StatsEngine;
   close: () => void;
   initialTab?: MetricDrilldownTab;
-  experimentId: string;
-  phase: number;
-  experimentStatus: ExperimentStatus;
+
+  // useExperimentTableRows parameters (initial values, managed internally)
+  results: ExperimentReportResultDimension;
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricOverrides: MetricOverride[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  ssrPolyfills?: SSRPolyfills;
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+
+  // Initial filter values (modal manages its own state starting from these)
   differenceType: DifferenceType;
   baselineRow?: number;
   variationFilter?: number[];
-  goalMetrics?: string[];
-  secondaryMetrics?: string[];
+
+  // Experiment context props
+  experimentId: string;
+  phase: number;
+  experimentStatus: ExperimentStatus;
   variations: ExperimentReportVariation[];
   startDate: string;
   endDate: string;
   reportDate: Date;
   isLatestPhase: boolean;
-  pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  allRows?: ExperimentTableRow[];
+
+  // Slice-specific props
   initialSliceSearchTerm?: string;
 }
 
-const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
+/**
+ * Inner content component that's rendered inside LocalSnapshotProvider.
+ * This allows it to use useSnapshot() to get the local context's analysis
+ * and compute rows that update when the local context changes.
+ */
+interface MetricDrilldownContentProps {
+  row: ExperimentTableRow;
+  metric: ExperimentMetricInterface;
+  initialResults: ExperimentReportResultDimension;
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricOverrides: MetricOverride[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  ssrPolyfills?: SSRPolyfills;
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  localBaselineRow: number;
+  setLocalBaselineRow: (row: number) => void;
+  localVariationFilter?: number[];
+  setLocalVariationFilter: (filter: number[] | undefined) => void;
+  localDifferenceType: DifferenceType;
+  setLocalDifferenceType: (type: DifferenceType) => void;
+  experimentId: string;
+  phase: number;
+  experimentStatus: ExperimentStatus;
+  variations: ExperimentReportVariation[];
+  startDate: string;
+  endDate: string;
+  reportDate: Date;
+  isLatestPhase: boolean;
+  sequentialTestingEnabled?: boolean;
+  initialSliceSearchTerm?: string;
+  initialTab?: MetricDrilldownTab;
+}
+
+const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   row,
+  metric,
+  initialResults,
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricOverrides,
+  settingsForSnapshotMetrics,
+  customMetricSlices,
+  ssrPolyfills,
   statsEngine,
-  close,
-  initialTab = "overview",
+  pValueCorrection,
+  localBaselineRow,
+  setLocalBaselineRow,
+  localVariationFilter,
+  setLocalVariationFilter,
+  localDifferenceType,
+  setLocalDifferenceType,
   experimentId,
   phase,
   experimentStatus,
-  differenceType,
-  baselineRow = 0,
-  variationFilter,
-  goalMetrics = [],
-  secondaryMetrics = [],
   variations,
   startDate,
   endDate,
   reportDate,
   isLatestPhase,
-  pValueCorrection,
   sequentialTestingEnabled,
-  allRows = [],
+  initialSliceSearchTerm,
+  initialTab,
+}) => {
+  // Get the LOCAL context's analysis - this updates when baseline changes
+  const { analysis } = useSnapshot();
+
+  // Use local analysis results if available, otherwise fall back to initial results
+  const results = analysis?.results?.[0] ?? initialResults;
+
+  // For slices tab: expansion state for showing slice rows
+  const [expandedMetrics] = useState<Record<string, boolean>>(() => {
+    const initialExpanded: Record<string, boolean> = {};
+    ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
+      initialExpanded[`${metric.id}:${resultGroup}`] = true;
+    });
+    return initialExpanded;
+  });
+
+  // Call useExperimentTableRows with LOCAL results - this will update when context changes
+  const { rows: allRows } = useExperimentTableRows({
+    results,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    metricOverrides,
+    ssrPolyfills,
+    customMetricSlices,
+    metricTagFilter: undefined,
+    metricsFilter: undefined,
+    sliceTagsFilter: undefined,
+    sortBy: undefined,
+    sortDirection: undefined,
+    analysisBarSettings: undefined,
+    statsEngine,
+    pValueCorrection,
+    settingsForSnapshotMetrics,
+    shouldShowMetricSlices: true,
+    enableExpansion: true,
+    expandedMetrics,
+  });
+
+  // Find the main metric row from the computed rows
+  const mainMetricRow = useMemo(() => {
+    return (
+      allRows.find((r) => !r.isSliceRow && r.metric.id === metric.id) ?? row
+    );
+  }, [allRows, metric.id, row]);
+
+  const [sliceSearchTerm, setSliceSearchTerm] = useState(
+    initialSliceSearchTerm || "",
+  );
+  const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
+    useState<string[]>(() => {
+      if (initialTab === "slices" && initialSliceSearchTerm) {
+        const tableId = `${experimentId}_${metric.id}_slices`;
+        return [`${tableId}-pending`];
+      }
+      return [];
+    });
+
+  // Update visible timeseries row IDs once rows are computed
+  useEffect(() => {
+    if (
+      initialTab === "slices" &&
+      initialSliceSearchTerm &&
+      visibleSliceTimeSeriesRowIds.length === 1 &&
+      visibleSliceTimeSeriesRowIds[0].endsWith("-pending")
+    ) {
+      const tableId = `${experimentId}_${metric.id}_slices`;
+      const matchingRow = allRows.find(
+        (r) =>
+          r.isSliceRow &&
+          r.metric.id === metric.id &&
+          r.sliceId &&
+          typeof r.label === "string" &&
+          r.label.toLowerCase().includes(initialSliceSearchTerm.toLowerCase()),
+      );
+      if (matchingRow?.sliceId) {
+        setVisibleSliceTimeSeriesRowIds([
+          `${tableId}-${matchingRow.metric.id}-${matchingRow.sliceId}`,
+        ]);
+      } else {
+        setVisibleSliceTimeSeriesRowIds([]);
+      }
+    }
+  }, [
+    allRows,
+    experimentId,
+    initialSliceSearchTerm,
+    initialTab,
+    metric.id,
+    visibleSliceTimeSeriesRowIds,
+  ]);
+
+  return (
+    <>
+      <TabsContent value="overview">
+        <MetricDrilldownOverview
+          row={mainMetricRow}
+          experimentId={experimentId}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          phase={phase}
+          startDate={startDate}
+          endDate={endDate}
+          experimentStatus={experimentStatus}
+          variations={variations}
+          localBaselineRow={localBaselineRow}
+          setLocalBaselineRow={setLocalBaselineRow}
+          localVariationFilter={localVariationFilter}
+          setLocalVariationFilter={setLocalVariationFilter}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          statsEngine={statsEngine}
+          pValueCorrection={pValueCorrection}
+          localDifferenceType={localDifferenceType}
+          setLocalDifferenceType={setLocalDifferenceType}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+        />
+      </TabsContent>
+      <TabsContent value="slices">
+        <MetricDrilldownSlices
+          metric={metric}
+          rows={allRows}
+          variationNames={variations.map((v) => v.name)}
+          differenceType={localDifferenceType}
+          setDifferenceType={setLocalDifferenceType}
+          statsEngine={statsEngine}
+          baselineRow={localBaselineRow}
+          setBaselineRow={setLocalBaselineRow}
+          variationFilter={localVariationFilter}
+          setVariationFilter={setLocalVariationFilter}
+          experimentId={experimentId}
+          phase={phase}
+          variations={variations}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          experimentStatus={experimentStatus}
+          searchTerm={sliceSearchTerm}
+          setSearchTerm={setSliceSearchTerm}
+          visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
+          setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+        />
+      </TabsContent>
+      <TabsContent value="debug">
+        <MetricDrilldownDebug
+          row={mainMetricRow}
+          metric={metric}
+          statsEngine={statsEngine}
+          differenceType={localDifferenceType}
+          setDifferenceType={setLocalDifferenceType}
+          baselineRow={localBaselineRow}
+          setBaselineRow={setLocalBaselineRow}
+          variationFilter={localVariationFilter}
+          setVariationFilter={setLocalVariationFilter}
+          experimentId={experimentId}
+          phase={phase}
+          variations={variations}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          experimentStatus={experimentStatus}
+          variationNames={variations.map((v) => v.name)}
+        />
+      </TabsContent>
+    </>
+  );
+};
+
+const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
+  row,
+  close,
+  initialTab = "overview",
+  // useExperimentTableRows parameters
+  results,
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricOverrides,
+  settingsForSnapshotMetrics,
+  customMetricSlices,
+  ssrPolyfills,
+  statsEngine,
+  pValueCorrection,
+  // Initial filter values
+  differenceType,
+  baselineRow = 0,
+  variationFilter,
+  // Experiment context
+  experimentId,
+  phase,
+  experimentStatus,
+  variations,
+  startDate,
+  endDate,
+  reportDate,
+  isLatestPhase,
+  sequentialTestingEnabled,
+  // Slice-specific
   initialSliceSearchTerm,
 }) => {
   useKeydown("Escape", close);
   useBodyScrollLock(true);
 
+  // Get snapshot context from parent - this will be used to initialize LocalSnapshotProvider
+  const {
+    snapshot: parentSnapshot,
+    experiment,
+    phase: contextPhase,
+    dimension,
+    analysisSettings: parentAnalysisSettings,
+  } = useSnapshot();
+
   const { metric } = row;
 
-  // Local filters that start from parent status, but then are managed locally
+  // Local filters that start from parent values, but then are managed locally
   const [localBaselineRow, setLocalBaselineRow] = useState(baselineRow);
   const [localVariationFilter, setLocalVariationFilter] = useState<
     number[] | undefined
@@ -85,31 +378,38 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   const [localDifferenceType, setLocalDifferenceType] =
     useState<DifferenceType>(differenceType);
 
-  const [sliceSearchTerm, setSliceSearchTerm] = useState(
-    initialSliceSearchTerm || "",
-  );
-  const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
-    useState<string[]>(() => {
-      // Auto-expand first slice timeseries when opened from a slice click
-      // Only if initialTab is "slices" and we have an initial search term
-      if (initialTab === "slices" && initialSliceSearchTerm) {
-        const tableId = `${experimentId}_${metric.id}_slices`;
-        const matchingRow = allRows.find(
-          (r) =>
-            r.isSliceRow &&
-            r.metric.id === metric.id &&
-            r.sliceId &&
-            typeof r.label === "string" &&
-            r.label
-              .toLowerCase()
-              .includes(initialSliceSearchTerm.toLowerCase()),
-        );
-        if (matchingRow?.sliceId) {
-          return [`${tableId}-${matchingRow.metric.id}-${matchingRow.sliceId}`];
-        }
-      }
-      return [];
-    });
+  // Common content props
+  const contentProps: MetricDrilldownContentProps = {
+    row,
+    metric,
+    initialResults: results,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    metricOverrides,
+    settingsForSnapshotMetrics,
+    customMetricSlices,
+    ssrPolyfills,
+    statsEngine,
+    pValueCorrection,
+    localBaselineRow,
+    setLocalBaselineRow,
+    localVariationFilter,
+    setLocalVariationFilter,
+    localDifferenceType,
+    setLocalDifferenceType,
+    experimentId,
+    phase,
+    experimentStatus,
+    variations,
+    startDate,
+    endDate,
+    reportDate,
+    isLatestPhase,
+    sequentialTestingEnabled,
+    initialSliceSearchTerm,
+    initialTab,
+  };
 
   return (
     <Tabs defaultValue={initialTab}>
@@ -183,82 +483,21 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
         submit={close}
         autoFocusSelector=""
       >
-        <TabsContent value="overview">
-          <MetricDrilldownOverview
-            row={row}
-            experimentId={experimentId}
-            reportDate={reportDate}
-            isLatestPhase={isLatestPhase}
-            phase={phase}
-            startDate={startDate}
-            endDate={endDate}
-            experimentStatus={experimentStatus}
-            variations={variations}
-            localBaselineRow={localBaselineRow}
-            setLocalBaselineRow={setLocalBaselineRow}
-            localVariationFilter={localVariationFilter}
-            setLocalVariationFilter={setLocalVariationFilter}
-            goalMetrics={goalMetrics}
-            secondaryMetrics={secondaryMetrics}
-            statsEngine={statsEngine}
-            pValueCorrection={pValueCorrection}
-            localDifferenceType={localDifferenceType}
-            setLocalDifferenceType={setLocalDifferenceType}
-            sequentialTestingEnabled={sequentialTestingEnabled}
-          />
-        </TabsContent>
-        <TabsContent value="slices">
-          <MetricDrilldownSlices
-            metric={metric}
-            allRows={allRows}
-            variationNames={variations.map((v) => v.name)}
-            differenceType={localDifferenceType}
-            setDifferenceType={setLocalDifferenceType}
-            statsEngine={statsEngine}
-            baselineRow={localBaselineRow}
-            setBaselineRow={setLocalBaselineRow}
-            variationFilter={localVariationFilter}
-            setVariationFilter={setLocalVariationFilter}
-            experimentId={experimentId}
-            phase={phase}
-            variations={variations}
-            startDate={startDate}
-            endDate={endDate}
-            reportDate={reportDate}
-            isLatestPhase={isLatestPhase}
-            pValueCorrection={pValueCorrection}
-            sequentialTestingEnabled={sequentialTestingEnabled}
-            experimentStatus={experimentStatus}
-            searchTerm={sliceSearchTerm}
-            setSearchTerm={setSliceSearchTerm}
-            visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
-            setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
-          />
-        </TabsContent>
-        <TabsContent value="debug">
-          <MetricDrilldownDebug
-            row={row}
-            metric={metric}
-            statsEngine={statsEngine}
-            differenceType={localDifferenceType}
-            setDifferenceType={setLocalDifferenceType}
-            baselineRow={localBaselineRow}
-            setBaselineRow={setLocalBaselineRow}
-            variationFilter={localVariationFilter}
-            setVariationFilter={setLocalVariationFilter}
-            experimentId={experimentId}
-            phase={phase}
-            variations={variations}
-            startDate={startDate}
-            endDate={endDate}
-            reportDate={reportDate}
-            isLatestPhase={isLatestPhase}
-            pValueCorrection={pValueCorrection}
-            sequentialTestingEnabled={sequentialTestingEnabled}
-            experimentStatus={experimentStatus}
-            variationNames={variations.map((v) => v.name)}
-          />
-        </TabsContent>
+        {/* Wrap modal content in LocalSnapshotProvider for isolated state */}
+        {parentSnapshot && experiment ? (
+          <LocalSnapshotProvider
+            experiment={experiment}
+            snapshot={parentSnapshot}
+            phase={contextPhase}
+            dimension={dimension}
+            initialAnalysisSettings={parentAnalysisSettings}
+          >
+            <MetricDrilldownContent {...contentProps} />
+          </LocalSnapshotProvider>
+        ) : (
+          // Fallback when no snapshot context available (e.g., public pages)
+          <MetricDrilldownContent {...contentProps} />
+        )}
       </Modal>
     </Tabs>
   );

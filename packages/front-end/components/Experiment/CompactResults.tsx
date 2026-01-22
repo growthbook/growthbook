@@ -34,6 +34,10 @@ import {
   SetExperimentSortBy,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
+import DataQualityWarning from "./DataQualityWarning";
+import MultipleExposureWarning from "./MultipleExposureWarning";
+import { ExperimentTab } from "./TabbedPage";
+import styles from "./CompactResults.module.scss";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -45,10 +49,6 @@ import MetricDrilldownModal, {
   MetricDrilldownTab,
 } from "@/components/MetricDrilldown/MetricDrilldownModal";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import DataQualityWarning from "./DataQualityWarning";
-import MultipleExposureWarning from "./MultipleExposureWarning";
-import { ExperimentTab } from "./TabbedPage";
-import styles from "./CompactResults.module.scss";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -218,30 +218,6 @@ const CompactResults: FC<{
     expandedMetrics,
   });
 
-  // Get unfiltered rows for the modal (without sliceTagsFilter)
-  // This ensures all slices are available in the drilldown modal
-  const { rows: unfilteredRows } = useExperimentTableRows({
-    results,
-    goalMetrics,
-    secondaryMetrics,
-    guardrailMetrics,
-    metricOverrides,
-    ssrPolyfills,
-    customMetricSlices,
-    metricTagFilter,
-    metricsFilter,
-    sliceTagsFilter: undefined,
-    sortBy,
-    sortDirection,
-    analysisBarSettings,
-    statsEngine,
-    pValueCorrection,
-    settingsForSnapshotMetrics,
-    shouldShowMetricSlices: true,
-    enableExpansion: true,
-    expandedMetrics: {},
-  });
-
   const expandedGoals = useMemo(
     () =>
       expandMetricGroups(
@@ -362,9 +338,11 @@ const CompactResults: FC<{
   }, [rows, hasSliceFilter, expandedMetrics]);
 
   const handleRowClick = (row: ExperimentTableRow) => {
-    // Get the main row that is not filtered for metric drilldown
+    // Get the main metric row (if a slice row was clicked, find its parent)
     const metricId = row.isSliceRow ? row.parentRowId : row.metric.id;
-    const mainMetricRow = unfilteredRows.find((r) => r.metric.id === metricId);
+    const mainMetricRow = rows.find(
+      (r) => !r.isSliceRow && r.metric.id === metricId,
+    );
 
     if (row.isSliceRow) {
       setOpenMetricDrilldownModalInfo({
@@ -579,26 +557,35 @@ const CompactResults: FC<{
 
       {openMetricDrilldownModalInfo !== null && (
         <MetricDrilldownModal
-          statsEngine={statsEngine}
           row={openMetricDrilldownModalInfo.metricRow}
           close={() => setOpenMetricDrilldownModalInfo(null)}
           initialTab={openMetricDrilldownModalInfo.initialTab}
+          // useExperimentTableRows parameters
+          results={results}
+          goalMetrics={goalMetrics}
+          secondaryMetrics={secondaryMetrics}
+          guardrailMetrics={guardrailMetrics}
+          metricOverrides={metricOverrides}
+          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+          customMetricSlices={customMetricSlices}
+          ssrPolyfills={ssrPolyfills}
+          statsEngine={statsEngine}
+          pValueCorrection={pValueCorrection}
+          // Initial filter values
+          differenceType={differenceType}
+          baselineRow={baselineRow}
+          variationFilter={variationFilter}
+          // Experiment context
           experimentId={experimentId}
           phase={phase}
           experimentStatus={status}
-          differenceType={differenceType}
-          goalMetrics={goalMetrics}
-          secondaryMetrics={secondaryMetrics}
-          baselineRow={baselineRow}
           variations={variations}
-          variationFilter={variationFilter}
           startDate={startDate}
           endDate={endDate}
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
-          pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          allRows={unfilteredRows}
+          // Slice-specific
           initialSliceSearchTerm={
             openMetricDrilldownModalInfo.initialSliceSearchTerm
           }

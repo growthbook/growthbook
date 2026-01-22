@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC } from "react";
 import { PiInfo } from "react-icons/pi";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
@@ -15,16 +15,20 @@ import { useUser } from "@/services/UserContext";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { useSliceRows } from "@/hooks/useSliceRows";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
-  allRows: ExperimentTableRow[];
+  // Rows computed by parent using useExperimentTableRows
+  rows: ExperimentTableRow[];
   variationNames: string[];
   differenceType: DifferenceType;
   setDifferenceType: (type: DifferenceType) => void;
   statsEngine: StatsEngine;
-  baselineRow?: number;
-  setBaselineRow: (baseline: number) => void;
+  // Controlled state from modal (shared across tabs)
+  baselineRow: number;
+  setBaselineRow: (row: number) => void;
   variationFilter?: number[];
   setVariationFilter: (filter: number[] | undefined) => void;
   // Props for ResultsTable
@@ -38,20 +42,21 @@ interface MetricDrilldownSlicesProps {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   experimentStatus: ExperimentStatus;
-  // Search and timeseries state (managed by parent to persist across tab switches)
+  // Search state (managed by parent to persist across tab switches)
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  // Timeseries state (managed by parent to persist across tab switches)
   visibleTimeSeriesRowIds: string[];
   setVisibleTimeSeriesRowIds: (ids: string[]) => void;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   metric,
-  allRows,
+  rows,
   differenceType,
   setDifferenceType,
   statsEngine,
-  baselineRow = 0,
+  baselineRow,
   setBaselineRow,
   variationFilter,
   setVariationFilter,
@@ -71,79 +76,34 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
 }) => {
   const { hasCommercialFeature } = useUser();
+
+  // Get snapshot context - this will be the local context from LocalSnapshotProvider
+  // when rendered inside MetricDrilldownModal
+  const {
+    snapshot,
+    analysis,
+    setAnalysisSettings,
+    mutateSnapshot: mutate,
+  } = useSnapshot();
+
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
-  const [sortBy, setSortBy] = useState<
-    "significance" | "change" | "metrics" | "metricTags" | null
-  >(null);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
-    null,
-  );
-
-  const mainRow = useMemo(() => {
-    return allRows.find((r) => !r.isSliceRow && r.metric.id === metric.id);
-  }, [allRows, metric.id]);
-
-  const sliceRows = useMemo(() => {
-    return allRows.filter(
-      (row) => row.isSliceRow && row.metric.id === metric.id,
-    );
-  }, [allRows, metric.id]);
-
-  const filteredSliceRows = useMemo(() => {
-    if (!searchTerm) return sliceRows;
-
-    const term = searchTerm.toLowerCase();
-    return sliceRows.filter((row) => {
-      const sliceName =
-        typeof row.label === "string" ? row.label : row.metric.name;
-      return sliceName.toLowerCase().includes(term);
-    });
-  }, [sliceRows, searchTerm]);
-
-  const sortedSliceRows = useMemo(() => {
-    if (!sortBy || !sortDirection) return filteredSliceRows;
-
-    // Find the first non-baseline variation index to use for sorting
-    const sortVariationIndex =
-      baselineRow === 0 ? 1 : baselineRow === 1 ? 0 : 1;
-
-    return [...filteredSliceRows].sort((a, b) => {
-      const aVariation = a.variations[sortVariationIndex];
-      const bVariation = b.variations[sortVariationIndex];
-
-      let aValue: number | undefined;
-      let bValue: number | undefined;
-
-      if (sortBy === "significance") {
-        // For bayesian, use chanceToWin; for frequentist, use pValue
-        if (statsEngine === "bayesian") {
-          aValue = aVariation?.chanceToWin;
-          bValue = bVariation?.chanceToWin;
-        } else {
-          aValue = aVariation?.pValue;
-          bValue = bVariation?.pValue;
-        }
-      } else if (sortBy === "change") {
-        aValue = aVariation?.uplift?.mean;
-        bValue = bVariation?.uplift?.mean;
-      }
-
-      // Handle undefined values - push them to the end
-      if (aValue === undefined && bValue === undefined) return 0;
-      if (aValue === undefined) return 1;
-      if (bValue === undefined) return -1;
-
-      const comparison = aValue - bValue;
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-  }, [filteredSliceRows, sortBy, sortDirection, baselineRow, statsEngine]);
-
-  // Combine main row with sorted slices (main row always first)
-  const rowsToRender = useMemo(() => {
-    return mainRow ? [mainRow, ...sortedSliceRows] : sortedSliceRows;
-  }, [mainRow, sortedSliceRows]);
+  // Use the hook to compute derived slice row data
+  const {
+    rowsToRender,
+    sliceRows,
+    sortBy,
+    setSortBy,
+    sortDirection,
+    setSortDirection,
+  } = useSliceRows({
+    rows,
+    metricId: metric.id,
+    baselineRow,
+    searchTerm,
+    statsEngine,
+  });
 
   // Determine what to render
   const hasSliceData = sliceRows.length > 0;
@@ -263,6 +223,10 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         visibleTimeSeriesRowIds={visibleTimeSeriesRowIds}
         onVisibleTimeSeriesRowIdsChange={setVisibleTimeSeriesRowIds}
         totalMetricsCount={rowsToRender.length}
+        snapshot={snapshot}
+        analysis={analysis}
+        setAnalysisSettings={setAnalysisSettings}
+        mutate={mutate}
       />
     </Box>
   );
