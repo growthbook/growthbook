@@ -1,7 +1,4 @@
-import {
-  FeatureInterface,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
+import { FeatureInterface, SafeRolloutRule } from "shared/validators";
 
 export function getSafeRolloutRuleFromFeature(
   feature: FeatureInterface,

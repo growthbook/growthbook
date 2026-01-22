@@ -11,7 +11,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { ApiSdkConnection } from "back-end/types/openapi";
+import { ApiSdkConnection } from "shared/types/openapi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   IS_CLOUD,
@@ -20,10 +20,10 @@ import {
   PROXY_HOST_PUBLIC,
 } from "back-end/src/util/secrets";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -205,13 +205,17 @@ function generateSDKConnectionKey() {
   return generateSigningKey("sdk-", 12);
 }
 
-export async function createSDKConnection(params: CreateSDKConnectionParams) {
+export async function createSDKConnection(
+  context: ReqContext | ApiReqContext,
+  params: CreateSDKConnectionParams,
+) {
   const { proxyEnabled, proxyHost, languages, ...otherParams } =
     createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
     ...otherParams,
+    organization: context.org.id,
     languages: languages as SDKLanguage[],
     id: uniqid("sdk_"),
     dateCreated: new Date(),
@@ -249,6 +253,17 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   if (IS_CLOUD) {
     await addCloudSDKMapping(connection);
   }
+
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [connection],
+    auditContext: {
+      event: "created",
+      model: "sdkconnection",
+      id: connection.id,
+    },
+  });
 
   return toInterface(doc);
 }
@@ -356,15 +371,21 @@ export async function editSDKConnection(
   );
 
   if (needsProxyUpdate) {
-    // Purge CDN if used
-    const isUsingProxy = !!(newProxy.enabled && newProxy.host);
-    await triggerSingleSDKWebhookJobs(
+    queueSDKPayloadRefresh({
       context,
-      connection,
-      otherChanges as Partial<SDKConnectionInterface>,
-      newProxy,
-      isUsingProxy,
-    );
+      payloadKeys: [],
+      sdkConnections: [
+        {
+          ...connection,
+          ...fullChanges,
+        },
+      ],
+      auditContext: {
+        event: "updated",
+        model: "sdkconnection",
+        id: connection.id,
+      },
+    });
   }
 
   return { ...connection, ...fullChanges };

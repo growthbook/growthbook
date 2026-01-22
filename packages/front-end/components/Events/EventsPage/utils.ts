@@ -1,4 +1,4 @@
-import { EventInterface } from "back-end/types/events/event";
+import { EventInterface } from "shared/types/events/event";
 
 // region Feature
 

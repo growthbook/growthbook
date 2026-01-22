@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
-import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import { FeatureCodeRefsInterface } from "shared/types/code-refs";
+import { ApiCodeRef } from "shared/types/openapi";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { ApiCodeRef } from "back-end/types/openapi";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -162,4 +162,53 @@ export const getAllCodeRefsForOrg = async ({
     .toArray();
 
   return docs.map((d) => toInterface(d));
+};
+
+export const getExistingFeaturesForRepoBranch = async ({
+  repo,
+  branch,
+  organization,
+}: {
+  repo: string;
+  branch: string;
+  organization: OrganizationInterface;
+}): Promise<string[]> => {
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {
+        organization: organization.id,
+        repo,
+        branch,
+      },
+      { projection: { feature: 1, _id: 0 } },
+    )
+    .toArray();
+
+  return docs.map((d) => d.feature as string);
+};
+
+export const getFeatureKeysForRepoBranch = async ({
+  repo,
+  branch,
+  features,
+  organization,
+}: {
+  repo: string;
+  branch: string;
+  features: string[];
+  organization: OrganizationInterface;
+}): Promise<string[]> => {
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {
+        repo,
+        branch,
+        feature: { $in: features },
+        organization: organization.id,
+      },
+      { projection: { feature: 1, _id: 0 } },
+    )
+    .toArray();
+
+  return docs.map((d) => d.feature as string);
 };

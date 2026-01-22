@@ -1,4 +1,4 @@
-import { ExperimentTrafficBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentTrafficBlockInterface } from "shared/enterprise";
 import { useMemo } from "react";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";

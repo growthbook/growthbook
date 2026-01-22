@@ -9,11 +9,6 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllURLRedirectExperiments: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/SavedGroupModel", () => ({
-  getAllSavedGroups: jest.fn(),
-  getSavedGroupsById: jest.fn(),
-}));
-
 jest.mock("back-end/src/models/SdkPayloadModel", () => ({
   getSDKPayload: jest.fn(),
   updateSDKPayload: jest.fn(),
@@ -21,6 +16,7 @@ jest.mock("back-end/src/models/SdkPayloadModel", () => ({
 }));
 
 // Now import the features service after mocking its dependencies
+import { ReqContext } from "shared/types/organization";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
 // Import mocked dependencies
@@ -31,14 +27,9 @@ import {
   getAllURLRedirectExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
-  getAllSavedGroups,
-  getSavedGroupsById,
-} from "back-end/src/models/SavedGroupModel";
-import {
   getSDKPayload,
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
-import { ReqContext } from "../../types/organization";
 
 // Mock shared/util functions
 jest.mock("shared/util", () => ({
@@ -84,6 +75,10 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
           .fn()
           .mockResolvedValue(new Map()) as jest.Mock,
       },
+      savedGroups: {
+        getAll: jest.fn().mockResolvedValue([]),
+        getByIds: jest.fn().mockResolvedValue([]),
+      },
     },
     userId: "test-user",
     email: "test@example.com",
@@ -96,8 +91,6 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
 
     (getSDKPayload as jest.Mock).mockResolvedValue(null);
     (updateSDKPayload as jest.Mock).mockResolvedValue(undefined);
-    (getAllSavedGroups as jest.Mock).mockResolvedValue([]);
-    (getSavedGroupsById as jest.Mock).mockResolvedValue([]);
     (getAllPayloadExperiments as jest.Mock).mockResolvedValue(new Map());
     (getAllVisualExperiments as jest.Mock).mockResolvedValue([]);
     (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);

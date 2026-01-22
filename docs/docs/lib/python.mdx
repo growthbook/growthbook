@@ -276,62 +276,9 @@ gb.destroy()
 
 #### Custom Caching
 
-GrowthBook comes with a custom in-memory cache. If you run Python in a multi-process mode, the different processes cannot share memory, so you likely want to switch to a distributed cache system like Redis instead.
+GrowthBook comes with a custom in-memory cache.
 
 <Tabs>
-<TabItem value="async" label="Async Client">
-
-For the async client, you can provide a custom cache implementation:
-
-```python
-import asyncio
-import json
-from redis.asyncio import Redis
-from growthbook import GrowthBookClient, Options, AbstractAsyncFeatureCache
-
-class AsyncRedisFeatureCache(AbstractAsyncFeatureCache):
-    def __init__(self):
-        self.redis = Redis(host='localhost', port=6379, decode_responses=True)
-        self.prefix = "gb:async:"
-
-    async def get(self, key: str):
-        data = await self.redis.get(self.prefix + key)
-        return None if data is None else json.loads(data)
-
-    async def set(self, key: str, value: dict, ttl: int) -> None:
-        await self.redis.set(
-            self.prefix + key,
-            json.dumps(value),
-            ex=ttl
-        )
-
-    async def close(self):
-        await self.redis.close()
-
-async def main():
-    # Create custom cache
-    cache = AsyncRedisFeatureCache()
-
-    # Create client with custom cache
-    client = GrowthBookClient(
-        Options(
-            api_host="https://cdn.growthbook.io",
-            client_key="sdk-abc123",
-            cache=cache
-        )
-    )
-
-    try:
-        await client.initialize()
-        # Use client...
-    finally:
-        await client.close()
-        await cache.close()
-
-asyncio.run(main())
-```
-
-</TabItem>
 <TabItem value="legacy" label="Legacy Client">
 
 For the traditional client, configure a custom cache globally:
@@ -648,12 +595,18 @@ For the async client, you can set up experiment tracking through the `Options`:
 import asyncio
 from growthbook import GrowthBookClient, Options, UserContext, Experiment, Result
 
-async def on_experiment_viewed(experiment: Experiment, result: Result):
-    """Async callback for experiment tracking"""
+def on_experiment_viewed(experiment: Experiment, result: Result, user_context: UserContext):
+    """Synchronous callback for experiment tracking (Fire-and-Forget)"""
     # Use whatever event tracking system you want
     user_id = result.hash_attribute or "anonymous"
 
-    # Example with async analytics
+    # For async analytics, you must schedule the task on the loop
+    # without awaiting it (Fire-and-Forget)
+    loop = asyncio.get_running_loop()
+    loop.create_task(track_async(user_id, experiment, result))
+
+async def track_async(user_id, experiment, result):
+    # This runs in the background
     await analytics.track_async(user_id, "Experiment Viewed", {
         'experimentId': experiment.key,
         'variationId': result.key,
@@ -661,7 +614,6 @@ async def on_experiment_viewed(experiment: Experiment, result: Result):
         'inExperiment': result.in_experiment,
         'hashUsed': result.hash_used
     })
-
     print(f"Tracked experiment: {experiment.key} -> {result.value}")
 
 async def main():
@@ -670,6 +622,7 @@ async def main():
         Options(
             api_host="https://cdn.growthbook.io",
             client_key="sdk-abc123",
+            # Callback must be synchronous
             on_experiment_viewed=on_experiment_viewed
         )
     )
@@ -785,41 +738,38 @@ The SDK includes a built-in tracking plugin that automatically batches and sends
 
 ```python
 import asyncio
-from growthbook import GrowthBookClient, Options, UserContext, TrackingPlugin
+from growthbook import GrowthBookClient, Options, UserContext, GrowthBookTrackingPlugin
 
-# Custom tracking callback for your analytics system
-async def my_custom_tracker(events):
-    """Process a batch of tracking events"""
-    for event in events:
-        # Send to your analytics system
-        await analytics.track_async(
-            user_id=event.user_id,
-            event_name="Experiment Viewed",
-            properties={
-                'experiment_id': event.experiment.key,
-                'variation_id': event.result.key,
-                'variation_value': event.result.value,
-                'timestamp': event.timestamp
-            }
-        )
-    print(f"Processed {len(events)} tracking events")
+# Custom synchronous tracking callback
+def my_custom_tracker(experiment, result, user_context):
+    """Process tracking event (Fire-and-Forget)"""
+    loop = asyncio.get_running_loop()
+    loop.create_task(process_async(experiment, result, user_context))
+
+async def process_async(experiment, result, user_context):
+    # Send to your analytics system
+    await analytics.track_async(
+        user_id=user_context.attributes.get('id'),
+        event_name="Experiment Viewed",
+        properties={
+            'experiment_id': experiment.key,
+            'variation_id': result.key,
+            'variation_value': result.value,
+        }
+    )
 
 async def main():
-    # Create client with tracking plugin
+    # Create client with built-in tracking plugin
     client = GrowthBookClient(
         Options(
             api_host="https://cdn.growthbook.io",
             client_key="sdk-abc123",
             tracking_plugins=[
-                TrackingPlugin(
-                    # Your custom tracking function
-                    callback=my_custom_tracker,
-                    # Batch size (optional, default 10)
-                    batch_size=5,
-                    # Flush interval in seconds (optional, default 30)
-                    flush_interval=10,
-                    # Max retries (optional, default 3)
-                    max_retries=2
+                GrowthBookTrackingPlugin(
+                    # Ingestor host for GrowthBook built-in usage
+                    ingestor_host="https://c1.growthbook.io",
+                    # Additional callback for custom analytics
+                    additional_callback=my_custom_tracker
                 )
             ]
         )
@@ -903,16 +853,16 @@ gb.destroy()
 You can use multiple tracking plugins to send events to different analytics systems:
 
 ```python
-from growthbook import GrowthBookClient, Options, TrackingPlugin
+from growthbook import GrowthBookClient, Options, GrowthBookTrackingPlugin
 
 # Different tracking callbacks
-async def segment_tracker(events):
-    """Send events to Segment"""
-    for event in events:
-        await segment.track_async(event.user_id, "Experiment Viewed", {
-            'experiment_id': event.experiment.key,
-            'variation': event.result.value
-        })
+def segment_tracker(experiment, result, user_context):
+    """Send events to Segment (Fire-and-Forget)"""
+    loop = asyncio.get_running_loop()
+    loop.create_task(segment_track_async(experiment, result))
+
+async def segment_track_async(experiment, result):
+     await segment.track_async(...)
 
 async def mixpanel_tracker(events):
     """Send events to Mixpanel"""
@@ -928,15 +878,11 @@ client = GrowthBookClient(
         api_host="https://cdn.growthbook.io",
         client_key="sdk-abc123",
         tracking_plugins=[
-            TrackingPlugin(
-                callback=segment_tracker,
-                batch_size=10,
-                flush_interval=30
+            GrowthBookTrackingPlugin(
+                additional_callback=segment_tracker
             ),
-            TrackingPlugin(
-                callback=mixpanel_tracker,
-                batch_size=5,
-                flush_interval=15
+            GrowthBookTrackingPlugin(
+                additional_callback=mixpanel_tracker
             )
         ]
     )
@@ -1017,45 +963,26 @@ The attributeName/attributeValue combo is the primary key.
 <Tabs>
 <TabItem value="async" label="Async Client">
 
-For the async client, implement an async sticky bucket service:
+**Note**: The Async Client currently uses the synchronous sticky bucket interface. This means sticky bucket operations running in the main event loop may block. We recommend using a fast, local store (like the default in-memory one) or an optimized synchronous store.
 
 ```python
 import asyncio
-from typing import Optional, Dict
-from growthbook import GrowthBookClient, Options, UserContext, AbstractAsyncStickyBucketService
+from growthbook import GrowthBookClient, Options, UserContext
+# AbstractStickyBucketService is synchronous
+from growthbook import AbstractStickyBucketService
 
-class AsyncStickyBucketService(AbstractAsyncStickyBucketService):
-    """Async sticky bucket service using database/Redis"""
+class MyStickyBucketService(AbstractStickyBucketService):
+    def get_assignments(self, attributeName, attributeValue):
+        # Implementation must be synchronous
+        return None
 
-    def __init__(self):
-        # Initialize your async database connection
-        self.db = AsyncDatabase()  # Your async DB client
-
-    async def get_assignments(self, attribute_name: str, attribute_value: str) -> Optional[Dict]:
-        """Lookup a sticky bucket document"""
-        try:
-            doc = await self.db.find_one({
-                "attributeName": attribute_name,
-                "attributeValue": attribute_value
-            })
-            return doc
-        except Exception as e:
-            print(f"Error getting assignments: {e}")
-            return None
-
-    async def save_assignments(self, doc: Dict) -> None:
-        """Save sticky bucket assignments"""
-        try:
-            await self.db.upsert(
-                {"attributeName": doc["attributeName"], "attributeValue": doc["attributeValue"]},
-                {"$set": {"assignments": doc["assignments"]}}
-            )
-        except Exception as e:
-            print(f"Error saving assignments: {e}")
+    def save_assignments(self, doc):
+        # Implementation must be synchronous
+        pass
 
 async def main():
     # Create sticky bucket service
-    sticky_service = AsyncStickyBucketService()
+    sticky_service = MyStickyBucketService()
 
     # Create client with sticky bucketing
     client = GrowthBookClient(
@@ -1072,67 +999,9 @@ async def main():
         # User will get consistent experiment assignments
         user = UserContext(attributes={"id": "user_123"})
 
-        # First time - gets assigned and saved
-        result1 = await client.get_feature_value("button-color", "blue", user)
-        print(f"First assignment: {result1}")
-
-        # Second time - retrieves saved assignment
-        result2 = await client.get_feature_value("button-color", "blue", user)
-        print(f"Consistent assignment: {result2}")
-
-        # Run inline experiments with sticky bucketing
-        from growthbook import Experiment
-
-        experiment = Experiment(
-            key="pricing-test",
-            variations=["$9.99", "$14.99", "$19.99"]
-        )
-
-        exp_result = await client.run(experiment, user)
-        print(f"Sticky experiment result: {exp_result.value}")
-
+        # ...
     finally:
         await client.close()
-
-asyncio.run(main())
-```
-
-#### Redis Implementation Example
-
-```python
-import asyncio
-import json
-from redis.asyncio import Redis
-from growthbook import GrowthBookClient, Options, AbstractAsyncStickyBucketService
-
-class RedisStickyBucketService(AbstractAsyncStickyBucketService):
-    def __init__(self):
-        self.redis = Redis(host='localhost', port=6379, decode_responses=True)
-        self.prefix = "gb:sticky:"
-
-    async def get_assignments(self, attribute_name: str, attribute_value: str) -> Optional[Dict]:
-        key = f"{self.prefix}{attribute_name}:{attribute_value}"
-        data = await self.redis.get(key)
-        if data:
-            return json.loads(data)
-        return None
-
-    async def save_assignments(self, doc: Dict) -> None:
-        key = f"{self.prefix}{doc['attributeName']}:{doc['attributeValue']}"
-        await self.redis.set(key, json.dumps(doc))
-
-    async def close(self):
-        await self.redis.close()
-
-# Usage
-sticky_service = RedisStickyBucketService()
-client = GrowthBookClient(
-    Options(
-        api_host="https://cdn.growthbook.io",
-        client_key="sdk-abc123",
-        sticky_bucket_service=sticky_service
-    )
-)
 ```
 
 </TabItem>
@@ -1713,7 +1582,7 @@ client = GrowthBookClient(
     Options(
         api_host="https://cdn.growthbook.io",
         client_key="sdk-abc123",
-        # decryption_key will be read from GROWTHBOOK_DECRYPTION_KEY env var
+        decryption_key=os.environ.get("GROWTHBOOK_DECRYPTION_KEY")
     )
 )
 ```

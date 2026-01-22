@@ -1,4 +1,4 @@
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { roleToPermissionMap, Permissions } from "../permissions";
 
 describe("Role permissions", () => {

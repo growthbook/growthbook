@@ -1,26 +1,24 @@
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import React, { ReactNode, useEffect, useRef, useState } from "react";
-import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Text, Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+} from "shared/types/report";
+import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -56,8 +54,9 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import TemplateForm from "../Templates/TemplateForm";
-import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
+import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
+import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -209,19 +208,7 @@ export default function ExperimentHeader({
   }, [scrollY]);
 
   const phases = experiment.phases || [];
-  const lastPhaseIndex = phases.length - 1;
-  const lastPhase = phases[lastPhaseIndex] as
-    | undefined
-    | ExperimentPhaseStringDates;
-  const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted, "UTC")
-    : null;
-  const endDate =
-    phases.length > 0
-      ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded, "UTC")
-        : "now"
-      : date(new Date());
+  const hasMultiplePhases = phases.length > 1;
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
@@ -1063,50 +1050,54 @@ export default function ExperimentHeader({
                 style={{ width: "100%" }}
               >
                 <TabsList size="3">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="results">Results</TabsTrigger>
-                  {isBandit ? (
-                    <TabsTrigger value="explore">Explore</TabsTrigger>
-                  ) : null}
-                  {growthbook.isOn("experiment-dashboards-enabled") &&
-                    !isBandit &&
-                    !isHoldout && (
-                      <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
-                    )}
-                  {disableHealthTab ? (
-                    <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                      <TabsTrigger disabled value="health">
+                  <Flex align="center" className="flex-1">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    {isBandit ? (
+                      <TabsTrigger value="explore">Explore</TabsTrigger>
+                    ) : null}
+                    {growthbook.isOn("experiment-dashboards-enabled") &&
+                      !isBandit &&
+                      !isHoldout && (
+                        <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+                      )}
+                    {disableHealthTab ? (
+                      <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                        <TabsTrigger disabled value="health">
+                          Health
+                        </TabsTrigger>
+                      </DisabledHealthTabTooltip>
+                    ) : (
+                      <TabsTrigger
+                        value="health"
+                        onClick={() => {
+                          track("Open health tab", { source: "tab-click" });
+                        }}
+                      >
                         Health
+                        {healthNotificationCount > 0 ? (
+                          <Avatar size="sm" ml="2" color="red">
+                            {healthNotificationCount}
+                          </Avatar>
+                        ) : null}
                       </TabsTrigger>
-                    </DisabledHealthTabTooltip>
-                  ) : (
-                    <TabsTrigger
-                      value="health"
-                      onClick={() => {
-                        track("Open health tab", { source: "tab-click" });
-                      }}
-                    >
-                      Health
-                      {healthNotificationCount > 0 ? (
-                        <Avatar size="sm" ml="2" color="red">
-                          {healthNotificationCount}
-                        </Avatar>
-                      ) : null}
-                    </TabsTrigger>
-                  )}
+                    )}
+                    {hasMultiplePhases ? (
+                      <>
+                        <div className="flex-1" />
+                        <Text size="2" weight="medium">
+                          <PhaseSelector
+                            phase={phase}
+                            phases={experiment.phases}
+                            isBandit={experiment.type === "multi-armed-bandit"}
+                            isHoldout={experiment.type === "holdout"}
+                          />
+                        </Text>
+                      </>
+                    ) : null}
+                  </Flex>
                 </TabsList>
               </Tabs>
-
-              <div className="col-auto experiment-date-range mr-2">
-                {startDate && (
-                  <span>
-                    {startDate} — {endDate}{" "}
-                    <span className="text-muted">
-                      ({daysBetween(startDate, endDate)} days)
-                    </span>
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         </div>

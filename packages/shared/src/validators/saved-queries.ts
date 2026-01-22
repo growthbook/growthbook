@@ -186,7 +186,12 @@ const barChartValidator = baseChartConfig
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorYAxisToZero: z.boolean(),
+    }),
+  });
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
@@ -196,7 +201,12 @@ const areaChartValidator = baseChartConfig
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorYAxisToZero: z.boolean(),
+    }),
+  });
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
@@ -230,7 +240,7 @@ export const testQueryRowSchema = z.record(z.string(), z.any());
 
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),
-  error: z.string().optional(),
+  error: z.string().nullable().optional(),
   duration: z.number().optional(),
   sql: z.string().optional(),
 });

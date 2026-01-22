@@ -1,11 +1,7 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
-import { PostSavedGroupResponse } from "back-end/types/openapi";
-import {
-  createSavedGroup,
-  toSavedGroupApiInterface,
-} from "back-end/src/models/SavedGroupModel";
+import { PostSavedGroupResponse } from "shared/types/openapi";
+import { postSavedGroupValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postSavedGroupValidator } from "back-end/src/validators/openapi";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
@@ -39,7 +35,10 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         );
       }
 
-      const conditionRes = validateCondition(condition);
+      // Validate condition
+      const allSavedGroups = await req.context.models.savedGroups.getAll();
+      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
       }
@@ -78,7 +77,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       throw new Error("Must specify a saved group type");
     }
 
-    const savedGroup = await createSavedGroup(req.organization.id, {
+    const savedGroup = await req.context.models.savedGroups.create({
       type: type,
       values: values || [],
       groupName: name,
@@ -89,7 +88,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     });
 
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: req.context.models.savedGroups.toApiInterface(savedGroup),
     };
   },
 );

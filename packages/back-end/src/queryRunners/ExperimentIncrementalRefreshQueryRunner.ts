@@ -3,7 +3,6 @@ import {
   isFactMetric,
   isRegressionAdjusted,
 } from "shared/experiments";
-import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -13,22 +12,22 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
-import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotType,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import {
   ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
-} from "back-end/types/query";
+} from "shared/types/query";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { ApiReqContext } from "back-end/types/api";
 import {
   findSnapshotById,
   updateSnapshot,
@@ -36,7 +35,6 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -45,11 +43,12 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
-import { applyMetricOverrides } from "back-end/src/util/integration";
 import { validateIncrementalPipeline } from "back-end/src/services/dataPipeline";
-import { getExperimentById } from "../models/ExperimentModel";
+import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
-  MAX_METRICS_PER_QUERY,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
@@ -86,10 +85,17 @@ export interface MetricSourceGroups {
   metrics: FactMetricInterface[];
 }
 
-export function getIncrementalRefreshMetricSources(
-  metrics: FactMetricInterface[],
-  existingMetricSources: IncrementalRefreshInterface["metricSources"],
-): {
+export function getIncrementalRefreshMetricSources({
+  metrics,
+  existingMetricSources,
+  integration,
+  snapshotSettings,
+}: {
+  metrics: FactMetricInterface[];
+  existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  integration: SourceIntegrationInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+}): {
   metrics: FactMetricInterface[];
   groupId: string;
   factTableId: string;
@@ -149,7 +155,21 @@ export function getIncrementalRefreshMetricSources(
     }
 
     // if a new group, ensure chunks are small enough
-    const chunks = chunk(group.metrics, MAX_METRICS_PER_QUERY);
+    const chunks = chunkMetrics({
+      metrics: group.metrics.map((m) => {
+        const metric = cloneDeep(m);
+        // TODO(overrides): refactor overrides to beginning of analysis
+        applyMetricOverrides(metric, snapshotSettings);
+        return {
+          metric,
+          regressionAdjusted:
+            isRegressionAdjusted(metric) &&
+            snapshotSettings.regressionAdjustmentEnabled,
+        };
+      }),
+      maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
+      isBandit: !!snapshotSettings.banditSettings,
+    });
     chunks.forEach((chunk, i) => {
       const randomId = Math.random().toString(36).substring(2, 15);
       finalGroups.push({
@@ -234,8 +254,9 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  const incrementalRefreshModel =
-    await context.models.incrementalRefresh.getByExperimentId(experimentId);
+  const incrementalRefreshModel = params.fullRefresh
+    ? null
+    : await context.models.incrementalRefresh.getByExperimentId(experimentId);
 
   // When adding new metrics to a fact table, we will need to scan the whole table.
   // So to simplify things we re-create the whole metric source.
@@ -285,9 +306,7 @@ const startExperimentIncrementalRefreshQueries = async (
   }
 
   // Begin Queries
-  const lastMaxTimestamp = !params.fullRefresh
-    ? incrementalRefreshModel?.unitsMaxTimestamp
-    : null;
+  const lastMaxTimestamp = incrementalRefreshModel?.unitsMaxTimestamp;
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId,
@@ -297,29 +316,24 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const experimentDimensions: ExperimentDimension[] =
-    params.fullRefresh || !incrementalRefreshModel
-      ? exposureQuery.dimensions.map((d) => {
-          return {
-            type: "experiment",
-            id: d,
-          };
-        })
-      : exposureQuery.dimensions
-          .filter((d) => incrementalRefreshModel?.unitsDimensions?.includes(d))
-          .map((d) => {
-            return {
-              type: "experiment",
-              id: d,
-            };
-          });
+  const {
+    eligibleDimensions,
+    // Used for traffic analysis
+    eligibleDimensionsWithSlices,
+    // Used for pre-computing/post-stratification
+    eligibleDimensionsWithSlicesUnderMaxCells,
+  } = getExposureQueryEligibleDimensions({
+    exposureQuery,
+    incrementalRefreshModel,
+    nVariations: params.variationNames.length,
+  });
 
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
     activationMetric: null, // TODO(incremental-refresh): activation metric
-    dimensions: experimentDimensions,
+    dimensions: eligibleDimensions,
     segment: segmentObj,
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
@@ -336,7 +350,6 @@ const startExperimentIncrementalRefreshQueries = async (
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runDropTableQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentIncrementalRefreshDropUnitsTable",
     });
     queries.push(dropOldUnitsTableQuery);
@@ -349,7 +362,6 @@ const startExperimentIncrementalRefreshQueries = async (
       dependencies: [dropOldUnitsTableQuery.query],
       run: (query, setExternalId) =>
         integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentIncrementalRefreshCreateUnitsTable",
     });
     queries.push(createUnitsTableQuery);
@@ -365,7 +377,6 @@ const startExperimentIncrementalRefreshQueries = async (
     ],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-    process: (rows) => rows,
     queryType: "experimentIncrementalRefreshUpdateUnitsTable",
   });
   queries.push(updateUnitsTableQuery);
@@ -379,7 +390,6 @@ const startExperimentIncrementalRefreshQueries = async (
     run: (query, setExternalId) =>
       integration.runDropTableQuery(query, setExternalId),
     dependencies: [updateUnitsTableQuery.query],
-    process: (rows) => rows,
     queryType: "experimentIncrementalRefreshDropUnitsTable",
   });
   queries.push(dropUnitsTableQuery);
@@ -394,7 +404,6 @@ const startExperimentIncrementalRefreshQueries = async (
     dependencies: [dropUnitsTableQuery.query],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-    process: (rows) => rows,
     queryType: "experimentIncrementalRefreshAlterUnitsTable",
   });
   queries.push(alterUnitsTableQuery);
@@ -409,7 +418,7 @@ const startExperimentIncrementalRefreshQueries = async (
     dependencies: [alterUnitsTableQuery.query],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-    process: (rows) => {
+    onSuccess: (rows) => {
       // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
 
@@ -420,20 +429,22 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
-            unitsDimensions: experimentDimensions.map((d) => d.id),
+            unitsDimensions: eligibleDimensions.map((d) => d.id),
           })
           .catch((e) => context.logger.error(e));
       }
-      return rows;
     },
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
   });
   queries.push(maxTimestampUnitsTableQuery);
 
   // Metric Queries
-  let existingSources = incrementalRefreshModel?.metricSources;
+
+  // Full refresh will have a null incremental refresh model
+  // Will recreate sources with new random id for metric sources
+  let existingSources = incrementalRefreshModel?.metricSources ?? [];
   let existingCovariateSources =
-    incrementalRefreshModel?.metricCovariateSources;
+    incrementalRefreshModel?.metricCovariateSources ?? [];
 
   // Filter out metric source groups that belong to Fact Tables with new metrics
   // This forces a full refresh for those Fact Tables
@@ -458,17 +469,12 @@ const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  // Full refresh, pretend no existing sources
-  // Will recreate sources with new random id for metric sources
-  if (params.fullRefresh) {
-    existingSources = [];
-    existingCovariateSources = [];
-  }
-
-  const metricSourceGroups = getIncrementalRefreshMetricSources(
-    selectedMetrics.filter((m) => isFactMetric(m)),
-    existingSources ?? [],
-  );
+  const metricSourceGroups = getIncrementalRefreshMetricSources({
+    metrics: selectedMetrics.filter((m) => isFactMetric(m)),
+    existingMetricSources: existingSources ?? [],
+    integration,
+    snapshotSettings,
+  });
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
@@ -519,7 +525,6 @@ const startExperimentIncrementalRefreshQueries = async (
         dependencies: [updateUnitsTableQuery.query],
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-        process: (rows) => rows,
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -545,7 +550,6 @@ const startExperimentIncrementalRefreshQueries = async (
       ],
       run: (query, setExternalId) =>
         integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
@@ -577,6 +581,20 @@ const startExperimentIncrementalRefreshQueries = async (
     let insertMetricCovariateDataQuery: QueryPointer | null = null;
     if (anyMetricHasCuped) {
       if (!existingCovariateSource) {
+        // Safety net in case our data model is out of sync with the database
+        const dropMetricCovariateTableQuery = await startQuery({
+          name: `drop_metrics_covariate_table_${group.groupId}`,
+          displayTitle: `Drop Old Metric Covariate Table ${sourceName}`,
+          query: integration.getDropMetricSourceCovariateTableQuery({
+            metricSourceCovariateTableFullName,
+          }),
+          dependencies: [updateUnitsTableQuery.query],
+          run: (query, setExternalId) =>
+            integration.runDropTableQuery(query, setExternalId),
+          queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
+        });
+        queries.push(dropMetricCovariateTableQuery);
+
         createMetricCovariateTableQuery = await startQuery({
           name: `create_metrics_covariate_table_${group.groupId}`,
           displayTitle: `Create Metric Covariate Table ${sourceName}`,
@@ -585,10 +603,9 @@ const startExperimentIncrementalRefreshQueries = async (
             metrics: group.metrics,
             metricSourceCovariateTableFullName,
           }),
-          dependencies: [updateUnitsTableQuery.query],
+          dependencies: [dropMetricCovariateTableQuery.query],
           run: (query, setExternalId) =>
             integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-          process: (rows) => rows,
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
@@ -611,7 +628,7 @@ const startExperimentIncrementalRefreshQueries = async (
         ],
         run: (query, setExternalId) =>
           integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-        process: async (rows) => {
+        onSuccess: async () => {
           const incrementalRefresh =
             await context.models.incrementalRefresh.getByExperimentId(
               experimentId,
@@ -643,7 +660,6 @@ const startExperimentIncrementalRefreshQueries = async (
               metricCovariateSources: runningCovariateSourceData,
             })
             .catch((e) => context.logger.error(e));
-          return rows;
         },
         queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
       });
@@ -672,7 +688,7 @@ const startExperimentIncrementalRefreshQueries = async (
           },
         );
       },
-      process: async (rows) => {
+      onSuccess: async (rows) => {
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
           // TODO(incremental-refresh): Clean up metadata handling in query runner
@@ -709,18 +725,23 @@ const startExperimentIncrementalRefreshQueries = async (
             })
             .catch((e) => context.logger.error(e));
         }
-        return rows;
       },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
+
+    const dimensionsForPrecomputation = org.settings
+      ?.disablePrecomputedDimensions
+      ? []
+      : eligibleDimensionsWithSlicesUnderMaxCells;
 
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensions: [], // TODO(incremental-refresh): pre-compute dimensions
+        dimensionsForPrecomputation,
+        dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
       }),
       dependencies: [
@@ -731,7 +752,6 @@ const startExperimentIncrementalRefreshQueries = async (
       ],
       run: (query, setExternalId) =>
         integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);
@@ -744,13 +764,12 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: experimentDimensions,
+        dimensions: eligibleDimensionsWithSlices,
         useUnitsTable: true,
       }),
       dependencies: [alterUnitsTableQuery.query],
       run: (query, setExternalId) =>
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
@@ -783,10 +802,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     }
 
-    const incrementalRefreshModel =
-      await this.context.models.incrementalRefresh.getByExperimentId(
-        params.experimentId,
-      );
+    const incrementalRefreshModel = params.fullRefresh
+      ? null
+      : await this.context.models.incrementalRefresh.getByExperimentId(
+          params.experimentId,
+        );
 
     const experiment = await getExperimentById(
       this.context,

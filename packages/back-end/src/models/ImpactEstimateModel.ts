@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { getConversionWindowHours } from "shared/experiments";
+import { getMetricWindowHours } from "shared/experiments";
 import { SegmentInterface } from "shared/types/segment";
-import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
@@ -80,7 +80,7 @@ export async function getImpactEstimate(
   const factTableMap = await getFactTableMap(context);
 
   const conversionWindowHours =
-    getConversionWindowHours(metricObj.windowSettings) ||
+    getMetricWindowHours(metricObj.windowSettings) ||
     DEFAULT_CONVERSION_WINDOW_HOURS;
 
   // Ignore last X hours of data since we need to give people time to convert

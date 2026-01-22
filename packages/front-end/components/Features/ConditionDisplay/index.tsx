@@ -1,31 +1,37 @@
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
-import {
-  FeaturePrerequisite,
-  SavedGroupTargeting,
-} from "back-end/types/feature";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-import SavedGroupTargetingDisplay from "../SavedGroupTargetingDisplay";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
-function operatorToText(operator: string, isPrerequisite?: boolean): string {
+function operatorToText({
+  operator,
+  isPrerequisite,
+  hasMultipleSavedGroups,
+}: {
+  operator: string;
+  isPrerequisite?: boolean;
+  hasMultipleSavedGroups?: boolean;
+}): string {
   switch (operator) {
     case "$eq":
     case "$veq":
-      return `is equal to`;
+      return `=`;
     case "$ne":
     case "$vne":
-      return `is not equal to`;
+      return `≠`;
     case "$includes":
       return `includes`;
     case "$notIncludes":
@@ -36,16 +42,16 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
       return `is not empty`;
     case "$lt":
     case "$vlt":
-      return `is less than`;
+      return `<`;
     case "$lte":
     case "$vlte":
-      return `is less than or equal to`;
+      return `≤`;
     case "$gt":
     case "$vgt":
-      return `is greater than`;
+      return `>`;
     case "$gte":
     case "$vgte":
-      return `is greater than or equal to`;
+      return `≥`;
     case "$exists":
       return isPrerequisite ? `is live` : `is not NULL`;
     case "$notExists":
@@ -55,9 +61,9 @@ function operatorToText(operator: string, isPrerequisite?: boolean): string {
     case "$nin":
       return `is not in the list`;
     case "$inGroup":
-      return `is in the saved group`;
+      return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
-      return `is not in the saved group`;
+      return `is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$true":
       return "is";
     case "$false":
@@ -79,7 +85,7 @@ function hasMultiValues(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  savedGroups?: SavedGroupInterface[],
+  savedGroups?: SavedGroupWithoutValues[],
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
@@ -87,7 +93,6 @@ function getValue(
   // Get the groupName from the associated group.id to display a human readable name.
   if ((operator === "$inGroup" || operator === "$notInGroup") && savedGroups) {
     const index = savedGroups.find((i) => i.id === value);
-
     return index?.groupName || "Group was Deleted";
   }
   return value;
@@ -95,25 +100,66 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
-export function MultiValuesDisplay({ values }: { values: string[] }) {
+export function MultiValuesDisplay({
+  values,
+  displayMap,
+  savedGroupIds,
+}: {
+  values: string[];
+  displayMap?: Record<string, string>;
+  savedGroupIds?: Set<string>;
+}) {
+  const { getSavedGroupById } = useDefinitions();
+
   return (
     <>
-      {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
-        <Badge
-          key={i}
-          color="gray"
-          label={<Text style={{ color: "var(--slate-12)" }}>{v}</Text>}
-        />
-      ))}
+      {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => {
+        const isSavedGroup = savedGroupIds?.has(v);
+        const group = isSavedGroup ? getSavedGroupById(v) : null;
+
+        const displayValue =
+          isSavedGroup && group
+            ? displayMap?.[v] || group.groupName
+            : displayMap?.[v] || v;
+        return isSavedGroup && group ? (
+          <Link
+            key={i}
+            href={`/saved-groups/${group.id}`}
+            target="_blank"
+            size="1"
+            color="violet"
+            title="Manage Saved Group"
+          >
+            <Badge color="gray" label={displayValue} /> <PiArrowSquareOut />
+          </Link>
+        ) : (
+          <Badge
+            key={i}
+            color="gray"
+            className="text-ellipsis d-inline-block"
+            style={{ maxWidth: 300 }}
+            title={displayValue}
+            label={
+              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
+            }
+          />
+        );
+      })}
       {values.length > MULTI_VALUE_LIMIT && (
         <Tooltip
           body={
             <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
-                <span key={i} className={`${styles.Tooltip} ml-1`}>
-                  {v}
-                </span>
-              ))}
+              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
+                const isSavedGroup = savedGroupIds?.has(v);
+                const group = isSavedGroup ? getSavedGroupById(v) : null;
+                return (
+                  <span key={i} className={`${styles.Tooltip} ml-1`}>
+                    {isSavedGroup && group
+                      ? group.groupName
+                      : displayMap?.[v] || v}
+                  </span>
+                );
+              })}
             </div>
           }
           usePortal
@@ -127,11 +173,23 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
   );
 }
 
-function MultiValueDisplay({ value }: { value: string }) {
+function MultiValueDisplay({
+  value,
+  displayMap,
+  noParensForSingleValue = false,
+  savedGroupIds,
+}: {
+  value: string;
+  displayMap?: Record<string, string>;
+  noParensForSingleValue?: boolean;
+  savedGroupIds?: Set<string>;
+}) {
   const parts = value
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+
+  const skipParens = noParensForSingleValue && parts.length <= 1;
 
   if (!parts.length) {
     return (
@@ -142,10 +200,73 @@ function MultiValueDisplay({ value }: { value: string }) {
   }
   return (
     <>
-      <span className="mr-1">(</span>
-      <MultiValuesDisplay values={parts} />)
+      {!skipParens && <span>(</span>}
+      <MultiValuesDisplay
+        values={parts}
+        displayMap={displayMap}
+        savedGroupIds={savedGroupIds}
+      />
+      {!skipParens && <span>)</span>}
     </>
   );
+}
+
+function getConditionOrParts({
+  conditions,
+  savedGroups,
+  initialAnd = false,
+  renderPrerequisite = false,
+  keyPrefix = "",
+}: {
+  conditions: ConditionWithParentId[][];
+  savedGroups?: SavedGroupWithoutValues[];
+  initialAnd?: boolean;
+  renderPrerequisite?: boolean;
+  keyPrefix?: string;
+}) {
+  if (conditions.length === 0) return [];
+  if (conditions.length === 1) {
+    return getConditionParts({
+      conditions: conditions[0],
+      savedGroups,
+      initialAnd,
+      renderPrerequisite,
+      keyPrefix,
+    });
+  }
+
+  const parts: ReactNode[] = [];
+
+  if (initialAnd) {
+    parts.push(<div key={keyPrefix + "and-start"}>AND {"["}</div>);
+  }
+
+  conditions.forEach((condGroup, i) => {
+    if (i > 0) {
+      parts.push(
+        <div key={keyPrefix + "or-sep-" + i}>
+          <Text weight="medium">OR</Text>
+        </div>,
+      );
+    }
+    parts.push(<div key={keyPrefix + "or-start-" + i}>{"("}</div>);
+    parts.push(
+      ...getConditionParts({
+        conditions: condGroup,
+        savedGroups,
+        initialAnd: false,
+        renderPrerequisite,
+        keyPrefix: `${keyPrefix}or-${i}-`,
+      }),
+    );
+    parts.push(<div key={keyPrefix + "or-end-" + i}>{")"}</div>);
+  });
+
+  if (initialAnd) {
+    parts.push(<div key={keyPrefix + "and-end"}>{"]"}</div>);
+  }
+
+  return parts;
 }
 
 function getConditionParts({
@@ -156,7 +277,7 @@ function getConditionParts({
   keyPrefix = "",
 }: {
   conditions: ConditionWithParentId[];
-  savedGroups?: SavedGroupInterface[];
+  savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
@@ -165,6 +286,9 @@ function getConditionParts({
     let fieldEl: ReactNode = (
       <Badge
         color="gray"
+        className="text-ellipsis d-inline-block"
+        style={{ maxWidth: 300 }}
+        title={field}
         label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
       />
     );
@@ -173,13 +297,15 @@ function getConditionParts({
       if (field === "value") {
         fieldEl = null;
       } else if (field.substring(0, 6) === "value.") {
+        const displayValue = field.substring(6);
         fieldEl = (
           <Badge
             color="gray"
+            className="text-ellipsis d-inline-block"
+            style={{ maxWidth: 300 }}
+            title={displayValue}
             label={
-              <Text style={{ color: "var(--slate-12)" }}>
-                {field.substring(6)}
-              </Text>
+              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
             }
           />
         );
@@ -207,25 +333,103 @@ function getConditionParts({
         );
       }
     }
+
+    // For saved groups, hide the "field" element and tweak the operator
+    if (field === "$savedGroups") {
+      fieldEl = null;
+      if (operator === "$in") {
+        operator = "$inGroup";
+      } else if (operator === "$nin") {
+        operator = "$notInGroup";
+      }
+    }
+
+    const savedGroupValueParts =
+      field === "$savedGroups"
+        ? value
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : [];
+    const hasMultipleSavedGroups = savedGroupValueParts.length > 1;
+
+    // Extract variables for saved group value display
+    const group =
+      (operator === "$inGroup" || operator === "$notInGroup") && savedGroups
+        ? savedGroups.find((sg) => sg.id === value)
+        : undefined;
+    const displayValue = getValue(operator, value, savedGroups);
+
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
         {parentIdEl}
         {fieldEl}
         <span className="mr-1">
-          {operatorToText(operator, renderPrerequisite)}
+          {operatorToText({
+            operator,
+            isPrerequisite: renderPrerequisite,
+            hasMultipleSavedGroups,
+          })}
         </span>
-        {hasMultiValues(operator) ? (
-          <MultiValueDisplay value={value} />
-        ) : needsValue(operator) ? (
-          <Badge
-            color="gray"
-            label={
-              <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
-                {getValue(operator, value, savedGroups)}
-              </Text>
+        {field === "$savedGroups" ? (
+          <MultiValueDisplay
+            value={value}
+            displayMap={Object.fromEntries(
+              (savedGroups || []).map((sg) => [sg.id, sg.groupName]),
+            )}
+            noParensForSingleValue={true}
+            savedGroupIds={
+              new Set(
+                value
+                  .split(",")
+                  .map((v) => v.trim())
+                  .filter(Boolean),
+              )
             }
           />
+        ) : hasMultiValues(operator) ? (
+          <MultiValueDisplay value={value} />
+        ) : needsValue(operator) ? (
+          (operator === "$inGroup" || operator === "$notInGroup") &&
+          savedGroups ? (
+            group ? (
+              <Link
+                href={`/saved-groups/${group.id}`}
+                target="_blank"
+                size="1"
+                color="violet"
+                title="Manage Saved Group"
+              >
+                <Badge color="gray" label={group.groupName} />{" "}
+                <PiArrowSquareOut />
+              </Link>
+            ) : (
+              <Badge
+                color="gray"
+                className="text-ellipsis d-inline-block"
+                style={{ maxWidth: 300 }}
+                title={displayValue}
+                label={
+                  <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                    {displayValue}
+                  </Text>
+                }
+              />
+            )
+          ) : (
+            <Badge
+              color="gray"
+              className="text-ellipsis d-inline-block"
+              style={{ maxWidth: 300 }}
+              title={displayValue}
+              label={
+                <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                  {displayValue}
+                </Text>
+              }
+            />
+          )
         ) : (
           ""
         )}
@@ -238,6 +442,9 @@ function ParentIdLink({ parentId }: { parentId: string }) {
   return (
     <Badge
       color="gray"
+      className="text-ellipsis d-inline-block"
+      style={{ maxWidth: 300 }}
+      title={parentId}
       label={
         <Link
           href={`/features/${parentId}`}
@@ -279,25 +486,6 @@ export default function ConditionDisplay({
     }
   }, [condition]);
 
-  if (condition && jsonFormattedCondition) {
-    const conds = jsonToConds(condition);
-    // Could not parse into simple conditions
-    if (conds === null || !attributes.size) {
-      parts.push(
-        <div className="w-100" key={partId++}>
-          <InlineCode language="json" code={jsonFormattedCondition} />
-        </div>,
-      );
-    } else {
-      const conditionParts = getConditionParts({
-        conditions: conds,
-        savedGroups,
-        keyPrefix: `${partId++}-condition-`,
-      });
-      parts.push(...conditionParts);
-    }
-  }
-
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
       <SavedGroupTargetingDisplay
@@ -312,8 +500,8 @@ export default function ConditionDisplay({
   if (prerequisites) {
     const prereqConditionsGrouped = prerequisites
       .map((p) => {
-        let cond = jsonToConds(p.condition);
-        if (!cond) {
+        const cond = jsonToConds(p.condition);
+        if (!cond || cond.length > 1) {
           let jsonFormattedCondition = p.condition;
           try {
             const parsed = JSON.parse(p.condition);
@@ -331,7 +519,7 @@ export default function ConditionDisplay({
           );
           return;
         }
-        cond = cond.map(({ field, operator, value }) => {
+        return cond[0]?.map(({ field, operator, value }) => {
           return {
             field,
             operator,
@@ -339,7 +527,6 @@ export default function ConditionDisplay({
             parentId: p.id,
           };
         });
-        return cond;
       })
       .filter(isDefined);
 
@@ -357,6 +544,26 @@ export default function ConditionDisplay({
       keyPrefix: `${partId++}-prereq-`,
     });
     parts.push(...prereqParts);
+  }
+
+  if (condition && jsonFormattedCondition) {
+    const conds = jsonToConds(condition);
+    // Could not parse into simple conditions
+    if (conds === null || !attributes.size) {
+      parts.push(
+        <div className="w-100" key={partId++}>
+          <InlineCode language="json" code={jsonFormattedCondition} />
+        </div>,
+      );
+    } else {
+      const conditionParts = getConditionOrParts({
+        conditions: conds,
+        savedGroups,
+        keyPrefix: `${partId++}-condition-`,
+        initialAnd: parts.length > 0,
+      });
+      parts.push(...conditionParts);
+    }
   }
 
   return (

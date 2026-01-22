@@ -3,6 +3,7 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -28,26 +29,28 @@ import { CreateProps } from "shared/types/base-model";
 import {
   ExperimentAnalysisSummary,
   SafeRolloutNotification,
-} from "shared/validators";
-import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
-} from "back-end/src/validators/safe-rollout-snapshot";
+  FeatureInterface,
+  SafeRolloutRule,
+} from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
+import { OrganizationInterface } from "shared/types/organization";
+import { MetricSnapshotSettings } from "shared/types/report";
+import { MetricInterface } from "shared/types/metric";
+import { DataSourceInterface } from "shared/types/datasource";
+import { MetricPriorSettings } from "shared/types/fact-table";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { ResourceEvents } from "shared/types/events/base-types";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { ApiReqContext } from "back-end/types/api";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
-import { MetricSnapshotSettings } from "back-end/types/report";
-import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { MetricPriorSettings } from "back-end/types/fact-table";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import {
   FactTableMap,
@@ -57,13 +60,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import {
-  FeatureInterface,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
-import { ResourceEvents } from "back-end/types/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import { getSourceIntegrationObject } from "./datasource";
 import { computeResultsStatus, isJoinableMetric } from "./experiments";
@@ -160,7 +157,6 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     endDate: settings.endDate || new Date(),
     experimentId: settings.experimentId,
     exposureQueryId: settings.exposureQueryId,
-    manual: false,
     segment: "",
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
@@ -256,7 +252,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
     postStratificationEnabled:
       hasPostStratificationFeature &&
-      !(organization.settings?.postStratificationDisabled ?? false),
+      !organization.settings?.disablePrecomputedDimensions &&
+      (organization.settings?.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,

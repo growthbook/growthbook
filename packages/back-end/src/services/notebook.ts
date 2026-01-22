@@ -3,6 +3,13 @@ import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
 import { expandAllSliceMetricsInMap } from "shared/experiments";
+import { Queries } from "shared/types/query";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "shared/types/experiment-snapshot";
+import { ExperimentInterface } from "shared/types/experiment";
+import type { DataForStatsEngine } from "shared/types/stats";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -10,17 +17,10 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getReportById } from "back-end/src/models/ReportModel";
-import { Queries } from "back-end/types/query";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
-import { ExperimentInterface } from "back-end/types/experiment";
-import type { DataForStatsEngine } from "back-end/types/stats";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   getAnalysisSettingsForStatsEngine,
@@ -28,12 +28,12 @@ import {
 } from "./stats";
 
 async function getQueryData(
+  context: ReqContext,
   queries: Queries,
-  organization: string,
   map?: QueryMap,
 ): Promise<QueryMap> {
   const docs = await getQueriesByIds(
-    organization,
+    context,
     queries.map((q) => q.query),
   );
 
@@ -182,7 +182,7 @@ export async function generateNotebook({
   }
 
   // Get queries
-  const queries = await getQueryData(queryPointers, context.org.id);
+  const queries = await getQueryData(context, queryPointers);
 
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();

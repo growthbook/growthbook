@@ -2,9 +2,6 @@ import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
-import { ReqContext } from "back-end/types/request";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -15,7 +12,12 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
+import { CreateProps } from "shared/types/base-model";
+import { ReqContext } from "back-end/types/request";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   createFactTable,
   getAllFactTablesForOrganization,
@@ -32,7 +34,6 @@ import {
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { DataSourceInterface } from "back-end/types/datasource";
 import {
   runRefreshColumnsQuery,
   runColumnTopValuesQuery,
@@ -514,13 +515,12 @@ export const getFactMetrics = async (
 };
 
 export const postFactMetric = async (
-  req: AuthRequest<unknown>,
+  req: AuthRequest<CreateProps<FactMetricInterface>>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>,
 ) => {
   const context = getContextFromReq(req);
-  const data = context.models.factMetrics.createValidator.parse(req.body);
 
-  const factMetric = await context.models.factMetrics.create(data);
+  const factMetric = await context.models.factMetrics.create(req.body);
 
   res.status(200).json({
     status: 200,
@@ -529,13 +529,12 @@ export const postFactMetric = async (
 };
 
 export const putFactMetric = async (
-  req: AuthRequest<unknown, { id: string }>,
+  req: AuthRequest<Partial<FactMetricInterface>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
-  const data = context.models.factMetrics.updateValidator.parse(req.body);
 
-  await context.models.factMetrics.updateById(req.params.id, data);
+  await context.models.factMetrics.updateById(req.params.id, req.body);
 
   res.status(200).json({
     status: 200,

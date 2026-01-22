@@ -3,12 +3,12 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  dashboardBlockHasIds,
+} from "shared/enterprise";
 import React, { useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
-import { dashboardBlockHasIds } from "shared/enterprise";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,
@@ -21,8 +21,11 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
-import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
-import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
+import {
+  BLOCK_SUBGROUPS,
+  BLOCK_TYPE_INFO,
+  isBlockTypeAllowed,
+} from "@/enterprise/components/Dashboards/DashboardEditor";
 import EditSingleBlock from "./EditSingleBlock";
 
 // Block types that are allowed in general dashboards (non-experiment specific)
@@ -95,11 +98,6 @@ export default function DashboardEditorSidebar({
     number | undefined
   >(undefined);
 
-  // TODO(incremental-refresh): remove when dimensions supported in dashboard
-  const experimentalRefreshMode = useExperimentPipelineMode(
-    experiment ?? undefined,
-  );
-
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
     setPreviewBlockPlacement(undefined);
@@ -128,11 +126,7 @@ export default function DashboardEditorSidebar({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(
-            bType,
-            isGeneralDashboard,
-            experimentalRefreshMode === "incremental-refresh",
-          ),
+          isBlockTypeAllowed(bType, isGeneralDashboard),
         );
 
         // Don't render the subgroup if no block types are allowed

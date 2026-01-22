@@ -1,4 +1,4 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useMemo } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";

@@ -1,7 +1,7 @@
 import { getScopedSettings } from "shared/settings";
-import { GetSettingsResponse } from "back-end/types/openapi";
+import { GetSettingsResponse } from "shared/types/openapi";
+import { getSettingsValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getSettingsValidator } from "back-end/src/validators/openapi";
 
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
   req,

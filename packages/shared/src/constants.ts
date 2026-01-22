@@ -1,3 +1,4 @@
+import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
@@ -31,6 +32,9 @@ export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
 // Sequential Testing:
 export const DEFAULT_SEQUENTIAL_TESTING_ENABLED = false;
 export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
+
+// Post-Stratification:
+export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
@@ -97,6 +101,10 @@ export const SAFE_ROLLOUT_VARIATIONS = [
   },
 ];
 
+export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
+  "quantile",
+] as const;
+
 export const sdkLanguages = [
   "nocode-webflow",
   "nocode-wordpress",
@@ -120,6 +128,7 @@ export const sdkLanguages = [
   "edge-fastly",
   "edge-lambda",
   "edge-other",
+  "rust",
   "other",
 ] as const;
 
@@ -203,6 +212,8 @@ export const entityEvents = {
   incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
   customHook: ["create", "update", "delete"],
+  ssoConnection: ["create", "update", "delete"],
+  sqlResultChunk: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

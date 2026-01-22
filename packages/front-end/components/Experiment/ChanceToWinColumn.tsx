@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { RowResults } from "@/services/experiments";
@@ -49,7 +49,7 @@ export default function ChanceToWinColumn({
   return (
     <td className={clsx("chance align-middle", className)} {...otherProps}>
       {!baseline?.value || !stats?.value ? (
-        <em className="text-muted font-weight-normal">no data</em>
+        <em className="text-muted small">No data</em>
       ) : hideScaledImpact ? (
         <NoScaledImpact />
       ) : !rowResults.enoughData ? (

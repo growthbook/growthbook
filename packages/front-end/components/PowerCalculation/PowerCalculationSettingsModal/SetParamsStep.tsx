@@ -1,5 +1,5 @@
 import { IconButton } from "@radix-ui/themes";
-import { PopulationDataInterface } from "back-end/types/population-data";
+import { PopulationDataInterface } from "shared/types/population-data";
 import { useEffect, useState } from "react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {

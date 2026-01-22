@@ -16,15 +16,15 @@ import {
   MaxTimestampMetricSourceQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
-} from "../services/bigquery";
+} from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {

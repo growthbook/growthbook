@@ -1,5 +1,5 @@
 import React, { Fragment, ReactElement } from "react";
-import { ExperimentMetadataBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentMetadataBlockInterface } from "shared/enterprise";
 import { ScrollArea, Separator, Text } from "@radix-ui/themes";
 import { Box } from "spectacle";
 import Markdown from "@/components/Markdown/Markdown";

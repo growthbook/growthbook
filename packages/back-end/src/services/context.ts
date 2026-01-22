@@ -9,30 +9,39 @@ import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
+import {
+  OrganizationInterface,
+  Permission,
+  UserPermissions,
+} from "shared/types/organization";
+import { EventUser } from "shared/types/events/event-types";
+import { TeamInterface } from "shared/types/team";
+import { ProjectInterface } from "shared/types/project";
+import { ExperimentInterface } from "shared/types/experiment";
+import { DataSourceInterface } from "shared/types/datasource";
+import { FeatureInterface } from "shared/types/feature";
+import {
+  BadRequestError,
+  UnauthorizedError,
+  PlanDoesNotAllowError,
+  NotFoundError,
+  InternalServerError,
+} from "back-end/src/util/errors";
+import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
-  OrganizationInterface,
-  Permission,
-  UserPermissions,
-} from "back-end/types/organization";
-import { EventUser } from "back-end/types/events/event-types";
-import {
   getUserPermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
-import { TeamInterface } from "back-end/types/team";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { ProjectModel } from "back-end/src/models/ProjectModel";
-import { ProjectInterface } from "back-end/types/project";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
@@ -47,13 +56,15 @@ import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
-import { FeatureInterface } from "back-end/types/feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -63,33 +74,72 @@ export type ForeignRefTypes = {
   feature: FeatureInterface;
 };
 
+export type ModelName =
+  | "agreements"
+  | "aiPrompts"
+  | "customFields"
+  | "factMetrics"
+  | "featureRevisionLogs"
+  | "projects"
+  | "urlRedirects"
+  | "metricAnalysis"
+  | "populationData"
+  | "savedQueries"
+  | "metricGroups"
+  | "segments"
+  | "experimentTemplates"
+  | "vectors"
+  | "safeRollout"
+  | "safeRolloutSnapshots"
+  | "decisionCriteria"
+  | "metricTimeSeries"
+  | "webhookSecrets"
+  | "holdout"
+  | "dashboards"
+  | "customHooks"
+  | "incrementalRefresh"
+  | "sqlResultChunks"
+  | "sdkConnectionCache"
+  | "sdkWebhooks"
+  | "savedGroups";
+
+export const modelClasses = {
+  agreements: AgreementModel,
+  aiPrompts: AiPromptModel,
+  customFields: CustomFieldModel,
+  factMetrics: FactMetricModel,
+  featureRevisionLogs: FeatureRevisionLogModel,
+  projects: ProjectModel,
+  urlRedirects: UrlRedirectModel,
+  metricAnalysis: MetricAnalysisModel,
+  populationData: PopulationDataModel,
+  savedQueries: SavedQueryDataModel,
+  metricGroups: MetricGroupModel,
+  segments: SegmentModel,
+  experimentTemplates: ExperimentTemplatesModel,
+  vectors: VectorsModel,
+  safeRollout: SafeRolloutModel,
+  safeRolloutSnapshots: SafeRolloutSnapshotModel,
+  decisionCriteria: DecisionCriteriaModel,
+  metricTimeSeries: MetricTimeSeriesModel,
+  webhookSecrets: WebhookSecretDataModel,
+  holdout: HoldoutModel,
+  dashboards: DashboardModel,
+  customHooks: CustomHookModel,
+  incrementalRefresh: IncrementalRefreshModel,
+  sqlResultChunks: SqlResultChunkModel,
+  sdkConnectionCache: SdkConnectionCacheModel,
+  sdkWebhooks: SdkWebhookModel,
+  savedGroups: SavedGroupModel,
+};
+export type ModelClass = (typeof modelClasses)[ModelName];
+type ModelInstances = {
+  [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
+};
+
 export class ReqContextClass {
   // Models
-  public models!: {
-    agreements: AgreementModel;
-    aiPrompts: AiPromptModel;
-    customFields: CustomFieldModel;
-    factMetrics: FactMetricModel;
-    featureRevisionLogs: FeatureRevisionLogModel;
-    projects: ProjectModel;
-    urlRedirects: UrlRedirectModel;
-    metricAnalysis: MetricAnalysisModel;
-    populationData: PopulationDataModel;
-    savedQueries: SavedQueryDataModel;
-    metricGroups: MetricGroupModel;
-    segments: SegmentModel;
-    experimentTemplates: ExperimentTemplatesModel;
-    vectors: VectorsModel;
-    safeRollout: SafeRolloutModel;
-    safeRolloutSnapshots: SafeRolloutSnapshotModel;
-    decisionCriteria: DecisionCriteriaModel;
-    metricTimeSeries: MetricTimeSeriesModel;
-    webhookSecrets: WebhookSecretDataModel;
-    holdout: HoldoutModel;
-    dashboards: DashboardModel;
-    customHooks: CustomHookModel;
-    incrementalRefresh: IncrementalRefreshModel;
-  };
+  public models!: ModelInstances;
   private initModels() {
     this.models = {
       agreements: new AgreementModel(this),
@@ -115,6 +165,10 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      sqlResultChunks: new SqlResultChunkModel(this),
+      sdkConnectionCache: new SdkConnectionCacheModel(this),
+      sdkWebhooks: new SdkWebhookModel(this),
+      savedGroups: new SavedGroupModel(this),
     };
   }
 
@@ -201,6 +255,26 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  public throwBadRequestError(message: string) {
+    throw new BadRequestError(message);
+  }
+
+  public throwUnauthorizedError(message: string) {
+    throw new UnauthorizedError(message);
+  }
+
+  public throwPlanDoesNotAllowError(message: string) {
+    throw new PlanDoesNotAllowError(message);
+  }
+
+  public throwNotFoundError(message?: string) {
+    throw new NotFoundError(message);
+  }
+
+  public throwInternalServerError(message: string) {
+    throw new InternalServerError(message);
   }
 
   // Check permissions

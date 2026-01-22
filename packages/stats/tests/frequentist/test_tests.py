@@ -24,7 +24,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     RegressionAdjustedRatioStatistic,
 )
-from gbstats.models.tests import Uplift
+from gbstats.models.results import Uplift
 
 DECIMALS = 5
 

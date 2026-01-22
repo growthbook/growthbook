@@ -4,31 +4,32 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { Environment } from "back-end/types/organization";
+} from "shared/types/experiment-snapshot";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { ExperimentReportVariation } from "shared/types/report";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
+import { VisualChange } from "shared/types/visual-changeset";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
-import { VisualChange } from "shared/types/visual-changeset";
-import { SavedGroupInterface } from "shared/types/groups";
+} from "../validators/safe-rollout-snapshot";
+import { HoldoutInterface } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./types";
+export * from "./errors";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -540,4 +541,8 @@ export function parseProcessLogBase() {
     : {
         base: parsedLogBase,
       };
+}
+
+export function capitalizeFirstCharacter(s: string) {
+  return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }

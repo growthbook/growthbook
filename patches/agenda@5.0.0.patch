@@ -1,0 +1,12 @@
+diff --git a/dist/agenda/define.d.ts b/dist/agenda/define.d.ts
+index 0ccf6a14d57b4bd9b15ea08638f7ceef16fcaa9e..f43245022ed24c6c8d8e1f20a03f8854c82d13e0 100644
+--- a/dist/agenda/define.d.ts
++++ b/dist/agenda/define.d.ts
+@@ -31,6 +31,7 @@ export interface DefineOptions {
+      */
+     shouldSaveResult?: boolean;
+ }
++// @ts-ignore
+ export declare type Processor<T> = ((job: Job<T>) => Promise<void>) | ((job: Job<T>, done: () => void) => void);
+ /**
+  * Setup definition for job

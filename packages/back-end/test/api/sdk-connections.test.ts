@@ -127,7 +127,7 @@ describe("sdk-connections API", () => {
 
     let created;
 
-    createSDKConnection.mockImplementation((v) => {
+    createSDKConnection.mockImplementation((c, v) => {
       created = sdkConnectionFactory.build(v);
       return created;
     });
@@ -514,7 +514,7 @@ describe("sdk-connections API", () => {
     expect(auditMock).toHaveBeenCalledWith({
       details: `{"pre":{"id":"${
         existing.id
-      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         existing.key
       }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"context":{}}`,
       entity: { id: existing.id, object: "sdk-connection" },

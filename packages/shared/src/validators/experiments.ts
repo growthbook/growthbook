@@ -194,12 +194,11 @@ export const experimentAnalysisSettings = z
     skipPartialData: z.boolean().optional(),
     attributionModel: z.enum(attributionModel).optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
-    postStratificationEnabled: z.boolean().optional(),
+    postStratificationEnabled: z.boolean().nullable().optional(),
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<
@@ -342,7 +341,6 @@ export const experimentInterface = z
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict()

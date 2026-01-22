@@ -26,6 +26,10 @@ const env: EnvironmentInitValue = {
   experimentRefreshFrequency: 6,
   autoSliceUpdateFrequencyHours: 24,
   hasOpenAIKey: false,
+  hasAnthropicKey: false,
+  hasXaiKey: false,
+  hasMistralKey: false,
+  hasGoogleAIKey: false,
   uploadMethod: "local",
 };
 
@@ -118,6 +122,22 @@ export function getStripePublishableKey() {
 }
 export function hasOpenAIKey() {
   return env.hasOpenAIKey || false;
+}
+
+export function hasAnthropicKey() {
+  return env.hasAnthropicKey || false;
+}
+
+export function hasXaiKey() {
+  return env.hasXaiKey || false;
+}
+
+export function hasMistralKey() {
+  return env.hasMistralKey || false;
+}
+
+export function hasGoogleAIKey() {
+  return env.hasGoogleAIKey || false;
 }
 
 export function getExperimentRefreshFrequency() {

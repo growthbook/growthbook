@@ -1,4 +1,4 @@
-import { Variation, VariationWithIndex } from "back-end/types/experiment";
+import { Variation, VariationWithIndex } from "shared/types/experiment";
 import clsx from "clsx";
 import { useCallback, useEffect, useState } from "react";
 import { FaCheck } from "react-icons/fa";
@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";

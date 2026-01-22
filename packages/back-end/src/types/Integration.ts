@@ -10,6 +10,7 @@ import {
   CreateMetricSourceTableQueryParams,
   DimensionSlicesQueryParams,
   DimensionSlicesQueryResponse,
+  DropMetricSourceCovariateTableQueryParams,
   DropOldIncrementalUnitsQueryParams,
   DropTableQueryParams,
   DropTableQueryResponse,
@@ -23,6 +24,8 @@ import {
   ExperimentUnitsQueryParams,
   ExperimentUnitsQueryResponse,
   ExternalIdCallback,
+  FeatureEvalDiagnosticsQueryParams,
+  FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   IncrementalRefreshStatisticsQueryParams,
@@ -53,29 +56,15 @@ import {
   DataSourceInterface,
   DataSourceProperties,
   SchemaFormat,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { AdditionalQueryMetadata } from "shared/types/query";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { DimensionInterface } from "shared/types/dimension";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { MetricInterface, MetricType } from "shared/types/metric";
 import { ReqContext } from "back-end/types/request";
-import { AdditionalQueryMetadata } from "back-end/types/query";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { DimensionInterface } from "back-end/types/dimension";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { MetricInterface, MetricType } from "back-end/types/metric";
 
 export type { MetricAnalysisParams };
-
-export class MissingDatasourceParamsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MissingDatasourceParamsError";
-  }
-}
-
-export class DataSourceNotSupportedError extends Error {
-  constructor() {
-    super("This data source is not supported yet.");
-    this.name = "DataSourceNotSupportedError";
-  }
-}
 
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
@@ -170,6 +159,9 @@ export interface SourceIntegrationInterface {
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string;
+  getDropMetricSourceCovariateTableQuery(
+    params: DropMetricSourceCovariateTableQueryParams,
+  ): string;
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string;
@@ -201,6 +193,12 @@ export interface SourceIntegrationInterface {
   runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse>;
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string;
+  runFeatureEvalDiagnosticsQuery(
+    query: string,
+  ): Promise<FeatureEvalDiagnosticsQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

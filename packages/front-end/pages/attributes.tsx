@@ -1,12 +1,12 @@
 import React, { Fragment, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import { recursiveWalk } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";
-import { FeatureInterface } from "back-end/src/validators/features";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SavedGroupInterface } from "shared/types/groups";
+import { FeatureInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -104,7 +104,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         string,
         ExperimentInterfaceStringDates[]
       > = {};
-      const attributeGroups: Record<string, SavedGroupInterface[]> = {};
+      const attributeGroups: Record<string, SavedGroupWithoutValues[]> = {};
 
       attributeKeys.forEach((a) => {
         attributeFeatures[a] = [...(attributeFeatureIds?.[a] ?? [])]
@@ -115,7 +115,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           .filter(Boolean) as ExperimentInterfaceStringDates[];
         attributeGroups[a] = [...(attributeGroupIds?.[a] ?? [])]
           .map((gid) => savedGroups.find((group) => group.id === gid))
-          .filter(Boolean) as SavedGroupInterface[];
+          .filter(Boolean) as SavedGroupWithoutValues[];
       });
 
       return { attributeFeatures, attributeExperiments, attributeGroups };

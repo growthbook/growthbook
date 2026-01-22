@@ -1,0 +1,652 @@
+import React, { useMemo, useCallback } from "react";
+import { Flex, Box, Heading } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
+import { FactTableColumnType } from "shared/types/fact-table";
+import {
+  parseSliceQueryString,
+  isMetricGroupId,
+  ExperimentMetricInterface,
+  isSliceTagSelectAll,
+  generateSelectAllSliceString,
+} from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import clsx from "clsx";
+import { FormatOptionLabelMeta } from "react-select";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { SingleValue } from "@/components/Forms/SelectField";
+import { Popover } from "@/ui/Popover";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import HelperText from "@/ui/HelperText";
+import { useUser } from "@/services/UserContext";
+import MetricName from "@/components/Metrics/MetricName";
+import { useDefinitions } from "@/services/DefinitionsContext";
+
+export type SliceChunk = {
+  column: string;
+  value: string | null;
+  datatype: FactTableColumnType;
+  isOther: boolean;
+  isSelectAll?: boolean;
+};
+
+export type SliceOption = {
+  value: string;
+  parsedChunks: SliceChunk[];
+  isOrphaned: boolean;
+};
+
+export function getSliceOptions({
+  availableSliceTags = [],
+  sliceTagsFilter = [],
+}: {
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter?: string[];
+}): SliceOption[] {
+  // Create a map of available tags by ID for quick lookup
+  const availableTagMap = new Map(
+    availableSliceTags.map((tag) => [tag.id, tag]),
+  );
+
+  // Get all unique tag IDs from both available and selected
+  const allTagIds = Array.from(
+    new Set([
+      ...availableSliceTags.map((tag) => tag.id),
+      ...(sliceTagsFilter || []),
+    ]),
+  );
+
+  const options = allTagIds.map((tagId) => {
+    const availableTag = availableTagMap.get(tagId);
+    const isOrphaned = !availableTag;
+
+    // Handle "select all" format: dim:column (no equals sign)
+    const { isSelectAll, column } = isSliceTagSelectAll(tagId);
+    if (isSelectAll && column) {
+      const datatype =
+        availableTag?.datatypes?.[column] || ("string" as FactTableColumnType);
+      return {
+        value: tagId,
+        parsedChunks: [
+          {
+            column,
+            value: null,
+            datatype,
+            isSelectAll: true,
+            isOther: false,
+          },
+        ],
+        isOrphaned,
+      };
+    }
+
+    // Parse regular slice tag using parseSliceQueryString
+    const sliceLevels = parseSliceQueryString(tagId);
+    const parsedChunks: SliceChunk[] = sliceLevels.map((sl) => {
+      const value = sl?.levels?.[0] || "";
+      const datatype =
+        availableTag?.datatypes?.[sl?.column] ||
+        sl.datatype ||
+        ("string" as FactTableColumnType);
+
+      return {
+        column: sl.column,
+        value: value || null,
+        datatype,
+        isOther: !value,
+      };
+    });
+
+    return {
+      value: tagId,
+      parsedChunks,
+      isOrphaned,
+    };
+  });
+
+  // Add "overall" option at the top if there are any slices available or selected
+  const hasAnySlices =
+    availableSliceTags.length > 0 || (sliceTagsFilter?.length || 0) > 0;
+  if (hasAnySlices) {
+    return [
+      {
+        value: "overall",
+        parsedChunks: [
+          {
+            column: "Overall",
+            value: null,
+            datatype: "string" as FactTableColumnType,
+            isSelectAll: false,
+            isOther: false,
+          },
+        ],
+        isOrphaned: false,
+      },
+      ...options,
+    ];
+  }
+
+  return options;
+}
+
+export function isSliceCoveredBySelectAll(
+  sliceId: string,
+  selectedSliceTags: string[],
+): boolean {
+  // "Select all" options themselves should never be considered covered
+  if (isSliceTagSelectAll(sliceId).isSelectAll) {
+    return false;
+  }
+
+  // Get all "select all" tags from selected filters (format: dim:column)
+  const selectAllTags = selectedSliceTags.filter(
+    (tag) => isSliceTagSelectAll(tag).isSelectAll,
+  );
+
+  if (selectAllTags.length === 0) return false;
+
+  // Parse the slice ID to get its columns
+  const sliceLevels = parseSliceQueryString(sliceId);
+  const sliceColumns = sliceLevels.map((sl) => sl.column);
+
+  // Check if any of the slice's columns has a "select all" filter
+  return sliceColumns.some((column) => {
+    const selectAllTag = generateSelectAllSliceString(column);
+    return selectAllTags.includes(selectAllTag);
+  });
+}
+
+export function formatMetricTagOptionLabel(option: {
+  value: string;
+  label: string;
+  isOrphaned?: boolean;
+}) {
+  return (
+    <span
+      style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
+    >
+      {option.label}
+    </span>
+  );
+}
+
+export function formatMetricOptionLabel(
+  option: { value: string; label: string; isOrphaned?: boolean },
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
+  getMetricGroupById: (id: string) => MetricGroupInterface | null,
+  showGroupIcon?: boolean,
+) {
+  const isGroup = isMetricGroupId(option.value);
+  const metrics = isGroup
+    ? (() => {
+        const group = getMetricGroupById(option.value);
+        if (!group) return undefined;
+        return group.metrics.map((metricId) => {
+          const metric = getExperimentMetricById(metricId);
+          return { metric, joinable: true };
+        });
+      })()
+    : undefined;
+  return (
+    <span
+      style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
+    >
+      <MetricName
+        id={option.value}
+        isGroup={isGroup}
+        showGroupIcon={showGroupIcon}
+        metrics={metrics}
+        officialBadgePosition="left"
+      />
+    </span>
+  );
+}
+
+export function formatSliceOptionLabel(
+  option: SliceOption,
+  meta: FormatOptionLabelMeta<SingleValue>,
+  sliceTagsFilter?: string[],
+) {
+  if (option.value === "overall") {
+    return (
+      <>
+        Overall <span className="text-muted">(Totals)</span>
+      </>
+    );
+  }
+
+  if (option.parsedChunks[0]?.isSelectAll) {
+    const chunk = option.parsedChunks[0];
+    return (
+      <span
+        style={
+          option.isOrphaned ? { textDecoration: "line-through" } : undefined
+        }
+      >
+        {chunk.column} <span className="text-muted">(All Slices)</span>
+      </span>
+    );
+  }
+
+  const isCoveredBySelectAll = sliceTagsFilter
+    ? isSliceCoveredBySelectAll(option.value, sliceTagsFilter)
+    : false;
+
+  // Regular slices: all chunks are non-select-all
+  return (
+    <span
+      className={clsx(meta?.context === "menu" && "pl-3")}
+      style={{
+        opacity: isCoveredBySelectAll ? 0.3 : 1,
+        ...(option.isOrphaned && { textDecoration: "line-through" }),
+      }}
+    >
+      {option.parsedChunks.map((chunk, index) => (
+        <React.Fragment key={index}>
+          {index > 0 && ", "}
+          {chunk.isOther ? (
+            <>
+              {chunk.column}:{" "}
+              <span
+                style={{
+                  fontVariant: "small-caps",
+                  fontWeight: 600,
+                }}
+              >
+                {chunk.datatype === "boolean" ? "null" : "other"}
+              </span>
+            </>
+          ) : (
+            `${chunk.column}: ${chunk.value}`
+          )}
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+export function getMetricOptions({
+  availableMetricsFilters,
+  selectedMetricIds = [],
+}: {
+  availableMetricsFilters: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
+  selectedMetricIds?: string[];
+}): {
+  groups: Array<{ id: string; name: string; isOrphaned: boolean }>;
+  metrics: Array<{ id: string; name: string; isOrphaned: boolean }>;
+} {
+  const availableGroupIds = new Set(
+    availableMetricsFilters.groups.map((g) => g.id),
+  );
+  const availableMetricIds = new Set(
+    availableMetricsFilters.metrics.map((m) => m.id),
+  );
+
+  // Get all unique metric IDs from both available and selected
+  const allMetricIds = Array.from(
+    new Set([
+      ...availableMetricsFilters.groups.map((g) => g.id),
+      ...availableMetricsFilters.metrics.map((m) => m.id),
+      ...selectedMetricIds,
+    ]),
+  );
+
+  const groups = allMetricIds
+    .filter((id) => isMetricGroupId(id))
+    .map((id) => {
+      const availableGroup = availableMetricsFilters.groups.find(
+        (g) => g.id === id,
+      );
+      return {
+        id,
+        name: availableGroup?.name || id,
+        isOrphaned: !availableGroupIds.has(id),
+      };
+    });
+
+  const metrics = allMetricIds
+    .filter((id) => !isMetricGroupId(id))
+    .map((id) => {
+      const availableMetric = availableMetricsFilters.metrics.find(
+        (m) => m.id === id,
+      );
+      return {
+        id,
+        name: availableMetric?.name || id,
+        isOrphaned: !availableMetricIds.has(id),
+      };
+    });
+
+  return { groups, metrics };
+}
+
+export default function ResultsFilter({
+  availableMetricTags = [],
+  metricTagFilter = [],
+  setMetricTagFilter,
+  availableMetricsFilters = { groups: [], metrics: [] },
+  metricsFilter = [],
+  setMetricsFilter,
+  availableSliceTags = [],
+  sliceTagsFilter = [],
+  setSliceTagsFilter,
+  showMetricFilter,
+  setShowMetricFilter,
+  dimension,
+}: {
+  availableMetricTags?: string[];
+  metricTagFilter?: string[];
+  setMetricTagFilter?: (tags: string[]) => void;
+  availableMetricsFilters?: {
+    groups: Array<{ id: string; name: string }>;
+    metrics: Array<{ id: string; name: string }>;
+  };
+  metricsFilter?: string[];
+  setMetricsFilter?: (filters: string[]) => void;
+  availableSliceTags?: Array<{
+    id: string;
+    datatypes: Record<string, FactTableColumnType>;
+    isSelectAll?: boolean;
+  }>;
+  sliceTagsFilter?: string[];
+  setSliceTagsFilter?: (tags: string[]) => void;
+  showMetricFilter: boolean;
+  setShowMetricFilter: (show: boolean) => void;
+  dimension?: string;
+}) {
+  const { hasCommercialFeature } = useUser();
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
+  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
+
+  const filteringApplied =
+    metricTagFilter?.length > 0 ||
+    metricsFilter?.length > 0 ||
+    sliceTagsFilter?.length > 0;
+
+  const activeFilterCount =
+    (metricTagFilter?.length || 0) +
+    (metricsFilter?.length || 0) +
+    (sliceTagsFilter?.length || 0);
+
+  const sliceOptions = useMemo(
+    () =>
+      getSliceOptions({
+        availableSliceTags,
+        sliceTagsFilter,
+      }),
+    [availableSliceTags, sliceTagsFilter],
+  );
+
+  const formatSliceOptionLabelCallback = useCallback(
+    (
+      option: SingleValue & { isOrphaned?: boolean },
+      meta: FormatOptionLabelMeta<SingleValue>,
+    ) => {
+      const fullOption = sliceOptions.find((o) => o.value === option.value);
+      if (!fullOption) {
+        return option.label;
+      }
+      return formatSliceOptionLabel(fullOption, meta, sliceTagsFilter);
+    },
+    [sliceOptions, sliceTagsFilter],
+  );
+
+  const metricOptions = useMemo(
+    () =>
+      getMetricOptions({
+        availableMetricsFilters,
+        selectedMetricIds: metricsFilter || [],
+      }),
+    [availableMetricsFilters, metricsFilter],
+  );
+
+  const metricTagOptions = useMemo(() => {
+    const availableTagSet = new Set(availableMetricTags);
+    const allTagIds = Array.from(
+      new Set([...availableMetricTags, ...(metricTagFilter || [])]),
+    );
+
+    return allTagIds.map((tag) => ({
+      value: tag,
+      label: tag,
+      isOrphaned: !availableTagSet.has(tag),
+    }));
+  }, [availableMetricTags, metricTagFilter]);
+
+  return (
+    <Flex align="center" gap="3" className="position-relative">
+      <Popover
+        side="top"
+        align="start"
+        open={showMetricFilter}
+        onOpenChange={setShowMetricFilter}
+        triggerAsChild={true}
+        trigger={
+          <Button color="violet" variant="ghost" size="sm" icon={<PiPlus />}>
+            <Flex align="center" gap="1">
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <Badge
+                  color="indigo"
+                  variant="solid"
+                  radius="full"
+                  label={String(activeFilterCount)}
+                  style={{ minWidth: 18, height: 18, marginTop: 1 }}
+                />
+              )}
+            </Flex>
+          </Button>
+        }
+        content={
+          <Flex direction="column" justify="between" style={{ width: 550 }}>
+            <Box>
+              <Flex align="center" justify="between" mb="2">
+                <Heading size="2" weight="medium">
+                  <Flex align="center" gap="1">
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Badge
+                        color="indigo"
+                        variant="solid"
+                        radius="full"
+                        label={String(activeFilterCount)}
+                        style={{ minWidth: 18, height: 18 }}
+                      />
+                    )}
+                  </Flex>
+                </Heading>
+                {filteringApplied ? (
+                  <Link
+                    color="red"
+                    className="font-weight-bold position-relative"
+                    style={{ top: -4 }}
+                    onClick={async () => {
+                      setMetricTagFilter?.([]);
+                      setMetricsFilter?.([]);
+                      setSliceTagsFilter?.([]);
+                    }}
+                  >
+                    Clear all
+                  </Link>
+                ) : null}
+              </Flex>
+              {sliceOptions.length > 0 && hasMetricSlicesFeature && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Box style={{ width: 80 }}>
+                    <Heading size="2" weight="medium" mb="0">
+                      {dimension && (sliceTagsFilter?.length || 0) > 0 ? (
+                        <Tooltip body="Slice filters are ignored when a unit dimension is set">
+                          <HelperText status="warning">Slices</HelperText>
+                        </Tooltip>
+                      ) : (
+                        "Slices"
+                      )}
+                    </Heading>
+                  </Box>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={sliceTagsFilter || []}
+                    options={sliceOptions.map(({ value, isOrphaned }) => ({
+                      label: value,
+                      value,
+                      isOrphaned,
+                    }))}
+                    formatOptionLabel={formatSliceOptionLabelCallback}
+                    onChange={(v) => {
+                      setSliceTagsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Flex>
+              )}
+              {(metricOptions.groups.length > 0 ||
+                metricOptions.metrics.length > 0) && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 80 }}
+                  >
+                    Metrics
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={metricsFilter || []}
+                    options={[
+                      ...(hasMetricGroupsFeature &&
+                      metricOptions.groups.length > 0
+                        ? [
+                            {
+                              label: "Metric Groups",
+                              options: metricOptions.groups.map((group) => ({
+                                label: group.name,
+                                value: group.id,
+                                isOrphaned: group.isOrphaned,
+                              })),
+                            },
+                          ]
+                        : []),
+                      ...(metricOptions.metrics.length > 0
+                        ? [
+                            {
+                              label: "Metrics",
+                              options: metricOptions.metrics.map((metric) => ({
+                                label: metric.name,
+                                value: metric.id,
+                                isOrphaned: metric.isOrphaned,
+                              })),
+                            },
+                          ]
+                        : []),
+                    ]}
+                    formatOptionLabel={(
+                      option: SingleValue & { isOrphaned?: boolean },
+                      meta: FormatOptionLabelMeta<SingleValue>,
+                    ) => {
+                      return formatMetricOptionLabel(
+                        {
+                          value: option.value,
+                          label: option.label,
+                          isOrphaned: option.isOrphaned,
+                        },
+                        getExperimentMetricById,
+                        getMetricGroupById,
+                        meta?.context !== "menu",
+                      );
+                    }}
+                    formatGroupLabel={(group) => (
+                      <div className="pb-1 pt-2">{group.label}</div>
+                    )}
+                    onChange={(v) => {
+                      setMetricsFilter?.(v);
+                      return;
+                    }}
+                    sort={false}
+                  />
+                </Flex>
+              )}
+              {metricTagOptions.length > 0 && (
+                <Flex
+                  gap="2"
+                  p="3"
+                  mb="2"
+                  align="center"
+                  className="bg-highlight rounded"
+                >
+                  <Heading
+                    size="2"
+                    weight="medium"
+                    mb="0"
+                    style={{ width: 80 }}
+                  >
+                    Tags
+                  </Heading>
+                  <MultiSelectField
+                    customClassName="multiselect-unfixed"
+                    containerClassName="w-100"
+                    placeholder="Type to search..."
+                    value={metricTagFilter || []}
+                    options={metricTagOptions.map((tag) => ({
+                      label: tag.label,
+                      value: tag.value,
+                      isOrphaned: tag.isOrphaned,
+                    }))}
+                    formatOptionLabel={(option) =>
+                      formatMetricTagOptionLabel(option)
+                    }
+                    onChange={(v) => {
+                      setMetricTagFilter?.(v);
+                      return;
+                    }}
+                  />
+                </Flex>
+              )}
+            </Box>
+          </Flex>
+        }
+      />
+
+      {filteringApplied ? (
+        <Link
+          color="red"
+          className="font-weight-bold"
+          onClick={async () => {
+            setMetricTagFilter?.([]);
+            setMetricsFilter?.([]);
+            setSliceTagsFilter?.([]);
+          }}
+        >
+          Clear
+        </Link>
+      ) : null}
+    </Flex>
+  );
+}

@@ -1,51 +1,17 @@
-import { ManagedBy } from "shared/validators";
+import { z } from "zod";
+import { webhookMethods, webhookSchema } from "shared/validators";
 
-export interface WebhookInterface {
-  id: string;
-  organization: string;
-  name: string;
-  endpoint: string;
-  project?: string;
-  environment?: string;
-  featuresOnly?: boolean;
-  signingKey: string;
-  lastSuccess: Date | null;
-  error: string;
-  created: Date;
-  useSdkMode: boolean;
-  /** @deprecated */
-  sendPayload?: boolean;
-  payloadFormat?: WebhookPayloadFormat;
-  payloadKey?: string;
-  sdks: string[];
-  headers?: string;
-  httpMethod?: WebhookMethod;
-  managedBy?: ManagedBy;
-}
+export type WebhookInterface = z.infer<typeof webhookSchema>;
 
 export type WebhookSummary = Pick<
   WebhookInterface,
-  "id" | "name" | "endpoint" | "lastSuccess" | "error" | "created"
+  "id" | "name" | "endpoint" | "lastSuccess" | "error" | "dateCreated"
 >;
 
-export type WebhookMethod =
-  | "GET"
-  | "PUT"
-  | "POST"
-  | "DELETE"
-  | "PURGE"
-  | "PATCH";
-
-export type WebhookPayloadFormat =
-  | "standard"
-  | "standard-no-payload"
-  | "sdkPayload"
-  | "edgeConfig"
-  | "edgeConfigUnescaped"
-  | "vercelNativeIntegration"
-  | "none";
+export type WebhookMethod = (typeof webhookMethods)[number];
 
 export type {
   UpdateSdkWebhookProps,
   CreateSdkWebhookProps,
-} from "back-end/src/models/WebhookModel";
+  WebhookPayloadFormat,
+} from "shared/validators";

@@ -5,15 +5,15 @@ import {
   useEffect,
   useState,
 } from "react";
-import { QueryStatus, Queries } from "back-end/types/query";
+import { QueryStatus, Queries } from "shared/types/query";
 import clsx from "clsx";
-import { FaPlay } from "react-icons/fa";
-import { BsArrowRepeat } from "react-icons/bs";
+import { PiPlay, PiArrowClockwise, PiXBold } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
-import { FaXmark } from "react-icons/fa6";
+import { IconButton, Progress, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {
@@ -74,6 +74,7 @@ type Props = {
   color?: string;
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
+  radixVariant?: "outline" | "solid" | "soft";
   onSubmit?: () => void | Promise<void>;
   disabled?: boolean;
   useRadixButton?: boolean;
@@ -91,9 +92,10 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       color = "primary",
       position = "right",
       resetFilters,
+      radixVariant = "outline",
       onSubmit,
       disabled,
-      useRadixButton,
+      useRadixButton = false,
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -148,15 +150,15 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
     if (status === "running") {
       buttonIcon = <LoadingSpinner />;
     } else if (icon === "refresh") {
-      buttonIcon = <BsArrowRepeat />;
+      buttonIcon = <PiArrowClockwise />;
     } else {
-      buttonIcon = <FaPlay />;
+      buttonIcon = <PiPlay />;
     }
 
     return (
       <>
         <div
-          className={`d-flex ${
+          className={`d-flex position-relative ${
             position === "right"
               ? "justify-content-end"
               : "justify-content-start"
@@ -164,36 +166,46 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
         >
           {status === "running" && (
             <div
-              className="btn btn-danger p-0 position-absolute text-center"
               style={{
+                position: "absolute",
                 zIndex: 1,
-                width: 22,
-                height: 22,
-                right: 0,
+                right: -10,
                 top: -10,
-                borderRadius: 50,
               }}
-              onClick={async () => {
-                resetFilters?.();
-                try {
-                  await apiCall(cancelEndpoint, { method: "POST" });
-                } catch (e) {
-                  console.error(e);
-                }
-                await mutate();
-              }}
-              title="Cancel"
             >
-              <FaXmark size={14} style={{ marginTop: -3.5 }} />
+              <Tooltip
+                body="Cancel"
+                tipPosition="top"
+                tipMinWidth="50"
+                flipTheme={false}
+              >
+                <IconButton
+                  variant="solid"
+                  color="tomato"
+                  size="2"
+                  style={{ width: 20, height: 20, padding: 2 }}
+                  radius="full"
+                  onClick={async () => {
+                    resetFilters?.();
+                    try {
+                      await apiCall(cancelEndpoint, { method: "POST" });
+                    } catch (e) {
+                      console.error(e);
+                    }
+                    await mutate();
+                  }}
+                >
+                  <PiXBold size={14} />
+                </IconButton>
+              </Tooltip>
             </div>
           )}
           <div className="position-relative">
             {useRadixButton ? (
               <Button
                 ref={ref}
-                variant="soft"
+                variant={radixVariant}
                 size="sm"
-                ml="2"
                 disabled={status === "running" || disabled}
                 type="button"
                 onClick={async () => {
@@ -201,10 +213,19 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                   await onSubmit?.();
                 }}
                 icon={buttonIcon}
+                style={{
+                  minWidth: 110,
+                  paddingLeft: 2,
+                  paddingRight: 2,
+                }}
               >
-                {status === "running"
-                  ? `${loadingText} (${getTimeDisplay(elapsed)})...`
-                  : cta}
+                {status === "running" ? (
+                  <Text className="small">
+                    {loadingText} ({getTimeDisplay(elapsed)})
+                  </Text>
+                ) : (
+                  cta
+                )}
               </Button>
             ) : (
               <button
@@ -227,12 +248,17 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                   : cta}
               </button>
             )}
-            {status === "running" && numQueries > 0 && (
-              <div
-                className="position-absolute bg-info"
+            {status === "running" && numQueries > 1 && (
+              <Progress
+                value={Math.floor((100 * numFinished) / numQueries)}
+                color="green"
+                variant="soft"
                 style={{
-                  width: Math.floor((100 * numFinished) / numQueries) + "%",
-                  height: 4,
+                  position: "absolute",
+                  bottom: 2,
+                  width: "calc(100% - 6px)",
+                  left: 3,
+                  height: 3,
                 }}
               />
             )}
