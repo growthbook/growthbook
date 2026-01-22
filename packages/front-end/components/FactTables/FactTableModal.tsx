@@ -23,6 +23,7 @@ import { usesEventName } from "@/components/Metrics/MetricForm";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -93,6 +94,14 @@ export default function FactTableModal({
       isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal",
     );
   }, [isNew]);
+
+  const autoUpdateFrequencyHours = getAutoSliceUpdateFrequencyHours();
+  const autoUpdateFrequencyDays =
+    Math.round((autoUpdateFrequencyHours / 24) * 10) / 10; // Round to 1 decimal place
+  const autoUpdateFrequencyText =
+    autoUpdateFrequencyDays >= 1
+      ? `${autoUpdateFrequencyDays} ${autoUpdateFrequencyDays === 1 ? "day" : "days"}`
+      : `${autoUpdateFrequencyHours} ${autoUpdateFrequencyHours === 1 ? "hour" : "hours"}`;
 
   return (
     <>
@@ -297,7 +306,7 @@ export default function FactTableModal({
           <div className="mt-4">
             <Checkbox
               label="Auto-update slice levels"
-              description="Automatically update Auto Slice levels based on top column values (14 day lookback). Locked slice levels will always be preserved."
+              description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${autoUpdateFrequencyText}. Locked slice levels will always be preserved.`}
               value={form.watch("autoSliceUpdatesEnabled") ?? false}
               setValue={(value) => {
                 form.setValue("autoSliceUpdatesEnabled", value);

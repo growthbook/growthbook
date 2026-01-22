@@ -604,65 +604,92 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         tipPosition="top"
                         body={
                           <Flex direction="column">
-                            {factTable.autoSliceUpdatesEnabled ? (
-                              <>
-                                <Text as="p">
-                                  Auto-update slice levels based on top column
-                                  values. Locked levels are always preserved.
-                                </Text>
-                                <Text as="p">
-                                  <strong>Enabled</strong> — runs every{" "}
-                                  {getAutoSliceUpdateFrequencyHours()} hours.
-                                </Text>
-                                {existing?.topValuesDate && (
-                                  <div>
-                                    <Text>
-                                      Last run:{" "}
-                                      {datetime(existing.topValuesDate)}
-                                    </Text>
-                                    {(() => {
-                                      const frequencyHours =
-                                        getAutoSliceUpdateFrequencyHours();
-                                      const lastRun = getValidDate(
-                                        existing.topValuesDate,
-                                      );
-                                      const nextRun = new Date(
-                                        lastRun.getTime() +
-                                          frequencyHours * 60 * 60 * 1000,
-                                      );
-                                      const now = new Date();
-                                      return (
+                            {(() => {
+                              const autoUpdateFrequencyHours =
+                                getAutoSliceUpdateFrequencyHours();
+                              const autoUpdateFrequencyDays =
+                                Math.round(
+                                  (autoUpdateFrequencyHours / 24) * 10,
+                                ) / 10;
+                              const autoUpdateFrequencyText =
+                                autoUpdateFrequencyDays >= 1
+                                  ? `${autoUpdateFrequencyDays} ${
+                                      autoUpdateFrequencyDays === 1
+                                        ? "day"
+                                        : "days"
+                                    }`
+                                  : `${autoUpdateFrequencyHours} ${
+                                      autoUpdateFrequencyHours === 1
+                                        ? "hour"
+                                        : "hours"
+                                    }`;
+                              return (
+                                <>
+                                  {factTable.autoSliceUpdatesEnabled ? (
+                                    <>
+                                      <Text as="p">
+                                        Auto-update slice levels based on top
+                                        column values. Locked levels are always
+                                        preserved.
+                                      </Text>
+                                      <Text as="p">
+                                        <strong>Enabled</strong> — runs every{" "}
+                                        {autoUpdateFrequencyText}. Limited to{" "}
+                                        {maxMetricSliceLevels} slice levels
+                                        (customizable in Organization Settings).
+                                      </Text>
+                                      {existing?.topValuesDate && (
                                         <div>
-                                          Next run:{" "}
-                                          {nextRun > now ? (
-                                            <>
-                                              {datetime(nextRun)} (
-                                              {ago(nextRun)})
-                                            </>
-                                          ) : (
-                                            <>
-                                              overdue (should run {ago(nextRun)}
-                                              )
-                                            </>
-                                          )}
+                                          <Text>
+                                            Last run:{" "}
+                                            {datetime(existing.topValuesDate)}
+                                          </Text>
+                                          {(() => {
+                                            const frequencyHours =
+                                              getAutoSliceUpdateFrequencyHours();
+                                            const lastRun = getValidDate(
+                                              existing.topValuesDate,
+                                            );
+                                            const nextRun = new Date(
+                                              lastRun.getTime() +
+                                                frequencyHours * 60 * 60 * 1000,
+                                            );
+                                            const now = new Date();
+                                            return (
+                                              <div>
+                                                Next run:{" "}
+                                                {nextRun > now ? (
+                                                  <>
+                                                    {datetime(nextRun)} (
+                                                    {ago(nextRun)})
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    overdue (should run{" "}
+                                                    {ago(nextRun)})
+                                                  </>
+                                                )}
+                                              </div>
+                                            );
+                                          })()}
                                         </div>
-                                      );
-                                    })()}
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <Text as="p">
-                                  Auto-update slice levels based on top column
-                                  values.
-                                </Text>
-                                <Text as="p">
-                                  <strong>Disabled</strong> — enable in Fact
-                                  Table settings.
-                                </Text>
-                              </>
-                            )}
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Text as="p">
+                                        Auto-update slice levels based on top
+                                        column values.
+                                      </Text>
+                                      <Text as="p">
+                                        <strong>Disabled</strong> — enable in
+                                        Fact Table settings.
+                                      </Text>
+                                    </>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </Flex>
                         }
                       >
@@ -698,16 +725,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         </Text>
                       )}
                     </Flex>
-                    {!factTable.autoSliceUpdatesEnabled && (
-                      <RadixButton
-                        size="xs"
-                        variant="outline"
-                        onClick={refreshTopValues}
-                        loading={refreshingTopValues}
-                      >
-                        <PiArrowClockwise /> Use Top Values
-                      </RadixButton>
-                    )}
+                    <RadixButton
+                      size="xs"
+                      variant="outline"
+                      onClick={refreshTopValues}
+                      loading={refreshingTopValues}
+                    >
+                      <PiArrowClockwise />{" "}
+                      {!factTable.autoSliceUpdatesEnabled
+                        ? "Use Top Values"
+                        : "Update"}
+                    </RadixButton>
                   </Flex>
 
                   {autoSlicesWarning ||

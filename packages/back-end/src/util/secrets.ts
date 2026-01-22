@@ -130,7 +130,7 @@ export const METRIC_REFRESH_FREQUENCY =
   parseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
 
 export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS =
-  parseInt(process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS || "") || 24;
+  parseInt(process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS || "") || 168; // Default: 7 days
 
 export const QUERY_CACHE_TTL_MINS =
   parseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
