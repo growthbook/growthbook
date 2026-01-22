@@ -8,7 +8,7 @@ import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 
 export const SAVED_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 export const SMALL_GROUP_SIZE_LIMIT = 100;

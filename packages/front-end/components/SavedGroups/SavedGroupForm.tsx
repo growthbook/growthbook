@@ -2,6 +2,8 @@ import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
+  SavedGroupInterface,
+  SavedGroupType,
 } from "shared/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
@@ -9,7 +11,6 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { PiPlus } from "react-icons/pi";
-import { SavedGroupInterface, SavedGroupType } from "shared/types/groups";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
