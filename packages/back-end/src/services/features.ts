@@ -809,6 +809,12 @@ export async function getFeatureDefinitionsResponse({
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
 }> {
+    // Clone features, experiments, holdouts, and savedGroups to avoid mutating shared objects across multiple connections' payloads
+  features = cloneDeep(features);
+  experiments = cloneDeep(experiments);
+  holdouts = cloneDeep(holdouts);
+  usedSavedGroups = cloneDeep(usedSavedGroups);
+
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
