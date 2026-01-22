@@ -30,6 +30,7 @@ export const POLICIES = [
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
   "ProjectsFullAccess",
+  "ProjectAdminAccess",
   "TagsFullAccess",
   "APIKeysFullAccess",
   "IntegrationsFullAccess",
@@ -120,7 +121,13 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
   NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
   TeamManagementFullAccess: ["readData", "manageTeam"],
-  ProjectsFullAccess: ["readData", "manageProjects"],
+  ProjectsFullAccess: [
+    "readData",
+    "manageProjects",
+    "createProjects",
+    "deleteProjects",
+  ],
+  ProjectAdminAccess: ["readData", "manageProjects"],
   TagsFullAccess: ["readData", "manageTags"],
   APIKeysFullAccess: ["readData", "manageApiKeys"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
@@ -204,6 +211,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "CustomRolesFullAccess",
       "CustomFieldsFullAccess",
       "ProjectsFullAccess",
+      "ProjectAdminAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
       "IntegrationsFullAccess",
@@ -335,7 +343,6 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Saved Groups Bypass Size Limit",
     description: "Bypass org-defined size limits for saved groups",
   },
-
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
     description: "Edit organization general settings",
@@ -352,7 +359,17 @@ export const POLICY_METADATA_MAP: Record<
   },
   ProjectsFullAccess: {
     displayName: "Projects Full Access",
-    description: "Create, edit, and delete projects",
+    description:
+      "Create, edit, and delete projects and change project roles for other members. Can be applied at the global or project level.",
+    warning:
+      "Can be used to create new project admins and adjust project roles for other members",
+  },
+  ProjectAdminAccess: {
+    displayName: "Projects Admin Access",
+    description:
+      "Manage project settings and change project roles for other members.",
+    warning:
+      "Can be used to create new project admins and adjust project roles for other members",
   },
   TagsFullAccess: {
     displayName: "Tags Full Access",
@@ -525,7 +542,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   projectAdmin: {
     id: "projectAdmin",
-    description: "Manage project settings and members",
+    description: "Manage project settings and project member's project role.",
     policies: [
       "ReadData",
       "Comments",
@@ -554,7 +571,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
       "GeneralDashboardsFullAccess",
-      "ProjectsFullAccess",
+      "ProjectAdminAccess",
     ],
   },
   admin: {
@@ -591,6 +608,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageFeatures",
   "manageArchetype",
   "manageProjects",
+  "createProjects",
+  "deleteProjects",
   "createAnalyses",
   "createSegments",
   "createIdeas",
