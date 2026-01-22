@@ -101,7 +101,7 @@ const MemberList: FC<{
               project: project,
             }
           }
-          close={() => setProjectRoleModal(null)}
+          close={() => setProjectRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${projectRoleModal}/project-role`, {
               method: "PUT",
