@@ -441,8 +441,8 @@ export function useExperimentTableRows({
   // Apply sorting using the reusable useTableSorting hook
   const rows = useTableSorting({
     rows: unsortedRows,
-    sortBy,
-    sortDirection,
+    sortBy: sortBy ?? null,
+    sortDirection: sortDirection ?? null,
     variationFilter: analysisBarSettings?.variationFilter ?? [],
   });
 
