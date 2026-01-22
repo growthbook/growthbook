@@ -163,18 +163,13 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   initialSliceSearchTerm,
   initialTab,
 }) => {
-  // Get the LOCAL context's analysis - this updates when baseline changes
-  const {
-    analysis,
-    snapshot,
-    setAnalysisSettings: contextSetAnalysisSettings,
-    mutateSnapshot,
-  } = useSnapshot();
+  const { analysis, snapshot, setAnalysisSettings, mutateSnapshot } =
+    useSnapshot();
 
-  // Use local analysis results if available, otherwise fall back to initial results
+  // TODO: Check if it is safe to use first results
   const results = analysis?.results?.[0] ?? initialResults;
 
-  // For slices tab: expansion state for showing slice rows
+  // TODO: Check what we need here
   const [expandedMetrics] = useState<Record<string, boolean>>(() => {
     const initialExpanded: Record<string, boolean> = {};
     ["goal", "secondary", "guardrail"].forEach((resultGroup) => {
@@ -183,7 +178,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     return initialExpanded;
   });
 
-  // Call useExperimentTableRows with LOCAL results - this will update when context changes
   const { rows: allRows } = useExperimentTableRows({
     results,
     goalMetrics,
@@ -192,12 +186,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     metricOverrides,
     ssrPolyfills,
     customMetricSlices,
-    metricTagFilter: undefined,
-    metricsFilter: undefined,
-    sliceTagsFilter: undefined,
-    sortBy: undefined,
-    sortDirection: undefined,
-    analysisBarSettings: undefined,
     statsEngine,
     pValueCorrection,
     settingsForSnapshotMetrics,
@@ -206,11 +194,12 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     expandedMetrics,
   });
 
-  // Find the main metric row from the computed rows
   const mainMetricRow = useMemo(() => {
-    return (
-      allRows.find((r) => !r.isSliceRow && r.metric.id === metric.id) ?? row
-    );
+    if (!row.isSliceRow) {
+      return row;
+    }
+
+    return allRows.find((r) => r.metric.id === metric.id) ?? row;
   }, [allRows, metric.id, row]);
 
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
@@ -225,7 +214,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
       return [];
     });
 
-  // Update visible timeseries row IDs once rows are computed
+  // TODO: Check if this is needed
   useEffect(() => {
     if (
       initialTab === "slices" &&
@@ -285,7 +274,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           sequentialTestingEnabled={sequentialTestingEnabled}
           snapshot={snapshot}
           analysis={analysis}
-          setAnalysisSettings={contextSetAnalysisSettings}
+          setAnalysisSettings={setAnalysisSettings}
           mutateSnapshot={mutateSnapshot}
         />
       </TabsContent>
@@ -347,7 +336,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   );
 };
 
-const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
+const MetricDrilldownModal = ({
   row,
   close,
   initialTab = "overview",
@@ -381,11 +370,12 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   initialSortDirection,
   // Slice-specific
   initialSliceSearchTerm,
-}) => {
+}: MetricDrilldownModalProps) => {
   useKeydown("Escape", close);
   useBodyScrollLock(true);
+  const { metric } = row;
 
-  // Get snapshot context from parent - this will be used to initialize LocalSnapshotProvider
+  // Get snapshot from global snapshot context, to initialize LocalSnapshotProvider
   const {
     snapshot: parentSnapshot,
     experiment,
@@ -394,23 +384,16 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
     analysisSettings: parentAnalysisSettings,
   } = useSnapshot();
 
-  const { metric } = row;
-
-  // Local filters that start from parent values, but then are managed locally
+  // Filters are initialized with parent values but then managed locally
   const [localBaselineRow, setLocalBaselineRow] = useState(baselineRow);
   const [localVariationFilter, setLocalVariationFilter] = useState<
     number[] | undefined
   >(variationFilter);
   const [localDifferenceType, setLocalDifferenceType] =
     useState<DifferenceType>(differenceType);
-
-  // Local sorting state (starts with initial values from CompactResults)
-  // Note: These are passed down but not updated at this level - MetricDrilldownSlices
-  // manages its own local copies initialized from these values
   const localSortBy = initialSortBy ?? null;
   const localSortDirection = initialSortDirection ?? null;
 
-  // Common content props
   const contentProps: MetricDrilldownContentProps = {
     row,
     metric,
@@ -511,7 +494,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
         submit={close}
         autoFocusSelector=""
       >
-        {/* Wrap modal content in LocalSnapshotProvider for isolated state */}
         {parentSnapshot && experiment ? (
           <LocalSnapshotProvider
             experiment={experiment}
@@ -523,7 +505,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
             <MetricDrilldownContent {...contentProps} />
           </LocalSnapshotProvider>
         ) : (
-          // Fallback when no snapshot context available (e.g., public pages)
           <MetricDrilldownContent {...contentProps} />
         )}
       </Modal>

@@ -106,6 +106,7 @@ export function getNonQuantileFloatColumns({
     switch (metric.metricType) {
       case "proportion":
       case "retention":
+      case "quantile":
         return [];
       case "mean":
       case "dailyParticipation":
@@ -120,8 +121,6 @@ export function getNonQuantileFloatColumns({
           ...(regressionAdjusted ? BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
           ...(regressionAdjusted ? RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED : []),
         ];
-      case "quantile":
-        return [];
     }
   })();
 

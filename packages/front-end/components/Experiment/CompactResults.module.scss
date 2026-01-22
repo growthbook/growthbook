@@ -1,5 +1,5 @@
 .metricLabel {
-  .metricExternalLink {
+  .metricExternalLinkIcon {
     visibility: hidden;
     position: relative;
     margin-left: 4px;
@@ -7,7 +7,7 @@
   }
 
   &:hover {
-    .metricExternalLink {
+    .metricExternalLinkIcon {
       visibility: visible;
     }
   }

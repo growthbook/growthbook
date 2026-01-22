@@ -98,23 +98,20 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
-  // Local sorting state (initialized from parent)
+  // TODO: Do we stil need?
   const [sortBy, setSortBy] = useState<ExperimentSortBy>(initialSortBy);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     initialSortDirection,
   );
 
-  // Filter rows for this metric
   const { mainRow, sliceRows, filteredSliceRows } = useMemo(() => {
     return filterRowsForMetricDrilldown(rows, metric.id, searchTerm);
   }, [rows, metric.id, searchTerm]);
 
-  // Combine main row with filtered slices
   const rowsToSort = useMemo(() => {
     return mainRow ? [mainRow, ...filteredSliceRows] : filteredSliceRows;
   }, [mainRow, filteredSliceRows]);
 
-  // Apply sorting using the reusable hook
   const rowsToRender = useTableSorting({
     rows: rowsToSort,
     sortBy,
@@ -122,7 +119,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     variationFilter: variationFilter ?? [],
   });
 
-  // Determine what to render
   const hasSliceData = sliceRows.length > 0;
   const showEmptyState = !hasSliceData;
 

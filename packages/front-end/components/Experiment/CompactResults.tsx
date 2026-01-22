@@ -340,9 +340,9 @@ const CompactResults: FC<{
   const handleRowClick = (row: ExperimentTableRow) => {
     // Get the main metric row (if a slice row was clicked, find its parent)
     const metricId = row.isSliceRow ? row.parentRowId : row.metric.id;
-    const mainMetricRow = rows.find(
-      (r) => !r.isSliceRow && r.metric.id === metricId,
-    );
+    const mainMetricRow = !row.isSliceRow
+      ? row
+      : rows.find((r) => r.metric.id === metricId);
 
     if (row.isSliceRow) {
       setOpenMetricDrilldownModalInfo({
@@ -805,7 +805,7 @@ export function getRenderLabelColumn({
                         />
                       ) : null}
                       <PiArrowSquareOut
-                        className={styles.metricExternalLink}
+                        className={styles.metricExternalLinkIcon}
                         size={14}
                       />
                     </span>
@@ -828,7 +828,7 @@ export function getRenderLabelColumn({
                       />
                     ) : null}
                     <PiArrowSquareOut
-                      className={styles.metricExternalLink}
+                      className={styles.metricExternalLinkIcon}
                       size={14}
                     />
                   </Link>

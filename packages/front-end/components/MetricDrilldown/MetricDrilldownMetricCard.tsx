@@ -67,9 +67,11 @@ function RowFilterDisplay({
           .join("\nAND ")
   }`;
 
+  // TODO: Merge with RowFilterCodeDisplay -- the difference is that this uses InlineCode
   return <InlineCode language="sql" code={text} />;
 }
 
+// TODO: Merge with getColumnDisplayValue in MetricTooltipBody.tsx
 function getColumnDisplayValue(column: string): string {
   if (column === "$$count") return "Count of Rows";
   if (column === "$$distinctUsers") return "Unique Users";
