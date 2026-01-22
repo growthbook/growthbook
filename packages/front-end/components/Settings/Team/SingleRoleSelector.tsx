@@ -45,7 +45,7 @@ export default function SingleRoleSelector({
     roleOptions = roleOptions.filter((r) => r.id !== "admin");
   }
 
-  if (!includeProjectAdminRole) {
+  if (!includeProjectAdminRole || !hasFeature) {
     roleOptions = roleOptions.filter((r) => r.id !== "projectAdmin");
   }
 
