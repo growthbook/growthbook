@@ -337,7 +337,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "1.4.5",
+    version: "2.0.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -352,6 +352,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v2.0.1",
       },
       {
         savedGroupReferences: "≥ v1.2.1",
