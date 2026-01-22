@@ -46,7 +46,7 @@ export interface ColumnInterface {
   deleted: boolean;
   isAutoSliceColumn?: boolean;
   autoSlices?: string[];
-  pinnedAutoSlices?: string[];
+  lockedAutoSlices?: string[];
 }
 
 export interface FactFilterInterface {

@@ -296,8 +296,8 @@ export default function FactTableModal({
         {hasCommercialFeature("metric-slices") && (
           <div className="mt-4">
             <Checkbox
-              label="Enable Dynamic Auto Slices"
-              description="Automatically update Auto Slice levels daily based on top column values (14 day lookback). Pinned slice levels will always be preserved."
+              label="Auto-update slice levels"
+              description="Automatically update Auto Slice levels based on top column values (14 day lookback). Locked slice levels will always be preserved."
               value={form.watch("autoSliceUpdatesEnabled") ?? false}
               setValue={(value) => {
                 form.setValue("autoSliceUpdatesEnabled", value);

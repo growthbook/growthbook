@@ -136,9 +136,9 @@ async function updateAutoSlicesForColumns(
         col.topValues = topValues;
         col.topValuesDate = new Date();
 
-        // Update autoSlices with pinned levels + new top values
-        const pinnedLevels = col.pinnedAutoSlices || [];
-        const autoSlices: string[] = [...pinnedLevels];
+        // Update autoSlices with locked levels + new top values
+        const lockedLevels = col.lockedAutoSlices || [];
+        const autoSlices: string[] = [...lockedLevels];
         for (const value of topValues) {
           if (autoSlices.length >= maxSliceLevels) break;
           if (!autoSlices.includes(value)) {

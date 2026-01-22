@@ -48,7 +48,7 @@ const factTableSchema = new mongoose.Schema({
       topValuesDate: Date,
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
-      pinnedAutoSlices: [String],
+      lockedAutoSlices: [String],
     },
   ],
   columnsError: String,

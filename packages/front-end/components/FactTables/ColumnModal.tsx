@@ -9,21 +9,20 @@ import {
 import { useForm } from "react-hook-form";
 import React, { useState, useEffect } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
-import format from "date-fns/format";
-import { getValidDate } from "shared/dates";
+import { getValidDate, abbreviateAgo, datetime, ago } from "shared/dates";
 import {
   PiPlus,
   PiX,
   PiArrowSquareOut,
   PiArrowClockwise,
-  PiInfo,
-  PiCheck,
+  PiLightning,
+  PiLightningSlash,
 } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -32,7 +31,6 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
-import HelperText from "@/ui/HelperText";
 import RadixButton from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -109,7 +107,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
       isAutoSliceColumn: existing?.isAutoSliceColumn || false,
       autoSlices: existing?.autoSlices || [],
-      pinnedAutoSlices: existing?.pinnedAutoSlices || [],
+      lockedAutoSlices: existing?.lockedAutoSlices || [],
     },
   });
 
@@ -244,7 +242,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
-    pinnedAutoSlices: form.watch("pinnedAutoSlices"),
+    lockedAutoSlices: form.watch("lockedAutoSlices"),
     deleted: false,
   };
 
@@ -267,7 +265,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             alwaysInlineFilter: value.alwaysInlineFilter,
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
-            pinnedAutoSlices: value.pinnedAutoSlices,
+            lockedAutoSlices: value.lockedAutoSlices,
           };
 
           if (existing.autoSlices !== value.autoSlices) {
@@ -597,80 +595,119 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               hasMetricSlicesFeature &&
               form.watch("datatype") !== "boolean" && (
                 <div className="mt-4 mb-2">
-                  <Flex align="center" gap="2" mb="1" justify="between">
-                    <label className="form-label mb-0">
+                  <Flex align="center" gap="3" mt="2" mb="1">
+                    <label className="form-label mb-0">Slices</label>
+                    <div className="flex-1" />
+                    <Flex align="center" gap="1">
                       <Tooltip
                         tipPosition="top"
                         body={
-                          factTable.autoSliceUpdatesEnabled ? (
-                            <>
-                              <p>
-                                Automatically set Auto Slice levels based on top
-                                column values. Pinned levels will always be
-                                preserved.
-                              </p>
-                              <p>
-                                Currently <strong>enabled</strong> — updates
-                                every {getAutoSliceUpdateFrequencyHours()}{" "}
-                                hours.
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p>
-                                Automatically set Auto Slice levels based on top
-                                column values. Pinned levels will always be
-                                preserved.
-                              </p>
-                              <p>
-                                Currently <strong>disabled</strong> — enable in
-                                Fact Table settings.
-                              </p>
-                            </>
-                          )
+                          <Flex direction="column">
+                            {factTable.autoSliceUpdatesEnabled ? (
+                              <>
+                                <Text as="p">
+                                  Auto-update slice levels based on top column
+                                  values. Locked levels are always preserved.
+                                </Text>
+                                <Text as="p">
+                                  <strong>Enabled</strong> — runs every{" "}
+                                  {getAutoSliceUpdateFrequencyHours()} hours.
+                                </Text>
+                                {existing?.topValuesDate && (
+                                  <div>
+                                    <Text>
+                                      Last run:{" "}
+                                      {datetime(existing.topValuesDate)}
+                                    </Text>
+                                    {(() => {
+                                      const frequencyHours =
+                                        getAutoSliceUpdateFrequencyHours();
+                                      const lastRun = getValidDate(
+                                        existing.topValuesDate,
+                                      );
+                                      const nextRun = new Date(
+                                        lastRun.getTime() +
+                                          frequencyHours * 60 * 60 * 1000,
+                                      );
+                                      const now = new Date();
+                                      return (
+                                        <div>
+                                          Next run:{" "}
+                                          {nextRun > now ? (
+                                            <>
+                                              {datetime(nextRun)} (
+                                              {ago(nextRun)})
+                                            </>
+                                          ) : (
+                                            <>
+                                              overdue (should run {ago(nextRun)}
+                                              )
+                                            </>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <Text as="p">
+                                  Auto-update slice levels based on top column
+                                  values.
+                                </Text>
+                                <Text as="p">
+                                  <strong>Disabled</strong> — enable in Fact
+                                  Table settings.
+                                </Text>
+                              </>
+                            )}
+                          </Flex>
                         }
                       >
-                        Dynamic slices <PiInfo />
-                        <Badge
-                          label={
-                            factTable.autoSliceUpdatesEnabled
-                              ? "enabled"
-                              : "disabled"
-                          }
-                          color={
-                            factTable.autoSliceUpdatesEnabled ? "green" : "red"
-                          }
-                          variant="soft"
-                          ml="2"
-                        />
+                        {factTable.autoSliceUpdatesEnabled ? (
+                          <PiLightning size={16} />
+                        ) : (
+                          <PiLightningSlash size={16} />
+                        )}
                       </Tooltip>
-                    </label>
-                    {factTable.autoSliceUpdatesEnabled && (
-                      <div className="text-muted small">
-                        Last run:{" "}
-                        {existing?.topValuesDate
-                          ? format(
-                              getValidDate(existing.topValuesDate),
-                              "MMM dd yyyy",
-                            )
-                          : "Never"}
-                      </div>
-                    )}
-                  </Flex>
-
-                  {!factTable.autoSliceUpdatesEnabled && (
-                    <div className="d-flex justify-content-between mt-2 mb-1">
-                      <label className="form-label mb-0">Slices</label>
+                      {existing?.topValuesDate ? (
+                        <Tooltip
+                          body={
+                            <Text>
+                              Last run: {datetime(existing.topValuesDate)}
+                            </Text>
+                          }
+                        >
+                          <Text
+                            weight="regular"
+                            size="1"
+                            style={{ color: "var(--color-text-mid)" }}
+                          >
+                            Last run: {abbreviateAgo(existing.topValuesDate)}
+                          </Text>
+                        </Tooltip>
+                      ) : (
+                        <Text
+                          weight="regular"
+                          size="1"
+                          style={{ color: "var(--color-text-mid)" }}
+                        >
+                          Last run: Never
+                        </Text>
+                      )}
+                    </Flex>
+                    {!factTable.autoSliceUpdatesEnabled && (
                       <RadixButton
                         size="xs"
-                        variant="ghost"
+                        variant="outline"
                         onClick={refreshTopValues}
                         loading={refreshingTopValues}
                       >
                         <PiArrowClockwise /> Use Top Values
                       </RadixButton>
-                    </div>
-                  )}
+                    )}
+                  </Flex>
 
                   {autoSlicesWarning ||
                   (form.watch("autoSlices") || [])?.length >
@@ -682,28 +719,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
                   {factTable.autoSliceUpdatesEnabled ? (
                     <div className="mt-2">
+                      {(existing?.topValues || []).length === 0 && (
+                        <HelperText status="warning" size="sm" mb="1">
+                          No slices returned from top values query
+                        </HelperText>
+                      )}
                       <table className="table table-tiny gbtable mb-0">
-                        <thead>
-                          <tr>
-                            <th>Slice</th>
-                            <th style={{ width: "80px", textAlign: "center" }}>
-                              Top value
-                            </th>
-                            <th style={{ width: "70px", textAlign: "center" }}>
-                              <Tooltip
-                                tipPosition="top"
-                                popperClassName="text-left"
-                                body="Pinned slices are protected from automatic updates. They will always be included in the slice levels even if they're not in the top values query results."
-                              >
-                                Pinned <PiInfo />
-                              </Tooltip>
-                            </th>
-                          </tr>
-                        </thead>
                         <tbody>
                           {(form.watch("autoSlices") || []).map((slice) => {
-                            const isPinned = (
-                              form.watch("pinnedAutoSlices") || []
+                            const isLocked = (
+                              form.watch("lockedAutoSlices") || []
                             ).includes(slice);
                             const isInTopValues = (
                               existing?.topValues || []
@@ -711,62 +736,59 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                             return (
                               <tr key={slice}>
                                 <td>{slice}</td>
-                                <td style={{ textAlign: "center" }}>
-                                  {isInTopValues && <PiCheck />}
+                                <td style={{ width: "110px" }}>
+                                  {!isInTopValues && (
+                                    <Text size="1">Not a top value</Text>
+                                  )}
                                 </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <Checkbox
-                                    value={isPinned}
-                                    setValue={(value) => {
-                                      const currentPinned =
-                                        form.watch("pinnedAutoSlices") || [];
-                                      const currentSlices =
-                                        form.watch("autoSlices") || [];
-                                      if (value) {
-                                        form.setValue("pinnedAutoSlices", [
-                                          ...currentPinned,
-                                          slice,
-                                        ]);
-                                      } else {
-                                        // If unpinning a slice that's not in topValues, remove it completely
-                                        if (!isInTopValues) {
-                                          form.setValue(
-                                            "autoSlices",
-                                            currentSlices.filter(
-                                              (s) => s !== slice,
-                                            ),
-                                          );
-                                          form.setValue(
-                                            "pinnedAutoSlices",
-                                            currentPinned.filter(
-                                              (s) => s !== slice,
-                                            ),
-                                          );
+                                <td style={{ width: "70px" }}>
+                                  <div style={{ marginTop: "2px" }}>
+                                    <Checkbox
+                                      label={<Text size="1">Lock</Text>}
+                                      weight="regular"
+                                      value={isLocked}
+                                      setValue={(value) => {
+                                        const currentLocked =
+                                          form.watch("lockedAutoSlices") || [];
+                                        const currentSlices =
+                                          form.watch("autoSlices") || [];
+                                        if (value) {
+                                          form.setValue("lockedAutoSlices", [
+                                            ...currentLocked,
+                                            slice,
+                                          ]);
                                         } else {
-                                          // Just unpin if it's in topValues
-                                          form.setValue(
-                                            "pinnedAutoSlices",
-                                            currentPinned.filter(
-                                              (s) => s !== slice,
-                                            ),
-                                          );
+                                          // If unlocking a slice that's not in topValues, remove it completely
+                                          if (!isInTopValues) {
+                                            form.setValue(
+                                              "autoSlices",
+                                              currentSlices.filter(
+                                                (s) => s !== slice,
+                                              ),
+                                            );
+                                            form.setValue(
+                                              "lockedAutoSlices",
+                                              currentLocked.filter(
+                                                (s) => s !== slice,
+                                              ),
+                                            );
+                                          } else {
+                                            // Just unlock if it's in topValues
+                                            form.setValue(
+                                              "lockedAutoSlices",
+                                              currentLocked.filter(
+                                                (s) => s !== slice,
+                                              ),
+                                            );
+                                          }
                                         }
-                                      }
-                                    }}
-                                  />
+                                      }}
+                                    />
+                                  </div>
                                 </td>
                               </tr>
                             );
                           })}
-                          {(existing?.topValues || []).length === 0 && (
-                            <tr>
-                              <td colSpan={3}>
-                                <em className="text-muted small">
-                                  No slices returned from top values query
-                                </em>
-                              </td>
-                            </tr>
-                          )}
                         </tbody>
                       </table>
                       <Flex mt="2" gap="2" align="center">
@@ -782,15 +804,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                 if (trimmed) {
                                   const currentSlices =
                                     form.watch("autoSlices") || [];
-                                  const currentPinned =
-                                    form.watch("pinnedAutoSlices") || [];
+                                  const currentLocked =
+                                    form.watch("lockedAutoSlices") || [];
                                   if (!currentSlices.includes(trimmed)) {
                                     form.setValue("autoSlices", [
                                       ...currentSlices,
                                       trimmed,
                                     ]);
-                                    form.setValue("pinnedAutoSlices", [
-                                      ...currentPinned,
+                                    form.setValue("lockedAutoSlices", [
+                                      ...currentLocked,
                                       trimmed,
                                     ]);
                                     setNewSliceValue("");
@@ -798,7 +820,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                 }
                               }
                             }}
-                            placeholder="Pin new slice..."
+                            placeholder="Enter slice..."
                             containerClassName="mb-0"
                           />
                         </div>
@@ -812,15 +834,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                             if (trimmed) {
                               const currentSlices =
                                 form.watch("autoSlices") || [];
-                              const currentPinned =
-                                form.watch("pinnedAutoSlices") || [];
+                              const currentLocked =
+                                form.watch("lockedAutoSlices") || [];
                               if (!currentSlices.includes(trimmed)) {
                                 form.setValue("autoSlices", [
                                   ...currentSlices,
                                   trimmed,
                                 ]);
-                                form.setValue("pinnedAutoSlices", [
-                                  ...currentPinned,
+                                form.setValue("lockedAutoSlices", [
+                                  ...currentLocked,
                                   trimmed,
                                 ]);
                                 setNewSliceValue("");
