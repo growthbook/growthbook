@@ -67,6 +67,11 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
           context: req.context,
           payloadKeys: [],
           sdkConnections: affectedConnections,
+          auditContext: {
+            event: "projects changed",
+            model: "environment",
+            id: id,
+          },
         });
       }
     }
