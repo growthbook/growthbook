@@ -7,6 +7,8 @@ import app from "back-end/src/app";
 import mongoInit from "back-end/src/init/mongo";
 import { queueInit } from "back-end/src/init/queue";
 import { getAgendaInstance } from "back-end/src/services/queueing";
+import { waitForIndexes } from "back-end/src/models/BaseModel";
+import { ReqContextClass } from "back-end/src/services/context";
 
 jest.mock("back-end/src/util/secrets", () => ({
   ...jest.requireActual("back-end/src/util/secrets"),
@@ -52,9 +54,34 @@ export const setupApp = () => {
       await mongoInit();
       await queueInit();
 
-      // This seems to help:
-      setTimeout(resolve, 400);
-    }, 60000); // Increase timeout to 60s for CI environment
+      // Initialize all models by creating a dummy context
+      // This triggers index creation for all collections
+      new ReqContextClass({
+        org: {
+          id: "org_dummy_for_setup",
+          name: "Dummy",
+          ownerEmail: "test@test.com",
+          url: "",
+          dateCreated: new Date(),
+          members: [],
+        },
+        auditUser: {
+          id: "dummy",
+          email: "test@test.com",
+          name: "Test",
+        },
+        teams: [],
+        user: {
+          id: "dummy",
+          email: "test@test.com",
+          name: "Test",
+          superAdmin: true,
+        },
+      });
+      // Wait for all model indexes to be created before running tests
+      await waitForIndexes();
+      resolve();
+    });
 
     afterAll(async () => {
       await getAgendaInstance().stop();
