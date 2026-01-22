@@ -38,7 +38,7 @@ export default function SingleRoleSelector({
   let roleOptions = [...roles];
 
   if (!isNoAccessRoleEnabled) {
-    roleOptions = roles.filter((r) => r.id !== "noaccess");
+    roleOptions = roleOptions.filter((r) => r.id !== "noaccess");
   }
 
   if (!includeAdminRole) {
