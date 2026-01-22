@@ -120,8 +120,7 @@ const MemberList: FC<{
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
           }}
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-          close={() => setRoleModal(null)}
+          close={() => setRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
               method: "PUT",
