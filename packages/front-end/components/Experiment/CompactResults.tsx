@@ -34,10 +34,6 @@ import {
   SetExperimentSortBy,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
-import DataQualityWarning from "./DataQualityWarning";
-import MultipleExposureWarning from "./MultipleExposureWarning";
-import { ExperimentTab } from "./TabbedPage";
-import styles from "./CompactResults.module.scss";
 import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -49,6 +45,10 @@ import MetricDrilldownModal, {
   MetricDrilldownTab,
 } from "@/components/MetricDrilldown/MetricDrilldownModal";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import styles from "./CompactResults.module.scss";
+import { ExperimentTab } from "./TabbedPage";
+import MultipleExposureWarning from "./MultipleExposureWarning";
+import DataQualityWarning from "./DataQualityWarning";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -585,6 +585,9 @@ const CompactResults: FC<{
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          // Initial sorting state
+          initialSortBy={sortBy ?? null}
+          initialSortDirection={sortDirection ?? null}
           // Slice-specific
           initialSliceSearchTerm={
             openMetricDrilldownModalInfo.initialSliceSearchTerm

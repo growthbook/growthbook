@@ -6,6 +6,11 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -33,6 +38,13 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  // Snapshot context for baseline switching
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings?: (
+    settings: ExperimentSnapshotAnalysisSettings | null,
+  ) => void;
+  mutateSnapshot?: () => void;
 }
 
 function MetricDrilldownOverview({
@@ -56,6 +68,10 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  mutateSnapshot,
 }: MetricDrilldownOverviewProps) {
   const { metric } = row;
   const tableId = `${experimentId}_${metric.id}_modal`;
@@ -112,6 +128,10 @@ function MetricDrilldownOverview({
         isBandit={false}
         isHoldout={false}
         visibleTimeSeriesRowIds={[`${tableId}-${metric.id}-0`]}
+        snapshot={snapshot}
+        analysis={analysis}
+        setAnalysisSettings={setAnalysisSettings}
+        mutate={mutateSnapshot}
       />
 
       <Flex direction="column" gap="2">

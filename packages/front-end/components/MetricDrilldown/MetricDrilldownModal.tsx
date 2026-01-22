@@ -1,7 +1,11 @@
 import { FC, useState, useMemo, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { getMetricLink, ExperimentMetricInterface } from "shared/experiments";
+import {
+  getMetricLink,
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+} from "shared/experiments";
 import {
   DifferenceType,
   PValueCorrection,
@@ -74,6 +78,10 @@ interface MetricDrilldownModalProps {
   isLatestPhase: boolean;
   sequentialTestingEnabled?: boolean;
 
+  // Initial sorting state (inherited from CompactResults)
+  initialSortBy?: ExperimentSortBy;
+  initialSortDirection?: "asc" | "desc" | null;
+
   // Slice-specific props
   initialSliceSearchTerm?: string;
 }
@@ -116,6 +124,8 @@ interface MetricDrilldownContentProps {
   reportDate: Date;
   isLatestPhase: boolean;
   sequentialTestingEnabled?: boolean;
+  localSortBy: ExperimentSortBy;
+  localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
 }
@@ -148,11 +158,18 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   reportDate,
   isLatestPhase,
   sequentialTestingEnabled,
+  localSortBy,
+  localSortDirection,
   initialSliceSearchTerm,
   initialTab,
 }) => {
   // Get the LOCAL context's analysis - this updates when baseline changes
-  const { analysis } = useSnapshot();
+  const {
+    analysis,
+    snapshot,
+    setAnalysisSettings: contextSetAnalysisSettings,
+    mutateSnapshot,
+  } = useSnapshot();
 
   // Use local analysis results if available, otherwise fall back to initial results
   const results = analysis?.results?.[0] ?? initialResults;
@@ -266,6 +283,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           localDifferenceType={localDifferenceType}
           setLocalDifferenceType={setLocalDifferenceType}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          snapshot={snapshot}
+          analysis={analysis}
+          setAnalysisSettings={contextSetAnalysisSettings}
+          mutateSnapshot={mutateSnapshot}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -290,6 +311,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           pValueCorrection={pValueCorrection}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
+          initialSortBy={localSortBy}
+          initialSortDirection={localSortDirection}
           searchTerm={sliceSearchTerm}
           setSearchTerm={setSliceSearchTerm}
           visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
@@ -353,6 +376,9 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   reportDate,
   isLatestPhase,
   sequentialTestingEnabled,
+  // Initial sorting state
+  initialSortBy,
+  initialSortDirection,
   // Slice-specific
   initialSliceSearchTerm,
 }) => {
@@ -377,6 +403,12 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   >(variationFilter);
   const [localDifferenceType, setLocalDifferenceType] =
     useState<DifferenceType>(differenceType);
+
+  // Local sorting state (starts with initial values from CompactResults)
+  // Note: These are passed down but not updated at this level - MetricDrilldownSlices
+  // manages its own local copies initialized from these values
+  const localSortBy = initialSortBy ?? null;
+  const localSortDirection = initialSortDirection ?? null;
 
   // Common content props
   const contentProps: MetricDrilldownContentProps = {
@@ -407,6 +439,8 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
     reportDate,
     isLatestPhase,
     sequentialTestingEnabled,
+    localSortBy,
+    localSortDirection,
     initialSliceSearchTerm,
     initialTab,
   };

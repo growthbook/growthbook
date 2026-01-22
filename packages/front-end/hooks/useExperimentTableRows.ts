@@ -38,11 +38,10 @@ const METRIC_SELECTOR_IDS = [
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  compareRows,
 } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useTableSorting } from "@/hooks/useTableSorting";
 
 export interface UseExperimentTableRowsParams {
   results: ExperimentReportResultDimension;
@@ -112,7 +111,6 @@ export function useExperimentTableRows({
     ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
-  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -285,7 +283,7 @@ export function useExperimentTableRows({
       metricsFilter,
     ]);
 
-  const rows = useMemo<ExperimentTableRow[]>(() => {
+  const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
     function getRowsForMetric(
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail",
@@ -415,47 +413,6 @@ export function useExperimentTableRows({
       getRowsForMetric(metricId, "guardrail"),
     );
 
-    // Sort by significance or change if sortBy is set
-    if (
-      (sortBy === "significance" || sortBy === "change") &&
-      metricDefaults &&
-      sortDirection
-    ) {
-      const sortOptions = {
-        sortBy,
-        variationFilter: analysisBarSettings?.variationFilter ?? [],
-        metricDefaults,
-        sortDirection,
-      };
-
-      const sortRows = (rows: ExperimentTableRow[]) => {
-        const parentRows = rows.filter((row) => !row.parentRowId);
-        const sortedParents = [...parentRows].sort((a, b) =>
-          compareRows(a, b, sortOptions),
-        );
-
-        const newRows: ExperimentTableRow[] = [];
-        sortedParents.forEach((parent) => {
-          newRows.push(parent);
-          const childRows = rows.filter(
-            (row) => row.parentRowId === parent.metric?.id,
-          );
-          const sortedChildren = [...childRows].sort((a, b) =>
-            compareRows(a, b, sortOptions),
-          );
-          newRows.push(...sortedChildren);
-        });
-
-        return newRows;
-      };
-
-      return [
-        ...sortRows(retMetrics),
-        ...sortRows(retSecondary),
-        ...sortRows(retGuardrails),
-      ];
-    }
-
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
@@ -478,11 +435,16 @@ export function useExperimentTableRows({
     sliceTagsFilter,
     customMetricSlices,
     sortBy,
-    sortDirection,
     customMetricOrder,
-    analysisBarSettings?.variationFilter,
-    metricDefaults,
   ]);
+
+  // Apply sorting using the reusable useTableSorting hook
+  const rows = useTableSorting({
+    rows: unsortedRows,
+    sortBy,
+    sortDirection,
+    variationFilter: analysisBarSettings?.variationFilter ?? [],
+  });
 
   const getChildRowCounts = (metricId: string) => {
     const childRows = rows.filter(

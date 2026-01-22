@@ -1,6 +1,9 @@
-import { FC } from "react";
+import { FC, useState, useMemo } from "react";
 import { PiInfo } from "react-icons/pi";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+} from "shared/experiments";
 import {
   DifferenceType,
   StatsEngine,
@@ -10,12 +13,16 @@ import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  filterRowsForMetricDrilldown,
+  deepCopyRowsForRerender,
+} from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import { useSliceRows } from "@/hooks/useSliceRows";
+import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 interface MetricDrilldownSlicesProps {
@@ -42,6 +49,9 @@ interface MetricDrilldownSlicesProps {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   experimentStatus: ExperimentStatus;
+  // Initial sorting state (inherited from main table, managed locally)
+  initialSortBy: ExperimentSortBy;
+  initialSortDirection: "asc" | "desc" | null;
   // Search state (managed by parent to persist across tab switches)
   searchTerm: string;
   setSearchTerm: (term: string) => void;
@@ -70,6 +80,8 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   pValueCorrection,
   sequentialTestingEnabled,
   experimentStatus,
+  initialSortBy,
+  initialSortDirection,
   searchTerm,
   setSearchTerm,
   visibleTimeSeriesRowIds,
@@ -89,21 +101,36 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
-  // Use the hook to compute derived slice row data
-  const {
-    rowsToRender,
-    sliceRows,
+  // Local sorting state (initialized from parent)
+  const [sortBy, setSortBy] = useState<ExperimentSortBy>(initialSortBy);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
+    initialSortDirection,
+  );
+
+  // Filter rows for this metric
+  const { mainRow, sliceRows, filteredSliceRows } = useMemo(() => {
+    return filterRowsForMetricDrilldown(rows, metric.id, searchTerm);
+  }, [rows, metric.id, searchTerm]);
+
+  // Combine main row with filtered slices
+  const rowsToSort = useMemo(() => {
+    return mainRow ? [mainRow, ...filteredSliceRows] : filteredSliceRows;
+  }, [mainRow, filteredSliceRows]);
+
+  // Apply sorting using the reusable hook
+  const sortedRows = useTableSorting({
+    rows: rowsToSort,
     sortBy,
-    setSortBy,
     sortDirection,
-    setSortDirection,
-  } = useSliceRows({
-    rows,
-    metricId: metric.id,
-    baselineRow,
-    searchTerm,
-    statsEngine,
+    variationFilter: variationFilter ?? [],
   });
+
+  // Create final rows with deep copies to force React re-renders
+  // This is CRITICAL for when baseline changes in the modal
+  const rowsToRender = useMemo(() => {
+    return deepCopyRowsForRerender(sortedRows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedRows, baselineRow]); // baselineRow forces recompute when baseline changes
 
   // Determine what to render
   const hasSliceData = sliceRows.length > 0;

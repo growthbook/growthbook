@@ -179,7 +179,7 @@ export function LocalSnapshotProvider({
   // Initialize analysis settings from parent's settings if provided,
   // otherwise fall back to the snapshot's default analysis
   const defaultAnalysisSettings = initialSnapshot
-    ? getSnapshotAnalysis(initialSnapshot)?.settings ?? null
+    ? (getSnapshotAnalysis(initialSnapshot)?.settings ?? null)
     : null;
   const [analysisSettings, setAnalysisSettings] =
     useState<ExperimentSnapshotAnalysisSettings | null>(
