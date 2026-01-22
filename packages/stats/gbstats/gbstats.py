@@ -438,7 +438,7 @@ def run_mid_experiment_power(
         upperBoundAchieved=mid_experiment_power_result.upper_bound_achieved,
         scalingFactor=mid_experiment_power_result.scaling_factor,
     )
-    
+
 
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
