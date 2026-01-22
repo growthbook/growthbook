@@ -96,7 +96,7 @@
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^2.1.5",
     "kerberos": "^2.1.1",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "md5": "^2.3.0",
     "module-alias": "^2.2.3",
     "mongodb": "^4.17.2",
