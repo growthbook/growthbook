@@ -455,15 +455,9 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
         bodyClassName={styles.metricDrilldownModalBody}
         onBackdropClick={close}
         header={
-          <Flex align="center" gap="2">
+          <Flex align="center" gap="0">
             <Text size="6" weight="bold">
-              <MetricName
-                id={metric.id}
-                showOfficialLabel
-                disableTooltip
-                officialBadgePosition="right"
-                officialBadgeLeftGap={false}
-              />
+              <MetricName id={metric.id} officialBadgePosition="right" />
             </Text>
             <Link
               href={getMetricLink(metric.id)}
