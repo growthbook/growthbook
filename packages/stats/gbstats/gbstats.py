@@ -27,7 +27,7 @@ from gbstats.power.midexperimentpower import (
     MidExperimentPowerConfig,
 )
 
-from gbstats.models.tests import BaseConfig
+from gbstats.models.tests import BaseConfig, sum_stats
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -438,7 +438,7 @@ def run_mid_experiment_power(
         upperBoundAchieved=mid_experiment_power_result.upper_bound_achieved,
         scalingFactor=mid_experiment_power_result.scaling_factor,
     )
-
+    
 
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
@@ -553,9 +553,14 @@ def analyze_metric_df(
         # but should be the same for the baseline (stat_a is the control/baseline statistic)
         if baseline_stat is None:
             # Edge case: no treatment variations, compute baseline stat directly
-            baseline_stat = variation_statistic_from_metric_row(
-                d.iloc[0], "baseline", metric
-            )
+            control_stats = []
+            for _, row in d.iterrows():
+                control_stats.append(
+                    variation_statistic_from_metric_row(row, "baseline", metric)
+                )
+            stats = list(zip(control_stats, control_stats))
+            stat_a_summed, _ = sum_stats(stats)
+            baseline_stat = stat_a_summed
         baseline_data = get_metric_response(d, baseline_stat, 0)
         variation_data.insert(analysis.baseline_index, baseline_data)
 
