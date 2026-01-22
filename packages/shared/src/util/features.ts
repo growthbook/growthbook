@@ -23,8 +23,8 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { ApiFeature } from "shared/types/openapi";
+import { GroupMap } from "shared/types/saved-group";
 import { getValidDate } from "../dates";
-import { GroupMap } from "../../types/groups";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,

@@ -27,8 +27,11 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
 )
 from gbstats.models.results import (
+    BaselineResponse,
     BayesianVariationResponseIndividual,
     FrequentistVariationResponseIndividual,
+    MetricStats,
+    FrequentistVariationResponse,
 )
 
 DECIMALS = 9
@@ -976,6 +979,265 @@ class TestProcessAnalysis(TestCase):
         for res in result:
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
+
+
+# Test data for 3-armed test with CUPED
+THREE_ARMED_CUPED_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "All",
+            "variation": "zero",
+            "main_sum": 300,
+            "main_sum_squares": 600,
+            "covariate_sum": 210,
+            "covariate_sum_squares": 415,
+            "main_covariate_sum_product": -20,
+            "users": 3001,
+            "count": 3001,
+        },
+        {
+            "dimension": "All",
+            "variation": "one",
+            "main_sum": 222,
+            "main_sum_squares": 555,
+            "covariate_sum": 120,
+            "covariate_sum_squares": 405,
+            "main_covariate_sum_product": -10,
+            "users": 3000,
+            "count": 3000,
+        },
+        {
+            "dimension": "All",
+            "variation": "two",
+            "main_sum": 450,
+            "main_sum_squares": 900,
+            "covariate_sum": 300,
+            "covariate_sum_squares": 600,
+            "main_covariate_sum_product": -30,
+            "users": 4000,
+            "count": 4000,
+        },
+    ]
+)
+
+
+class TestThreeArmedCuped(TestCase):
+    def test_three_armed_cuped_baseline_stats_hardcoded(self):
+        """Test that in a 3-armed test with CUPED, BaselineResponse.stats matches hard-coded value."""
+        rows = THREE_ARMED_CUPED_DF
+        df = get_metric_dfs(
+            rows, {"zero": 0, "one": 1, "two": 2}, ["zero", "one", "two"]
+        )
+
+        three_armed_analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one", "two"],
+            var_ids=["0", "1", "2"],
+            weights=[1 / 3, 1 / 3, 1 / 3],
+            stats_engine="frequentist",
+        )
+
+        result = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=RA_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline (0th variation) stats
+        baseline_response = result[0].variations[0]
+        self.assertIsInstance(baseline_response, BaselineResponse)
+
+        # Hard-coded expected values for baseline stats
+        expected_stats = MetricStats(
+            users=3001,
+            count=3001,
+            stddev=0.434288923,  # Hard-coded: sqrt of variance from RegressionAdjustedStatistic
+            mean=0.099966678,  # Hard-coded: main_sum / count = 300 / 3001
+        )
+
+        # Verify the stats object matches hard-coded values
+        self.assertEqual(baseline_response.stats.users, expected_stats.users)
+        self.assertEqual(baseline_response.stats.count, expected_stats.count)
+        self.assertEqual(
+            round_(baseline_response.stats.mean), round_(expected_stats.mean)
+        )
+        self.assertEqual(
+            round_(baseline_response.stats.stddev), round_(expected_stats.stddev)
+        )
+
+        # Get variation 1 stats
+        variation1_response = result[0].variations[1]
+        self.assertIsInstance(
+            variation1_response, FrequentistVariationResponseIndividual
+        )
+
+        # Hard-coded expected values for variation 1 stats
+        expected_stats_v1 = MetricStats(
+            users=3000,
+            count=3000,
+            stddev=0.423529598,  # Hard-coded: sqrt of variance from RegressionAdjustedStatistic
+            mean=0.074,  # Hard-coded: main_sum / count = 222 / 3000
+        )
+
+        # Verify variation 1 stats match hard-coded values
+        self.assertEqual(variation1_response.stats.users, expected_stats_v1.users)
+        self.assertEqual(variation1_response.stats.count, expected_stats_v1.count)
+        self.assertEqual(
+            round_(variation1_response.stats.mean), round_(expected_stats_v1.mean)
+        )
+        self.assertEqual(
+            round_(variation1_response.stats.stddev), round_(expected_stats_v1.stddev)
+        )
+
+        # Get variation 2 stats
+        variation2_response = result[0].variations[2]
+        self.assertIsInstance(
+            variation2_response, FrequentistVariationResponseIndividual
+        )
+
+        # Hard-coded expected values for variation 2 stats
+        expected_stats_v2 = MetricStats(
+            users=4000,
+            count=4000,
+            stddev=0.458953951,  # Hard-coded: sqrt of variance from RegressionAdjustedStatistic
+            mean=0.1125,  # Hard-coded: main_sum / count = 450 / 4000
+        )
+
+        # Verify variation 2 stats match hard-coded values
+        self.assertEqual(variation2_response.stats.users, expected_stats_v2.users)
+        self.assertEqual(variation2_response.stats.count, expected_stats_v2.count)
+        self.assertEqual(
+            round_(variation2_response.stats.mean), round_(expected_stats_v2.mean)
+        )
+        self.assertEqual(
+            round_(variation2_response.stats.stddev), round_(expected_stats_v2.stddev)
+        )
+
+    def test_three_armed_cuped_baseline_stddev_different_from_no_cuped(self):
+        """Test that baseline stddev is different when CUPED is on vs off."""
+        rows = THREE_ARMED_CUPED_DF
+        df = get_metric_dfs(
+            rows, {"zero": 0, "one": 1, "two": 2}, ["zero", "one", "two"]
+        )
+
+        three_armed_analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one", "two"],
+            var_ids=["0", "1", "2"],
+            weights=[1 / 3, 1 / 3, 1 / 3],
+            stats_engine="frequentist",
+        )
+
+        # Run with CUPED on (mean_ra)
+        result_cuped = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=RA_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline stats with CUPED
+        baseline_stats_cuped = result_cuped[0].variations[0].stats
+
+        # Run with CUPED off (mean)
+        result_no_cuped = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=COUNT_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline stats without CUPED
+        baseline_stats_no_cuped = result_no_cuped[0].variations[0].stats
+
+        # NB: This behavior may not be always desired, but it is backwards compatible
+        # We may want to have the stats either all be adjusted or unadjusted rather than
+        # having the mean unadjusted and the stddev adjusted.
+
+        # Verify that stddev is different (CUPED should reduce variance)
+        self.assertNotEqual(
+            round_(baseline_stats_cuped.stddev),
+            round_(baseline_stats_no_cuped.stddev),
+            "Baseline stddev should be different with CUPED on vs off",
+        )
+
+        # Verify that mean is the same (unadjusted mean should be the same)
+        self.assertEqual(
+            round_(baseline_stats_cuped.mean),
+            round_(baseline_stats_no_cuped.mean),
+            "Baseline mean should be the same (unadjusted mean)",
+        )
+
+        # Verify that users and count are the same
+        self.assertEqual(baseline_stats_cuped.users, baseline_stats_no_cuped.users)
+        self.assertEqual(baseline_stats_cuped.count, baseline_stats_no_cuped.count)
+
+    # NB: This behavior may not be always desired, but it is backwards compatible
+    def test_three_armed_cuped_baseline_stats_same_as_0_vs_2(self):
+        """Test that baseline stats from 3-armed test match 0 vs 2 test, implying theta from 0 vs 2 is used."""
+        rows = THREE_ARMED_CUPED_DF
+        df = get_metric_dfs(
+            rows, {"zero": 0, "one": 1, "two": 2}, ["zero", "one", "two"]
+        )
+
+        three_armed_analysis = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one", "two"],
+            var_ids=["0", "1", "2"],
+            weights=[1 / 3, 1 / 3, 1 / 3],
+            stats_engine="frequentist",
+        )
+
+        # Run full 3-armed test with CUPED
+        result_three_armed = analyze_metric_df(
+            df,
+            num_variations=3,
+            metric=RA_METRIC,
+            analysis=three_armed_analysis,
+        )
+
+        # Get baseline stats from 3-armed test
+        baseline_stats_three_armed = result_three_armed[0].variations[0].stats
+
+        # Now run 2-armed test with just 0 vs 2 (pretending variation 1 doesn't exist)
+        # Rename "two" to "one" for the 2-armed test so var_id_map uses indices 0 and 1
+        two_armed_analysis_02 = dataclasses.replace(
+            DEFAULT_ANALYSIS,
+            var_names=["zero", "one"],
+            var_ids=["0", "1"],
+            weights=[0.5, 0.5],
+            stats_engine="frequentist",
+        )
+
+        # Filter to just variations 0 and 2, then rename "two" to "one"
+        rows_02 = rows[rows["variation"].isin(["zero", "two"])].copy()
+        rows_02.loc[rows_02["variation"] == "two", "variation"] = "one"
+        df_02 = get_metric_dfs(rows_02, {"zero": 0, "one": 1}, ["zero", "one"])
+
+        result_02 = analyze_metric_df(
+            df_02,
+            num_variations=2,
+            metric=RA_METRIC,
+            analysis=two_armed_analysis_02,
+        )
+
+        # Get baseline stats from 0 vs 2 test
+        baseline_stats_02 = result_02[0].variations[0].stats
+
+        # Verify baseline stats are the same (implying theta from 0 vs 2 is used)
+        self.assertEqual(baseline_stats_three_armed.users, baseline_stats_02.users)
+        self.assertEqual(baseline_stats_three_armed.count, baseline_stats_02.count)
+        self.assertEqual(
+            round_(baseline_stats_three_armed.mean),
+            round_(baseline_stats_02.mean),
+            "Baseline mean should be the same",
+        )
+        self.assertEqual(
+            round_(baseline_stats_three_armed.stddev),
+            round_(baseline_stats_02.stddev),
+            "Baseline stddev should be the same, implying theta from 0 vs 2 comparison is used",
+        )
 
 
 if __name__ == "__main__":
