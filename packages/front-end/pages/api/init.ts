@@ -154,7 +154,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       : 6,
     autoSliceUpdateFrequencyHours: AUTO_SLICE_UPDATE_FREQUENCY_HOURS
       ? parseInt(AUTO_SLICE_UPDATE_FREQUENCY_HOURS)
-      : 24,
+      : 168, // Default: 7 days
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
     hasXaiKey: !!XAI_API_KEY || false,

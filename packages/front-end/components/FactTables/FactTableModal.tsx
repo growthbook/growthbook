@@ -23,6 +23,7 @@ import { usesEventName } from "@/components/Metrics/MetricForm";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -293,18 +294,27 @@ export default function FactTableModal({
           </div>
         ) : null}
 
-        {hasCommercialFeature("metric-slices") && (
-          <div className="mt-4">
-            <Checkbox
-              label="Auto-update slice levels"
-              description="Automatically update Auto Slice levels based on top column values (14 day lookback). Locked slice levels will always be preserved."
-              value={form.watch("autoSliceUpdatesEnabled") ?? false}
-              setValue={(value) => {
-                form.setValue("autoSliceUpdatesEnabled", value);
-              }}
-            />
-          </div>
-        )}
+        {hasCommercialFeature("metric-slices") &&
+          (() => {
+            const frequencyHours = getAutoSliceUpdateFrequencyHours();
+            const frequencyDays = Math.round((frequencyHours / 24) * 10) / 10; // Round to 1 decimal place
+            const frequencyText =
+              frequencyDays >= 1
+                ? `${frequencyDays} ${frequencyDays === 1 ? "day" : "days"}`
+                : `${frequencyHours} ${frequencyHours === 1 ? "hour" : "hours"}`;
+            return (
+              <div className="mt-4">
+                <Checkbox
+                  label="Auto-update slice levels"
+                  description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${frequencyText}. Locked slice levels will always be preserved.`}
+                  value={form.watch("autoSliceUpdatesEnabled") ?? false}
+                  setValue={(value) => {
+                    form.setValue("autoSliceUpdatesEnabled", value);
+                  }}
+                />
+              </div>
+            );
+          })()}
       </Modal>
     </>
   );
