@@ -76,7 +76,6 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getAllSavedGroupsWithoutValues } from "back-end/src/models/SavedGroupModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
@@ -178,7 +177,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
     getAllTags(orgId),
-    getAllSavedGroupsWithoutValues(orgId),
+    context.models.savedGroups.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),

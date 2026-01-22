@@ -24,7 +24,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
     throw new Error("Could not find a feature with that key");
   }
 
-  const groupMap = await getSavedGroupMap(req.organization);
+  const groupMap = await getSavedGroupMap(req.context);
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,

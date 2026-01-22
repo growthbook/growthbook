@@ -27,7 +27,7 @@ import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";

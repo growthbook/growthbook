@@ -59,6 +59,9 @@ describe("features events", () => {
             .fn()
             .mockResolvedValue(new Map([["sr_123", safeRollout]])),
         },
+        savedGroups: {
+          getAll: jest.fn().mockResolvedValue([]),
+        },
       },
       userId: "aabb",
       email: "user@mail.com",
