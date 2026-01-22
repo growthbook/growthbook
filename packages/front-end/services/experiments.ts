@@ -157,64 +157,6 @@ export const compareRows = (
   return sortDirection === "desc" ? -comparisonResult : comparisonResult;
 };
 
-/**
- * Filter rows by metricId and optional search term.
- * Used by metric drilldown modal to show only relevant slices.
- */
-export function filterRowsForMetricDrilldown(
-  rows: ExperimentTableRow[],
-  metricId: string,
-  searchTerm?: string,
-): {
-  mainRow: ExperimentTableRow | undefined;
-  sliceRows: ExperimentTableRow[];
-  filteredSliceRows: ExperimentTableRow[];
-} {
-  // Get main row
-  const mainRow = rows.find((r) => !r.isSliceRow && r.metric.id === metricId);
-
-  // Get all slice rows for this metric
-  const sliceRows = rows.filter(
-    (row) => row.isSliceRow && row.metric.id === metricId,
-  );
-
-  // Apply search filter if provided
-  let filteredSliceRows = sliceRows;
-  if (searchTerm) {
-    const term = searchTerm.toLowerCase();
-    filteredSliceRows = sliceRows.filter((row) => {
-      const sliceName =
-        typeof row.label === "string" ? row.label : row.metric.name;
-      return sliceName.toLowerCase().includes(term);
-    });
-  }
-
-  return { mainRow, sliceRows, filteredSliceRows };
-}
-
-/**
- * Creates deep copies of row objects with new variation arrays.
- * This ensures ResultsTable's memoization detects changes when baseline changes.
- *
- * Context: When baseline changes in LocalSnapshotProvider, the underlying data
- * references may remain the same even though computed stats change. Deep copying
- * forces React to recognize these as new objects.
- */
-export function deepCopyRowsForRerender(
-  rows: ExperimentTableRow[],
-): ExperimentTableRow[] {
-  return rows.map((row) => ({
-    ...row,
-    // Deep copy the variations array AND each variation object
-    variations: row.variations.map((v) => ({
-      ...v,
-      // Also copy nested objects if they exist
-      ...(v.uplift && { uplift: { ...v.uplift } }),
-      ...(v.ci && { ci: [v.ci[0], v.ci[1]] as [number, number] }),
-    })),
-  }));
-}
-
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
     (exp.archived

@@ -13,17 +13,14 @@ import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { Box, Flex, Text, TextField, Tooltip } from "@radix-ui/themes";
 import { FaSearch } from "react-icons/fa";
-import {
-  ExperimentTableRow,
-  filterRowsForMetricDrilldown,
-  deepCopyRowsForRerender,
-} from "@/services/experiments";
+import { ExperimentTableRow } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { filterRowsForMetricDrilldown } from "./helpers";
 
 interface MetricDrilldownSlicesProps {
   metric: ExperimentMetricInterface;
@@ -118,19 +115,12 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   }, [mainRow, filteredSliceRows]);
 
   // Apply sorting using the reusable hook
-  const sortedRows = useTableSorting({
+  const rowsToRender = useTableSorting({
     rows: rowsToSort,
     sortBy,
     sortDirection,
     variationFilter: variationFilter ?? [],
   });
-
-  // Create final rows with deep copies to force React re-renders
-  // This is CRITICAL for when baseline changes in the modal
-  const rowsToRender = useMemo(() => {
-    return deepCopyRowsForRerender(sortedRows);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortedRows, baselineRow]); // baselineRow forces recompute when baseline changes
 
   // Determine what to render
   const hasSliceData = sliceRows.length > 0;

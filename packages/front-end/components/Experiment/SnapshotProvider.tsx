@@ -141,22 +141,11 @@ export function useSnapshot() {
   return useContext(snapshotContext);
 }
 
-/**
- * LocalSnapshotProvider provides an isolated snapshot context for components
- * that need to manage their own snapshot state independently from the parent.
- *
- * This is used by MetricDrilldownModal to allow changing baseline/variation
- * settings without affecting the main results table.
- *
- * Components inside this provider will use useSnapshot() and automatically
- * get the local context values instead of the parent's values.
- */
 export interface LocalSnapshotProviderProps {
   experiment: ExperimentInterfaceStringDates;
   snapshot: ExperimentSnapshotInterface;
   phase: number;
   dimension: string;
-  /** Initial analysis settings to inherit from parent context */
   initialAnalysisSettings?: ExperimentSnapshotAnalysisSettings | null;
   children: ReactNode;
 }
@@ -171,7 +160,6 @@ export function LocalSnapshotProvider({
 }: LocalSnapshotProviderProps) {
   const { apiCall } = useAuth();
 
-  // Local state - initialized from props
   const [localSnapshot, setLocalSnapshot] =
     useState<ExperimentSnapshotInterface>(initialSnapshot);
   const [loading, setLoading] = useState(false);
@@ -186,7 +174,6 @@ export function LocalSnapshotProvider({
       parentAnalysisSettings ?? defaultAnalysisSettings,
     );
 
-  // Local mutate function - fetches into local state only, not parent
   const mutateSnapshot = useCallback(async () => {
     setLoading(true);
     try {
@@ -206,10 +193,7 @@ export function LocalSnapshotProvider({
 
   // Compute analysis from local snapshot + local settings
   const analysis = localSnapshot
-    ? ((getSnapshotAnalysis(
-        localSnapshot,
-        analysisSettings,
-      ) as ExperimentSnapshotAnalysis) ?? undefined)
+    ? (getSnapshotAnalysis(localSnapshot, analysisSettings) ?? undefined)
     : undefined;
 
   return (
@@ -225,19 +209,19 @@ export function LocalSnapshotProvider({
         phase,
         dimension,
         analysisSettings,
+        setAnalysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
           localSnapshot,
           localSnapshot,
         ),
         setPhase: () => {
-          // No-op for local provider - phase is fixed
+          // phase is fixed
         },
         setDimension: () => {
-          // No-op for local provider - dimension is fixed
+          // dimension is fixed
         },
-        setAnalysisSettings,
         setSnapshotType: () => {
-          // No-op for local provider
+          // do nothing
         },
         loading,
       }}

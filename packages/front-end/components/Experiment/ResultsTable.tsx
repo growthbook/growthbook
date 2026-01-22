@@ -1320,6 +1320,7 @@ export default function ResultsTable({
                               </tr>
                             );
                           })}
+
                         {!row.labelOnly &&
                           visibleTimeSeriesRowIds.includes(rowId) && (
                             <tr
