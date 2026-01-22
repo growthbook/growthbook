@@ -1,6 +1,8 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   getAllFactTablesWithAutoSliceUpdatesEnabled,
@@ -8,8 +10,6 @@ import {
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { ColumnInterface, FactTableInterface } from "back-end/types/fact-table";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
