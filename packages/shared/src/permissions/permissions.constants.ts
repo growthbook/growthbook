@@ -365,7 +365,7 @@ export const POLICY_METADATA_MAP: Record<
       "Can be used to create new project admins and adjust project roles for other members",
   },
   ProjectAdminAccess: {
-    displayName: "Projects Admin Access",
+    displayName: "Project Admin Access",
     description:
       "Manage project settings and change project roles for other members.",
     warning:
