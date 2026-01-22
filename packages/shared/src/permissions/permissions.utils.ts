@@ -167,7 +167,7 @@ export function roleSupportsEnvLimit(
   roleId: string,
   org: Partial<OrganizationInterface>,
 ): boolean {
-  if (roleId === "admin") return false;
+  if (["admin", "projectAdmin"].includes(roleId)) return false;
 
   const role = getRoleById(roleId, org);
 
