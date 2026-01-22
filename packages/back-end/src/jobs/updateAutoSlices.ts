@@ -69,6 +69,8 @@ const updateSingleFactTableAutoSlices = async (
 
   const context = await getContextForAgendaJobByOrgId(organization);
 
+  if (!context.hasPremiumFeature("metric-slices")) return;
+
   const factTable = await getFactTable(context, factTableId);
   if (!factTable) return;
 
