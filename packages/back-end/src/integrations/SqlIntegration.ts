@@ -5427,7 +5427,7 @@ export default abstract class SqlIntegration
     start.setDate(start.getDate() - lookbackDays);
 
     // Generate a UNION ALL query for each column
-    const columnQueries = columns.map((column) => {
+    const columnQueries = columns.map((column, i) => {
       return `
     (${this.selectStarLimit(
       `(
@@ -5440,7 +5440,7 @@ export default abstract class SqlIntegration
           AND ${column.column} IS NOT NULL
         GROUP BY ${column.column}
         ORDER BY count DESC
-      )`,
+      ) c${i}`,
       limit,
     )})`;
     });
