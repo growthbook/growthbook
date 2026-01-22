@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
@@ -12,8 +13,7 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
-import { runColumnTopValuesQuery } from "./refreshFactTableColumns";
+import { runColumnsTopValuesQuery } from "./refreshFactTableColumns";
 
 const QUEUE_AUTO_SLICE_UPDATES = "queueAutoSliceUpdates";
 const UPDATE_SINGLE_FACT_TABLE_AUTO_SLICES = "updateSingleFactTableAutoSlices";
@@ -42,7 +42,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateJob = agenda.create(QUEUE_AUTO_SLICE_UPDATES, {});
     updateJob.unique({});
-    updateJob.repeatEvery(AUTO_SLICE_UPDATE_FREQUENCY_HOURS + " hours");
+    updateJob.repeatEvery(1 + " minutes");
     await updateJob.save();
   }
 
@@ -113,6 +113,8 @@ async function updateAutoSlicesForColumns(
     context.org.settings?.maxMetricSliceLevels ??
     DEFAULT_MAX_METRIC_SLICE_LEVELS;
 
+  // Collect columns that need auto-slice updates
+  const columnsNeedingUpdates: ColumnInterface[] = [];
   for (const col of columns) {
     // Skip boolean columns (they always use ["true", "false"])
     if (col.datatype === "boolean") continue;
@@ -124,34 +126,49 @@ async function updateAutoSlicesForColumns(
       !col.deleted &&
       canInlineFilterColumn(factTable, col.column)
     ) {
+      columnsNeedingUpdates.push(col);
+    }
+  }
+
+  // Batch query for all columns that need updates, chunked into groups of 10
+  // to prevent returning more than 1k rows per update (10 columns * 100 values = 1000 rows max per chunk)
+  if (columnsNeedingUpdates.length > 0) {
+    const columnChunks = chunk(columnsNeedingUpdates, 10);
+
+    for (const columnChunk of columnChunks) {
       try {
-        const topValues = await runColumnTopValuesQuery(
+        const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
           factTable,
-          col,
+          columnChunk,
         );
 
-        // Persist topValues and topValuesDate
-        col.topValues = topValues;
-        col.topValuesDate = new Date();
+        // Process results for each column
+        for (const col of columnChunk) {
+          const topValues = topValuesByColumn[col.column] || [];
 
-        // Update autoSlices with locked levels + new top values
-        const lockedLevels = col.lockedAutoSlices || [];
-        const autoSlices: string[] = [...lockedLevels];
-        for (const value of topValues) {
-          if (autoSlices.length >= maxSliceLevels) break;
-          if (!autoSlices.includes(value)) {
-            autoSlices.push(value);
+          // Persist topValues and topValuesDate
+          col.topValues = topValues;
+          col.topValuesDate = new Date();
+
+          // Update autoSlices with locked levels + new top values
+          const lockedLevels = col.lockedAutoSlices || [];
+          const autoSlices: string[] = [...lockedLevels];
+          for (const value of topValues) {
+            if (autoSlices.length >= maxSliceLevels) break;
+            if (!autoSlices.includes(value)) {
+              autoSlices.push(value);
+            }
           }
-        }
 
-        col.autoSlices = autoSlices;
-        col.dateUpdated = new Date();
+          col.autoSlices = autoSlices;
+          col.dateUpdated = new Date();
+        }
       } catch (e) {
-        logger.error(e, "Error updating auto-slices for column", {
+        logger.error(e, "Error updating auto-slices for columns", {
           factTableId: factTable.id,
-          column: col.column,
+          columns: columnChunk.map((c) => c.column),
         });
       }
     }

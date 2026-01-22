@@ -82,10 +82,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     setShouldForceOverwriteSlices(true); // Flag to force overwrite slices
     try {
       await apiCall(
-        `/fact-tables/${factTable.id}?forceColumnRefresh=1&dim=${existing.column}`,
+        `/fact-tables/${factTable.id}/column/${existing.column}/top-values`,
         {
-          method: "PUT",
-          body: JSON.stringify({}),
+          method: "POST",
         },
       );
       mutateDefinitions();

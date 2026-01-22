@@ -5406,18 +5406,44 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
-  public getColumnTopValuesQuery({
+  public getColumnsTopValuesQuery({
     factTable,
-    column,
+    columns,
     limit = 50,
     lookbackDays = 14,
   }: ColumnTopValuesParams) {
-    if (column.datatype !== "string") {
-      throw new Error(`Column ${column.column} is not a string column`);
+    if (columns.length === 0) {
+      throw new Error("At least one column is required");
+    }
+
+    // Validate all columns are string type
+    for (const column of columns) {
+      if (column.datatype !== "string") {
+        throw new Error(`Column ${column.column} is not a string column`);
+      }
     }
 
     const start = new Date();
     start.setDate(start.getDate() - lookbackDays);
+
+    // Generate a UNION ALL query for each column
+    const columnQueries = columns.map((column) => {
+      return `
+    (${this.selectStarLimit(
+      `(
+        SELECT
+          ${this.castToString(`'${column.column}'`)} AS column,
+          ${column.column} AS value,
+          COUNT(*) AS count
+        FROM __factTable
+        WHERE timestamp >= ${this.toTimestamp(start)}
+          AND ${column.column} IS NOT NULL
+        GROUP BY ${column.column}
+        ORDER BY count DESC
+      )`,
+      limit,
+    )})`;
+    });
 
     return format(
       `
@@ -5431,20 +5457,16 @@ WITH
     })}
   ),
   __topValues AS (
-    SELECT
-      ${column.column} AS value,
-      COUNT(*) AS count
-    FROM __factTable
-    WHERE timestamp >= ${this.toTimestamp(start)}
-    GROUP BY ${column.column}
+    ${columnQueries.join("\n    UNION ALL\n")}
   )
-${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
+SELECT * FROM __topValues
+ORDER BY column, count DESC
     `,
       this.getFormatDialect(),
     );
   }
 
-  public async runColumnTopValuesQuery(
+  public async runColumnsTopValuesQuery(
     sql: string,
   ): Promise<ColumnTopValuesResponse> {
     const { rows, statistics } = await this.runQuery(sql);
@@ -5452,6 +5474,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return {
       statistics,
       rows: rows.map((r) => ({
+        column: r.column + "",
         value: r.value + "",
         count: parseFloat(r.count),
       })),
