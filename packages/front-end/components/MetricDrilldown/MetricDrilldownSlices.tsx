@@ -74,7 +74,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const tableId = `${experimentId}_${metric.id}_slices`;
 
-  // Add state for sorting
   const [sortBy, setSortBy] = useState<
     "significance" | "change" | "metrics" | "metricTags" | null
   >(null);
@@ -82,34 +81,16 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     null,
   );
 
-  // Get the main row (non-slice row) for this metric
-  // Ensure it's a clean row without slice properties for proper rendering
   const mainRow = useMemo(() => {
-    const row = allRows.find((r) => !r.isSliceRow && r.metric.id === metric.id);
-    if (!row) return undefined;
+    return allRows.find((r) => !r.isSliceRow && r.metric.id === metric.id);
+  }, [allRows, metric.id]);
 
-    // Create a clean row to ensure it renders as a standard metric row
-    return {
-      ...row,
-      label: metric.name,
-      isSliceRow: false,
-      parentRowId: undefined,
-      sliceId: undefined,
-      sliceLevels: undefined,
-      allSliceLevels: undefined,
-      isHiddenByFilter: false,
-    } as ExperimentTableRow;
-  }, [allRows, metric.id, metric.name]);
-
-  // Filter to get slice rows for this metric
-  // Always show ALL slices in the modal regardless of expansion state in main table
   const sliceRows = useMemo(() => {
     return allRows.filter(
       (row) => row.isSliceRow && row.metric.id === metric.id,
     );
   }, [allRows, metric.id]);
 
-  // Filter slices based on search term (but not the main row)
   const filteredSliceRows = useMemo(() => {
     if (!searchTerm) return sliceRows;
 
@@ -121,7 +102,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     });
   }, [sliceRows, searchTerm]);
 
-  // Sort filtered slices based on sortBy and sortDirection
   const sortedSliceRows = useMemo(() => {
     if (!sortBy || !sortDirection) return filteredSliceRows;
 
@@ -169,7 +149,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   const hasSliceData = sliceRows.length > 0;
   const showEmptyState = !hasSliceData;
 
-  // Render upgrade callout for users without the feature
   if (!hasSliceData && !hasMetricSlicesFeature) {
     return (
       <Box mt="5">
@@ -183,7 +162,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     );
   }
 
-  // Render empty state
   if (showEmptyState) {
     return (
       <Box mt="7">
@@ -206,7 +184,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
     );
   }
 
-  // Render slices data with ResultsTable
   return (
     <Box mt="4">
       <Flex
@@ -283,7 +260,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         setSortBy={setSortBy}
         sortDirection={sortDirection}
         setSortDirection={setSortDirection}
-        initialVisibleTimeSeriesRowIds={visibleTimeSeriesRowIds}
+        visibleTimeSeriesRowIds={visibleTimeSeriesRowIds}
         onVisibleTimeSeriesRowIdsChange={setVisibleTimeSeriesRowIds}
         totalMetricsCount={rowsToRender.length}
       />

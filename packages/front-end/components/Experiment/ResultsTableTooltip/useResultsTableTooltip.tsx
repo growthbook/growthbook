@@ -51,16 +51,12 @@ export function useResultsTableTooltip({
   );
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
-  const [hoveredXViewport, setHoveredXViewport] = useState<number | null>(null);
-  const [hoveredYViewport, setHoveredYViewport] = useState<number | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
 
   const clearHover = () => {
     hideTooltip();
     setHoveredX(null);
     setHoveredY(null);
-    setHoveredXViewport(null);
-    setHoveredYViewport(null);
     setHoveredMetricRow(null);
     setHoveredVariationRow(null);
   };
@@ -211,8 +207,6 @@ export function useResultsTableTooltip({
     tooltipData: tooltipData as TooltipData,
     hoveredX,
     hoveredY,
-    hoveredXViewport,
-    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,

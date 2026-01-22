@@ -34,6 +34,7 @@ import {
   SetExperimentSortBy,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
+import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -177,8 +178,6 @@ const CompactResults: FC<{
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
   >({});
-  // Stable empty object for modal rows (all metrics expanded)
-  const emptyExpandedMetrics = useMemo(() => ({}), []);
   const toggleExpandedMetric = (
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
@@ -231,7 +230,7 @@ const CompactResults: FC<{
     customMetricSlices,
     metricTagFilter,
     metricsFilter,
-    sliceTagsFilter: undefined, // No slice filter for modal
+    sliceTagsFilter: undefined,
     sortBy,
     sortDirection,
     analysisBarSettings,
@@ -240,7 +239,7 @@ const CompactResults: FC<{
     settingsForSnapshotMetrics,
     shouldShowMetricSlices: true,
     enableExpansion: true,
-    expandedMetrics: emptyExpandedMetrics, // All metrics expanded for modal
+    expandedMetrics: {},
   });
 
   const expandedGoals = useMemo(
@@ -363,11 +362,9 @@ const CompactResults: FC<{
   }, [rows, hasSliceFilter, expandedMetrics]);
 
   const handleRowClick = (row: ExperimentTableRow) => {
-    // Always get the main (non-slice) metric row from unfilteredRows for proper data
+    // Get the main row that is not filtered for metric drilldown
     const metricId = row.isSliceRow ? row.parentRowId : row.metric.id;
-    const mainMetricRow = unfilteredRows.find(
-      (r) => !r.isSliceRow && r.metric.id === metricId,
-    );
+    const mainMetricRow = unfilteredRows.find((r) => r.metric.id === metricId);
 
     if (row.isSliceRow) {
       setOpenMetricDrilldownModalInfo({
@@ -785,7 +782,6 @@ export function getRenderLabelColumn({
               </div>
             ) : null}
             <span
-              className="metric-label-cell"
               style={{
                 lineHeight: "1.1em",
                 wordBreak: "break-word",
@@ -793,9 +789,15 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Text weight="bold">
+              <Text weight="bold" className={styles.metricLabel}>
+                {/* Ensure the external icon is never shown alone in a single line */}
                 {typeof label === "string" ? (
-                  <>
+                  <Link
+                    color="dark"
+                    weight="bold"
+                    href={getMetricLink(metric.id)}
+                    target="_blank"
+                  >
                     {label.includes(" ")
                       ? label.slice(0, label.lastIndexOf(" ") + 1)
                       : ""}
@@ -812,41 +814,34 @@ export function getRenderLabelColumn({
                           }}
                         />
                       ) : null}
-                      <a
-                        href={getMetricLink(metric.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <PiArrowSquareOut
                         className={styles.metricExternalLink}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <PiArrowSquareOut size={14} />
-                      </a>
+                        size={14}
+                      />
                     </span>
-                  </>
+                  </Link>
                 ) : (
-                  <>
+                  <Link
+                    color="dark"
+                    weight="bold"
+                    href={getMetricLink(metric.id)}
+                    target="_blank"
+                  >
                     {label}
-                    <span className={styles.metricLabelLastWord}>
-                      {metric.managedBy ? (
-                        <HiBadgeCheck
-                          style={{
-                            marginTop: "-2px",
-                            marginLeft: "2px",
-                            color: "var(--blue-11)",
-                          }}
-                        />
-                      ) : null}
-                      <a
-                        href={getMetricLink(metric.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.metricExternalLink}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <PiArrowSquareOut size={14} />
-                      </a>
-                    </span>
-                  </>
+                    {metric.managedBy ? (
+                      <HiBadgeCheck
+                        style={{
+                          marginTop: "-2px",
+                          marginLeft: "2px",
+                          color: "var(--blue-11)",
+                        }}
+                      />
+                    ) : null}
+                    <PiArrowSquareOut
+                      className={styles.metricExternalLink}
+                      size={14}
+                    />
+                  </Link>
                 )}
               </Text>
             </span>

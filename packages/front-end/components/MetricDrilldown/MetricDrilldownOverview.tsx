@@ -76,19 +76,6 @@ function MetricDrilldownOverview({
         ? "Secondary Metric"
         : "Guardrail Metric";
 
-  // Create a clean row without slice-specific properties for the overview
-  // This ensures the metric is always rendered as a standard metric row, not as a slice
-  const cleanRow: ExperimentTableRow = {
-    ...row,
-    label: metric.name, // Use metric name instead of potentially being a slice label
-    isSliceRow: false,
-    parentRowId: undefined,
-    sliceId: undefined,
-    sliceLevels: undefined,
-    allSliceLevels: undefined,
-    isHiddenByFilter: false,
-  };
-
   return (
     <Flex direction="column" gap="6">
       <ResultsTable
@@ -104,7 +91,7 @@ function MetricDrilldownOverview({
         setBaselineRow={setLocalBaselineRow}
         variationFilter={localVariationFilter}
         setVariationFilter={setLocalVariationFilter}
-        rows={[cleanRow]}
+        rows={[row]}
         id={tableId}
         resultGroup={resultGroup}
         tableRowAxis="metric"
@@ -124,7 +111,7 @@ function MetricDrilldownOverview({
         noTooltip={false}
         isBandit={false}
         isHoldout={false}
-        forceTimeSeriesVisible={true}
+        visibleTimeSeriesRowIds={[`${tableId}-${metric.id}-0`]}
       />
 
       <Flex direction="column" gap="2">

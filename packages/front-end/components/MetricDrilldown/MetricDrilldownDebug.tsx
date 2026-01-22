@@ -1,7 +1,9 @@
 import { FC, useMemo } from "react";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
+  BayesianTestResult,
   DifferenceType,
+  FrequentistTestResult,
   StatsEngine,
   PValueCorrection,
 } from "shared/types/stats";
@@ -25,7 +27,6 @@ interface MetricDrilldownDebugProps {
   setBaselineRow: (baseline: number) => void;
   variationFilter?: number[];
   setVariationFilter: (filter: number[] | undefined) => void;
-  // Props needed for ResultsTable
   experimentId: string;
   phase: number;
   variations: ExperimentReportVariation[];
@@ -38,10 +39,7 @@ interface MetricDrilldownDebugProps {
   experimentStatus: ExperimentStatus;
 }
 
-/**
- * Create a label with metric name and description using Flex layout
- */
-function createRowLabel(metricName: string, description: string) {
+function createRowLabel(description: string) {
   return (
     <Flex direction="column" gap="1" ml="2">
       <Text weight="medium">{description}</Text>
@@ -50,7 +48,7 @@ function createRowLabel(metricName: string, description: string) {
 }
 
 /**
- * Create a row with variations overridden by supplemental results
+ * Create a ExperimentTableRow with data overridden by supplemental results
  */
 function createSupplementalRow(
   baseRow: ExperimentTableRow,
@@ -59,12 +57,13 @@ function createSupplementalRow(
 ): ExperimentTableRow {
   const newVariations = baseRow.variations.map((variation) => {
     const supplemental = variation[supplementalField] as
-      | SnapshotMetric
-      | undefined;
+      | BayesianTestResult
+      | FrequentistTestResult;
+
     if (!supplemental) {
       return variation;
     }
-    // Merge supplemental results over the original variation
+
     return {
       ...variation,
       ...supplemental,
@@ -73,7 +72,7 @@ function createSupplementalRow(
 
   return {
     ...baseRow,
-    label: createRowLabel(baseRow.metric.name, description),
+    label: createRowLabel(description),
     variations: newVariations,
   };
 }
@@ -99,11 +98,9 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
-  // Generate rows for Variance Reduction Comparison (CUPED + Post-stratification matrix)
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
 
-    // Check if we have supplemental results (only check non-baseline variations)
     const hasCupedUnadjusted = row.variations.some(
       (v, i) => i > baselineRow && v.supplementalResultsCupedUnadjusted,
     );
@@ -114,18 +111,12 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       (v, i) => i > baselineRow && v.supplementalResultsNoVarianceReduction,
     );
 
-    // If no supplemental data exists, don't render the table
     if (!hasCupedUnadjusted && !hasUnstratified && !hasNoVarianceReduction) {
       return [];
     }
 
-    // Determine what's enabled based on supplemental data existence
-    // If CUPED unadjusted exists, CUPED was on for the default
     const cupedEnabled = hasCupedUnadjusted || hasNoVarianceReduction;
 
-    // Check for post-stratification in two ways:
-    // 1. Check realizedSettings (if backend provides it)
-    // 2. Infer from hasUnstratified (if unstratified supplemental exists, post-strat was on for default)
     const postStratFromRealizedSettings = row.variations.some(
       (v, i) =>
         i > baselineRow && v.realizedSettings?.postStratificationApplied,
@@ -137,23 +128,18 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
 
     const rows: ExperimentTableRow[] = [];
 
-    // Build description for the default row
     const defaultDescParts: string[] = [];
     if (cupedEnabled) defaultDescParts.push("CUPED On");
     if (postStratEnabled) defaultDescParts.push("Post-stratification On");
     const defaultDesc =
       defaultDescParts.length > 0 ? defaultDescParts.join(", ") : "Default";
 
-    // Main row (default settings)
     rows.push({
       ...row,
-      label: createRowLabel(metric.name, defaultDesc),
+      label: createRowLabel(defaultDesc),
     });
 
-    // Add rows based on what's enabled
     if (cupedEnabled && postStratEnabled) {
-      // Both enabled: show matrix of 4 rows
-      // CUPED off, Post-strat on
       if (hasCupedUnadjusted) {
         rows.push(
           createSupplementalRow(
@@ -163,7 +149,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           ),
         );
       }
-      // CUPED on, Post-strat off
+
       if (hasUnstratified) {
         rows.push(
           createSupplementalRow(
@@ -173,7 +159,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           ),
         );
       }
-      // CUPED off, Post-strat off
+
       if (hasNoVarianceReduction) {
         rows.push(
           createSupplementalRow(
@@ -184,7 +170,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
         );
       }
     } else if (cupedEnabled) {
-      // Only CUPED enabled: show CUPED on/off
       if (hasCupedUnadjusted) {
         rows.push(
           createSupplementalRow(
@@ -195,7 +180,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
         );
       }
     } else if (postStratEnabled) {
-      // Only Post-strat enabled: show Post-strat on/off
       if (hasUnstratified) {
         rows.push(
           createSupplementalRow(
@@ -208,71 +192,59 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     }
 
     return rows;
-  }, [row, metric.name, baselineRow]);
+  }, [row, baselineRow]);
 
-  // Generate rows for Bayesian Prior comparison
   const priorRows = useMemo(() => {
     if (!row) return [];
 
-    // Check if we have flat prior results (only check non-baseline variations)
     const hasFlatPrior = row.variations.some(
       (v, i) => i > baselineRow && v.supplementalResultsFlatPrior,
     );
 
-    // Only show comparison if we have supplemental data
     if (!hasFlatPrior) return [];
 
     const rows: ExperimentTableRow[] = [];
 
-    // Main row with Proper Prior
     rows.push({
       ...row,
-      label: createRowLabel(metric.name, "Proper Prior"),
+      label: createRowLabel("Proper Prior"),
     });
 
-    // Add Flat Prior comparison row
     rows.push(
       createSupplementalRow(row, "Flat Prior", "supplementalResultsFlatPrior"),
     );
 
     return rows;
-  }, [row, metric.name, baselineRow]);
+  }, [row, baselineRow]);
 
-  // Generate rows for Capping comparison
   const cappingRows = useMemo(() => {
     if (!row) return [];
 
-    // Check if we have uncapped results (only check non-baseline variations)
     const hasUncapped = row.variations.some(
       (v, i) => i > baselineRow && v.supplementalResultsUncapped,
     );
 
-    // Only show comparison if we have supplemental data
     if (!hasUncapped) return [];
 
     const rows: ExperimentTableRow[] = [];
 
-    // Main row with Capped
     rows.push({
       ...row,
-      label: createRowLabel(metric.name, "Capped"),
+      label: createRowLabel("Capped"),
     });
 
-    // Add Uncapped comparison row
     rows.push(
       createSupplementalRow(row, "Uncapped", "supplementalResultsUncapped"),
     );
 
     return rows;
-  }, [row, metric.name, baselineRow]);
+  }, [row, baselineRow]);
 
-  // Check if any supplemental data is available
   const hasAnySupplementalData =
     varianceReductionRows.length > 0 ||
     priorRows.length > 0 ||
     cappingRows.length > 0;
 
-  // If row is not available, don't render
   if (!row) {
     return null;
   }

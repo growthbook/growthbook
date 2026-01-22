@@ -1,17 +1,18 @@
-// Show metric external link icon on row hover
-:global(.results-group-row):hover .metricExternalLink {
-  visibility: visible !important;
-}
+.metricLabel {
+  .metricExternalLink {
+    visibility: hidden;
+    position: relative;
+    margin-left: 4px;
+    top: -1px;
+  }
 
-.metricExternalLink {
-  visibility: hidden;
-  margin-left: 4px;
-  position: relative;
-  top: -1px;
+  &:hover {
+    .metricExternalLink {
+      visibility: visible;
+    }
+  }
 }
 
 .metricLabelLastWord {
   white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
 }

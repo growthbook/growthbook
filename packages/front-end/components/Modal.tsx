@@ -406,8 +406,6 @@ const Modal: FC<ModalProps> = ({
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
       onClick={(e) => {
-        // Only trigger backdrop click if clicking directly on the modal backdrop,
-        // not on any child elements (modal content, tooltips, etc.)
         if (onBackdropClick && e.target === e.currentTarget) {
           onBackdropClick();
         }

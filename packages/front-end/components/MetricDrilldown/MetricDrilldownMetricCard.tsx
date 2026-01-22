@@ -102,7 +102,6 @@ function buildNumeratorData(
     },
   ];
 
-  // Row Filter
   if (factMetric.numerator.rowFilters?.length) {
     data.push({
       label: "Row Filter",
@@ -115,7 +114,6 @@ function buildNumeratorData(
     });
   }
 
-  // Value (for non-binomial metrics)
   if (!isBinomialMetric(factMetric)) {
     data.push({
       label: "Value",
@@ -123,7 +121,6 @@ function buildNumeratorData(
     });
   }
 
-  // Per-User Aggregation or User Filter
   if (
     !factMetric.numerator.column.startsWith("$$") &&
     (factMetric.metricType !== "quantile" ||
@@ -140,7 +137,6 @@ function buildNumeratorData(
     });
   }
 
-  // Quantile settings
   if (factMetric.metricType === "quantile") {
     data.push({
       label: "Quantile Scope",
@@ -178,7 +174,6 @@ function buildDenominatorData(
     },
   ];
 
-  // Row Filter
   if (factMetric.denominator.rowFilters?.length) {
     data.push({
       label: "Row Filter",
@@ -191,13 +186,11 @@ function buildDenominatorData(
     });
   }
 
-  // Value
   data.push({
     label: "Value",
     value: getColumnDisplayValue(factMetric.denominator.column),
   });
 
-  // Per-User Aggregation
   if (!factMetric.denominator.column.startsWith("$$")) {
     data.push({
       label: "Per-User Aggregation",
@@ -213,8 +206,6 @@ export default function MetricDrilldownMetricCard({
   type,
 }: MetricDrilldownMetricCardProps) {
   const { getFactTableById } = useDefinitions();
-
-  // Only support FactMetrics for now
   if (!isFactMetric(metric)) {
     return null;
   }
@@ -222,24 +213,20 @@ export default function MetricDrilldownMetricCard({
   const factMetric = metric;
   const isRatio = isRatioMetric(factMetric);
 
-  // Get fact tables
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
     factMetric.denominator?.factTableId || "",
   );
 
-  // Build data based on type
   const data =
     type === "numerator"
       ? buildNumeratorData(factMetric, factTable)
       : buildDenominatorData(factMetric, denominatorFactTable);
 
-  // Don't render if no data (e.g., denominator for non-ratio metric)
   if (data.length === 0) {
     return null;
   }
 
-  // Header: "Numerator" for ratio metrics, "Metric Details" for non-ratio
   const header =
     type === "numerator" ? (isRatio ? "Numerator" : null) : "Denominator";
 

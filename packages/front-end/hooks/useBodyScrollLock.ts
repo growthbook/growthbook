@@ -24,7 +24,7 @@ export function useBodyScrollLock(isLocked: boolean): void {
     // Lock scroll
     document.body.style.overflow = "hidden";
 
-    // Cleanup: restore original overflow on unmount or when isLocked changes
+    // Restore original overflow on unmount or when isLocked changes
     return () => {
       document.body.style.overflow = originalOverflow;
     };

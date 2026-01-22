@@ -37,7 +37,7 @@ interface TestResult {
     mean?: number;
     stddev?: number;
   };
-  ci?: [number | null, number | null];
+  ci?: [number, number];
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
   // Added later to gbstats model, leave as undefined

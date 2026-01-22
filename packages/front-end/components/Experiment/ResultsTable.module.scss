@@ -1,3 +1,18 @@
+.clickableRow {
+  cursor: pointer;
+  transition:
+    box-shadow 0.1s ease-in-out,
+    border-radius 0.1s ease-in-out;
+
+  &:hover {
+    box-shadow: var(--shadow-3);
+
+    :global(> tr:last-of-type:not(.slice-expanded):not(.slice-expanded)) {
+      box-shadow: none;
+    }
+  }
+}
+
 .timeSeriesCell {
   padding: 0;
   padding-bottom: 0.75rem;

@@ -72,9 +72,12 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   allRows = [],
   initialSliceSearchTerm,
 }) => {
+  useKeydown("Escape", close);
+  useBodyScrollLock(true);
+
   const { metric } = row;
 
-  // Create local state for filters that can be modified within the modal
+  // Local filters that start from parent status, but then are managed locally
   const [localBaselineRow, setLocalBaselineRow] = useState(baselineRow);
   const [localVariationFilter, setLocalVariationFilter] = useState<
     number[] | undefined
@@ -82,7 +85,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
   const [localDifferenceType, setLocalDifferenceType] =
     useState<DifferenceType>(differenceType);
 
-  // Local state for Slices tab (persists across tab switches)
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
@@ -91,9 +93,7 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
       // Auto-expand first slice timeseries when opened from a slice click
       // Only if initialTab is "slices" and we have an initial search term
       if (initialTab === "slices" && initialSliceSearchTerm) {
-        // Compute the row ID based on the expected structure
         const tableId = `${experimentId}_${metric.id}_slices`;
-        // We'll need to find the matching row from allRows
         const matchingRow = allRows.find(
           (r) =>
             r.isSliceRow &&
@@ -110,9 +110,6 @@ const MetricDrilldownModal: FC<MetricDrilldownModalProps> = ({
       }
       return [];
     });
-
-  useKeydown("Escape", close);
-  useBodyScrollLock(true);
 
   return (
     <Tabs defaultValue={initialTab}>

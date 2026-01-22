@@ -38,6 +38,7 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
+import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -118,7 +119,6 @@ export type ResultsTableProps = {
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
   showTimeSeriesButton?: boolean;
-  forceTimeSeriesVisible?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   sortBy?: ExperimentSortBy;
@@ -134,7 +134,7 @@ export type ResultsTableProps = {
   mutate?: () => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
-  initialVisibleTimeSeriesRowIds?: string[];
+  visibleTimeSeriesRowIds?: string[];
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
 };
 
@@ -187,8 +187,7 @@ export default function ResultsTable({
   noTooltip,
   isBandit,
   ssrPolyfills,
-  showTimeSeriesButton = false,
-  forceTimeSeriesVisible = false,
+  showTimeSeriesButton: showTimeSeriesButtonProp = false,
   columnsFilter,
   isHoldout,
   sortBy,
@@ -202,7 +201,7 @@ export default function ResultsTable({
   mutate,
   setDifferenceType,
   totalMetricsCount,
-  initialVisibleTimeSeriesRowIds = [],
+  visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
   onVisibleTimeSeriesRowIdsChange,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
@@ -316,19 +315,20 @@ export default function ResultsTable({
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
 
-  // Force disabling of time series button for stopped experiments before we added this feature (& therefore data)
-  if (status === "stopped" && endDate <= "2025-04-03") {
-    showTimeSeriesButton = false;
-  }
+  const { isAuthenticated } = useAuth();
 
-  const [visibleTimeSeriesRowIds, setVisibleTimeSeriesRowIds] = useState<
-    string[]
-  >(initialVisibleTimeSeriesRowIds);
+  const isControlled = visibleTimeSeriesRowIdsProp !== undefined;
+  const [internalVisibleTimeSeriesRowIds, setInternalVisibleTimeSeriesRowIds] =
+    useState<string[]>(visibleTimeSeriesRowIdsProp ?? []);
 
-  // Track which rows were initially visible (to skip animation for them)
+  const visibleTimeSeriesRowIds = isControlled
+    ? visibleTimeSeriesRowIdsProp
+    : internalVisibleTimeSeriesRowIds;
+
+  // Track which rows were initially visible to skip animation for them
   // This will be cleared when user toggles so animation works for user interactions
   const initiallyVisibleRowIdsRef = useRef(
-    new Set(initialVisibleTimeSeriesRowIds),
+    new Set(visibleTimeSeriesRowIdsProp),
   );
 
   const toggleVisibleTimeSeriesRowId = (rowId: string) => {
@@ -336,23 +336,25 @@ export default function ResultsTable({
     if (initiallyVisibleRowIdsRef.current.size > 0) {
       initiallyVisibleRowIdsRef.current.clear();
     }
-    setVisibleTimeSeriesRowIds((prev) => {
-      const newIds = prev.includes(rowId)
-        ? prev.filter((id) => id !== rowId)
-        : [...prev, rowId];
-      // Notify parent of the change so it can persist state across tab switches
-      onVisibleTimeSeriesRowIdsChange?.(newIds);
-      return newIds;
-    });
+
+    const newIds = visibleTimeSeriesRowIds.includes(rowId)
+      ? visibleTimeSeriesRowIds.filter((id) => id !== rowId)
+      : [...visibleTimeSeriesRowIds, rowId];
+
+    if (isControlled && onVisibleTimeSeriesRowIdsChange) {
+      onVisibleTimeSeriesRowIdsChange(newIds);
+    } else {
+      setInternalVisibleTimeSeriesRowIds(newIds);
+    }
   };
 
   // Ensure we close all of them if dimension changes
   useEffect(() => {
-    if (initialVisibleTimeSeriesRowIds.length > 0) {
+    if (isControlled) {
       return;
     }
-    setVisibleTimeSeriesRowIds([]);
-  }, [tableRowAxis, initialVisibleTimeSeriesRowIds.length]);
+    setInternalVisibleTimeSeriesRowIds([]);
+  }, [tableRowAxis, isControlled]);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -517,8 +519,6 @@ export default function ResultsTable({
     tooltipData,
     hoveredX,
     hoveredY,
-    hoveredXViewport,
-    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,
@@ -580,8 +580,8 @@ export default function ResultsTable({
       >
         <div>
           <ResultsTableTooltip
-            left={hoveredXViewport ?? hoveredX ?? 0}
-            top={hoveredYViewport ?? hoveredY ?? 0}
+            left={hoveredX ?? 0}
+            top={hoveredY ?? 0}
             data={tooltipData}
             tooltipOpen={tooltipOpen}
             close={closeTooltip}
@@ -796,6 +796,18 @@ export default function ResultsTable({
             </thead>
 
             {rows.map((row, i) => {
+              let showTimeSeriesButton =
+                showTimeSeriesButtonProp &&
+                isAuthenticated &&
+                baselineRow === 0 &&
+                (tableRowAxis === "metric" ||
+                  (tableRowAxis === "dimension" && row.isSliceRow));
+
+              // Force disabling of time series button for stopped experiments before we added this feature (& therefore data)
+              if (status === "stopped" && endDate <= "2025-04-03") {
+                showTimeSeriesButton = false;
+              }
+
               const baseline = row.variations[baselineRow] || {
                 value: 0,
                 cr: 0,
@@ -808,15 +820,12 @@ export default function ResultsTable({
                 ? `${id}-${row.metric.id}-${row.sliceId}`
                 : `${id}-${row.metric.id}-${i}`;
 
-              const timeSeriesButton =
-                showTimeSeriesButton &&
-                !forceTimeSeriesVisible &&
-                !(tableRowAxis === "dimension" && !row.isSliceRow) ? (
-                  <TimeSeriesButton
-                    onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
-                    isActive={visibleTimeSeriesRowIds.includes(rowId)}
-                  />
-                ) : null;
+              const timeSeriesButton = showTimeSeriesButton ? (
+                <TimeSeriesButton
+                  onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
+                  isActive={visibleTimeSeriesRowIds.includes(rowId)}
+                />
+              ) : null;
 
               const includedLabelColumns = columnsToDisplay.filter((col) =>
                 [
@@ -836,11 +845,9 @@ export default function ResultsTable({
                       <tbody
                         className={clsx("results-group-row", {
                           "slice-row": row.isSliceRow,
+                          [styles.clickableRow]: !!onRowClick,
                         })}
                         key={`${rowId}-tbody`}
-                        style={{
-                          cursor: onRowClick ? "pointer" : undefined,
-                        }}
                         onClick={
                           onRowClick
                             ? (e) => {
@@ -912,7 +919,6 @@ export default function ResultsTable({
                         })()}
 
                         {!row.labelOnly &&
-                          // tbody with key={`${i}-variations`}
                           orderedVariations.map((v, j) => {
                             const stats = row.variations[v.index] || {
                               value: 0,
@@ -1314,10 +1320,8 @@ export default function ResultsTable({
                               </tr>
                             );
                           })}
-
                         {!row.labelOnly &&
-                          (forceTimeSeriesVisible ||
-                            visibleTimeSeriesRowIds.includes(rowId)) && (
+                          visibleTimeSeriesRowIds.includes(rowId) && (
                             <tr
                               style={
                                 !row.isSliceRow
@@ -1331,7 +1335,6 @@ export default function ResultsTable({
                               >
                                 <div
                                   className={
-                                    forceTimeSeriesVisible ||
                                     initiallyVisibleRowIdsRef.current.has(rowId)
                                       ? undefined
                                       : styles.expandAnimation
