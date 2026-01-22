@@ -22,6 +22,7 @@ import { Flex, Text } from "@radix-ui/themes";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -70,6 +71,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const [shouldForceOverwriteSlices, setShouldForceOverwriteSlices] =
     useState(false);
   const [newSliceValue, setNewSliceValue] = useState("");
+  const [showAddSliceInput, setShowAddSliceInput] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -719,11 +721,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
                   {factTable.autoSliceUpdatesEnabled ? (
                     <div className="mt-2">
-                      {(existing?.topValues || []).length === 0 && (
-                        <HelperText status="warning" size="sm" mb="1">
+                      {(existing?.topValues || []).length === 0 &&
+                      existing?.topValuesDate ? (
+                        <HelperText status="warning" mb="1">
                           No slices returned from top values query
                         </HelperText>
-                      )}
+                      ) : null}
                       <table className="table table-tiny gbtable mb-0">
                         <tbody>
                           {(form.watch("autoSlices") || []).map((slice) => {
@@ -738,11 +741,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                 <td>{slice}</td>
                                 <td style={{ width: "110px" }}>
                                   {!isInTopValues && (
-                                    <Text size="1">Not a top value</Text>
+                                    <Text size="1" color="gray">
+                                      Not a top value
+                                    </Text>
                                   )}
                                 </td>
                                 <td style={{ width: "70px" }}>
-                                  <div style={{ marginTop: "2px" }}>
+                                  <div style={{ marginTop: "1px" }}>
                                     <Checkbox
                                       label={<Text size="1">Lock</Text>}
                                       weight="regular"
@@ -791,68 +796,84 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                           })}
                         </tbody>
                       </table>
-                      <Flex mt="2" gap="2" align="center">
-                        <div style={{ flex: 1 }}>
-                          <Field
-                            style={{ height: 28 }}
-                            value={newSliceValue}
-                            onChange={(e) => setNewSliceValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const trimmed = newSliceValue.trim();
-                                if (trimmed) {
-                                  const currentSlices =
-                                    form.watch("autoSlices") || [];
-                                  const currentLocked =
-                                    form.watch("lockedAutoSlices") || [];
-                                  if (!currentSlices.includes(trimmed)) {
-                                    form.setValue("autoSlices", [
-                                      ...currentSlices,
-                                      trimmed,
-                                    ]);
-                                    form.setValue("lockedAutoSlices", [
-                                      ...currentLocked,
-                                      trimmed,
-                                    ]);
-                                    setNewSliceValue("");
+                      {!showAddSliceInput ? (
+                        <Link
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowAddSliceInput(true);
+                          }}
+                          mt="2"
+                        >
+                          <Flex align="center" gap="1">
+                            <PiPlus />
+                            <Text weight="medium">Add slices manually</Text>
+                          </Flex>
+                        </Link>
+                      ) : (
+                        <Flex mt="2" gap="2" align="center">
+                          <div style={{ flex: 1 }}>
+                            <Field
+                              style={{ height: 28 }}
+                              value={newSliceValue}
+                              onChange={(e) => setNewSliceValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const trimmed = newSliceValue.trim();
+                                  if (trimmed) {
+                                    const currentSlices =
+                                      form.watch("autoSlices") || [];
+                                    const currentLocked =
+                                      form.watch("lockedAutoSlices") || [];
+                                    if (!currentSlices.includes(trimmed)) {
+                                      form.setValue("autoSlices", [
+                                        ...currentSlices,
+                                        trimmed,
+                                      ]);
+                                      form.setValue("lockedAutoSlices", [
+                                        ...currentLocked,
+                                        trimmed,
+                                      ]);
+                                      setNewSliceValue("");
+                                    }
                                   }
+                                }
+                              }}
+                              placeholder="Enter slice..."
+                              containerClassName="mb-0"
+                              autoFocus
+                            />
+                          </div>
+                          <RadixButton
+                            size="sm"
+                            variant="ghost"
+                            ml="2"
+                            style={{ height: 28 }}
+                            onClick={() => {
+                              const trimmed = newSliceValue.trim();
+                              if (trimmed) {
+                                const currentSlices =
+                                  form.watch("autoSlices") || [];
+                                const currentLocked =
+                                  form.watch("lockedAutoSlices") || [];
+                                if (!currentSlices.includes(trimmed)) {
+                                  form.setValue("autoSlices", [
+                                    ...currentSlices,
+                                    trimmed,
+                                  ]);
+                                  form.setValue("lockedAutoSlices", [
+                                    ...currentLocked,
+                                    trimmed,
+                                  ]);
+                                  setNewSliceValue("");
                                 }
                               }
                             }}
-                            placeholder="Enter slice..."
-                            containerClassName="mb-0"
-                          />
-                        </div>
-                        <RadixButton
-                          size="sm"
-                          variant="ghost"
-                          ml="2"
-                          style={{ height: 28 }}
-                          onClick={() => {
-                            const trimmed = newSliceValue.trim();
-                            if (trimmed) {
-                              const currentSlices =
-                                form.watch("autoSlices") || [];
-                              const currentLocked =
-                                form.watch("lockedAutoSlices") || [];
-                              if (!currentSlices.includes(trimmed)) {
-                                form.setValue("autoSlices", [
-                                  ...currentSlices,
-                                  trimmed,
-                                ]);
-                                form.setValue("lockedAutoSlices", [
-                                  ...currentLocked,
-                                  trimmed,
-                                ]);
-                                setNewSliceValue("");
-                              }
-                            }
-                          }}
-                        >
-                          Add
-                        </RadixButton>
-                      </Flex>
+                          >
+                            Add
+                          </RadixButton>
+                        </Flex>
+                      )}
                     </div>
                   ) : (
                     <>
