@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.6.3** - Jan 20, 2026
+## **1.6.3** - Jan 22, 2026
 
 - Add support for case-insensitive regex targeting: `$regexi`
 
