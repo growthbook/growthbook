@@ -10,7 +10,7 @@ import {
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
-import { AgreementType } from "shared/validators";
+import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import {
@@ -27,13 +27,6 @@ import {
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
-import {
-  deleteLegacySdkWebhookById,
-  deleteSdkWebhookById,
-  findAllLegacySdkWebhooks,
-  findSdkWebhookById,
-  updateSdkWebhook,
-} from "back-end/src/models/WebhookModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -85,7 +78,6 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getAllSavedGroupsWithoutValues } from "back-end/src/models/SavedGroupModel";
 import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
@@ -187,7 +179,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
     getAllTags(orgId),
-    getAllSavedGroupsWithoutValues(orgId),
+    context.models.savedGroups.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
@@ -1777,7 +1769,7 @@ export async function postApiKeyReveal(
 
 export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const webhooks = await findAllLegacySdkWebhooks(context);
+  const webhooks = await context.models.sdkWebhooks.findAllLegacySdkWebhooks();
 
   res.status(200).json({
     status: 200,
@@ -1794,7 +1786,7 @@ export async function testSDKWebhook(
   const webhookId = req.params.id;
 
   const context = getContextFromReq(req);
-  const webhook = await findSdkWebhookById(context, webhookId);
+  const webhook = await context.models.sdkWebhooks.getById(webhookId);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
@@ -1823,7 +1815,7 @@ export async function putSDKWebhook(
   const context = getContextFromReq(req);
 
   const { id } = req.params;
-  const webhook = await findSdkWebhookById(context, id);
+  const webhook = await context.models.sdkWebhooks.getById(id);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
@@ -1837,7 +1829,10 @@ export async function putSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
+  const updatedWebhook = await context.models.sdkWebhooks.update(
+    webhook,
+    updateSdkWebhookValidator.parse(req.body),
+  );
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {
@@ -1859,7 +1854,7 @@ export async function deleteLegacyWebhook(
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-  await deleteLegacySdkWebhookById(context, id);
+  await context.models.sdkWebhooks.deleteLegacySdkWebhookById(id);
 
   res.status(200).json({
     status: 200,
@@ -1873,7 +1868,7 @@ export async function deleteSDKWebhook(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const webhook = await findSdkWebhookById(context, id);
+  const webhook = await context.models.sdkWebhooks.getById(id);
   if (webhook) {
     // It's ok if conns is empty here
     // We still want to allow deleting orphaned webhooks
@@ -1883,7 +1878,7 @@ export async function deleteSDKWebhook(
     }
   }
 
-  await deleteSdkWebhookById(context, id);
+  await context.models.sdkWebhooks.deleteById(id);
 
   res.status(200).json({
     status: 200,

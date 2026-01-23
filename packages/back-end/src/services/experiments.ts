@@ -9,6 +9,7 @@ import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -78,16 +79,10 @@ import {
   ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
-  SnapshotVariation,
   SnapshotBanditSettings,
   DimensionForSnapshot,
 } from "shared/types/experiment-snapshot";
-import {
-  Condition,
-  MetricInterface,
-  MetricStats,
-  Operator,
-} from "shared/types/metric";
+import { Condition, MetricInterface, Operator } from "shared/types/metric";
 import {
   Changeset,
   ExperimentInterface,
@@ -106,11 +101,7 @@ import {
   ExperimentReportAnalysisSettings,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import {
-  StatsEngine,
-  MetricSettingsForStatsEngine,
-  QueryResultsForStatsEngine,
-} from "shared/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -125,7 +116,6 @@ import {
   getMetricsByIds,
   insertMetric,
 } from "back-end/src/models/MetricModel";
-import { checkSrm, sumSquaresFromStats } from "back-end/src/util/stats";
 import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
@@ -157,7 +147,7 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { getMetricForSnapshot } from "./reports";
 import { validateIncrementalPipeline } from "./dataPipeline";
 import {
   getIntegrationFromDatasourceId,
@@ -166,9 +156,7 @@ import {
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
-  getMetricSettingsForStatsEngine,
   runSnapshotAnalyses,
-  runSnapshotAnalysis,
   writeSnapshotAnalyses,
 } from "./stats";
 import {
@@ -285,110 +273,31 @@ export async function refreshMetric(
   }
 }
 
-export async function getManualSnapshotData(
-  experiment: ExperimentInterface,
-  snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  phaseIndex: number,
-  users: number[],
-  metrics: {
-    [key: string]: MetricStats[];
-  },
-  metricMap: Map<string, ExperimentMetricInterface>,
-) {
-  const phase = experiment.phases[phaseIndex];
-
-  // Default variation values, override from SQL results if available
-  const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
-    users: users[i],
-    metrics: {},
-  }));
-
-  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
-  const queryResults: QueryResultsForStatsEngine[] = [];
-  Object.keys(metrics).forEach((m) => {
-    const stats = metrics[m];
-    const metric = metricMap.get(m);
-    if (!metric) return null;
-    metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap, snapshotSettings),
-      // no ratio or regression adjustment for manual snapshots
-      statistic_type: "mean",
-    };
-    queryResults.push({
-      rows: stats.map((s, i) => {
-        return {
-          dimension: "All",
-          variation: experiment.variations[i].key || i + "",
-          users: s.count,
-          count: s.count,
-          main_sum: s.mean * s.count,
-          main_sum_squares: sumSquaresFromStats(
-            s.mean * s.count,
-            Math.pow(s.stddev, 2),
-            s.count,
-          ),
-        };
-      }),
-      metrics: [m],
-    });
-  });
-
-  const { results } = await runSnapshotAnalysis({
-    id: experiment.id,
-    variations: getReportVariations(experiment, phase),
-    phaseLengthHours: Math.max(
-      hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
-      1,
-    ),
-    coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
-    analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
-    metrics: metricSettings,
-    queryResults: queryResults,
-  });
-
-  results.forEach(({ metric, analyses }) => {
-    const res = analyses[0];
-    const data = res.dimensions[0];
-    if (!data) return;
-
-    // If the value inside the ci is null from gbstats
-    // it actually means Infinity, so handle that case
-    data.variations.map((v, i) => {
-      const ci: [number, number] | undefined = v.ci
-        ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
-        : undefined;
-      variations[i].metrics[metric] = {
-        ...v,
-        ci,
-      };
-    });
-  });
-
-  const srm = checkSrm(users, phase.variationWeights);
-
-  return {
-    srm,
-    variations,
-  };
-}
-
-export function getDefaultExperimentAnalysisSettings(
-  statsEngine: StatsEngine,
-  experiment: ExperimentInterface | ExperimentReportAnalysisSettings,
-  organization: OrganizationInterface,
-  regressionAdjustmentEnabled?: boolean,
-  dimension?: string,
-): ExperimentSnapshotAnalysisSettings {
+export function getDefaultExperimentAnalysisSettings({
+  statsEngine,
+  experiment,
+  organization,
+  regressionAdjustmentEnabled,
+  postStratificationEnabled,
+  dimension,
+}: {
+  statsEngine: StatsEngine;
+  experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
+  organization: OrganizationInterface;
+  regressionAdjustmentEnabled?: boolean;
+  postStratificationEnabled?: boolean;
+  dimension?: string;
+}): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
-  // const hasPostStratificationFeature = organization
-  //   ? orgHasPremiumFeature(organization, "post-stratification")
-  //   : false;
+  const hasPostStratificationFeature = organization
+    ? orgHasPremiumFeature(organization, "post-stratification")
+    : false;
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
+
   return {
     statsEngine,
     dimensions: dimension ? [dimension] : [],
@@ -397,9 +306,8 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
-    postStratificationEnabled: false,
-    // hasPostStratificationFeature &&
-    // !(organization.settings?.postStratificationDisabled ?? false),
+    postStratificationEnabled:
+      hasPostStratificationFeature && postStratificationEnabled,
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -696,7 +604,6 @@ export function getSnapshotSettings({
       : undefined;
 
   return {
-    manual: !experiment.datasource,
     activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     skipPartialData: !!experiment.skipPartialData,
@@ -725,86 +632,6 @@ export function getSnapshotSettings({
     coverage: phase.coverage ?? 1,
     banditSettings,
   };
-}
-
-/**
- * @deprecated Manual (e.g. manually inputting data) snapshots are no longer supported
- */
-export async function createManualSnapshot({
-  experiment,
-  phaseIndex,
-  users,
-  metrics,
-  orgPriorSettings,
-  analysisSettings,
-  metricMap,
-}: {
-  experiment: ExperimentInterface;
-  phaseIndex: number;
-  users: number[];
-  metrics: {
-    [key: string]: MetricStats[];
-  };
-  orgPriorSettings: MetricPriorSettings | undefined;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
-}) {
-  const snapshotSettings = getSnapshotSettings({
-    experiment,
-    phaseIndex,
-    orgPriorSettings: orgPriorSettings,
-    orgDisabledPrecomputedDimensions: false,
-    snapshotType: "standard",
-    dimension: null,
-    regressionAdjustmentEnabled: false,
-    settingsForSnapshotMetrics: [],
-    metricMap,
-    factTableMap: new Map(),
-    metricGroups: [],
-    incrementalRefreshModel: null,
-  });
-
-  const { srm, variations } = await getManualSnapshotData(
-    experiment,
-    snapshotSettings,
-    analysisSettings,
-    phaseIndex,
-    users,
-    metrics,
-    metricMap,
-  );
-
-  const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
-    organization: experiment.organization,
-    experiment: experiment.id,
-    dimension: null,
-    phase: phaseIndex,
-    queries: [],
-    runStarted: new Date(),
-    dateCreated: new Date(),
-    status: "success",
-    settings: snapshotSettings,
-    unknownVariations: [],
-    multipleExposures: 0,
-    analyses: [
-      {
-        dateCreated: new Date(),
-        status: "success",
-        settings: analysisSettings,
-        results: [
-          {
-            name: "All",
-            srm,
-            variations,
-          },
-        ],
-      },
-    ],
-    triggeredBy: "manual",
-  };
-
-  return await createExperimentSnapshotModel({ data });
 }
 
 export async function parseDimension(
@@ -1403,7 +1230,11 @@ export async function createSnapshot({
       mainSnapshot: runningSnapshot,
       statsEngine: defaultAnalysisSettings.statsEngine,
       regressionAdjustmentEnabled:
-        defaultAnalysisSettings.regressionAdjusted ?? false,
+        defaultAnalysisSettings.regressionAdjusted ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+      postStratificationEnabled:
+        defaultAnalysisSettings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
       settingsForSnapshotMetrics,
       metricMap,
       factTableMap,
@@ -1801,7 +1632,6 @@ export async function toExperimentApiInterface(
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-  metricGroups: MetricGroupInterface[],
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -1826,16 +1656,18 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-
   const variationIds = experiment.variations.map((v) => v.id);
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
+
+  // Get all metric IDs from the snapshot results
+  const metricIds = new Set<string>();
+  (analysis?.results || []).forEach((s) => {
+    s.variations.forEach((v) => {
+      Object.keys(v.metrics).forEach((m) => metricIds.add(m));
+    });
+  });
 
   return {
     id: snapshot.id,
@@ -2838,7 +2670,6 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
-    pinnedMetricSlices: payload.pinnedMetricSlices || [],
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
   };
@@ -2908,7 +2739,6 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
-    pinnedMetricSlices,
     customMetricSlices,
     customFields,
     autoRefresh,
@@ -3008,7 +2838,6 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
-    ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),

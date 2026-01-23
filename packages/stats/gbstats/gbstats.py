@@ -451,6 +451,7 @@ def analyze_metric_df(
     def analyze_dimension(dimensionData: DimensionMetricData) -> DimensionResponse:
         d = dimensionData.data
         variation_data = []
+        baseline_stat: Optional[TestStatistic] = None
 
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
@@ -480,6 +481,8 @@ def analyze_metric_df(
                 post_stratify=post_stratify,
             )
             res = test.compute_result()
+            realized_settings = test.realized_settings
+            baseline_stat = test.stat_a  # Capture for baseline response
 
             power_response: Optional[PowerResponse] = None
             if decision_making_conditions(metric, analysis):
@@ -509,6 +512,7 @@ def analyze_metric_df(
                 ci=ci,
                 errorMessage=res.error_message,
                 power=power_response,
+                realizedSettings=realized_settings,
             )
 
             # Safely build specific response type from base response
@@ -546,17 +550,18 @@ def analyze_metric_df(
         if metric.statistic_type in ["quantile_event", "quantile_unit"]:
             d["baseline_count"] = d["baseline_quantile_n"]
         # insert baseline data in the appropriate position, uses test from last variation
-        # but should be the same for the baseline
-        # TODO: refactor to get these statistics directly
-        control_stats = []
-        # get one statistic per row (should be one row for non-post-stratified tests)
-        for _, row in d.iterrows():
-            control_stats.append(
-                variation_statistic_from_metric_row(row, "baseline", metric)
-            )
-        stats = list(zip(control_stats, control_stats))
-        stat_a_summed, _ = sum_stats(stats)
-        baseline_data = get_metric_response(d, stat_a_summed, 0)
+        # but should be the same for the baseline (stat_a is the control/baseline statistic)
+        if baseline_stat is None:
+            # Edge case: no treatment variations, compute baseline stat directly
+            control_stats = []
+            for _, row in d.iterrows():
+                control_stats.append(
+                    variation_statistic_from_metric_row(row, "baseline", metric)
+                )
+            stats = list(zip(control_stats, control_stats))
+            stat_a_summed, _ = sum_stats(stats)
+            baseline_stat = stat_a_summed
+        baseline_data = get_metric_response(d, baseline_stat, 0)
         variation_data.insert(analysis.baseline_index, baseline_data)
 
         return DimensionResponse(

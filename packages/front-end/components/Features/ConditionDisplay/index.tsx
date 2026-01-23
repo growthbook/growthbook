@@ -2,7 +2,7 @@ import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupWithoutValues } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -72,6 +72,10 @@ function operatorToText({
       return `matches the pattern`;
     case "$notRegex":
       return `does not match the pattern`;
+    case "$regexi":
+      return `matches the pattern (case insensitive)`;
+    case "$notRegexi":
+      return `does not match the pattern (case insensitive)`;
   }
   return operator;
 }
@@ -117,25 +121,30 @@ export function MultiValuesDisplay({
         const isSavedGroup = savedGroupIds?.has(v);
         const group = isSavedGroup ? getSavedGroupById(v) : null;
 
-        return (
+        const displayValue =
+          isSavedGroup && group
+            ? displayMap?.[v] || group.groupName
+            : displayMap?.[v] || v;
+        return isSavedGroup && group ? (
+          <Link
+            key={i}
+            href={`/saved-groups/${group.id}`}
+            target="_blank"
+            size="1"
+            color="violet"
+            title="Manage Saved Group"
+          >
+            <Badge color="gray" label={displayValue} /> <PiArrowSquareOut />
+          </Link>
+        ) : (
           <Badge
             key={i}
             color="gray"
+            className="text-ellipsis d-inline-block"
+            style={{ maxWidth: 300 }}
+            title={displayValue}
             label={
-              isSavedGroup && group ? (
-                <Link
-                  href={`/saved-groups/${group.id}`}
-                  target="_blank"
-                  size="1"
-                  color="violet"
-                >
-                  {displayMap?.[v] || group.groupName} <PiArrowSquareOut />
-                </Link>
-              ) : (
-                <Text style={{ color: "var(--slate-12)" }}>
-                  {displayMap?.[v] || v}
-                </Text>
-              )
+              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
             }
           />
         );
@@ -281,6 +290,9 @@ function getConditionParts({
     let fieldEl: ReactNode = (
       <Badge
         color="gray"
+        className="text-ellipsis d-inline-block"
+        style={{ maxWidth: 300 }}
+        title={field}
         label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
       />
     );
@@ -289,13 +301,15 @@ function getConditionParts({
       if (field === "value") {
         fieldEl = null;
       } else if (field.substring(0, 6) === "value.") {
+        const displayValue = field.substring(6);
         fieldEl = (
           <Badge
             color="gray"
+            className="text-ellipsis d-inline-block"
+            style={{ maxWidth: 300 }}
+            title={displayValue}
             label={
-              <Text style={{ color: "var(--slate-12)" }}>
-                {field.substring(6)}
-              </Text>
+              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
             }
           />
         );
@@ -343,6 +357,13 @@ function getConditionParts({
         : [];
     const hasMultipleSavedGroups = savedGroupValueParts.length > 1;
 
+    // Extract variables for saved group value display
+    const group =
+      (operator === "$inGroup" || operator === "$notInGroup") && savedGroups
+        ? savedGroups.find((sg) => sg.id === value)
+        : undefined;
+    const displayValue = getValue(operator, value, savedGroups);
+
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
@@ -376,41 +397,39 @@ function getConditionParts({
         ) : needsValue(operator) ? (
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
-            (() => {
-              const group = savedGroups.find((sg) => sg.id === value);
-              return group ? (
-                <Badge
-                  color="gray"
-                  label={
-                    <Link
-                      href={`/saved-groups/${group.id}`}
-                      target="_blank"
-                      size="1"
-                      color="violet"
-                    >
-                      {group.groupName} <PiArrowSquareOut />
-                    </Link>
-                  }
-                />
-              ) : (
-                <Badge
-                  color="gray"
-                  label={
-                    <Text
-                      style={{ color: "var(--slate-12)", whiteSpace: "pre" }}
-                    >
-                      {getValue(operator, value, savedGroups)}
-                    </Text>
-                  }
-                />
-              );
-            })()
+            group ? (
+              <Link
+                href={`/saved-groups/${group.id}`}
+                target="_blank"
+                size="1"
+                color="violet"
+                title="Manage Saved Group"
+              >
+                <Badge color="gray" label={group.groupName} />{" "}
+                <PiArrowSquareOut />
+              </Link>
+            ) : (
+              <Badge
+                color="gray"
+                className="text-ellipsis d-inline-block"
+                style={{ maxWidth: 300 }}
+                title={displayValue}
+                label={
+                  <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                    {displayValue}
+                  </Text>
+                }
+              />
+            )
           ) : (
             <Badge
               color="gray"
+              className="text-ellipsis d-inline-block"
+              style={{ maxWidth: 300 }}
+              title={displayValue}
               label={
                 <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
-                  {getValue(operator, value, savedGroups)}
+                  {displayValue}
                 </Text>
               }
             />
@@ -427,6 +446,9 @@ function ParentIdLink({ parentId }: { parentId: string }) {
   return (
     <Badge
       color="gray"
+      className="text-ellipsis d-inline-block"
+      style={{ maxWidth: 300 }}
+      title={parentId}
       label={
         <Link
           href={`/features/${parentId}`}

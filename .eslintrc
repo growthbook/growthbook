@@ -174,7 +174,6 @@
         "./packages/front-end/components/Auth/InAppHelp.tsx",
         "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
         "./packages/front-end/components/Experiment/ImportExperimentModal.tsx",
-        "./packages/front-end/components/Experiment/ManualSnapshotForm.tsx",
         "./packages/front-end/components/Experiment/NewExperimentForm.tsx",
         "./packages/front-end/components/Experiment/VisualEditorScriptMissing.tsx",
         "./packages/front-end/components/Features/CodeSnippetModal.tsx",
@@ -282,6 +281,18 @@
                 "message": "SDK packages cannot import from internal packages."
               }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["./packages/shared/src/validators/*"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
+            "message": "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead."
           }
         ]
       }

@@ -388,7 +388,7 @@ export const createFeatureEvent = async <
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
   const event: CreateEventParams<"feature", Event> = await (async () => {
-    const groupMap = await getSavedGroupMap(eventData.context.org);
+    const groupMap = await getSavedGroupMap(eventData.context);
     const experimentMap = await getExperimentMapForFeature(
       eventData.context,
       eventData.data.object.id,
@@ -549,6 +549,11 @@ async function onFeatureCreate(
       [feature],
       getEnvironmentIdsFromOrg(context.org),
     ),
+    auditContext: {
+      event: "created",
+      model: "feature",
+      id: feature.id,
+    },
   });
 
   await logFeatureCreatedEvent(context, feature);
@@ -570,6 +575,11 @@ async function onFeatureDelete(
       [feature],
       getEnvironmentIdsFromOrg(context.org),
     ),
+    auditContext: {
+      event: "deleted",
+      model: "feature",
+      id: feature.id,
+    },
   });
 
   await logFeatureDeletedEvent(context, feature);
@@ -595,6 +605,11 @@ export async function onFeatureUpdate(
       getEnvironmentIdsFromOrg(context.org),
     ),
     skipRefreshForProject,
+    auditContext: {
+      event: "updated",
+      model: "feature",
+      id: feature.id,
+    },
   });
 
   // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)

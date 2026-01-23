@@ -33,6 +33,9 @@ export interface EnvironmentInitValue {
   experimentRefreshFrequency: number;
   hasOpenAIKey?: boolean;
   hasAnthropicKey?: boolean;
+  hasXaiKey?: boolean;
+  hasMistralKey?: boolean;
+  hasGoogleAIKey?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
 }
 
@@ -64,6 +67,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     EXPERIMENT_REFRESH_FREQUENCY,
     OPENAI_API_KEY,
     ANTHROPIC_API_KEY,
+    XAI_API_KEY,
+    MISTRAL_API_KEY,
+    GOOGLE_AI_API_KEY,
     UPLOAD_METHOD,
   } = process.env;
 
@@ -146,6 +152,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       : 6,
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
+    hasXaiKey: !!XAI_API_KEY || false,
+    hasMistralKey: !!MISTRAL_API_KEY || false,
+    hasGoogleAIKey: !!GOOGLE_AI_API_KEY || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 

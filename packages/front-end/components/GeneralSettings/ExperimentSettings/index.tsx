@@ -48,7 +48,7 @@ export default function ExperimentSettings({
     <>
       <Frame>
         <Flex gap="4">
-          <Box width="220px" flexShrink="0">
+          <Box width="220px" flexShrink="0" id="experiment-settings">
             <Heading size="4" as="h4">
               Experiment Settings
             </Heading>
