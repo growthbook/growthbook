@@ -5432,7 +5432,7 @@ export default abstract class SqlIntegration
     (${this.selectStarLimit(
       `(
         SELECT
-          ${this.castToString(`'${column.column}'`)} AS column,
+          ${this.castToString(`'${column.column}'`)} AS column_name,
           ${column.column} AS value,
           COUNT(*) AS count
         FROM __factTable
@@ -5460,7 +5460,7 @@ WITH
     ${columnQueries.join("\n    UNION ALL\n")}
   )
 SELECT * FROM __topValues
-ORDER BY column, count DESC
+ORDER BY column_name, count DESC
     `,
       this.getFormatDialect(),
     );
@@ -5474,7 +5474,7 @@ ORDER BY column, count DESC
     return {
       statistics,
       rows: rows.map((r) => ({
-        column: r.column + "",
+        column: r.column_name + "",
         value: r.value + "",
         count: parseFloat(r.count),
       })),
