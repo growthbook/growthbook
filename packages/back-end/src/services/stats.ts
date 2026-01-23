@@ -510,7 +510,7 @@ function parseStatsEngineResult({
           // translate null in CI to infinity
           const ci = getFormattedCI(v.ci);
           const ciCupedUnadjusted = getFormattedCI(
-            v.supplementalResults?.uncapped?.ci,
+            v.supplementalResults?.cupedUnadjusted?.ci,
           );
           const ciUncapped = getFormattedCI(
             v.supplementalResults?.uncapped?.ci,
