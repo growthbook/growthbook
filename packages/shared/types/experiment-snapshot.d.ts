@@ -54,15 +54,13 @@ export interface SnapshotMetric {
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
-  supplementalResultsNoVarianceReduction?:
-    | BayesianTestResult
-    | FrequentistTestResult;
-  supplementalResultsCupedUnadjusted?:
-    | BayesianTestResult
-    | FrequentistTestResult;
-  supplementalResultsUncapped?: BayesianTestResult | FrequentistTestResult;
-  supplementalResultsFlatPrior?: BayesianTestResult | FrequentistTestResult;
-  supplementalResultsUnstratified?: BayesianTestResult | FrequentistTestResult;
+  supplementalResults?: {
+    noVarianceReduction?: BayesianTestResult | FrequentistTestResult;
+    cupedUnadjusted?: BayesianTestResult | FrequentistTestResult;
+    uncapped?: BayesianTestResult | FrequentistTestResult;
+    flatPrior?: BayesianTestResult | FrequentistTestResult;
+    unstratified?: BayesianTestResult | FrequentistTestResult;
+  };
 }
 
 export interface SnapshotVariation {

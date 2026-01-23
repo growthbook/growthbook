@@ -124,13 +124,26 @@ class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
 
 
 @dataclass
+class BayesianVariationResponseSupplementalResults:
+    cupedUnadjusted: Optional[BayesianTestResult] = None
+    uncapped: Optional[BayesianTestResult] = None
+    flatPrior: Optional[BayesianTestResult] = None
+    unstratified: Optional[BayesianTestResult] = None
+    noVarianceReduction: Optional[BayesianTestResult] = None
+
+
+@dataclass
 class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
-    power: Optional[PowerResponse]
-    supplementalResultsCupedUnadjusted: Optional[BayesianTestResult]
-    supplementalResultsUncapped: Optional[BayesianTestResult]
-    supplementalResultsFlatPrior: Optional[BayesianTestResult]
-    supplementalResultsUnstratified: Optional[BayesianTestResult]
-    supplementalResultsNoVarianceReduction: Optional[BayesianTestResult]
+    power: Optional[PowerResponse] = None
+    supplementalResults: Optional[BayesianVariationResponseSupplementalResults] = None
+
+
+@dataclass
+class FrequentistVariationResponseSupplementalResults:
+    cupedUnadjusted: Optional[FrequentistTestResult] = None
+    uncapped: Optional[FrequentistTestResult] = None
+    unstratified: Optional[FrequentistTestResult] = None
+    noVarianceReduction: Optional[FrequentistTestResult] = None
 
 
 @dataclass
@@ -142,10 +155,9 @@ class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResp
 @dataclass
 class FrequentistVariationResponse(FrequentistTestResult, BaselineResponse):
     power: Optional[PowerResponse] = None
-    supplementalResultsCupedUnadjusted: Optional[FrequentistTestResult] = None
-    supplementalResultsUncapped: Optional[FrequentistTestResult] = None
-    supplementalResultsUnstratified: Optional[FrequentistTestResult] = None
-    supplementalResultsNoVarianceReduction: Optional[FrequentistTestResult] = None
+    supplementalResults: Optional[FrequentistVariationResponseSupplementalResults] = (
+        None
+    )
 
 
 VariationResponse = Union[

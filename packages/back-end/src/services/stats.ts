@@ -510,40 +510,44 @@ function parseStatsEngineResult({
           // translate null in CI to infinity
           const ci = getFormattedCI(v.ci);
           const ciCupedUnadjusted = getFormattedCI(
-            v.supplementalResultsCupedUnadjusted?.ci,
+            v.supplementalResults?.uncapped?.ci,
           );
-          const ciUncapped = getFormattedCI(v.supplementalResultsUncapped?.ci);
+          const ciUncapped = getFormattedCI(
+            v.supplementalResults?.uncapped?.ci,
+          );
           const ciUnstratified = getFormattedCI(
-            v.supplementalResultsUnstratified?.ci,
+            v.supplementalResults?.unstratified?.ci,
           );
           const ciNoVarianceReduction = getFormattedCI(
-            v.supplementalResultsNoVarianceReduction?.ci,
+            v.supplementalResults?.noVarianceReduction?.ci,
           );
           const parsedVariation = {
             ...v,
             ci,
           };
           // Update CI values in supplemental results
-          if (v.supplementalResultsCupedUnadjusted) {
-            v.supplementalResultsCupedUnadjusted.ci = ciCupedUnadjusted;
+          if (v.supplementalResults?.cupedUnadjusted) {
+            v.supplementalResults.cupedUnadjusted.ci = ciCupedUnadjusted;
           }
-          if (v.supplementalResultsUncapped) {
-            v.supplementalResultsUncapped.ci = ciUncapped;
+          if (v.supplementalResults?.uncapped) {
+            v.supplementalResults.uncapped.ci = ciUncapped;
           }
           if (
-            "supplementalResultsFlatPrior" in v &&
-            v.supplementalResultsFlatPrior
+            v.supplementalResults &&
+            "flatPrior" in v.supplementalResults &&
+            v.supplementalResults.flatPrior
           ) {
             const ciFlatPrior = getFormattedCI(
-              v.supplementalResultsFlatPrior?.ci,
+              v.supplementalResults.flatPrior?.ci,
             );
-            v.supplementalResultsFlatPrior.ci = ciFlatPrior;
+            v.supplementalResults.flatPrior.ci = ciFlatPrior;
           }
-          if (v.supplementalResultsUnstratified) {
-            v.supplementalResultsUnstratified.ci = ciUnstratified;
+          if (v.supplementalResults?.unstratified) {
+            v.supplementalResults.unstratified.ci = ciUnstratified;
           }
-          if (v.supplementalResultsNoVarianceReduction) {
-            v.supplementalResultsNoVarianceReduction.ci = ciNoVarianceReduction;
+          if (v.supplementalResults?.noVarianceReduction) {
+            v.supplementalResults.noVarianceReduction.ci =
+              ciNoVarianceReduction;
           }
           data.metrics[metric] = {
             ...parsedVariation,

@@ -42,10 +42,12 @@ from gbstats.frequentist.tests import (
 )
 
 from gbstats.models.results import (
+    BayesianVariationResponseSupplementalResults,
     DimensionResponseIndividual,
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
+    FrequentistVariationResponseSupplementalResults,
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BaselineResponse,
@@ -950,6 +952,7 @@ def create_core_and_supplemental_results(
     result = combine_core_and_supplemental_results(
         num_dimensions,
         num_variations,
+        analysis.baseline_index,
         core_result,
         result_cuped_unadjusted,
         result_uncapped,
@@ -964,51 +967,35 @@ def create_core_and_supplemental_results(
 def combine_core_and_supplemental_results(
     num_dimensions: int,
     num_variations: int,
+    baseline_variation_index: int,
     core_result: List[DimensionResponseIndividual],
     result_cuped_unadjusted: Optional[List[DimensionResponseIndividual]],
-    result_capped: Optional[List[DimensionResponseIndividual]],
+    result_uncapped: Optional[List[DimensionResponseIndividual]],
     result_flat_prior: Optional[List[DimensionResponseIndividual]],
     result_unstratified: Optional[List[DimensionResponseIndividual]],
     result_no_variance_reduction: Optional[List[DimensionResponseIndividual]],
 ) -> List[DimensionResponse]:
-    def _set_supplemental_result(
-        variation_response: Union[
-            BayesianVariationResponse, FrequentistVariationResponse
-        ],
-        supplemental_variation: Any,
-        attribute_name: str,
-    ) -> None:
-        """Set a supplemental result on the variation response with type checking."""
-        is_bayesian = isinstance(
-            variation_response, BayesianVariationResponse
-        ) and isinstance(supplemental_variation, BayesianVariationResponseIndividual)
-        is_frequentist = isinstance(
-            variation_response, FrequentistVariationResponse
-        ) and isinstance(supplemental_variation, FrequentistVariationResponseIndividual)
-
-        if is_bayesian or is_frequentist:
-            setattr(variation_response, attribute_name, supplemental_variation)
-        else:
-            raise ValueError(
-                f"Unexpected variation response type: {type(supplemental_variation)}"
-            )
-
     # Map supplemental result lists to their attribute names
     supplemental_mappings = [
-        (result_cuped_unadjusted, "supplementalResultsCupedUnadjusted"),
-        (result_capped, "supplementalResultsUncapped"),
-        (result_flat_prior, "supplementalResultsFlatPrior"),
-        (result_unstratified, "supplementalResultsUnstratified"),
-        (result_no_variance_reduction, "supplementalResultsNoVarianceReduction"),
+        (result_cuped_unadjusted, "cupedUnadjusted"),
+        (result_uncapped, "uncapped"),
+        (result_flat_prior, "flatPrior"),
+        (result_unstratified, "unstratified"),
+        (result_no_variance_reduction, "noVarianceReduction"),
     ]
 
+    variations: List[VariationResponse] = []
     result = []
     for d in range(num_dimensions):
-        this_dimension_result = core_result[d]
-        variations: List[VariationResponse] = [this_dimension_result.variations[0]]
+        dim_result = core_result[d]
+        for i in range(0, num_variations):
+            # Skip additional responses for the baseline variation
+            core_variation = dim_result.variations[i]
+            if i == baseline_variation_index:
+                variations.append(core_variation)
+                continue
 
-        for i in range(1, num_variations):
-            core_variation = core_result[d].variations[i]
+            # otherwise add supplemental results
             is_bayesian = isinstance(
                 core_variation, BayesianVariationResponseIndividual
             )
@@ -1023,27 +1010,22 @@ def combine_core_and_supplemental_results(
             if is_bayesian:
                 variation_response = BayesianVariationResponse(
                     **asdict(core_variation),
-                    supplementalResultsCupedUnadjusted=None,
-                    supplementalResultsUncapped=None,
-                    supplementalResultsFlatPrior=None,
-                    supplementalResultsUnstratified=None,
-                    supplementalResultsNoVarianceReduction=None,
+                    supplementalResults=BayesianVariationResponseSupplementalResults(),
                 )
             else:
                 variation_response = FrequentistVariationResponse(
                     **asdict(core_variation),
-                    supplementalResultsCupedUnadjusted=None,
-                    supplementalResultsUncapped=None,
-                    supplementalResultsUnstratified=None,
-                    supplementalResultsNoVarianceReduction=None,
+                    supplementalResults=FrequentistVariationResponseSupplementalResults(),
                 )
 
             # Set all supplemental results
             for supplemental_result, attribute_name in supplemental_mappings:
                 if supplemental_result is not None:
                     supplemental_variation = supplemental_result[d].variations[i]
-                    _set_supplemental_result(
-                        variation_response, supplemental_variation, attribute_name
+                    setattr(
+                        variation_response.supplementalResults,
+                        attribute_name,
+                        supplemental_variation,
                     )
 
             variations.append(variation_response)

@@ -53,12 +53,13 @@ function createRowLabel(description: string) {
 function createSupplementalRow(
   baseRow: ExperimentTableRow,
   description: string,
-  supplementalField: keyof SnapshotMetric,
+  supplementalField: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
 ): ExperimentTableRow {
   const newVariations = baseRow.variations.map((variation) => {
-    const supplemental = variation[supplementalField] as
+    const supplemental = variation.supplementalResults?.[supplementalField] as
       | BayesianTestResult
-      | FrequentistTestResult;
+      | FrequentistTestResult
+      | undefined;
 
     if (!supplemental) {
       return variation;
@@ -102,13 +103,13 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     if (!row) return [];
 
     const hasCupedUnadjusted = row.variations.some(
-      (v, i) => i > baselineRow && v.supplementalResultsCupedUnadjusted,
+      (v, i) => i > baselineRow && v.supplementalResults?.cupedUnadjusted,
     );
     const hasUnstratified = row.variations.some(
-      (v, i) => i > baselineRow && v.supplementalResultsUnstratified,
+      (v, i) => i > baselineRow && v.supplementalResults?.unstratified,
     );
     const hasNoVarianceReduction = row.variations.some(
-      (v, i) => i > baselineRow && v.supplementalResultsNoVarianceReduction,
+      (v, i) => i > baselineRow && v.supplementalResults?.noVarianceReduction,
     );
 
     if (!hasCupedUnadjusted && !hasUnstratified && !hasNoVarianceReduction) {
@@ -145,7 +146,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           createSupplementalRow(
             row,
             "CUPED Off, Post-stratification On",
-            "supplementalResultsCupedUnadjusted",
+            "cupedUnadjusted",
           ),
         );
       }
@@ -155,7 +156,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           createSupplementalRow(
             row,
             "CUPED On, Post-stratification Off",
-            "supplementalResultsUnstratified",
+            "unstratified",
           ),
         );
       }
@@ -165,28 +166,18 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
           createSupplementalRow(
             row,
             "CUPED Off, Post-stratification Off",
-            "supplementalResultsNoVarianceReduction",
+            "noVarianceReduction",
           ),
         );
       }
     } else if (cupedEnabled) {
       if (hasCupedUnadjusted) {
-        rows.push(
-          createSupplementalRow(
-            row,
-            "CUPED Off",
-            "supplementalResultsCupedUnadjusted",
-          ),
-        );
+        rows.push(createSupplementalRow(row, "CUPED Off", "cupedUnadjusted"));
       }
     } else if (postStratEnabled) {
       if (hasUnstratified) {
         rows.push(
-          createSupplementalRow(
-            row,
-            "Post-stratification Off",
-            "supplementalResultsUnstratified",
-          ),
+          createSupplementalRow(row, "Post-stratification Off", "unstratified"),
         );
       }
     }
@@ -198,7 +189,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     if (!row) return [];
 
     const hasFlatPrior = row.variations.some(
-      (v, i) => i > baselineRow && v.supplementalResultsFlatPrior,
+      (v, i) => i > baselineRow && v.supplementalResults?.flatPrior,
     );
 
     if (!hasFlatPrior) return [];
@@ -210,9 +201,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       label: createRowLabel("Proper Prior"),
     });
 
-    rows.push(
-      createSupplementalRow(row, "Flat Prior", "supplementalResultsFlatPrior"),
-    );
+    rows.push(createSupplementalRow(row, "Flat Prior", "flatPrior"));
 
     return rows;
   }, [row, baselineRow]);
@@ -221,7 +210,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     if (!row) return [];
 
     const hasUncapped = row.variations.some(
-      (v, i) => i > baselineRow && v.supplementalResultsUncapped,
+      (v, i) => i > baselineRow && v.supplementalResults?.uncapped,
     );
 
     if (!hasUncapped) return [];
@@ -233,9 +222,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
       label: createRowLabel("Capped"),
     });
 
-    rows.push(
-      createSupplementalRow(row, "Uncapped", "supplementalResultsUncapped"),
-    );
+    rows.push(createSupplementalRow(row, "Uncapped", "uncapped"));
 
     return rows;
   }, [row, baselineRow]);

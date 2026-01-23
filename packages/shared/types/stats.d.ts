@@ -59,21 +59,25 @@ interface BayesianVariationResponse
   extends BaselineResponse,
     BayesianTestResult {
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResultsCupedUnadjusted?: BayesianTestResult;
-  supplementalResultsUncapped?: BayesianTestResult;
-  supplementalResultsUnstratified?: BayesianTestResult;
-  supplementalResultsFlatPrior?: BayesianTestResult;
-  supplementalResultsNoVarianceReduction?: BayesianTestResult;
+  supplementalResults?: {
+    cupedUnadjusted?: BayesianTestResult;
+    uncapped?: BayesianTestResult;
+    unstratified?: BayesianTestResult;
+    noVarianceReduction?: BayesianTestResult;
+    flatPrior?: BayesianTestResult;
+  };
 }
 
 interface FrequentistVariationResponse
   extends BaselineResponse,
     FrequentistTestResult {
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResultsCupedUnadjusted?: FrequentistTestResult;
-  supplementalResultsUncapped?: FrequentistTestResult;
-  supplementalResultsUnstratified?: FrequentistTestResult;
-  supplementalResultsNoVarianceReduction?: FrequentistTestResult;
+  supplementalResults?: {
+    cupedUnadjusted?: FrequentistTestResult;
+    uncapped?: FrequentistTestResult;
+    unstratified?: FrequentistTestResult;
+    noVarianceReduction?: FrequentistTestResult;
+  };
 }
 
 // Keep in sync with gbstats PowerResponse
