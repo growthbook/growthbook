@@ -29,6 +29,8 @@ while true; do
 
   if [ "$idle_time" -ge "$TIMEOUT" ]; then
     echo "[watchdog] Idle for ${idle_time}s (>= ${TIMEOUT}s). Shutting down."
+    # Send SIGTERM to supervisord to gracefully stop all processes
+    kill -SIGTERM $(cat /var/run/supervisord.pid 2>/dev/null) 2>/dev/null || kill -SIGTERM 1
     exit 0
   fi
 
