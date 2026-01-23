@@ -984,10 +984,10 @@ def combine_core_and_supplemental_results(
         (result_no_variance_reduction, "noVarianceReduction"),
     ]
 
-    variations: List[VariationResponse] = []
     result = []
     for d in range(num_dimensions):
         dim_result = core_result[d]
+        variations: List[VariationResponse] = []
         for i in range(0, num_variations):
             # Skip additional responses for the baseline variation
             core_variation = dim_result.variations[i]

@@ -1749,7 +1749,7 @@ class TestPostStratification(TestCase):
         # we can use the data specific to the region as the ground truth, because these tests succeeded above
         moments_result_eu_true = EffectMomentsPostStratification(self.stats_count_revenue_eu, EffectMomentsConfig(difference_type=difference_type)).compute_result()  # type: ignore
         moments_result_us_true = EffectMomentsPostStratification(self.stats_count_revenue_us, EffectMomentsConfig(difference_type=difference_type)).compute_result()  # type: ignore
-        # #first we check the moments result against the test result
+        # first we check the moments result against the test result
         test_result_eu_true = self.run_post_strat_gbstats(stats_a_eu, stats_b_eu, FrequentistConfig(difference_type=difference_type))  # type: ignore
         test_result_us_true = self.run_post_strat_gbstats(stats_a_us, stats_b_us, FrequentistConfig(difference_type=difference_type))  # type: ignore
         pairwise_sample_size_eu = sum(
