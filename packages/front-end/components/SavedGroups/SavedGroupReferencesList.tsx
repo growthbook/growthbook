@@ -12,7 +12,7 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 
 interface SavedGroupReferencesListProps {
-  features?: FeatureInterface[];
+  features?: Pick<FeatureInterface, "id">[];
   experiments?: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
   savedGroups?: SavedGroupWithoutValues[];
 }

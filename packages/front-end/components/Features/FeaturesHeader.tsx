@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import React, { useMemo, useState } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureWithoutValues } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -48,7 +48,7 @@ export default function FeaturesHeader({
   dependentExperiments,
 }: {
   feature: FeatureInterface;
-  features: FeatureInterface[];
+  features: FeatureWithoutValues[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   mutate: () => void;
   tab: FeatureTab;

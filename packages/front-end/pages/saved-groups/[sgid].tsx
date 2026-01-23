@@ -9,7 +9,7 @@ import {
   featuresReferencingSavedGroups,
   isIdListSupportedAttribute,
 } from "shared/util";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureWithoutValues } from "shared/types/feature";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -116,13 +116,13 @@ export default function EditSavedGroupPage() {
 
   const referencingFeatures = useMemo(() => {
     if (!savedGroup || !savedGroupsReferencingTarget.length)
-      return [] as FeatureInterface[];
+      return [] as FeatureWithoutValues[];
     const referenceMap = featuresReferencingSavedGroups({
       savedGroups: savedGroupsReferencingTarget,
       features,
       environments,
     });
-    const allFeatures = new Map<string, FeatureInterface>();
+    const allFeatures = new Map<string, FeatureWithoutValues>();
     savedGroupsReferencingTarget.forEach((sg) => {
       (referenceMap[sg.id] || []).forEach((feature) => {
         allFeatures.set(feature.id, feature);

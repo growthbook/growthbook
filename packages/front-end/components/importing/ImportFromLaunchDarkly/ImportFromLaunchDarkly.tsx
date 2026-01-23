@@ -22,7 +22,10 @@ import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments, useFeaturesList } from "@/services/features";
+import {
+  useEnvironments,
+  useFeaturesListWithValues,
+} from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -687,7 +690,7 @@ export default function ImportFromLaunchDarkly() {
     }
   }, [useBackendProxy, setUseBackendProxy]);
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesListWithValues();
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
   const { refreshOrganization } = useUser();

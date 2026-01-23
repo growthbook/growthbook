@@ -14,6 +14,7 @@ import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
+  FeatureWithoutValues,
   ForceRule,
   RolloutRule,
   ComputedFeatureInterface,
@@ -28,6 +29,7 @@ import {
   featuresReferencingSavedGroups,
   generateVariationId,
   getMatchingRules,
+  getMatchingRulesWithoutValues,
   StaleFeatureReason,
   validateAndFixCondition,
   validateFeatureValue,
@@ -155,15 +157,14 @@ export function useFeatureSearch({
   localStorageKey = "features",
   staleFeatures,
 }: {
-  allFeatures: FeatureInterface[];
+  allFeatures: FeatureWithoutValues[];
   defaultSortField?:
     | "id"
     | "description"
     | "tags"
-    | "defaultValue"
     | "dateCreated"
     | "dateUpdated";
-  filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
+  filterResults?: (items: FeatureWithoutValues[]) => FeatureWithoutValues[];
   environments: Environment[];
   localStorageKey?: string;
   staleFeatures?: Record<
@@ -215,7 +216,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "defaultValue"],
+    searchFields: ["id^3", "description"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
@@ -241,7 +242,7 @@ export function useFeatureSearch({
           has.push("validation", "schema", "jsonSchema");
         }
 
-        const rules = getMatchingRules(
+        const rules = getMatchingRulesWithoutValues(
           item,
           () => true,
           environments.map((e) => e.id),
@@ -279,7 +280,7 @@ export function useFeatureSearch({
       tag: (item) => item.tags,
       type: (item) => item.valueType,
       rules: (item) => {
-        const rules = getMatchingRules(
+        const rules = getMatchingRulesWithoutValues(
           item,
           () => true,
           environments.map((e) => e.id),
@@ -317,7 +318,15 @@ export function useFeatureSearch({
 export function getRules(feature: FeatureInterface, environment: string) {
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
-export function getFeatureDefaultValue(feature: FeatureInterface) {
+export function getRulesWithoutValues(
+  feature: FeatureWithoutValues,
+  environment: string,
+) {
+  return feature?.environmentSettings?.[environment]?.rules ?? [];
+}
+export function getFeatureDefaultValue(
+  feature: Partial<Pick<FeatureInterface, "defaultValue">>,
+) {
   return feature.defaultValue ?? "";
 }
 export function getPrerequisites(feature: FeatureInterface) {
@@ -464,6 +473,30 @@ export function findGaps(
   return gaps;
 }
 
+export function useFeaturesListWithValues() {
+  const { data, error, mutate } = useApi<{
+    features: FeatureInterface[];
+  }>("/feature");
+
+  const { features } = useMemo(() => {
+    if (data) {
+      return {
+        features: data.features,
+      };
+    }
+    return {
+      features: [],
+    };
+  }, [data]);
+
+  return {
+    features,
+    loading: !data,
+    error,
+    mutate,
+  };
+}
+
 export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
 
@@ -475,32 +508,28 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
     qs.set("includeArchived", "true");
   }
 
-  const url = `/feature?${qs.toString()}`;
+  const url = `/features-without-values?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
-    features: FeatureInterface[];
-    linkedExperiments: ExperimentInterfaceStringDates[];
+    features: FeatureWithoutValues[];
     hasArchived: boolean;
   }>(url);
 
-  const { features, experiments, hasArchived } = useMemo(() => {
+  const { features, hasArchived } = useMemo(() => {
     if (data) {
       return {
         features: data.features,
-        experiments: data.linkedExperiments,
         hasArchived: data.hasArchived,
       };
     }
     return {
       features: [],
-      experiments: [],
       hasArchived: false,
     };
   }, [data]);
 
   return {
     features,
-    experiments,
     loading: !data,
     error,
     mutate,
@@ -1436,7 +1465,7 @@ export function getExperimentDefinitionFromFeature(
 }
 
 export function useRealtimeData(
-  features: FeatureInterface[] = [],
+  features: Pick<FeatureInterface, "id">[] = [],
   mock = false,
   update = false,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {

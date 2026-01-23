@@ -761,7 +761,16 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
 app.get("/feature", featuresController.getFeatures);
-app.get("/feature/:id", featuresController.getFeatureById);
+app.get(
+  "/features-without-values",
+  featuresController.getFeaturesWithoutValues,
+);
+// These routes are poorly named but kept for backwards compatibility
+// We should swap them later:
+//   - feature/:id -> feature/:id/details
+//   - feature/:id/data -> feature/:id
+app.get("/feature/:id", featuresController.getFeatureAndDetailsById);
+app.get("/feature/:id/data", featuresController.getFeatureById);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);

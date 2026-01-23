@@ -29,6 +29,7 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
+  FeatureWithoutValues,
   JSONSchemaDef,
   FeatureUsageData,
   FeatureUsageDataPoint,
@@ -64,7 +65,7 @@ import {
   createFeature,
   deleteFeature,
   editFeatureRule,
-  getAllFeaturesWithLinkedExperiments,
+  getAllFeatures,
   getFeature,
   hasArchivedFeatures,
   migrateDraft,
@@ -2665,12 +2666,33 @@ export async function postFeatureArchive(
 }
 
 export async function getFeatures(
+  req: AuthRequest,
+  res: Response<{
+    status: 200;
+    features: FeatureInterface[];
+  }>,
+) {
+  const context = getContextFromReq(req);
+
+  const features = await getAllFeatures(context);
+
+  res.status(200).json({
+    status: 200,
+    features,
+  });
+}
+
+export async function getFeaturesWithoutValues(
   req: AuthRequest<
     unknown,
     unknown,
     { project?: string; includeArchived?: boolean }
   >,
-  res: Response,
+  res: Response<{
+    status: 200;
+    features: FeatureWithoutValues[];
+    hasArchived: boolean;
+  }>,
 ) {
   const context = getContextFromReq(req);
 
@@ -2680,13 +2702,10 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
-  const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
-    context,
-    {
-      project,
-      includeArchived,
-    },
-  );
+  const features = await getAllFeatures(context, {
+    projects: project ? [project] : undefined,
+    includeArchived,
+  });
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
@@ -2694,8 +2713,49 @@ export async function getFeatures(
 
   res.status(200).json({
     status: 200,
-    features,
-    linkedExperiments: experiments,
+    features: features.map((f) => {
+      // Only remove values for JSON features since those can be huge
+      // Other types have small values that are fine to return
+      if (f.valueType !== "json") return f;
+
+      const feature = f as FeatureWithoutValues;
+
+      // Remove default value
+      delete feature.defaultValue;
+
+      // Remove holdout value
+      if (feature.holdout) {
+        delete feature.holdout.value;
+      }
+
+      // Remove values from rules
+      if (feature.environmentSettings) {
+        for (const envId of Object.keys(feature.environmentSettings)) {
+          const envSettings = feature.environmentSettings[envId];
+          if (envSettings.rules) {
+            for (const rule of envSettings.rules) {
+              if ("value" in rule) {
+                delete rule.value;
+              }
+              if ("values" in rule) {
+                delete rule.values;
+              }
+              if ("variations" in rule) {
+                delete rule.variations;
+              }
+              if ("controlValue" in rule) {
+                delete rule.controlValue;
+              }
+              if ("variationValue" in rule) {
+                delete rule.variationValue;
+              }
+            }
+          }
+        }
+      }
+
+      return feature;
+    }),
     hasArchived,
   });
 }
@@ -2753,6 +2813,27 @@ export async function getRevisionLog(
 }
 
 export async function getFeatureById(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    feature: FeatureInterface;
+  }>,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  res.status(200).json({
+    status: 200,
+    feature,
+  });
+}
+
+export async function getFeatureAndDetailsById(
   req: AuthRequest<null, { id: string }, { v?: string }>,
   res: Response,
 ) {

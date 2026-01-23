@@ -9,7 +9,9 @@ import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
-  feature: FeatureInterface;
+  feature: Pick<FeatureInterface, "id" | "project"> & {
+    environmentSettings: Record<string, { enabled: boolean }>;
+  };
   environment: string;
   mutate: () => void;
   id?: string;
@@ -38,7 +40,7 @@ export default function EnvironmentToggle({
   const showConfirmation = !!settings?.killswitchConfirmation;
 
   const submit = async (
-    feature: FeatureInterface,
+    feature: Props["feature"],
     environment: string,
     state: boolean,
   ) => {

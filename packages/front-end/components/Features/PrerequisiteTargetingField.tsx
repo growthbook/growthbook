@@ -32,7 +32,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
+import {
+  getFeatureDefaultValue,
+  useFeaturesListWithValues,
+} from "@/services/features";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
@@ -80,7 +83,7 @@ export default function PrerequisiteTargetingField({
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesListWithValues();
   const { projects } = useDefinitions();
   const envsStr = JSON.stringify(environments);
   const valueStr = JSON.stringify(value);
