@@ -544,16 +544,18 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           />
         </div>
       ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mb-3"
+        <Link
           onClick={(e) => {
             e.preventDefault();
             setShowDescription(true);
           }}
+          mb="4"
         >
-          + description
-        </a>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            <Text weight="medium">Add a description</Text>
+          </Flex>
+        </Link>
       )}
 
       {isMetricSlicesFeatureEnabled &&
@@ -773,49 +775,64 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                     </Text>
                                   )}
                                 </td>
-                                <td style={{ width: "70px" }}>
+                                <td style={{ width: "85px" }}>
                                   <div style={{ marginTop: "1px" }}>
-                                    <Checkbox
-                                      label={<Text size="1">Lock</Text>}
-                                      weight="regular"
-                                      value={isLocked}
-                                      setValue={(value) => {
-                                        const currentLocked =
-                                          form.watch("lockedAutoSlices") || [];
-                                        const currentSlices =
-                                          form.watch("autoSlices") || [];
-                                        if (value) {
-                                          form.setValue("lockedAutoSlices", [
-                                            ...currentLocked,
-                                            slice,
-                                          ]);
-                                        } else {
-                                          // If unlocking a slice that's not in topValues, remove it completely
-                                          if (!isInTopValues) {
-                                            form.setValue(
-                                              "autoSlices",
-                                              currentSlices.filter(
-                                                (s) => s !== slice,
-                                              ),
-                                            );
-                                            form.setValue(
-                                              "lockedAutoSlices",
-                                              currentLocked.filter(
-                                                (s) => s !== slice,
-                                              ),
-                                            );
-                                          } else {
-                                            // Just unlock if it's in topValues
-                                            form.setValue(
-                                              "lockedAutoSlices",
-                                              currentLocked.filter(
-                                                (s) => s !== slice,
-                                              ),
-                                            );
-                                          }
+                                    <Tooltip
+                                      body="Locked slices are always preserved and will not be removed by auto-slice updates"
+                                      tipPosition="right"
+                                    >
+                                      <Checkbox
+                                        label={
+                                          <Text
+                                            size="1"
+                                            color={
+                                              !isLocked ? "gray" : "violet"
+                                            }
+                                          >
+                                            Lock{isLocked ? "ed" : ""}
+                                          </Text>
                                         }
-                                      }}
-                                    />
+                                        weight="regular"
+                                        value={isLocked}
+                                        setValue={(value) => {
+                                          const currentLocked =
+                                            form.watch("lockedAutoSlices") ||
+                                            [];
+                                          const currentSlices =
+                                            form.watch("autoSlices") || [];
+                                          if (value) {
+                                            form.setValue("lockedAutoSlices", [
+                                              ...currentLocked,
+                                              slice,
+                                            ]);
+                                          } else {
+                                            // If unlocking a slice that's not in topValues, remove it completely
+                                            if (!isInTopValues) {
+                                              form.setValue(
+                                                "autoSlices",
+                                                currentSlices.filter(
+                                                  (s) => s !== slice,
+                                                ),
+                                              );
+                                              form.setValue(
+                                                "lockedAutoSlices",
+                                                currentLocked.filter(
+                                                  (s) => s !== slice,
+                                                ),
+                                              );
+                                            } else {
+                                              // Just unlock if it's in topValues
+                                              form.setValue(
+                                                "lockedAutoSlices",
+                                                currentLocked.filter(
+                                                  (s) => s !== slice,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        }}
+                                      />
+                                    </Tooltip>
                                   </div>
                                 </td>
                               </tr>
