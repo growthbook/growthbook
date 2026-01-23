@@ -798,7 +798,6 @@ export class Permissions {
   };
 
   // Used to determine if we should show the Settings > Projects link in SideNav
-  //TODO: Might need to check manageProjects and manageProjectMembers and return true if either is true
   public canManageSomeProjects = (): boolean => {
     const projects: string[] = [""];
 
