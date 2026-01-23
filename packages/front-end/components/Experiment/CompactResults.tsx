@@ -105,7 +105,7 @@ const CompactResults: FC<{
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,

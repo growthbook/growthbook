@@ -17,7 +17,7 @@ const snapshotContext = React.createContext<{
   latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
   latest?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
-  mutateSnapshot: () => void;
+  mutateSnapshot: () => Promise<unknown>;
   phase: number;
   dimension: string;
   precomputedDimensions: string[];
@@ -46,9 +46,7 @@ const snapshotContext = React.createContext<{
   setSnapshotType: () => {
     // do nothing
   },
-  mutateSnapshot: () => {
-    // do nothing
-  },
+  mutateSnapshot: () => Promise.resolve(),
 });
 
 export function getPrecomputedDimensions(
@@ -169,9 +167,19 @@ export function LocalSnapshotProvider({
   const defaultAnalysisSettings = initialSnapshot
     ? (getSnapshotAnalysis(initialSnapshot)?.settings ?? null)
     : null;
+
+  // Only use parentAnalysisSettings if it matches an existing analysis
+  // Otherwise fall back to default settings
+  const validParentSettings =
+    parentAnalysisSettings && initialSnapshot
+      ? getSnapshotAnalysis(initialSnapshot, parentAnalysisSettings)
+        ? parentAnalysisSettings
+        : null
+      : null;
+
   const [analysisSettings, setAnalysisSettings] =
     useState<ExperimentSnapshotAnalysisSettings | null>(
-      parentAnalysisSettings ?? defaultAnalysisSettings,
+      validParentSettings ?? defaultAnalysisSettings,
     );
 
   const mutateSnapshot = useCallback(async () => {

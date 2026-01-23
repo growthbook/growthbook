@@ -131,7 +131,7 @@ export type ResultsTableProps = {
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
   visibleTimeSeriesRowIds?: string[];
