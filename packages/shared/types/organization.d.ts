@@ -74,6 +74,7 @@ export interface CreateOrganizationPostBody {
   demographicData?: DemographicData;
 }
 
+// If adding new default roles, please prefix the role with "gbDefault_" to reduce the risk of collision with custom roles that organizations may have created
 export type DefaultMemberRole =
   | "noaccess"
   | "readonly"
@@ -82,13 +83,14 @@ export type DefaultMemberRole =
   | "analyst"
   | "engineer"
   | "experimenter"
-  | "projectAdmin"
+  | "gbDefault_projectAdmin"
   | "admin";
 
 export type Role = {
   id: string;
   description: string;
   policies: Policy[];
+  displayName?: string;
 };
 
 export interface MemberRoleInfo {

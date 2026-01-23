@@ -4,6 +4,7 @@ import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
+import { getRoleDisplayName } from "shared/permissions";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -203,7 +204,7 @@ const MemberList: FC<{
                     <td>
                       {member.lastLoginDate && date(member.lastLoginDate)}
                     </td>
-                    <td>{roleInfo.role}</td>
+                    <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
                     {!project && (
                       <td className="col-2">
                         {member.projectRoles?.map((pr) => {
@@ -215,7 +216,7 @@ const MemberList: FC<{
                                   resourceType="member"
                                   projectIds={[p.id]}
                                 />{" "}
-                                — {pr.role}
+                                — {getRoleDisplayName(pr.role, organization)}
                               </div>
                             );
                           }

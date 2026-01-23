@@ -438,17 +438,20 @@ export const POLICY_METADATA_MAP: Record<
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   noaccess: {
     id: "noaccess",
+    displayName: "No Access",
     description:
       "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
     policies: [],
   },
   readonly: {
     id: "readonly",
+    displayName: "Read Only",
     description: "View all features and experiment results",
     policies: ["ReadData"],
   },
   collaborator: {
     id: "collaborator",
+    displayName: "Collaborator",
     description: "Add comments and contribute ideas",
     policies: [
       "ReadData",
@@ -459,11 +462,13 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   visualEditor: {
     id: "visualEditor",
+    displayName: "Visual Editor",
     description: "Make visual changes for an experiment",
     policies: ["ReadData", "VisualEditorFullAccess"],
   },
   engineer: {
     id: "engineer",
+    displayName: "Engineer",
     description: "Manage features",
     policies: [
       "ReadData",
@@ -484,6 +489,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   analyst: {
     id: "analyst",
+    displayName: "Analyst",
     description: "Analyze experiments",
     policies: [
       "ReadData",
@@ -509,6 +515,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   experimenter: {
     id: "experimenter",
+    displayName: "Experimenter",
     description: "Manage features AND Analyze experiments",
     policies: [
       "ReadData",
@@ -540,8 +547,9 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "GeneralDashboardsFullAccess",
     ],
   },
-  projectAdmin: {
-    id: "projectAdmin",
+  gbDefault_projectAdmin: {
+    id: "gbDefault_projectAdmin",
+    displayName: "Project Admin",
     description: "Manage project settings and project member's project role.",
     policies: [
       "ReadData",
@@ -576,6 +584,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   admin: {
     id: "admin",
+    displayName: "Admin",
     description:
       "All access + invite teammates and configure organization settings",
     policies: [...POLICIES],

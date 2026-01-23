@@ -2,7 +2,11 @@ import { ReactNode, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
-import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
+import {
+  RESERVED_ROLE_IDS,
+  roleSupportsEnvLimit,
+  getRoleDisplayName,
+} from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -46,7 +50,7 @@ export default function SingleRoleSelector({
   }
 
   if (!includeProjectAdminRole) {
-    roleOptions = roleOptions.filter((r) => r.id !== "projectAdmin");
+    roleOptions = roleOptions.filter((r) => r.id !== "gbDefault_projectAdmin");
   }
 
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
@@ -59,10 +63,16 @@ export default function SingleRoleSelector({
 
   roleOptions.forEach((r) => {
     if (RESERVED_ROLE_IDS.includes(r.id)) {
-      standardOptions.push({ label: r.id, value: r.id });
+      standardOptions.push({
+        label: getRoleDisplayName(r.id, organization),
+        value: r.id,
+      });
     } else {
       if (hasCustomRolesFeature) {
-        customOptions.push({ label: r.id, value: r.id });
+        customOptions.push({
+          label: getRoleDisplayName(r.id, organization),
+          value: r.id,
+        });
       }
     }
   });
@@ -134,11 +144,13 @@ export default function SingleRoleSelector({
         sort={false}
         formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
-          const r = roles.find((r) => r.id === value.label);
+          const r = roles.find((r) => r.id === value.value);
           if (!r) return <span>{value.label}</span>;
           return (
             <div className="d-flex">
-              <span className="pr-2">{r.id}</span>
+              <span className="pr-2">
+                {getRoleDisplayName(r.id, organization)}
+              </span>
               <span className="ml-auto text-muted">{r.description}</span>
             </div>
           );
