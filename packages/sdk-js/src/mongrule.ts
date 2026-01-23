@@ -154,16 +154,22 @@ function isIn(
   expected: Array<any>,
   insensitive: boolean = false,
 ): boolean {
-  const caseFold = (val: any) =>
-    insensitive && typeof val === "string" ? val.toLowerCase() : val;
-
+  if (insensitive) {
+    const caseFold = (val: any) =>
+      typeof val === "string" ? val.toLowerCase() : val;
+    // Do an intersection if attribute is an array (insensitive)
+    if (Array.isArray(actual)) {
+      return actual.some((el) =>
+        expected.some((exp) => caseFold(el) === caseFold(exp)),
+      );
+    }
+    return expected.some((exp) => caseFold(actual) === caseFold(exp));
+  }
   // Do an intersection if attribute is an array
   if (Array.isArray(actual)) {
-    return actual.some((el) =>
-      expected.some((exp) => caseFold(el) === caseFold(exp)),
-    );
+    return actual.some((el) => expected.includes(el));
   }
-  return expected.some((exp) => caseFold(actual) === caseFold(exp));
+  return expected.includes(actual);
 }
 
 function isInAll(
