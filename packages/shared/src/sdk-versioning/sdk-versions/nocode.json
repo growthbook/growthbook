@@ -15,7 +15,8 @@
         "prerequisites",
         "redirects",
         "stickyBucketing",
-        "savedGroupReferences"
+        "savedGroupReferences",
+        "caseInsensitiveRegex"
       ]
     }
   ]
