@@ -95,7 +95,7 @@ export const apiCustomFieldInterface = apiBaseSchema.safeExtend({
 export type ApiCustomField = z.infer<typeof apiCustomFieldInterface>;
 
 export const apiCreateCustomFieldBody = z.strictObject({
-  id: z.string().describe("The unique key for the custom field"),
+  id: z.string().min(1).describe("The unique key for the custom field"),
   name: z.string().describe("The display name of the custom field"),
   description: z.string().optional(),
   placeholder: z.string().optional(),

@@ -321,7 +321,7 @@ export abstract class BaseModel<
       z.ZodType<UpdateProps<z.infer<T>>>,
       z.ZodTypeAny
     >,
-  ): Promise<z.infer<ApiT> | void> {
+  ): Promise<z.infer<ApiT>> {
     const id = req.params.id;
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);

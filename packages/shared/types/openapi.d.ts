@@ -386,6 +386,8 @@ export interface paths {
     get: operations["getDashboardsForExperiment"];
   };
   "/custom-fields": {
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
     /** Create a single customField */
     post: operations["createCustomField"];
   };
@@ -396,10 +398,6 @@ export interface paths {
     put: operations["updateCustomField"];
     /** Delete a single customField */
     delete: operations["deleteCustomField"];
-  };
-  "/custom-fields/": {
-    /** Get all custom fields */
-    get: operations["listCustomFields"];
   };
 }
 
@@ -15647,6 +15645,41 @@ export interface operations {
       };
     };
   };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            })[];
+        };
+      };
+    };
+  };
   createCustomField: {
     /** Create a single customField */
     requestBody: {
@@ -15818,41 +15851,6 @@ export interface operations {
           "application/json": {
             deletedId: string;
           };
-        };
-      };
-    };
-  };
-  listCustomFields: {
-    /** Get all custom fields */
-    parameters: {
-      query: {
-        projectId?: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            })[];
         };
       };
     };

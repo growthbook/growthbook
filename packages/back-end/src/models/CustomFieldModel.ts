@@ -36,7 +36,7 @@ const BaseClass = MakeModelClass({
     crudActions: ["create", "delete", "get", "update"],
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "/",
+        pathFragment: "",
         verb: "get",
         operationId: "listCustomFields",
         validator: {
@@ -292,7 +292,7 @@ export class CustomFieldModel extends BaseClass {
       z.ZodTypeAny,
       z.ZodTypeAny
     >,
-  ): Promise<ApiCustomField | void> {
+  ): Promise<ApiCustomField> {
     const id = req.params.id;
     const parsedBody = apiUpdateCustomFieldBody.parse(req.body);
     const containerObject = await this.updateCustomField(id, parsedBody);
