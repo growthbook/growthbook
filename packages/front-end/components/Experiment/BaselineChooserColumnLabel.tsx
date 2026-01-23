@@ -19,7 +19,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import { analysisUpdate } from "./DifferenceTypeChooser";
+import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
   variations: Variation[] | ExperimentReportVariation[];
