@@ -249,20 +249,21 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
     return null;
   }
 
+  if (!hasAnySupplementalData) {
+    return (
+      <Box mt="7">
+        <EmptyState
+          title="No Analysis Adjustments"
+          description="When analysis adjustments like CUPED, post-stratification, or metric capping are applied, this tab will show the individual impact of each technique on your results."
+          leftButton={null}
+          rightButton={null}
+        />
+      </Box>
+    );
+  }
+
   return (
     <>
-      {/* Show empty state if no supplemental data is available */}
-      {!hasAnySupplementalData && (
-        <Box mt="7">
-          <EmptyState
-            title="No Analysis Adjustments"
-            description="When analysis adjustments like CUPED, post-stratification, or metric capping are applied, this tab will show the individual impact of each technique on your results."
-            leftButton={null}
-            rightButton={null}
-          />
-        </Box>
-      )}
-
       {varianceReductionRows.length > 0 && (
         <div className="mt-4">
           <Heading size="4" weight="medium" mb="3">
