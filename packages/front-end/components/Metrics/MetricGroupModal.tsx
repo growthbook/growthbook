@@ -77,6 +77,7 @@ const MetricGroupModal: FC<{
                 datasource: value.datasource,
                 projects: value.projects,
                 metrics: value.metrics,
+                owner: "",
               }),
             },
           );
