@@ -240,7 +240,7 @@ export default function MetricDrilldownMetricCard({
         flexGrow: 0,
         flexShrink: 0,
         borderRadius: "var(--radius-2)",
-        backgroundColor: "var(--color-panel-translucent)",
+        backgroundColor: "var(--gray-a2)",
       }}
     >
       {header ? (
