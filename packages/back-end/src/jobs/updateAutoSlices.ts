@@ -149,11 +149,15 @@ async function updateAutoSlicesForColumns(
 
         // Process results for each column
         for (const col of columnChunk) {
-          const topValues = topValuesByColumn[col.column] || [];
+          const topValues = topValuesByColumn[col.column];
 
           // Persist topValues and topValuesDate
           col.topValues = topValues;
           col.topValuesDate = new Date();
+
+          // Skip autoSlices update if no top values.
+          // (empty response may be transient, not worth losing the slices)
+          if (!topValues?.length) continue;
 
           // Update autoSlices with locked levels + new top values
           const lockedLevels = col.lockedAutoSlices || [];
