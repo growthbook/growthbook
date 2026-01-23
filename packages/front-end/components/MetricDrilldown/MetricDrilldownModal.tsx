@@ -163,8 +163,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   initialSliceSearchTerm,
   initialTab,
 }) => {
-  const { analysis, snapshot, setAnalysisSettings, mutateSnapshot } =
-    useSnapshot();
+  const { analysis } = useSnapshot();
 
   // TODO: Check if it is safe to use first results
   const results = analysis?.results?.[0] ?? initialResults;
@@ -195,11 +194,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   });
 
   const mainMetricRow = useMemo(() => {
-    if (!row.isSliceRow) {
-      return row;
-    }
-
-    return allRows.find((r) => r.metric.id === metric.id) ?? row;
+    const updatedRow = allRows.find(
+      (r) => r.metric.id === metric.id && !r.isSliceRow,
+    );
+    return updatedRow ?? row;
   }, [allRows, metric.id, row]);
 
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
@@ -279,10 +277,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           localDifferenceType={localDifferenceType}
           setLocalDifferenceType={setLocalDifferenceType}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          snapshot={snapshot}
-          analysis={analysis}
-          setAnalysisSettings={setAnalysisSettings}
-          mutateSnapshot={mutateSnapshot}
         />
       </TabsContent>
       <TabsContent value="slices">

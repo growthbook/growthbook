@@ -15,6 +15,7 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentTableRow } from "@/services/experiments";
 import EmptyState from "@/components/EmptyState";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 interface MetricDrilldownDebugProps {
   row?: ExperimentTableRow;
@@ -48,6 +49,33 @@ function createRowLabel(description: string) {
 }
 
 /**
+ * Override the metricSnapshotSettings based on the supplemental result
+ * to ensure the tooltip / information in the modal is correct
+ */
+function getSupplementalMetricSnapshotSettings(
+  baseSettings: ExperimentTableRow["metricSnapshotSettings"],
+  supplementalField: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
+): ExperimentTableRow["metricSnapshotSettings"] {
+  if (!baseSettings) return baseSettings;
+
+  switch (supplementalField) {
+    case "cupedUnadjusted":
+    case "noVarianceReduction":
+      return {
+        ...baseSettings,
+        regressionAdjustmentEnabled: false,
+      };
+    case "flatPrior":
+      return {
+        ...baseSettings,
+        properPrior: false,
+      };
+    default:
+      return baseSettings;
+  }
+}
+
+/**
  * Create a ExperimentTableRow with data overridden by supplemental results
  */
 function createSupplementalRow(
@@ -75,6 +103,10 @@ function createSupplementalRow(
     ...baseRow,
     label: createRowLabel(description),
     variations: newVariations,
+    metricSnapshotSettings: getSupplementalMetricSnapshotSettings(
+      baseRow.metricSnapshotSettings,
+      supplementalField,
+    ),
   };
 }
 
@@ -99,6 +131,13 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
+  const {
+    snapshot,
+    analysis,
+    setAnalysisSettings,
+    mutateSnapshot: mutate,
+  } = useSnapshot();
+
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
 
@@ -284,6 +323,10 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             noTooltip={false}
             isBandit={false}
             isHoldout={false}
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
           />
         </div>
       )}
@@ -322,6 +365,10 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             noTooltip={false}
             isBandit={false}
             isHoldout={false}
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
           />
         </div>
       )}
@@ -360,6 +407,10 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             noTooltip={false}
             isBandit={false}
             isHoldout={false}
+            snapshot={snapshot}
+            analysis={analysis}
+            setAnalysisSettings={setAnalysisSettings}
+            mutate={mutate}
           />
         </div>
       )}
