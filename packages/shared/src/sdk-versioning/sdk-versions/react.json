@@ -2,7 +2,7 @@
   "versions": [
     {
       "version": "1.6.4",
-      "capabilities": ["caseInsensitiveRegex", "caseInsensitiveMembership"]
+      "capabilities": ["caseInsensitiveMembership"]
     },
     {
       "version": "1.6.3",

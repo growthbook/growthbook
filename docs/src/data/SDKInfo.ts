@@ -26,10 +26,10 @@ export default {
         experimentation: "All versions",
       },
       {
-        caseInsensitiveRegex: "≥ v1.6.3",
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
-        caseInsensitiveMembership: "≥ v1.6.4",
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -105,10 +105,10 @@ export default {
         experimentation: "All versions",
       },
       {
-        caseInsensitiveRegex: "≥ v1.6.3",
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
-        caseInsensitiveMembership: "≥ v1.6.4",
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -267,10 +267,10 @@ export default {
         experimentation: "All versions",
       },
       {
-        caseInsensitiveRegex: "≥ v1.6.3",
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
-        caseInsensitiveMembership: "≥ v1.6.4",
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -738,10 +738,10 @@ export default {
         experimentation: "All versions",
       },
       {
-        caseInsensitiveRegex: "≥ v1.6.3",
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
-        caseInsensitiveMembership: "≥ v1.6.4",
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
