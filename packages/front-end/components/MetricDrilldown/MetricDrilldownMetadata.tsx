@@ -78,7 +78,9 @@ export function MetricDrilldownMetadata({
           label={`Capping (${metric.cappingSettings.type})`}
           value={metric.cappingSettings.value}
         />
-      ) : null}
+      ) : (
+        <Metadata label="Capping" value="Disabled" />
+      )}
 
       {(!isNullUndefinedOrEmpty(metric.windowSettings.type) ||
         metricOverrideFields.includes("windowType")) &&

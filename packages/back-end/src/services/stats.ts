@@ -10,6 +10,7 @@ import {
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
+  eligibleForUncappedMetric,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -331,7 +332,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
-    capped: metric.cappingSettings.type !== "",
+    compute_uncapped_metric: eligibleForUncappedMetric(metric),
   };
 }
 

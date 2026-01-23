@@ -873,7 +873,7 @@ def create_core_and_supplemental_results(
     )
 
     cuped_adjusted = metric.statistic_type in ["ratio_ra", "mean_ra"]
-    metric_capped = metric.capped
+    compute_uncapped_metric = metric.compute_uncapped_metric
     analysis_bayesian = analysis.stats_engine == "bayesian" and metric.prior_proper
     post_stratify = test_post_strat_eligible(metric, analysis)
 
@@ -922,7 +922,7 @@ def create_core_and_supplemental_results(
             )
         else:
             result_unstratified = None
-    if metric_capped:
+    if compute_uncapped_metric:
         reduced_metric_data_uncapped = copy.deepcopy(reduced_metric_data)
         for d in reduced_metric_data_uncapped:
             d.data = replace_with_uncapped(d.data)
