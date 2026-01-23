@@ -544,16 +544,18 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           />
         </div>
       ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mb-3"
+        <Link
           onClick={(e) => {
             e.preventDefault();
             setShowDescription(true);
           }}
+          mb="4"
         >
-          + description
-        </a>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            <Text weight="medium">Add a description</Text>
+          </Flex>
+        </Link>
       )}
 
       {isMetricSlicesFeatureEnabled &&
