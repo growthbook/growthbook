@@ -221,6 +221,14 @@ export default function PrerequisiteInput(props: Props) {
                   { label: "is less than or equal to", value: "$lte" },
                   { label: "is in the list", value: "$in" },
                   { label: "is not in the list", value: "$nin" },
+                  {
+                    label: "is in the list (case insensitive)",
+                    value: "$ini",
+                  },
+                  {
+                    label: "is not in the list (case insensitive)",
+                    value: "$nini",
+                  },
                 ]
               : attribute.datatype === "number"
                 ? [
@@ -291,9 +299,12 @@ export default function PrerequisiteInput(props: Props) {
                 "$false",
                 "$empty",
                 "$notEmpty",
-              ].includes(operator) ? null : ["$in", "$nin"].includes(
-                  operator,
-                ) ? (
+              ].includes(operator) ? null : [
+                  "$in",
+                  "$nin",
+                  "$ini",
+                  "$nini",
+                ].includes(operator) ? (
                 <Flex
                   direction="column"
                   align="end"

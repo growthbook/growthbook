@@ -379,7 +379,7 @@ function ConditionAndGroupInput({
     },
   ];
 
-  const listOperators = ["$in", "$nin"];
+  const listOperators = ["$in", "$nin", "$ini", "$nini", "$alli"];
 
   const attributeSchema = useAttributeSchema(false, props.project);
 
@@ -630,6 +630,14 @@ function ConditionAndGroupInput({
                       { label: "is not equal to", value: "$ne" },
                       { label: "is in the list", value: "$in" },
                       { label: "is not in the list", value: "$nin" },
+                      {
+                        label: "is in the list (case insensitive)",
+                        value: "$ini",
+                      },
+                      {
+                        label: "is not in the list (case insensitive)",
+                        value: "$nini",
+                      },
                       { label: "is not NULL", value: "$exists" },
                       { label: "is NULL", value: "$notExists" },
                     ]
@@ -689,6 +697,14 @@ function ConditionAndGroupInput({
                         },
                         { label: "is in the list", value: "$in" },
                         { label: "is not in the list", value: "$nin" },
+                        {
+                          label: "is in the list (case insensitive)",
+                          value: "$ini",
+                        },
+                        {
+                          label: "is not in the list (case insensitive)",
+                          value: "$nini",
+                        },
                         { label: "is not NULL", value: "$exists" },
                         { label: "is NULL", value: "$notExists" },
                         ...(savedGroupOptions.length > 0
@@ -701,6 +717,14 @@ function ConditionAndGroupInput({
                           { label: "is not equal to", value: "$ne" },
                           { label: "is in the list", value: "$in" },
                           { label: "is not in the list", value: "$nin" },
+                          {
+                            label: "is in the list (case insensitive)",
+                            value: "$ini",
+                          },
+                          {
+                            label: "is not in the list (case insensitive)",
+                            value: "$nini",
+                          },
                           { label: "is not NULL", value: "$exists" },
                           { label: "is NULL", value: "$notExists" },
                           ...(savedGroupOptions.length > 0
@@ -723,6 +747,14 @@ function ConditionAndGroupInput({
                             },
                             { label: "is in the list", value: "$in" },
                             { label: "is not in the list", value: "$nin" },
+                            {
+                              label: "is in the list (case insensitive)",
+                              value: "$ini",
+                            },
+                            {
+                              label: "is not in the list (case insensitive)",
+                              value: "$nini",
+                            },
                             { label: "is not NULL", value: "$exists" },
                             { label: "is NULL", value: "$notExists" },
                             ...(savedGroupOptions.length > 0
@@ -734,7 +766,10 @@ function ConditionAndGroupInput({
           if (attribute.disableEqualityConditions) {
             // Remove equality operators if the attribute has them disabled
             operatorOptions = operatorOptions.filter(
-              (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value),
+              (o) =>
+                !["$eq", "$ne", "$in", "$nin", "$ini", "$nini"].includes(
+                  o.value,
+                ),
             );
           }
 
@@ -1047,32 +1082,33 @@ export function CaseInsensitiveRegexWarning({
   project?: string;
 }) {
   const { data: sdkConnectionsData } = useSDKConnections();
-  // Check if conditions use $regexi or $notRegexi operators
+  // Check if conditions use case-insensitive operators
   // In valid JSON, operators are always quoted, so we only check for quoted versions
-  const hasRegexiOperator =
-    value.includes('"$regexi"') || value.includes('"$notRegexi"');
-  const hasSDKWithCaseInsensitiveRegex = getConnectionsSDKCapabilities({
+  const hasCaseInsensitiveOperator =
+    value.includes('"$regexi"') ||
+    value.includes('"$notRegexi"') ||
+    value.includes('"$ini"') ||
+    value.includes('"$nini"') ||
+    value.includes('"$alli"');
+  const hasSDKWithCaseInsensitive = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
     project,
-  }).includes("caseInsensitiveRegex");
-  const hasSDKWithNoCaseInsensitiveRegex = !getConnectionsSDKCapabilities({
+  }).includes("caseInsensitiveMembership");
+  const hasSDKWithNoCaseInsensitive = !getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
     mustMatchAllConnections: true,
     project,
-  }).includes("caseInsensitiveRegex");
+  }).includes("caseInsensitiveMembership");
 
-  if (!hasRegexiOperator || !hasSDKWithNoCaseInsensitiveRegex) {
+  if (!hasCaseInsensitiveOperator || !hasSDKWithNoCaseInsensitive) {
     return null;
   }
 
   return (
-    <Callout
-      status={hasSDKWithCaseInsensitiveRegex ? "warning" : "error"}
-      mt="2"
-    >
-      {hasSDKWithCaseInsensitiveRegex
-        ? "Some of your SDK Connections in this project may not support case-insensitive regex."
-        : "None of your SDK Connections in this project support case-insensitive regex. Either upgrade your SDKs or use case-sensitive regex operators instead."}
+    <Callout status={hasSDKWithCaseInsensitive ? "warning" : "error"} mt="2">
+      {hasSDKWithCaseInsensitive
+        ? "Some of your SDK Connections in this project may not support case-insensitive operators."
+        : "None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."}
       <Link
         href={"/sdks"}
         weight="bold"

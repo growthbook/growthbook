@@ -1,5 +1,12 @@
 # Changelog
 
+## **1.6.4** - Jan 23, 2026
+
+- Add support for case-insensitive membership operators: `$ini`, `$nini`, `$alli`
+  - `$ini`: Case-insensitive version of `$in`
+  - `$nini`: Case-insensitive version of `$nin`
+  - `$alli`: Case-insensitive version of `$all`
+
 ## **1.6.3** - Jan 22, 2026
 
 - Add support for case-insensitive regex targeting: `$regexi`
