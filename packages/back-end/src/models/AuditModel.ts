@@ -65,7 +65,7 @@ export async function insertAudit(
 export async function findRecentAuditByUserIdAndOrganization(
   userId: string,
   organization: string,
-): Promise<Omit<AuditInterface[], "details">> {
+): Promise<Omit<AuditInterface, "details">[]> {
   const userAudits = await AuditModel.find({
     "user.id": userId,
     organization,
