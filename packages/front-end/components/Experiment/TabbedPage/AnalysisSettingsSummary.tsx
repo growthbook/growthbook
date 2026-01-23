@@ -52,11 +52,8 @@ export interface Props {
   statsEngine: StatsEngine;
   editMetrics?: () => void;
   variationFilter?: number[];
-  setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
-  setBaselineRow?: (baselineRow: number) => void;
   differenceType?: DifferenceType;
-  setDifferenceType: (differenceType: DifferenceType) => void;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
   metricTagFilter?: string[];
@@ -77,6 +74,7 @@ export interface Props {
   setSliceTagsFilter?: (tags: string[]) => void;
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
+  resetAnalysisSettingsOnUpdate?: () => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -87,11 +85,8 @@ export default function AnalysisSettingsSummary({
   statsEngine,
   editMetrics,
   variationFilter,
-  setVariationFilter,
   baselineRow,
-  setBaselineRow,
   differenceType,
-  setDifferenceType,
   dimension,
   setDimension,
   metricTagFilter,
@@ -105,6 +100,7 @@ export default function AnalysisSettingsSummary({
   setSliceTagsFilter,
   sortBy,
   sortDirection,
+  resetAnalysisSettingsOnUpdate,
 }: Props) {
   const {
     getDatasourceById,
@@ -678,27 +674,21 @@ export default function AnalysisSettingsSummary({
                     datasource?.type || null,
                     snapshot,
                   );
-                  setAnalysisSettings(null);
-                }}
-                mutate={mutateSnapshot}
-                mutateAdditional={mutate}
-                setRefreshError={setRefreshError}
-                resetFilters={async () => {
-                  if (baselineRow !== 0) {
-                    setBaselineRow?.(0);
-                    setVariationFilter?.([]);
-                  }
-                  setDifferenceType("relative");
+                  resetAnalysisSettingsOnUpdate?.();
                   if (experiment.type === "multi-armed-bandit") {
                     setSnapshotType?.("exploratory");
                   } else {
                     setSnapshotType?.(undefined);
                   }
                 }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
                 experiment={experiment}
                 phase={phase}
                 dimension={dimension}
                 setAnalysisSettings={setAnalysisSettings}
+                resetAnalysisSettingsOnUpdate={resetAnalysisSettingsOnUpdate}
               />
             ) : null}
 
@@ -718,12 +708,7 @@ export default function AnalysisSettingsSummary({
                         }),
                       })
                         .then((res) => {
-                          setAnalysisSettings(null);
-                          if (baselineRow !== 0) {
-                            setBaselineRow?.(0);
-                            setVariationFilter?.([]);
-                          }
-                          setDifferenceType("relative");
+                          resetAnalysisSettingsOnUpdate?.();
                           trackSnapshot(
                             "create",
                             "ForceRerunQueriesButton",

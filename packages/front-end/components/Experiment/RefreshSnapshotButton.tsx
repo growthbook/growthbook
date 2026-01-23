@@ -1,10 +1,7 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotAnalysisSettings,
-} from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -18,23 +15,19 @@ const RefreshSnapshotButton: FC<{
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   dimension?: string;
-  setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null,
-  ) => void;
   useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
-  resetFilters?: () => void;
   setError: (e: string | undefined) => void;
+  resetAnalysisSettingsOnUpdate: () => void;
 }> = ({
   mutate,
   experiment,
   phase,
   dimension,
-  setAnalysisSettings,
   useRadixButton = false,
   radixVariant = "outline",
-  resetFilters,
   setError,
+  resetAnalysisSettingsOnUpdate,
 }) => {
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
@@ -54,7 +47,7 @@ const RefreshSnapshotButton: FC<{
         dimension,
       }),
     });
-    setAnalysisSettings(null);
+    resetAnalysisSettingsOnUpdate?.();
     trackSnapshot(
       "create",
       "RefreshSnapshotButton",
@@ -79,7 +72,7 @@ const RefreshSnapshotButton: FC<{
             disabled={loading}
             setError={(error) => setError(error ?? undefined)}
             onClick={async () => {
-              resetFilters?.();
+              resetAnalysisSettingsOnUpdate();
               setLoading(true);
               setLongResult(false);
 
@@ -116,7 +109,7 @@ const RefreshSnapshotButton: FC<{
             color="outline-primary"
             setErrorText={setError}
             onClick={async () => {
-              resetFilters?.();
+              resetAnalysisSettingsOnUpdate();
               setLoading(true);
               setLongResult(false);
 
