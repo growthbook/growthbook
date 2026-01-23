@@ -81,7 +81,7 @@ export const setupApp = () => {
       // Wait for all model indexes to be created before running tests
       await waitForIndexes();
       resolve();
-    });
+    }, 60000); // Increase timeout to 60s for CI environment
 
     afterAll(async () => {
       await getAgendaInstance().stop();
