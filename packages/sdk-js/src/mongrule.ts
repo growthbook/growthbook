@@ -76,11 +76,11 @@ function evalConditionValue(
   condition: ConditionValue,
   value: any,
   savedGroups: SavedGroupsValues,
-  caseInsensitive: boolean = false,
+  insensitive: boolean = false,
 ) {
   // Simple equality comparisons
   if (typeof condition === "string") {
-    if (caseInsensitive) {
+    if (insensitive) {
       return String(value).toLowerCase() === condition.toLowerCase();
     }
     return value + "" === condition;
@@ -152,33 +152,32 @@ function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
 function isIn(
   actual: any,
   expected: Array<any>,
-  caseInsensitive: boolean = false,
+  insensitive: boolean = false,
 ): boolean {
-  const normalize = (val: any) =>
-    caseInsensitive && typeof val === "string" ? val.toLowerCase() : val;
+  const caseFold = (val: any) =>
+    insensitive && typeof val === "string" ? val.toLowerCase() : val;
 
+  // Do an intersection if attribute is an array
   if (Array.isArray(actual)) {
-    return actual.some((el) => {
-      const normalizedEl = normalize(el);
-      return expected.some((exp) => normalizedEl === normalize(exp));
-    });
+    return actual.some((el) =>
+      expected.some((exp) => caseFold(el) === caseFold(exp)),
+    );
   }
-  const normalizedActual = normalize(actual);
-  return expected.some((exp) => normalizedActual === normalize(exp));
+  return expected.some((exp) => caseFold(actual) === caseFold(exp));
 }
 
 function isInAll(
   actual: any,
   expected: ConditionValue[],
   savedGroups: SavedGroupsValues,
-  caseInsensitive: boolean = false,
+  insensitive: boolean = false,
 ): boolean {
   if (!Array.isArray(actual)) return false;
   for (let i = 0; i < expected.length; i++) {
     let passed = false;
     for (let j = 0; j < actual.length; j++) {
       if (
-        evalConditionValue(expected[i], actual[j], savedGroups, caseInsensitive)
+        evalConditionValue(expected[i], actual[j], savedGroups, insensitive)
       ) {
         passed = true;
         break;
