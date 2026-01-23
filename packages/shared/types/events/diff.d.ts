@@ -1,4 +1,4 @@
-interface HierarchicalValue {
+export interface HierarchicalValue {
   key: string;
   changes?: ItemChanges;
   added?: Record<string, unknown>;
@@ -12,13 +12,13 @@ interface HierarchicalValue {
   values?: HierarchicalValue[];
 }
 
-interface SimpleModification {
+export interface SimpleModification {
   key: string;
   oldValue: unknown;
   newValue: unknown;
 }
 
-interface HierarchicalModification {
+export interface HierarchicalModification {
   key: string;
   values: HierarchicalValue[];
   added: Record<string, unknown>;

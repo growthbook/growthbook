@@ -294,6 +294,7 @@ export const experimentInterface = z
     name: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
+    dateApiUpdated: z.date().optional(),
     tags: z.array(z.string()),
     description: z.string().optional(),
     hypothesis: z.string().optional(),
