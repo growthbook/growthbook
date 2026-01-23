@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -138,12 +138,28 @@ export default function AnalysisSettingsSummary({
     analysis,
     dimension: _snapshotDimension,
     precomputedDimensions,
-    mutateSnapshot,
+    mutateSnapshot: originalMutateSnapshot,
     setAnalysisSettings,
     setSnapshotType,
     setDimension: setSnapshotDimension,
     phase,
   } = useSnapshot();
+
+  // Track previous latest status to detect transition from "running" to "success"
+  const [previousLatestStatus, setPreviousLatestStatus] = useState<
+    string | undefined
+  >(latest?.status);
+
+  // Call reset when latest status transitions from "running" to "success"
+  useEffect(() => {
+    if (previousLatestStatus === "running" && latest?.status === "success") {
+      resetAnalysisSettingsOnUpdate?.();
+    }
+    setPreviousLatestStatus(latest?.status);
+  }, [latest?.status, previousLatestStatus, resetAnalysisSettingsOnUpdate]);
+
+  // Use the original mutateSnapshot - the useEffect above will handle the reset
+  const mutateSnapshot = originalMutateSnapshot;
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -674,7 +690,6 @@ export default function AnalysisSettingsSummary({
                     datasource?.type || null,
                     snapshot,
                   );
-                  resetAnalysisSettingsOnUpdate?.();
                   if (experiment.type === "multi-armed-bandit") {
                     setSnapshotType?.("exploratory");
                   } else {
@@ -688,7 +703,6 @@ export default function AnalysisSettingsSummary({
                 phase={phase}
                 dimension={dimension}
                 setAnalysisSettings={setAnalysisSettings}
-                resetAnalysisSettingsOnUpdate={resetAnalysisSettingsOnUpdate}
               />
             ) : null}
 
@@ -708,7 +722,6 @@ export default function AnalysisSettingsSummary({
                         }),
                       })
                         .then((res) => {
-                          resetAnalysisSettingsOnUpdate?.();
                           trackSnapshot(
                             "create",
                             "ForceRerunQueriesButton",

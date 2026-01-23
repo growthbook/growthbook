@@ -18,7 +18,6 @@ const RefreshSnapshotButton: FC<{
   useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
-  resetAnalysisSettingsOnUpdate: () => void;
 }> = ({
   mutate,
   experiment,
@@ -27,7 +26,6 @@ const RefreshSnapshotButton: FC<{
   useRadixButton = false,
   radixVariant = "outline",
   setError,
-  resetAnalysisSettingsOnUpdate,
 }) => {
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
@@ -47,7 +45,6 @@ const RefreshSnapshotButton: FC<{
         dimension,
       }),
     });
-    resetAnalysisSettingsOnUpdate?.();
     trackSnapshot(
       "create",
       "RefreshSnapshotButton",
@@ -72,7 +69,6 @@ const RefreshSnapshotButton: FC<{
             disabled={loading}
             setError={(error) => setError(error ?? undefined)}
             onClick={async () => {
-              resetAnalysisSettingsOnUpdate();
               setLoading(true);
               setLongResult(false);
 
@@ -109,7 +105,6 @@ const RefreshSnapshotButton: FC<{
             color="outline-primary"
             setErrorText={setError}
             onClick={async () => {
-              resetAnalysisSettingsOnUpdate();
               setLoading(true);
               setLongResult(false);
 

@@ -32,7 +32,6 @@ export interface RefreshResultsButtonProps<
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  resetAnalysisSettingsOnUpdate?: () => void;
   // SafeRollout-specific props
   safeRollout?: SafeRolloutInterface;
 }
@@ -55,7 +54,6 @@ export default function RefreshResultsButton<
   experiment,
   phase,
   dimension,
-  resetAnalysisSettingsOnUpdate,
   safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
@@ -69,8 +67,7 @@ export default function RefreshResultsButton<
     !shouldUseRunQueriesButton &&
     (entityType === "experiment" || entityType === "holdout") &&
     experiment &&
-    phase !== undefined &&
-    resetAnalysisSettingsOnUpdate;
+    phase !== undefined;
 
   const shouldRenderSafeRolloutButton =
     !shouldUseRunQueriesButton &&
@@ -140,7 +137,6 @@ export default function RefreshResultsButton<
           experiment={experiment}
           dimension={dimension}
           setError={(error) => setRefreshError(error ?? "")}
-          resetAnalysisSettingsOnUpdate={resetAnalysisSettingsOnUpdate}
           useRadixButton={true}
           radixVariant="outline"
         />
