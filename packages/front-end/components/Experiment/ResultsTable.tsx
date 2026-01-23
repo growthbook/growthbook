@@ -1361,6 +1361,7 @@ export default function ResultsTable({
                                         startDate,
                                       )}
                                       sliceId={row.sliceId}
+                                      baselineRow={baselineRow}
                                     />
                                   </div>
                                 </div>
