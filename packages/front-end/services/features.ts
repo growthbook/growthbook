@@ -1120,6 +1120,13 @@ export function jsonToConds(
                 value: v["$regex"],
               });
             }
+            if ("$regexi" in v && typeof v["$regexi"] === "string") {
+              return conds.push({
+                field,
+                operator: "$notRegexi",
+                value: v["$regexi"],
+              });
+            }
             if ("$elemMatch" in v) {
               const m = v["$elemMatch"];
               if (typeof m === "object" && Object.keys(m).length === 1) {
@@ -1190,6 +1197,7 @@ export function jsonToConds(
             "$lt",
             "$lte",
             "$regex",
+            "$regexi",
             "$veq",
             "$vne",
             "$vgt",
@@ -1265,6 +1273,10 @@ export function condToJson(
       obj[field] = obj[field] || {};
       if (operator === "$notRegex") {
         obj[field]["$not"] = { $regex: value };
+      } else if (operator === "$notRegexi") {
+        obj[field]["$not"] = { $regexi: value };
+      } else if (operator === "$regexi") {
+        obj[field]["$regexi"] = value;
       } else if (operator === "$notExists") {
         obj[field]["$exists"] = false;
       } else if (operator === "$exists") {

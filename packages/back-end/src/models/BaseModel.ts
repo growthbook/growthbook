@@ -272,7 +272,7 @@ export abstract class BaseModel<
     return keys;
   }
 
-  protected async handleApiGet(
+  public async handleApiGet(
     req: ApiRequest<
       unknown,
       z.ZodType<{ id: string }>,
@@ -282,10 +282,10 @@ export abstract class BaseModel<
   ): Promise<z.infer<ApiT>> {
     const id = req.params.id;
     const doc = await this.getById(id);
-    if (!doc) throw new Error("Not found");
+    if (!doc) req.context.throwNotFoundError();
     return this.toApiInterface(doc);
   }
-  protected async handleApiCreate(
+  public async handleApiCreate(
     req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
@@ -297,12 +297,12 @@ export abstract class BaseModel<
   ): Promise<CreateProps<z.infer<T>>> {
     return rawBody as CreateProps<z.infer<T>>;
   }
-  protected async handleApiList(
+  public async handleApiList(
     _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
   ): Promise<z.infer<ApiT>[]> {
     return (await this.getAll()).map(this.toApiInterface);
   }
-  protected async handleApiDelete(
+  public async handleApiDelete(
     req: ApiRequest<
       unknown,
       z.ZodType<{ id: string }>,
@@ -314,7 +314,7 @@ export abstract class BaseModel<
     await this.deleteById(id);
     return id;
   }
-  protected async handleApiUpdate(
+  public async handleApiUpdate(
     req: ApiRequest<
       unknown,
       z.ZodType<{ id: string }>,

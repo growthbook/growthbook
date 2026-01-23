@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -38,7 +38,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^1.6.2"
+    "@growthbook/growthbook": "^1.6.3"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.3",
