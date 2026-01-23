@@ -80,5 +80,3 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
-CustomField:
-  $ref: "./CustomField.yaml"

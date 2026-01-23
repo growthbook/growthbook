@@ -248,6 +248,13 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     visibleSliceTimeSeriesRowIds,
   ]);
 
+  // Close all time series in Slices tab when baseline is not control
+  useEffect(() => {
+    if (localBaselineRow !== 0 && visibleSliceTimeSeriesRowIds.length > 0) {
+      setVisibleSliceTimeSeriesRowIds([]);
+    }
+  }, [localBaselineRow, visibleSliceTimeSeriesRowIds.length]);
+
   return (
     <>
       <TabsContent value="overview">

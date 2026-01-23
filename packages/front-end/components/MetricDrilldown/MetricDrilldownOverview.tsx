@@ -44,7 +44,7 @@ interface MetricDrilldownOverviewProps {
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutateSnapshot?: () => void;
+  mutateSnapshot?: () => Promise<unknown>;
 }
 
 function MetricDrilldownOverview({
