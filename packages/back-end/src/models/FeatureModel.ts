@@ -210,9 +210,6 @@ export async function getAllFeatures(
   );
 }
 
-const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
-  typeof x !== "undefined";
-
 export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string,
