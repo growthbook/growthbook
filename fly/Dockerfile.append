@@ -1,5 +1,0 @@
-# Fly.io idle watchdog additions (appended to main Dockerfile)
-RUN apt-get update && apt-get install -y --no-install-recommends supervisor iproute2 && rm -rf /var/lib/apt/lists/*
-COPY fly/idle-watchdog.sh fly/supervisord.conf /usr/local/src/app/fly/
-RUN chmod +x /usr/local/src/app/fly/idle-watchdog.sh
-CMD ["supervisord", "-c", "/usr/local/src/app/fly/supervisord.conf"]
