@@ -5433,7 +5433,7 @@ export default abstract class SqlIntegration
       `(
         SELECT
           ${this.castToString(`'${column.column}'`)} AS column_name,
-          ${column.column} AS value,
+          ${this.castToString(column.column)} AS value,
           COUNT(*) AS count
         FROM __factTable
         WHERE timestamp >= ${this.toTimestamp(start)}
