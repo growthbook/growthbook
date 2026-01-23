@@ -20,9 +20,7 @@ import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 
-interface DecisionFrameworkSettingsProps {
-  // No specific props needed as we use form context
-}
+type DecisionFrameworkSettingsProps = Record<string, never>;
 
 const DecisionFrameworkSettings: React.FC<
   DecisionFrameworkSettingsProps
