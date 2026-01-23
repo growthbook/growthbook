@@ -2,7 +2,7 @@ org = 'growthbook'
 primary_region = 'sjc'
 
 [build]
-  dockerfile = 'fly/Dockerfile.generated'
+  dockerfile = 'preview/Dockerfile.generated'
 
 [deploy]
   strategy = 'immediate'
@@ -12,7 +12,7 @@ primary_region = 'sjc'
   DISABLE_TELEMETRY = 'debug'
   IS_CLOUD = false
   IS_MULTI_ORG = true
-  FLY_IDLE_TIMEOUT_SECONDS = '1800'
+  PREVIEW_IDLE_TIMEOUT_SECONDS = '1800'
 
 [[services]]
   protocol = 'tcp'

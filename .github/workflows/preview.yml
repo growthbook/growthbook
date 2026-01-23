@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Generate Fly Dockerfile
-        run: cat Dockerfile fly/Dockerfile.append > fly/Dockerfile.generated
+        run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated
 
       - name: Setup fly cli
         uses: superfly/flyctl-actions/setup-flyctl@master

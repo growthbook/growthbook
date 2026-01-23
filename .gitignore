@@ -46,5 +46,5 @@ package-lock.json
 
 charts/**/*.tgz
 
-# Fly.io generated files
-fly/Dockerfile.generated
+# Preview environment generated files
+preview/Dockerfile.generated
