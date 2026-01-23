@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { apiBaseSchema } from "shared/validators";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { ModelClass, ModelName } from "back-end/src/services/context";
 import {
   ApiRequestValidator,
@@ -16,7 +17,7 @@ import {
   HttpVerb,
 } from "./apiModelHandlers";
 
-export const API_MODELS: ModelClass[] = [DashboardModel];
+export const API_MODELS: ModelClass[] = [DashboardModel, CustomFieldModel];
 
 export type ApiBaseSchema = typeof apiBaseSchema;
 type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
