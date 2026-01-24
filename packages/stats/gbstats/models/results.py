@@ -129,23 +129,20 @@ class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResp
     power: Optional[PowerResponse] = None
 
 
+VariationResponseIndividual = Union[
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
+    BaselineResponse,
+]
+
+
 @dataclass
 class SupplementalResults:
-    cupedUnadjusted: Optional[
-        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
-    ] = None
-    uncapped: Optional[
-        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
-    ] = None
-    flatPrior: Optional[
-        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
-    ] = None
-    unstratified: Optional[
-        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
-    ] = None
-    noVarianceReduction: Optional[
-        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
-    ] = None
+    cupedUnadjusted: Optional[VariationResponseIndividual] = None
+    uncapped: Optional[VariationResponseIndividual] = None
+    flatPrior: Optional[VariationResponseIndividual] = None
+    unstratified: Optional[VariationResponseIndividual] = None
+    noVarianceReduction: Optional[VariationResponseIndividual] = None
 
 
 @dataclass
@@ -167,12 +164,6 @@ VariationResponse = Union[
     BayesianVariationResponse,
     FrequentistVariationResponse,
     BaselineResponseWithSupplementalResults,
-]
-
-VariationResponseIndividual = Union[
-    BayesianVariationResponseIndividual,
-    FrequentistVariationResponseIndividual,
-    BaselineResponse,
 ]
 
 
