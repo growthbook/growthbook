@@ -60,38 +60,33 @@ export interface BayesianVariationResponseIndividual
     BayesianTestResult {
   power?: MetricPowerResponseFromStatsEngine;
 }
-interface SupplementalResults {
-  cupedUnadjusted?:
-    | BaselineResponse
-    | BayesianVariationResponseIndividual
-    | FrequentistVariationResponseIndividual;
-  uncapped?:
-    | BaselineResponse
-    | BayesianVariationResponseIndividual
-    | FrequentistVariationResponseIndividual;
-  unstratified?:
-    | BaselineResponse
-    | BayesianVariationResponseIndividual
-    | FrequentistVariationResponseIndividual;
-  noVarianceReduction?:
-    | BaselineResponse
-    | BayesianVariationResponseIndividual
-    | FrequentistVariationResponseIndividual;
-  flatPrior?:
-    | BaselineResponse
-    | BayesianVariationResponseIndividual
-    | FrequentistVariationResponseIndividual;
-}
-
-interface BayesianVariationResponse
-  extends BayesianVariationResponseIndividual {
-  supplementalResults?: SupplementalResults;
-}
 
 export interface FrequentistVariationResponseIndividual
   extends BaselineResponse,
     FrequentistTestResult {
   power?: MetricPowerResponseFromStatsEngine;
+}
+
+type SupplementalResult =
+  | BaselineResponse
+  | BayesianVariationResponseIndividual
+  | FrequentistVariationResponseIndividual;
+
+export interface SupplementalResults {
+  cupedUnadjusted?: SupplementalResult;
+  uncapped?: SupplementalResult;
+  unstratified?: SupplementalResult;
+  noVarianceReduction?: SupplementalResult;
+  flatPrior?: SupplementalResult;
+}
+
+interface BaselineResponseWithSupplementalResults extends BaselineResponse {
+  supplementalResults?: SupplementalResults;
+}
+
+interface BayesianVariationResponse
+  extends BayesianVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
 }
 
 interface FrequentistVariationResponse
@@ -119,16 +114,22 @@ interface BaseDimensionResponse {
 }
 
 interface BayesianDimensionResponse extends BaseDimensionResponse {
-  variations: BayesianVariationResponse[];
+  variations: (
+    | BaselineResponseWithSupplementalResults
+    | BayesianVariationResponse
+  )[];
 }
 
-interface FrequentistVariationResponse extends BaseDimensionResponse {
-  variations: FrequentistVariationResponse[];
+interface FrequentistDimensionResponse extends BaseDimensionResponse {
+  variations: (
+    | BaselineResponseWithSupplementalResults
+    | FrequentistVariationResponse
+  )[];
 }
 
 type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
-  | FrequentistVariationResponse;
+  | FrequentistDimensionResponse;
 
 export type RealizedSettings = {
   postStratificationApplied: boolean;

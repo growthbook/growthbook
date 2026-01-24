@@ -508,49 +508,44 @@ function parseStatsEngineResult({
           data.users = Math.max(data.users, v.users);
 
           // translate null in CI to infinity
-          const ci = getFormattedCI(v.ci);
-          const ciCupedUnadjusted = getFormattedCI(
-            v.supplementalResults?.cupedUnadjusted?.ci,
-          );
-          const ciUncapped = getFormattedCI(
-            v.supplementalResults?.uncapped?.ci,
-          );
-          const ciUnstratified = getFormattedCI(
-            v.supplementalResults?.unstratified?.ci,
-          );
-          const ciNoVarianceReduction = getFormattedCI(
-            v.supplementalResults?.noVarianceReduction?.ci,
-          );
-          const parsedVariation = {
-            ...v,
-            ci,
-          };
-          // Update CI values in supplemental results
-          if (v.supplementalResults?.cupedUnadjusted) {
-            v.supplementalResults.cupedUnadjusted.ci = ciCupedUnadjusted;
-          }
-          if (v.supplementalResults?.uncapped) {
-            v.supplementalResults.uncapped.ci = ciUncapped;
+          if ("ci" in v) {
+            v.ci = getFormattedCI(v.ci);
           }
           if (
-            v.supplementalResults &&
-            "flatPrior" in v.supplementalResults &&
-            v.supplementalResults.flatPrior
+            v.supplementalResults?.cupedUnadjusted &&
+            "ci" in v.supplementalResults.cupedUnadjusted
           ) {
-            const ciFlatPrior = getFormattedCI(
-              v.supplementalResults.flatPrior?.ci,
+            v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
+              v.supplementalResults.cupedUnadjusted.ci,
             );
-            v.supplementalResults.flatPrior.ci = ciFlatPrior;
           }
-          if (v.supplementalResults?.unstratified) {
-            v.supplementalResults.unstratified.ci = ciUnstratified;
+          if (
+            v.supplementalResults?.uncapped &&
+            "ci" in v.supplementalResults.uncapped
+          ) {
+            v.supplementalResults.uncapped.ci = getFormattedCI(
+              v.supplementalResults.uncapped.ci,
+            );
           }
-          if (v.supplementalResults?.noVarianceReduction) {
-            v.supplementalResults.noVarianceReduction.ci =
-              ciNoVarianceReduction;
+          if (
+            v.supplementalResults?.unstratified &&
+            "ci" in v.supplementalResults.unstratified
+          ) {
+            v.supplementalResults.unstratified.ci = getFormattedCI(
+              v.supplementalResults.unstratified.ci,
+            );
           }
+          if (
+            v.supplementalResults?.noVarianceReduction &&
+            "ci" in v.supplementalResults.noVarianceReduction
+          ) {
+            v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
+              v.supplementalResults.noVarianceReduction.ci,
+            );
+          }
+
           data.metrics[metric] = {
-            ...parsedVariation,
+            ...v,
             buckets: [],
           };
           dim.variations[i] = data;

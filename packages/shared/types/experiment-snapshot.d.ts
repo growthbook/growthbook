@@ -8,9 +8,8 @@ import {
   RiskType,
   StatsEngine,
   MetricPowerResponseFromStatsEngine,
-  BayesianTestResult,
-  FrequentistTestResult,
   RealizedSettings,
+  SupplementalResults,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
@@ -54,13 +53,7 @@ export interface SnapshotMetric {
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
   realizedSettings?: RealizedSettings;
-  supplementalResults?: {
-    noVarianceReduction?: BayesianTestResult | FrequentistTestResult;
-    cupedUnadjusted?: BayesianTestResult | FrequentistTestResult;
-    uncapped?: BayesianTestResult | FrequentistTestResult;
-    flatPrior?: BayesianTestResult | FrequentistTestResult;
-    unstratified?: BayesianTestResult | FrequentistTestResult;
-  };
+  supplementalResults?: SupplementalResults;
 }
 
 export interface SnapshotVariation {
