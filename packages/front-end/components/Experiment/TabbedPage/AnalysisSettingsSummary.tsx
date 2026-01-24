@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -74,7 +74,7 @@ export interface Props {
   setSliceTagsFilter?: (tags: string[]) => void;
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
-  resetAnalysisSettingsOnUpdate?: () => void;
+  onSnapshotSuccessfulUpdate?: () => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -100,7 +100,7 @@ export default function AnalysisSettingsSummary({
   setSliceTagsFilter,
   sortBy,
   sortDirection,
-  resetAnalysisSettingsOnUpdate,
+  onSnapshotSuccessfulUpdate,
 }: Props) {
   const {
     getDatasourceById,
@@ -138,7 +138,7 @@ export default function AnalysisSettingsSummary({
     analysis,
     dimension: _snapshotDimension,
     precomputedDimensions,
-    mutateSnapshot: originalMutateSnapshot,
+    mutateSnapshot,
     setAnalysisSettings,
     setSnapshotType,
     setDimension: setSnapshotDimension,
@@ -146,20 +146,18 @@ export default function AnalysisSettingsSummary({
   } = useSnapshot();
 
   // Track previous latest status to detect transition from "running" to "success"
-  const [previousLatestStatus, setPreviousLatestStatus] = useState<
-    string | undefined
-  >(latest?.status);
+  const previousLatestStatusRef = useRef<string | undefined>(latest?.status);
 
   // Call reset when latest status transitions from "running" to "success"
   useEffect(() => {
-    if (previousLatestStatus === "running" && latest?.status === "success") {
-      resetAnalysisSettingsOnUpdate?.();
+    if (
+      previousLatestStatusRef.current === "running" &&
+      latest?.status === "success"
+    ) {
+      onSnapshotSuccessfulUpdate?.();
     }
-    setPreviousLatestStatus(latest?.status);
-  }, [latest?.status, previousLatestStatus, resetAnalysisSettingsOnUpdate]);
-
-  // Use the original mutateSnapshot - the useEffect above will handle the reset
-  const mutateSnapshot = originalMutateSnapshot;
+    previousLatestStatusRef.current = latest?.status;
+  }, [latest?.status, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =

@@ -58,7 +58,11 @@ export interface Props {
   sliceTagsFilter: string[];
   setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
-  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  setAnalysisBarSettings: (
+    s:
+      | AnalysisBarSettings
+      | ((prev: AnalysisBarSettings) => AnalysisBarSettings),
+  ) => void;
   sortBy: "significance" | "change" | null;
   setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
@@ -151,18 +155,19 @@ export default function ResultsTab({
     dimension: analysisBarSettings.dimension,
   };
 
-  const resetAnalysisSettingsOnUpdate = useCallback(() => {
+  const onSnapshotSuccessfulUpdate = useCallback(() => {
+    // Reset analysis settings to default
     setAnalysisSettings(null);
-    setAnalysisBarSettings({
-      ...analysisBarSettings,
-      dimension: analysisBarSettings.dimension.startsWith("precomputed:")
+    setAnalysisBarSettings((prev) => ({
+      ...prev,
+      dimension: prev.dimension.startsWith("precomputed:")
         ? ""
-        : (analysisBarSettings.dimension ?? ""),
+        : prev.dimension,
       baselineRow: 0,
       variationFilter: [],
       differenceType: "relative",
-    });
-  }, [analysisBarSettings, setAnalysisBarSettings, setAnalysisSettings]);
+    }));
+  }, [setAnalysisBarSettings, setAnalysisSettings]);
 
   return (
     <div>
@@ -338,7 +343,7 @@ export default function ResultsTab({
             setSliceTagsFilter={setSliceTagsFilter}
             sortBy={sortBy}
             sortDirection={sortDirection}
-            resetAnalysisSettingsOnUpdate={resetAnalysisSettingsOnUpdate}
+            onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
