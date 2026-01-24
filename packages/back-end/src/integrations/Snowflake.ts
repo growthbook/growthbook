@@ -69,6 +69,10 @@ export default class Snowflake extends SqlIntegration {
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     return `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`;
   }
+  evalBoolean(col: string, value: boolean): string {
+    // Snowflake does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "true" : "false"}`;
+  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
