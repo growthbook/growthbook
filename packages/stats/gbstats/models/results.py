@@ -124,26 +124,17 @@ class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
 
 
 @dataclass
-class BayesianVariationResponseSupplementalResults:
-    cupedUnadjusted: Optional[BayesianTestResult] = None
-    uncapped: Optional[BayesianTestResult] = None
-    flatPrior: Optional[BayesianTestResult] = None
-    unstratified: Optional[BayesianTestResult] = None
-    noVarianceReduction: Optional[BayesianTestResult] = None
+class SupplementalResults:
+    cupedUnadjusted: Optional[BayesianVariationResponseIndividual] = None
+    uncapped: Optional[BayesianVariationResponseIndividual] = None
+    flatPrior: Optional[BayesianVariationResponseIndividual] = None
+    unstratified: Optional[BayesianVariationResponseIndividual] = None
+    noVarianceReduction: Optional[BayesianVariationResponseIndividual] = None
 
 
 @dataclass
-class BayesianVariationResponse(BayesianTestResult, BaselineResponse):
-    power: Optional[PowerResponse] = None
-    supplementalResults: Optional[BayesianVariationResponseSupplementalResults] = None
-
-
-@dataclass
-class FrequentistVariationResponseSupplementalResults:
-    cupedUnadjusted: Optional[FrequentistTestResult] = None
-    uncapped: Optional[FrequentistTestResult] = None
-    unstratified: Optional[FrequentistTestResult] = None
-    noVarianceReduction: Optional[FrequentistTestResult] = None
+class BayesianVariationResponse(BayesianVariationResponseIndividual):
+    supplementalResults: Optional[SupplementalResults] = None
 
 
 @dataclass
@@ -153,15 +144,27 @@ class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResp
 
 
 @dataclass
-class FrequentistVariationResponse(FrequentistTestResult, BaselineResponse):
-    power: Optional[PowerResponse] = None
-    supplementalResults: Optional[FrequentistVariationResponseSupplementalResults] = (
-        None
-    )
+class FrequentistVariationResponseSupplementalResults:
+    cupedUnadjusted: Optional[FrequentistVariationResponseIndividual] = None
+    uncapped: Optional[FrequentistVariationResponseIndividual] = None
+    unstratified: Optional[FrequentistVariationResponseIndividual] = None
+    noVarianceReduction: Optional[FrequentistVariationResponseIndividual] = None
+
+
+@dataclass
+class FrequentistVariationResponse(FrequentistVariationResponseIndividual):
+    supplementalResults: Optional[SupplementalResults] = None
+
+
+@dataclass
+class BaselineResponseWithSupplementalResults(BaselineResponse):
+    supplementalResults: Optional[SupplementalResults] = None
 
 
 VariationResponse = Union[
-    BayesianVariationResponse, FrequentistVariationResponse, BaselineResponse
+    BayesianVariationResponse,
+    FrequentistVariationResponse,
+    BaselineResponseWithSupplementalResults,
 ]
 
 VariationResponseIndividual = Union[

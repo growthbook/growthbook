@@ -42,12 +42,11 @@ from gbstats.frequentist.tests import (
 )
 
 from gbstats.models.results import (
-    BayesianVariationResponseSupplementalResults,
+    BaselineResponseWithSupplementalResults,
     DimensionResponseIndividual,
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
-    FrequentistVariationResponseSupplementalResults,
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BaselineResponse,
@@ -55,6 +54,7 @@ from gbstats.models.results import (
     BayesianVariationResponse,
     FrequentistVariationResponseIndividual,
     FrequentistVariationResponse,
+    SupplementalResults,
     VariationResponse,
     BanditResult,
     SingleVariationResult,
@@ -947,12 +947,7 @@ def create_core_and_supplemental_results(
     else:
         result_flat_prior = None
 
-    num_dimensions = len(reduced_metric_data)
-
     result = combine_core_and_supplemental_results(
-        num_dimensions,
-        num_variations,
-        analysis.baseline_index,
         core_result,
         result_cuped_unadjusted,
         result_uncapped,
@@ -965,9 +960,6 @@ def create_core_and_supplemental_results(
 
 
 def combine_core_and_supplemental_results(
-    num_dimensions: int,
-    num_variations: int,
-    baseline_variation_index: int,
     core_result: List[DimensionResponseIndividual],
     result_cuped_unadjusted: Optional[List[DimensionResponseIndividual]],
     result_uncapped: Optional[List[DimensionResponseIndividual]],
@@ -985,55 +977,54 @@ def combine_core_and_supplemental_results(
     ]
 
     result = []
-    for d in range(num_dimensions):
-        dim_result = core_result[d]
+    for dim_i, dim_result in enumerate(core_result):
         variations: List[VariationResponse] = []
-        for i in range(0, num_variations):
-            # Skip additional responses for the baseline variation
-            core_variation = dim_result.variations[i]
-            if i == baseline_variation_index:
-                variations.append(core_variation)
-                continue
-
-            # otherwise add supplemental results
-            is_bayesian = isinstance(
-                core_variation, BayesianVariationResponseIndividual
-            )
+        for variation_i, variation in enumerate(dim_result.variations):
+            is_bayesian = isinstance(variation, BayesianVariationResponseIndividual)
             is_frequentist = isinstance(
-                core_variation, FrequentistVariationResponseIndividual
+                variation, FrequentistVariationResponseIndividual
             )
+            is_baseline = isinstance(variation, BaselineResponse)
 
-            if not (is_frequentist or is_bayesian):
+            if not (is_frequentist or is_bayesian or is_baseline):
                 continue
-
             # Create the variation response object
             if is_bayesian:
                 variation_response = BayesianVariationResponse(
-                    **asdict(core_variation),
-                    supplementalResults=BayesianVariationResponseSupplementalResults(),
+                    **asdict(variation),
+                    supplementalResults=SupplementalResults(),
+                )
+            elif is_frequentist:
+                variation_response = FrequentistVariationResponse(
+                    **asdict(variation),
+                    supplementalResults=SupplementalResults(),
                 )
             else:
-                variation_response = FrequentistVariationResponse(
-                    **asdict(core_variation),
-                    supplementalResults=FrequentistVariationResponseSupplementalResults(),
+                variation_response = BaselineResponseWithSupplementalResults(
+                    **asdict(variation),
+                    supplementalResults=SupplementalResults(),
                 )
 
             # Set all supplemental results
             for supplemental_result, attribute_name in supplemental_mappings:
-                if supplemental_result is not None:
-                    supplemental_variation = supplemental_result[d].variations[i]
+                if (
+                    supplemental_result is not None
+                    and len(supplemental_result) > dim_i
+                    and len(supplemental_result[dim_i].variations) > variation_i
+                    and supplemental_result[dim_i].variations[variation_i] is not None
+                ):
                     setattr(
                         variation_response.supplementalResults,
                         attribute_name,
-                        supplemental_variation,
+                        supplemental_result[dim_i].variations[variation_i],
                     )
 
             variations.append(variation_response)
 
         result.append(
             DimensionResponse(
-                dimension=core_result[d].dimension,
-                srm=core_result[d].srm,
+                dimension=dim_result.dimension,
+                srm=dim_result.srm,
                 variations=variations,
             )
         )

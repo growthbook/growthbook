@@ -1,11 +1,12 @@
 import { FC, useMemo } from "react";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
-  BayesianTestResult,
   DifferenceType,
-  FrequentistTestResult,
   StatsEngine,
   PValueCorrection,
+  BayesianVariationResponseIndividual,
+  FrequentistVariationResponseIndividual,
+  BaselineResponse,
 } from "shared/types/stats";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
@@ -85,8 +86,9 @@ function createSupplementalRow(
 ): ExperimentTableRow {
   const newVariations = baseRow.variations.map((variation) => {
     const supplemental = variation.supplementalResults?.[supplementalField] as
-      | BayesianTestResult
-      | FrequentistTestResult
+      | BayesianVariationResponseIndividual
+      | FrequentistVariationResponseIndividual
+      | BaselineResponse
       | undefined;
 
     if (!supplemental) {

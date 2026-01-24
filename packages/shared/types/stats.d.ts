@@ -22,7 +22,7 @@ export type PValueErrorMessage =
   | "NUMERICAL_PVALUE_NOT_CONVERGED"
   | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
 
-interface BaselineResponse {
+export interface BaselineResponse {
   cr: number;
   value: number;
   users: number;
@@ -55,29 +55,38 @@ export interface FrequentistTestResult extends TestResult {
   pValueErrorMessage?: PValueErrorMessage;
 }
 
-interface BayesianVariationResponse
+export interface BayesianVariationResponseIndividual
   extends BaselineResponse,
     BayesianTestResult {
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResults?: {
-    cupedUnadjusted?: BayesianTestResult;
-    uncapped?: BayesianTestResult;
-    unstratified?: BayesianTestResult;
-    noVarianceReduction?: BayesianTestResult;
-    flatPrior?: BayesianTestResult;
-  };
 }
 
-interface FrequentistVariationResponse
+interface SupplementalResults {
+  cupedUnadjusted?: BayesianVariationResponseIndividual;
+  uncapped?: BayesianVariationResponseIndividual;
+  unstratified?: BayesianVariationResponseIndividual;
+  noVarianceReduction?: BayesianVariationResponseIndividual;
+  flatPrior?: BayesianVariationResponseIndividual;
+}
+
+interface BayesianVariationResponse
+  extends BayesianVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
+}
+
+export interface FrequentistVariationResponseIndividual
   extends BaselineResponse,
     FrequentistTestResult {
   power?: MetricPowerResponseFromStatsEngine;
-  supplementalResults?: {
-    cupedUnadjusted?: FrequentistTestResult;
-    uncapped?: FrequentistTestResult;
-    unstratified?: FrequentistTestResult;
-    noVarianceReduction?: FrequentistTestResult;
-  };
+}
+
+interface FrequentistVariationResponse
+  extends FrequentistVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
+}
+
+interface BaselineResponseWithSupplementalResults extends BaselineResponse {
+  supplementalResults?: SupplementalResults;
 }
 
 // Keep in sync with gbstats PowerResponse
