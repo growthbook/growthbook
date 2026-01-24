@@ -1,6 +1,5 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { metricGroupValidator } from "shared/validators";
-import { UpdateFilter } from "mongodb";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -48,12 +47,13 @@ export class MetricGroupModel extends BaseClass {
   }
 
   async removeMetricFromAllGroups(metricId: string): Promise<void> {
-    const pullOperation: UpdateFilter<MetricGroupInterface> = {
-      metrics: metricId,
-    };
-    await this._dangerousGetCollection().updateMany(
-      { organization: this.context.org.id, metrics: metricId },
-      { $pull: pullOperation },
+    const metricGroups = await this.findByMetric(metricId);
+    await Promise.all(
+      metricGroups.map((group) =>
+        this.dangerousUpdateByIdBypassPermission(group.id, {
+          metrics: group.metrics.filter((id) => id !== metricId),
+        }),
+      ),
     );
   }
 }
