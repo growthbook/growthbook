@@ -31,6 +31,17 @@ WITH
     LIMIT 5
   ),
 
+  -- If any metrics are percentile capped, we need to calculate the cap
+  _factTable0_percentile_caps AS (
+    SELECT
+      -- 99th percentile of revenue (metric 1)
+      PERCENTILE_APPROX(
+        CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END,
+        0.99
+      ) as m1_value_cap
+    FROM _factTable0
+  ),
+
   -- Calculate dimension and metric values for each row
   _factTable0_rows AS (
     SELECT
@@ -57,20 +68,25 @@ WITH
       user_id as unit0,
       -- Count metric (purchases)
       CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m0_value,
-      -- Sum/Min/Max metric (revenue)
-      CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m1_value,
+      -- Sum/Min/Max metric (revenue) - with percentile cap on amount
+      CASE
+        WHEN (event_type = 'purchase') THEN
+          LEAST(amount, COALESCE(caps.m1_value_cap, amount))
+        ELSE NULL
+      END as m1_value,
       -- Unit count metric (users who purchased)
       CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m2_value,
       -- Distinct count metric (unique countries who purchased)
       CASE WHEN (event_type = 'purchase') THEN country ELSE NULL END as m3_value,
       -- Ratio (average order value)
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m4_value,
-      CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m4_denominator
+      CASE WHEN (event_type = 'purchase') THEN 1 ELSE NULL END as m4_denominator,
       -- Unit count with threshold (amount > 100)
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m5_value,
       -- Quantile metric (P90 revenue)
       CASE WHEN (event_type = 'purchase') THEN amount ELSE NULL END as m6_value
     FROM _factTable0
+    CROSS JOIN _factTable0_percentile_caps caps
   ),
 
   -- Aggregate unit count metrics by unit
