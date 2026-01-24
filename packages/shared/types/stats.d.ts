@@ -60,21 +60,25 @@ export interface BayesianVariationResponseIndividual
     BayesianTestResult {
   power?: MetricPowerResponseFromStatsEngine;
 }
-
 interface SupplementalResults {
   cupedUnadjusted?:
+    | BaselineResponse
     | BayesianVariationResponseIndividual
     | FrequentistVariationResponseIndividual;
   uncapped?:
+    | BaselineResponse
     | BayesianVariationResponseIndividual
     | FrequentistVariationResponseIndividual;
   unstratified?:
+    | BaselineResponse
     | BayesianVariationResponseIndividual
     | FrequentistVariationResponseIndividual;
   noVarianceReduction?:
+    | BaselineResponse
     | BayesianVariationResponseIndividual
     | FrequentistVariationResponseIndividual;
   flatPrior?:
+    | BaselineResponse
     | BayesianVariationResponseIndividual
     | FrequentistVariationResponseIndividual;
 }
@@ -92,10 +96,6 @@ export interface FrequentistVariationResponseIndividual
 
 interface FrequentistVariationResponse
   extends FrequentistVariationResponseIndividual {
-  supplementalResults?: SupplementalResults;
-}
-
-interface BaselineResponseWithSupplementalResults extends BaselineResponse {
   supplementalResults?: SupplementalResults;
 }
 
