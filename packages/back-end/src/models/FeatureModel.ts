@@ -11,15 +11,16 @@ import {
 import {
   FeatureEnvironment,
   FeatureInterface,
+  FeatureMetaInfo,
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
 } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
 import { EventUser } from "shared/types/events/event-types";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   generateRuleId,
   getApiFeatureObj,
@@ -59,7 +60,6 @@ import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
-  getExperimentsByIds,
 } from "./ExperimentModel";
 import {
   createInitialRevision,
@@ -210,9 +210,6 @@ export async function getAllFeatures(
   );
 }
 
-const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
-  typeof x !== "undefined";
-
 export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string,
@@ -227,45 +224,6 @@ export async function hasArchivedFeatures(
 
   const f = await FeatureModel.findOne(q);
   return !!f;
-}
-
-export async function getAllFeaturesWithLinkedExperiments(
-  context: ReqContext | ApiReqContext,
-  {
-    project,
-    includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {},
-): Promise<{
-  features: FeatureInterface[];
-  experiments: ExperimentInterface[];
-}> {
-  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (project) {
-    q.project = project;
-  }
-  if (!includeArchived) {
-    q.archived = { $ne: true };
-  }
-
-  const allFeatures = await FeatureModel.find(q);
-
-  const features = allFeatures.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
-  );
-  const expIds = new Set<string>(
-    features
-      .map((f) => f.linkedExperiments)
-      .filter(_undefinedTypeGuard)
-      .flat(),
-  );
-  const experiments = await getExperimentsByIds(context, [...expIds]);
-
-  return {
-    features: features.map((m) =>
-      upgradeFeatureInterface(toInterface(m, context)),
-    ),
-    experiments,
-  };
 }
 
 export async function getFeature(
@@ -1200,4 +1158,48 @@ export async function toggleNeverStale(
   neverStale: boolean,
 ) {
   return await updateFeature(context, feature, { neverStale });
+}
+
+export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
+  const feature = await FeatureModel.findOne(
+    {
+      organization: context.org.id,
+      project: { $ne: demoProjectId },
+    },
+    { _id: 1 },
+  );
+  return !!feature;
+}
+
+export async function getFeatureMetaInfoByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<FeatureMetaInfo[]> {
+  if (!ids.length) return [];
+
+  const features = await FeatureModel.find(
+    { organization: context.org.id, id: { $in: ids } },
+    {
+      id: 1,
+      project: 1,
+      archived: 1,
+      dateCreated: 1,
+      tags: 1,
+      owner: 1,
+      valueType: 1,
+    },
+  );
+
+  return features.map((f) => ({
+    id: f.id,
+    project: f.project,
+    archived: f.archived,
+    dateCreated: f.dateCreated,
+    tags: f.tags,
+    owner: f.owner,
+    valueType: f.valueType,
+  }));
 }
