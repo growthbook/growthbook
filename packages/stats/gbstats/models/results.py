@@ -124,31 +124,33 @@ class BayesianVariationResponseIndividual(BayesianTestResult, BaselineResponse):
 
 
 @dataclass
-class SupplementalResults:
-    cupedUnadjusted: Optional[BayesianVariationResponseIndividual] = None
-    uncapped: Optional[BayesianVariationResponseIndividual] = None
-    flatPrior: Optional[BayesianVariationResponseIndividual] = None
-    unstratified: Optional[BayesianVariationResponseIndividual] = None
-    noVarianceReduction: Optional[BayesianVariationResponseIndividual] = None
-
-
-@dataclass
-class BayesianVariationResponse(BayesianVariationResponseIndividual):
-    supplementalResults: Optional[SupplementalResults] = None
-
-
-@dataclass
 class FrequentistVariationResponseIndividual(FrequentistTestResult, BaselineResponse):
     realizedSettings: RealizedSettings
     power: Optional[PowerResponse] = None
 
 
 @dataclass
-class FrequentistVariationResponseSupplementalResults:
-    cupedUnadjusted: Optional[FrequentistVariationResponseIndividual] = None
-    uncapped: Optional[FrequentistVariationResponseIndividual] = None
-    unstratified: Optional[FrequentistVariationResponseIndividual] = None
-    noVarianceReduction: Optional[FrequentistVariationResponseIndividual] = None
+class SupplementalResults:
+    cupedUnadjusted: Optional[
+        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
+    ] = None
+    uncapped: Optional[
+        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
+    ] = None
+    flatPrior: Optional[
+        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
+    ] = None
+    unstratified: Optional[
+        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
+    ] = None
+    noVarianceReduction: Optional[
+        BayesianVariationResponseIndividual | FrequentistVariationResponseIndividual
+    ] = None
+
+
+@dataclass
+class BayesianVariationResponse(BayesianVariationResponseIndividual):
+    supplementalResults: Optional[SupplementalResults] = None
 
 
 @dataclass

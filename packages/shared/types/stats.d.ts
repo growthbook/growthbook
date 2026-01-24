@@ -62,11 +62,21 @@ export interface BayesianVariationResponseIndividual
 }
 
 interface SupplementalResults {
-  cupedUnadjusted?: BayesianVariationResponseIndividual;
-  uncapped?: BayesianVariationResponseIndividual;
-  unstratified?: BayesianVariationResponseIndividual;
-  noVarianceReduction?: BayesianVariationResponseIndividual;
-  flatPrior?: BayesianVariationResponseIndividual;
+  cupedUnadjusted?:
+    | BayesianVariationResponseIndividual
+    | FrequentistVariationResponseIndividual;
+  uncapped?:
+    | BayesianVariationResponseIndividual
+    | FrequentistVariationResponseIndividual;
+  unstratified?:
+    | BayesianVariationResponseIndividual
+    | FrequentistVariationResponseIndividual;
+  noVarianceReduction?:
+    | BayesianVariationResponseIndividual
+    | FrequentistVariationResponseIndividual;
+  flatPrior?:
+    | BayesianVariationResponseIndividual
+    | FrequentistVariationResponseIndividual;
 }
 
 interface BayesianVariationResponse
