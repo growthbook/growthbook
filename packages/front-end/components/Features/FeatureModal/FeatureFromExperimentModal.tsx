@@ -132,14 +132,13 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesList();
 
   // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
     // Skip features that already have this experiment
     if (experiment.linkedFeatures?.includes(f.id)) return false;
-    if ((experiment.project || "") !== (f.project || "")) return false;
     return true;
   });
 

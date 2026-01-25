@@ -51,6 +51,7 @@ import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Switch from "@/ui/Switch";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -68,6 +69,7 @@ export interface FeatureOptionMeta {
   cyclic: boolean;
   wouldBeCyclic: boolean;
   disabled: boolean;
+  isOtherProject?: boolean;
 }
 
 export default function PrerequisiteTargetingField({
@@ -80,7 +82,13 @@ export default function PrerequisiteTargetingField({
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features } = useFeaturesList(false);
+  const [showOtherProjects, setShowOtherProjects] = useState(false);
+  const targetProject = feature?.project || project || "";
+  const { features } = useFeaturesList(
+    showOtherProjects || !targetProject
+      ? { useCurrentProject: false }
+      : { project: targetProject },
+  );
   const { projects } = useDefinitions();
   const envsStr = JSON.stringify(environments);
   const valueStr = JSON.stringify(value);
@@ -218,16 +226,44 @@ export default function PrerequisiteTargetingField({
     return map;
   }, [projects]);
 
+  const selectedFeatureIds = useMemo(
+    () => new Set(value.map((v) => v.id).filter(Boolean)),
+    [value],
+  );
+
+  const featuresMap = useMemo(
+    () => new Map(features.map((f) => [f.id, f])),
+    [features],
+  );
+
+  // Check if any selected prerequisites are from another project
+  const hasCrossProjectPrerequisites = useMemo(() => {
+    if (!targetProject) return false;
+    return value.some((v) => {
+      if (!v.id || v.id === feature?.id) return false;
+      const selectedFeature = featuresMap.get(v.id);
+      // If feature is not in the fetched list, or its project doesn't match targetProject, it's cross-project
+      return !selectedFeature || selectedFeature.project !== targetProject;
+    });
+  }, [targetProject, value, featuresMap, feature?.id]);
+
+  // Auto-enable showing other projects if we detect cross-project prerequisites
+  useEffect(() => {
+    if (hasCrossProjectPrerequisites && !showOtherProjects) {
+      setShowOtherProjects(true);
+    }
+  }, [hasCrossProjectPrerequisites, showOtherProjects]);
+
   const allFeatureOptions = features
     .filter((f) => f.id !== feature?.id)
     .map((f) => {
-      const conditional = Object.values(featuresStates[f.id]).some(
+      const conditional = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "conditional",
       );
-      const cyclic = Object.values(featuresStates[f.id]).some(
+      const cyclic = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "cyclic",
       );
-      const wouldBeCyclic = wouldBeCyclicStates[f.id];
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
@@ -235,22 +271,36 @@ export default function PrerequisiteTargetingField({
       return {
         label: f.id,
         value: f.id,
-        meta: { conditional, cyclic, wouldBeCyclic, disabled },
+        meta: { conditional, cyclic, wouldBeCyclic, disabled } as FeatureOptionMeta,
         project: projectId,
         projectName,
       };
-    })
-    .sort((a, b) => {
-      if (b.meta?.disabled) return -1;
-      return 0;
     });
+
+  selectedFeatureIds.forEach((featureId) => {
+    if (!featuresMap.has(featureId) && featureId !== feature?.id) {
+      // This feature is selected but not in the filtered list - it's from another project
+      allFeatureOptions.push({
+        label: featureId,
+        value: featureId,
+        meta: { conditional: false, cyclic: false, wouldBeCyclic: false, disabled: false, isOtherProject: true } as FeatureOptionMeta,
+        project: "",
+        projectName: null,
+      });
+    }
+  });
+
+  allFeatureOptions.sort((a, b) => {
+    if (b.meta?.disabled) return -1;
+    return 0;
+  });
 
   const featureProject = (feature ? feature?.project : project) || "";
   const featureOptionsInProject = allFeatureOptions.filter(
-    (f) => (f.project || "") === featureProject,
+    (f) => !f.meta?.isOtherProject && (f.project || "") === featureProject,
   );
   const featureOptionsInOtherProjects = allFeatureOptions.filter(
-    (f) => (f.project || "") !== featureProject,
+    (f) => f.meta?.isOtherProject || (f.project || "") !== featureProject,
   );
 
   const featureOptions = [
@@ -292,12 +342,21 @@ export default function PrerequisiteTargetingField({
           premiumText="Prerequisite targeting is available for Enterprise customers"
         >
           <label style={{ marginBottom: 0 }}>
-            Target by Prerequisite Features
+            Target by Prerequisite Features{" "}
+            (<DocLink docSection="prerequisites">
+              docs <PiArrowSquareOut />
+            </DocLink>)
           </label>
         </PremiumTooltip>
-        <DocLink docSection="prerequisites">
-          Learn more <PiArrowSquareOut />
-        </DocLink>
+        {targetProject && (
+          <Switch
+            value={showOtherProjects}
+            onChange={setShowOtherProjects}
+            label="Show options in other projects"
+            size="1"
+            disabled={hasCrossProjectPrerequisites}
+          />
+        )}
       </Flex>
       {value.length > 0 ? (
         <>
@@ -355,7 +414,14 @@ export default function PrerequisiteTargetingField({
                             >
                               {label}
                             </span>
-                            {projectName ? (
+                            {option?.meta?.isOtherProject ? (
+                              <em
+                                className="text-muted small float-right position-relative"
+                                style={{ top: 3, opacity: 0.5 }}
+                              >
+                                in another project
+                              </em>
+                            ) : projectName ? (
                               <OverflowText
                                 maxWidth={150}
                                 className="text-muted small float-right text-right"

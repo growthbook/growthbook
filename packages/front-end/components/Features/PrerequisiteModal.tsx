@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
@@ -19,6 +19,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";
+import { Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import {
   getFeatureDefaultValue,
   getPrerequisites,
@@ -44,6 +46,8 @@ import SelectField, {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Switch from "@/ui/Switch";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   close: () => void;
@@ -62,7 +66,13 @@ export default function PrerequisiteModal({
   revisions,
   version,
 }: Props) {
-  const { features } = useFeaturesList(false);
+  const [showOtherProjects, setShowOtherProjects] = useState(false);
+  const targetProject = feature?.project || "";
+  const { features } = useFeaturesList(
+    showOtherProjects || !targetProject
+      ? { useCurrentProject: false }
+      : { project: targetProject },
+  );
   const { projects } = useDefinitions();
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;
@@ -167,6 +177,31 @@ export default function PrerequisiteModal({
     return map;
   }, [projects]);
 
+  const selectedFeatureId = form.watch("id");
+
+  const featuresMap = useMemo(
+    () => new Map(features.map((f) => [f.id, f])),
+    [features],
+  );
+
+  // Check if selected feature is from another project
+  const hasCrossProjectPrerequisite = useMemo(() => {
+    if (!targetProject || !selectedFeatureId) return false;
+    const selectedFeature = featuresMap.get(selectedFeatureId);
+    // If feature is not in the fetched list, or its project doesn't match targetProject, it's cross-project
+    return (
+      selectedFeatureId !== feature?.id &&
+      (!selectedFeature || selectedFeature.project !== targetProject)
+    );
+  }, [targetProject, selectedFeatureId, featuresMap, feature?.id]);
+
+  // Auto-enable showing other projects if we detect cross-project prerequisites
+  useEffect(() => {
+    if (hasCrossProjectPrerequisite && !showOtherProjects) {
+      setShowOtherProjects(true);
+    }
+  }, [hasCrossProjectPrerequisite, showOtherProjects]);
+
   const allFeatureOptions = features
     .filter((f) => f.id !== feature?.id)
     .filter(
@@ -176,13 +211,13 @@ export default function PrerequisiteModal({
     )
     .filter((f) => f.valueType === "boolean")
     .map((f) => {
-      const conditional = Object.values(featuresStates[f.id]).some(
+      const conditional = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "conditional",
       );
-      const cyclic = Object.values(featuresStates[f.id]).some(
+      const cyclic = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "cyclic",
       );
-      const wouldBeCyclic = wouldBeCyclicStates[f.id];
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
@@ -190,22 +225,49 @@ export default function PrerequisiteModal({
       return {
         label: f.id,
         value: f.id,
-        meta: { conditional, cyclic, wouldBeCyclic, disabled },
+        meta: {
+          conditional,
+          cyclic,
+          wouldBeCyclic,
+          disabled,
+        } as FeatureOptionMeta,
         project: projectId,
         projectName,
       };
-    })
-    .sort((a, b) => {
-      if (b.meta?.disabled) return -1;
-      return 0;
     });
+
+  if (
+    selectedFeatureId &&
+    !featuresMap.has(selectedFeatureId) &&
+    selectedFeatureId !== feature?.id
+  ) {
+    // This feature is selected but not in the filtered list - it's from another project
+    allFeatureOptions.push({
+      label: selectedFeatureId,
+      value: selectedFeatureId,
+      meta: {
+        conditional: false,
+        cyclic: false,
+        wouldBeCyclic: false,
+        disabled: false,
+        isOtherProject: true,
+      } as FeatureOptionMeta,
+      project: "",
+      projectName: null,
+    });
+  }
+
+  allFeatureOptions.sort((a, b) => {
+    if (b.meta?.disabled) return -1;
+    return 0;
+  });
 
   const featureProject = feature?.project || "";
   const featureOptionsInProject = allFeatureOptions.filter(
-    (f) => (f.project || "") === featureProject,
+    (f) => !f.meta?.isOtherProject && (f.project || "") === featureProject,
   );
   const featureOptionsInOtherProjects = allFeatureOptions.filter(
-    (f) => (f.project || "") !== featureProject,
+    (f) => f.meta?.isOtherProject || (f.project || "") !== featureProject,
   );
 
   const featureOptions = [
@@ -273,7 +335,7 @@ export default function PrerequisiteModal({
         mutate();
       })}
     >
-      <div className="alert alert-info mt-2 mb-3">
+      <Callout status="info" mt="2" mb="3" contentsAs="div">
         Prerequisite features must evaluate to{" "}
         <span className="rounded px-1 bg-light">
           <ValueDisplay value={"true"} type="boolean" />
@@ -289,10 +351,22 @@ export default function PrerequisiteModal({
             </>
           }
         />
-      </div>
+      </Callout>
+
+      <Flex align="center" justify="between" mt="4">
+        <label>Select feature from boolean features</label>
+        {targetProject ? (
+          <Switch
+            value={showOtherProjects}
+            onChange={setShowOtherProjects}
+            label="Show options in other projects"
+            size="1"
+            disabled={hasCrossProjectPrerequisite}
+          />
+        ) : null}
+      </Flex>
 
       <SelectField
-        label="Select from boolean features"
         placeholder="Select feature"
         options={groupedFeatureOptions}
         value={form.watch("id")}
@@ -332,10 +406,18 @@ export default function PrerequisiteModal({
               >
                 {label}
               </span>
-              {projectName ? (
+              {option?.meta?.isOtherProject ? (
+                <em
+                  className="text-muted small float-right position-relative"
+                  style={{ top: 3, opacity: 0.5 }}
+                >
+                  in another project
+                </em>
+              ) : projectName ? (
                 <OverflowText
                   maxWidth={150}
-                  className="text-muted small float-right text-right"
+                  className="text-muted small float-right text-right position-relative"
+                  style={{ top: 3 }}
                 >
                   project: <strong>{projectName}</strong>
                 </OverflowText>
@@ -477,12 +559,9 @@ export default function PrerequisiteModal({
         />
       )}
 
-      <div className="float-right small">
-        <DocLink
-          docSection="prerequisites"
-          className="align-self-center ml-2 pb-1"
-        >
-          View Documentation
+      <div className="float-right mt-1">
+        <DocLink docSection="prerequisites">
+          docs <PiArrowSquareOut />
         </DocLink>
       </div>
     </Modal>

@@ -60,7 +60,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
       )
     : conditionGroups;
 
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
 
   const referencingFeaturesByGroup = useMemo(

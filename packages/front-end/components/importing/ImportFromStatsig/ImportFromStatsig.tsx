@@ -995,7 +995,7 @@ export default function ImportFromStatsig() {
   const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesList({ useCurrentProject: false });
   const {
     mutateDefinitions,
     savedGroups,

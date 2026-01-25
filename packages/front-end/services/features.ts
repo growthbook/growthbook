@@ -464,12 +464,24 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true, includeArchived = false) {
-  const { project } = useDefinitions();
+export function useFeaturesList(
+  {
+    project, // provided project takes precedence over useCurrentProject: true
+    useCurrentProject = true, // use the project selected in the project selector
+    includeArchived = false,
+  }: {
+    project?: string;
+    useCurrentProject?: boolean;
+    includeArchived?: boolean;
+  } = {},
+) {
+  const { project: currentProject } = useDefinitions();
+  console.log("useFeaturesList", { project, useCurrentProject, includeArchived });
 
   const qs = new URLSearchParams();
-  if (withProject) {
-    qs.set("project", project);
+  const projectToUse = project ?? (useCurrentProject ? currentProject : undefined);
+  if (projectToUse) {
+    qs.set("project", projectToUse);
   }
   if (includeArchived) {
     qs.set("includeArchived", "true");

@@ -53,7 +53,7 @@ export default function FeaturePage() {
 
   const { apiCall } = useAuth();
 
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const allEnvironments = useEnvironments();
 
   const [data, setData] = useState<{

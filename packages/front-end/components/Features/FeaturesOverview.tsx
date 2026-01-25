@@ -150,7 +150,7 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);

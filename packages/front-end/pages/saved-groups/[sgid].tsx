@@ -53,7 +53,7 @@ export default function EditSavedGroupPage() {
     `/saved-groups/${sgid}`,
   );
   const savedGroup = data?.savedGroup;
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
   const environments = useEnvironments();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);

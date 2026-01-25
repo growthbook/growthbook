@@ -82,7 +82,7 @@ export default function FeaturesPage() {
     error,
     mutate,
     hasArchived,
-  } = useFeaturesList(true, showArchived);
+  } = useFeaturesList({ useCurrentProject: true, includeArchived: showArchived });
   const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(

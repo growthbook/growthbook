@@ -61,7 +61,7 @@ export default function IdLists({ groups, mutate }: Props) {
       )
     : idLists;
 
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
 
   const environments = useEnvironments();

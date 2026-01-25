@@ -71,7 +71,7 @@ export const SimulateFeatureValues: FC<{
     useState(selectedEnvironment);
   const { apiCall } = useAuth();
 
-  const { features: allFeatures, loading } = useFeaturesList(true, false);
+  const { features: allFeatures, loading } = useFeaturesList({ useCurrentProject: true });
 
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(
