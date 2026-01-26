@@ -687,7 +687,9 @@ export default function ImportFromLaunchDarkly() {
     }
   }, [useBackendProxy, setUseBackendProxy]);
 
-  const { features, mutate: mutateFeatures } = useFeaturesList({ useCurrentProject: false });
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
   const { refreshOrganization } = useUser();
