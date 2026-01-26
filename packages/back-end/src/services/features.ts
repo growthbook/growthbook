@@ -120,7 +120,7 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
-  namespaces = [],
+  namespaces = new Map(),
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -132,7 +132,10 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
-  namespaces?: { name: string; hashAttribute?: string }[];
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -222,7 +225,7 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
-  namespaces = [],
+  namespaces = new Map(),
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -230,7 +233,10 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
-  namespaces?: { name: string; hashAttribute?: string }[];
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -347,14 +353,12 @@ export function generateAutoExperimentsPayload({
         coverage: phase.coverage,
       };
 
-      // Handle namespace - check if it's a new format namespace with hashAttribute
+      // Handle namespace - check if it's a multiRange format namespace with explicit format flag
       if (phase?.namespace?.enabled && phase.namespace.name) {
-        const nsDefinition = namespaces.find(
-          (n) => n.name === phase.namespace!.name,
-        );
+        const nsDefinition = namespaces.get(phase.namespace.name);
 
-        // New format: namespace has hashAttribute defined
-        if (nsDefinition?.hashAttribute) {
+        // MultiRange format: namespace has explicit format flag set to "multiRange"
+        if (nsDefinition?.format === "multiRange") {
           const ns = phase.namespace;
           let ranges: [number, number][];
 
@@ -371,8 +375,8 @@ export function generateAutoExperimentsPayload({
               attribute:
                 "hashAttribute" in ns && ns.hashAttribute
                   ? ns.hashAttribute
-                  : nsDefinition.hashAttribute,
-              seed: ns.name,
+                  : nsDefinition.hashAttribute!,
+              seed: nsDefinition.seed || ns.name,
               hashVersion: 2,
               ranges,
             },
@@ -405,6 +409,29 @@ export function generateAutoExperimentsPayload({
       return exp;
     });
   return sdkExperiments.filter(isValidSDKExperiment);
+}
+
+/**
+ * Convert namespaces array to Map for efficient lookups
+ */
+function namespacesToMap(
+  namespaces?: {
+    name: string;
+    hashAttribute?: string;
+    seed?: string;
+    format?: "legacy" | "multiRange";
+  }[],
+): Map<
+  string,
+  { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+> {
+  if (!namespaces) return new Map();
+  return new Map(
+    namespaces.map((ns) => [
+      ns.name,
+      { hashAttribute: ns.hashAttribute, seed: ns.seed, format: ns.format },
+    ]),
+  );
 }
 
 export async function getSavedGroupMap(
@@ -557,7 +584,7 @@ export async function refreshSDKPayloadCache(
       prereqStateCache,
       safeRolloutMap,
       holdoutsMap,
-      namespaces: context.org.settings?.namespaces || [],
+      namespaces: namespacesToMap(context.org.settings?.namespaces),
     });
 
     const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -571,7 +598,7 @@ export async function refreshSDKPayloadCache(
       features: allFeatures,
       environment,
       prereqStateCache,
-      namespaces: context.org.settings?.namespaces || [],
+      namespaces: namespacesToMap(context.org.settings?.namespaces),
     });
 
     const savedGroupsInUse = Object.keys(
@@ -1068,7 +1095,7 @@ export function evaluateFeature({
         date,
         safeRolloutMap,
         holdoutsMap: new Map(),
-        namespaces: [],
+        namespaces: new Map(),
       });
 
       if (definition) {
@@ -1199,7 +1226,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
-      namespaces: context.org.settings?.namespaces || [],
+      namespaces: namespacesToMap(context.org.settings?.namespaces),
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1441,7 +1468,7 @@ export function getApiFeatureObj({
         environment: env,
         safeRolloutMap,
         holdoutsMap: new Map(),
-        namespaces: [],
+        namespaces: new Map(),
       });
 
       environmentRules[env] = rules as ApiFeatureRule[];
