@@ -3620,6 +3620,38 @@ function evalDeterministicPrereqValueBackend(
 }
 
 /**
+ * Returns lightweight feature names for dropdowns (e.g., prerequisite selection).
+ * This is much more efficient than fetching full feature objects.
+ */
+export async function getFeatureNames(
+  req: AuthRequest,
+  res: Response<
+    {
+      status: 200;
+      features: Array<{ id: string; project: string; valueType: string }>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+
+  // Get all features for the organization
+  const features = await getAllFeatures(context);
+
+  // Return only the minimal data needed for dropdowns
+  const lightweightFeatures = features.map((f) => ({
+    id: f.id,
+    project: f.project || "",
+    valueType: f.valueType,
+  }));
+
+  res.status(200).json({
+    status: 200,
+    features: lightweightFeatures,
+  });
+}
+
+/**
  * Helper to get a single feature by ID without project restrictions.
  * Used for JIT loading features during prerequisite evaluation.
  */

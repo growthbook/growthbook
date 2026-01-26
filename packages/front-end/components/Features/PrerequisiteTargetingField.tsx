@@ -27,7 +27,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
+import { getFeatureDefaultValue } from "@/services/features";
+import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
@@ -46,7 +47,6 @@ import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Switch from "@/ui/Switch";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
@@ -68,7 +68,6 @@ export interface FeatureOptionMeta {
   cyclic: boolean;
   wouldBeCyclic: boolean;
   disabled: boolean;
-  isOtherProject?: boolean;
 }
 
 export default function PrerequisiteTargetingField({
@@ -81,13 +80,7 @@ export default function PrerequisiteTargetingField({
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const [showOtherProjects, setShowOtherProjects] = useState(false);
-  const targetProject = feature?.project || project || "";
-  const { features } = useFeaturesList(
-    showOtherProjects || !targetProject
-      ? { useCurrentProject: false }
-      : { project: targetProject },
-  );
+  const { features } = useFeaturesNames();
   const { projects } = useDefinitions();
   const valueStr = JSON.stringify(value);
 
@@ -237,24 +230,6 @@ export default function PrerequisiteTargetingField({
     [features],
   );
 
-  // Check if any selected prerequisites are from another project
-  const hasCrossProjectPrerequisites = useMemo(() => {
-    if (!targetProject) return false;
-    return value.some((v) => {
-      if (!v.id || v.id === feature?.id) return false;
-      const selectedFeature = featuresMap.get(v.id);
-      // If feature is not in the fetched list, or its project doesn't match targetProject, it's cross-project
-      return !selectedFeature || selectedFeature.project !== targetProject;
-    });
-  }, [targetProject, value, featuresMap, feature?.id]);
-
-  // Auto-enable showing other projects if we detect cross-project prerequisites
-  useEffect(() => {
-    if (hasCrossProjectPrerequisites && !showOtherProjects) {
-      setShowOtherProjects(true);
-    }
-  }, [hasCrossProjectPrerequisites, showOtherProjects]);
-
   const allFeatureOptions = features
     .filter((f) => f.id !== feature?.id)
     .map((f) => {
@@ -348,29 +323,18 @@ export default function PrerequisiteTargetingField({
 
   return (
     <Box my="4">
-      <Flex justify="between" align="center" mb="2">
-        <PremiumTooltip
-          commercialFeature="prerequisite-targeting"
-          premiumText="Prerequisite targeting is available for Enterprise customers"
-        >
-          <label style={{ marginBottom: 0 }}>
-            Target by Prerequisite Features (
-            <DocLink docSection="prerequisites">
-              docs <PiArrowSquareOut />
-            </DocLink>
-            )
-          </label>
-        </PremiumTooltip>
-        {targetProject && (
-          <Switch
-            value={showOtherProjects}
-            onChange={setShowOtherProjects}
-            label="Show options in other projects"
-            size="1"
-            disabled={hasCrossProjectPrerequisites}
-          />
-        )}
-      </Flex>
+      <PremiumTooltip
+        commercialFeature="prerequisite-targeting"
+        premiumText="Prerequisite targeting is available for Enterprise customers"
+      >
+        <label style={{ marginBottom: 0 }} className="mb-2 d-block">
+          Target by Prerequisite Features (
+          <DocLink docSection="prerequisites">
+            docs <PiArrowSquareOut />
+          </DocLink>
+          )
+        </label>
+      </PremiumTooltip>
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
@@ -427,14 +391,7 @@ export default function PrerequisiteTargetingField({
                             >
                               {label}
                             </span>
-                            {option?.meta?.isOtherProject ? (
-                              <em
-                                className="text-muted small float-right position-relative"
-                                style={{ top: 3, opacity: 0.5 }}
-                              >
-                                in another project
-                              </em>
-                            ) : projectName ? (
+                            {projectName ? (
                               <OverflowText
                                 maxWidth={150}
                                 className="text-muted small float-right text-right"

@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo } from "react";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
@@ -17,14 +17,13 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";
-import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import {
   getFeatureDefaultValue,
   getPrerequisites,
   useEnvironments,
-  useFeaturesList,
 } from "@/services/features";
+import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import track from "@/services/track";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useAuth } from "@/services/auth";
@@ -44,7 +43,6 @@ import SelectField, {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
 import {
   PrerequisiteStateResult,
@@ -69,13 +67,7 @@ export default function PrerequisiteModal({
   revisions,
   version,
 }: Props) {
-  const [showOtherProjects, setShowOtherProjects] = useState(false);
-  const targetProject = feature?.project || "";
-  const { features } = useFeaturesList(
-    showOtherProjects || !targetProject
-      ? { useCurrentProject: false }
-      : { project: targetProject },
-  );
+  const { features } = useFeaturesNames();
   const { projects } = useDefinitions();
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;
@@ -193,29 +185,6 @@ export default function PrerequisiteModal({
     return map;
   }, [projects]);
 
-  const featuresMap = useMemo(
-    () => new Map(features.map((f) => [f.id, f])),
-    [features],
-  );
-
-  // Check if selected feature is from another project
-  const hasCrossProjectPrerequisite = useMemo(() => {
-    if (!targetProject || !selectedFeatureId) return false;
-    const selectedFeature = featuresMap.get(selectedFeatureId);
-    // If feature is not in the fetched list, or its project doesn't match targetProject, it's cross-project
-    return (
-      selectedFeatureId !== feature?.id &&
-      (!selectedFeature || selectedFeature.project !== targetProject)
-    );
-  }, [targetProject, selectedFeatureId, featuresMap, feature?.id]);
-
-  // Auto-enable showing other projects if we detect cross-project prerequisites
-  useEffect(() => {
-    if (hasCrossProjectPrerequisite && !showOtherProjects) {
-      setShowOtherProjects(true);
-    }
-  }, [hasCrossProjectPrerequisite, showOtherProjects]);
-
   const allFeatureOptions = features
     .filter((f) => f.id !== feature?.id)
     .filter(
@@ -249,27 +218,6 @@ export default function PrerequisiteModal({
         projectName,
       };
     });
-
-  if (
-    selectedFeatureId &&
-    !featuresMap.has(selectedFeatureId) &&
-    selectedFeatureId !== feature?.id
-  ) {
-    // This feature is selected but not in the filtered list - it's from another project
-    allFeatureOptions.push({
-      label: selectedFeatureId,
-      value: selectedFeatureId,
-      meta: {
-        conditional: false,
-        cyclic: false,
-        wouldBeCyclic: false,
-        disabled: false,
-        isOtherProject: true,
-      } as FeatureOptionMeta,
-      project: "",
-      projectName: null,
-    });
-  }
 
   allFeatureOptions.sort((a, b) => {
     if (b.meta?.disabled) return -1;
@@ -367,18 +315,9 @@ export default function PrerequisiteModal({
         />
       </Callout>
 
-      <Flex align="center" justify="between" mt="4">
-        <label>Select feature from boolean features</label>
-        {targetProject ? (
-          <Switch
-            value={showOtherProjects}
-            onChange={setShowOtherProjects}
-            label="Show options in other projects"
-            size="1"
-            disabled={hasCrossProjectPrerequisite}
-          />
-        ) : null}
-      </Flex>
+      <label className="mt-4 d-block">
+        Select feature from boolean features
+      </label>
 
       <SelectField
         placeholder="Select feature"
@@ -420,14 +359,7 @@ export default function PrerequisiteModal({
               >
                 {label}
               </span>
-              {option?.meta?.isOtherProject ? (
-                <em
-                  className="text-muted small float-right position-relative"
-                  style={{ top: 3, opacity: 0.5 }}
-                >
-                  in another project
-                </em>
-              ) : projectName ? (
+              {projectName ? (
                 <OverflowText
                   maxWidth={150}
                   className="text-muted small float-right text-right position-relative"
