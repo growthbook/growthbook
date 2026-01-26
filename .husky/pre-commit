@@ -1,21 +1,23 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-openapi=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/api/openapi" || true )
+has_changes() {
+  git status --porcelain | grep '^[MADRC]' | grep -E "$1" || true
+}
 
+openapi=$(has_changes "back-end/src/api/openapi")
 if [ -n "$openapi" ]
   then
     echo "#### OpenAPI spec changed"
 fi
 
-modelschanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/models" || true)
-
+modelschanged=$(has_changes "back-end/src/models")
 if [ -n "$modelschanged" ]
   then
     echo "#### Backend models changed"
 fi
 
-if [ -n "$openapi" ] | [ -n "$modelschanged" ]
+if [ -n "$openapi" ] || [ -n "$modelschanged" ]
   then
     echo "#### Running generate-api-types and adding changes"
     pnpm generate-api-types
@@ -24,17 +26,24 @@ if [ -n "$openapi" ] | [ -n "$modelschanged" ]
     git add packages/shared/src/validators/openapi.ts
 fi
 
+eslintconfigchanged=$(has_changes "eslint.config.mjs")
+if [ -n "$eslintconfigchanged" ]
+  then
+    echo "#### ESLint config changed, regenerating suppressions"
+    pnpm eslint --suppress-all --prune-suppressions .
+fi
+
 echo "#### Linting typescript, scss, and markdown files"
 pnpm lint-staged
 
 # Add eslint-suppressions.json if it was modified during linting
-if [ -n "$(git status --porcelain eslint-suppressions.json)" ]; then
-  echo "#### Adding updated eslint-suppressions.json"
-  git add eslint-suppressions.json
+if [ -n "$(git status --porcelain eslint-suppressions.json)" ]
+  then
+    echo "#### Adding updated eslint-suppressions.json"
+    git add eslint-suppressions.json
 fi
 
-docchanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/events/\|shared/scripts/gen-event-webhook-doc.ts" || true)
-
+docchanged=$(has_changes "back-end/src/events|shared/scripts/gen-event-webhook-doc.ts")
 if [ -n "$docchanged" ]
   then
     echo "#### Generating doc files"
@@ -42,7 +51,7 @@ if [ -n "$docchanged" ]
     git add docs
 fi
 
-sdkchanged=$(git status --porcelain | grep '^[MADRC]' | grep -E "shared/src/sdk-versioning|shared/scripts/gen-sdk-resources.ts" || true)
+sdkchanged=$(has_changes "shared/src/sdk-versioning|shared/scripts/gen-sdk-resources.ts")
 if [ -n "$sdkchanged" ]; then
   echo "#### sdk-versioning or gen-sdk-resources.ts changed, running gen-sdk-resources"
   pnpm --filter shared build
