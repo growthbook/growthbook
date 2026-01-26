@@ -85,6 +85,12 @@ COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 
+# Copy PM2 config files
+COPY ecosystem.config.js ./ecosystem.config.js
+COPY ecosystem.tracing.config.js ./ecosystem.tracing.config.js
+COPY ecosystem.datadog.config.js ./ecosystem.datadog.config.js
+COPY start-front-end.js ./start-front-end.js
+
 # Copy yarn compatibility shim for users with custom entry points
 COPY bin/yarn ./bin/yarn
 RUN chmod +x ./bin/yarn
