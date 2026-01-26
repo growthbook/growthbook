@@ -117,6 +117,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
               ],
               chanceToWin: Number,
               pValue: Number,
+              supplementalResults: {},
             },
           },
         },

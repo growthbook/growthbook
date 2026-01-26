@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { analysisUpdate } from "./DifferenceTypeChooser";
+import { analysisUpdate } from "@/services/snapshots";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

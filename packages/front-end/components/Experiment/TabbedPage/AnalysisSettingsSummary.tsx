@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -52,11 +52,8 @@ export interface Props {
   statsEngine: StatsEngine;
   editMetrics?: () => void;
   variationFilter?: number[];
-  setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
-  setBaselineRow?: (baselineRow: number) => void;
   differenceType?: DifferenceType;
-  setDifferenceType: (differenceType: DifferenceType) => void;
   dimension?: string;
   setDimension?: (dimension: string, resetOtherSettings?: boolean) => void;
   metricTagFilter?: string[];
@@ -77,6 +74,7 @@ export interface Props {
   setSliceTagsFilter?: (tags: string[]) => void;
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
+  onSnapshotSuccessfulUpdate?: () => void;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -87,11 +85,8 @@ export default function AnalysisSettingsSummary({
   statsEngine,
   editMetrics,
   variationFilter,
-  setVariationFilter,
   baselineRow,
-  setBaselineRow,
   differenceType,
-  setDifferenceType,
   dimension,
   setDimension,
   metricTagFilter,
@@ -105,6 +100,7 @@ export default function AnalysisSettingsSummary({
   setSliceTagsFilter,
   sortBy,
   sortDirection,
+  onSnapshotSuccessfulUpdate,
 }: Props) {
   const {
     getDatasourceById,
@@ -148,6 +144,20 @@ export default function AnalysisSettingsSummary({
     setDimension: setSnapshotDimension,
     phase,
   } = useSnapshot();
+
+  // Track previous latest status to detect transition from "running" to "success"
+  const previousLatestStatusRef = useRef<string | undefined>(latest?.status);
+
+  // Call reset when latest status transitions from "running" to "success"
+  useEffect(() => {
+    if (
+      previousLatestStatusRef.current === "running" &&
+      latest?.status === "success"
+    ) {
+      onSnapshotSuccessfulUpdate?.();
+    }
+    previousLatestStatusRef.current = latest?.status;
+  }, [latest?.status, onSnapshotSuccessfulUpdate]);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -678,23 +688,15 @@ export default function AnalysisSettingsSummary({
                     datasource?.type || null,
                     snapshot,
                   );
-                  setAnalysisSettings(null);
-                }}
-                mutate={mutateSnapshot}
-                mutateAdditional={mutate}
-                setRefreshError={setRefreshError}
-                resetFilters={async () => {
-                  if (baselineRow !== 0) {
-                    setBaselineRow?.(0);
-                    setVariationFilter?.([]);
-                  }
-                  setDifferenceType("relative");
                   if (experiment.type === "multi-armed-bandit") {
                     setSnapshotType?.("exploratory");
                   } else {
                     setSnapshotType?.(undefined);
                   }
                 }}
+                mutate={mutateSnapshot}
+                mutateAdditional={mutate}
+                setRefreshError={setRefreshError}
                 experiment={experiment}
                 phase={phase}
                 dimension={dimension}
@@ -718,12 +720,6 @@ export default function AnalysisSettingsSummary({
                         }),
                       })
                         .then((res) => {
-                          setAnalysisSettings(null);
-                          if (baselineRow !== 0) {
-                            setBaselineRow?.(0);
-                            setVariationFilter?.([]);
-                          }
-                          setDifferenceType("relative");
                           trackSnapshot(
                             "create",
                             "ForceRerunQueriesButton",
