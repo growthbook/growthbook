@@ -20,11 +20,7 @@ import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 
-type DecisionFrameworkSettingsProps = Record<string, never>;
-
-const DecisionFrameworkSettings: React.FC<
-  DecisionFrameworkSettingsProps
-> = () => {
+const DecisionFrameworkSettings = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
 
