@@ -3422,7 +3422,12 @@ export async function postBatchPrerequisiteStates(
   } = req.body;
   const { id: targetFeatureId } = req.params;
 
-  if (!featureIds || !featureIds.length) {
+  // featureIds is required unless we're only doing cycle checks
+  if (
+    (!featureIds || !featureIds.length) &&
+    !checkPrerequisite &&
+    !checkRulePrerequisites
+  ) {
     throw new Error("Must provide featureIds");
   }
   if (!environments || !environments.length) {
@@ -3441,7 +3446,9 @@ export async function postBatchPrerequisiteStates(
     version: targetFeature.version,
   });
 
-  const optionFeatures = await getFeaturesByIds(context, featureIds);
+  const optionFeatures = featureIds.length
+    ? await getFeaturesByIds(context, featureIds)
+    : [];
   const featuresMap = new Map(optionFeatures.map((f) => [f.id, f]));
 
   const sharedFeaturesMap = new Map<string, FeatureInterface>();

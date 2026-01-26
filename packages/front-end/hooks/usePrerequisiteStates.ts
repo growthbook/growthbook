@@ -129,8 +129,13 @@ export function useBatchPrerequisiteStates({
 }: UseBatchPrerequisiteStatesOptions): UseBatchPrerequisiteStatesReturn {
   const { apiCall, orgId } = useAuth();
 
+  // Allow request if we have featureIds OR if we're doing cycle checks
+  const hasCycleCheck = !!(checkPrerequisite || checkRulePrerequisites);
   const key =
-    enabled && targetFeatureId && featureIds.length && environments.length
+    enabled &&
+    targetFeatureId &&
+    environments.length &&
+    (featureIds.length > 0 || hasCycleCheck)
       ? `${orgId}::/feature/${targetFeatureId}/batch-prerequisite-states|${featureIds
           .slice()
           .sort()
@@ -166,8 +171,8 @@ export function useBatchPrerequisiteStates({
       !error &&
       enabled &&
       !!targetFeatureId &&
-      featureIds.length > 0 &&
-      environments.length > 0,
+      environments.length > 0 &&
+      (featureIds.length > 0 || hasCycleCheck),
     error,
     mutate,
   };
