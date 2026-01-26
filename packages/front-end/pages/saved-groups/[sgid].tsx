@@ -361,7 +361,7 @@ export default function EditSavedGroupPage() {
                 size="3"
                 highContrast
               >
-                <BsThreeDotsVertical />
+                <BsThreeDotsVertical size={18} />
               </IconButton>
             }
             open={dropdownOpen}
@@ -385,7 +385,9 @@ export default function EditSavedGroupPage() {
               >
                 View Audit Log
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
               <DropdownMenuItem
                 color="red"
                 onClick={() => {
@@ -552,7 +554,7 @@ export default function EditSavedGroupPage() {
               </Flex>
             </Flex>
 
-            <table className="table gbtable table-hover appbox">
+            <table className="table gbtable table-hover appbox table-valign-top">
               <thead>
                 <tr>
                   <th style={{ width: "48px" }}>

@@ -16,6 +16,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 
 export default function SavedGroupsPage() {
   const router = useRouter();
@@ -127,17 +128,17 @@ export default function SavedGroupsPage() {
       <Text as="p" mb="3" color="gray">
         Create reusable user groups as targets for feature flags or experiments.
       </Text>
-      <Callout status="info" my="3">
+      <HelperText status="info" my="4">
         Learn more about using Condition Groups and ID Lists.
         <Link
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
           rel="noreferrer"
-          ml="2"
+          ml="1"
         >
           Docs <PiArrowSquareOut />
         </Link>
-      </Callout>
+      </HelperText>
 
       {error ? (
         <Callout status="error" mb="3">

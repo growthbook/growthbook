@@ -17,6 +17,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LargeSavedGroupPerformanceWarning, {
@@ -57,8 +58,9 @@ function SavedGroupRowMenu({
           radius="full"
           size="2"
           highContrast
+          mt="1"
         >
-          <BsThreeDotsVertical />
+          <BsThreeDotsVertical size={18} />
         </IconButton>
       }
       open={open}
@@ -66,8 +68,8 @@ function SavedGroupRowMenu({
       menuPlacement="end"
       variant="soft"
     >
-      <DropdownMenuGroup>
-        {canUpdate && (
+      {canUpdate && (
+        <DropdownMenuGroup>
           <DropdownMenuItem
             onClick={() => {
               onEdit();
@@ -76,8 +78,11 @@ function SavedGroupRowMenu({
           >
             Edit
           </DropdownMenuItem>
-        )}
-        {canDelete && (
+        </DropdownMenuGroup>
+      )}
+      {canUpdate && canDelete && <DropdownMenuSeparator />}
+      {canDelete && (
+        <DropdownMenuGroup>
           <DropdownMenuItem
             color="red"
             onClick={() => {
@@ -87,8 +92,8 @@ function SavedGroupRowMenu({
           >
             Delete
           </DropdownMenuItem>
-        )}
-      </DropdownMenuGroup>
+        </DropdownMenuGroup>
+      )}
     </DropdownMenu>
   );
 }
@@ -200,7 +205,7 @@ export default function IdLists({ groups, mutate }: Props) {
                 {...searchInputProps}
               />
             </Box>
-            <table className="table gbtable">
+            <table className="table gbtable table-valign-top">
               <thead>
                 <tr>
                   <SortableTH field={"groupName"}>Name</SortableTH>

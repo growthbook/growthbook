@@ -156,7 +156,7 @@ export default function FeaturesHeader({
                   size="3"
                   highContrast
                 >
-                  <BsThreeDotsVertical />
+                  <BsThreeDotsVertical size={18} />
                 </IconButton>
               }
               open={dropdownOpen}
@@ -190,7 +190,9 @@ export default function FeaturesHeader({
                 >
                   View Audit Log
                 </DropdownMenuItem>
-                {canEdit && (
+              </DropdownMenuGroup>
+              {canEdit && (
+                <DropdownMenuGroup>
                   <DropdownMenuItem
                     onClick={() => {
                       setStaleFFModal(true);
@@ -201,44 +203,42 @@ export default function FeaturesHeader({
                       ? "Enable stale detection"
                       : "Disable stale detection"}
                   </DropdownMenuItem>
-                )}
-                {canEdit &&
-                  canPublish &&
-                  holdoutsEnabled &&
-                  holdouts.length > 0 &&
-                  !holdout?.id && (
+                  {canPublish &&
+                    holdoutsEnabled &&
+                    holdouts.length > 0 &&
+                    !holdout?.id && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setAddToHoldoutModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Add to holdout
+                      </DropdownMenuItem>
+                    )}
+                </DropdownMenuGroup>
+              )}
+              {canEdit && canPublish && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
                     <DropdownMenuItem
                       onClick={() => {
-                        setAddToHoldoutModal(true);
+                        setDuplicateModal(true);
                         setDropdownOpen(false);
                       }}
                     >
-                      Add to holdout
+                      Duplicate
                     </DropdownMenuItem>
-                  )}
-                {canEdit && canPublish && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setDuplicateModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                )}
-                {canEdit && canPublish && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setArchiveModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    {isArchived ? "Unarchive" : "Archive"}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuGroup>
-              {canEdit && canPublish && (
-                <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setArchiveModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {isArchived ? "Unarchive" : "Archive"}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem
