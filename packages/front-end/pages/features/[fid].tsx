@@ -83,7 +83,7 @@ export default function FeaturePage() {
   // Scope stale detection to the current feature's project
   const { features } = useFeaturesList({
     project: baseFeature?.project,
-    skipFetch: !baseFeature?.project,
+    skipFetch: !baseFeature,
   });
   const allEnvironments = useEnvironments();
 
