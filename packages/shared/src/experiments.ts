@@ -6,6 +6,8 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  NULL_DIMENSION_VALUE,
+  NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -55,6 +57,17 @@ export type ExperimentSortBy =
   | "metricTags"
   | null;
 export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
+
+export function formatDimensionValueForDisplay(
+  value: string | undefined,
+): string {
+  if (!value) return "";
+  if (value === NULL_DIMENSION_VALUE) {
+    return NULL_DIMENSION_DISPLAY;
+  }
+
+  return value;
+}
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);

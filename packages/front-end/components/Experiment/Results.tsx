@@ -90,6 +90,7 @@ const Results: FC<{
       metricRow: ExperimentTableRow;
       initialTab?: MetricDrilldownTab;
       initialSliceSearchTerm?: string;
+      dimensionInfo?: { name: string; value: string };
     } | null>(null);
 
   // todo: move to snapshot property
@@ -157,20 +158,29 @@ const Results: FC<{
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const handleRowClick = useCallback((row: ExperimentTableRow) => {
-    if (row.isSliceRow) {
-      setOpenMetricDrilldownModalInfo({
-        metricRow: row,
-        initialTab: "slices",
-        initialSliceSearchTerm: typeof row.label === "string" ? row.label : "",
-      });
-    } else {
-      setOpenMetricDrilldownModalInfo({
-        metricRow: row,
-        initialTab: "overview",
-      });
-    }
-  }, []);
+  const handleRowClick = useCallback(
+    (
+      row: ExperimentTableRow,
+      dimensionInfo?: { name: string; value: string },
+    ) => {
+      if (row.isSliceRow) {
+        setOpenMetricDrilldownModalInfo({
+          metricRow: row,
+          initialTab: "slices",
+          initialSliceSearchTerm:
+            typeof row.label === "string" ? row.label : "",
+          dimensionInfo,
+        });
+      } else {
+        setOpenMetricDrilldownModalInfo({
+          metricRow: row,
+          initialTab: "overview",
+          dimensionInfo,
+        });
+      }
+    },
+    [],
+  );
 
   const showCompactResults =
     !draftMode &&
@@ -531,6 +541,8 @@ const Results: FC<{
           initialSliceSearchTerm={
             openMetricDrilldownModalInfo.initialSliceSearchTerm
           }
+          // Dimension info (for BreakDownResults)
+          dimensionInfo={openMetricDrilldownModalInfo.dimensionInfo}
         />
       )}
     </>

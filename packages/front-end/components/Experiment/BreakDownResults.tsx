@@ -23,7 +23,9 @@ import {
   ExperimentMetricInterface,
   ExperimentSortBy,
   SetExperimentSortBy,
+  formatDimensionValueForDisplay,
 } from "shared/experiments";
+import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -103,7 +105,10 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
-  onRowClick?: (row: ExperimentTableRow) => void;
+  onRowClick?: (
+    row: ExperimentTableRow,
+    dimensionInfo?: { name: string; value: string },
+  ) => void;
 }> = ({
   experimentId,
   dimensionId,
@@ -192,6 +197,17 @@ const BreakDownResults: FC<{
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
 
+  // Wrap onRowClick to include dimension info
+  const handleRowClick = onRowClick
+    ? (row: ExperimentTableRow) => {
+        const value =
+          typeof row.label === "string"
+            ? formatDimensionValueForDisplay(row.label)
+            : "";
+        onRowClick(row, { name: dimension, value });
+      }
+    : undefined;
+
   return (
     <div className="mb-3">
       <div className="mb-4">
@@ -257,7 +273,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={table.rows}
-              onRowClick={onRowClick}
+              onRowClick={handleRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?
@@ -292,8 +308,8 @@ const BreakDownResults: FC<{
                   }}
                 >
                   {label ? (
-                    label === "__NULL_DIMENSION" ? (
-                      <em>NULL (unset)</em>
+                    label === NULL_DIMENSION_VALUE ? (
+                      <em>{formatDimensionValueForDisplay(label)}</em>
                     ) : (
                       label
                     )

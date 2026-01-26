@@ -104,7 +104,10 @@ const CompactResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
-  onRowClick?: (row: ExperimentTableRow) => void;
+  onRowClick?: (
+    row: ExperimentTableRow,
+    dimensionInfo?: { name: string; value: string },
+  ) => void;
 }> = ({
   experimentId,
   editMetrics,
