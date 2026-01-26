@@ -112,4 +112,5 @@ EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
 # Start both front-end and back-end at once
-CMD ["pnpm","start"]
+# Use PM2_CONFIG_FILE env var to select config (ecosystem.config.js, ecosystem.tracing.config.js, or ecosystem.datadog.config.js)
+CMD ["sh", "-c", "npx pm2-runtime start ${PM2_CONFIG_FILE:-ecosystem.config.js}"]
