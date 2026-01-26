@@ -730,12 +730,17 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(maxTimestampMetricsSourceQuery);
 
+    const dimensionsForPrecomputation = org.settings
+      ?.disablePrecomputedDimensions
+      ? []
+      : eligibleDimensionsWithSlicesUnderMaxCells;
+
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         ...metricParams,
-        dimensionsForPrecomputation: eligibleDimensionsWithSlicesUnderMaxCells,
+        dimensionsForPrecomputation,
         dimensionsForAnalysis: [],
         metricSourceCovariateTableFullName,
       }),

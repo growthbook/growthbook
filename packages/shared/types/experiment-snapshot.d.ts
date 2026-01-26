@@ -8,6 +8,8 @@ import {
   RiskType,
   StatsEngine,
   MetricPowerResponseFromStatsEngine,
+  RealizedSettings,
+  SupplementalResults,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
@@ -50,6 +52,8 @@ export interface SnapshotMetric {
   chanceToWin?: number;
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
+  realizedSettings?: RealizedSettings;
+  supplementalResults?: SupplementalResults;
 }
 
 export interface SnapshotVariation {
@@ -173,7 +177,6 @@ export interface SnapshotBanditSettings {
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
-  manual: boolean;
   dimensions: DimensionForSnapshot[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
@@ -196,6 +199,8 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
+  /** @deprecated */
+  manual?: boolean;
 }
 
 export interface ExperimentSnapshotInterface {

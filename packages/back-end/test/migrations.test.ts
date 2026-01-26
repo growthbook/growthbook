@@ -38,9 +38,9 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
-  migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -2322,7 +2322,7 @@ describe("saved group migrations", () => {
 
   it("migrates old saved groups without source", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2337,7 +2337,7 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=inline", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2353,7 +2353,7 @@ describe("saved group migrations", () => {
 
   it("migrates saved groups with source=runtime", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: [],
@@ -2370,7 +2370,7 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=list", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
@@ -2387,7 +2387,7 @@ describe("saved group migrations", () => {
 
   it("does not migrate saved groups that already have type=condition", () => {
     expect(
-      migrateSavedGroup({
+      SavedGroupModel.migrateSavedGroup({
         ...baseSavedGroup,
         attributeKey: "foo",
         values: [],

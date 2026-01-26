@@ -14,6 +14,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
@@ -171,6 +172,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
+      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -179,7 +181,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
       savedGroupSizeLimit: undefined,
-      postStratificationDisabled: settings.postStratificationDisabled ?? false,
+      postStratificationEnabled:
+        settings.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED,
     },
   });
   const { apiCall } = useAuth();
@@ -226,6 +230,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
+    embeddingModel: form.watch("embeddingModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",

@@ -33,6 +33,9 @@ export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
 export const DEFAULT_SEQUENTIAL_TESTING_ENABLED = false;
 export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 
+// Post-Stratification:
+export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
+
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;

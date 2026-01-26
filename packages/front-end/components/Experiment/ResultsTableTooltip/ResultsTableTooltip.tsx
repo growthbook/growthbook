@@ -15,6 +15,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
+import Portal from "@/components/Modal/Portal";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -58,6 +59,7 @@ interface Props
   differenceType: DifferenceType;
   isBandit?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  transitionClassName?: string;
 }
 export default function ResultsTableTooltip({
   left,
@@ -68,6 +70,7 @@ export default function ResultsTableTooltip({
   differenceType,
   isBandit,
   ssrPolyfills,
+  transitionClassName,
   ...otherProps
 }: Props) {
   useEffect(() => {
@@ -102,15 +105,16 @@ export default function ResultsTableTooltip({
           ? "50%"
           : "50%";
 
-  return (
+  const tooltipContent = (
     <div
-      className="experiment-row-tooltip-wrapper"
+      className={clsx("experiment-row-tooltip-wrapper", transitionClassName)}
       style={{
-        position: "absolute",
+        position: "fixed",
         width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
         height: TOOLTIP_HEIGHT,
-        left,
-        top,
+        left: typeof window !== "undefined" ? left : 0,
+        top: typeof window !== "undefined" ? top : 0,
+        zIndex: 1100,
       }}
     >
       <div
@@ -162,4 +166,6 @@ export default function ResultsTableTooltip({
       </div>
     </div>
   );
+
+  return <Portal>{tooltipContent}</Portal>;
 }

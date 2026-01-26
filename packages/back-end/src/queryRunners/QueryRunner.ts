@@ -125,7 +125,7 @@ export abstract class QueryRunner<
     };
   } = {};
   private useCache: boolean;
-  private queuedQueryTimers: Record<string, NodeJS.Timeout> = {};
+  private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private finishedQueryMapCache: QueryMap = new Map();
 
   public constructor(
@@ -160,6 +160,28 @@ export abstract class QueryRunner<
     result?: Result;
     error?: string;
   }): Promise<Model>;
+
+  private setTimer(id: string, timer: NodeJS.Timeout): void {
+    this.pendingTimers[id] = timer;
+  }
+
+  private clearTimer(id: string): void {
+    if (this.pendingTimers[id]) {
+      clearTimeout(this.pendingTimers[id]);
+      delete this.pendingTimers[id];
+    }
+  }
+
+  private clearAllTimers(): void {
+    for (const id of Object.keys(this.pendingTimers)) {
+      clearTimeout(this.pendingTimers[id]);
+      delete this.pendingTimers[id];
+    }
+  }
+
+  private hasTimer(id: string): boolean {
+    return this.pendingTimers[id] !== undefined;
+  }
 
   async onQueryFinish() {
     if (!this.timer) {
@@ -267,7 +289,7 @@ export abstract class QueryRunner<
 
     // Otherwise, add a listener and wait
     await new Promise<void>((resolve, reject) => {
-      this.emitter.on(FINISH_EVENT, () => {
+      this.emitter.once(FINISH_EVENT, () => {
         if (this.error) {
           reject(this.error);
         } else {
@@ -288,7 +310,7 @@ export abstract class QueryRunner<
     );
     for (const query of queuedQueries) {
       // If the query already has a timeout set, we don't need to queue it up again.
-      if (this.queuedQueryTimers[query.id]) {
+      if (this.hasTimer(query.id)) {
         continue;
       }
       // check if all dependencies are finished
@@ -475,6 +497,7 @@ export abstract class QueryRunner<
         }
       }
 
+      this.clearAllTimers();
       const newModel = await this.updateModel({
         queries: [],
         status: "failed",
@@ -497,9 +520,12 @@ export abstract class QueryRunner<
         timeout + jitter
       } before retrying`,
     );
-    this.queuedQueryTimers[query.id] = setTimeout(() => {
-      this.executeQueryWhenReady(query, timeout);
-    }, timeout + jitter);
+    this.setTimer(
+      query.id,
+      setTimeout(() => {
+        this.executeQueryWhenReady(query, timeout);
+      }, timeout + jitter),
+    );
   }
 
   public async executeQueryWhenReady(
@@ -514,7 +540,7 @@ export abstract class QueryRunner<
       return;
     }
 
-    delete this.queuedQueryTimers[doc.id];
+    this.clearTimer(doc.id);
     const runCallbacks = this.runCallbacks[doc.id];
     if (runCallbacks === undefined) {
       logger.debug(`${doc.id}: Run callbacks not found..`);
@@ -624,10 +650,18 @@ export abstract class QueryRunner<
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);
       try {
+        // Use datasource-specific cache TTL if set, otherwise use global default
+        const queryCacheTTLSetting =
+          this.integration.datasource.settings.queryCacheTTLMins;
+        const parsedTTL = queryCacheTTLSetting
+          ? parseInt(queryCacheTTLSetting)
+          : NaN;
+        const cacheTTLMins = isNaN(parsedTTL) ? undefined : parsedTTL;
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
           query,
+          cacheTTLMins,
         );
         if (existing) {
           // Query still running, periodically check the status
@@ -648,17 +682,19 @@ export abstract class QueryRunner<
                     query.status === "failed" ||
                     query.status === "succeeded"
                   ) {
+                    this.clearTimer(existing.id);
                     this.onQueryFinish();
                   } else {
                     // Still running, check again after a delay
-                    setTimeout(check, 3000);
+                    this.setTimer(existing.id, setTimeout(check, 3000));
                   }
                 })
                 .catch(() => {
+                  this.clearTimer(existing.id);
                   this.onQueryFinish();
                 });
             };
-            setTimeout(check, 3000);
+            this.setTimer(existing.id, setTimeout(check, 3000));
           }
           // Query already finished
           else {

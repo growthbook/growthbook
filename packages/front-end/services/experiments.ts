@@ -37,6 +37,7 @@ import {
   expandMetricGroups,
   createAutoSliceDataForMetric,
   generateSliceString,
+  generateSelectAllSliceString,
   parseSliceQueryString,
   SliceDataForMetric,
 } from "shared/experiments";
@@ -189,7 +190,6 @@ export type ExperimentTableRow = {
   }>;
   allSliceLevels?: string[];
   isHiddenByFilter?: boolean;
-  isPinned?: boolean;
   labelOnly?: boolean;
 };
 
@@ -292,7 +292,7 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
-    // Skip metric slice rows that are hidden (not expanded or pinned)
+    // Skip metric slice rows that are hidden (not expanded)
     if (row.isHiddenByFilter) {
       return;
     }
@@ -1266,7 +1266,7 @@ export function getAvailableSliceTags({
   // Generate "select all" tags for each column (format: dim:column, no equals sign)
   columnSet.forEach((column) => {
     const datatype = columnDatatypeMap.get(column) || "string";
-    const selectAllTag = `dim:${encodeURIComponent(column)}`;
+    const selectAllTag = generateSelectAllSliceString(column);
     sliceTagsMap.set(selectAllTag, {
       datatypes: { [column]: datatype },
       isSelectAll: true,

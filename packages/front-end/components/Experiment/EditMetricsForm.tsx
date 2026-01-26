@@ -38,7 +38,6 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: MetricOverride[];
   customMetricSlices?: CustomMetricSlice[];
-  pinnedMetricSlices?: string[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -172,7 +171,6 @@ const EditMetricsForm: FC<{
       activationMetric: experiment.activationMetric || "",
       metricOverrides: defaultMetricOverrides,
       customMetricSlices: experiment.customMetricSlices || [],
-      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
     },
   });
   const { apiCall } = useAuth();
@@ -282,15 +280,6 @@ const EditMetricsForm: FC<{
             setCustomMetricSlices={(slices) =>
               form.setValue(
                 "customMetricSlices" as keyof EditMetricsFormInterface,
-                slices,
-              )
-            }
-            pinnedMetricSlices={
-              (form.watch("pinnedMetricSlices") as string[]) || []
-            }
-            setPinnedMetricSlices={(slices) =>
-              form.setValue(
-                "pinnedMetricSlices" as keyof EditMetricsFormInterface,
                 slices,
               )
             }

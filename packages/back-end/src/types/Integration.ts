@@ -66,29 +66,6 @@ import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
 
-export class MissingDatasourceParamsError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MissingDatasourceParamsError";
-  }
-}
-
-export class DataSourceNotSupportedError extends Error {
-  constructor() {
-    super("This data source is not supported yet.");
-    this.name = "DataSourceNotSupportedError";
-  }
-}
-
-export class SQLExecutionError extends Error {
-  query: string;
-  constructor(message: string, query: string) {
-    super(message);
-    this.name = "SQLExecutionError";
-    this.query = query;
-  }
-}
-
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
@@ -259,8 +236,8 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<PastExperimentQueryResponse>;
-  runColumnTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
-  getColumnTopValuesQuery?: (params: ColumnTopValuesParams) => string;
+  runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string,

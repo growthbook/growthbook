@@ -1,11 +1,7 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-} from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -13,48 +9,31 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
-import ManualSnapshotForm from "./ManualSnapshotForm";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
   experiment: ExperimentInterfaceStringDates;
-  lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
   dimension?: string;
-  setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null,
-  ) => void;
   useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
-  resetFilters?: () => void;
   setError: (e: string | undefined) => void;
 }> = ({
   mutate,
   experiment,
-  lastAnalysis,
   phase,
   dimension,
-  setAnalysisSettings,
   useRadixButton = false,
   radixVariant = "outline",
-  resetFilters,
   setError,
 }) => {
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
   const { getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const manual = !experiment.datasource;
 
   const refreshSnapshot = async () => {
-    // Manual experiments can't refresh automatically, prompt for values in a modal instead
-    if (manual) {
-      setOpen(true);
-      return;
-    }
-
     const res = await apiCall<{
       status: number;
       message: string;
@@ -66,7 +45,6 @@ const RefreshSnapshotButton: FC<{
         dimension,
       }),
     });
-    setAnalysisSettings(null);
     trackSnapshot(
       "create",
       "RefreshSnapshotButton",
@@ -78,15 +56,6 @@ const RefreshSnapshotButton: FC<{
 
   return (
     <>
-      {open && (
-        <ManualSnapshotForm
-          phase={phase}
-          close={() => setOpen(false)}
-          experiment={experiment}
-          success={mutate}
-          lastAnalysis={lastAnalysis}
-        />
-      )}
       {useRadixButton ? (
         <>
           {loading && longResult && (
@@ -100,7 +69,6 @@ const RefreshSnapshotButton: FC<{
             disabled={loading}
             setError={(error) => setError(error ?? undefined)}
             onClick={async () => {
-              resetFilters?.();
               setLoading(true);
               setLongResult(false);
 
@@ -137,7 +105,6 @@ const RefreshSnapshotButton: FC<{
             color="outline-primary"
             setErrorText={setError}
             onClick={async () => {
-              resetFilters?.();
               setLoading(true);
               setLongResult(false);
 

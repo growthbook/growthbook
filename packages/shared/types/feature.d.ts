@@ -87,3 +87,8 @@ export interface FeatureUsageData {
 }
 
 export type AttributeMap = Map<string, string>;
+
+export type FeatureMetaInfo = Pick<
+  FeatureInterface,
+  "id" | "project" | "archived" | "dateCreated" | "tags" | "owner" | "valueType"
+>;

@@ -148,11 +148,7 @@ export default function BanditSummaryResultsTab({
             <div className="d-flex mx-3 align-items-center">
               <div className="h4 mb-0">
                 {metric
-                  ? getRenderLabelColumn({
-                      statsEngine: "bayesian",
-                      hideDetails: isPublic,
-                      className: "",
-                    })({
+                  ? getRenderLabelColumn({})({
                       label: metric.name,
                       metric,
                     })

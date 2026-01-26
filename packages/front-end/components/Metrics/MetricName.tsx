@@ -122,10 +122,12 @@ export default function MetricName({
   showDescription,
   filterConversionWindowMetrics,
   isGroup,
+  showGroupIcon = true,
   metrics,
   showLink,
   badgeColor,
   officialBadgePosition = "right",
+  officialBadgeLeftGap = true,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -134,10 +136,12 @@ export default function MetricName({
   showDescription?: boolean;
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
+  showGroupIcon?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";
+  officialBadgeLeftGap?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -155,10 +159,12 @@ export default function MetricName({
 
     return (
       <Flex align="center">
-        <PiFolderDuotone
-          className="mr-1"
-          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
-        />
+        {showGroupIcon ? (
+          <PiFolderDuotone
+            className="mr-1"
+            style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+          />
+        ) : null}
         {metricGroup.name}
         <Tooltip
           className={clsx("px-1", {
@@ -263,7 +269,7 @@ export default function MetricName({
             disableTooltip={disableTooltip}
             showOfficialLabel={showOfficialLabel}
             color={badgeColor}
-            leftGap={true}
+            leftGap={officialBadgeLeftGap}
           />
         ) : null}
       </span>

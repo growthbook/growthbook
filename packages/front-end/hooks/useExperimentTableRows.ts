@@ -12,7 +12,7 @@ import {
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  generatePinnedSliceKey,
+  ExperimentSortBy,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
   setAdjustedCIs,
@@ -21,18 +21,27 @@ import {
   SliceDataForMetric,
   isFactMetric,
   generateSliceString,
+  generateSelectAllSliceString,
   isMetricGroupId,
 } from "shared/experiments";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
+
+// Special metric selector IDs that should be filtered out of customMetricOrder
+const METRIC_SELECTOR_IDS = [
+  "experiment-goal",
+  "experiment-secondary",
+  "experiment-guardrail",
+] as const;
+
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  compareRows,
 } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useTableSorting } from "@/hooks/useTableSorting";
 
 export interface UseExperimentTableRowsParams {
   results: ExperimentReportResultDimension;
@@ -50,7 +59,7 @@ export interface UseExperimentTableRowsParams {
   metricTagFilter?: string[];
   metricsFilter?: string[];
   sliceTagsFilter?: string[];
-  sortBy?: "significance" | "change" | "custom" | null;
+  sortBy?: ExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   customMetricOrder?: string[];
   analysisBarSettings?: {
@@ -60,15 +69,13 @@ export interface UseExperimentTableRowsParams {
   pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   shouldShowMetricSlices?: boolean;
-  enablePinning?: boolean;
-  pinnedMetricSlices?: string[];
   enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
 }
 
 export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
-  getChildRowCounts: (metricId: string) => { total: number; pinned: number };
+  getChildRowCounts: (metricId: string) => number;
 }
 
 export function useExperimentTableRows({
@@ -79,7 +86,6 @@ export function useExperimentTableRows({
   metricOverrides,
   ssrPolyfills,
   customMetricSlices,
-  pinnedMetricSlices,
   metricTagFilter,
   metricsFilter,
   sliceTagsFilter,
@@ -92,7 +98,6 @@ export function useExperimentTableRows({
   settingsForSnapshotMetrics,
   shouldShowMetricSlices = true,
   enableExpansion: _enableExpansion = true,
-  enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const {
@@ -106,7 +111,6 @@ export function useExperimentTableRows({
     ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
-  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -116,15 +120,51 @@ export function useExperimentTableRows({
     useMemo(() => {
       const allMetricGroups = ssrPolyfills?.metricGroups || metricGroups;
 
-      // Filter by metric groups if filter is active
-      let filteredGoalMetrics = goalMetrics;
-      let filteredSecondaryMetrics = secondaryMetrics;
-      let filteredGuardrailMetrics = guardrailMetrics;
+      // Check for selector IDs in metricsFilter (they constrain which categories to show)
+      const hasGoalSelector =
+        metricsFilter?.includes("experiment-goal") ?? false;
+      const hasSecondarySelector =
+        metricsFilter?.includes("experiment-secondary") ?? false;
+      const hasGuardrailSelector =
+        metricsFilter?.includes("experiment-guardrail") ?? false;
 
-      if (metricsFilter && metricsFilter.length > 0) {
+      // Filter out selector IDs from the actual metric filter
+      const actualMetricFilter =
+        metricsFilter?.filter(
+          (id) =>
+            ![
+              "experiment-goal",
+              "experiment-secondary",
+              "experiment-guardrail",
+            ].includes(id),
+        ) ?? [];
+
+      // Determine which categories to include based on selector IDs
+      // If no selectors are present, include all categories (equivalent to "all")
+      const includeGoals =
+        hasGoalSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeSecondaries =
+        hasSecondarySelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+      const includeGuardrails =
+        hasGuardrailSelector ||
+        (!hasGoalSelector && !hasSecondarySelector && !hasGuardrailSelector);
+
+      // Filter by metric groups if filter is active
+      let filteredGoalMetrics: string[] = [];
+      let filteredSecondaryMetrics: string[] = [];
+      let filteredGuardrailMetrics: string[] = [];
+
+      if (
+        actualMetricFilter.length > 0 ||
+        hasGoalSelector ||
+        hasSecondarySelector ||
+        hasGuardrailSelector
+      ) {
         // Create a set of allowed metric IDs from expanded groups and individual metrics
         const allowedMetricIds = new Set<string>();
-        metricsFilter.forEach((id) => {
+        actualMetricFilter.forEach((id) => {
           if (isMetricGroupId(id)) {
             const group = allMetricGroups.find((g) => g.id === id);
             if (group) {
@@ -138,39 +178,62 @@ export function useExperimentTableRows({
         });
 
         // Filter metrics by group or allowed metric IDs
-        filteredGoalMetrics = goalMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            return group?.metrics?.some((metricId) =>
-              allowedMetricIds.has(metricId),
-            );
-          }
-          return false;
-        });
-        filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            return group?.metrics?.some((metricId) =>
-              allowedMetricIds.has(metricId),
-            );
-          }
-          return false;
-        });
-        filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
-          if (metricsFilter.includes(id)) return true;
-          if (allowedMetricIds.has(id)) return true;
-          if (isMetricGroupId(id)) {
-            const group = allMetricGroups.find((g) => g.id === id);
-            return group?.metrics?.some((metricId) =>
-              allowedMetricIds.has(metricId),
-            );
-          }
-          return false;
-        });
+        // Only include categories that are selected via selector IDs
+        if (includeGoals) {
+          filteredGoalMetrics = goalMetrics.filter((id) => {
+            // If no actual metric filter, include all goal metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within goal category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+
+        if (includeSecondaries) {
+          filteredSecondaryMetrics = secondaryMetrics.filter((id) => {
+            // If no actual metric filter, include all secondary metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within secondary category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+
+        if (includeGuardrails) {
+          filteredGuardrailMetrics = guardrailMetrics.filter((id) => {
+            // If no actual metric filter, include all guardrail metrics (selector-only case)
+            if (actualMetricFilter.length === 0) return true;
+            // Otherwise, filter by actual metric filter (within guardrail category)
+            if (actualMetricFilter.includes(id)) return true;
+            if (allowedMetricIds.has(id)) return true;
+            if (isMetricGroupId(id)) {
+              const group = allMetricGroups.find((g) => g.id === id);
+              return group?.metrics?.some((metricId) =>
+                allowedMetricIds.has(metricId),
+              );
+            }
+            return false;
+          });
+        }
+      } else {
+        // No filter at all - include all metrics
+        filteredGoalMetrics = goalMetrics;
+        filteredSecondaryMetrics = secondaryMetrics;
+        filteredGuardrailMetrics = guardrailMetrics;
       }
 
       const expandedGoals = expandMetricGroups(
@@ -220,7 +283,7 @@ export function useExperimentTableRows({
       metricsFilter,
     ]);
 
-  const rows = useMemo<ExperimentTableRow[]>(() => {
+  const unsortedRows = useMemo<ExperimentTableRow[]>(() => {
     function getRowsForMetric(
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail",
@@ -233,7 +296,6 @@ export function useExperimentTableRows({
         settingsForSnapshotMetrics,
         shouldShowMetricSlices,
         customMetricSlices,
-        pinnedMetricSlices: enablePinning ? pinnedMetricSlices : undefined,
         expandedMetrics,
         getExperimentMetricById,
         getFactTableById,
@@ -261,12 +323,21 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered metrics
     const sortedFilteredMetrics =
-      sortBy === "custom" && customMetricOrder
+      sortBy === "metrics" && customMetricOrder
         ? sortMetricsByCustomOrder(
             metricDefs.filter((m) => filteredMetrics.includes(m.id)),
             customMetricOrder,
+            metricGroups,
           )
-        : filteredMetrics;
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              metricDefs.filter((m) => filteredMetrics.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredMetrics;
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -284,12 +355,21 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered secondary metrics
     const sortedFilteredSecondary =
-      sortBy === "custom" && customMetricOrder
+      sortBy === "metrics" && customMetricOrder
         ? sortMetricsByCustomOrder(
             secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
             customMetricOrder,
+            metricGroups,
           )
-        : filteredSecondary;
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              secondaryDefs.filter((m) => filteredSecondary.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredSecondary;
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -307,12 +387,21 @@ export function useExperimentTableRows({
 
     // Apply sorting on top of filtered guardrail metrics
     const sortedFilteredGuardrails =
-      sortBy === "custom" && customMetricOrder
+      sortBy === "metrics" && customMetricOrder
         ? sortMetricsByCustomOrder(
             guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
             customMetricOrder,
+            metricGroups,
           )
-        : filteredGuardrails;
+        : sortBy === "metricTags" &&
+            metricTagFilter &&
+            metricTagFilter.length > 0
+          ? sortMetricsByTags(
+              guardrailDefs.filter((m) => filteredGuardrails.includes(m.id)),
+              metricTagFilter,
+              metricGroups,
+            )
+          : filteredGuardrails;
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -324,50 +413,10 @@ export function useExperimentTableRows({
       getRowsForMetric(metricId, "guardrail"),
     );
 
-    // Sort by significance or change if sortBy is set
-    if (
-      (sortBy === "significance" || sortBy === "change") &&
-      metricDefaults &&
-      sortDirection
-    ) {
-      const sortOptions = {
-        sortBy,
-        variationFilter: analysisBarSettings?.variationFilter ?? [],
-        metricDefaults,
-        sortDirection,
-      };
-
-      const sortRows = (rows: ExperimentTableRow[]) => {
-        const parentRows = rows.filter((row) => !row.parentRowId);
-        const sortedParents = [...parentRows].sort((a, b) =>
-          compareRows(a, b, sortOptions),
-        );
-
-        const newRows: ExperimentTableRow[] = [];
-        sortedParents.forEach((parent) => {
-          newRows.push(parent);
-          const childRows = rows.filter(
-            (row) => row.parentRowId === parent.metric?.id,
-          );
-          const sortedChildren = [...childRows].sort((a, b) =>
-            compareRows(a, b, sortOptions),
-          );
-          newRows.push(...sortedChildren);
-        });
-
-        return newRows;
-      };
-
-      return [
-        ...sortRows(retMetrics),
-        ...sortRows(retSecondary),
-        ...sortRows(retGuardrails),
-      ];
-    }
-
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
+    metricGroups,
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
@@ -381,28 +430,27 @@ export function useExperimentTableRows({
     getExperimentMetricById,
     getFactTableById,
     metricTagFilter,
-    pinnedMetricSlices,
     expandedMetrics,
     shouldShowMetricSlices,
     sliceTagsFilter,
     customMetricSlices,
-    enablePinning,
     sortBy,
-    sortDirection,
     customMetricOrder,
-    analysisBarSettings?.variationFilter,
-    metricDefaults,
   ]);
+
+  // Apply sorting using the reusable useTableSorting hook
+  const rows = useTableSorting({
+    rows: unsortedRows,
+    sortBy: sortBy ?? null,
+    sortDirection: sortDirection ?? null,
+    variationFilter: analysisBarSettings?.variationFilter ?? [],
+  });
 
   const getChildRowCounts = (metricId: string) => {
     const childRows = rows.filter(
       (row) => row.parentRowId === metricId && !row.isHiddenByFilter,
     );
-    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
-    return {
-      total: childRows.length,
-      pinned: pinnedChildRows.length,
-    };
+    return childRows.length;
   };
 
   return {
@@ -419,7 +467,6 @@ export function generateRowsForMetric({
   settingsForSnapshotMetrics,
   shouldShowMetricSlices,
   customMetricSlices,
-  pinnedMetricSlices,
   expandedMetrics,
   getExperimentMetricById,
   getFactTableById,
@@ -437,7 +484,6 @@ export function generateRowsForMetric({
       levels: string[];
     }>;
   }>;
-  pinnedMetricSlices?: string[];
   expandedMetrics?: Record<string, boolean>;
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
   getFactTableById: (id: string) => FactTableInterface | null;
@@ -546,26 +592,12 @@ export function generateRowsForMetric({
     let hasMatchingSlice = false;
 
     sliceData.forEach((slice) => {
-      // Generate pinned key from all slice levels
-      const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
-        column: dl.column,
-        datatype: dl.datatype,
-        levels: dl.levels,
-      }));
-      const pinnedKey = generatePinnedSliceKey(
-        metricId,
-        pinnedSliceLevels,
-        resultGroup,
-      );
-      const isPinned = !!pinnedMetricSlices?.includes(pinnedKey);
-
       // Check if slice matches filter
       let sliceMatches = true;
       if (sliceTagsFilter && sliceTagsFilter.length > 0) {
         // Check if any "select all" filter is active for columns in this slice
         const hasSelectAllFilter = slice.sliceLevels.some((sliceLevel) => {
-          // "Select all" format: dim:column (no equals sign)
-          const selectAllTag = `dim:${encodeURIComponent(sliceLevel.column)}`;
+          const selectAllTag = generateSelectAllSliceString(sliceLevel.column);
           return sliceTagsFilter.includes(selectAllTag);
         });
 
@@ -599,11 +631,11 @@ export function generateRowsForMetric({
         }
       }
 
-      // Show if: (expanded or pinned) AND matches filter (no special treatment for pinned when filter is active)
+      // Show if: expanded AND matches filter (when filter is active)
       const hasFilter = sliceTagsFilter && sliceTagsFilter.length > 0;
       const shouldShowLevel = hasFilter
-        ? (isExpanded || isPinned) && sliceMatches
-        : isExpanded || isPinned;
+        ? isExpanded && sliceMatches
+        : isExpanded;
 
       const label = slice.sliceLevels
         .map((dl, _index) => {
@@ -653,7 +685,6 @@ export function generateRowsForMetric({
         // Only use isHiddenByFilter when there's actually a filter active
         // When no filter, expansion state is handled by rendering logic
         isHiddenByFilter: hasFilter ? !shouldShowLevel : false,
-        isPinned: isPinned,
       };
 
       // Skip "other" slice rows with no data
@@ -687,11 +718,84 @@ export function generateRowsForMetric({
 export function sortMetricsByCustomOrder(
   metrics: ExperimentMetricInterface[],
   customOrder: string[],
+  metricGroups?: MetricGroupInterface[],
 ): string[] {
+  // Filter out special metric selector IDs
+  const filteredCustomOrder = customOrder.filter(
+    (id) =>
+      !METRIC_SELECTOR_IDS.includes(id as (typeof METRIC_SELECTOR_IDS)[number]),
+  );
   const metricIds = metrics.map((m) => m.id);
-  const orderedMetrics = customOrder.filter((id) => metricIds.includes(id));
-  const unorderedMetrics = metricIds.filter((id) => !customOrder.includes(id));
-  return [...orderedMetrics, ...unorderedMetrics];
+
+  // Pre-expand all groups in the custom order
+  const expandedOrder: string[] = [];
+  const seenMetrics = new Set<string>();
+
+  filteredCustomOrder.forEach((id) => {
+    if (isMetricGroupId(id) && metricGroups) {
+      // Expand the group and add metrics in order, skipping duplicates
+      const group = metricGroups.find((g) => g.id === id);
+      if (group) {
+        group.metrics.forEach((metricId) => {
+          if (!seenMetrics.has(metricId) && metricIds.includes(metricId)) {
+            expandedOrder.push(metricId);
+            seenMetrics.add(metricId);
+          }
+        });
+      }
+    } else {
+      // Individual metric - add if not seen and exists in metrics
+      if (!seenMetrics.has(id) && metricIds.includes(id)) {
+        expandedOrder.push(id);
+        seenMetrics.add(id);
+      }
+    }
+  });
+
+  // Add any remaining metrics that weren't in the custom order
+  const unorderedMetrics = metricIds.filter((id) => !seenMetrics.has(id));
+  return [...expandedOrder, ...unorderedMetrics];
+}
+
+export function sortMetricsByTags(
+  metrics: ExperimentMetricInterface[],
+  metricTagFilter: string[],
+  metricGroups: MetricGroupInterface[],
+): string[] {
+  // Expand any metric groups in the metrics array before sorting
+  const metricIds = metrics.map((m) => m.id);
+  const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
+
+  // Create a map of metric ID to metric object for quick lookup
+  const metricMap = new Map(metrics.map((m) => [m.id, m]));
+
+  // Filter to only include expanded metric IDs that have corresponding metric objects
+  // (metrics from expanded groups that aren't in the original array won't be included)
+  const validExpandedIds = expandedMetricIds.filter((id) => metricMap.has(id));
+
+  // Start with default order (all expanded metrics in their current order)
+  const sorted: string[] = [];
+  const unsorted = new Set(validExpandedIds);
+
+  // For each tag in order, find metrics with that tag and move them to the front
+  for (const tag of metricTagFilter) {
+    // Find metrics with this tag that haven't been sorted yet
+    const metricsWithTag = validExpandedIds.filter((metricId) => {
+      if (!unsorted.has(metricId)) return false;
+      const metric = metricMap.get(metricId);
+      if (!metric) return false;
+      return metric.tags?.includes(tag);
+    });
+
+    // Add metrics with this tag to the sorted list (preserving their relative order from default sort)
+    for (const metricId of metricsWithTag) {
+      sorted.push(metricId);
+      unsorted.delete(metricId);
+    }
+  }
+
+  // Add remaining unsorted metrics at the end (preserving their relative order)
+  return [...sorted, ...Array.from(unsorted)];
 }
 
 export function filterMetricsByTags(

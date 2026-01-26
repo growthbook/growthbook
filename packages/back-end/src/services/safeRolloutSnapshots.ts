@@ -3,6 +3,7 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -156,7 +157,6 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     endDate: settings.endDate || new Date(),
     experimentId: settings.experimentId,
     exposureQueryId: settings.exposureQueryId,
-    manual: false,
     segment: "",
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
@@ -239,9 +239,9 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
-  // const hasPostStratificationFeature = organization
-  //   ? orgHasPremiumFeature(organization, "post-stratification")
-  //   : false;
+  const hasPostStratificationFeature = organization
+    ? orgHasPremiumFeature(organization, "post-stratification")
+    : false;
   return {
     statsEngine: "frequentist",
     dimensions: [],
@@ -250,9 +250,11 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
-    postStratificationEnabled: false,
-    //hasPostStratificationFeature &&
-    //!(organization.settings?.postStratificationDisabled ?? false),
+    postStratificationEnabled:
+      hasPostStratificationFeature &&
+      !organization.settings?.disablePrecomputedDimensions &&
+      (organization.settings?.postStratificationEnabled ??
+        DEFAULT_POST_STRATIFICATION_ENABLED),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,

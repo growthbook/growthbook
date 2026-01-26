@@ -258,6 +258,11 @@ export async function createSDKConnection(
     context,
     payloadKeys: [],
     sdkConnections: [connection],
+    auditContext: {
+      event: "created",
+      model: "sdkconnection",
+      id: connection.id,
+    },
   });
 
   return toInterface(doc);
@@ -375,6 +380,11 @@ export async function editSDKConnection(
           ...fullChanges,
         },
       ],
+      auditContext: {
+        event: "updated",
+        model: "sdkconnection",
+        id: connection.id,
+      },
     });
   }
 

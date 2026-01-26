@@ -23,6 +23,7 @@ import { usesEventName } from "@/components/Metrics/MetricForm";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -68,6 +69,7 @@ export default function FactTableModal({
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
       projects: existing?.projects || [],
+      autoSliceUpdatesEnabled: existing?.autoSliceUpdatesEnabled ?? false,
     },
   });
 
@@ -92,6 +94,14 @@ export default function FactTableModal({
       isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal",
     );
   }, [isNew]);
+
+  const autoUpdateFrequencyHours = getAutoSliceUpdateFrequencyHours();
+  const autoUpdateFrequencyDays =
+    Math.round((autoUpdateFrequencyHours / 24) * 10) / 10; // Round to 1 decimal place
+  const autoUpdateFrequencyText =
+    autoUpdateFrequencyDays >= 1
+      ? `${autoUpdateFrequencyDays} ${autoUpdateFrequencyDays === 1 ? "day" : "days"}`
+      : `${autoUpdateFrequencyHours} ${autoUpdateFrequencyHours === 1 ? "hour" : "hours"}`;
 
   return (
     <>
@@ -143,6 +153,7 @@ export default function FactTableModal({
               eventName: value.eventName,
               managedBy: value.managedBy,
               projects: value.projects,
+              autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -277,7 +288,7 @@ export default function FactTableModal({
         {permissionsUtil.canCreateOfficialResources({
           projects: form.watch("projects") || [],
         }) && hasCommercialFeature("manage-official-resources") ? (
-          <div className="mt-2">
+          <div className="mt-4">
             <Checkbox
               label="Mark as Official Fact Table"
               disabled={form.watch("managedBy") === "api"}
@@ -290,6 +301,19 @@ export default function FactTableModal({
             />
           </div>
         ) : null}
+
+        {hasCommercialFeature("metric-slices") && (
+          <div className="mt-4">
+            <Checkbox
+              label="Auto-update slice levels"
+              description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${autoUpdateFrequencyText}. Locked slice levels will always be preserved.`}
+              value={form.watch("autoSliceUpdatesEnabled") ?? false}
+              setValue={(value) => {
+                form.setValue("autoSliceUpdatesEnabled", value);
+              }}
+            />
+          </div>
+        )}
       </Modal>
     </>
   );

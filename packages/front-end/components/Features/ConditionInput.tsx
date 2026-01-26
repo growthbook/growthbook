@@ -2,23 +2,30 @@
 
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
-import {
-  FaExclamationCircle,
-  FaMinusCircle,
-  FaPlusCircle,
-} from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
-import { PiArrowSquareOut } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiBracketsCurly,
+  PiPlusBold,
+  PiPlusCircleBold,
+  PiXBold,
+} from "react-icons/pi";
+import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
-import Link from "next/link";
+import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import Tooltip from "@/ui/Tooltip";
 import {
+  Condition,
   condToJson,
   jsonToConds,
   useAttributeMap,
   useAttributeSchema,
   getDefaultOperator,
   getFormatEquivalentOperator,
+  formatJSON,
+  LARGE_FILE_SIZE,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -31,7 +38,23 @@ import CountrySelector, {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
-import styles from "./ConditionInput.module.scss";
+import Link from "@/ui/Link";
+import useSDKConnections from "@/hooks/useSDKConnections";
+
+export function ConditionLabel({
+  label,
+  width = 35,
+}: {
+  label: string;
+  width?: number;
+}) {
+  return (
+    // height 38 matches our single row input field height
+    <Flex align="center" flexShrink="0" style={{ width, height: 38 }}>
+      <Text weight="bold">{label}</Text>
+    </Flex>
+  );
+}
 
 interface Props {
   defaultValue: string;
@@ -46,8 +69,6 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups, getSavedGroupById } = useDefinitions();
-
   const attributes = useAttributeMap(props.project);
 
   const title = props.title || "Target by Attributes";
@@ -61,13 +82,12 @@ export default function ConditionInput(props: Props) {
   const [conds, setConds] = useState(
     () => jsonToConds(props.defaultValue, attributes) || [],
   );
-  const [rawTextMode, setRawTextMode] = useState(false);
+  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
+  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
+    defaultCodeEditorToggledOn,
+  );
 
   const attributeSchema = useAttributeSchema(false, props.project);
-
-  const usingDisabledEqualityAttributes = conds.some(
-    (cond) => !!attributes.get(cond.field)?.disableEqualityConditions,
-  );
 
   useEffect(() => {
     if (advanced) return;
@@ -78,6 +98,275 @@ export default function ConditionInput(props: Props) {
     props.onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
+
+  const usingDisabledEqualityAttributes = conds.some((cond) =>
+    cond.some((c) => !!attributes.get(c.field)?.disableEqualityConditions),
+  );
+
+  if (advanced || !attributes.size || !simpleAllowed) {
+    const hasSecureAttributes = some(
+      [...attributes].filter(([_, a]) =>
+        ["secureString", "secureString[]"].includes(a.datatype),
+      ),
+    );
+
+    const formatted = formatJSON(value);
+
+    const codeEditorToggleButton = (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          setCodeEditorToggledOn(!codeEditorToggledOn);
+        }}
+        style={{ whiteSpace: "nowrap" }}
+      >
+        <PiBracketsCurly />{" "}
+        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
+      </Link>
+    );
+
+    const formatJSONButton = (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          if (formatted && formatted !== value) {
+            setValue(formatted);
+          }
+        }}
+        style={{
+          whiteSpace: "nowrap",
+          opacity: !formatted || formatted === value ? 0.5 : 1,
+          cursor: !formatted || formatted === value ? "default" : "pointer",
+        }}
+      >
+        <FaMagic /> Format JSON
+      </Link>
+    );
+
+    const combinedHelpText = (
+      <>
+        <Flex justify="between" align="center">
+          <div>JSON format using MongoDB query syntax.</div>
+          <Flex gap="3">
+            {codeEditorToggleButton}
+            {formatJSONButton}
+          </Flex>
+        </Flex>
+        {hasSecureAttributes && (
+          <Callout status="warning" mt="2">
+            Secure attribute hashing not guaranteed to work for complicated
+            rules
+          </Callout>
+        )}
+        <CaseInsensitiveRegexWarning value={value} project={props.project} />
+      </>
+    );
+
+    return (
+      <Box my="4">
+        <Flex gap="2" mb="2">
+          <Box flexGrow={"1"}>
+            <label className={props.labelClassName || ""}>{title}</label>
+          </Box>
+          {simpleAllowed && attributes.size > 0 && (
+            <Box>
+              <Link
+                onClick={() => {
+                  const newConds = jsonToConds(value, attributes);
+                  // TODO: show error
+                  if (newConds === null) return;
+                  setConds(newConds);
+                  setAdvanced(false);
+                }}
+              >
+                <RxLoop /> Simple mode
+              </Link>
+            </Box>
+          )}
+        </Flex>
+        <Box className="appbox bg-light px-3 py-3">
+          {codeEditorToggledOn ? (
+            <CodeTextArea
+              labelClassName={props.labelClassName}
+              language="json"
+              value={value}
+              setValue={setValue}
+              helpText={combinedHelpText}
+              resizable={true}
+              showCopyButton={true}
+              showFullscreenButton={true}
+            />
+          ) : (
+            <Field
+              labelClassName={props.labelClassName}
+              containerClassName="mb-0"
+              placeholder=""
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+              }}
+              textarea
+              minRows={1}
+              helpText={combinedHelpText}
+            />
+          )}
+        </Box>
+      </Box>
+    );
+  }
+
+  if (!conds.length || (conds.length === 1 && !conds[0].length)) {
+    return (
+      <Box my="4">
+        <label className={props.labelClassName || ""}>{title}</label>
+        <Box>
+          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+            {emptyText}
+          </Text>
+          <Box mt="2">
+            <Link
+              onClick={() => {
+                const prop = attributeSchema[0];
+                setConds([
+                  [
+                    {
+                      field: prop?.property || "",
+                      operator:
+                        prop?.datatype === "boolean"
+                          ? "$true"
+                          : prop?.disableEqualityConditions
+                            ? "$regex"
+                            : "$eq",
+                      value: "",
+                    },
+                  ],
+                ]);
+              }}
+            >
+              <Text weight="bold">
+                <PiPlusCircleBold className="mr-1" />
+                Add attribute targeting
+              </Text>
+            </Link>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+  return (
+    <Box my="4">
+      <Flex gap="2" mb="2">
+        <Box flexGrow={"1"}>
+          <label
+            className={props.labelClassName || ""}
+            style={{ marginBottom: 0 }}
+          >
+            {title}
+          </label>
+        </Box>
+        <Box>
+          <Link onClick={() => setAdvanced(true)}>
+            <RxLoop /> Advanced mode
+          </Link>
+        </Box>
+      </Flex>
+
+      {conds.map((andGroup, i) => (
+        <Box key={i}>
+          {i > 0 && (
+            <Box mb="2">
+              <Text weight="bold">OR</Text>
+            </Box>
+          )}
+          <ConditionAndGroupInput
+            conds={andGroup}
+            setConds={(newConds) => {
+              const newAndGroups = [...conds];
+
+              // Empty array means delete the AND group
+              if (newConds.length === 0) {
+                newAndGroups.splice(i, 1);
+              } else {
+                newAndGroups[i] = newConds;
+              }
+              setConds(newAndGroups);
+            }}
+            orGroupsCount={conds.length}
+            project={props.project}
+            labelClassName={props.labelClassName}
+            emptyText={props.emptyText}
+            title={props.title}
+            require={props.require}
+            allowNestedSavedGroups={props.allowNestedSavedGroups}
+            excludeSavedGroupId={props.excludeSavedGroupId}
+          />
+        </Box>
+      ))}
+
+      <Flex align="center" mt="2">
+        {attributeSchema.length > 0 && (
+          <Link
+            className="or-button"
+            onClick={() => {
+              const prop = attributeSchema[0];
+              setConds([
+                ...conds,
+                [
+                  {
+                    field: prop?.property || "",
+                    operator:
+                      prop?.datatype === "boolean"
+                        ? "$true"
+                        : prop?.disableEqualityConditions
+                          ? "$regex"
+                          : "$eq",
+                    value: "",
+                  },
+                ],
+              ]);
+            }}
+          >
+            <Text weight="bold">
+              <PiPlusBold className="mr-1" />
+              OR
+            </Text>
+          </Link>
+        )}
+      </Flex>
+
+      {usingDisabledEqualityAttributes && (
+        <Callout status="warning" mt="4">
+          Be careful not to include Personally Identifiable Information (PII) in
+          your targeting conditions.
+        </Callout>
+      )}
+
+      <CaseInsensitiveRegexWarning value={value} project={props.project} />
+    </Box>
+  );
+}
+
+function ConditionAndGroupInput({
+  conds,
+  setConds,
+  orGroupsCount,
+  ...props
+}: {
+  conds: Condition[];
+  setConds: (conds: Condition[]) => void;
+  orGroupsCount: number;
+  project: string;
+  labelClassName?: string;
+  emptyText?: string;
+  title?: string;
+  require?: boolean;
+  allowNestedSavedGroups?: boolean;
+  excludeSavedGroupId?: string;
+}) {
+  const { savedGroups, getSavedGroupById } = useDefinitions();
+
+  const attributes = useAttributeMap(props.project);
+  const [rawTextMode, setRawTextMode] = useState(false);
 
   const savedGroupOperators = [
     {
@@ -92,219 +381,141 @@ export default function ConditionInput(props: Props) {
 
   const listOperators = ["$in", "$nin"];
 
-  if (advanced || !attributes.size || !simpleAllowed) {
-    const hasSecureAttributes = some(
-      [...attributes].filter(([_, a]) =>
-        ["secureString", "secureString[]"].includes(a.datatype),
-      ),
-    );
-    return (
-      <div className="form-group my-4">
-        <label className={props.labelClassName || ""}>{title}</label>
-        <div className="appbox bg-light px-3 py-3">
-          <CodeTextArea
-            labelClassName={props.labelClassName}
-            language="json"
-            value={value}
-            setValue={setValue}
-            helpText={
-              <>
-                <div className="d-flex">
-                  <div>JSON format using MongoDB query syntax.</div>
-                  {simpleAllowed && attributes.size && (
-                    <div className="ml-auto">
-                      <span
-                        className="link-purple cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const newConds = jsonToConds(value, attributes);
-                          // TODO: show error
-                          if (newConds === null) return;
-                          setConds(newConds);
-                          setAdvanced(false);
-                        }}
-                      >
-                        <RxLoop /> Simple mode
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {hasSecureAttributes && (
-                  <div className="mt-1 text-warning-orange">
-                    <FaExclamationCircle /> Secure attribute hashing not
-                    guaranteed to work for complicated rules
-                  </div>
-                )}
-              </>
-            }
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (!conds.length) {
-    return (
-      <div className="form-group my-4">
-        <label className={props.labelClassName || ""}>{title}</label>
-        <div>
-          <div className="font-italic text-muted mr-3">{emptyText}</div>
-          <div
-            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              const prop = attributeSchema[0];
-              setConds([
-                {
-                  field: prop?.property || "",
-                  operator:
-                    prop?.datatype === "boolean"
-                      ? "$true"
-                      : prop?.disableEqualityConditions
-                        ? "$regex"
-                        : "$eq",
-                  value: "",
-                },
-              ]);
-            }}
-          >
-            <FaPlusCircle className="mr-1" />
-            Add attribute targeting
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const attributeSchema = useAttributeSchema(false, props.project);
 
   return (
-    <div className="form-group my-4">
-      <label className={props.labelClassName || ""}>{title}</label>
-      <div className="appbox bg-light px-3 pb-3">
-        <ul className={styles.conditionslist}>
-          {conds.map(({ field, operator, value }, i) => {
-            const attribute = attributes.get(field);
+    <Box>
+      <Box className="appbox bg-light px-3 py-3">
+        {conds.map(({ field, operator, value }, i) => {
+          const attribute = attributes.get(field);
 
-            const handleCondsChange = (value: string, name: string) => {
-              const newConds = [...conds];
-              newConds[i] = { ...newConds[i] };
-              newConds[i][name] = value;
-              setConds(newConds);
-            };
+          const handleCondsChange = (value: string, name: string) => {
+            const newConds = [...conds];
+            newConds[i] = { ...newConds[i] };
+            newConds[i][name] = value;
+            setConds(newConds);
+          };
 
-            const handleFieldChange = (
-              e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>,
-            ) => {
-              const name = e.target.name;
-              const value: string | number = e.target.value;
+          const handleFieldChange = (
+            e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>,
+          ) => {
+            const name = e.target.name;
+            const value: string | number = e.target.value;
 
-              handleCondsChange(value, name);
-            };
+            handleCondsChange(value, name);
+          };
 
-            const handleListChange = (values: string[]) => {
-              const name = "value";
-              const value: string | number = values.join(",");
-              handleCondsChange(value, name);
-            };
+          const handleListChange = (values: string[]) => {
+            const name = "value";
+            const value: string | number = values.join(",");
+            handleCondsChange(value, name);
+          };
 
-            const fieldSelector = (
-              <SelectField
-                value={field}
-                options={[
-                  ...attributeSchema.map((s) => ({
-                    label: s.property,
-                    value: s.property,
-                    tooltip: s.description || "",
-                  })),
-                  ...(props.allowNestedSavedGroups || field === "$savedGroups"
-                    ? [
-                        {
-                          label: "Saved Group",
-                          value: "$savedGroups",
-                        },
-                      ]
-                    : []),
-                ]}
-                formatOptionLabel={(o) => (
-                  <span title={o.tooltip}>{o.label}</span>
-                )}
-                name="field"
-                className={styles.firstselect}
-                onChange={(value) => {
-                  const newConds = [...conds];
-                  newConds[i] = { ...newConds[i] };
-                  newConds[i]["field"] = value;
+          const fieldSelector = (
+            <SelectField
+              useMultilineLabels={true}
+              value={field}
+              options={[
+                ...attributeSchema.map((s) => ({
+                  label: s.property,
+                  value: s.property,
+                  tooltip: s.description || "",
+                })),
+                ...(props.allowNestedSavedGroups || field === "$savedGroups"
+                  ? [
+                      {
+                        label: "Saved Group",
+                        value: "$savedGroups",
+                      },
+                    ]
+                  : []),
+              ]}
+              formatOptionLabel={(o) => (
+                <span title={o.tooltip}>{o.label}</span>
+              )}
+              name="field"
+              onChange={(value) => {
+                const newConds = [...conds];
+                newConds[i] = { ...newConds[i] };
+                newConds[i]["field"] = value;
 
-                  if (value === "$savedGroups") {
-                    newConds[i]["operator"] = "$in";
-                    newConds[i]["value"] = "";
-                    setConds(newConds);
-                    return;
-                  }
+                if (value === "$savedGroups") {
+                  newConds[i]["operator"] = "$in";
+                  newConds[i]["value"] = "";
+                  setConds(newConds);
+                  return;
+                }
 
-                  const newAttribute = attributes.get(value);
-                  const hasAttrChanged =
-                    newAttribute?.datatype !== attribute?.datatype ||
-                    newAttribute?.array !== attribute?.array ||
-                    !!newAttribute?.disableEqualityConditions !==
-                      !!attribute?.disableEqualityConditions;
+                const newAttribute = attributes.get(value);
+                const hasAttrChanged =
+                  newAttribute?.datatype !== attribute?.datatype ||
+                  newAttribute?.array !== attribute?.array ||
+                  !!newAttribute?.disableEqualityConditions !==
+                    !!attribute?.disableEqualityConditions;
 
-                  if (hasAttrChanged && newAttribute) {
+                if (hasAttrChanged && newAttribute) {
+                  newConds[i]["operator"] = getDefaultOperator(newAttribute);
+                  newConds[i]["value"] = newConds[i]["value"] || "";
+                } else if (
+                  newAttribute &&
+                  newAttribute.format !== attribute?.format
+                ) {
+                  const desiredOperator = getFormatEquivalentOperator(
+                    conds[i].operator,
+                    newAttribute?.format,
+                  );
+                  if (desiredOperator) {
+                    newConds[i]["operator"] = desiredOperator;
+                  } else {
                     newConds[i]["operator"] = getDefaultOperator(newAttribute);
                     newConds[i]["value"] = newConds[i]["value"] || "";
-                  } else if (
-                    newAttribute &&
-                    newAttribute.format !== attribute?.format
-                  ) {
-                    const desiredOperator = getFormatEquivalentOperator(
-                      conds[i].operator,
-                      newAttribute?.format,
-                    );
-                    if (desiredOperator) {
-                      newConds[i]["operator"] = desiredOperator;
-                    } else {
-                      newConds[i]["operator"] =
-                        getDefaultOperator(newAttribute);
-                      newConds[i]["value"] = newConds[i]["value"] || "";
-                    }
                   }
-                  setConds(newConds);
-                }}
-                sort={false}
-              />
-            );
-
-            if (field === "$savedGroups") {
-              const groupOptions = savedGroups
-                .filter((g) => g.id !== props.excludeSavedGroupId)
-                .map((g) => ({
-                  label: g.groupName,
-                  value: g.id,
-                }));
-
-              // Add any missing ids to options
-              const ids = value
-                ? value
-                    .split(",")
-                    .map((val) => val.trim())
-                    .filter((v) => !!v)
-                : [];
-
-              ids.forEach((id) => {
-                if (!groupOptions.find((option) => option.value === id)) {
-                  groupOptions.push({ label: id, value: id });
                 }
-              });
+                setConds(newConds);
+              }}
+              sort={false}
+            />
+          );
 
-              return (
-                <li key={i} className={styles.listitem}>
-                  <div className={`row ${styles.listrow}`}>
-                    {i > 0 ? (
-                      <span className={`${styles.and} mr-2`}>AND</span>
-                    ) : (
-                      <span className={`${styles.and} mr-2`}>IF</span>
-                    )}
-                    <div className="col-sm-12 col-md mb-2">{fieldSelector}</div>
+          if (field === "$savedGroups") {
+            const groupOptions = savedGroups
+              .filter((g) => g.id !== props.excludeSavedGroupId)
+              .map((g) => ({
+                label: g.groupName,
+                value: g.id,
+              }));
+
+            // Add any missing ids to options
+            const ids = value
+              ? value
+                  .split(",")
+                  .map((val) => val.trim())
+                  .filter((v) => !!v)
+              : [];
+
+            ids.forEach((id) => {
+              if (!groupOptions.find((option) => option.value === id)) {
+                groupOptions.push({ label: id, value: id });
+              }
+            });
+
+            return (
+              <Flex key={i} gap="2" align="start" mb="4">
+                <Box style={{ flexShrink: 0 }}>
+                  <ConditionLabel label={i === 0 ? "IF" : "AND"} />
+                </Box>
+                <Flex
+                  gap="2"
+                  align="start"
+                  wrap="wrap"
+                  style={{ flex: "1 1 0", minWidth: 0 }}
+                >
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                    {fieldSelector}
+                  </Box>
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                     <SelectField
+                      useMultilineLabels={true}
                       value={operator}
                       name="operator"
                       options={[
@@ -321,14 +532,14 @@ export default function ConditionInput(props: Props) {
                       onChange={(v) => {
                         handleCondsChange(v, "operator");
                       }}
-                      containerClassName="col-sm-12 col-md-auto mb-2"
                     />
+                  </Box>
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                     <MultiSelectField
                       value={ids}
                       options={groupOptions}
                       onChange={handleListChange}
                       name="value"
-                      containerClassName="col-sm-12 col-md mb-2"
                       formatOptionLabel={(o, meta) => {
                         if (meta.context !== "value" || !o.value)
                           return o.label;
@@ -346,119 +557,148 @@ export default function ConditionInput(props: Props) {
                       }}
                       required
                     />
-                    {(conds.length > 1 || !props.require) && (
-                      <div className="col-md-auto col-sm-12">
-                        <button
-                          className="btn btn-link text-danger"
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
+                  </Box>
+                </Flex>
+                <Box px="1" pt="3" style={{ width: 16 }}>
+                  {(conds.length > 1 ||
+                    (conds.length === 1 && orGroupsCount > 1) ||
+                    !props.require) && (
+                    <Tooltip content="Remove condition">
+                      <IconButton
+                        type="button"
+                        color="red"
+                        variant="ghost"
+                        onClick={() => {
+                          // If this is the last condition in the AND group, delete the entire OR group
+                          if (conds.length === 1) {
+                            setConds([]);
+                          } else {
                             const newConds = [...conds];
                             newConds.splice(i, 1);
                             setConds(newConds);
-                          }}
-                        >
-                          <FaMinusCircle className="mr-1" />
-                          remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </li>
+                          }
+                        }}
+                      >
+                        <PiXBold size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Flex>
+            );
+          }
+
+          if (!attribute) {
+            console.error("Attribute not found in attribute Map.");
+            return;
+          }
+
+          const savedGroupOptions = savedGroups
+            // First, limit to groups with the correct attribute
+            .filter((g) => g.type === "list" && g.attributeKey === field)
+            // Filter by project
+            .filter((group) => {
+              return (
+                !props.project ||
+                !group.projects?.length ||
+                group.projects.includes(props.project)
               );
-            }
+            })
+            // Then, transform into the select option format
+            .map((g) => ({ label: g.groupName, value: g.id }));
 
-            if (!attribute) {
-              console.error("Attribute not found in attribute Map.");
-              return;
-            }
-
-            const savedGroupOptions = savedGroups
-              // First, limit to groups with the correct attribute
-              .filter((g) => g.type === "list" && g.attributeKey === field)
-              // Filter by project
-              .filter((group) => {
-                return (
-                  !props.project ||
-                  !group.projects?.length ||
-                  group.projects.includes(props.project)
-                );
-              })
-              // Then, transform into the select option format
-              .map((g) => ({ label: g.groupName, value: g.id }));
-
-            let operatorOptions =
-              attribute.datatype === "boolean"
+          let operatorOptions =
+            attribute.datatype === "boolean"
+              ? [
+                  { label: "is true", value: "$true" },
+                  { label: "is false", value: "$false" },
+                  { label: "is not NULL", value: "$exists" },
+                  { label: "is NULL", value: "$notExists" },
+                ]
+              : attribute.array
                 ? [
-                    { label: "is true", value: "$true" },
-                    { label: "is false", value: "$false" },
+                    { label: "includes", value: "$includes" },
+                    { label: "does not include", value: "$notIncludes" },
+                    { label: "is empty", value: "$empty" },
+                    { label: "is not empty", value: "$notEmpty" },
                     { label: "is not NULL", value: "$exists" },
                     { label: "is NULL", value: "$notExists" },
                   ]
-                : attribute.array
+                : attribute.enum?.length || 0 > 0
                   ? [
-                      { label: "includes", value: "$includes" },
-                      { label: "does not include", value: "$notIncludes" },
-                      { label: "is empty", value: "$empty" },
-                      { label: "is not empty", value: "$notEmpty" },
+                      { label: "is equal to", value: "$eq" },
+                      { label: "is not equal to", value: "$ne" },
+                      { label: "is in the list", value: "$in" },
+                      { label: "is not in the list", value: "$nin" },
                       { label: "is not NULL", value: "$exists" },
                       { label: "is NULL", value: "$notExists" },
                     ]
-                  : attribute.enum?.length || 0 > 0
+                  : attribute.datatype === "string"
                     ? [
-                        { label: "is equal to", value: "$eq" },
-                        { label: "is not equal to", value: "$ne" },
+                        {
+                          label: "is equal to",
+                          value:
+                            attribute.format === "version" ? "$veq" : "$eq",
+                        },
+                        {
+                          label: "is not equal to",
+                          value:
+                            attribute.format === "version" ? "$vne" : "$ne",
+                        },
+                        { label: "matches regex", value: "$regex" },
+                        { label: "does not match regex", value: "$notRegex" },
+                        {
+                          label: "matches regex (case insensitive)",
+                          value: "$regexi",
+                        },
+                        {
+                          label: "does not match regex (case insensitive)",
+                          value: "$notRegexi",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "is after"
+                              : "is greater than",
+                          value:
+                            attribute.format === "version" ? "$vgt" : "$gt",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "is after or on"
+                              : "is greater than or equal to",
+                          value:
+                            attribute.format === "version" ? "$vgte" : "$gte",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "is before"
+                              : "is less than",
+                          value:
+                            attribute.format === "version" ? "$vlt" : "$lt",
+                        },
+                        {
+                          label:
+                            attribute.format === "date"
+                              ? "is before or on"
+                              : "is less than or equal to",
+                          value:
+                            attribute.format === "version" ? "$vlte" : "$lte",
+                        },
                         { label: "is in the list", value: "$in" },
                         { label: "is not in the list", value: "$nin" },
                         { label: "is not NULL", value: "$exists" },
                         { label: "is NULL", value: "$notExists" },
+                        ...(savedGroupOptions.length > 0
+                          ? savedGroupOperators
+                          : []),
                       ]
-                    : attribute.datatype === "string"
+                    : attribute.datatype === "secureString"
                       ? [
-                          {
-                            label: "is equal to",
-                            value:
-                              attribute.format === "version" ? "$veq" : "$eq",
-                          },
-                          {
-                            label: "is not equal to",
-                            value:
-                              attribute.format === "version" ? "$vne" : "$ne",
-                          },
-                          { label: "matches regex", value: "$regex" },
-                          { label: "does not match regex", value: "$notRegex" },
-                          {
-                            label:
-                              attribute.format === "date"
-                                ? "is after"
-                                : "is greater than",
-                            value:
-                              attribute.format === "version" ? "$vgt" : "$gt",
-                          },
-                          {
-                            label:
-                              attribute.format === "date"
-                                ? "is after or on"
-                                : "is greater than or equal to",
-                            value:
-                              attribute.format === "version" ? "$vgte" : "$gte",
-                          },
-                          {
-                            label:
-                              attribute.format === "date"
-                                ? "is before"
-                                : "is less than",
-                            value:
-                              attribute.format === "version" ? "$vlt" : "$lt",
-                          },
-                          {
-                            label:
-                              attribute.format === "date"
-                                ? "is before or on"
-                                : "is less than or equal to",
-                            value:
-                              attribute.format === "version" ? "$vlte" : "$lte",
-                          },
+                          { label: "is equal to", value: "$eq" },
+                          { label: "is not equal to", value: "$ne" },
                           { label: "is in the list", value: "$in" },
                           { label: "is not in the list", value: "$nin" },
                           { label: "is not NULL", value: "$exists" },
@@ -467,10 +707,20 @@ export default function ConditionInput(props: Props) {
                             ? savedGroupOperators
                             : []),
                         ]
-                      : attribute.datatype === "secureString"
+                      : attribute.datatype === "number"
                         ? [
                             { label: "is equal to", value: "$eq" },
                             { label: "is not equal to", value: "$ne" },
+                            { label: "is greater than", value: "$gt" },
+                            {
+                              label: "is greater than or equal to",
+                              value: "$gte",
+                            },
+                            { label: "is less than", value: "$lt" },
+                            {
+                              label: "is less than or equal to",
+                              value: "$lte",
+                            },
                             { label: "is in the list", value: "$in" },
                             { label: "is not in the list", value: "$nin" },
                             { label: "is not NULL", value: "$exists" },
@@ -479,97 +729,81 @@ export default function ConditionInput(props: Props) {
                               ? savedGroupOperators
                               : []),
                           ]
-                        : attribute.datatype === "number"
-                          ? [
-                              { label: "is equal to", value: "$eq" },
-                              { label: "is not equal to", value: "$ne" },
-                              { label: "is greater than", value: "$gt" },
-                              {
-                                label: "is greater than or equal to",
-                                value: "$gte",
-                              },
-                              { label: "is less than", value: "$lt" },
-                              {
-                                label: "is less than or equal to",
-                                value: "$lte",
-                              },
-                              { label: "is in the list", value: "$in" },
-                              { label: "is not in the list", value: "$nin" },
-                              { label: "is not NULL", value: "$exists" },
-                              { label: "is NULL", value: "$notExists" },
-                              ...(savedGroupOptions.length > 0
-                                ? savedGroupOperators
-                                : []),
-                            ]
-                          : [];
+                        : [];
 
-            if (attribute.disableEqualityConditions) {
-              // Remove equality operators if the attribute has them disabled
-              operatorOptions = operatorOptions.filter(
-                (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value),
-              );
-            }
+          if (attribute.disableEqualityConditions) {
+            // Remove equality operators if the attribute has them disabled
+            operatorOptions = operatorOptions.filter(
+              (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value),
+            );
+          }
 
-            let displayType:
-              | "select-only"
-              | "array-field"
-              | "enum"
-              | "number"
-              | "string"
-              | "isoCountryCode"
-              | null = null;
-            if (
-              [
-                "$exists",
-                "$notExists",
-                "$true",
-                "$false",
-                "$empty",
-                "$notEmpty",
-              ].includes(operator)
-            ) {
-              displayType = "select-only";
-            } else if (attribute.enum === ALL_COUNTRY_CODES) {
-              displayType = "isoCountryCode";
-            } else if (attribute.enum.length) {
-              displayType = "enum";
-            } else if (listOperators.includes(operator)) {
-              displayType = "array-field";
-            } else if (attribute.datatype === "number") {
-              displayType = "number";
-            } else if (
-              ["string", "secureString"].includes(attribute.datatype)
-            ) {
-              displayType = "string";
-            }
-            const hasExtraWhitespace =
-              displayType === "string" && value !== value.trim();
+          let displayType:
+            | "select-only"
+            | "array-field"
+            | "enum"
+            | "number"
+            | "string"
+            | "isoCountryCode"
+            | null = null;
+          if (
+            [
+              "$exists",
+              "$notExists",
+              "$true",
+              "$false",
+              "$empty",
+              "$notEmpty",
+            ].includes(operator)
+          ) {
+            displayType = "select-only";
+          } else if (attribute.enum === ALL_COUNTRY_CODES) {
+            displayType = "isoCountryCode";
+          } else if (attribute.enum.length) {
+            displayType = "enum";
+          } else if (listOperators.includes(operator)) {
+            displayType = "array-field";
+          } else if (attribute.datatype === "number") {
+            displayType = "number";
+          } else if (["string", "secureString"].includes(attribute.datatype)) {
+            displayType = "string";
+          }
+          const hasExtraWhitespace =
+            displayType === "string" && value !== value.trim();
 
-            return (
-              <li key={i} className={styles.listitem}>
-                <div className={`row ${styles.listrow}`}>
-                  {i > 0 ? (
-                    <span className={`${styles.and} mr-2`}>AND</span>
-                  ) : (
-                    <span className={`${styles.and} mr-2`}>IF</span>
-                  )}
-                  <div className="col-sm-12 col-md mb-2">{fieldSelector}</div>
-                  <div className="col-sm-12 col-md mb-2">
+          return (
+            <Flex key={i} gap="2" align="start" mb="3">
+              <Box style={{ flexShrink: 0 }}>
+                <ConditionLabel label={i === 0 ? "IF" : "AND"} />
+              </Box>
+              <Flex
+                gap="2"
+                align="start"
+                wrap="wrap"
+                style={{ flex: "1 1 0", minWidth: 0 }}
+              >
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                  {fieldSelector}
+                </Box>
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                  <SelectField
+                    useMultilineLabels={true}
+                    value={operator}
+                    name="operator"
+                    options={operatorOptions}
+                    sort={false}
+                    onChange={(v) => {
+                      handleCondsChange(v, "operator");
+                    }}
+                  />
+                </Box>
+                {displayType === "select-only" ? (
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }} />
+                ) : ["$inGroup", "$notInGroup"].includes(operator) &&
+                  savedGroupOptions.length > 0 ? (
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                     <SelectField
-                      value={operator}
-                      name="operator"
-                      options={operatorOptions}
-                      sort={false}
-                      onChange={(v) => {
-                        handleCondsChange(v, "operator");
-                      }}
-                    />
-                  </div>
-                  {displayType === "select-only" ? (
-                    ""
-                  ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroupOptions.length > 0 ? (
-                    <SelectField
+                      useMultilineLabels={true}
                       options={savedGroupOptions.map((o) => ({
                         label: o.label,
                         value: o.value,
@@ -595,52 +829,55 @@ export default function ConditionInput(props: Props) {
                       }}
                       name="value"
                       initialOption="Choose group..."
-                      containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : displayType === "array-field" ? (
-                    <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
-                      {rawTextMode ? (
-                        <Field
-                          textarea
-                          value={value}
-                          onChange={handleFieldChange}
-                          name="value"
-                          minRows={1}
-                          className={styles.matchingInput}
-                          helpText={
-                            <span
-                              className="position-relative"
-                              style={{ top: -5 }}
-                            >
-                              separate values by comma
-                            </span>
-                          }
-                          required
-                        />
-                      ) : (
-                        <StringArrayField
-                          containerClassName="w-100"
-                          value={value ? value.trim().split(",") : []}
-                          onChange={handleListChange}
-                          placeholder="Enter some values..."
-                          delimiters={["Enter", "Tab"]}
-                          required
-                        />
-                      )}
-                      <span
-                        className="link-purple cursor-pointer"
-                        style={{ fontSize: "0.8em" }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setRawTextMode((prev) => !prev);
-                        }}
-                      >
-                        Switch to {rawTextMode ? "token" : "raw text"} mode
-                      </span>
-                    </div>
-                  ) : displayType === "isoCountryCode" ? (
-                    listOperators.includes(operator) ? (
+                  </Box>
+                ) : displayType === "array-field" ? (
+                  <Flex
+                    direction="column"
+                    align="end"
+                    style={{ minWidth: 200, flex: "1 1 0" }}
+                  >
+                    {rawTextMode ? (
+                      <Field
+                        textarea
+                        value={value}
+                        onChange={handleFieldChange}
+                        name="value"
+                        minRows={1}
+                        containerClassName="w-100"
+                        helpText={
+                          <span
+                            className="position-relative"
+                            style={{ top: -5 }}
+                          >
+                            separate values by comma
+                          </span>
+                        }
+                        required
+                      />
+                    ) : (
+                      <StringArrayField
+                        containerClassName="w-100"
+                        value={value ? value.trim().split(",") : []}
+                        onChange={handleListChange}
+                        placeholder="Enter some values..."
+                        delimiters={["Enter", "Tab"]}
+                        required
+                      />
+                    )}
+                    <Link
+                      onClick={() => {
+                        setRawTextMode(!rawTextMode);
+                      }}
+                      style={{ fontSize: "0.8em" }}
+                    >
+                      Switch to {rawTextMode ? "token" : "raw text"} mode
+                    </Link>
+                  </Flex>
+                ) : displayType === "isoCountryCode" ? (
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                    {listOperators.includes(operator) ? (
                       <CountrySelector
                         selectAmount="multi"
                         displayFlags={true}
@@ -658,9 +895,11 @@ export default function ConditionInput(props: Props) {
                           handleCondsChange(v, "value");
                         }}
                       />
-                    )
-                  ) : displayType === "enum" ? (
-                    listOperators.includes(operator) ? (
+                    )}
+                  </Box>
+                ) : displayType === "enum" ? (
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                    {listOperators.includes(operator) ? (
                       <MultiSelectField
                         options={attribute.enum.map((v) => ({
                           label: v,
@@ -671,11 +910,11 @@ export default function ConditionInput(props: Props) {
                         }
                         onChange={handleListChange}
                         name="value"
-                        containerClassName="col-sm-12 col-md mb-2"
                         required
                       />
                     ) : (
                       <SelectField
+                        useMultilineLabels={true}
                         options={attribute.enum.map((v) => ({
                           label: v,
                           value: v,
@@ -686,119 +925,164 @@ export default function ConditionInput(props: Props) {
                         }}
                         name="value"
                         initialOption="Choose One..."
-                        containerClassName="col-sm-12 col-md mb-2"
                         required
                       />
-                    )
-                  ) : displayType === "number" ? (
+                    )}
+                  </Box>
+                ) : displayType === "number" ? (
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                     <Field
                       type="number"
                       step="any"
                       value={value}
                       onChange={handleFieldChange}
                       name="value"
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
+                      style={{ minHeight: 38 }}
                       required
                     />
-                  ) : displayType === "string" ? (
-                    <>
-                      {attribute.format === "date" &&
-                      !["$regex", "$notRegex"].includes(operator) ? (
-                        <DatePicker
-                          date={value}
-                          setDate={(v) => {
-                            handleCondsChange(
-                              v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
-                              "value",
-                            );
-                          }}
-                          inputWidth={180}
-                          containerClassName="col-sm-12 col-md mb-2"
-                        />
-                      ) : (
-                        <Field
-                          value={value}
-                          onChange={handleFieldChange}
-                          name="value"
-                          className={styles.matchingInput}
-                          containerClassName={clsx("col-sm-12 col-md mb-2", {
-                            error: hasExtraWhitespace,
-                          })}
-                          helpText={
-                            hasExtraWhitespace ? (
-                              <small className="text-danger">
-                                Extra whitespace detected
-                              </small>
-                            ) : undefined
-                          }
-                          required
-                        />
-                      )}
-                    </>
-                  ) : (
-                    ""
-                  )}
-                  {(conds.length > 1 || !props.require) && (
-                    <div className="col-md-auto col-sm-12">
-                      <button
-                        className="btn btn-link text-danger float-right"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
+                  </Box>
+                ) : displayType === "string" ? (
+                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                    {attribute.format === "date" &&
+                    !["$regex", "$notRegex", "$regexi", "$notRegexi"].includes(
+                      operator,
+                    ) ? (
+                      <DatePicker
+                        date={value}
+                        setDate={(v) => {
+                          handleCondsChange(
+                            v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
+                            "value",
+                          );
+                        }}
+                        inputWidth={180}
+                      />
+                    ) : (
+                      <Field
+                        value={value}
+                        onChange={handleFieldChange}
+                        name="value"
+                        style={{ minHeight: 38 }}
+                        containerClassName={clsx({
+                          error: hasExtraWhitespace,
+                        })}
+                        helpText={
+                          hasExtraWhitespace ? (
+                            <small className="text-danger">
+                              Extra whitespace detected
+                            </small>
+                          ) : undefined
+                        }
+                        required
+                      />
+                    )}
+                  </Box>
+                ) : null}
+              </Flex>
+              <Box px="1" pt="3" style={{ width: 16 }}>
+                {(conds.length > 1 ||
+                  (conds.length === 1 && orGroupsCount > 1) ||
+                  !props.require) && (
+                  <Tooltip content="Remove condition">
+                    <IconButton
+                      type="button"
+                      color="red"
+                      variant="ghost"
+                      onClick={() => {
+                        // If this is the last condition in the AND group, delete the entire OR group
+                        if (conds.length === 1) {
+                          setConds([]);
+                        } else {
                           const newConds = [...conds];
                           newConds.splice(i, 1);
                           setConds(newConds);
-                        }}
-                      >
-                        <FaMinusCircle className="mr-1" />
-                        remove
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="d-flex align-items-center">
+                        }
+                      }}
+                    >
+                      <PiXBold size={16} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </Flex>
+          );
+        })}
+        <Flex align="center" mt="2">
           {attributeSchema.length > 0 && (
-            <span
-              className="link-purple font-weight-bold cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
+            <Link
+              onClick={() => {
                 const prop = attributeSchema[0];
                 setConds([
                   ...conds,
                   {
                     field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                    operator:
+                      prop?.datatype === "boolean"
+                        ? "$true"
+                        : prop?.disableEqualityConditions
+                          ? "$regex"
+                          : "$eq",
                     value: "",
                   },
                 ]);
               }}
             >
-              <FaPlusCircle className="mr-1" />
-              Add another condition
-            </span>
+              <Text weight="bold">
+                <PiPlusBold className="mr-1" />
+                AND
+              </Text>
+            </Link>
           )}
-          <span
-            className="ml-auto link-purple cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setAdvanced(true);
-            }}
-          >
-            <RxLoop /> Advanced mode
-          </span>
-        </div>
-        {usingDisabledEqualityAttributes && (
-          <Callout status="warning" mt="4">
-            Be careful not to include Personally Identifiable Information (PII)
-            in your targeting conditions.
-          </Callout>
-        )}
-      </div>
-    </div>
+        </Flex>
+      </Box>
+    </Box>
+  );
+}
+
+export function CaseInsensitiveRegexWarning({
+  value,
+  project,
+}: {
+  value: string;
+  project?: string;
+}) {
+  const { data: sdkConnectionsData } = useSDKConnections();
+  // Check if conditions use $regexi or $notRegexi operators
+  // In valid JSON, operators are always quoted, so we only check for quoted versions
+  const hasRegexiOperator =
+    value.includes('"$regexi"') || value.includes('"$notRegexi"');
+  const hasSDKWithCaseInsensitiveRegex = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project,
+  }).includes("caseInsensitiveRegex");
+  const hasSDKWithNoCaseInsensitiveRegex = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("caseInsensitiveRegex");
+
+  if (!hasRegexiOperator || !hasSDKWithNoCaseInsensitiveRegex) {
+    return null;
+  }
+
+  return (
+    <Callout
+      status={hasSDKWithCaseInsensitiveRegex ? "warning" : "error"}
+      mt="2"
+    >
+      {hasSDKWithCaseInsensitiveRegex
+        ? "Some of your SDK Connections in this project may not support case-insensitive regex."
+        : "None of your SDK Connections in this project support case-insensitive regex. Either upgrade your SDKs or use case-sensitive regex operators instead."}
+      <Link
+        href={"/sdks"}
+        weight="bold"
+        className="pl-2"
+        rel="noreferrer"
+        target="_blank"
+      >
+        View SDKs
+        <PiArrowSquareOut className="ml-1" />
+      </Link>
+    </Callout>
   );
 }

@@ -2,11 +2,11 @@
 
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
-import mongoose, { FilterQuery, trusted } from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, orderBy, pick } from "lodash";
+import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
@@ -29,6 +29,8 @@ import {
   ForeignRefs,
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
+import { ApiRequest } from "back-end/src/util/handler";
+import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -79,7 +81,22 @@ type AuditLogConfig<Entity extends EntityType> = {
   deleteEvent: EventTypes<Entity>;
 };
 
-export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
+// DeepPartial makes all properties (including nested) optional
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: T[P] extends (infer U)[]
+        ? DeepPartial<U>[]
+        : T[P] extends readonly (infer U)[]
+          ? readonly DeepPartial<U>[]
+          : DeepPartial<T[P]>;
+    }
+  : T;
+
+export interface ModelConfig<
+  T extends BaseSchema,
+  Entity extends EntityType,
+  ApiT extends ApiBaseSchema,
+> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
@@ -96,17 +113,33 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
   baseQuery?: ScopedFilterQuery<T>;
+  apiConfig?: ApiModelConfig<ApiT>;
+  defaultValues?: DeepPartial<CreateProps<z.infer<T>>>;
 }
 
 // Global set to track which collections we've updated indexes for already
 // We only need to update indexes once at server start-up
 const indexesUpdated: Set<string> = new Set();
 
+// Global map to track pending index operations
+const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
+
+// Helper function to wait for all pending index operations to complete
+export async function waitForIndexes(): Promise<void> {
+  const allPromises: Promise<string | void>[] = [];
+  for (const promises of pendingIndexOperations.values()) {
+    allPromises.push(...promises);
+  }
+  await Promise.allSettled(allPromises);
+  pendingIndexOperations.clear();
+}
+
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
 export abstract class BaseModel<
   T extends BaseSchema,
   E extends EntityType,
+  ApiT extends ApiBaseSchema,
   WriteOptions = never,
 > {
   public validator: T;
@@ -114,7 +147,7 @@ export abstract class BaseModel<
   public updateValidator: UpdateZodObject<T>;
 
   protected context: Context;
-  protected config: ModelConfig<T, E>;
+  protected config: ModelConfig<T, E, ApiT>;
 
   public constructor(context: Context) {
     this.context = context;
@@ -168,6 +201,13 @@ export abstract class BaseModel<
   }
   protected migrate(legacyDoc: unknown): z.infer<T> {
     return legacyDoc as z.infer<T>;
+  }
+  protected toApiInterface(doc: z.infer<T>): z.infer<ApiT> {
+    return {
+      ...doc,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+    } as z.infer<ApiT>;
   }
   protected async customValidation(
     doc: z.infer<T>,
@@ -245,12 +285,76 @@ export abstract class BaseModel<
     return keys;
   }
 
+  public async handleApiGet(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<z.infer<ApiT>> {
+    const id = req.params.id;
+    const doc = await this.getById(id);
+    if (!doc) req.context.throwNotFoundError();
+    return this.toApiInterface(doc);
+  }
+  public async handleApiCreate(
+    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<z.infer<ApiT>> {
+    const rawBody = req.body;
+    const toCreate = await this.processApiCreateBody(rawBody);
+    return this.toApiInterface(await this.create(toCreate));
+  }
+  protected async processApiCreateBody(
+    rawBody: unknown,
+  ): Promise<CreateProps<z.infer<T>>> {
+    return rawBody as CreateProps<z.infer<T>>;
+  }
+  public async handleApiList(
+    _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<z.infer<ApiT>[]> {
+    return (await this.getAll()).map(this.toApiInterface);
+  }
+  public async handleApiDelete(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodTypeAny,
+      z.ZodTypeAny
+    >,
+  ): Promise<string> {
+    const id = req.params.id;
+    await this.deleteById(id);
+    return id;
+  }
+  public async handleApiUpdate(
+    req: ApiRequest<
+      unknown,
+      z.ZodType<{ id: string }>,
+      z.ZodType<UpdateProps<z.infer<T>>>,
+      z.ZodTypeAny
+    >,
+  ): Promise<z.infer<ApiT>> {
+    const id = req.params.id;
+    const rawBody = req.body;
+    const toUpdate = await this.processApiUpdateBody(rawBody);
+    return this.toApiInterface(await this.updateById(id, toUpdate));
+  }
+  protected async processApiUpdateBody(
+    rawBody: unknown,
+  ): Promise<UpdateProps<z.infer<T>>> {
+    return rawBody as UpdateProps<z.infer<T>>;
+  }
+
   /***************
    * These methods are implemented by the MakeModelClass helper function
    ***************/
-  protected abstract getConfig(): ModelConfig<T, E>;
+  protected abstract getConfig(): ModelConfig<T, E, ApiT>;
   protected abstract getCreateValidator(): CreateZodObject<T>;
   protected abstract getUpdateValidator(): UpdateZodObject<T>;
+  public static getModelConfig() {
+    throw new Error("Method not implemented! Use derived class");
+  }
 
   /***************
    * Built-in public methods
@@ -368,6 +472,38 @@ export abstract class BaseModel<
   protected _generateUid() {
     return uuidv4().replace(/-/g, "");
   }
+
+  /**
+   * Recursively applies default values to props, only setting values that are undefined.
+   * Handles nested objects by merging them deeply.
+   */
+  protected _applyDefaultValues(
+    props: Record<string, unknown>,
+    defaults: Record<string, unknown>,
+  ): void {
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+      const currentValue = props[key];
+
+      if (currentValue === undefined) {
+        // If the value is undefined, apply the default
+        props[key] = defaultValue;
+      } else if (
+        defaultValue !== null &&
+        typeof defaultValue === "object" &&
+        !Array.isArray(defaultValue) &&
+        currentValue !== null &&
+        typeof currentValue === "object" &&
+        !Array.isArray(currentValue)
+      ) {
+        // If both are objects (not arrays), recursively merge nested defaults
+        this._applyDefaultValues(
+          currentValue as Record<string, unknown>,
+          defaultValue as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
   protected async _find(
     query: ScopedFilterQuery<T> = {},
     {
@@ -375,6 +511,7 @@ export abstract class BaseModel<
       limit,
       skip,
       bypassReadPermissionChecks,
+      projection,
     }: {
       sort?: Partial<{
         [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
@@ -382,6 +519,8 @@ export abstract class BaseModel<
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;
+      // Note: projection does not work when using config.yml
+      projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
     } = {},
   ) {
     const fullQuery = {
@@ -412,6 +551,9 @@ export abstract class BaseModel<
       rawDocs = docs;
     } else {
       const cursor = this._dangerousGetCollection().find(fullQuery);
+      if (projection) {
+        cursor.project(projection);
+      }
       sort &&
         cursor.sort(
           sort as {
@@ -461,7 +603,16 @@ export abstract class BaseModel<
     writeOptions?: WriteOptions,
     forceCanCreate?: boolean,
   ) {
-    const props = this.createValidator.parse(rawData);
+    // Apply default values BEFORE parsing to ensure required fields with defaults are populated
+    const dataWithDefaults = { ...rawData };
+    if (this.config.defaultValues) {
+      this._applyDefaultValues(
+        dataWithDefaults as Record<string, unknown>,
+        this.config.defaultValues as Record<string, unknown>,
+      );
+    }
+
+    const props = this.createValidator.parse(dataWithDefaults);
 
     if ("organization" in props) {
       throw new Error("Cannot set organization field");
@@ -775,73 +926,92 @@ export abstract class BaseModel<
     if (indexesUpdated.has(this.config.collectionName)) return;
     indexesUpdated.add(this.config.collectionName);
 
-    // Always create a unique index for organization and id
-    this._dangerousGetCollection()
-      .createIndex({ id: 1, organization: 1 }, { unique: true })
-      .catch((err) => {
-        logger.error(
-          err,
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-        );
-      });
+    const promises = [];
 
-    // If id is globally unique, create an index for that
-    if (this.config.globallyUniqueIds) {
+    // Always create a unique index for organization and id
+    promises.push(
       this._dangerousGetCollection()
-        .createIndex({ id: 1 }, { unique: true })
+        .createIndex({ id: 1, organization: 1 }, { unique: true })
         .catch((err) => {
           logger.error(
             err,
-            `Error creating id unique index for ${this.config.collectionName}`,
+            `Error creating org/id unique index for ${this.config.collectionName}`,
           );
-        });
+        }),
+    );
+
+    // If id is globally unique, create an index for that
+    if (this.config.globallyUniqueIds) {
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex({ id: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating id unique index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     }
 
     // If schema uses uid, create a globally unique index
     if ("uid" in this.config.schema.shape) {
-      this._dangerousGetCollection()
-        .createIndex({ uid: 1 }, { unique: true })
-        .catch((err) => {
-          logger.error(
-            err,
-            `Error creating uid unique index for ${this.config.collectionName}`,
-          );
-        });
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex({ uid: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating uid unique index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     }
 
     // Remove any explicitly defined indexes that are no longer needed
     const indexesToRemove = this.config.indexesToRemove;
-    if (indexesToRemove) {
-      const existingIndexes = this._dangerousGetCollection().listIndexes();
-      existingIndexes.forEach((index) => {
-        if (!indexesToRemove.includes(index.name)) return;
-
-        this._dangerousGetCollection()
-          .dropIndex(index.name)
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error dropping index ${index.name} for ${this.config.collectionName}`,
-            );
-          });
+    if (indexesToRemove && indexesToRemove.length > 0) {
+      // Drop each index that needs to be removed
+      indexesToRemove.forEach((indexName) => {
+        promises.push(
+          this._dangerousGetCollection()
+            .dropIndex(indexName)
+            .catch((err) => {
+              // Ignore errors if the index or namespace doesn't exist
+              if (
+                err.codeName !== "IndexNotFound" &&
+                err.codeName !== "NamespaceNotFound"
+              ) {
+                logger.error(
+                  err,
+                  `Error dropping index ${indexName} for ${this.config.collectionName}`,
+                );
+              }
+            }),
+        );
       });
     }
 
     // Create any additional indexes
     this.config.additionalIndexes?.forEach((index) => {
-      this._dangerousGetCollection()
-        .createIndex(index.fields as { [key: string]: number }, {
-          unique: !!index.unique,
-        })
-        .catch((err) => {
-          logger.error(
-            err,
-            `Error creating ${Object.keys(index.fields).join("/")} ${
-              index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-          );
-        });
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex(index.fields as { [key: string]: number }, {
+            unique: !!index.unique,
+          })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating ${Object.keys(index.fields).join("/")} ${
+                index.unique ? "unique " : ""
+              }index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     });
+
+    // Store the promises so they can be awaited externally
+    pendingIndexOperations.set(this.config.collectionName, promises);
   }
 
   /***************
@@ -881,8 +1051,12 @@ export abstract class BaseModel<
   }
 }
 
-export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
-  config: ModelConfig<T, E>,
+export const MakeModelClass = <
+  T extends BaseSchema,
+  E extends EntityType,
+  ApiT extends ApiBaseSchema,
+>(
+  config: ModelConfig<T, E, ApiT>,
 ) => {
   const createValidator = createSchema(config.schema);
   const updateValidator = updateSchema(config.schema);
@@ -890,9 +1064,13 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
+    ApiT,
     WriteOptions
   > {
     getConfig() {
+      return config;
+    }
+    static getModelConfig(): ModelConfig<T, E, ApiT> {
       return config;
     }
     getCreateValidator() {

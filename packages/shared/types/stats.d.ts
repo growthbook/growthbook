@@ -22,32 +22,76 @@ export type PValueErrorMessage =
   | "NUMERICAL_PVALUE_NOT_CONVERGED"
   | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
 
-interface BaseVariationResponse {
+export interface BaselineResponse {
   cr: number;
   value: number;
   users: number;
   denominator?: number;
   stats: MetricStats;
+}
+
+interface TestResult {
   expected?: number;
   uplift?: {
     dist: string;
     mean?: number;
     stddev?: number;
   };
-  ci?: [number | null, number | null];
+  ci?: [number, number];
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
+  // Added later to gbstats model, leave as undefined
+  realizedSettings?: RealizedSettings;
 }
 
-interface BayesianVariationResponse extends BaseVariationResponse {
+export interface BayesianTestResult extends TestResult {
   chanceToWin?: number;
   risk?: [number, number];
   riskType?: RiskType;
 }
 
-interface FrequentistVariationResponse extends BaseVariationResponse {
+export interface FrequentistTestResult extends TestResult {
   pValue?: number;
   pValueErrorMessage?: PValueErrorMessage;
+}
+
+export interface BayesianVariationResponseIndividual
+  extends BaselineResponse,
+    BayesianTestResult {
+  power?: MetricPowerResponseFromStatsEngine;
+}
+
+export interface FrequentistVariationResponseIndividual
+  extends BaselineResponse,
+    FrequentistTestResult {
+  power?: MetricPowerResponseFromStatsEngine;
+}
+
+type SupplementalResult =
+  | BaselineResponse
+  | BayesianVariationResponseIndividual
+  | FrequentistVariationResponseIndividual;
+
+export interface SupplementalResults {
+  cupedUnadjusted?: SupplementalResult;
+  uncapped?: SupplementalResult;
+  unstratified?: SupplementalResult;
+  noVarianceReduction?: SupplementalResult;
+  flatPrior?: SupplementalResult;
+}
+
+interface BaselineResponseWithSupplementalResults extends BaselineResponse {
+  supplementalResults?: SupplementalResults;
+}
+
+interface BayesianVariationResponse
+  extends BayesianVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
+}
+
+interface FrequentistVariationResponse
+  extends FrequentistVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
 }
 
 // Keep in sync with gbstats PowerResponse
@@ -70,18 +114,27 @@ interface BaseDimensionResponse {
 }
 
 interface BayesianDimensionResponse extends BaseDimensionResponse {
-  variations: BayesianVariationResponse[];
+  variations: (
+    | BaselineResponseWithSupplementalResults
+    | BayesianVariationResponse
+  )[];
 }
 
-interface FrequentistVariationResponse extends BaseDimensionResponse {
-  variations: FrequentistVariationResponse[];
+interface FrequentistDimensionResponse extends BaseDimensionResponse {
+  variations: (
+    | BaselineResponseWithSupplementalResults
+    | FrequentistVariationResponse
+  )[];
 }
 
 type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
-  | FrequentistVariationResponse;
+  | FrequentistDimensionResponse;
 
-// Keep below classes in sync with gbstats
+export type RealizedSettings = {
+  postStratificationApplied: boolean;
+};
+
 export type ExperimentMetricAnalysis = {
   metric: string;
   analyses: {
@@ -166,6 +219,7 @@ export interface MetricSettingsForStatsEngine {
   prior_stddev?: number;
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
+  compute_uncapped_metric: boolean;
 }
 
 export interface QueryResultsForStatsEngine {

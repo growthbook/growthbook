@@ -19,7 +19,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
@@ -37,7 +37,7 @@ type Definitions = {
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
-  savedGroups: SavedGroupInterface[];
+  savedGroups: SavedGroupWithoutValues[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
@@ -61,7 +61,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
-  getSavedGroupById: (id: string) => null | SavedGroupInterface;
+  getSavedGroupById: (id: string) => null | SavedGroupWithoutValues;
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;

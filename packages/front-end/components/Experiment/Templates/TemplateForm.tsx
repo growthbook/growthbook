@@ -115,7 +115,6 @@ const TemplateForm: FC<Props> = ({
         condition: initialValue.targeting?.condition || "",
       },
       customMetricSlices: initialValue?.customMetricSlices || [],
-      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
@@ -191,7 +190,7 @@ const TemplateForm: FC<Props> = ({
     if (onCreate) {
       onCreate(res.template.id);
     } else if (isEmpty(initialValue) || isNewTemplate) {
-      router.push(`/experiments#templates`);
+      router.push(`/experiments/templates`);
     }
   });
 

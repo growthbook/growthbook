@@ -1,10 +1,7 @@
 import React from "react";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-} from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { SafeRolloutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
@@ -28,10 +25,8 @@ export interface RefreshResultsButtonProps<
   mutate: () => void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
-  resetFilters?: () => void | Promise<void>;
   // Experiment/holdout-specific props
   experiment?: ExperimentInterfaceStringDates;
-  analysis?: ExperimentSnapshotAnalysis;
   phase?: number;
   dimension?: string;
   setAnalysisSettings?: (
@@ -56,12 +51,9 @@ export default function RefreshResultsButton<
   mutate,
   mutateAdditional,
   setRefreshError,
-  resetFilters,
   experiment,
-  analysis,
   phase,
   dimension,
-  setAnalysisSettings,
   safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
@@ -75,8 +67,7 @@ export default function RefreshResultsButton<
     !shouldUseRunQueriesButton &&
     (entityType === "experiment" || entityType === "holdout") &&
     experiment &&
-    phase !== undefined &&
-    setAnalysisSettings;
+    phase !== undefined;
 
   const shouldRenderSafeRolloutButton =
     !shouldUseRunQueriesButton &&
@@ -112,7 +103,6 @@ export default function RefreshResultsButton<
           icon="refresh"
           useRadixButton={true}
           radixVariant="outline"
-          resetFilters={resetFilters}
           onSubmit={async () => {
             const body =
               entityType === "experiment" || entityType === "holdout"
@@ -145,13 +135,10 @@ export default function RefreshResultsButton<
           }}
           phase={phase}
           experiment={experiment}
-          lastAnalysis={analysis}
           dimension={dimension}
           setError={(error) => setRefreshError(error ?? "")}
-          setAnalysisSettings={setAnalysisSettings}
           useRadixButton={true}
           radixVariant="outline"
-          resetFilters={resetFilters}
         />
       ) : shouldRenderSafeRolloutButton ? (
         <SafeRolloutRefreshSnapshotButton
