@@ -1,12 +1,7 @@
-import { Client, ClientConfig, types } from "pg";
+import { Client, ClientConfig } from "pg";
 import { QueryResponse } from "shared/types/integrations";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { logger } from "back-end/src/util/logger";
-
-// Configure NUMERIC/DECIMAL types (OID 1700) to be returned as strings
-// This prevents them from being converted to Decimal.js objects
-// PostgreSQL NUMERIC types should be returned as strings to preserve precision
-types.setTypeParser(1700, (val) => val);
 
 export function runPostgresQuery(
   conn: PostgresConnectionParams,

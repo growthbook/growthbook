@@ -114,7 +114,7 @@ export default class BigQuery extends SqlIntegration {
       ? this.getQueryResultResponseColumns(queryResultsResponse)
       : undefined;
 
-    // BigQuery dates are stored nested in an object, so need to extract the value
+    // BigQuery dates and numeric types are stored nested in objects, so need to extract the value
     for (const row of rows) {
       for (const key in row) {
         const value = row[key];
@@ -125,6 +125,18 @@ export default class BigQuery extends SqlIntegration {
           value instanceof bq.BigQueryDate
         ) {
           row[key] = value.value; // Already in ISO format
+        } else if (
+          value &&
+          typeof value === "object" &&
+          "s" in value &&
+          "e" in value &&
+          "c" in value &&
+          Array.isArray((value as Record<string, unknown>).c)
+        ) {
+          // BigQuery NUMERIC/BIGNUMERIC values are returned as Big.js objects
+          // with internal structure {s: sign, e: exponent, c: coefficient array}
+          // Convert to string to preserve precision and avoid serialization issues
+          row[key] = String(value);
         }
       }
     }
