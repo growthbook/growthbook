@@ -81,7 +81,8 @@
       "@grpc/grpc-js@1.8": "1.8.22",
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",
-      "@octokit/request-error@5": "^5.1.1"
+      "@octokit/request-error@5": "^5.1.1",
+      "prismjs@1": "^1.30.0"
     },
     "patchedDependencies": {
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
