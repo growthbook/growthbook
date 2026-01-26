@@ -115,7 +115,6 @@ export default function DashboardWorkspace({
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
-      setBlocks(blocks);
       setHasMadeChanges(true);
 
       // For new dashboards, update temporary state instead of making API call
@@ -124,6 +123,7 @@ export default function DashboardWorkspace({
           blocks,
         });
       } else {
+        setBlocks(blocks);
         // For existing dashboards, make API call via submit
         await submit({
           method: "PUT",
@@ -260,7 +260,7 @@ export default function DashboardWorkspace({
           initial={dashboard}
           close={() => setShowSaveModal(false)}
           submit={async (data) => {
-            await submitDashboard({
+            await submit({
               method: "PUT",
               dashboardId: dashboard.id,
               data,
