@@ -161,6 +161,10 @@ export interface Namespaces {
   status: "active" | "inactive";
   // Hash attribute for namespace allocation (uses v2 hashing algorithm)
   hashAttribute: string;
+  // Seed for hashing (UUIDv4)
+  seed: string;
+  // Flag to differentiate between namespace formats: legacy (single range) or multiRange (multiple ranges with own hashAttribute)
+  format?: "legacy" | "multiRange";
 }
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";

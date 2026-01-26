@@ -9,6 +9,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
@@ -968,6 +969,8 @@ export async function postNamespaces(
     description,
     status,
     hashAttribute,
+    seed: uuidv4(),
+    format: "multiRange", // Explicitly mark as multiRange format
   };
 
   await updateOrganization(org.id, {
@@ -1040,6 +1043,8 @@ export async function putNamespaces(
         description,
         status,
         hashAttribute,
+        seed: n.seed || uuidv4(), // Preserve existing seed or generate new one
+        format: n.format || "multiRange", // Preserve existing format or default to multiRange
       } as Namespaces;
     }
     return n;
