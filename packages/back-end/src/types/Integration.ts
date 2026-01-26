@@ -236,8 +236,8 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<PastExperimentQueryResponse>;
-  runColumnTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
-  getColumnTopValuesQuery?: (params: ColumnTopValuesParams) => string;
+  runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string,

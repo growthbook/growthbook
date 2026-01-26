@@ -9,7 +9,6 @@ import {
   Text,
 } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { CommercialFeature } from "shared/src/enterprise/license-consts";
 import router from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -35,8 +34,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
-import { useFeaturesList } from "@/services/features";
-import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
@@ -44,6 +41,7 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { DocSection } from "@/components/DocLink";
 import { AppFeatures } from "@/types/app-features";
+import useApi from "@/hooks/useApi";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -126,12 +124,14 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
-  const { features } = useFeaturesList();
-  const { experiments } = useExperiments();
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
   const { organization } = useUser();
   const gb = useGrowthBook<AppFeatures>();
+
+  const { data } = useApi<{ hasFeatures: boolean; hasExperiments: boolean }>(
+    "/organization/feature-exp-usage",
+  );
 
   const [openNewExperimentModal, setOpenNewExperimentModal] =
     useState<boolean>(false);
@@ -151,11 +151,8 @@ const GetStartedAndHomePage = (): React.ReactElement => {
     project,
   });
 
-  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || "",
-  );
-  const hasFeatures = features.some((f) => f.project !== demoProjectId);
-  const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
+  const hasFeatures = data?.hasFeatures || false;
+  const hasExperiments = data?.hasExperiments || false;
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
   const intentToExperiment =

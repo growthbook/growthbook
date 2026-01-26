@@ -1,0 +1,6 @@
+# This adds to the main Dockerfile so we can have a 30 minute idle timeout on preview environments
+# This is a configuration that only applies to our preview environments
+RUN apt-get update && apt-get install -y --no-install-recommends supervisor iproute2 && rm -rf /var/lib/apt/lists/*
+COPY preview/idle-monitor.sh preview/supervisord.conf /usr/local/src/app/preview/
+RUN chmod +x /usr/local/src/app/preview/idle-monitor.sh
+CMD ["supervisord", "-c", "/usr/local/src/app/preview/supervisord.conf"]

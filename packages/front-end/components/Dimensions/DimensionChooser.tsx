@@ -15,7 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
-import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
+import { analysisUpdate } from "@/services/snapshots";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";

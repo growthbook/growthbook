@@ -12,6 +12,13 @@ overrides:
   form-data@3: ^3.0.4
   form-data@4: ^4.0.5
   fast-xml-parser@4: ^4.4.1
+  mdast-util-to-hast@13: ^13.2.1
+  node-forge@1: ^1.3.2
+  '@grpc/grpc-js@1.8': 1.8.22
+  '@octokit/plugin-paginate-rest@9': ^9.2.2
+  '@octokit/request@8': ^8.4.1
+  '@octokit/request-error@5': ^5.1.1
+  prismjs@1: ^1.30.0
 
 patchedDependencies:
   '@ephys/zod-to-ts@2.3.2':
@@ -228,8 +235,8 @@ importers:
         specifier: ^1.7.4
         version: 1.7.4
       cookie-parser:
-        specifier: ^1.4.5
-        version: 1.4.5
+        specifier: ^1.4.7
+        version: 1.4.7
       cors:
         specifier: ^2.8.5
         version: 2.8.5
@@ -446,8 +453,8 @@ importers:
         specifier: ^1.7.0
         version: 1.7.0
       '@types/cookie-parser':
-        specifier: ^1.4.2
-        version: 1.4.3
+        specifier: ^1.4.10
+        version: 1.4.10(@types/express@4.17.14)
       '@types/cors':
         specifier: ^2.8.6
         version: 2.8.10
@@ -698,8 +705,8 @@ importers:
         specifier: ^10.5.0
         version: 10.5.0
       diff:
-        specifier: ^5.0.0
-        version: 5.0.0
+        specifier: ^8.0.3
+        version: 8.0.3
       diff2html:
         specifier: ^3.4.11
         version: 3.4.11
@@ -734,8 +741,8 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7
       lodash:
-        specifier: ^4.17.21
-        version: 4.17.21
+        specifier: ^4.17.23
+        version: 4.17.23
       md5:
         specifier: ^2.3.0
         version: 2.3.0
@@ -3204,12 +3211,12 @@ packages:
   '@growthbook/proxy-eval@1.1.1':
     resolution: {integrity: sha512-QVKlpQYsE7maUdYxb+Nt0tqx0EUGoR1UF3vnf3+26mIxWyzqkOKl8u+eb8klBubjXuXPn7PgYRG0WbhynNVgFw==}
 
-  '@grpc/grpc-js@1.8.17':
-    resolution: {integrity: sha512-DGuSbtMFbaRsyffMf+VEkVu8HkSXEUfO3UyGJNtqxW9ABdtTIA+2UXAJpwbJS+xfQxuwqLUeELmL6FuZkOqPxw==}
+  '@grpc/grpc-js@1.8.22':
+    resolution: {integrity: sha512-oAjDdN7fzbUi+4hZjKG96MR6KTEubAeMpQEb+77qy+3r0Ua5xTFuie6JOLr4ZZgl5g+W5/uRTS2M1V8mVAFPuA==}
     engines: {node: ^8.13.0 || >=10.10.0}
 
-  '@grpc/proto-loader@0.7.7':
-    resolution: {integrity: sha512-1TIeXOi8TuSCQprPItwoMymZXxWT0CPxUhkrkeCUH+D8U7QDwQ6b7SUz2MaLuWM2llT+J/TVFLmQI5KtML3BhQ==}
+  '@grpc/proto-loader@0.7.15':
+    resolution: {integrity: sha512-tMXdRCfYVixjuFK+Hk0Q1s38gV9zDiDJfWL3h1rv4Qc39oILCu1TRTDt7+fGUI8K4G1Fj125Hx/ru3azECWTyQ==}
     engines: {node: '>=6'}
     hasBin: true
 
@@ -3539,8 +3546,8 @@ packages:
     resolution: {integrity: sha512-cZUy1gUvd4vttMic7C0lwPed8IYXWYp8kHIMatyhY8t8n3Cpw2ILczkV5pGMPqef7v0bLo0pOHrEHarsau2Ydg==}
     engines: {node: '>= 18'}
 
-  '@octokit/endpoint@9.0.4':
-    resolution: {integrity: sha512-DWPLtr1Kz3tv8L0UvXTDP1fNwM0S+z6EJpRcvH66orY6Eld4XBMCSYsaWp4xIm61jTWxK68BrR7ibO+vSDnZqw==}
+  '@octokit/endpoint@9.0.6':
+    resolution: {integrity: sha512-H1fNTMA57HbkFESSt3Y9+FBICv+0jFceJFPWDePYlR/iMGrwM5ph+Dd4XRQs+8X+PUFURLQgX9ChPfhJ/1uNQw==}
     engines: {node: '>= 18'}
 
   '@octokit/graphql@7.0.2':
@@ -3558,11 +3565,17 @@ packages:
   '@octokit/openapi-types@19.1.0':
     resolution: {integrity: sha512-6G+ywGClliGQwRsjvqVYpklIfa7oRPA0vyhPQG/1Feh+B+wU0vGH1JiJ5T25d3g1JZYBHzR2qefLi9x8Gt+cpw==}
 
-  '@octokit/plugin-paginate-rest@9.1.5':
-    resolution: {integrity: sha512-WKTQXxK+bu49qzwv4qKbMMRXej1DU2gq017euWyKVudA6MldaSSQuxtz+vGbhxV4CjxpUxjZu6rM2wfc1FiWVg==}
+  '@octokit/openapi-types@20.0.0':
+    resolution: {integrity: sha512-EtqRBEjp1dL/15V7WiX5LJMIxxkdiGJnabzYx5Apx4FkQIFgAfKumXeYAqqJCj1s+BMX4cPFIFC4OLCR6stlnA==}
+
+  '@octokit/openapi-types@24.2.0':
+    resolution: {integrity: sha512-9sIH3nSUttelJSXUrmGzl7QUBFul0/mB8HRYl3fOlgHbIWG+WnYDXU3v/2zMtAvuzZ/ed00Ei6on975FhBfzrg==}
+
+  '@octokit/plugin-paginate-rest@9.2.2':
+    resolution: {integrity: sha512-u3KYkGF7GcZnSD/3UP0S7K5XUFT2FkOQdcfXZGZQPGv3lm4F2Xbf71lvjldr8c1H3nNbF+33cLEkWYbokGWqiQ==}
     engines: {node: '>= 18'}
     peerDependencies:
-      '@octokit/core': '>=5'
+      '@octokit/core': '5'
 
   '@octokit/plugin-request-log@4.0.0':
     resolution: {integrity: sha512-2uJI1COtYCq8Z4yNSnM231TgH50bRkheQ9+aH8TnZanB6QilOnx8RMD2qsnamSOXtDj0ilxvevf5fGsBhBBzKA==}
@@ -3576,12 +3589,12 @@ packages:
     peerDependencies:
       '@octokit/core': '>=5'
 
-  '@octokit/request-error@5.0.1':
-    resolution: {integrity: sha512-X7pnyTMV7MgtGmiXBwmO6M5kIPrntOXdyKZLigNfQWSEQzVxR4a4vo49vJjTWX70mPndj8KhfT4Dx+2Ng3vnBQ==}
+  '@octokit/request-error@5.1.1':
+    resolution: {integrity: sha512-v9iyEQJH6ZntoENr9/yXxjuezh4My67CBSu9r6Ve/05Iu5gNgnisNWOsoJHTP6k0Rr0+HQIpnH+kyammu90q/g==}
     engines: {node: '>= 18'}
 
-  '@octokit/request@8.1.6':
-    resolution: {integrity: sha512-YhPaGml3ncZC1NfXpP3WZ7iliL1ap6tLkAp6MvbK2fTTPytzVUyUesBBogcdMm86uRYO5rHaM1xIWxigWZ17MQ==}
+  '@octokit/request@8.4.1':
+    resolution: {integrity: sha512-qnB2+SY3hkCmBxZsR/MPCybNmbJe4KAlfWErXq+rBKkQJlbjdJeS85VI9r8UqeLYLvnAenU8Q1okM/0MBsAGXw==}
     engines: {node: '>= 18'}
 
   '@octokit/rest@20.0.2':
@@ -3590,6 +3603,12 @@ packages:
 
   '@octokit/types@12.4.0':
     resolution: {integrity: sha512-FLWs/AvZllw/AGVs+nJ+ELCDZZJk+kY0zMen118xhL2zD0s1etIUHm1odgjP7epxYU1ln7SZxEUWYop5bhsdgQ==}
+
+  '@octokit/types@12.6.0':
+    resolution: {integrity: sha512-1rhSOfRa6H9w4YwK0yrf5faDaDTb+yLyBUKOCV4xtCDB5VmIPqd/v9yr9o6SAzOAlRxMiRiCic6JVM1/kunVkw==}
+
+  '@octokit/types@13.10.0':
+    resolution: {integrity: sha512-ifLaO34EbbPj0Xgro4G5lP5asESjwHracYJvVaPIyXMuiuXLlhic3S47cBdTb+jfODkTE5YtGCLt3Ay3+J97sA==}
 
   '@opentelemetry/api-logs@0.50.0':
     resolution: {integrity: sha512-JdZuKrhOYggqOpUljAq4WWNi5nB10PmgoF0y2CvedLGXd0kSawb/UBnWT8gg1ND3bHCNHStAIVT0ELlxJJRqrA==}
@@ -6279,8 +6298,10 @@ packages:
   '@types/content-disposition@0.5.5':
     resolution: {integrity: sha512-v6LCdKfK6BwcqMo+wYW05rLS12S0ZO0Fl4w1h4aaZMD7bqT3gVUns6FvLJKGZHQmYn3SX55JWGpziwJRwVgutA==}
 
-  '@types/cookie-parser@1.4.3':
-    resolution: {integrity: sha512-CqSKwFwefj4PzZ5n/iwad/bow2hTCh0FlNAeWLtQM3JA/NX/iYagIpWG2cf1bQKQ2c9gU2log5VUCrn7LDOs0w==}
+  '@types/cookie-parser@1.4.10':
+    resolution: {integrity: sha512-B4xqkqfZ8Wek+rCOeRxsjMS9OgvzebEzzLYw7NHYuvzb7IdxOkI0ZHGgeEBX4PUM7QGVvNSK60T3OvWj3YfBRg==}
+    peerDependencies:
+      '@types/express': '*'
 
   '@types/cookies@0.7.7':
     resolution: {integrity: sha512-h7BcvPUogWbKCzBR2lY4oqaZbO3jXZksexYJVFvkrFeLgbZjQkU4x8pRq6eg2MHXQhY0McQdqmmsxRWlVAHooA==}
@@ -6479,9 +6500,6 @@ packages:
 
   '@types/lodash@4.17.21':
     resolution: {integrity: sha512-FOvQ0YPD5NOfPgMzJihoT+Za5pdkDJWcbpuj1DjaKZIr/gxodQjY/uWEFlTNqW2ugXHUiL8lRQgw63dzKHZdeQ==}
-
-  '@types/long@4.0.2':
-    resolution: {integrity: sha512-MqTGEo5bj5t157U6fA/BiDynNkn0YknVdh48CMPkTSpFTVmvao5UQmm7uEF6xBEo7qIMAlY/JSleYaE6VOdpaA==}
 
   '@types/md5@2.3.0':
     resolution: {integrity: sha512-556YJ7ejzxIqSSxzyGGpctuZOarNZJt/zlEkhmmDc1f/slOEANHuwu2ZX7YaZ40rMiWoxt8GvAhoDpW1cmSy6A==}
@@ -7872,19 +7890,19 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  cookie-parser@1.4.5:
-    resolution: {integrity: sha512-f13bPUj/gG/5mDr+xLmSxxDsB9DQiTIfhJS/sqjrmfAWiAN+x2O4i/XguTL9yDZ+/IFDanJ+5x7hC4CXT9Tdzw==}
+  cookie-parser@1.4.7:
+    resolution: {integrity: sha512-nGUvgXnotP3BsjiLX2ypbQnWoGUPIIfHQNZkkC668ntrzGWEZVW70HDEB1qnNGMicPje6EttlIgzo51YSwNQGw==}
     engines: {node: '>= 0.8.0'}
 
   cookie-signature@1.0.6:
     resolution: {integrity: sha512-QADzlaHc8icV8I7vbaJXJwod9HWYp8uCqf1xa4OfNu1T7JVxQIrUgOWtHdNDtPiywmFbiS12VjotIXLrKM3orQ==}
 
-  cookie@0.4.0:
-    resolution: {integrity: sha512-+Hp8fLp57wnUSt0tY0tHEXh4voZRDnoIrZPqlo3DPiI4y9lwg/jqx+1Om94/W6ZaPDOUbnjOt/99w66zk+l1Xg==}
-    engines: {node: '>= 0.6'}
-
   cookie@0.7.1:
     resolution: {integrity: sha512-6DnInpx7SJ2AK3+CTUE/ZM0vWTUboZCegxhC2xiIydHR9jNuTAASBrfEpHhiGOZw/nX51bHt6YQl8jsGo4y/0w==}
+    engines: {node: '>= 0.6'}
+
+  cookie@0.7.2:
+    resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
     engines: {node: '>= 0.6'}
 
   cookiejar@2.1.4:
@@ -8326,6 +8344,10 @@ packages:
 
   diff@5.0.0:
     resolution: {integrity: sha512-/VTCrvm5Z0JGty/BWHljh+BAiw3IK+2j87NGMu8Nwc/f48WoDAC395uomO9ZD117ZOBaHmkX1oyLvkVM/aIT3w==}
+    engines: {node: '>=0.3.1'}
+
+  diff@8.0.3:
+    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
     engines: {node: '>=0.3.1'}
 
   dir-glob@3.0.1:
@@ -10438,6 +10460,9 @@ packages:
   lodash@4.17.21:
     resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
 
+  lodash@4.17.23:
+    resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
+
   log-symbols@4.1.0:
     resolution: {integrity: sha512-8XPvpAA8uyhfteu8pIvQxpJZ7SYYdpUivZpGy6sFsBuKRY/7rQGavedeB8aK+Zkyq6upMFVL/9AW6vOYzfRyLg==}
     engines: {node: '>=10'}
@@ -10453,9 +10478,6 @@ packages:
   logform@2.6.1:
     resolution: {integrity: sha512-CdaO738xRapbKIMVn2m4F6KTj4j7ooJ8POVnebSgKo3KBz5axNXRAL7ZdRjIV6NOr2Uf4vjtRkxrFETOioCqSA==}
     engines: {node: '>= 12.0.0'}
-
-  long@4.0.0:
-    resolution: {integrity: sha512-XsP+KhQif4bjX1kbuSiySJFNAehNxgLb6hPRGJ9QsUr8ajHkuXGdrHmFUTUUXhDwVX2R5bY4JNZEwbUiMhV+MA==}
 
   long@5.2.3:
     resolution: {integrity: sha512-lcHwpNoggQTObv5apGNCTdJrO69eHOZMi4BNC+rTLER8iHAqGrUVeLh/irVIM7zTw2bOXA8T6uNPeujwOLg/2Q==}
@@ -10607,8 +10629,8 @@ packages:
   mdast-util-phrasing@4.0.0:
     resolution: {integrity: sha512-xadSsJayQIucJ9n053dfQwVu1kuXg7jCTdYsMK8rqzKZh52nLfSH/k0sAxE0u+pj/zKZX+o5wB+ML5mRayOxFA==}
 
-  mdast-util-to-hast@13.0.2:
-    resolution: {integrity: sha512-U5I+500EOOw9e3ZrclN3Is3fRpw8c19SMyNZlZ2IS+7vLsNzb2Om11VpIVOR+/0137GhZsFEF6YiKD5+0Hr2Og==}
+  mdast-util-to-hast@13.2.1:
+    resolution: {integrity: sha512-cctsq2wp5vTsLIcaymblUriiTcZd0CwWtCbLvrOzYCDZoWyMNV8sZ7krj09FSnsiJi3WVsHLM4k6Dq/yaPyCXA==}
 
   mdast-util-to-hast@9.1.2:
     resolution: {integrity: sha512-OpkFLBC2VnNAb2FNKcKWu9FMbJhQKog+FCT8nuKmQNIKXyT1n3SIskE7uWDep6x+cA20QXlK5AETHQtYmQmxtQ==}
@@ -11128,8 +11150,8 @@ packages:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  node-forge@1.3.1:
-    resolution: {integrity: sha512-dPEtOeMvF9VMcYV/1Wb8CPoVAXtp6MKMlcbAt4ddqmGqUJ6fQZFXkNZNkNlfevtNkGtaSoXf/vNNNSvgrdXwtA==}
+  node-forge@1.3.3:
+    resolution: {integrity: sha512-rLvcdSyRCyouf6jcOIPe/BgwG/d7hKjzMKOas33/pHEr6gbq18IK9zV7DiPvzsz0oBJPme6qr6H6kGZuI9/DZg==}
     engines: {node: '>= 6.13.0'}
 
   node-gyp-build@3.9.0:
@@ -11691,12 +11713,8 @@ packages:
     resolution: {integrity: sha512-Pdlw/oPxN+aXdmM9R00JVC9WVFoCLTKJvDVLgmJ+qAffBMxsV85l/Lu7sNx4zSzPyoL2euImuEwHhOXdEgNFZQ==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
-  prismjs@1.27.0:
-    resolution: {integrity: sha512-t13BGPUlFDR7wRB5kQDG4jjl7XeuH6jbJGt11JHPL96qwsEHNX2+68tFXqc1/k+/jALsbSWJKUOT/hcYAZ5LkA==}
-    engines: {node: '>=6'}
-
-  prismjs@1.28.0:
-    resolution: {integrity: sha512-8aaXdYvl1F7iC7Xm1spqSaY/OJBpYW3v+KJ+F17iYxvdc8sfjW194COK5wVhMZX45tGteiBQgdvD/nhxcRwylw==}
+  prismjs@1.30.0:
+    resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
     engines: {node: '>=6'}
 
   proc-log@4.2.0:
@@ -11739,6 +11757,10 @@ packages:
 
   protobufjs@7.4.0:
     resolution: {integrity: sha512-mRUWCc3KUU4w1jU8sGxICXH/gNS94DvI1gxqDvBzhj1JpcsimQkYiOJfwsPUykUI5ZaspFbSgmBLER8IrQ3tqw==}
+    engines: {node: '>=12.0.0'}
+
+  protobufjs@7.5.4:
+    resolution: {integrity: sha512-CvexbZtbov6jW2eXAvLukXjXUW1TzFaivC46BpWc/3BpcCysb5Vffu+B3XHMm8lVEuy2Mm4XGex8hBSg1yapPg==}
     engines: {node: '>=12.0.0'}
 
   proxy-addr@2.0.7:
@@ -13993,7 +14015,7 @@ snapshots:
 
   '@75lb/deep-merge@1.1.2':
     dependencies:
-      lodash: 4.17.21
+      lodash: 4.17.23
       typical: 7.1.1
 
   '@adobe/css-tools@4.4.2': {}
@@ -17366,17 +17388,16 @@ snapshots:
     dependencies:
       '@growthbook/growthbook': 1.6.3
 
-  '@grpc/grpc-js@1.8.17':
+  '@grpc/grpc-js@1.8.22':
     dependencies:
-      '@grpc/proto-loader': 0.7.7
+      '@grpc/proto-loader': 0.7.15
       '@types/node': 22.8.6
 
-  '@grpc/proto-loader@0.7.7':
+  '@grpc/proto-loader@0.7.15':
     dependencies:
-      '@types/long': 4.0.2
       lodash.camelcase: 4.3.0
-      long: 4.0.0
-      protobufjs: 7.4.0
+      long: 5.2.3
+      protobufjs: 7.5.4
       yargs: 17.7.2
 
   '@hapi/b64@5.0.0':
@@ -17857,8 +17878,8 @@ snapshots:
     dependencies:
       '@octokit/auth-oauth-app': 7.0.1
       '@octokit/auth-oauth-user': 4.0.1
-      '@octokit/request': 8.1.6
-      '@octokit/request-error': 5.0.1
+      '@octokit/request': 8.4.1
+      '@octokit/request-error': 5.1.1
       '@octokit/types': 12.4.0
       deprecation: 2.3.1
       lru-cache: 10.4.3
@@ -17869,7 +17890,7 @@ snapshots:
     dependencies:
       '@octokit/auth-oauth-device': 6.0.1
       '@octokit/auth-oauth-user': 4.0.1
-      '@octokit/request': 8.1.6
+      '@octokit/request': 8.4.1
       '@octokit/types': 12.4.0
       '@types/btoa-lite': 1.0.2
       btoa-lite: 1.0.0
@@ -17878,7 +17899,7 @@ snapshots:
   '@octokit/auth-oauth-device@6.0.1':
     dependencies:
       '@octokit/oauth-methods': 4.0.1
-      '@octokit/request': 8.1.6
+      '@octokit/request': 8.4.1
       '@octokit/types': 12.4.0
       universal-user-agent: 6.0.1
 
@@ -17886,7 +17907,7 @@ snapshots:
     dependencies:
       '@octokit/auth-oauth-device': 6.0.1
       '@octokit/oauth-methods': 4.0.1
-      '@octokit/request': 8.1.6
+      '@octokit/request': 8.4.1
       '@octokit/types': 12.4.0
       btoa-lite: 1.0.0
       universal-user-agent: 6.0.1
@@ -17897,20 +17918,20 @@ snapshots:
     dependencies:
       '@octokit/auth-token': 4.0.0
       '@octokit/graphql': 7.0.2
-      '@octokit/request': 8.1.6
-      '@octokit/request-error': 5.0.1
+      '@octokit/request': 8.4.1
+      '@octokit/request-error': 5.1.1
       '@octokit/types': 12.4.0
       before-after-hook: 2.2.3
       universal-user-agent: 6.0.1
 
-  '@octokit/endpoint@9.0.4':
+  '@octokit/endpoint@9.0.6':
     dependencies:
-      '@octokit/types': 12.4.0
+      '@octokit/types': 13.10.0
       universal-user-agent: 6.0.1
 
   '@octokit/graphql@7.0.2':
     dependencies:
-      '@octokit/request': 8.1.6
+      '@octokit/request': 8.4.1
       '@octokit/types': 12.4.0
       universal-user-agent: 6.0.1
 
@@ -17919,17 +17940,21 @@ snapshots:
   '@octokit/oauth-methods@4.0.1':
     dependencies:
       '@octokit/oauth-authorization-url': 6.0.2
-      '@octokit/request': 8.1.6
-      '@octokit/request-error': 5.0.1
+      '@octokit/request': 8.4.1
+      '@octokit/request-error': 5.1.1
       '@octokit/types': 12.4.0
       btoa-lite: 1.0.0
 
   '@octokit/openapi-types@19.1.0': {}
 
-  '@octokit/plugin-paginate-rest@9.1.5(@octokit/core@5.0.2)':
+  '@octokit/openapi-types@20.0.0': {}
+
+  '@octokit/openapi-types@24.2.0': {}
+
+  '@octokit/plugin-paginate-rest@9.2.2(@octokit/core@5.0.2)':
     dependencies:
       '@octokit/core': 5.0.2
-      '@octokit/types': 12.4.0
+      '@octokit/types': 12.6.0
 
   '@octokit/plugin-request-log@4.0.0(@octokit/core@5.0.2)':
     dependencies:
@@ -17940,29 +17965,37 @@ snapshots:
       '@octokit/core': 5.0.2
       '@octokit/types': 12.4.0
 
-  '@octokit/request-error@5.0.1':
+  '@octokit/request-error@5.1.1':
     dependencies:
-      '@octokit/types': 12.4.0
+      '@octokit/types': 13.10.0
       deprecation: 2.3.1
       once: 1.4.0
 
-  '@octokit/request@8.1.6':
+  '@octokit/request@8.4.1':
     dependencies:
-      '@octokit/endpoint': 9.0.4
-      '@octokit/request-error': 5.0.1
-      '@octokit/types': 12.4.0
+      '@octokit/endpoint': 9.0.6
+      '@octokit/request-error': 5.1.1
+      '@octokit/types': 13.10.0
       universal-user-agent: 6.0.1
 
   '@octokit/rest@20.0.2':
     dependencies:
       '@octokit/core': 5.0.2
-      '@octokit/plugin-paginate-rest': 9.1.5(@octokit/core@5.0.2)
+      '@octokit/plugin-paginate-rest': 9.2.2(@octokit/core@5.0.2)
       '@octokit/plugin-request-log': 4.0.0(@octokit/core@5.0.2)
       '@octokit/plugin-rest-endpoint-methods': 10.2.0(@octokit/core@5.0.2)
 
   '@octokit/types@12.4.0':
     dependencies:
       '@octokit/openapi-types': 19.1.0
+
+  '@octokit/types@12.6.0':
+    dependencies:
+      '@octokit/openapi-types': 20.0.0
+
+  '@octokit/types@13.10.0':
+    dependencies:
+      '@octokit/openapi-types': 24.2.0
 
   '@opentelemetry/api-logs@0.50.0':
     dependencies:
@@ -18094,7 +18127,7 @@ snapshots:
 
   '@opentelemetry/exporter-trace-otlp-grpc@0.50.0(@opentelemetry/api@1.4.1)':
     dependencies:
-      '@grpc/grpc-js': 1.8.17
+      '@grpc/grpc-js': 1.8.22
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.4.1)
       '@opentelemetry/otlp-grpc-exporter-base': 0.50.0(@opentelemetry/api@1.4.1)
@@ -18703,7 +18736,7 @@ snapshots:
 
   '@opentelemetry/otlp-grpc-exporter-base@0.50.0(@opentelemetry/api@1.4.1)':
     dependencies:
-      '@grpc/grpc-js': 1.8.17
+      '@grpc/grpc-js': 1.8.22
       '@opentelemetry/api': 1.4.1
       '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.4.1)
       '@opentelemetry/otlp-exporter-base': 0.50.0(@opentelemetry/api@1.4.1)
@@ -20168,7 +20201,7 @@ snapshots:
   '@sequelize/utils@7.0.0-alpha.47':
     dependencies:
       '@types/lodash': 4.17.21
-      lodash: 4.17.21
+      lodash: 4.17.23
 
   '@sideway/address@4.1.4':
     dependencies:
@@ -21498,7 +21531,7 @@ snapshots:
 
   '@types/content-disposition@0.5.5': {}
 
-  '@types/cookie-parser@1.4.3':
+  '@types/cookie-parser@1.4.10(@types/express@4.17.14)':
     dependencies:
       '@types/express': 4.17.14
 
@@ -21729,8 +21762,6 @@ snapshots:
   '@types/lodash@4.14.169': {}
 
   '@types/lodash@4.17.21': {}
-
-  '@types/long@4.0.2': {}
 
   '@types/md5@2.3.0':
     dependencies:
@@ -22144,7 +22175,7 @@ snapshots:
     dependencies:
       '@types/lodash': 4.17.21
       '@types/react': 18.0.15
-      lodash: 4.17.21
+      lodash: 4.17.23
       prop-types: 15.8.1
       react: 18.2.0
       resize-observer-polyfill: 1.5.1
@@ -22179,7 +22210,7 @@ snapshots:
       classnames: 2.3.2
       d3-path: 1.0.9
       d3-shape: 1.3.7
-      lodash: 4.17.21
+      lodash: 4.17.23
       prop-types: 15.8.1
       react: 18.2.0
 
@@ -22199,7 +22230,7 @@ snapshots:
       '@types/lodash': 4.17.21
       '@types/react': 18.0.15
       classnames: 2.3.2
-      lodash: 4.17.21
+      lodash: 4.17.23
       prop-types: 15.8.1
       react: 18.2.0
       reduce-css-calc: 1.3.0
@@ -22817,7 +22848,7 @@ snapshots:
       '@babel/helper-annotate-as-pure': 7.27.3
       '@babel/helper-module-imports': 7.27.1(supports-color@5.5.0)
       '@babel/plugin-syntax-jsx': 7.27.1(@babel/core@7.28.5)
-      lodash: 4.17.21
+      lodash: 4.17.23
       picomatch: 2.3.1
       styled-components: 5.3.11(@babel/core@7.28.5)(react-dom@18.2.0(react@18.2.0))(react-is@18.2.0)(react@18.2.0)
     transitivePeerDependencies:
@@ -23442,16 +23473,16 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  cookie-parser@1.4.5:
+  cookie-parser@1.4.7:
     dependencies:
-      cookie: 0.4.0
+      cookie: 0.7.2
       cookie-signature: 1.0.6
 
   cookie-signature@1.0.6: {}
 
-  cookie@0.4.0: {}
-
   cookie@0.7.1: {}
+
+  cookie@0.7.2: {}
 
   cookiejar@2.1.4: {}
 
@@ -23891,6 +23922,8 @@ snapshots:
   diff@4.0.2: {}
 
   diff@5.0.0: {}
+
+  diff@8.0.3: {}
 
   dir-glob@3.0.1:
     dependencies:
@@ -25117,7 +25150,7 @@ snapshots:
 
   google-p12-pem@3.1.4:
     dependencies:
-      node-forge: 1.3.1
+      node-forge: 1.3.3
 
   googleapis-common@4.4.3(encoding@0.1.13):
     dependencies:
@@ -25525,7 +25558,7 @@ snapshots:
       cli-width: 3.0.0
       external-editor: 3.1.0
       figures: 3.2.0
-      lodash: 4.17.21
+      lodash: 4.17.23
       mute-stream: 0.0.8
       ora: 5.4.1
       run-async: 2.4.1
@@ -26684,6 +26717,8 @@ snapshots:
 
   lodash@4.17.21: {}
 
+  lodash@4.17.23: {}
+
   log-symbols@4.1.0:
     dependencies:
       chalk: 4.1.2
@@ -26709,8 +26744,6 @@ snapshots:
       ms: 2.1.3
       safe-stable-stringify: 2.3.1
       triple-beam: 1.3.0
-
-  long@4.0.0: {}
 
   long@5.2.3: {}
 
@@ -26927,7 +26960,7 @@ snapshots:
       '@types/mdast': 4.0.1
       unist-util-is: 6.0.0
 
-  mdast-util-to-hast@13.0.2:
+  mdast-util-to-hast@13.2.1:
     dependencies:
       '@types/hast': 3.0.1
       '@types/mdast': 4.0.1
@@ -26937,6 +26970,7 @@ snapshots:
       trim-lines: 3.0.1
       unist-util-position: 5.0.0
       unist-util-visit: 5.0.0
+      vfile: 6.0.1
 
   mdast-util-to-hast@9.1.2:
     dependencies:
@@ -27704,7 +27738,7 @@ snapshots:
       fetch-blob: 3.2.0
       formdata-polyfill: 4.0.10
 
-  node-forge@1.3.1: {}
+  node-forge@1.3.3: {}
 
   node-gyp-build@3.9.0: {}
 
@@ -28353,9 +28387,7 @@ snapshots:
       ansi-styles: 5.2.0
       react-is: 18.2.0
 
-  prismjs@1.27.0: {}
-
-  prismjs@1.28.0: {}
+  prismjs@1.30.0: {}
 
   proc-log@4.2.0: {}
 
@@ -28394,6 +28426,21 @@ snapshots:
   property-information@6.3.0: {}
 
   protobufjs@7.4.0:
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.4
+      '@protobufjs/eventemitter': 1.1.0
+      '@protobufjs/fetch': 1.1.0
+      '@protobufjs/float': 1.0.2
+      '@protobufjs/inquire': 1.1.0
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.0
+      '@types/node': 22.8.6
+      long: 5.2.3
+
+  protobufjs@7.5.4:
     dependencies:
       '@protobufjs/aspromise': 1.1.2
       '@protobufjs/base64': 1.1.2
@@ -28631,7 +28678,7 @@ snapshots:
       devlop: 1.1.0
       hast-util-to-jsx-runtime: 2.2.0
       html-url-attributes: 3.0.0
-      mdast-util-to-hast: 13.0.2
+      mdast-util-to-hast: 13.2.1
       micromark-util-sanitize-uri: 2.0.0
       react: 18.2.0
       remark-parse: 11.0.0
@@ -28828,7 +28875,7 @@ snapshots:
       '@babel/runtime': 7.23.8
       highlight.js: 10.7.3
       lowlight: 1.20.0
-      prismjs: 1.28.0
+      prismjs: 1.30.0
       react: 18.2.0
       refractor: 3.6.0
 
@@ -28981,7 +29028,7 @@ snapshots:
     dependencies:
       hastscript: 6.0.0
       parse-entities: 2.0.0
-      prismjs: 1.27.0
+      prismjs: 1.30.0
 
   regenerate-unicode-properties@10.2.2:
     dependencies:
@@ -29069,7 +29116,7 @@ snapshots:
     dependencies:
       '@types/hast': 3.0.1
       '@types/mdast': 4.0.1
-      mdast-util-to-hast: 13.0.2
+      mdast-util-to-hast: 13.2.1
       unified: 11.0.3
       vfile: 6.0.1
 
@@ -30813,7 +30860,7 @@ snapshots:
 
   whatwg-url@8.7.0:
     dependencies:
-      lodash: 4.17.21
+      lodash: 4.17.23
       tr46: 2.1.0
       webidl-conversions: 6.1.0
 
