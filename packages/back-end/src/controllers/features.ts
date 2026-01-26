@@ -3677,6 +3677,14 @@ export async function postBatchPrerequisiteStates(
           ...existingRule,
           prerequisites: prerequisites || [],
         };
+      } else if (ruleIndex === testRevision.rules[environment].length) {
+        // New rule being created - add it with prerequisites for cycle check
+        testRevision.rules[environment].push({
+          type: "force",
+          value: "",
+          enabled: true,
+          prerequisites: prerequisites || [],
+        } as FeatureRule);
       }
     }
 
