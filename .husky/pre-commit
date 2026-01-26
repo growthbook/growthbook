@@ -27,6 +27,12 @@ fi
 echo "#### Linting typescript, scss, and markdown files"
 pnpm lint-staged
 
+# Add eslint-suppressions.json if it was modified during linting
+if [ -n "$(git status --porcelain eslint-suppressions.json)" ]; then
+  echo "#### Adding updated eslint-suppressions.json"
+  git add eslint-suppressions.json
+fi
+
 docchanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/events/\|shared/scripts/gen-event-webhook-doc.ts" || true)
 
 if [ -n "$docchanged" ]

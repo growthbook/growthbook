@@ -839,11 +839,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/saved-groups/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/settings/custom-hooks.tsx": {
     "no-restricted-imports": {
       "count": 1

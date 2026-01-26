@@ -34,8 +34,7 @@ export const getSavedGroupMessage = (
   >,
   savedGroupsUsingSavedGroups?: SavedGroupInterface[],
 ) => {
-  // eslint-disable-next-line react/display-name
-  return async () => {
+  return async function SavedGroupMessage() {
     if (
       isEmpty(featuresUsingSavedGroups) &&
       isEmpty(experimentsUsingSavedGroups) &&
