@@ -53,6 +53,7 @@ export default function FeaturePage() {
 
   const { apiCall } = useAuth();
 
+  // Fetch all features globally for stale detection (checking if other features depend on this one)
   const { features } = useFeaturesList({ useCurrentProject: false });
   const allEnvironments = useEnvironments();
 
@@ -283,6 +284,7 @@ export default function FeaturePage() {
       : baseFeature;
   }, [baseFeature, revision, environments]);
 
+  // note: project-scoped dependents by default
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
     return getDependentFeatures(feature, features, envs);
@@ -319,7 +321,6 @@ export default function FeaturePage() {
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
-        dependents={dependents}
         holdout={holdout}
         dependentExperiments={dependentExperiments}
       />

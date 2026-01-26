@@ -15,15 +15,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import {
-  Box,
-  Card,
-  Container,
-  Flex,
-  Heading,
-  IconButton,
-  Text,
-} from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -355,7 +347,7 @@ export default function EditSavedGroupPage() {
           { display: savedGroup.groupName },
         ]}
       />
-      <Container className="pagecontents" p="3">
+      <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
           <Heading size="7" as="h1">
             {savedGroup.groupName}
@@ -366,7 +358,7 @@ export default function EditSavedGroupPage() {
                 variant="ghost"
                 color="gray"
                 radius="full"
-                size="4"
+                size="3"
                 highContrast
               >
                 <BsThreeDotsVertical />
@@ -668,7 +660,7 @@ export default function EditSavedGroupPage() {
             )}
           </>
         )}
-      </Container>
+      </div>
     </>
   );
 }

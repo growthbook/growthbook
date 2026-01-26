@@ -464,22 +464,23 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(
-  {
-    project, // provided project takes precedence over useCurrentProject: true
-    useCurrentProject = true, // use the project selected in the project selector
-    includeArchived = false,
-  }: {
-    project?: string;
-    useCurrentProject?: boolean;
-    includeArchived?: boolean;
-  } = {},
-) {
+export function useFeaturesList({
+  project, // provided project takes precedence over useCurrentProject: true
+  useCurrentProject = true, // use the project selected in the project selector
+  includeArchived = false,
+}: {
+  project?: string;
+  useCurrentProject?: boolean;
+  includeArchived?: boolean;
+} = {}) {
   const { project: currentProject } = useDefinitions();
-  console.log("useFeaturesList", { project, useCurrentProject, includeArchived });
+  if (!project && !useCurrentProject) {
+    console.error("useFeaturesList: found a global request for features");
+  }
 
   const qs = new URLSearchParams();
-  const projectToUse = project ?? (useCurrentProject ? currentProject : undefined);
+  const projectToUse =
+    project ?? (useCurrentProject ? currentProject : undefined);
   if (projectToUse) {
     qs.set("project", projectToUse);
   }
