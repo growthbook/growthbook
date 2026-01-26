@@ -809,6 +809,14 @@ app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
 app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);
+app.get(
+  "/feature/:id/prerequisite-states",
+  featuresController.getPrerequisiteStates,
+);
+app.post(
+  "/features/batch-prerequisite-states",
+  featuresController.postBatchPrerequisiteStates,
+);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

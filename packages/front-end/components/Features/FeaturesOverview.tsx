@@ -11,9 +11,7 @@ import {
   filterEnvironmentsByFeature,
   getDependentExperiments,
   getDependentFeatures,
-  evaluatePrerequisiteState,
   mergeResultHasChanges,
-  PrerequisiteStateResult,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -79,6 +77,10 @@ import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
+import {
+  PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -192,26 +194,47 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
-  const envsStr = JSON.stringify(envs);
 
-  const prereqStates = useMemo(
-    () => {
-      if (!feature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
-      envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          feature,
-          featuresMap,
-          env,
-          true,
-        );
-      });
-      return states;
-    },
+  // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
+  // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
+  const { states: prereqStatesRaw, loading: prereqStatesLoading } =
+    usePrerequisiteStates({
+      featureId: feature?.id || "",
+      environments: envs,
+      enabled: !!feature,
+      skipRootConditions: true,
+    });
+
+  // Create a stable serialized key for kill switch states to ensure useMemo recomputes
+  const killSwitchKey = envs
+    .map(
+      (env) =>
+        `${env}:${feature?.environmentSettings?.[env]?.enabled ?? false}`,
+    )
+    .join(",");
+
+  // Compute final summary states by combining prerequisite states with kill switch state
+  // This allows the summary to update immediately when toggling kill switches without refetching
+  const prereqStates = useMemo(() => {
+    if (!prereqStatesRaw || !feature) return prereqStatesRaw;
+
+    const finalStates: Record<string, PrerequisiteStateResult> = {};
+    for (const env of envs) {
+      // Check kill switch first (same logic as backend)
+      if (!feature.environmentSettings?.[env]?.enabled) {
+        // Kill switch is OFF - feature is not live regardless of prerequisites
+        finalStates[env] = { state: "deterministic", value: null };
+      } else {
+        // Kill switch is ON - use prerequisite state
+        finalStates[env] = prereqStatesRaw[env] || {
+          state: "deterministic",
+          value: null,
+        };
+      }
+    }
+    return finalStates;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, features, envsStr],
-  );
+  }, [prereqStatesRaw, feature, envs, killSwitchKey]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
@@ -662,112 +685,115 @@ export default function FeaturesOverview({
               The default value and rules will be ignored.
             </div>
             {prerequisites.length > 0 ? (
-              <table className="table border mb-2 w-100">
-                <thead>
-                  <tr className="bg-light">
-                    <th
-                      className="pl-3 align-bottom font-weight-bold border-right"
-                      style={{ minWidth: 350 }}
-                    />
-                    {envs.map((env) => (
+              <div style={{ overflowX: "auto" }}>
+                <table className="table border mb-2 w-100">
+                  <thead>
+                    <tr className="bg-light">
                       <th
-                        key={env}
-                        className="text-center align-bottom font-weight-bolder"
-                        style={{ minWidth: 120 }}
-                      >
-                        {env}
-                      </th>
-                    ))}
-                    {envs.length === 0 ? (
-                      <th className="text-center align-bottom">
-                        <span className="font-italic">No environments</span>
-                        <Tooltip
-                          className="ml-1"
-                          popperClassName="text-left font-weight-normal"
-                          body={
-                            <>
-                              <div className="text-warning-orange mb-2">
-                                <FaExclamationTriangle /> This feature has no
-                                associated environments
-                              </div>
-                              <div>
-                                Ensure that this feature&apos;s project is
-                                included in at least one environment to use it.
-                              </div>
-                            </>
-                          }
-                        />
-                        <div
-                          className="float-right small position-relative"
-                          style={{ top: 5 }}
+                        className="pl-3 align-bottom font-weight-bold border-right"
+                        style={{ minWidth: 350 }}
+                      />
+                      {envs.map((env) => (
+                        <th
+                          key={env}
+                          className="text-center align-bottom font-weight-bolder"
+                          style={{ minWidth: 120 }}
                         >
-                          <Link href="/environments">Manage Environments</Link>
-                        </div>
-                      </th>
-                    ) : (
-                      <th className="w-100" />
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td
-                      className="pl-3 align-bottom font-weight-bold border-right"
-                      style={{ minWidth: 350 }}
-                    >
-                      Kill Switch
-                    </td>
-                    {envs.map((env) => (
-                      <td key={env} style={{ minWidth: 120 }}>
-                        <Flex align="center" justify="center">
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={env}
-                            mutate={() => {
-                              mutate();
-                            }}
-                            id={`${env}_toggle`}
+                          {env}
+                        </th>
+                      ))}
+                      {envs.length === 0 ? (
+                        <th className="text-center align-bottom">
+                          <span className="font-italic">No environments</span>
+                          <Tooltip
+                            className="ml-1"
+                            popperClassName="text-left font-weight-normal"
+                            body={
+                              <>
+                                <div className="text-warning-orange mb-2">
+                                  <FaExclamationTriangle /> This feature has no
+                                  associated environments
+                                </div>
+                                <div>
+                                  Ensure that this feature&apos;s project is
+                                  included in at least one environment to use
+                                  it.
+                                </div>
+                              </>
+                            }
                           />
-                        </Flex>
+                          <div
+                            className="float-right small position-relative"
+                            style={{ top: 5 }}
+                          >
+                            <Link href="/environments">
+                              Manage Environments
+                            </Link>
+                          </div>
+                        </th>
+                      ) : (
+                        <th className="w-100" />
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td
+                        className="pl-3 align-bottom font-weight-bold border-right"
+                        style={{ minWidth: 350 }}
+                      >
+                        Kill Switch
                       </td>
-                    ))}
-                    <td className="w-100" />
-                  </tr>
-                  {prerequisites.map(({ ...item }, i) => {
-                    const parentFeature = features.find(
-                      (f) => f.id === item.id,
-                    );
-                    return (
-                      <PrerequisiteStatusRow
-                        key={i}
-                        i={i}
-                        feature={feature}
-                        features={features}
-                        parentFeature={parentFeature}
-                        prerequisite={item}
-                        environments={environments}
-                        mutate={mutate}
-                        setPrerequisiteModal={setPrerequisiteModal}
-                      />
-                    );
-                  })}
-                </tbody>
-                <tbody>
-                  <tr className="bg-light">
-                    <td className="pl-3 font-weight-bold border-right">
-                      Summary
-                    </td>
-                    {envs.length > 0 && (
-                      <PrerequisiteStatesCols
-                        prereqStates={prereqStates ?? undefined}
-                        envs={envs}
-                        isSummaryRow={true}
-                      />
-                    )}
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
+                      {envs.map((env) => (
+                        <td key={env} style={{ minWidth: 120 }}>
+                          <Flex align="center" justify="center">
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={env}
+                              mutate={mutate}
+                              id={`${env}_toggle`}
+                            />
+                          </Flex>
+                        </td>
+                      ))}
+                      <td className="w-100" />
+                    </tr>
+                    {prerequisites.map(({ ...item }, i) => {
+                      const parentFeature = features.find(
+                        (f) => f.id === item.id,
+                      );
+                      return (
+                        <PrerequisiteStatusRow
+                          key={i}
+                          i={i}
+                          feature={feature}
+                          parentFeature={parentFeature}
+                          prerequisite={item}
+                          environments={environments}
+                          mutate={mutate}
+                          setPrerequisiteModal={setPrerequisiteModal}
+                        />
+                      );
+                    })}
+                  </tbody>
+                  <tbody>
+                    <tr className="bg-light">
+                      <td className="pl-3 font-weight-bold border-right">
+                        Summary
+                      </td>
+                      {envs.length > 0 && (
+                        <PrerequisiteStatesCols
+                          prereqStates={prereqStates ?? undefined}
+                          envs={envs}
+                          isSummaryRow={true}
+                          loading={prereqStatesLoading}
+                        />
+                      )}
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <Flex
                 mt="4"

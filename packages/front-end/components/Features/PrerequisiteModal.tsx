@@ -2,11 +2,9 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import React, { useMemo, useState, useEffect } from "react";
 import {
-  evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
   isFeatureCyclic,
-  PrerequisiteStateResult,
 } from "shared/util";
 import {
   FaExclamationCircle,
@@ -48,6 +46,11 @@ import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
+import {
+  PrerequisiteStateResult,
+  useBatchPrerequisiteStates,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 
 export interface Props {
   close: () => void;
@@ -123,23 +126,29 @@ export default function PrerequisiteModal({
     i,
   ]);
 
-  const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
-    const featuresStates: Record<
-      string,
-      Record<string, PrerequisiteStateResult>
-    > = {};
-    const wouldBeCyclicStates: Record<string, boolean> = {};
+  // Fetch prerequisite states for all features from the backend
+  const featureIds = useMemo(
+    () => features.filter((f) => f.id !== feature?.id).map((f) => f.id),
+    [features, feature?.id],
+  );
+
+  const { results: batchStates } = useBatchPrerequisiteStates({
+    featureIds,
+    environments: envs,
+    enabled: featureIds.length > 0 && envs.length > 0,
+  });
+
+  const featuresStates: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = batchStates || {};
+
+  // Calculate wouldBeCyclicStates on frontend (best-effort, may not be accurate for deep cross-project chains)
+  const wouldBeCyclicStates = useMemo(() => {
+    const states: Record<string, boolean> = {};
     const featuresMap = new Map(features.map((f) => [f.id, f]));
 
     for (const f of features) {
-      // get current states:
-      const states: Record<string, PrerequisiteStateResult> = {};
-      envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(f, featuresMap, env);
-      });
-      featuresStates[f.id] = states;
-
-      // check if selecting this would be cyclic:
       const newFeature = cloneDeep(feature);
       const revision = revisions?.find((r) => r.version === version);
       newFeature.prerequisites = [...prerequisites];
@@ -147,17 +156,24 @@ export default function PrerequisiteModal({
         id: f.id,
         condition: getDefaultPrerequisiteCondition(),
       };
-      wouldBeCyclicStates[f.id] = isFeatureCyclic(
+      states[f.id] = isFeatureCyclic(
         newFeature,
         featuresMap,
         revision,
         envs,
       )[0];
     }
-    return [featuresStates, wouldBeCyclicStates];
+    return states;
   }, [feature, features, envs, i, prerequisites, revisions, version]);
 
-  const prereqStates = featuresStates?.[form.watch("id")];
+  // Fetch prerequisite states for the selected feature from backend
+  const selectedFeatureId = form.watch("id");
+  const { states: prereqStates, loading: prereqStatesLoading } =
+    usePrerequisiteStates({
+      featureId: selectedFeatureId,
+      environments: envs,
+      enabled: !!selectedFeatureId,
+    });
 
   const hasConditionalState =
     prereqStates &&
@@ -176,8 +192,6 @@ export default function PrerequisiteModal({
     });
     return map;
   }, [projects]);
-
-  const selectedFeatureId = form.watch("id");
 
   const featuresMap = useMemo(
     () => new Map(features.map((f) => [f.id, f])),
@@ -537,6 +551,7 @@ export default function PrerequisiteModal({
                 <PrerequisiteStatesCols
                   prereqStates={prereqStates ?? undefined}
                   envs={envs}
+                  loading={prereqStatesLoading}
                 />
               </tr>
             </tbody>

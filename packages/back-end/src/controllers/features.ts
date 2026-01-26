@@ -66,6 +66,7 @@ import {
   editFeatureRule,
   getAllFeatures,
   getFeature,
+  getFeaturesByIds,
   getFeatureMetaInfoByIds,
   hasArchivedFeatures,
   migrateDraft,
@@ -3308,4 +3309,324 @@ export async function postCopyEnvironmentRules(
     status: 200,
     version: revision.version,
   });
+}
+
+/**
+ * Evaluates prerequisite states for a feature across environments using JIT feature loading.
+ * This allows for proper cross-project prerequisite evaluation without requiring all features in memory.
+ */
+export async function getPrerequisiteStates(
+  req: AuthRequest<
+    null,
+    { id: string },
+    { environments?: string; skipRootConditions?: string }
+  >,
+  res: Response<
+    {
+      status: 200;
+      states: Record<string, PrerequisiteStateResult>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  // Parse requested environments from query string
+  // Note: We evaluate ALL requested environments, even if the feature doesn't have them
+  // The evaluatePrerequisiteStateAsync function handles missing environments correctly
+  // by returning { state: "deterministic", value: null }
+  let envIds: string[];
+  if (req.query.environments) {
+    envIds = req.query.environments.split(",");
+  } else {
+    // If no environments specified, use the feature's environments
+    const allEnvironments = getEnvironments(org);
+    const featureEnvironments = filterEnvironmentsByFeature(
+      allEnvironments,
+      feature,
+    );
+    envIds = featureEnvironments.map((e) => e.id);
+  }
+
+  // Parse skipRootConditions - if true, skips the feature's own rules (used for summary row)
+  const skipRootConditions = req.query.skipRootConditions === "true";
+
+  // Evaluate prerequisite states with JIT feature loading
+  const states: Record<string, PrerequisiteStateResult> = {};
+  for (const env of envIds) {
+    states[env] = await evaluatePrerequisiteStateAsync(
+      context,
+      feature,
+      env,
+      undefined,
+      skipRootConditions,
+    );
+  }
+
+  res.status(200).json({
+    status: 200,
+    states,
+  });
+}
+
+/**
+ * Batch evaluates prerequisite states for multiple features.
+ * This is more efficient when we need states for many features at once (e.g., for option lists).
+ */
+export async function postBatchPrerequisiteStates(
+  req: AuthRequest<
+    { featureIds: string[]; environments: string[] },
+    Record<string, never>
+  >,
+  res: Response<
+    {
+      status: 200;
+      results: Record<string, Record<string, PrerequisiteStateResult>>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { featureIds, environments } = req.body;
+
+  if (!featureIds || !featureIds.length) {
+    throw new Error("Must provide featureIds");
+  }
+  if (!environments || !environments.length) {
+    throw new Error("Must provide environments");
+  }
+
+  const features = await getFeaturesByIds(context, featureIds);
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
+  const results: Record<string, Record<string, PrerequisiteStateResult>> = {};
+
+  for (const featureId of featureIds) {
+    const feature = featuresMap.get(featureId);
+    if (!feature) continue;
+
+    results[featureId] = {};
+    for (const env of environments) {
+      results[featureId][env] = await evaluatePrerequisiteStateAsync(
+        context,
+        feature,
+        env,
+        featuresMap,
+      );
+    }
+  }
+
+  res.status(200).json({
+    status: 200,
+    results,
+  });
+}
+
+type PrerequisiteState = "deterministic" | "conditional" | "cyclic";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrerequisiteValue = any;
+type PrerequisiteStateResult = {
+  state: PrerequisiteState;
+  value: PrerequisiteValue;
+};
+
+/**
+ * Async version of evaluatePrerequisiteState that JIT loads features as needed.
+ * This allows proper cross-project prerequisite evaluation.
+ */
+async function evaluatePrerequisiteStateAsync(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  env: string,
+  existingFeaturesMap?: Map<string, FeatureInterface>,
+  skipRootConditions: boolean = false,
+): Promise<PrerequisiteStateResult> {
+  // Use provided map or start with an empty one
+  const featuresMap =
+    existingFeaturesMap || new Map<string, FeatureInterface>();
+
+  // Add the current feature to the map if not already present
+  if (!featuresMap.has(feature.id)) {
+    featuresMap.set(feature.id, feature);
+  }
+
+  // Check for cyclic dependencies first
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+
+  const checkCyclic = async (f: FeatureInterface): Promise<boolean> => {
+    if (visited.has(f.id)) return false;
+    if (visiting.has(f.id)) return true;
+
+    visiting.add(f.id);
+
+    const prerequisites = f.prerequisites || [];
+    for (const prereq of prerequisites) {
+      let prereqFeature = featuresMap.get(prereq.id);
+      if (!prereqFeature) {
+        // JIT load the feature
+        prereqFeature = await getFeatureByIdForPrereq(context, prereq.id);
+        if (prereqFeature) {
+          featuresMap.set(prereq.id, prereqFeature);
+        }
+      }
+      if (prereqFeature && (await checkCyclic(prereqFeature))) {
+        return true;
+      }
+    }
+
+    visiting.delete(f.id);
+    visited.add(f.id);
+    return false;
+  };
+
+  if (await checkCyclic(feature)) {
+    return { state: "cyclic", value: null };
+  }
+
+  let isTopLevel = true;
+
+  const visit = async (
+    f: FeatureInterface,
+  ): Promise<PrerequisiteStateResult> => {
+    // 1. Current environment toggles take priority
+    if (!f.environmentSettings[env]) {
+      return { state: "deterministic", value: null };
+    }
+    if (!f.environmentSettings[env].enabled) {
+      return { state: "deterministic", value: null };
+    }
+
+    // 2. Determine default feature state
+    let state: PrerequisiteState = "deterministic";
+    let value: PrerequisiteValue = f.defaultValue;
+
+    // Cast value to correct format for evaluation
+    if (f.valueType === "boolean") {
+      value = f.defaultValue !== "false";
+    } else if (f.valueType === "number") {
+      value = parseFloat(f.defaultValue);
+    } else if (f.valueType === "json") {
+      try {
+        value = JSON.parse(f.defaultValue);
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!skipRootConditions || !isTopLevel) {
+      if (
+        f.environmentSettings[env].rules?.filter((r) => !!r.enabled)?.length
+      ) {
+        state = "conditional";
+        value = undefined;
+      }
+    }
+
+    // 3. If the feature has prerequisites, traverse all nodes
+    isTopLevel = false;
+    const prerequisites = f.prerequisites || [];
+    for (const prereq of prerequisites) {
+      let prereqFeature = featuresMap.get(prereq.id);
+      if (!prereqFeature) {
+        // JIT load the feature
+        prereqFeature = await getFeatureByIdForPrereq(context, prereq.id);
+        if (prereqFeature) {
+          featuresMap.set(prereq.id, prereqFeature);
+        }
+      }
+
+      if (!prereqFeature) {
+        state = "deterministic";
+        value = null;
+        break;
+      }
+
+      const { state: prereqState, value: prereqValue } =
+        await visit(prereqFeature);
+
+      if (prereqState === "deterministic") {
+        const evaled = evalDeterministicPrereqValueBackend(
+          prereqValue ?? null,
+          prereq.condition,
+        );
+        if (evaled === "fail") {
+          state = "deterministic";
+          value = null;
+          break;
+        }
+      } else if (prereqState === "conditional") {
+        state = "conditional";
+        value = undefined;
+      }
+    }
+
+    return { state, value };
+  };
+
+  return visit(feature);
+}
+
+function evalDeterministicPrereqValueBackend(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any,
+  condition: string,
+): "pass" | "fail" {
+  try {
+    const conditionObj = JSON.parse(condition || "{}");
+    // Empty condition means "is truthy"
+    if (Object.keys(conditionObj).length === 0) {
+      return value ? "pass" : "fail";
+    }
+    // Check if condition references "value" field
+    if ("value" in conditionObj) {
+      const valueCondition = conditionObj.value;
+      // Handle $exists checks
+      if (typeof valueCondition === "object" && valueCondition !== null) {
+        if ("$exists" in valueCondition) {
+          return valueCondition.$exists ===
+            (value !== null && value !== undefined)
+            ? "pass"
+            : "fail";
+        }
+        if ("$eq" in valueCondition) {
+          return valueCondition.$eq === value ? "pass" : "fail";
+        }
+        if ("$ne" in valueCondition) {
+          return valueCondition.$ne !== value ? "pass" : "fail";
+        }
+        if ("$in" in valueCondition && Array.isArray(valueCondition.$in)) {
+          return valueCondition.$in.includes(value) ? "pass" : "fail";
+        }
+        if ("$nin" in valueCondition && Array.isArray(valueCondition.$nin)) {
+          return !valueCondition.$nin.includes(value) ? "pass" : "fail";
+        }
+      }
+      // Direct value comparison
+      return valueCondition === value ? "pass" : "fail";
+    }
+    // Default: value must be truthy
+    return value ? "pass" : "fail";
+  } catch (e) {
+    return "fail";
+  }
+}
+
+/**
+ * Helper to get a single feature by ID without project restrictions.
+ * Used for JIT loading features during prerequisite evaluation.
+ */
+async function getFeatureByIdForPrereq(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<FeatureInterface | null> {
+  const features = await getFeaturesByIds(context, [id]);
+  return features[0] || null;
 }

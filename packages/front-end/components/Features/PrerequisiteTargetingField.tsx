@@ -17,12 +17,7 @@ import {
   PiArrowSquareOut,
 } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  evaluatePrerequisiteState,
-  getDefaultPrerequisiteCondition,
-  isFeatureCyclic,
-  PrerequisiteStateResult,
-} from "shared/util";
+import { getDefaultPrerequisiteCondition, isFeatureCyclic } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
@@ -52,6 +47,10 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import Switch from "@/ui/Switch";
+import {
+  PrerequisiteStateResult,
+  useBatchPrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -90,7 +89,6 @@ export default function PrerequisiteTargetingField({
       : { project: targetProject },
   );
   const { projects } = useDefinitions();
-  const envsStr = JSON.stringify(environments);
   const valueStr = JSON.stringify(value);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
@@ -128,40 +126,43 @@ export default function PrerequisiteTargetingField({
     }
   }, [valueStr]);
 
+  // Get all feature IDs that we need states for (dropdown options + selected prerequisites)
+  const allFeatureIds = useMemo(() => {
+    const selectedIds = value.map((v) => v.id).filter(Boolean);
+    const dropdownIds = features
+      .filter((f) => f.id !== feature?.id)
+      .map((f) => f.id);
+    return [...new Set([...selectedIds, ...dropdownIds])];
+  }, [value, features, feature?.id]);
+
+  // Fetch prerequisite states from backend for all relevant features
+  const { results: batchStates, loading: batchStatesLoading } =
+    useBatchPrerequisiteStates({
+      featureIds: allFeatureIds,
+      environments,
+      enabled: allFeatureIds.length > 0 && environments.length > 0,
+    });
+
+  const featuresStates: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = batchStates || {};
+
+  // Map selected prerequisites to their states
   const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
     useMemo(() => {
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
       return value.map((v) => {
-        const parentFeature = featuresMap.get(v.id);
-        if (!parentFeature) return null;
-        const states: Record<string, PrerequisiteStateResult> = {};
-        environments.forEach((env) => {
-          states[env] = evaluatePrerequisiteState(
-            parentFeature,
-            featuresMap,
-            env,
-          );
-        });
-        return states;
+        if (!v.id) return null;
+        return featuresStates[v.id] || null;
       });
-    }, [valueStr, features, envsStr]);
+    }, [value, featuresStates]);
 
-  const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
-    const featuresStates: Record<
-      string,
-      Record<string, PrerequisiteStateResult>
-    > = {};
+  // Calculate wouldBeCyclicStates on frontend (best-effort)
+  const wouldBeCyclicStates = useMemo(() => {
+    const states: Record<string, boolean> = {};
     const featuresMap = new Map(features.map((f) => [f.id, f]));
-    const wouldBeCyclicStates: Record<string, boolean> = {};
-    for (const f of features) {
-      // get current states:
-      const states: Record<string, PrerequisiteStateResult> = {};
-      environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(f, featuresMap, env);
-      });
-      featuresStates[f.id] = states;
 
-      // check if selecting this would be cyclic:
+    for (const f of features) {
       let wouldBeCyclic = false;
       if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
         const newFeature = cloneDeep(feature);
@@ -195,10 +196,10 @@ export default function PrerequisiteTargetingField({
           environments,
         )[0];
       }
-      wouldBeCyclicStates[f.id] = wouldBeCyclic;
+      states[f.id] = wouldBeCyclic;
     }
-    return [featuresStates, wouldBeCyclicStates];
-  }, [features, envsStr]);
+    return states;
+  }, [feature, features, environments, revisions, version]);
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
@@ -541,6 +542,7 @@ export default function PrerequisiteTargetingField({
                   prereqStates={prereqStatesArr[i]}
                   environments={environments}
                   featureProject={featureProject}
+                  loading={batchStatesLoading}
                 />
 
                 {parentFeature && hasConditionalState ? (
@@ -646,11 +648,13 @@ function PrereqStatesRows({
   prereqStates,
   environments,
   featureProject,
+  loading = false,
 }: {
   parentFeature?: FeatureInterface;
   prereqStates: Record<string, PrerequisiteStateResult> | null;
   environments: string[];
   featureProject: string;
+  loading?: boolean;
 }) {
   const [showDetails, setShowDetails] = useState(true);
 
@@ -730,6 +734,7 @@ function PrereqStatesRows({
                 <PrerequisiteStatesCols
                   prereqStates={prereqStates ?? undefined}
                   envs={environments}
+                  loading={loading}
                 />
               </tr>
             </tbody>
