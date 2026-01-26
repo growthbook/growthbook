@@ -14,7 +14,6 @@ import {
   Column,
 } from "shared/types/integrations";
 import { DataSourceInterface } from "shared/types/datasource";
-import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getAISettingsForOrg,
@@ -150,12 +149,7 @@ export async function postSavedQuery(
     sql,
     datasourceId,
     dateLastRan: getValidDate(dateLastRan),
-    results: results
-      ? {
-          ...results,
-          results: results.results || [],
-        }
-      : results,
+    results,
     dataVizConfig: ensureDataVizIds(dataVizConfig || []),
     linkedDashboardIds,
   });
@@ -177,19 +171,13 @@ export async function putSavedQuery(
     throw new Error("Your organization's plan does not support saving queries");
   }
 
-  const updateData: UpdateProps<SavedQuery> = {
+  const updateData = {
     ...req.body,
     dateLastRan: req.body.dateLastRan
       ? getValidDate(req.body.dateLastRan)
       : undefined,
     dataVizConfig: req.body.dataVizConfig
       ? ensureDataVizIds(req.body.dataVizConfig)
-      : undefined,
-    results: req.body.results
-      ? {
-          ...req.body.results,
-          results: req.body.results.results || [],
-        }
       : undefined,
   };
 
@@ -277,7 +265,7 @@ export async function executeAndSaveQuery(
 
   await context.models.savedQueries.update(savedQuery, {
     results: {
-      results: results || [],
+      results,
       error,
       duration,
       sql,
