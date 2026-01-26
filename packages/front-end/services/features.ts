@@ -35,7 +35,7 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutRule } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -215,7 +215,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "defaultValue"],
+    searchFields: ["id^3", "description"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
@@ -479,28 +479,24 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
-    linkedExperiments: ExperimentInterfaceStringDates[];
     hasArchived: boolean;
   }>(url);
 
-  const { features, experiments, hasArchived } = useMemo(() => {
+  const { features, hasArchived } = useMemo(() => {
     if (data) {
       return {
         features: data.features,
-        experiments: data.linkedExperiments,
         hasArchived: data.hasArchived,
       };
     }
     return {
       features: [],
-      experiments: [],
       hasArchived: false,
     };
   }, [data]);
 
   return {
     features,
-    experiments,
     loading: !data,
     error,
     mutate,
@@ -1120,6 +1116,13 @@ export function jsonToConds(
                 value: v["$regex"],
               });
             }
+            if ("$regexi" in v && typeof v["$regexi"] === "string") {
+              return conds.push({
+                field,
+                operator: "$notRegexi",
+                value: v["$regexi"],
+              });
+            }
             if ("$elemMatch" in v) {
               const m = v["$elemMatch"];
               if (typeof m === "object" && Object.keys(m).length === 1) {
@@ -1190,6 +1193,7 @@ export function jsonToConds(
             "$lt",
             "$lte",
             "$regex",
+            "$regexi",
             "$veq",
             "$vne",
             "$vgt",
@@ -1265,6 +1269,10 @@ export function condToJson(
       obj[field] = obj[field] || {};
       if (operator === "$notRegex") {
         obj[field]["$not"] = { $regex: value };
+      } else if (operator === "$notRegexi") {
+        obj[field]["$not"] = { $regexi: value };
+      } else if (operator === "$regexi") {
+        obj[field]["$regexi"] = value;
       } else if (operator === "$notExists") {
         obj[field]["$exists"] = false;
       } else if (operator === "$exists") {

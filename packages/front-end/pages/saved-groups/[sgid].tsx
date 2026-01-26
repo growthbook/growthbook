@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";

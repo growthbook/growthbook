@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 import { FeatureInterface } from "shared/types/feature";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   StatsigMetric,
   StatsigMetricSource,

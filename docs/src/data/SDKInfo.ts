@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.2",
+    version: "1.6.3",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -24,6 +24,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -68,7 +71,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.2",
+    version: "1.6.3",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -97,6 +100,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -232,7 +238,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.2",
+    version: "1.6.3",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -253,6 +259,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -328,7 +337,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "1.4.5",
+    version: "2.1.0",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -343,6 +352,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v2.1.0",
       },
       {
         savedGroupReferences: "≥ v1.2.1",
@@ -694,7 +706,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.2",
+    version: "1.6.3",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -715,6 +727,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v1.6.3",
       },
       {
         savedGroupReferences: "≥ v1.1.0",

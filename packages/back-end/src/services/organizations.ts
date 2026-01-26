@@ -186,13 +186,25 @@ export function getAISettingsForOrg(
   aiEnabled: boolean;
   openAIAPIKey: string;
   anthropicAPIKey: string;
+  xaiAPIKey: string;
+  mistralAPIKey: string;
+  googleAPIKey: string;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
+  const xaiKey = process.env.XAI_API_KEY || "";
+  const mistralKey = process.env.MISTRAL_API_KEY || "";
+  const googleKey = process.env.GOOGLE_AI_API_KEY || "";
 
-  const hasValidKey = !!(openAIKey || anthropicKey);
+  const hasValidKey = !!(
+    openAIKey ||
+    anthropicKey ||
+    xaiKey ||
+    mistralKey ||
+    googleKey
+  );
 
   const aiEnabled = IS_CLOUD
     ? !!context.org.settings?.aiEnabled
@@ -202,6 +214,9 @@ export function getAISettingsForOrg(
     aiEnabled,
     openAIAPIKey: includeKey ? openAIKey : "",
     anthropicAPIKey: includeKey ? anthropicKey : "",
+    xaiAPIKey: includeKey ? xaiKey : "",
+    mistralAPIKey: includeKey ? mistralKey : "",
+    googleAPIKey: includeKey ? googleKey : "",
     defaultAIModel:
       context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel ||

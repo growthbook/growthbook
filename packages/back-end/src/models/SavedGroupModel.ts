@@ -1,194 +1,128 @@
-import mongoose from "mongoose";
-import uniqid from "uniqid";
-import {
-  SavedGroupInterface,
-  SavedGroupWithoutValues,
-} from "shared/types/groups";
 import { ApiSavedGroup } from "shared/types/openapi";
 import {
-  CreateSavedGroupProps,
+  SavedGroupInterface,
   LegacySavedGroupInterface,
-  UpdateSavedGroupProps,
+  SavedGroupWithoutValues,
 } from "shared/types/saved-group";
-import {
-  ToInterface,
-  getCollection,
-  removeMongooseFields,
-} from "back-end/src/util/mongo.util";
-import { migrateSavedGroup } from "back-end/src/util/migrations";
+import { savedGroupValidator } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
+import { UpdateFilter } from "mongodb";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { MakeModelClass } from "./BaseModel";
 
-const savedGroupSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
+const BaseClass = MakeModelClass({
+  schema: savedGroupValidator,
+  collectionName: "savedgroups",
+  idPrefix: "grp_",
+  auditLog: {
+    entity: "savedGroup",
+    createEvent: "savedGroup.created",
+    updateEvent: "savedGroup.updated",
+    deleteEvent: "savedGroup.deleted",
   },
-  organization: {
-    type: String,
-    index: true,
-  },
-  groupName: String,
-  owner: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  values: [String],
-  source: String,
-  condition: String,
-  type: {
-    type: String,
-  },
-  attributeKey: String,
-  description: String,
-  projects: [String],
-  // Previously, empty saved groups were ignored in the SDK payload, making all $inGroup operations return true
-  useEmptyListGroup: Boolean,
+  globallyUniqueIds: true,
 });
 
-const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
-  "savedGroup",
-  savedGroupSchema,
-);
+export class SavedGroupModel extends BaseClass {
+  protected canRead(doc: SavedGroupInterface): boolean {
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
+  }
 
-const COLLECTION = "savedgroups";
+  protected canCreate(doc: SavedGroupInterface): boolean {
+    return this.context.permissions.canCreateSavedGroup(doc);
+  }
 
-const toInterface: ToInterface<SavedGroupInterface> = (doc) => {
-  const legacy = removeMongooseFields(doc);
+  protected canUpdate(
+    existing: SavedGroupInterface,
+    updates: SavedGroupInterface,
+  ): boolean {
+    return this.context.permissions.canUpdateSavedGroup(existing, updates);
+  }
 
-  return migrateSavedGroup(legacy);
-};
+  protected canDelete(doc: SavedGroupInterface): boolean {
+    return this.context.permissions.canDeleteSavedGroup(doc);
+  }
 
-export function parseSavedGroupString(list: string) {
-  const values = list
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => !!value);
+  public static migrateSavedGroup(
+    legacyDoc: LegacySavedGroupInterface,
+  ): SavedGroupInterface {
+    // Add `type` field to legacy groups
+    const { source, type, ...otherFields } = legacyDoc;
+    const group: SavedGroupInterface = {
+      ...otherFields,
+      type: type || (source === "runtime" ? "condition" : "list"),
+    };
 
-  return [...new Set(values)];
-}
-
-export async function createSavedGroup(
-  organization: string,
-  group: CreateSavedGroupProps,
-): Promise<SavedGroupInterface> {
-  const newGroup = await SavedGroupModel.create({
-    ...group,
-    id: uniqid("grp_"),
-    organization,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    useEmptyListGroup: true,
-  });
-  return toInterface(newGroup);
-}
-
-export async function getAllSavedGroups(
-  organization: string,
-): Promise<SavedGroupInterface[]> {
-  const savedGroups = await getCollection(COLLECTION)
-    .find({
-      organization,
-    })
-    .toArray();
-
-  return savedGroups.map(toInterface);
-}
-
-export async function getAllSavedGroupsWithoutValues(
-  organization: string,
-): Promise<SavedGroupWithoutValues[]> {
-  const savedGroups = await getCollection(COLLECTION)
-    .find(
-      {
-        organization,
-      },
-      {
-        projection: {
-          values: 0,
+    // Migrate legacy runtime groups to use a condition
+    if (
+      group.type === "condition" &&
+      !group.condition &&
+      source === "runtime" &&
+      group.attributeKey
+    ) {
+      group.condition = JSON.stringify({
+        $groups: {
+          $elemMatch: {
+            $eq: group.attributeKey,
+          },
         },
-      },
-    )
-    .toArray();
+      });
+    }
 
-  return savedGroups.map(toInterface) as SavedGroupWithoutValues[];
-}
+    return group;
+  }
 
-export async function getSavedGroupById(
-  savedGroupId: string,
-  organization: string,
-): Promise<SavedGroupInterface | null> {
-  const savedGroup = await getCollection(COLLECTION).findOne({
-    id: savedGroupId,
-    organization: organization,
-  });
+  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  }
 
-  return savedGroup ? toInterface(savedGroup) : null;
-}
+  protected async beforeCreate(doc: SavedGroupInterface) {
+    doc.useEmptyListGroup = true;
+  }
 
-export async function getSavedGroupsById(
-  savedGroupIds: string[],
-  organization: string,
-): Promise<SavedGroupInterface[]> {
-  const savedGroups = await getCollection(COLLECTION)
-    .find({
-      id: { $in: savedGroupIds || [] },
-      organization: organization,
-    })
-    .toArray();
+  protected async afterUpdate(
+    _existing: SavedGroupInterface,
+    updates: UpdateProps<SavedGroupInterface>,
+  ) {
+    // If the values, condition, or projects change, we need to invalidate cached feature rules
+    if (updates.values || updates.condition || updates.projects) {
+      savedGroupUpdated(this.context).catch((e) => {
+        this.context.logger.error(
+          e,
+          "Error refreshing SDK Payload on saved group update",
+        );
+      });
+    }
+  }
 
-  return savedGroups ? savedGroups.map((group) => toInterface(group)) : [];
-}
+  public async removeProjectIdFromAllGroups(projectId: string) {
+    const pullOperation: UpdateFilter<SavedGroupInterface> = {
+      projects: projectId,
+    };
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, projects: projectId },
+      { $pull: pullOperation },
+    );
+  }
 
-export async function updateSavedGroupById(
-  savedGroupId: string,
-  organization: string,
-  group: UpdateSavedGroupProps,
-): Promise<UpdateSavedGroupProps> {
-  const changes = {
-    ...group,
-    dateUpdated: new Date(),
-  };
+  public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
+    const groups = await this._find({}, { projection: { values: 0 } });
+    return groups as SavedGroupWithoutValues[];
+  }
 
-  await SavedGroupModel.updateOne(
-    {
-      id: savedGroupId,
-      organization: organization,
-    },
-    changes,
-  );
-
-  return changes;
-}
-
-export async function removeProjectFromSavedGroups(
-  project: string,
-  organization: string,
-) {
-  await SavedGroupModel.updateMany(
-    { organization, projects: project },
-    { $pull: { projects: project } },
-  );
-}
-
-export async function deleteSavedGroupById(id: string, organization: string) {
-  await SavedGroupModel.deleteOne({
-    id,
-    organization,
-  });
-}
-
-export function toSavedGroupApiInterface(
-  savedGroup: SavedGroupInterface,
-): ApiSavedGroup {
-  return {
-    id: savedGroup.id,
-    type: savedGroup.type,
-    values: savedGroup.values || [],
-    condition: savedGroup.condition || "",
-    name: savedGroup.groupName,
-    attributeKey: savedGroup.attributeKey || "",
-    dateCreated: savedGroup.dateCreated.toISOString(),
-    dateUpdated: savedGroup.dateUpdated.toISOString(),
-    owner: savedGroup.owner || "",
-    description: savedGroup.description,
-    projects: savedGroup.projects || [],
-  };
+  public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
+    return {
+      id: savedGroup.id,
+      type: savedGroup.type,
+      values: savedGroup.values || [],
+      condition: savedGroup.condition || "",
+      name: savedGroup.groupName,
+      attributeKey: savedGroup.attributeKey || "",
+      dateCreated: savedGroup.dateCreated.toISOString(),
+      dateUpdated: savedGroup.dateUpdated.toISOString(),
+      owner: savedGroup.owner || "",
+      description: savedGroup.description,
+      projects: savedGroup.projects || [],
+    };
+  }
 }

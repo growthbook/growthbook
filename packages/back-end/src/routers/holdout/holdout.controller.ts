@@ -437,6 +437,11 @@ export const editStatus = async (
         holdout,
         getEnvironmentIdsFromOrg(context.org),
       ),
+      auditContext: {
+        event: "status changed to stopped",
+        model: "holdout",
+        id: holdout.id,
+      },
     });
   } else if (req.body.status === "running") {
     // check to see if already in analysis period
@@ -486,6 +491,11 @@ export const editStatus = async (
         holdout,
         getEnvironmentIdsFromOrg(context.org),
       ),
+      auditContext: {
+        event: "status changed to running",
+        model: "holdout",
+        id: holdout.id,
+      },
     });
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
@@ -505,6 +515,11 @@ export const editStatus = async (
         holdout,
         getEnvironmentIdsFromOrg(context.org),
       ),
+      auditContext: {
+        event: "status changed to draft",
+        model: "holdout",
+        id: holdout.id,
+      },
     });
   }
 
@@ -582,6 +597,11 @@ export const deleteHoldout = async (
       holdout,
       getEnvironmentIdsFromOrg(context.org),
     ),
+    auditContext: {
+      event: "deleted",
+      model: "holdout",
+      id: holdout.id,
+    },
   });
 
   return res.status(200).json({ status: 200 });
