@@ -23,6 +23,7 @@ const factTableDatasetValidator = z
     factTableId: z.string(),
     values: z.array(
       z.object({
+        name: z.string(),
         valueType: z.enum(valueType),
         valueColumn: z.string().nullable(),
         unit: z.string().nullable(),
@@ -44,6 +45,7 @@ const sqlDatasetValidator = z
     ),
     values: z.array(
       z.object({
+        name: z.string(),
         valueType: z.enum(valueType),
         valueColumn: z.string().nullable(),
         unit: z.string().nullable(),
