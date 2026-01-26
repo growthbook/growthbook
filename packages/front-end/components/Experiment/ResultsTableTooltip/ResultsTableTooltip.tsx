@@ -114,7 +114,7 @@ export default function ResultsTableTooltip({
         height: TOOLTIP_HEIGHT,
         left: typeof window !== "undefined" ? left : 0,
         top: typeof window !== "undefined" ? top : 0,
-        // pointerEvents: "none",
+        zIndex: 1100,
       }}
     >
       <div
@@ -130,7 +130,6 @@ export default function ResultsTableTooltip({
           transformOrigin: `${arrowLeft} ${
             data.yAlign === "top" ? "0%" : "100%"
           }`,
-          // pointerEvents: "auto",
         }}
         {...otherProps}
       >

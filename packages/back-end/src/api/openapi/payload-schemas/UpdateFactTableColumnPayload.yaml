@@ -60,3 +60,8 @@ properties:
     items:
       type: string
     description: "Specific values from this auto slice column to include in analysis. If empty, all top values will be used."
+  lockedAutoSlices:
+    type: array
+    items:
+      type: string
+    description: "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results."
