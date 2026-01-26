@@ -257,23 +257,23 @@ export class ReqContextClass {
     this.initModels();
   }
 
-  public throwBadRequestError(message: string) {
+  public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
   }
 
-  public throwUnauthorizedError(message: string) {
+  public throwUnauthorizedError(message: string): never {
     throw new UnauthorizedError(message);
   }
 
-  public throwPlanDoesNotAllowError(message: string) {
+  public throwPlanDoesNotAllowError(message: string): never {
     throw new PlanDoesNotAllowError(message);
   }
 
-  public throwNotFoundError(message?: string) {
+  public throwNotFoundError(message?: string): never {
     throw new NotFoundError(message);
   }
 
-  public throwInternalServerError(message: string) {
+  public throwInternalServerError(message: string): never {
     throw new InternalServerError(message);
   }
 

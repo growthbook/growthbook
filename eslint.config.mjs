@@ -202,6 +202,7 @@ export default defineConfig([
                 "Switch",
                 "Table",
                 "Tabs",
+                "Text",
               ],
             },
           ],

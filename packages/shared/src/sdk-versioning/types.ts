@@ -11,7 +11,8 @@ export type SDKCapability =
   | "stickyBucketing"
   | "redirects"
   | "prerequisites"
-  | "savedGroupReferences";
+  | "savedGroupReferences"
+  | "caseInsensitiveRegex";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions

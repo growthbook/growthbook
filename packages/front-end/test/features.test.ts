@@ -100,6 +100,20 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
     expect(condToJson(conds, attributeMap)).toEqual(json);
   });
+  it("string - $regexi operator", () => {
+    const json = stringify({ str: { $regexi: "url\\.com" } });
+    const conds = [[{ field: "str", operator: "$regexi", value: "url\\.com" }]];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("string - $notRegexi operator", () => {
+    const json = stringify({ str: { $not: { $regexi: "url\\.com" } } });
+    const conds = [
+      [{ field: "str", operator: "$notRegexi", value: "url\\.com" }],
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
   it("string - $gt operator", () => {
     const json = stringify({ str: { $gt: "abc" } });
     const conds = [[{ field: "str", operator: "$gt", value: "abc" }]];
