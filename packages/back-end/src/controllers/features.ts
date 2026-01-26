@@ -64,8 +64,9 @@ import {
   createFeature,
   deleteFeature,
   editFeatureRule,
-  getAllFeaturesWithLinkedExperiments,
+  getAllFeatures,
   getFeature,
+  getFeatureMetaInfoByIds,
   hasArchivedFeatures,
   migrateDraft,
   publishRevision,
@@ -2204,9 +2205,18 @@ export async function getDraftandReviewRevisions(
     "changes-requested",
     "pending-review",
   ]);
+
+  const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
+  const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);
+  const featureMetaMap = new Map(featureMeta.map((f) => [f.id, f]));
+  const revisionsWithMeta = revisions.map((r) => ({
+    ...r,
+    featureMeta: featureMetaMap.get(r.featureId),
+  }));
+
   res.status(200).json({
     status: 200,
-    revisions,
+    revisions: revisionsWithMeta,
   });
 }
 
@@ -2680,13 +2690,10 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
-  const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
-    context,
-    {
-      project,
-      includeArchived,
-    },
-  );
+  const features = await getAllFeatures(context, {
+    projects: project ? [project] : undefined,
+    includeArchived,
+  });
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
@@ -2695,7 +2702,6 @@ export async function getFeatures(
   res.status(200).json({
     status: 200,
     features,
-    linkedExperiments: experiments,
     hasArchived,
   });
 }

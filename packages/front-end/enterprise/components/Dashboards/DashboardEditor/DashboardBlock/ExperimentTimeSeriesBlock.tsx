@@ -120,8 +120,6 @@ export default function ExperimentTimeSeriesBlock({
   const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   const renderLabelColumn = getRenderLabelColumn({
-    statsEngine,
-    hideDetails: false,
     expandedMetrics,
     toggleExpandedMetric,
     getExperimentMetricById,

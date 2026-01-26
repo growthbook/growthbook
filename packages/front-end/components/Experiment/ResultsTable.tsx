@@ -87,6 +87,7 @@ export type ResultsTableProps = {
   startDate: string;
   endDate: string;
   rows: ExperimentTableRow[];
+  onRowClick?: (row: ExperimentTableRow) => void;
   dimension?: string;
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
@@ -117,7 +118,7 @@ export type ResultsTableProps = {
   isBandit?: boolean;
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
-  disableTimeSeriesButton?: boolean;
+  showTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   sortBy?: ExperimentSortBy;
@@ -130,9 +131,11 @@ export type ResultsTableProps = {
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   totalMetricsCount?: number;
+  visibleTimeSeriesRowIds?: string[];
+  onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -172,6 +175,7 @@ export default function ResultsTable({
   startDate,
   endDate,
   renderLabelColumn,
+  onRowClick,
   resultGroup,
   dateCreated,
   statsEngine,
@@ -183,7 +187,7 @@ export default function ResultsTable({
   noTooltip,
   isBandit,
   ssrPolyfills,
-  disableTimeSeriesButton,
+  showTimeSeriesButton: showTimeSeriesButtonProp = false,
   columnsFilter,
   isHoldout,
   sortBy,
@@ -197,6 +201,8 @@ export default function ResultsTable({
   mutate,
   setDifferenceType,
   totalMetricsCount,
+  visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
+  onVisibleTimeSeriesRowIdsChange,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -310,32 +316,45 @@ export default function ResultsTable({
   const [tableCellScale, setTableCellScale] = useState(1);
 
   const { isAuthenticated } = useAuth();
-  let showTimeSeriesButton =
-    isAuthenticated &&
-    baselineRow === 0 &&
-    tableRowAxis === "metric" &&
-    !disableTimeSeriesButton;
 
-  // Disable time series button for stopped experiments before we added this feature (& therefore data)
-  if (status === "stopped" && endDate <= "2025-04-03") {
-    showTimeSeriesButton = false;
-  }
+  const isControlled = visibleTimeSeriesRowIdsProp !== undefined;
+  const [internalVisibleTimeSeriesRowIds, setInternalVisibleTimeSeriesRowIds] =
+    useState<string[]>(visibleTimeSeriesRowIdsProp ?? []);
 
-  const [visibleTimeSeriesRowIds, setVisibleTimeSeriesRowIds] = useState<
-    string[]
-  >([]);
+  const visibleTimeSeriesRowIds = isControlled
+    ? visibleTimeSeriesRowIdsProp
+    : internalVisibleTimeSeriesRowIds;
+
+  // Track which rows were initially visible to skip animation for them
+  // This will be cleared when user toggles so animation works for user interactions
+  const initiallyVisibleRowIdsRef = useRef(
+    new Set(visibleTimeSeriesRowIdsProp),
+  );
+
   const toggleVisibleTimeSeriesRowId = (rowId: string) => {
-    setVisibleTimeSeriesRowIds((prev) =>
-      prev.includes(rowId)
-        ? prev.filter((id) => id !== rowId)
-        : [...prev, rowId],
-    );
+    // Clear the initially visible set on first user toggle so animations work
+    if (initiallyVisibleRowIdsRef.current.size > 0) {
+      initiallyVisibleRowIdsRef.current.clear();
+    }
+
+    const newIds = visibleTimeSeriesRowIds.includes(rowId)
+      ? visibleTimeSeriesRowIds.filter((id) => id !== rowId)
+      : [...visibleTimeSeriesRowIds, rowId];
+
+    if (isControlled && onVisibleTimeSeriesRowIdsChange) {
+      onVisibleTimeSeriesRowIdsChange(newIds);
+    } else {
+      setInternalVisibleTimeSeriesRowIds(newIds);
+    }
   };
 
   // Ensure we close all of them if dimension changes
   useEffect(() => {
-    setVisibleTimeSeriesRowIds([]);
-  }, [tableRowAxis]);
+    if (isControlled) {
+      return;
+    }
+    setInternalVisibleTimeSeriesRowIds([]);
+  }, [tableRowAxis, isControlled]);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -500,8 +519,6 @@ export default function ResultsTable({
     tooltipData,
     hoveredX,
     hoveredY,
-    hoveredXViewport,
-    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,
@@ -563,8 +580,8 @@ export default function ResultsTable({
       >
         <div>
           <ResultsTableTooltip
-            left={hoveredXViewport ?? hoveredX ?? 0}
-            top={hoveredYViewport ?? hoveredY ?? 0}
+            left={hoveredX ?? 0}
+            top={hoveredY ?? 0}
             data={tooltipData}
             tooltipOpen={tooltipOpen}
             close={closeTooltip}
@@ -779,6 +796,18 @@ export default function ResultsTable({
             </thead>
 
             {rows.map((row, i) => {
+              let showTimeSeriesButton =
+                showTimeSeriesButtonProp &&
+                isAuthenticated &&
+                baselineRow === 0 &&
+                (tableRowAxis === "metric" ||
+                  (tableRowAxis === "dimension" && row.isSliceRow));
+
+              // Force disabling of time series button for stopped experiments before we added this feature (& therefore data)
+              if (status === "stopped" && endDate <= "2025-04-03") {
+                showTimeSeriesButton = false;
+              }
+
               const baseline = row.variations[baselineRow] || {
                 value: 0,
                 cr: 0,
@@ -787,7 +816,9 @@ export default function ResultsTable({
               let alreadyShownQueryError = false;
               let alreadyShownQuantileError = false;
 
-              const rowId = `${row.metric.id}-${i}`;
+              const rowId = row.sliceId
+                ? `${id}-${row.metric.id}-${row.sliceId}`
+                : `${id}-${row.metric.id}-${i}`;
 
               const timeSeriesButton = showTimeSeriesButton ? (
                 <TimeSeriesButton
@@ -814,8 +845,26 @@ export default function ResultsTable({
                       <tbody
                         className={clsx("results-group-row", {
                           "slice-row": row.isSliceRow,
+                          [styles.clickableRow]: !!onRowClick,
                         })}
-                        key={i}
+                        key={`${rowId}-tbody`}
+                        onClick={
+                          onRowClick
+                            ? (e) => {
+                                // Don't trigger row click if clicking on interactive elements
+                                const target = e.target as HTMLElement;
+                                if (
+                                  target.closest("a") ||
+                                  target.closest("button") ||
+                                  target.closest("[role='button']")
+                                ) {
+                                  return;
+                                }
+
+                                onRowClick(row);
+                              }
+                            : undefined
+                        }
                       >
                         {(() => {
                           const drawRowProps = {
@@ -1285,7 +1334,13 @@ export default function ResultsTable({
                                 colSpan={columnsToDisplay.length}
                                 style={{ padding: 0 }}
                               >
-                                <div className={styles.expandAnimation}>
+                                <div
+                                  className={
+                                    initiallyVisibleRowIdsRef.current.has(rowId)
+                                      ? undefined
+                                      : styles.expandAnimation
+                                  }
+                                >
                                   <div className={styles.timeSeriesCell}>
                                     <ExperimentMetricTimeSeriesGraphWrapper
                                       experimentId={experimentId}
@@ -1306,6 +1361,7 @@ export default function ResultsTable({
                                         startDate,
                                       )}
                                       sliceId={row.sliceId}
+                                      baselineRow={baselineRow}
                                     />
                                   </div>
                                 </div>

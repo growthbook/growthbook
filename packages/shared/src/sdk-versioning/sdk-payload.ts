@@ -1,5 +1,4 @@
 import { pick, omit } from "lodash";
-import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -97,40 +96,38 @@ export const scrubFeatures = (
     });
   }
 
-  const newFeatures = cloneDeep(features);
-
   // Remove features that have any gating parentConditions & any rules that have parentConditions
   // Note: Reduction of features and rules is already performed in the back-end
   //   see: reduceFeaturesWithPrerequisites()
   if (!capabilities.includes("prerequisites")) {
-    for (const k in newFeatures) {
+    for (const k in features) {
       // delete feature
       if (
-        newFeatures[k]?.rules?.some((rule) =>
+        features[k]?.rules?.some((rule) =>
           rule?.parentConditions?.some((pc) => !!pc.gate),
         )
       ) {
-        delete newFeatures[k];
+        delete features[k];
         continue;
       }
       // delete rules
-      newFeatures[k].rules = newFeatures[k].rules?.filter(
+      features[k].rules = features[k].rules?.filter(
         (rule) => (rule.parentConditions?.length ?? 0) === 0,
       );
     }
   }
 
   if (capabilities.includes("looseUnmarshalling")) {
-    return newFeatures;
+    return features;
   }
 
-  for (const k in newFeatures) {
-    newFeatures[k] = pick(
-      newFeatures[k],
+  for (const k in features) {
+    features[k] = pick(
+      features[k],
       allowedFeatureKeys,
     ) as FeatureDefinitionWithProject;
-    if (newFeatures[k]?.rules) {
-      newFeatures[k].rules = newFeatures[k].rules?.map((rule) => {
+    if (features[k]?.rules) {
+      features[k].rules = features[k].rules?.map((rule) => {
         rule = {
           ...pick(rule, allowedFeatureRuleKeys),
         };
@@ -139,7 +136,7 @@ export const scrubFeatures = (
     }
   }
 
-  return newFeatures;
+  return features;
 };
 
 export const scrubExperiments = (

@@ -54,6 +54,14 @@ router.delete(
   factTableController.deleteFactTable,
 );
 
+router.post(
+  "/fact-tables/:id/column/:column/top-values",
+  validateRequestMiddleware({
+    params: columnParams,
+  }),
+  factTableController.postColumnTopValues,
+);
+
 router.put(
   "/fact-tables/:id/column/:column",
   validateRequestMiddleware({

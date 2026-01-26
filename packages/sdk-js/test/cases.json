@@ -482,6 +482,18 @@
       false
     ],
     [
+      "$in - fail (case sensitive mismatch)",
+      {
+        "country": {
+          "$in": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      false
+    ],
+    [
       "$nin - pass",
       {
         "num": {
@@ -576,6 +588,198 @@
         "tags": []
       },
       true
+    ],
+    [
+      "$nin - pass (case sensitive mismatch)",
+      {
+        "country": {
+          "$nin": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - pass (case insensitive match)",
+      {
+        "country": {
+          "$ini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - pass (uppercase pattern, lowercase value)",
+      {
+        "country": {
+          "$ini": ["US", "UK"]
+        }
+      },
+      {
+        "country": "us"
+      },
+      true
+    ],
+    [
+      "$ini - pass (mixed case)",
+      {
+        "country": {
+          "$ini": ["Us", "Uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      true
+    ],
+    [
+      "$ini - fail (no match)",
+      {
+        "country": {
+          "$ini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "CA"
+      },
+      false
+    ],
+    [
+      "$ini - array pass 1",
+      {
+        "tags": {
+          "$ini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "A"]
+      },
+      true
+    ],
+    [
+      "$ini - array pass 2",
+      {
+        "tags": {
+          "$ini": ["A", "B"]
+        }
+      },
+      {
+        "tags": ["d", "b", "f"]
+      },
+      true
+    ],
+    [
+      "$ini - array fail",
+      {
+        "tags": {
+          "$ini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "f"]
+      },
+      false
+    ],
+    [
+      "$ini - not array",
+      {
+        "num": {
+          "$ini": 1
+        }
+      },
+      {
+        "num": 1
+      },
+      false
+    ],
+    [
+      "$nini - pass (case insensitive match)",
+      {
+        "country": {
+          "$nini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "CA"
+      },
+      true
+    ],
+    [
+      "$nini - fail (case insensitive match)",
+      {
+        "country": {
+          "$nini": ["us", "uk"]
+        }
+      },
+      {
+        "country": "US"
+      },
+      false
+    ],
+    [
+      "$nini - fail (uppercase pattern, lowercase value)",
+      {
+        "country": {
+          "$nini": ["US", "UK"]
+        }
+      },
+      {
+        "country": "us"
+      },
+      false
+    ],
+    [
+      "$nini - array pass",
+      {
+        "tags": {
+          "$nini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "f"]
+      },
+      true
+    ],
+    [
+      "$nini - array fail 1",
+      {
+        "tags": {
+          "$nini": ["a", "b"]
+        }
+      },
+      {
+        "tags": ["d", "e", "A"]
+      },
+      false
+    ],
+    [
+      "$nini - array fail 2",
+      {
+        "tags": {
+          "$nini": ["A", "B"]
+        }
+      },
+      {
+        "tags": ["d", "b", "f"]
+      },
+      false
+    ],
+    [
+      "$nini - not array",
+      {
+        "num": {
+          "$nini": 1
+        }
+      },
+      {
+        "num": 1
+      },
+      false
     ],
     [
       "$elemMatch - pass - flat arrays",
@@ -754,6 +958,18 @@
       },
       {
         "userAgent": "Chrome Desktop Browser"
+      },
+      false
+    ],
+    [
+      "$regex - fail (case sensitive mismatch)",
+      {
+        "userAgent": {
+          "$regex": "(mobile|tablet)"
+        }
+      },
+      {
+        "userAgent": "Android Mobile Browser"
       },
       false
     ],
@@ -1471,6 +1687,78 @@
       {
         "tags": {
           "$all": ["one", "three"]
+        }
+      },
+      {
+        "tags": "hello"
+      },
+      false
+    ],
+    [
+      "$all - fail (case sensitive mismatch)",
+      {
+        "tags": {
+          "$all": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "THREE"]
+      },
+      false
+    ],
+    [
+      "$alli - pass (case insensitive match)",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "THREE"]
+      },
+      true
+    ],
+    [
+      "$alli - pass (uppercase pattern, lowercase value)",
+      {
+        "tags": {
+          "$alli": ["ONE", "THREE"]
+        }
+      },
+      {
+        "tags": ["one", "two", "three"]
+      },
+      true
+    ],
+    [
+      "$alli - pass (mixed case)",
+      {
+        "tags": {
+          "$alli": ["One", "Three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "three"]
+      },
+      true
+    ],
+    [
+      "$alli - fail (case insensitive, missing value)",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
+        }
+      },
+      {
+        "tags": ["ONE", "two", "four"]
+      },
+      false
+    ],
+    [
+      "$alli - fail not array",
+      {
+        "tags": {
+          "$alli": ["one", "three"]
         }
       },
       {
