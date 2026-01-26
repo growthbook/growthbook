@@ -55,8 +55,7 @@ export default defineConfig([
       globals: {
         ...globals.node,
         ...globals.browser,
-        Atomics: "readonly",
-        SharedArrayBuffer: "readonly",
+        ...globals.es2015,
       },
 
       parser: tsParser,
@@ -392,14 +391,6 @@ export default defineConfig([
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",
-    },
-  },
-  {
-    // Scripts that have special import patterns
-    files: ["./packages/shared/scripts/*.ts"],
-
-    rules: {
-      "import/default": "off",
     },
   },
 ]);

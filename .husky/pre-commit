@@ -30,7 +30,7 @@ eslintconfigchanged=$(has_changes "eslint.config.mjs")
 if [ -n "$eslintconfigchanged" ]
   then
     echo "#### ESLint config changed, regenerating suppressions"
-    pnpm eslint --suppress-all --prune-suppressions .
+    pnpm eslint --suppress-all .
 fi
 
 echo "#### Linting typescript, scss, and markdown files"
