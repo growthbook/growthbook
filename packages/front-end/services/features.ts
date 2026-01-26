@@ -468,15 +468,20 @@ export function useFeaturesList({
   project, // provided project takes precedence over useCurrentProject: true
   useCurrentProject = true, // use the project selected in the project selector
   includeArchived = false,
+  skipFetch = false, // skip fetching entirely (useful when waiting for data to load)
 }: {
   project?: string;
   useCurrentProject?: boolean;
   includeArchived?: boolean;
+  skipFetch?: boolean;
 } = {}) {
   const { project: currentProject } = useDefinitions();
-  if (!project && !useCurrentProject) {
-    console.error("useFeaturesList: found a global request for features");
-  }
+  console.log("useFeaturesList", {
+    project,
+    useCurrentProject,
+    skipFetch,
+    currentProject,
+  });
 
   const qs = new URLSearchParams();
   const projectToUse =
@@ -487,13 +492,24 @@ export function useFeaturesList({
   if (includeArchived) {
     qs.set("includeArchived", "true");
   }
+  // Only warn if explicitly requesting global scope (useCurrentProject: false with no project)
+  // Don't warn if user has "All Projects" selected (useCurrentProject: true with empty currentProject)
+  if (!projectToUse && !skipFetch) {
+    const stack = new Error().stack;
+    console.error("useFeaturesList: found a global request for features", {
+      project,
+      useCurrentProject,
+      currentProject,
+      stack,
+    });
+  }
 
   const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
     hasArchived: boolean;
-  }>(url);
+  }>(url, { shouldRun: () => !skipFetch });
 
   const { features, hasArchived } = useMemo(() => {
     if (data) {
@@ -510,7 +526,7 @@ export function useFeaturesList({
 
   return {
     features,
-    loading: !data,
+    loading: !data && !skipFetch,
     error,
     mutate,
     hasArchived,

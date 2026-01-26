@@ -53,10 +53,6 @@ export default function FeaturePage() {
 
   const { apiCall } = useAuth();
 
-  // Fetch all features globally for stale detection (checking if other features depend on this one)
-  const { features } = useFeaturesList({ useCurrentProject: false });
-  const allEnvironments = useEnvironments();
-
   const [data, setData] = useState<{
     feature: FeatureInterface | null;
     revisionList: MinimalFeatureRevisionInterface[];
@@ -83,6 +79,13 @@ export default function FeaturePage() {
   const holdout = data?.holdout;
   const [error, setError] = useState<string | null>(null);
   const { experiments: allExperiments } = useExperiments();
+
+  // Scope stale detection to the current feature's project
+  const { features } = useFeaturesList({
+    project: baseFeature?.project,
+    skipFetch: !baseFeature?.project,
+  });
+  const allEnvironments = useEnvironments();
 
   const fetchData = useCallback(
     async (queryString = "") => {

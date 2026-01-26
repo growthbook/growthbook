@@ -82,15 +82,15 @@ export default function EditSavedGroupPage() {
   }, [savedGroup?.projects]);
 
   // Scope features based on toggle state and saved group's projects
-  const { features } = useFeaturesList(
-    savedGroupProjectIds.length === 0
-      ? { useCurrentProject: false } // No projects - show all
-      : showOtherProjects
-        ? { useCurrentProject: false } // Toggle on - show all
-        : savedGroupProjectIds.length === 1
-          ? { project: savedGroupProjectIds[0] } // Single project - scope to it
-          : { useCurrentProject: false }, // Multiple projects - show all
-  );
+  const { features } = useFeaturesList({
+    project:
+      savedGroupProjectIds.length === 1 && !showOtherProjects
+        ? savedGroupProjectIds[0]
+        : undefined,
+    useCurrentProject:
+      savedGroupProjectIds.length === 0 || showOtherProjects ? false : true,
+    skipFetch: !savedGroup, // Skip fetching until saved group is loaded
+  });
   const { experiments } = useExperiments();
   const environments = useEnvironments();
 
