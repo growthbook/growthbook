@@ -23,7 +23,7 @@ GrowthBook's SCIM integration currently offers the following features:
 
 When a user is provisioned, they are added to your GrowthBook organization with your organization's default role. After provisioning, admin users can adjust their roles and permissions via the GrowthBook application as needed. It's important to note that if a user is provisioned through SCIM, they can only be deprovisioned through your identity provider.
 
-GrowthBook does support the ability to optionally [define a role when provisioning a user](#okta-how-to-define-user-roles-when-provisioning). Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
+GrowthBook does support the ability to optionally define a role when provisioning a user. See [Okta: How to Define User Roles When Provisioning](#okta-how-to-define-user-roles-when-provisioning) or [Azure AD: How to Define User Roles When Provisioning](#azure-ad-how-to-define-user-roles-when-provisioning) for detailed instructions. Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
 
 When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Just like how user provisioning works, new Teams will be set up with your organization's default role. You'll need to adjust the permissions for the Team in GrowthBook. Group removal or membership changes will need to be done through your identity provider.
 
@@ -161,6 +161,7 @@ Customizing the attribute mapping is a critical step that enables the mapping of
 |        active         | Switch([IsSoftDeleted], , "False", "True", "True", "False") |          -          |
 |      displayName      |                         displayName                         |          -          |
 |      externalID       |                          objectId                           |          -          |
+|    growthbookRole     |  extension\_[appId]\_growthbookRole (or custom attribute)   |          -          |
 
 ![Microsoft Azure web app on the attribute mappings page](../../static/images/integrations/azure/growthbook-entra-scim-user-mapping.png)
 
@@ -170,16 +171,161 @@ Using groups simplifies providing users with custom permissions. When a user is 
 
 If you are planning to use groups, below are the required attributes and how they need to be mapped.
 
-| GrowthBook Attributes | Azure AD / Entra ID Attributes | Matching precedence |
-| :-------------------: | :----------------------------: | :-----------------: |
-|      displayName      |          displayName           |          1          |
-|        members        |            members             |          -          |
+| GrowthBook Attributes |              Azure AD / Entra ID Attributes              | Matching precedence |
+| :-------------------: | :------------------------------------------------------: | :-----------------: |
+|      displayName      |                       displayName                        |          1          |
+|        members        |                         members                          |          -          |
+|    growthbookRole     | extension\_[appId]\_growthbookRole (or custom attribute) |          -          |
 
 ![Microsoft Azure web app on the attribute mappings page, extended](../../static/images/integrations/azure/growthbook-entra-scim-group-mapping.png)
 
 :::info Syncing groups is optional
 
 When a group is synced with GrowthBook, it creates a team in your GrowthBook organization and adds any members in the group to the team. This is handy because any role you assign to a team will also be inherited by its members. With Azure AD/Entra ID, all group members are synced to GrowthBook.
+
+:::
+
+:::info Premium edition required for group syncing
+
+Your Microsoft Entra ID/Azure AD account must be a Premium edition to provision groups. Provisioning users is available for any Microsoft Entra ID edition.
+
+:::
+
+:::note Nested groups not supported
+
+Microsoft Entra ID does not support the automatic provisioning of nested groups to GrowthBook. Microsoft Entra ID can only read and provision users that are immediate members of the explicitly assigned group. As a workaround, explicitly assign (or otherwise scope in) the groups that contain the users who need to be provisioned.
+
+:::
+
+#### Enabling Group Syncing
+
+To sync Azure AD groups to GrowthBook Teams:
+
+1. After configuring the attribute mappings above, navigate to **Manage** → **Provisioning** in your enterprise application.
+2. Ensure the **Provisioning Status** toggle is set to **On**.
+3. Navigate to **Manage** → **Users and groups**.
+4. Click **Add user/group**, then select the groups you want to sync to GrowthBook.
+5. Click **Assign** to add the groups to the application.
+6. The groups will be automatically provisioned to GrowthBook as Teams during the next sync cycle (typically every 20-40 minutes).
+
+When a group is provisioned:
+
+- A corresponding Team is created in GrowthBook with the same name as the Azure AD group
+- All members of the Azure AD group who have been provisioned to GrowthBook are automatically added to the Team
+- The Team is assigned your organization's default role (unless you configure a custom role - see [Azure AD: How to Define Team Roles When Provisioning Groups](#azure-ad-how-to-define-team-roles-when-provisioning-groups))
+- The Team is marked as managed by your identity provider
+
+#### Azure AD: How to Define User Roles When Provisioning
+
+1. First, ensure that you've followed the general setup instructions above and have configured the basic user attribute mappings.
+
+2. In your Azure portal, navigate to your GrowthBook enterprise application, then go to **Manage** → **Provisioning** → **Mappings**.
+
+3. Click **Provision Azure Active Directory Users** to edit the user attribute mappings.
+
+4. Scroll down to find or add the `growthbookRole` attribute mapping. Click **Add New Mapping**.
+
+5. Configure the mapping as follows:
+   - **Source attribute**: You have several options:
+     - **Extension attribute** (recommended): Use `extension_[appId]_growthbookRole` where `[appId]` is your enterprise application's ID. You'll need to define this extension attribute first (see step 6).
+     - **Custom attribute**: If you've defined a custom attribute in Azure AD schema
+     - **Expression**: Use an expression to map from existing attributes (e.g., map from `department` or `jobTitle` to a role)
+   - **Target attribute**: `growthbookRole`
+   - **Apply this mapping**: Select "Always"
+
+6. If using an extension attribute, you'll need to define it in Azure AD:
+   - Navigate to **Microsoft Entra ID** → **App registrations** → Find your enterprise application (or create a new app registration if needed)
+   - Go to **Manifest** and add an extension property, or use an existing extension attribute
+   - The extension attribute format is: `extension_[appId]_growthbookRole`
+   - Note: You can find your application ID in the enterprise application's overview page
+
+7. Define the valid role values. GrowthBook accepts the following role values (case-sensitive):
+   - `readonly` - Read only
+   - `collaborator` - Collaborator
+   - `engineer` - Engineer
+   - `analyst` - Analyst
+   - `experimenter` - Experimenter
+   - `admin` - Admin
+
+:::info Exact capitalization required
+
+It's important that each of these values are entered exactly as shown above, including capitalization. If there is a discrepancy, the user's role will fall back to your organization's default role.
+
+:::
+
+8. Click **Save** to apply the mapping.
+
+9. If you're using an extension attribute or custom attribute, you'll need to populate it for each user in Azure AD. You can do this:
+   - Manually for individual users in the Azure AD user properties
+   - Via PowerShell scripts
+   - Via Microsoft Graph API
+   - Through bulk import/export operations
+
+10. Once configured, when you provision a user, their `growthbookRole` attribute will be sent to GrowthBook and applied automatically. If you're not sure which role a user should have, you can [view GrowthBook role permissions](/account/user-permissions).
+
+:::note Role updates
+
+To update a user's role after they've been provisioned, you can update the `growthbookRole` attribute in Azure AD. The change will be synced to GrowthBook during the next provisioning cycle. Make sure your provisioning settings support "updates" for users.
+
+:::
+
+#### Azure AD: How to Define Team Roles When Provisioning Groups
+
+1. First, ensure that you've followed the general setup instructions above and have configured the basic group attribute mappings.
+
+2. In your Azure portal, navigate to your GrowthBook enterprise application, then go to **Manage** → **Provisioning** → **Mappings**.
+
+3. Click **Provision Azure Active Directory Groups** to edit the group attribute mappings.
+
+4. Scroll down to find or add the `growthbookRole` attribute mapping. Click **Add New Mapping**.
+
+5. Configure the mapping as follows:
+   - **Source attribute**: You have several options:
+     - **Extension attribute** (recommended): Use `extension_[appId]_growthbookRole` where `[appId]` is your enterprise application's ID. You'll need to define this extension attribute for groups first (see step 6).
+     - **Custom attribute**: If you've defined a custom attribute in Azure AD schema for groups
+     - **Expression**: Use an expression to map from existing group attributes
+   - **Target attribute**: `growthbookRole`
+   - **Apply this mapping**: Select "Always"
+
+6. If using an extension attribute, you'll need to define it in Azure AD for groups:
+   - Navigate to **Microsoft Entra ID** → **App registrations** → Find your enterprise application (or create a new app registration if needed)
+   - Go to **Manifest** and add an extension property for groups, or use an existing extension attribute
+   - The extension attribute format is: `extension_[appId]_growthbookRole`
+   - Note: You can find your application ID in the enterprise application's overview page
+
+7. Define the valid role values. GrowthBook accepts the following role values (case-sensitive):
+   - `readonly` - Read only
+   - `collaborator` - Collaborator
+   - `engineer` - Engineer
+   - `analyst` - Analyst
+   - `experimenter` - Experimenter
+   - `admin` - Admin
+
+:::info Exact capitalization required
+
+It's important that each of these values are entered exactly as shown above, including capitalization. If there is a discrepancy, the team's role will fall back to your organization's default role.
+
+:::
+
+8. Click **Save** to apply the mapping.
+
+9. If you're using an extension attribute or custom attribute, you'll need to populate it for each group in Azure AD. You can do this:
+   - Manually for individual groups in the Azure AD group properties
+   - Via PowerShell scripts
+   - Via Microsoft Graph API
+   - Through bulk import/export operations
+
+10. Once configured, when you provision a group, its `growthbookRole` attribute will be sent to GrowthBook and applied to the corresponding Team automatically. All members of the Team will inherit this role. If you're not sure which role a team should have, you can [view GrowthBook role permissions](/account/user-permissions).
+
+:::note Team role inheritance
+
+When a team is assigned a role via `growthbookRole`, all members of that team inherit the team's permissions. This is a convenient way to manage permissions for multiple users at once.
+
+:::
+
+:::note Role updates
+
+To update a team's role after it's been provisioned, you can update the `growthbookRole` attribute on the group in Azure AD. The change will be synced to GrowthBook during the next provisioning cycle. Make sure your provisioning settings support "updates" for groups.
 
 :::
 
@@ -238,11 +384,15 @@ In GrowthBook, a user can belong to multiple organizations, so no single organiz
 
 **Can I define a user's `growthbookRole` via Azure AD/Microsoft Entra ID?**
 
-It's possible to define `growthbookRole` by adding a custom attribute and mapping it accordingly, but we don't yet offer any additional documentation.
+Yes! See [Azure AD: How to Define User Roles When Provisioning](#azure-ad-how-to-define-user-roles-when-provisioning) for detailed instructions.
 
 **I'm using Microsoft Entra ID/Azure AD and I'm unable to sync groups.**
 
 Please ensure that your Microsoft Entra ID/Azure AD plan supports group syncing.
+
+**Can I define a team's `growthbookRole` via Azure AD/Microsoft Entra ID?**
+
+Yes! See [Azure AD: How to Define Team Roles When Provisioning Groups](#azure-ad-how-to-define-team-roles-when-provisioning-groups) for detailed instructions.
 
 **How do I change a user's email address once provisioned?**
 It's not possible to update a user's email after they're provisioned. Instead, follow these steps:
