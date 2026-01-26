@@ -191,51 +191,51 @@ export default function FeaturesHeader({
                   View Audit Log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {canEdit && (
+                {canEdit && (
                 <DropdownMenuGroup>
                   <DropdownMenuItem
                     onClick={() => {
-                      setStaleFFModal(true);
+                        setStaleFFModal(true);
                       setDropdownOpen(false);
-                    }}
-                  >
-                    {feature.neverStale
-                      ? "Enable stale detection"
-                      : "Disable stale detection"}
+                      }}
+                    >
+                      {feature.neverStale
+                        ? "Enable stale detection"
+                        : "Disable stale detection"}
                   </DropdownMenuItem>
                   {canPublish &&
-                    holdoutsEnabled &&
-                    holdouts.length > 0 &&
-                    !holdout?.id && (
+                  holdoutsEnabled &&
+                  holdouts.length > 0 &&
+                  !holdout?.id && (
                       <DropdownMenuItem
                         onClick={() => {
-                          setAddToHoldoutModal(true);
+                        setAddToHoldoutModal(true);
                           setDropdownOpen(false);
-                        }}
-                      >
-                        Add to holdout
+                      }}
+                    >
+                      Add to holdout
                       </DropdownMenuItem>
                     )}
                 </DropdownMenuGroup>
-              )}
-              {canEdit && canPublish && (
+                  )}
+                {canEdit && canPublish && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem
                       onClick={() => {
-                        setDuplicateModal(true);
+                      setDuplicateModal(true);
                         setDropdownOpen(false);
-                      }}
-                    >
-                      Duplicate
+                    }}
+                  >
+                    Duplicate
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => {
                         setArchiveModal(true);
                         setDropdownOpen(false);
                       }}
-                    >
+                  >
                       {isArchived ? "Unarchive" : "Archive"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
@@ -251,8 +251,8 @@ export default function FeaturesHeader({
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                </>
-              )}
+                  </>
+                )}
             </DropdownMenu>
           </Flex>
           <Flex gap="4">

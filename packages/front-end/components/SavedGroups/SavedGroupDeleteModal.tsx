@@ -8,10 +8,7 @@ import {
   featuresReferencingSavedGroups,
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isEmpty } from "lodash";
 import { Text } from "@radix-ui/themes";
 import { useEnvironments, useFeaturesList } from "@/services/features";
@@ -35,7 +32,7 @@ function useSavedGroupReferences(
   const { features, loading: featuresLoading } = useFeaturesList({
     useCurrentProject: false,
   });
-  const { experiments } = useExperiments();
+  const { experiments, loading: experimentsLoading } = useExperiments();
   const environments = useEnvironments();
   const { savedGroups: allSavedGroups } = useDefinitions();
 
@@ -51,7 +48,7 @@ function useSavedGroupReferences(
 
   // Find features that reference the target (directly or via other saved groups)
   const referencingFeatures = useMemo(() => {
-    if (featuresLoading) return [] as FeatureInterface[];
+    if (featuresLoading) return [];
     const savedGroupsToCheck = [
       savedGroup as SavedGroupInterface,
       ...savedGroupsReferencingTarget,
@@ -78,6 +75,7 @@ function useSavedGroupReferences(
 
   // Find experiments that reference the target (directly or via other saved groups)
   const referencingExperiments = useMemo(() => {
+    if (experimentsLoading) return [];
     const savedGroupsToCheck = [
       savedGroup as SavedGroupInterface,
       ...savedGroupsReferencingTarget,
@@ -86,17 +84,21 @@ function useSavedGroupReferences(
       savedGroups: savedGroupsToCheck,
       experiments,
     });
-    const allExperiments = new Map<
-      string,
-      ExperimentInterface | ExperimentInterfaceStringDates
-    >();
+    const allExperiments = new Map<string, ExperimentInterfaceStringDates>();
     savedGroupsToCheck.forEach((sg) => {
-      (referenceMap[sg.id] || []).forEach((experiment) => {
+      const experimentsForGroup = (referenceMap[sg.id] ||
+        []) as ExperimentInterfaceStringDates[];
+      experimentsForGroup.forEach((experiment) => {
         allExperiments.set(experiment.id, experiment);
       });
     });
     return Array.from(allExperiments.values());
-  }, [savedGroup, savedGroupsReferencingTarget, experiments]);
+  }, [
+    savedGroup,
+    savedGroupsReferencingTarget,
+    experiments,
+    experimentsLoading,
+  ]);
 
   // Saved groups that reference the target
   const referencingSavedGroups = useMemo(() => {
@@ -105,12 +107,13 @@ function useSavedGroupReferences(
 
   const canDelete =
     !featuresLoading &&
+    !experimentsLoading &&
     isEmpty(referencingFeatures) &&
     isEmpty(referencingExperiments) &&
     isEmpty(referencingSavedGroups);
 
   return {
-    loading: featuresLoading,
+    loading: featuresLoading || experimentsLoading,
     canDelete,
     referencingFeatures,
     referencingExperiments,

@@ -25,7 +25,7 @@ export default function FeatureArchiveModal({
   const { features, loading: featuresLoading } = useFeaturesList({
     useCurrentProject: false,
   });
-  const { experiments } = useExperiments();
+  const { experiments, loading: experimentsLoading } = useExperiments();
 
   const dependentFeatures = useMemo(() => {
     if (featuresLoading || !features) return [];
@@ -33,9 +33,9 @@ export default function FeatureArchiveModal({
   }, [feature, features, environments, featuresLoading]);
 
   const dependentExperiments = useMemo(() => {
-    if (!experiments) return [];
+    if (experimentsLoading || !experiments) return [];
     return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
+  }, [feature, experiments, experimentsLoading]);
 
   const dependents = dependentFeatures.length + dependentExperiments.length;
   const isArchived = feature.archived;
@@ -52,10 +52,10 @@ export default function FeatureArchiveModal({
         await onArchive();
         close();
       }}
-      ctaEnabled={!featuresLoading && dependents === 0}
+      ctaEnabled={!featuresLoading && !experimentsLoading && dependents === 0}
       increasedElevation={true}
     >
-      {featuresLoading ? (
+      {featuresLoading || experimentsLoading ? (
         <Text color="gray">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
