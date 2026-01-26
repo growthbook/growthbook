@@ -1,5 +1,12 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+
+interface MinimalFeatureInfo {
+  id: string;
+  valueType: "boolean" | "string" | "number" | "json";
+  project?: string;
+  defaultValue?: string;
+}
 import React, { useMemo } from "react";
 import {
   filterEnvironmentsByFeature,
@@ -15,11 +22,11 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import {
   getFeatureDefaultValue,
   getPrerequisites,
   useEnvironments,
-  useFeaturesList,
 } from "@/services/features";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import track from "@/services/track";
@@ -41,7 +48,6 @@ import SelectField, {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Callout from "@/ui/Callout";
-import { Flex } from "@radix-ui/themes";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
@@ -61,9 +67,8 @@ export default function PrerequisiteModal({
   i,
   mutate,
 }: Props) {
-  const { features: featureNames } = useFeaturesNames();
-  const { features: allFeatures } = useFeaturesList({
-    useCurrentProject: false,
+  const { features: featureNames } = useFeaturesNames({
+    includeDefaultValue: true,
   });
   const { projects } = useDefinitions();
   const prerequisites = getPrerequisites(feature);
@@ -93,7 +98,18 @@ export default function PrerequisiteModal({
 
   const selectedFeatureId = form.watch("id");
   const selectedPrerequisite = form.getValues();
-  const parentFeature = allFeatures.find((f) => f.id === selectedFeatureId);
+  const parentFeatureMeta = featureNames.find(
+    (f) => f.id === selectedFeatureId,
+  );
+  const parentFeature: MinimalFeatureInfo | undefined =
+    parentFeatureMeta && parentFeatureMeta.defaultValue !== undefined
+      ? {
+          id: parentFeatureMeta.id,
+          project: parentFeatureMeta.project,
+          valueType: parentFeatureMeta.valueType,
+          defaultValue: parentFeatureMeta.defaultValue,
+        }
+      : undefined;
 
   const featureIds = useMemo(
     () => featureNames.filter((f) => f.id !== feature?.id).map((f) => f.id),
@@ -295,10 +311,11 @@ export default function PrerequisiteModal({
       </Callout>
 
       <label className="mt-4 d-block">
-        Select feature from boolean features{" "}
-        (<DocLink docSection="prerequisites">
+        Select feature from boolean features (
+        <DocLink docSection="prerequisites">
           docs <PiArrowSquareOut />
-        </DocLink>)
+        </DocLink>
+        )
       </label>
 
       <SelectField
@@ -424,7 +441,12 @@ export default function PrerequisiteModal({
           </Flex>
 
           {(parentFeature?.project || "") !== featureProject ? (
-            <Callout status="warning" mb="5" dismissible={true} id="prerequisite-project-mismatch--modal">
+            <Callout
+              status="warning"
+              mb="5"
+              dismissible={true}
+              id="prerequisite-project-mismatch--modal"
+            >
               The prerequisite&apos;s project does not match this feature&apos;s
               project. For SDK connections that do not overlap in project scope,
               prerequisite evaluation will not pass.

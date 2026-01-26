@@ -3893,7 +3893,7 @@ function evalDeterministicPrereqValueBackend(
  * This is much more efficient than fetching full feature objects.
  */
 export async function getFeatureNames(
-  req: AuthRequest,
+  req: AuthRequest<null, null, { defaultValue?: string }>,
   res: Response<
     {
       status: 200;
@@ -3903,8 +3903,9 @@ export async function getFeatureNames(
   >,
 ) {
   const context = getContextFromReq(req);
+  const includeDefaultValue = req.query.defaultValue === "1";
 
-  const features = await getFeatureMetaInfoById(context);
+  const features = await getFeatureMetaInfoById(context, includeDefaultValue);
 
   res.status(200).json({
     status: 200,

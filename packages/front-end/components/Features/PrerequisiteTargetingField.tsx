@@ -1,6 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+
+interface MinimalFeatureInfo {
+  id: string;
+  valueType: "boolean" | "string" | "number" | "json";
+  project?: string;
+  defaultValue?: string;
+}
 import {
   FaExclamationCircle,
   FaExternalLinkAlt,
@@ -22,7 +29,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
+import { getFeatureDefaultValue } from "@/services/features";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
@@ -74,9 +81,8 @@ export default function PrerequisiteTargetingField({
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features: featureNames } = useFeaturesNames();
-  const { features: allFeatures } = useFeaturesList({
-    useCurrentProject: false,
+  const { features: featureNames } = useFeaturesNames({
+    includeDefaultValue: true,
   });
   const { projects } = useDefinitions();
   const valueStr = JSON.stringify(value);
@@ -97,11 +103,13 @@ export default function PrerequisiteTargetingField({
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
-      const parentFeature = allFeatures.find((f) => f.id === v.id);
+      const parentFeatureMeta = featureNames.find((f) => f.id === v.id);
       const parentCondition = v.condition;
-      if (parentFeature) {
+      if (parentFeatureMeta && parentFeatureMeta.defaultValue !== undefined) {
         if (parentCondition === "" || parentCondition === "{}") {
-          const condStr = getDefaultPrerequisiteCondition(parentFeature);
+          const condStr = getDefaultPrerequisiteCondition({
+            valueType: parentFeatureMeta.valueType,
+          });
           setValue([
             ...value.slice(0, i),
             {
@@ -114,7 +122,7 @@ export default function PrerequisiteTargetingField({
         }
       }
     }
-  }, [valueStr]);
+  }, [valueStr, featureNames]);
 
   // Get all feature IDs that we need states for (dropdown options + selected prerequisites)
   const allFeatureIds = useMemo(() => {
@@ -286,7 +294,16 @@ export default function PrerequisiteTargetingField({
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
-            const parentFeature = allFeatures.find((f) => f.id === v.id);
+            const parentFeatureMeta = featureNames.find((f) => f.id === v.id);
+            const parentFeature: MinimalFeatureInfo | undefined =
+              parentFeatureMeta && parentFeatureMeta.defaultValue !== undefined
+                ? {
+                    id: parentFeatureMeta.id,
+                    project: parentFeatureMeta.project,
+                    valueType: parentFeatureMeta.valueType,
+                    defaultValue: parentFeatureMeta.defaultValue,
+                  }
+                : undefined;
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
               (s) => s.state === "conditional",
@@ -555,7 +572,7 @@ function PrereqStatesRows({
   featureProject,
   loading = false,
 }: {
-  parentFeature?: FeatureInterface;
+  parentFeature?: MinimalFeatureInfo;
   prereqStates: Record<string, PrerequisiteStateResult> | null;
   environments: string[];
   featureProject: string;

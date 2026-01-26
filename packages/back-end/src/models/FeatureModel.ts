@@ -1176,18 +1176,24 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
 
 export async function getFeatureMetaInfoById(
   context: ReqContext | ApiReqContext,
+  includeDefaultValue = false,
 ): Promise<FeatureMetaInfo[]> {
+  const projection: Record<string, number> = {
+    id: 1,
+    project: 1,
+    archived: 1,
+    dateCreated: 1,
+    tags: 1,
+    owner: 1,
+    valueType: 1,
+  };
+  if (includeDefaultValue) {
+    projection.defaultValue = 1;
+  }
+
   const features = await FeatureModel.find(
     { organization: context.org.id },
-    {
-      id: 1,
-      project: 1,
-      archived: 1,
-      dateCreated: 1,
-      tags: 1,
-      owner: 1,
-      valueType: 1,
-    },
+    projection,
   );
 
   return features.map((f) => ({
@@ -1198,6 +1204,7 @@ export async function getFeatureMetaInfoById(
     tags: f.tags,
     owner: f.owner,
     valueType: f.valueType,
+    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   }));
 }
 

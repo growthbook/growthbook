@@ -1,22 +1,22 @@
 import { FeatureMetaInfo } from "shared/types/feature";
+import { useMemo } from "react";
 import useApi from "@/hooks/useApi";
 
-interface FeaturesNamesResponse {
-  status: 200;
-  features: FeatureMetaInfo[];
-}
+// Lightweight hook for feature metadata (more efficient than useFeaturesList)
+export function useFeaturesNames({
+  includeDefaultValue = false,
+}: { includeDefaultValue?: boolean } = {}) {
+  const url = includeDefaultValue
+    ? "/features/names?defaultValue=1"
+    : "/features/names";
+  const { data, error, mutate } = useApi<{ features: FeatureMetaInfo[] }>(url);
 
-/**
- * Lightweight hook to fetch feature metadata for dropdowns.
- * Much more efficient than useFeaturesList as it only returns minimal data.
- * Use this for prerequisite selection dropdowns instead of full feature objects.
- */
-export function useFeaturesNames() {
-  const { data, error, mutate } =
-    useApi<FeaturesNamesResponse>("/features/names");
+  const features = useMemo(() => {
+    return data?.features || [];
+  }, [data]);
 
   return {
-    features: data?.features || [],
+    features,
     loading: !data && !error,
     error,
     mutate,
