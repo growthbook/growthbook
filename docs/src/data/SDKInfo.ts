@@ -381,7 +381,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.4",
+    version: "0.2.6",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -452,6 +452,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        stickyBucketing: "≥ v0.1.0",
+      },
+      {
         encryption: "≥ v0.0.1",
       },
       {
@@ -470,7 +473,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.2",
+    version: "0.10.5",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -662,7 +665,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.82",
+    version: "1.0.93",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -1012,7 +1015,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.1.0",
+    version: "4.2.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
