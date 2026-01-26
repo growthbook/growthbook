@@ -596,12 +596,26 @@ function getRecommendedRolloutData({
     lastPhase.namespace?.enabled &&
     data.namespace.name === lastPhase.namespace.name
   ) {
-    const namespaceRange = data.namespace.range ?? [0, 1];
-    const lastNamespaceRange = lastPhase.namespace.range ?? [0, 1];
-    if (
-      namespaceRange[0] > lastNamespaceRange[0] ||
-      namespaceRange[1] < lastNamespaceRange[1]
-    ) {
+    // Get total range coverage
+    const getTotalCoverage = (ns: {
+      ranges?: [number, number][];
+      range?: [number, number];
+    }) => {
+      if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+        return ns.ranges.reduce(
+          (sum: number, [start, end]: [number, number]) => sum + (end - start),
+          0,
+        );
+      } else if ("range" in ns && ns.range) {
+        return ns.range[1] - ns.range[0];
+      }
+      return 1;
+    };
+
+    const currentCoverage = getTotalCoverage(data.namespace);
+    const lastCoverage = getTotalCoverage(lastPhase.namespace);
+
+    if (currentCoverage < lastCoverage) {
       decreaseNamespaceRange = true;
     }
   }

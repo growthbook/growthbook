@@ -2830,7 +2830,7 @@ export async function getFeatureById(
       );
     } catch (e) {
       // This is not a fatal error, so don't block the request from happening
-      req.log.warn("Error creating initial feature revision", { feature: id });
+      req.log.warn(e, "Error creating initial feature revision");
     }
   }
 

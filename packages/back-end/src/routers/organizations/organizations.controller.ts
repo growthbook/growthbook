@@ -9,6 +9,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
@@ -18,6 +19,7 @@ import {
   CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
+  Namespaces,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
@@ -927,17 +929,35 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.namespace.enabled,
         )
         .forEach((r: ExperimentRule) => {
-          const { name, range } = r.namespace as NamespaceValue;
-          namespaces[name] = namespaces[name] || [];
-          namespaces[name].push({
-            link: `/features/${f.id}`,
-            name: f.id,
-            id: f.id,
-            trackingKey: r.trackingKey || f.id,
-            start: range[0],
-            end: range[1],
-            environment: env,
-          });
+          const ns = r.namespace as NamespaceValue;
+          namespaces[ns.name] = namespaces[ns.name] || [];
+
+          // Handle both old (single range) and new (multiple ranges) formats
+          if ("ranges" in ns && ns.ranges) {
+            // New format with multiple ranges
+            ns.ranges.forEach((range) => {
+              namespaces[ns.name].push({
+                link: `/features/${f.id}`,
+                name: f.id,
+                id: f.id,
+                trackingKey: r.trackingKey || f.id,
+                start: range[0],
+                end: range[1],
+                environment: env,
+              });
+            });
+          } else if ("range" in ns) {
+            // Legacy format with single range
+            namespaces[ns.name].push({
+              link: `/features/${f.id}`,
+              name: f.id,
+              id: f.id,
+              trackingKey: r.trackingKey || f.id,
+              start: ns.range[0],
+              end: ns.range[1],
+              environment: env,
+            });
+          }
         });
     });
   });
@@ -963,17 +983,35 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (!phase) return;
     if (!phase.namespace || !phase.namespace.enabled) return;
 
-    const { name, range } = phase.namespace;
-    namespaces[name] = namespaces[name] || [];
-    namespaces[name].push({
-      link: `/experiment/${e.id}`,
-      name: e.name,
-      id: e.trackingKey,
-      trackingKey: e.trackingKey,
-      start: range[0],
-      end: range[1],
-      environment: "",
-    });
+    const ns = phase.namespace;
+    namespaces[ns.name] = namespaces[ns.name] || [];
+
+    // Handle both old (single range) and new (multiple ranges) formats
+    if ("ranges" in ns && ns.ranges) {
+      // New format with multiple ranges
+      ns.ranges.forEach((range) => {
+        namespaces[ns.name].push({
+          link: `/experiment/${e.id}`,
+          name: e.name,
+          id: e.trackingKey,
+          trackingKey: e.trackingKey,
+          start: range[0],
+          end: range[1],
+          environment: "",
+        });
+      });
+    } else if ("range" in ns) {
+      // Legacy format with single range
+      namespaces[ns.name].push({
+        link: `/experiment/${e.id}`,
+        name: e.name,
+        id: e.trackingKey,
+        trackingKey: e.trackingKey,
+        start: ns.range[0],
+        end: ns.range[1],
+        environment: "",
+      });
+    }
   });
 
   res.status(200).json({
@@ -988,10 +1026,11 @@ export async function postNamespaces(
     label: string;
     description: string;
     status: "active" | "inactive";
+    hashAttribute: string;
   }>,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const { label, description, status, hashAttribute } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -1007,14 +1046,29 @@ export async function postNamespaces(
     throw new Error("A namespace with this name already exists.");
   }
 
+  if (!hashAttribute) {
+    throw new Error("Hash attribute is required");
+  }
+
   // Create a unique id for this new namespace - We might want to clean this
   // up later, but for now, 'name' is the unique identifier, and 'label' is
   // the display name.
   const name = uniqid("ns-");
+
+  const newNamespace: Namespaces = {
+    name,
+    label,
+    description,
+    status,
+    hashAttribute,
+    seed: uuidv4(),
+    format: "multiRange", // Explicitly mark as multiRange format
+  };
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, label, description, status }],
+      namespaces: [...namespaces, newNamespace],
     },
   });
 
@@ -1045,12 +1099,13 @@ export async function putNamespaces(
       label: string;
       description: string;
       status: "active" | "inactive";
+      hashAttribute: string;
     },
     { name: string }
   >,
   res: Response,
 ) {
-  const { label, description, status } = req.body;
+  const { label, description, status, hashAttribute } = req.body;
   const { name } = req.params;
 
   const context = getContextFromReq(req);
@@ -1068,10 +1123,21 @@ export async function putNamespaces(
     throw new Error("Namespace not found.");
   }
 
+  if (!hashAttribute) {
+    throw new Error("Hash attribute is required");
+  }
+
   const updatedNamespaces = namespaces.map((n) => {
     if (n.name === name) {
-      // cannot update the 'name' (id) of a namespace
-      return { label, name: n.name, description, status };
+      return {
+        name: n.name,
+        label,
+        description,
+        status,
+        hashAttribute,
+        seed: n.seed || uuidv4(), // Preserve existing seed or generate new one
+        format: n.format || "multiRange", // Preserve existing format or default to multiRange
+      } as Namespaces;
     }
     return n;
   });
