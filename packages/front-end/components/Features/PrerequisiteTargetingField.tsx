@@ -38,7 +38,6 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -570,8 +569,15 @@ function PrereqStatesRows({
 
   return (
     <>
-      <Flex align="center" mt="1" mb="2">
-        <Box flexGrow="1" />
+      <Flex align="center" justify="between" mt="1" mb="2">
+        <Link
+          href={`/features/${parentFeature.id}`}
+          target="_blank"
+          style={{ whiteSpace: "nowrap" }}
+        >
+          {parentFeature.id}
+          <FaExternalLinkAlt style={{ marginLeft: 4 }} />
+        </Link>
         <Link onClick={() => setShowDetails(!showDetails)}>
           {showDetails ? (
             <>
@@ -585,27 +591,22 @@ function PrereqStatesRows({
         </Link>
       </Flex>
 
+      {(parentFeature?.project || "") !== featureProject ? (
+        <Callout
+          status="warning"
+          mb="3"
+          size="sm"
+          dismissible={true}
+          id="prerequisite-project-mismatch--field"
+        >
+          The prerequisite&apos;s project does not match this feature&apos;s
+          project. For SDK connections that do not overlap in project scope,
+          prerequisite evaluation will not pass.
+        </Callout>
+      ) : null}
+
       {showDetails && (
         <Box>
-          <Box mb="2">
-            <Link
-              href={`/features/${parentFeature.id}`}
-              target="_blank"
-              style={{ whiteSpace: "nowrap" }}
-            >
-              {parentFeature.id}
-              <FaExternalLinkAlt style={{ marginLeft: 4 }} />
-            </Link>
-          </Box>
-
-          {(parentFeature?.project || "") !== featureProject ? (
-            <HelperText status="warning" mt="3" mb="6">
-              The prerequisite&apos;s project does not match this feature&apos;s
-              project. For SDK connections that do not overlap in project scope,
-              prerequisite evaluation will not pass.
-            </HelperText>
-          ) : null}
-
           <table className="table mb-4 border bg-white">
             <thead className="text-dark">
               <tr>
@@ -656,11 +657,15 @@ export const PrerequisiteAlerts = ({
   type = "prerequisite",
   project,
   size,
+  mt = "0",
+  mb = "4",
 }: {
   environments: string[];
   type?: "feature" | "prerequisite";
   project: string;
   size?: "sm" | "md";
+  mt?: string;
+  mb?: string;
 }) => {
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -681,7 +686,8 @@ export const PrerequisiteAlerts = ({
     <Callout
       size={size}
       status={hasSDKWithPrerequisites ? "warning" : "error"}
-      mb="4"
+      mb={mb}
+      mt={mt}
     >
       <Text>
         This {type} is in a{" "}

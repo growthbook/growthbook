@@ -849,6 +849,8 @@ export default function FeaturesOverview({
                 environments={envs}
                 type="feature"
                 project={projectId ?? ""}
+                mt="4"
+                mb="0"
               />
             )}
 

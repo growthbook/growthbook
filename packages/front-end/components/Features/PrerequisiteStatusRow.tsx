@@ -64,7 +64,7 @@ export default function PrerequisiteStatusRow({
       <td className="align-middle pl-3 border-right">
         <div className="d-flex">
           <div className="d-flex flex-1 align-items-center mr-2">
-            <span className="uppercase-title text-muted mr-2">Prereq</span>
+            <span className="uppercase-title text-muted mt-1 mr-2">Prereq</span>
             <a
               className="d-flex align-items-center"
               href={`/features/${prerequisite.id}`}

@@ -39,9 +39,9 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Callout from "@/ui/Callout";
+import { Flex } from "@radix-ui/themes";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
@@ -295,7 +295,10 @@ export default function PrerequisiteModal({
       </Callout>
 
       <label className="mt-4 d-block">
-        Select feature from boolean features
+        Select feature from boolean features{" "}
+        (<DocLink docSection="prerequisites">
+          docs <PiArrowSquareOut />
+        </DocLink>)
       </label>
 
       <SelectField
@@ -409,7 +412,7 @@ export default function PrerequisiteModal({
 
       {parentFeature ? (
         <div>
-          <div className="mb-2">
+          <Flex mb="4">
             <a
               href={`/features/${form.watch("id")}`}
               target="_blank"
@@ -418,14 +421,14 @@ export default function PrerequisiteModal({
               {form.watch("id")}
               <FaExternalLinkAlt className="ml-1" />
             </a>
-          </div>
+          </Flex>
 
           {(parentFeature?.project || "") !== featureProject ? (
-            <HelperText status="warning" mt="3" mb="6">
+            <Callout status="warning" mb="5" dismissible={true} id="prerequisite-project-mismatch--modal">
               The prerequisite&apos;s project does not match this feature&apos;s
               project. For SDK connections that do not overlap in project scope,
               prerequisite evaluation will not pass.
-            </HelperText>
+            </Callout>
           ) : null}
 
           <table className="table mb-4 border">
@@ -484,12 +487,6 @@ export default function PrerequisiteModal({
           environments={envs}
         />
       )}
-
-      <div className="float-right mt-1">
-        <DocLink docSection="prerequisites">
-          docs <PiArrowSquareOut />
-        </DocLink>
-      </div>
     </Modal>
   );
 }
