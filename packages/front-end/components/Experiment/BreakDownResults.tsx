@@ -27,6 +27,7 @@ import {
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { ExperimentTableRow } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
 } from "@/components/Experiment/ResultsTable";
@@ -102,6 +103,7 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  onRowClick?: (row: ExperimentTableRow) => void;
 }> = ({
   experimentId,
   dimensionId,
@@ -149,6 +151,7 @@ const BreakDownResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
+  onRowClick,
 }) => {
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
@@ -254,6 +257,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={table.rows}
+              onRowClick={onRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?

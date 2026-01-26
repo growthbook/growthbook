@@ -41,9 +41,6 @@ import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import MetricDrilldownModal, {
-  MetricDrilldownTab,
-} from "@/components/MetricDrilldown/MetricDrilldownModal";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
@@ -107,6 +104,7 @@ const CompactResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  onRowClick?: (row: ExperimentTableRow) => void;
 }> = ({
   experimentId,
   editMetrics,
@@ -155,6 +153,7 @@ const CompactResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
+  onRowClick,
 }) => {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -188,13 +187,6 @@ const CompactResults: FC<{
       [key]: !prev[key],
     }));
   };
-
-  const [openMetricDrilldownModalInfo, setOpenMetricDrilldownModalInfo] =
-    useState<{
-      metricRow: ExperimentTableRow;
-      initialTab?: MetricDrilldownTab;
-      initialSliceSearchTerm?: string;
-    } | null>(null);
 
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results,
@@ -337,27 +329,6 @@ const CompactResults: FC<{
     });
   }, [rows, hasSliceFilter, expandedMetrics]);
 
-  const handleRowClick = (row: ExperimentTableRow) => {
-    // Get the main metric row (if a slice row was clicked, find its parent)
-    const metricId = row.isSliceRow ? row.parentRowId : row.metric.id;
-    const mainMetricRow = !row.isSliceRow
-      ? row
-      : rows.find((r) => r.metric.id === metricId);
-
-    if (row.isSliceRow) {
-      setOpenMetricDrilldownModalInfo({
-        metricRow: mainMetricRow ?? row,
-        initialTab: "slices",
-        initialSliceSearchTerm: typeof row.label === "string" ? row.label : "",
-      });
-    } else {
-      setOpenMetricDrilldownModalInfo({
-        metricRow: mainMetricRow ?? row,
-        initialTab: "overview",
-      });
-    }
-  };
-
   return (
     <>
       {!mainTableOnly && (
@@ -395,7 +366,7 @@ const CompactResults: FC<{
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={filteredRows.filter((r) => r.resultGroup === "goal")}
-          onRowClick={handleRowClick}
+          onRowClick={onRowClick}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -457,7 +428,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
-            onRowClick={handleRowClick}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -513,7 +484,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
-            onRowClick={handleRowClick}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
@@ -553,46 +524,6 @@ const CompactResults: FC<{
         </div>
       ) : (
         <></>
-      )}
-
-      {openMetricDrilldownModalInfo !== null && (
-        <MetricDrilldownModal
-          row={openMetricDrilldownModalInfo.metricRow}
-          close={() => setOpenMetricDrilldownModalInfo(null)}
-          initialTab={openMetricDrilldownModalInfo.initialTab}
-          // useExperimentTableRows parameters
-          results={results}
-          goalMetrics={goalMetrics}
-          secondaryMetrics={secondaryMetrics}
-          guardrailMetrics={guardrailMetrics}
-          metricOverrides={metricOverrides}
-          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-          customMetricSlices={customMetricSlices}
-          ssrPolyfills={ssrPolyfills}
-          statsEngine={statsEngine}
-          pValueCorrection={pValueCorrection}
-          // Initial filter values
-          differenceType={differenceType}
-          baselineRow={baselineRow}
-          variationFilter={variationFilter}
-          // Experiment context
-          experimentId={experimentId}
-          phase={phase}
-          experimentStatus={status}
-          variations={variations}
-          startDate={startDate}
-          endDate={endDate}
-          reportDate={reportDate}
-          isLatestPhase={isLatestPhase}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          // Initial sorting state
-          initialSortBy={sortBy ?? null}
-          initialSortDirection={sortDirection ?? null}
-          // Slice-specific
-          initialSliceSearchTerm={
-            openMetricDrilldownModalInfo.initialSliceSearchTerm
-          }
-        />
       )}
     </>
   );
