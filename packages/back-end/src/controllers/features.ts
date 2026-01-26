@@ -3341,15 +3341,10 @@ export async function getPrerequisiteStates(
     throw new Error("Could not find feature");
   }
 
-  // Parse requested environments from query string
-  // Note: We evaluate ALL requested environments, even if the feature doesn't have them
-  // The evaluatePrerequisiteStateAsync function handles missing environments correctly
-  // by returning { state: "deterministic", value: null }
   let envIds: string[];
   if (req.query.environments) {
     envIds = req.query.environments.split(",");
   } else {
-    // If no environments specified, use the feature's environments
     const allEnvironments = getEnvironments(org);
     const featureEnvironments = filterEnvironmentsByFeature(
       allEnvironments,
@@ -3358,10 +3353,8 @@ export async function getPrerequisiteStates(
     envIds = featureEnvironments.map((e) => e.id);
   }
 
-  // Parse skipRootConditions - if true, skips the feature's own rules (used for summary row)
   const skipRootConditions = req.query.skipRootConditions === "true";
 
-  // Evaluate prerequisite states with JIT feature loading
   const states: Record<string, PrerequisiteStateResult> = {};
   for (const env of envIds) {
     states[env] = await evaluatePrerequisiteStateAsync(
@@ -3379,14 +3372,23 @@ export async function getPrerequisiteStates(
   });
 }
 
-/**
- * Batch evaluates prerequisite states for multiple features and checks if they would create cycles.
- * This is used for feature selection dropdowns (e.g., prerequisite selection).
- * The feature ID in params is the feature we're adding prerequisites TO.
- */
+// Batch evaluate prerequisite states and cyclic checks for multiple features
 export async function postBatchPrerequisiteStates(
   req: AuthRequest<
-    { featureIds: string[]; environments: string[] },
+    {
+      featureIds: string[];
+      environments: string[];
+      checkPrerequisite?: {
+        id: string;
+        condition: string;
+        prerequisiteIndex?: number;
+      };
+      checkRulePrerequisites?: {
+        environment: string;
+        ruleIndex: number;
+        prerequisites: FeaturePrerequisite[];
+      };
+    },
     { id: string }
   >,
   res: Response<
@@ -3399,12 +3401,25 @@ export async function postBatchPrerequisiteStates(
           wouldBeCyclic: boolean;
         }
       >;
+      checkPrerequisiteCyclic?: {
+        wouldBeCyclic: boolean;
+        cyclicFeatureId: string | null;
+      };
+      checkRulePrerequisitesCyclic?: {
+        wouldBeCyclic: boolean;
+        cyclicFeatureId: string | null;
+      };
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const { featureIds, environments } = req.body;
+  const {
+    featureIds,
+    environments,
+    checkPrerequisite,
+    checkRulePrerequisites,
+  } = req.body;
   const { id: targetFeatureId } = req.params;
 
   if (!featureIds || !featureIds.length) {
@@ -3414,13 +3429,11 @@ export async function postBatchPrerequisiteStates(
     throw new Error("Must provide environments");
   }
 
-  // Get the target feature (the one we're adding prerequisites to)
   const targetFeature = await getFeature(context, targetFeatureId);
   if (!targetFeature) {
     throw new Error("Could not find target feature");
   }
 
-  // Get the latest revision for the target feature
   const revision = await getRevision({
     context,
     organization: context.org.id,
@@ -3428,11 +3441,9 @@ export async function postBatchPrerequisiteStates(
     version: targetFeature.version,
   });
 
-  // Get all option features (the ones we're checking)
   const optionFeatures = await getFeaturesByIds(context, featureIds);
   const featuresMap = new Map(optionFeatures.map((f) => [f.id, f]));
 
-  // Build a shared features map for JIT loading during evaluation
   const sharedFeaturesMap = new Map<string, FeatureInterface>();
   optionFeatures.forEach((f) => sharedFeaturesMap.set(f.id, f));
 
@@ -3448,7 +3459,6 @@ export async function postBatchPrerequisiteStates(
     const optionFeature = featuresMap.get(featureId);
     if (!optionFeature) continue;
 
-    // Evaluate prerequisite states for this option feature
     const states: Record<string, PrerequisiteStateResult> = {};
     for (const env of environments) {
       states[env] = await evaluatePrerequisiteStateAsync(
@@ -3459,8 +3469,6 @@ export async function postBatchPrerequisiteStates(
       );
     }
 
-    // Check if adding this feature as a prerequisite would create a cycle
-    // Apply revision rules if available (similar to isFeatureCyclic)
     const testFeature = cloneDeep(targetFeature);
     if (revision) {
       for (const env of Object.keys(testFeature.environmentSettings || {})) {
@@ -3476,12 +3484,10 @@ export async function postBatchPrerequisiteStates(
       },
     ];
 
-    // Build features map for cyclic check (include target + all options)
     const cyclicCheckMap = new Map<string, FeatureInterface>();
     cyclicCheckMap.set(targetFeature.id, targetFeature);
     optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
 
-    // JIT load any missing prerequisites during cyclic check
     const checkCyclicAsync = async (f: FeatureInterface): Promise<boolean> => {
       const visited = new Set<string>();
       const visiting = new Set<string>();
@@ -3492,7 +3498,6 @@ export async function postBatchPrerequisiteStates(
 
         visiting.add(feature.id);
 
-        // Get all prerequisite IDs (top-level + rule-level)
         const prerequisiteIds: string[] = (feature.prerequisites || []).map(
           (p) => p.id,
         );
@@ -3538,9 +3543,156 @@ export async function postBatchPrerequisiteStates(
     };
   }
 
+  const checkCyclicWithJIT = async (
+    testFeature: FeatureInterface,
+    testRevision?: FeatureRevisionInterface | null,
+  ): Promise<[boolean, string | null]> => {
+    const cyclicCheckMap = new Map<string, FeatureInterface>();
+    cyclicCheckMap.set(targetFeature.id, targetFeature);
+    optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
+
+    const visited = new Set<string>();
+    const stack = new Set<string>();
+
+    const visit = async (
+      feature: FeatureInterface,
+    ): Promise<[boolean, string | null]> => {
+      if (stack.has(feature.id)) return [true, feature.id];
+      if (visited.has(feature.id)) return [false, null];
+
+      stack.add(feature.id);
+      visited.add(feature.id);
+
+      const prerequisiteIds: string[] = (feature.prerequisites || []).map(
+        (p) => p.id,
+      );
+
+      if (testRevision && feature.id === testFeature.id) {
+        for (const env of Object.keys(testRevision.rules || {})) {
+          if (!environments.includes(env)) continue;
+          const rules = testRevision.rules[env] || [];
+          for (const rule of rules) {
+            if (rule?.prerequisites?.length) {
+              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
+              prerequisiteIds.push(...rulePrerequisiteIds);
+            }
+          }
+        }
+      } else {
+        for (const eid in feature.environmentSettings || {}) {
+          if (!environments.includes(eid)) continue;
+          const env = feature.environmentSettings?.[eid];
+          if (!env?.rules) continue;
+          for (const rule of env.rules || []) {
+            if (rule?.prerequisites?.length) {
+              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
+              prerequisiteIds.push(...rulePrerequisiteIds);
+            }
+          }
+        }
+      }
+
+      for (const prerequisiteId of prerequisiteIds) {
+        let prereqFeature = cyclicCheckMap.get(prerequisiteId);
+        if (!prereqFeature) {
+          const features = await getFeaturesByIds(context, [prerequisiteId]);
+          prereqFeature = features[0];
+          if (prereqFeature) {
+            cyclicCheckMap.set(prerequisiteId, prereqFeature);
+          }
+        }
+        if (prereqFeature) {
+          const [isCyclic, cyclicId] = await visit(prereqFeature);
+          if (isCyclic) {
+            return [true, cyclicId || prerequisiteId];
+          }
+        }
+      }
+
+      stack.delete(feature.id);
+      return [false, null];
+    };
+
+    return visit(testFeature);
+  };
+
+  let checkPrerequisiteCyclic:
+    | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
+    | undefined;
+  if (checkPrerequisite) {
+    const testFeature = cloneDeep(targetFeature);
+    const testRevision = revision ? cloneDeep(revision) : null;
+
+    if (testRevision) {
+      for (const env of Object.keys(testFeature.environmentSettings || {})) {
+        testFeature.environmentSettings[env].rules =
+          testRevision?.rules?.[env] || [];
+      }
+    }
+
+    if (
+      checkPrerequisite.prerequisiteIndex !== undefined &&
+      testFeature.prerequisites?.[checkPrerequisite.prerequisiteIndex]
+    ) {
+      testFeature.prerequisites[checkPrerequisite.prerequisiteIndex] = {
+        id: checkPrerequisite.id,
+        condition: checkPrerequisite.condition,
+      };
+    } else {
+      testFeature.prerequisites = [
+        ...(testFeature.prerequisites || []),
+        {
+          id: checkPrerequisite.id,
+          condition: checkPrerequisite.condition,
+        },
+      ];
+    }
+
+    const [wouldBeCyclic, cyclicFeatureId] = await checkCyclicWithJIT(
+      testFeature,
+      testRevision,
+    );
+
+    checkPrerequisiteCyclic = { wouldBeCyclic, cyclicFeatureId };
+  }
+
+  let checkRulePrerequisitesCyclic:
+    | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
+    | undefined;
+  if (checkRulePrerequisites) {
+    const testFeature = cloneDeep(targetFeature);
+    const testRevision = revision ? cloneDeep(revision) : null;
+
+    if (testRevision) {
+      for (const env of Object.keys(testFeature.environmentSettings || {})) {
+        testFeature.environmentSettings[env].rules =
+          testRevision?.rules?.[env] || [];
+      }
+
+      const { environment, ruleIndex, prerequisites } = checkRulePrerequisites;
+      testRevision.rules[environment] = testRevision.rules[environment] || [];
+      const existingRule = testRevision.rules[environment][ruleIndex];
+      if (existingRule) {
+        testRevision.rules[environment][ruleIndex] = {
+          ...existingRule,
+          prerequisites: prerequisites || [],
+        };
+      }
+    }
+
+    const [wouldBeCyclic, cyclicFeatureId] = await checkCyclicWithJIT(
+      testFeature,
+      testRevision,
+    );
+
+    checkRulePrerequisitesCyclic = { wouldBeCyclic, cyclicFeatureId };
+  }
+
   res.status(200).json({
     status: 200,
     results,
+    ...(checkPrerequisiteCyclic && { checkPrerequisiteCyclic }),
+    ...(checkRulePrerequisitesCyclic && { checkRulePrerequisitesCyclic }),
   });
 }
 

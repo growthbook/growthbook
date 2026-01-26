@@ -1331,8 +1331,6 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
-            revisions={revisions}
-            version={currentVersion}
           />
         )}
       </Box>

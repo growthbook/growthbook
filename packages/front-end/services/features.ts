@@ -476,12 +476,6 @@ export function useFeaturesList({
   skipFetch?: boolean;
 } = {}) {
   const { project: currentProject } = useDefinitions();
-  console.log("useFeaturesList", {
-    project,
-    useCurrentProject,
-    skipFetch,
-    currentProject,
-  });
 
   const qs = new URLSearchParams();
   const projectToUse =
@@ -491,17 +485,6 @@ export function useFeaturesList({
   }
   if (includeArchived) {
     qs.set("includeArchived", "true");
-  }
-  // Only warn if explicitly requesting global scope (useCurrentProject: false with no project)
-  // Don't warn if user has "All Projects" selected (useCurrentProject: true with empty currentProject)
-  if (!projectToUse && !skipFetch) {
-    const stack = new Error().stack;
-    console.error("useFeaturesList: found a global request for features", {
-      project,
-      useCurrentProject,
-      currentProject,
-      stack,
-    });
   }
 
   const url = `/feature?${qs.toString()}`;

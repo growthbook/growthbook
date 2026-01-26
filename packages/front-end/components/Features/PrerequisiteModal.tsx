@@ -4,7 +4,6 @@ import React, { useMemo } from "react";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
-  isFeatureCyclic,
 } from "shared/util";
 import {
   FaExclamationCircle,
@@ -12,8 +11,6 @@ import {
   FaExternalLinkAlt,
   FaRecycle,
 } from "react-icons/fa";
-import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";
@@ -56,8 +53,6 @@ export interface Props {
   feature: FeatureInterface;
   mutate: () => void;
   i: number;
-  revisions: FeatureRevisionInterface[];
-  version: number;
 }
 
 export default function PrerequisiteModal({
@@ -65,8 +60,6 @@ export default function PrerequisiteModal({
   feature,
   i,
   mutate,
-  revisions,
-  version,
 }: Props) {
   const { features: featureNames } = useFeaturesNames();
   const { features: allFeatures } = useFeaturesList({
@@ -99,44 +92,32 @@ export default function PrerequisiteModal({
   });
 
   const selectedFeatureId = form.watch("id");
+  const selectedPrerequisite = form.getValues();
   const parentFeature = allFeatures.find((f) => f.id === selectedFeatureId);
-  const parentFeatureId = parentFeature?.id;
 
-  const [isCyclic, cyclicFeatureId] = useMemo(() => {
-    if (!parentFeatureId) return [false, null];
-    const newFeature = cloneDeep(feature);
-    const revision = revisions?.find((r) => r.version === version);
-    newFeature.prerequisites = [...prerequisites];
-    newFeature.prerequisites[i] = form.getValues();
-
-    const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
-    return isFeatureCyclic(newFeature, featuresMap, revision, envs);
-  }, [
-    parentFeatureId,
-    allFeatures,
-    revisions,
-    version,
-    envs,
-    feature,
-    prerequisites,
-    form,
-    i,
-  ]);
-
-  // Fetch prerequisite states for all features from the backend
   const featureIds = useMemo(
     () => featureNames.filter((f) => f.id !== feature?.id).map((f) => f.id),
     [featureNames, feature?.id],
   );
 
-  const { results: batchStates } = useBatchPrerequisiteStates({
-    targetFeatureId: feature.id,
-    featureIds,
-    environments: envs,
-    enabled: featureIds.length > 0 && envs.length > 0,
-  });
+  const { results: batchStates, checkPrerequisiteCyclic } =
+    useBatchPrerequisiteStates({
+      targetFeatureId: feature.id,
+      featureIds,
+      environments: envs,
+      enabled: featureIds.length > 0 && envs.length > 0,
+      checkPrerequisite: selectedPrerequisite.id
+        ? {
+            id: selectedPrerequisite.id,
+            condition: selectedPrerequisite.condition,
+            prerequisiteIndex: i,
+          }
+        : undefined,
+    });
 
-  // Extract prerequisite states and wouldBeCyclic flags from backend response
+  const isCyclic = checkPrerequisiteCyclic?.wouldBeCyclic ?? false;
+  const cyclicFeatureId = checkPrerequisiteCyclic?.cyclicFeatureId ?? null;
+
   const featuresStates: Record<
     string,
     Record<string, PrerequisiteStateResult>

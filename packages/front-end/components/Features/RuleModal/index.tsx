@@ -11,10 +11,8 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
-  isFeatureCyclic,
   isProjectListValidForProject,
 } from "shared/util";
-import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
@@ -38,7 +36,6 @@ import {
   getRules,
   useAttributeSchema,
   useEnvironments,
-  useFeaturesList,
   validateFeatureRule,
 } from "@/services/features";
 import track from "@/services/track";
@@ -66,6 +63,7 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
+import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 
@@ -127,7 +125,6 @@ export default function RuleModal({
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
       : undefined;
-  const { features } = useFeaturesList();
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
@@ -243,31 +240,27 @@ export default function RuleModal({
     availableTemplates.length >= 1;
 
   const prerequisites = form.watch("prerequisites") || [];
-  const [isCyclic, cyclicFeatureId] = useMemo(() => {
-    if (!prerequisites.length) return [false, null];
-    const newFeature = cloneDeep(feature);
-    const revision = revisions?.find((r) => r.version === version);
-    const newRevision = cloneDeep(revision);
-    if (newRevision) {
-      // merge form values into revision
-      const newRule = form.getValues() as FeatureRule;
-      newRevision.rules[environment] = newRevision.rules[environment] || [];
-      newRevision.rules[environment][i] = newRule;
-    }
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return isFeatureCyclic(newFeature, featuresMap, newRevision, [environment]);
-  }, [
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    JSON.stringify(prerequisites),
-    prerequisites.length,
-    features,
-    feature,
-    revisions,
-    version,
-    environment,
-    form,
-    i,
-  ]);
+
+  const { checkRulePrerequisitesCyclic } = useBatchPrerequisiteStates({
+    targetFeatureId: feature.id,
+    featureIds: [],
+    environments: [environment],
+    enabled: prerequisites.length > 0,
+    checkRulePrerequisites:
+      prerequisites.length > 0
+        ? {
+            environment,
+            ruleIndex: i,
+            prerequisites: prerequisites.map((p) => ({
+              id: p.id,
+              condition: p.condition,
+            })),
+          }
+        : undefined,
+  });
+
+  const isCyclic = checkRulePrerequisitesCyclic?.wouldBeCyclic ?? false;
+  const cyclicFeatureId = checkRulePrerequisitesCyclic?.cyclicFeatureId ?? null;
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
