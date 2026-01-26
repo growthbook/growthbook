@@ -340,9 +340,6 @@ export default function FeaturePage() {
           setEditProjectModal={setEditProjectModal}
           version={version}
           setVersion={setVersion}
-          dependents={dependents}
-          dependentFeatures={dependentFeatures}
-          dependentExperiments={dependentExperiments}
         />
       )}
 

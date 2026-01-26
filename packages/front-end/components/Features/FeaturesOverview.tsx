@@ -8,8 +8,10 @@ import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
-  evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
+  getDependentExperiments,
+  getDependentFeatures,
+  evaluatePrerequisiteState,
   mergeResultHasChanges,
   PrerequisiteStateResult,
 } from "shared/util";
@@ -99,9 +101,6 @@ export default function FeaturesOverview({
   setEditProjectModal,
   version,
   setVersion,
-  dependents,
-  dependentFeatures,
-  dependentExperiments,
   safeRollouts,
   holdout,
 }: {
@@ -119,9 +118,6 @@ export default function FeaturesOverview({
   setEditProjectModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
-  dependents: number;
-  dependentFeatures: string[];
-  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const { fid } = router.query;
@@ -141,6 +137,8 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
+  const [showOtherProjectDependents, setShowOtherProjectDependents] =
+    useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -150,10 +148,28 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const { features } = useFeaturesList({ useCurrentProject: false });
+  const featureProject = feature?.project || "";
+  const { features } = useFeaturesList(
+    showOtherProjectDependents || !featureProject
+      ? { useCurrentProject: false }
+      : { project: featureProject },
+  );
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+
+  // Calculate dependents based on project scoping
+  const dependentFeatures = useMemo(() => {
+    if (!feature || !features) return [];
+    return getDependentFeatures(feature, features, envs);
+  }, [feature, features, envs]);
+
+  const dependentExperiments = useMemo(() => {
+    if (!feature || !experiments) return [];
+    return getDependentExperiments(feature, experiments);
+  }, [feature, experiments]);
+
+  const dependents = dependentFeatures.length + dependentExperiments.length;
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -753,7 +769,14 @@ export default function FeaturesOverview({
                 </tbody>
               </table>
             ) : (
-              <Flex mt="4" justify="start" align="center" gap="4">
+              <Flex
+                mt="4"
+                justify="start"
+                align="center"
+                gapX="4"
+                gapY="3"
+                wrap="wrap"
+              >
                 {environments.length > 0 ? (
                   environments.map((en) => (
                     <Flex
@@ -829,7 +852,7 @@ export default function FeaturesOverview({
             )}
           </Box>
         </Frame>
-        {dependents > 0 && (
+        {(dependents > 0 || featureProject) && (
           <Frame mb="4">
             <Box>
               <Flex mb="3" gap="3" align="center">
@@ -838,76 +861,105 @@ export default function FeaturesOverview({
                 </Heading>
                 <Badge label={dependents + ""} color="gray" radius="medium" />
               </Flex>
-              <Box mb="2">
-                {dependents === 1
-                  ? `Another ${
-                      dependentFeatures.length ? "feature" : "experiment"
-                    } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                  : `Other ${
-                      dependentFeatures.length
-                        ? dependentExperiments.length
-                          ? "features and experiments"
-                          : "features"
-                        : "experiments"
-                    } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
-              </Box>
-              <hr className="mb-2" />
-              {showDependents ? (
-                <div className="mt-3">
-                  {dependentFeatures.length > 0 && (
-                    <>
-                      <label>Dependent Features</label>
-                      <ul className="pl-4">
-                        {dependentFeatures.map((fid, i) => (
-                          <li className="my-1" key={i}>
-                            <a
-                              href={`/features/${fid}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {fid}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  {dependentExperiments.length > 0 && (
-                    <>
-                      <label>Dependent Experiments</label>
-                      <ul className="pl-4">
-                        {dependentExperiments.map((exp, i) => (
-                          <li className="my-1" key={i}>
-                            <a
-                              href={`/experiment/${exp.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {exp.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  <a
-                    role="button"
-                    className="d-inline-block a link-purple mt-1"
-                    onClick={() => setShowDependents(false)}
-                  >
-                    <BiHide /> Hide details
-                  </a>
-                </div>
-              ) : (
+              <Flex align="center" gap="4" mb="4">
+                <Text size="2" as="div" style={{ width: "240px" }}>
+                  {featureProject && !showOtherProjectDependents
+                    ? "Showing dependents in this project."
+                    : "Showing dependents in all projects."}
+                </Text>
+                {featureProject && (
+                  <Switch
+                    value={showOtherProjectDependents}
+                    onChange={setShowOtherProjectDependents}
+                    label="Include all projects"
+                    size="1"
+                  />
+                )}
+              </Flex>
+              {dependents > 0 ? (
                 <>
-                  <a
-                    role="button"
-                    className="d-inline-block a link-purple"
-                    onClick={() => setShowDependents(true)}
-                  >
-                    <BiShow /> Show details
-                  </a>
+                  <Box mb="2">
+                    {dependents === 1
+                      ? `Another ${
+                          dependentFeatures.length ? "feature" : "experiment"
+                        } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                      : `Other ${
+                          dependentFeatures.length
+                            ? dependentExperiments.length
+                              ? "features and experiments"
+                              : "features"
+                            : "experiments"
+                        } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+                  </Box>
+                  <hr className="mb-2" />
+                  {showDependents ? (
+                    <div className="mt-3">
+                      {dependentFeatures.length > 0 && (
+                        <>
+                          <label>Dependent Features</label>
+                          <ul className="pl-4">
+                            {dependentFeatures.map((fid, i) => (
+                              <li className="my-1" key={i}>
+                                <a
+                                  href={`/features/${fid}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {fid}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {dependentExperiments.length > 0 && (
+                        <>
+                          <label>Dependent Experiments</label>
+                          <ul className="pl-4">
+                            {dependentExperiments.map((exp, i) => (
+                              <li className="my-1" key={i}>
+                                <a
+                                  href={`/experiment/${exp.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {exp.name}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      <a
+                        role="button"
+                        className="d-inline-block a link-purple mt-1"
+                        onClick={() => setShowDependents(false)}
+                      >
+                        <BiHide /> Hide details
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <a
+                        role="button"
+                        className="d-inline-block a link-purple"
+                        onClick={() => setShowDependents(true)}
+                      >
+                        <BiShow /> Show details
+                      </a>
+                    </>
+                  )}
                 </>
+              ) : (
+                <Box mb="2">
+                  <Text size="2">
+                    No dependents found
+                    {featureProject && !showOtherProjectDependents
+                      ? " in this project"
+                      : ""}
+                    .
+                  </Text>
+                </Box>
               )}
             </Box>
           </Frame>

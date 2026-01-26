@@ -271,7 +271,12 @@ export default function PrerequisiteTargetingField({
       return {
         label: f.id,
         value: f.id,
-        meta: { conditional, cyclic, wouldBeCyclic, disabled } as FeatureOptionMeta,
+        meta: {
+          conditional,
+          cyclic,
+          wouldBeCyclic,
+          disabled,
+        } as FeatureOptionMeta,
         project: projectId,
         projectName,
       };
@@ -283,7 +288,13 @@ export default function PrerequisiteTargetingField({
       allFeatureOptions.push({
         label: featureId,
         value: featureId,
-        meta: { conditional: false, cyclic: false, wouldBeCyclic: false, disabled: false, isOtherProject: true } as FeatureOptionMeta,
+        meta: {
+          conditional: false,
+          cyclic: false,
+          wouldBeCyclic: false,
+          disabled: false,
+          isOtherProject: true,
+        } as FeatureOptionMeta,
         project: "",
         projectName: null,
       });
@@ -342,10 +353,11 @@ export default function PrerequisiteTargetingField({
           premiumText="Prerequisite targeting is available for Enterprise customers"
         >
           <label style={{ marginBottom: 0 }}>
-            Target by Prerequisite Features{" "}
-            (<DocLink docSection="prerequisites">
+            Target by Prerequisite Features (
+            <DocLink docSection="prerequisites">
               docs <PiArrowSquareOut />
-            </DocLink>)
+            </DocLink>
+            )
           </label>
         </PremiumTooltip>
         {targetProject && (

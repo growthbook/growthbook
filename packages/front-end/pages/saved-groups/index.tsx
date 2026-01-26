@@ -1,16 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import {
-  SavedGroupInterface,
-  SavedGroupWithoutValues,
-} from "shared/types/saved-group";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { FeatureInterface } from "shared/types/feature";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
-import { isEmpty } from "lodash";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
@@ -25,49 +16,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
-
-export const getSavedGroupMessage = (
-  featuresUsingSavedGroups?: FeatureInterface[],
-  experimentsUsingSavedGroups?: Array<
-    ExperimentInterface | ExperimentInterfaceStringDates
-  >,
-  savedGroupsUsingSavedGroups?: SavedGroupInterface[],
-) => {
-  return async () => {
-    if (
-      isEmpty(featuresUsingSavedGroups) &&
-      isEmpty(experimentsUsingSavedGroups) &&
-      isEmpty(savedGroupsUsingSavedGroups)
-    ) {
-      return null;
-    }
-
-    return (
-      <>
-        <Callout status="error" mb="4">
-          <Text as="p" weight="bold" mb="2">
-            Cannot delete saved group
-          </Text>
-          <Text as="p" mb="0">
-            Before you can delete this group, you will need to remove any
-            references to it. Check the following item
-            {(featuresUsingSavedGroups?.length || 0) +
-              (experimentsUsingSavedGroups?.length || 0) +
-              (savedGroupsUsingSavedGroups?.length || 0) >
-              1 && "s"}{" "}
-            below:
-          </Text>
-        </Callout>
-        <SavedGroupReferencesList
-          features={featuresUsingSavedGroups}
-          experiments={experimentsUsingSavedGroups}
-          savedGroups={savedGroupsUsingSavedGroups}
-        />
-      </>
-    );
-  };
-};
 
 export default function SavedGroupsPage() {
   const router = useRouter();

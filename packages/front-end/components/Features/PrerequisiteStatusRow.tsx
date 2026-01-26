@@ -47,6 +47,7 @@ export default function PrerequisiteStatusRow({
   const envs = environments.map((e) => e.id);
   const envsStr = JSON.stringify(envs);
 
+  // todo: move to backend with lazy loading of features in tree
   const prereqStatesAndDefaults = useMemo(
     () => {
       if (!parentFeature) return null;
@@ -72,28 +73,20 @@ export default function PrerequisiteStatusRow({
       <td className="align-middle pl-3 border-right">
         <div className="d-flex">
           <div className="d-flex flex-1 align-items-center mr-2">
-            {parentFeature?.id ? (
-              <>
-                <span className="uppercase-title text-muted mr-2">Prereq</span>
-                <a
-                  className="d-flex align-items-center"
-                  href={`/features/${parentFeature.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span
-                    className="d-inline-block text-ellipsis"
-                    style={{ maxWidth: 240 }}
-                  >
-                    {parentFeature.id}
-                  </span>
-                </a>
-              </>
-            ) : (
-              <>
-                Invalid parent feature (<code>{prerequisite.id}</code>)
-              </>
-            )}
+            <span className="uppercase-title text-muted mr-2">Prereq</span>
+            <a
+              className="d-flex align-items-center"
+              href={`/features/${prerequisite.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span
+                className="d-inline-block text-ellipsis"
+                style={{ maxWidth: 240 }}
+              >
+                {prerequisite.id}
+              </span>
+            </a>
           </div>
           <div>
             {canEdit && (
