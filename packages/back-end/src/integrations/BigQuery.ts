@@ -131,7 +131,10 @@ export default class BigQuery extends SqlIntegration {
           "s" in value &&
           "e" in value &&
           "c" in value &&
-          Array.isArray((value as Record<string, unknown>).c)
+          Array.isArray((value as Record<string, unknown>).c) &&
+          // Verify it's actually a Big.js object (has Big.js methods)
+          typeof (value as Record<string, unknown>).toFixed === "function" &&
+          typeof (value as Record<string, unknown>).toPrecision === "function"
         ) {
           // BigQuery NUMERIC/BIGNUMERIC values are returned as Big.js objects
           // with internal structure {s: sign, e: exponent, c: coefficient array}
