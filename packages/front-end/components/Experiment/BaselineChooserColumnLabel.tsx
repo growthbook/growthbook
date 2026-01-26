@@ -19,7 +19,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import { analysisUpdate } from "./DifferenceTypeChooser";
+import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
   variations: Variation[] | ExperimentReportVariation[];
@@ -30,7 +30,7 @@ export interface BaselineChooserColumnLabelProps {
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   dropdownEnabled?: boolean;
   isHoldout?: boolean;
 }
@@ -91,14 +91,15 @@ export default function BaselineChooserColumnLabel({
         snapshot,
         apiCall,
         setPostLoading,
-      ).then((status) => {
+      ).then(async (status) => {
         if (status === "success") {
           setBaselineRow(variationIndex);
-          setAnalysisSettings(newSettings);
           track("Experiment Analysis: switch baseline", {
             baseline: variationIndex,
           });
-          mutate();
+          // NB: await to ensure new analysis is available before we attempt to get it
+          await mutate();
+          setAnalysisSettings(newSettings);
         } else if (status === "fail") {
           setDesiredBaselineRow(baselineRow);
           mutate();
