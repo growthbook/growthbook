@@ -7,19 +7,20 @@ const legacyNamespaceValue = z.object({
   range: z.tuple([z.number(), z.number()]),
 });
 
-// New format (multiple ranges, own hashAttribute, and hashVersion)
-const newNamespaceValue = z.object({
+// MultiRange format (multiple ranges, own hashAttribute, and hashVersion)
+// Note: hashVersion defaults to 2 if not provided
+const multiRangeNamespaceValue = z.object({
   enabled: z.boolean(),
   name: z.string(),
   ranges: z.array(z.tuple([z.number(), z.number()])),
   hashAttribute: z.string().optional(), // If not provided, inherits from experiment
-  hashVersion: z.number().optional(), // If not provided, defaults to 2
+  hashVersion: z.number().optional().default(2),
 });
 
 // Union type to support both formats for backward compatibility
 export const namespaceValue = z.union([
   legacyNamespaceValue,
-  newNamespaceValue,
+  multiRangeNamespaceValue,
 ]);
 export type NamespaceValue = z.infer<typeof namespaceValue>;
 
