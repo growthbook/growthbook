@@ -3655,6 +3655,8 @@ export interface components {
           isAutoSliceColumn?: boolean;
           /** @description Specific slices to automatically analyze for this column. */
           autoSlices?: (string)[];
+          /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+          lockedAutoSlices?: (string)[];
           /** Format: date-time */
           dateCreated?: string;
           /** Format: date-time */
@@ -3704,6 +3706,8 @@ export interface components {
       isAutoSliceColumn?: boolean;
       /** @description Specific slices to automatically analyze for this column. */
       autoSlices?: (string)[];
+      /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+      lockedAutoSlices?: (string)[];
       /** Format: date-time */
       dateCreated?: string;
       /** Format: date-time */
@@ -12243,6 +12247,8 @@ export interface operations {
                     isAutoSliceColumn?: boolean;
                     /** @description Specific slices to automatically analyze for this column. */
                     autoSlices?: (string)[];
+                    /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                    lockedAutoSlices?: (string)[];
                     /** Format: date-time */
                     dateCreated?: string;
                     /** Format: date-time */
@@ -12351,6 +12357,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12430,6 +12438,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12511,6 +12521,8 @@ export interface operations {
               isAutoSliceColumn?: boolean;
               /** @description Specific slices to automatically analyze for this column. */
               autoSlices?: (string)[];
+              /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+              lockedAutoSlices?: (string)[];
               /** Format: date-time */
               dateCreated?: string;
               /** Format: date-time */
@@ -12575,6 +12587,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
