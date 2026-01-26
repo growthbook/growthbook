@@ -25,7 +25,6 @@ export interface RefreshResultsButtonProps<
   mutate: () => void;
   mutateAdditional?: () => void;
   setRefreshError: (error: string) => void;
-  resetFilters?: () => void | Promise<void>;
   // Experiment/holdout-specific props
   experiment?: ExperimentInterfaceStringDates;
   phase?: number;
@@ -52,11 +51,9 @@ export default function RefreshResultsButton<
   mutate,
   mutateAdditional,
   setRefreshError,
-  resetFilters,
   experiment,
   phase,
   dimension,
-  setAnalysisSettings,
   safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
@@ -70,8 +67,7 @@ export default function RefreshResultsButton<
     !shouldUseRunQueriesButton &&
     (entityType === "experiment" || entityType === "holdout") &&
     experiment &&
-    phase !== undefined &&
-    setAnalysisSettings;
+    phase !== undefined;
 
   const shouldRenderSafeRolloutButton =
     !shouldUseRunQueriesButton &&
@@ -107,7 +103,6 @@ export default function RefreshResultsButton<
           icon="refresh"
           useRadixButton={true}
           radixVariant="outline"
-          resetFilters={resetFilters}
           onSubmit={async () => {
             const body =
               entityType === "experiment" || entityType === "holdout"
@@ -142,10 +137,8 @@ export default function RefreshResultsButton<
           experiment={experiment}
           dimension={dimension}
           setError={(error) => setRefreshError(error ?? "")}
-          setAnalysisSettings={setAnalysisSettings}
           useRadixButton={true}
           radixVariant="outline"
-          resetFilters={resetFilters}
         />
       ) : shouldRenderSafeRolloutButton ? (
         <SafeRolloutRefreshSnapshotButton

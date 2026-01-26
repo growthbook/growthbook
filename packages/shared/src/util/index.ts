@@ -16,7 +16,7 @@ import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { VisualChange } from "shared/types/visual-changeset";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
@@ -29,6 +29,7 @@ export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
 export * from "./types";
+export * from "./errors";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

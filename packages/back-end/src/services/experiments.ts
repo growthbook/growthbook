@@ -1632,7 +1632,6 @@ export async function toExperimentApiInterface(
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-  metricGroups: MetricGroupInterface[],
 ): ApiExperimentResults {
   const dimension = !snapshot.dimension
     ? {
@@ -1657,16 +1656,18 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-
   const variationIds = experiment.variations.map((v) => v.id);
 
   // Get the default analysis
   const analysis = getSnapshotAnalysis(snapshot);
+
+  // Get all metric IDs from the snapshot results
+  const metricIds = new Set<string>();
+  (analysis?.results || []).forEach((s) => {
+    s.variations.forEach((v) => {
+      Object.keys(v.metrics).forEach((m) => metricIds.add(m));
+    });
+  });
 
   return {
     id: snapshot.id,
@@ -2669,7 +2670,6 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
-    pinnedMetricSlices: payload.pinnedMetricSlices || [],
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
   };
@@ -2739,7 +2739,6 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
-    pinnedMetricSlices,
     customMetricSlices,
     customFields,
     autoRefresh,
@@ -2839,7 +2838,6 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
-    ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined ? { autoSnapshots: !!autoRefresh } : {}),

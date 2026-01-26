@@ -28,6 +28,9 @@ function SingleDashboardPage() {
   }>(`/dashboards/${did}`);
   const dashboard = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
+  const [initialEditBlockIndex, setInitialEditBlockIndex] = useState<
+    number | null
+  >(null);
   const { hasCommercialFeature, userId } = useUser();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { apiCall } = useAuth();
@@ -52,6 +55,11 @@ function SingleDashboardPage() {
       setBlocks([]);
     }
   }, [dashboard]);
+
+  const enterEditModeForBlock = useCallback((blockIndex: number) => {
+    setInitialEditBlockIndex(blockIndex);
+    setIsEditing(true);
+  }, []);
 
   const submitDashboard = useCallback(
     async ({
@@ -184,8 +192,15 @@ function SingleDashboardPage() {
                 submitDashboard({ method, dashboardId, data })
               }
               mutate={mutate}
-              close={() => setIsEditing(false)}
+              close={() => {
+                setIsEditing(false);
+                setInitialEditBlockIndex(null);
+              }}
               isTabActive={true}
+              initialEditBlockIndex={initialEditBlockIndex}
+              onConsumeInitialEditBlockIndex={() =>
+                setInitialEditBlockIndex(null)
+              }
             />
           ) : (
             <DashboardEditor
@@ -196,7 +211,6 @@ function SingleDashboardPage() {
               initialShareLevel={dashboard.shareLevel}
               dashboardOwnerId={dashboard.userId}
               isGeneralDashboard={true}
-              isIncrementalRefreshExperiment={false}
               isEditing={false}
               title={dashboard.title}
               blocks={dashboard.blocks}
@@ -208,6 +222,7 @@ function SingleDashboardPage() {
               nextUpdate={dashboard.nextUpdate}
               dashboardLastUpdated={dashboard.lastUpdated}
               setIsEditing={setIsEditing}
+              enterEditModeForBlock={enterEditModeForBlock}
             />
           )}
         </DashboardSeriesDisplayProvider>

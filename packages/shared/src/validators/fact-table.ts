@@ -49,6 +49,7 @@ export const createColumnPropsValidator = z
     topValues: z.array(z.string()).optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
+    lockedAutoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -64,6 +65,7 @@ export const updateColumnPropsValidator = z
     deleted: z.boolean().optional(),
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
+    lockedAutoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -72,6 +74,9 @@ export const createFactTablePropsValidator = z
     name: z.string(),
     description: z.string(),
     id: z.string().optional(),
+    // Only being used in middleware for fact-table POST request so this is safe
+    // Remove when we migrate FactTableModel to use the BaseModel and use defaultValues instead
+    // eslint-disable-next-line no-restricted-syntax
     owner: z.string().default(""),
     projects: z.array(z.string()),
     tags: z.array(z.string()),
@@ -81,6 +86,7 @@ export const createFactTablePropsValidator = z
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
+    autoSliceUpdatesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -98,6 +104,7 @@ export const updateFactTablePropsValidator = z
     managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
+    autoSliceUpdatesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -206,13 +213,13 @@ export const factMetricValidator = z
     id: z.string(),
     organization: z.string(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
-    owner: z.string().default(""),
+    owner: z.string(),
     datasource: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
     description: z.string(),
-    tags: z.array(z.string()).default([]),
+    tags: z.array(z.string()),
     projects: z.array(z.string()),
     inverse: z.boolean(),
     archived: z.boolean().optional(),

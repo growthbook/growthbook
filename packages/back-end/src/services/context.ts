@@ -20,6 +20,13 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import {
+  BadRequestError,
+  UnauthorizedError,
+  PlanDoesNotAllowError,
+  NotFoundError,
+  InternalServerError,
+} from "back-end/src/util/errors";
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -49,6 +56,7 @@ import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
@@ -56,6 +64,7 @@ import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -90,7 +99,9 @@ export type ModelName =
   | "customHooks"
   | "incrementalRefresh"
   | "sqlResultChunks"
-  | "sdkConnectionCache";
+  | "sdkConnectionCache"
+  | "sdkWebhooks"
+  | "savedGroups";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -118,6 +129,8 @@ export const modelClasses = {
   incrementalRefresh: IncrementalRefreshModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
+  sdkWebhooks: SdkWebhookModel,
+  savedGroups: SavedGroupModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -154,6 +167,8 @@ export class ReqContextClass {
       incrementalRefresh: new IncrementalRefreshModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
+      sdkWebhooks: new SdkWebhookModel(this),
+      savedGroups: new SavedGroupModel(this),
     };
   }
 
@@ -240,6 +255,26 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  public throwBadRequestError(message: string): never {
+    throw new BadRequestError(message);
+  }
+
+  public throwUnauthorizedError(message: string): never {
+    throw new UnauthorizedError(message);
+  }
+
+  public throwPlanDoesNotAllowError(message: string): never {
+    throw new PlanDoesNotAllowError(message);
+  }
+
+  public throwNotFoundError(message?: string): never {
+    throw new NotFoundError(message);
+  }
+
+  public throwInternalServerError(message: string): never {
+    throw new InternalServerError(message);
   }
 
   // Check permissions

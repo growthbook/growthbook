@@ -10,7 +10,7 @@ import Link from "next/link";
 import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
-} from "shared/types/groups";
+} from "shared/types/saved-group";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { isEmpty } from "lodash";
 import { Box } from "@radix-ui/themes";

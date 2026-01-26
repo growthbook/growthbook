@@ -367,10 +367,6 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
-  "/custom-fields": {
-    /** Get list of custom fields */
-    get: operations["getCustomFields"];
-  };
   "/dashboards/{id}": {
     /** Get a single dashboard */
     get: operations["getDashboard"];
@@ -388,6 +384,20 @@ export interface paths {
   "/dashboards/by-experiment/{experimentId}": {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
+  };
+  "/custom-fields": {
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
+    /** Create a single customField */
+    post: operations["createCustomField"];
+  };
+  "/custom-fields/{id}": {
+    /** Get a single customField */
+    get: operations["getCustomField"];
+    /** Update a single customField */
+    put: operations["updateCustomField"];
+    /** Delete a single customField */
+    delete: operations["deleteCustomField"];
   };
 }
 
@@ -418,6 +428,15 @@ export interface components {
         cron: string;
       };
       title: string;
+      seriesDisplaySettings?: {
+        [key: string]: ({
+          [key: string]: {
+            color: string;
+            displayName?: string;
+            hidden?: boolean;
+          } | undefined;
+        }) | undefined;
+      };
       projects?: (string)[];
       /** Format: date-time */
       nextUpdate?: string;
@@ -487,17 +506,16 @@ export interface components {
           description: string;
           snapshotId: string;
           experimentId: string;
-          /** @enum {string} */
-          metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-          metricIds?: (string)[];
+          metricIds: (string)[];
           variationIds: (string)[];
           baselineRow: number;
           /** @enum {string} */
           differenceType: "absolute" | "relative" | "scaled";
           columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-          /** @enum {string} */
-          pinSource: "experiment" | "custom" | "none";
-          pinnedMetricSlices: (string)[];
+          sliceTagsFilter: (string)[];
+          metricTagFilter: (string)[];
+          sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+          sortDirection: ("asc" | "desc") | null;
         }) | ({
           organization: string;
           id: string;
@@ -510,14 +528,15 @@ export interface components {
           experimentId: string;
           dimensionId: string;
           dimensionValues: (string)[];
-          /** @enum {string} */
-          metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-          metricIds?: (string)[];
+          metricIds: (string)[];
           variationIds: (string)[];
           baselineRow: number;
           /** @enum {string} */
           differenceType: "absolute" | "relative" | "scaled";
           columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+          metricTagFilter: (string)[];
+          sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+          sortDirection: ("asc" | "desc") | null;
         }) | ({
           organization: string;
           id: string;
@@ -529,13 +548,14 @@ export interface components {
           snapshotId: string;
           experimentId: string;
           metricId?: string;
-          /** @enum {string} */
-          metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-          metricIds?: (string)[];
+          metricIds: (string)[];
           variationIds: (string)[];
           /** @enum {string} */
-          pinSource: "experiment" | "custom" | "none";
-          pinnedMetricSlices: (string)[];
+          differenceType: "absolute" | "relative" | "scaled";
+          sliceTagsFilter: (string)[];
+          metricTagFilter: (string)[];
+          sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+          sortDirection: ("asc" | "desc") | null;
         }) | {
           organization: string;
           id: string;
@@ -561,6 +581,27 @@ export interface components {
           dataVizConfigIndex?: number;
           blockConfig: (string)[];
         })[];
+    };
+    CustomField: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      placeholder?: string;
+      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      /** @enum {string} */
+      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+      values?: string;
+      required: boolean;
+      index?: boolean;
+      creator?: string;
+      projects?: (string)[];
+      /** @enum {string} */
+      section: "feature" | "experiment";
+      active?: boolean;
     };
     PaginationFields: {
       limit: number;
@@ -3121,8 +3162,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-      pinnedMetricSlices?: (string)[];
       /** @description Custom slices that apply to ALL applicable metrics in the experiment */
       customMetricSlices?: ({
           slices: ({
@@ -3457,8 +3496,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-      pinnedMetricSlices?: (string)[];
       /** @description Custom slices that apply to ALL applicable metrics in the experiment */
       customMetricSlices?: ({
           slices: ({
@@ -3627,6 +3664,8 @@ export interface components {
           isAutoSliceColumn?: boolean;
           /** @description Specific slices to automatically analyze for this column. */
           autoSlices?: (string)[];
+          /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+          lockedAutoSlices?: (string)[];
           /** Format: date-time */
           dateCreated?: string;
           /** Format: date-time */
@@ -3676,6 +3715,8 @@ export interface components {
       isAutoSliceColumn?: boolean;
       /** @description Specific slices to automatically analyze for this column. */
       autoSlices?: (string)[];
+      /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+      lockedAutoSlices?: (string)[];
       /** Format: date-time */
       dateCreated?: string;
       /** Format: date-time */
@@ -3979,20 +4020,6 @@ export interface components {
           /** @description The feature flag key referenced */
           flagKey: string;
         })[];
-    };
-    CustomField: {
-      id: string;
-      name: string;
-      type: string;
-      section: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      active: boolean;
-      required: boolean;
-      projects?: (string)[];
-      values?: string;
     };
   };
   responses: {
@@ -9368,8 +9395,6 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-                pinnedMetricSlices?: (string)[];
                 /** @description Custom slices that apply to ALL applicable metrics in the experiment */
                 customMetricSlices?: ({
                     slices: ({
@@ -9505,8 +9530,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-          pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
           customMetricSlices?: ({
               slices: ({
@@ -9664,8 +9687,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -9855,8 +9876,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -9996,8 +10015,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-          pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
           customMetricSlices?: ({
               slices: ({
@@ -10155,8 +10172,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -11256,8 +11271,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -12243,6 +12256,8 @@ export interface operations {
                     isAutoSliceColumn?: boolean;
                     /** @description Specific slices to automatically analyze for this column. */
                     autoSlices?: (string)[];
+                    /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                    lockedAutoSlices?: (string)[];
                     /** Format: date-time */
                     dateCreated?: string;
                     /** Format: date-time */
@@ -12351,6 +12366,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12430,6 +12447,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12511,6 +12530,8 @@ export interface operations {
               isAutoSliceColumn?: boolean;
               /** @description Specific slices to automatically analyze for this column. */
               autoSlices?: (string)[];
+              /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+              lockedAutoSlices?: (string)[];
               /** Format: date-time */
               dateCreated?: string;
               /** Format: date-time */
@@ -12575,6 +12596,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -14296,35 +14319,6 @@ export interface operations {
       };
     };
   };
-  getCustomFields: {
-    /** Get list of custom fields */
-    parameters: {
-        /** @description Filter by project id */
-      query: {
-        projectId?: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": ({
-              id: string;
-              name: string;
-              type: string;
-              section: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              active: boolean;
-              required: boolean;
-              projects?: (string)[];
-              values?: string;
-            })[];
-        };
-      };
-    };
-  };
   getDashboard: {
     /** Get a single dashboard */
     parameters: {
@@ -14359,6 +14353,15 @@ export interface operations {
                 cron: string;
               };
               title: string;
+              seriesDisplaySettings?: {
+                [key: string]: ({
+                  [key: string]: {
+                    color: string;
+                    displayName?: string;
+                    hidden?: boolean;
+                  } | undefined;
+                }) | undefined;
+              };
               projects?: (string)[];
               /** Format: date-time */
               nextUpdate?: string;
@@ -14428,17 +14431,16 @@ export interface operations {
                   description: string;
                   snapshotId: string;
                   experimentId: string;
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   baselineRow: number;
                   /** @enum {string} */
                   differenceType: "absolute" | "relative" | "scaled";
                   columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-                  /** @enum {string} */
-                  pinSource: "experiment" | "custom" | "none";
-                  pinnedMetricSlices: (string)[];
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | ({
                   organization: string;
                   id: string;
@@ -14451,14 +14453,15 @@ export interface operations {
                   experimentId: string;
                   dimensionId: string;
                   dimensionValues: (string)[];
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   baselineRow: number;
                   /** @enum {string} */
                   differenceType: "absolute" | "relative" | "scaled";
                   columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | ({
                   organization: string;
                   id: string;
@@ -14470,13 +14473,14 @@ export interface operations {
                   snapshotId: string;
                   experimentId: string;
                   metricId?: string;
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   /** @enum {string} */
-                  pinSource: "experiment" | "custom" | "none";
-                  pinnedMetricSlices: (string)[];
+                  differenceType: "absolute" | "relative" | "scaled";
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | {
                   organization: string;
                   id: string;
@@ -14569,17 +14573,16 @@ export interface operations {
               description: string;
               snapshotId: string;
               experimentId: string;
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               baselineRow: number;
               /** @enum {string} */
               differenceType: "absolute" | "relative" | "scaled";
               columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-              /** @enum {string} */
-              pinSource: "experiment" | "custom" | "none";
-              pinnedMetricSlices: (string)[];
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | ({
               /** @constant */
               type: "experiment-dimension";
@@ -14589,14 +14592,15 @@ export interface operations {
               experimentId: string;
               dimensionId: string;
               dimensionValues: (string)[];
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               baselineRow: number;
               /** @enum {string} */
               differenceType: "absolute" | "relative" | "scaled";
               columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | ({
               /** @constant */
               type: "experiment-time-series";
@@ -14605,13 +14609,14 @@ export interface operations {
               snapshotId: string;
               experimentId: string;
               metricId?: string;
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               /** @enum {string} */
-              pinSource: "experiment" | "custom" | "none";
-              pinnedMetricSlices: (string)[];
+              differenceType: "absolute" | "relative" | "scaled";
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | {
               /** @constant */
               type: "experiment-traffic";
@@ -14713,17 +14718,16 @@ export interface operations {
               description: string;
               snapshotId: string;
               experimentId: string;
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               baselineRow: number;
               /** @enum {string} */
               differenceType: "absolute" | "relative" | "scaled";
               columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-              /** @enum {string} */
-              pinSource: "experiment" | "custom" | "none";
-              pinnedMetricSlices: (string)[];
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | ({
               organization: string;
               id: string;
@@ -14736,14 +14740,15 @@ export interface operations {
               experimentId: string;
               dimensionId: string;
               dimensionValues: (string)[];
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               baselineRow: number;
               /** @enum {string} */
               differenceType: "absolute" | "relative" | "scaled";
               columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | ({
               organization: string;
               id: string;
@@ -14755,13 +14760,14 @@ export interface operations {
               snapshotId: string;
               experimentId: string;
               metricId?: string;
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               /** @enum {string} */
-              pinSource: "experiment" | "custom" | "none";
-              pinnedMetricSlices: (string)[];
+              differenceType: "absolute" | "relative" | "scaled";
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | {
               organization: string;
               id: string;
@@ -14817,6 +14823,15 @@ export interface operations {
                 cron: string;
               };
               title: string;
+              seriesDisplaySettings?: {
+                [key: string]: ({
+                  [key: string]: {
+                    color: string;
+                    displayName?: string;
+                    hidden?: boolean;
+                  } | undefined;
+                }) | undefined;
+              };
               projects?: (string)[];
               /** Format: date-time */
               nextUpdate?: string;
@@ -14886,17 +14901,16 @@ export interface operations {
                   description: string;
                   snapshotId: string;
                   experimentId: string;
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   baselineRow: number;
                   /** @enum {string} */
                   differenceType: "absolute" | "relative" | "scaled";
                   columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-                  /** @enum {string} */
-                  pinSource: "experiment" | "custom" | "none";
-                  pinnedMetricSlices: (string)[];
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | ({
                   organization: string;
                   id: string;
@@ -14909,14 +14923,15 @@ export interface operations {
                   experimentId: string;
                   dimensionId: string;
                   dimensionValues: (string)[];
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   baselineRow: number;
                   /** @enum {string} */
                   differenceType: "absolute" | "relative" | "scaled";
                   columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | ({
                   organization: string;
                   id: string;
@@ -14928,13 +14943,14 @@ export interface operations {
                   snapshotId: string;
                   experimentId: string;
                   metricId?: string;
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   /** @enum {string} */
-                  pinSource: "experiment" | "custom" | "none";
-                  pinnedMetricSlices: (string)[];
+                  differenceType: "absolute" | "relative" | "scaled";
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | {
                   organization: string;
                   id: string;
@@ -15012,6 +15028,15 @@ export interface operations {
                   cron: string;
                 };
                 title: string;
+                seriesDisplaySettings?: {
+                  [key: string]: ({
+                    [key: string]: {
+                      color: string;
+                      displayName?: string;
+                      hidden?: boolean;
+                    } | undefined;
+                  }) | undefined;
+                };
                 projects?: (string)[];
                 /** Format: date-time */
                 nextUpdate?: string;
@@ -15081,17 +15106,16 @@ export interface operations {
                     description: string;
                     snapshotId: string;
                     experimentId: string;
-                    /** @enum {string} */
-                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                    metricIds?: (string)[];
+                    metricIds: (string)[];
                     variationIds: (string)[];
                     baselineRow: number;
                     /** @enum {string} */
                     differenceType: "absolute" | "relative" | "scaled";
                     columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-                    /** @enum {string} */
-                    pinSource: "experiment" | "custom" | "none";
-                    pinnedMetricSlices: (string)[];
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
                   }) | ({
                     organization: string;
                     id: string;
@@ -15104,14 +15128,15 @@ export interface operations {
                     experimentId: string;
                     dimensionId: string;
                     dimensionValues: (string)[];
-                    /** @enum {string} */
-                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                    metricIds?: (string)[];
+                    metricIds: (string)[];
                     variationIds: (string)[];
                     baselineRow: number;
                     /** @enum {string} */
                     differenceType: "absolute" | "relative" | "scaled";
                     columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
                   }) | ({
                     organization: string;
                     id: string;
@@ -15123,13 +15148,14 @@ export interface operations {
                     snapshotId: string;
                     experimentId: string;
                     metricId?: string;
-                    /** @enum {string} */
-                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                    metricIds?: (string)[];
+                    metricIds: (string)[];
                     variationIds: (string)[];
                     /** @enum {string} */
-                    pinSource: "experiment" | "custom" | "none";
-                    pinnedMetricSlices: (string)[];
+                    differenceType: "absolute" | "relative" | "scaled";
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
                   }) | {
                     organization: string;
                     id: string;
@@ -15219,17 +15245,16 @@ export interface operations {
               description: string;
               snapshotId: string;
               experimentId: string;
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               baselineRow: number;
               /** @enum {string} */
               differenceType: "absolute" | "relative" | "scaled";
               columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-              /** @enum {string} */
-              pinSource: "experiment" | "custom" | "none";
-              pinnedMetricSlices: (string)[];
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | ({
               /** @constant */
               type: "experiment-dimension";
@@ -15239,14 +15264,15 @@ export interface operations {
               experimentId: string;
               dimensionId: string;
               dimensionValues: (string)[];
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               baselineRow: number;
               /** @enum {string} */
               differenceType: "absolute" | "relative" | "scaled";
               columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | ({
               /** @constant */
               type: "experiment-time-series";
@@ -15255,13 +15281,14 @@ export interface operations {
               snapshotId: string;
               experimentId: string;
               metricId?: string;
-              /** @enum {string} */
-              metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-              metricIds?: (string)[];
+              metricIds: (string)[];
               variationIds: (string)[];
               /** @enum {string} */
-              pinSource: "experiment" | "custom" | "none";
-              pinnedMetricSlices: (string)[];
+              differenceType: "absolute" | "relative" | "scaled";
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
             }) | {
               /** @constant */
               type: "experiment-traffic";
@@ -15334,6 +15361,15 @@ export interface operations {
                 cron: string;
               };
               title: string;
+              seriesDisplaySettings?: {
+                [key: string]: ({
+                  [key: string]: {
+                    color: string;
+                    displayName?: string;
+                    hidden?: boolean;
+                  } | undefined;
+                }) | undefined;
+              };
               projects?: (string)[];
               /** Format: date-time */
               nextUpdate?: string;
@@ -15403,17 +15439,16 @@ export interface operations {
                   description: string;
                   snapshotId: string;
                   experimentId: string;
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   baselineRow: number;
                   /** @enum {string} */
                   differenceType: "absolute" | "relative" | "scaled";
                   columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-                  /** @enum {string} */
-                  pinSource: "experiment" | "custom" | "none";
-                  pinnedMetricSlices: (string)[];
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | ({
                   organization: string;
                   id: string;
@@ -15426,14 +15461,15 @@ export interface operations {
                   experimentId: string;
                   dimensionId: string;
                   dimensionValues: (string)[];
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   baselineRow: number;
                   /** @enum {string} */
                   differenceType: "absolute" | "relative" | "scaled";
                   columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | ({
                   organization: string;
                   id: string;
@@ -15445,13 +15481,14 @@ export interface operations {
                   snapshotId: string;
                   experimentId: string;
                   metricId?: string;
-                  /** @enum {string} */
-                  metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                  metricIds?: (string)[];
+                  metricIds: (string)[];
                   variationIds: (string)[];
                   /** @enum {string} */
-                  pinSource: "experiment" | "custom" | "none";
-                  pinnedMetricSlices: (string)[];
+                  differenceType: "absolute" | "relative" | "scaled";
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
                 }) | {
                   organization: string;
                   id: string;
@@ -15517,6 +15554,15 @@ export interface operations {
                   cron: string;
                 };
                 title: string;
+                seriesDisplaySettings?: {
+                  [key: string]: ({
+                    [key: string]: {
+                      color: string;
+                      displayName?: string;
+                      hidden?: boolean;
+                    } | undefined;
+                  }) | undefined;
+                };
                 projects?: (string)[];
                 /** Format: date-time */
                 nextUpdate?: string;
@@ -15586,17 +15632,16 @@ export interface operations {
                     description: string;
                     snapshotId: string;
                     experimentId: string;
-                    /** @enum {string} */
-                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                    metricIds?: (string)[];
+                    metricIds: (string)[];
                     variationIds: (string)[];
                     baselineRow: number;
                     /** @enum {string} */
                     differenceType: "absolute" | "relative" | "scaled";
                     columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
-                    /** @enum {string} */
-                    pinSource: "experiment" | "custom" | "none";
-                    pinnedMetricSlices: (string)[];
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
                   }) | ({
                     organization: string;
                     id: string;
@@ -15609,14 +15654,15 @@ export interface operations {
                     experimentId: string;
                     dimensionId: string;
                     dimensionValues: (string)[];
-                    /** @enum {string} */
-                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                    metricIds?: (string)[];
+                    metricIds: (string)[];
                     variationIds: (string)[];
                     baselineRow: number;
                     /** @enum {string} */
                     differenceType: "absolute" | "relative" | "scaled";
                     columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
                   }) | ({
                     organization: string;
                     id: string;
@@ -15628,13 +15674,14 @@ export interface operations {
                     snapshotId: string;
                     experimentId: string;
                     metricId?: string;
-                    /** @enum {string} */
-                    metricSelector: "experiment-goal" | "experiment-secondary" | "experiment-guardrail" | "custom";
-                    metricIds?: (string)[];
+                    metricIds: (string)[];
                     variationIds: (string)[];
                     /** @enum {string} */
-                    pinSource: "experiment" | "custom" | "none";
-                    pinnedMetricSlices: (string)[];
+                    differenceType: "absolute" | "relative" | "scaled";
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
                   }) | {
                     organization: string;
                     id: string;
@@ -15666,9 +15713,219 @@ export interface operations {
       };
     };
   };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            })[];
+        };
+      };
+    };
+  };
+  createCustomField: {
+    /** Create a single customField */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The unique key for the custom field */
+          id: string;
+          /** @description The display name of the custom field */
+          name: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getCustomField: {
+    /** Get a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateCustomField: {
+    /** Update a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the custom field */
+          name?: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required?: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section?: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteCustomField: {
+    /** Delete a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
-import * as openApiValidators from "shared/src/validators/openapi";
+import * as openApiValidators from "shared/validators";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
@@ -15712,7 +15969,6 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
-export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -15811,4 +16067,3 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
-export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];

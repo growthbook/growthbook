@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Yarn compatibility shim - translates yarn commands to pnpm
+# This allows existing yarn commands to continue working
+
+echo "⚠️  Warning: This project uses pnpm. Translating yarn command to pnpm..." >&2
+
+# Get the command (first argument)
+CMD="$1"
+shift
+
+case "$CMD" in
+  ""|install)
+    pnpm install "$@"
+    ;;
+  workspace)
+    # yarn workspace <name> <command> -> pnpm --filter <name> <command>
+    WORKSPACE="$1"
+    shift
+    pnpm --filter "$WORKSPACE" "$@"
+    ;;
+  *)
+    # Pass through other commands directly
+    pnpm "$CMD" "$@"
+    ;;
+esac

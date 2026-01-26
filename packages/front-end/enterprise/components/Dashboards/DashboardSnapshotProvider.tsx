@@ -283,9 +283,7 @@ export function useDashboardSnapshot(
   const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
 
   const snapshot =
-    isDefined(blockSnapshotId) && blockSnapshotId.length > 0
-      ? blockSnapshot
-      : defaultSnapshot;
+    blockSnapshotId && blockSnapshot ? blockSnapshot : defaultSnapshot;
   const mutateSnapshot = isDefined(blockSnapshotId)
     ? mutateSnapshotsMap
     : mutateDefault;

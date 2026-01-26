@@ -284,6 +284,18 @@
           }
         ]
       }
+    },
+    {
+      "files": ["./packages/shared/src/validators/*"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
+            "message": "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead."
+          }
+        ]
+      }
     }
   ]
 }

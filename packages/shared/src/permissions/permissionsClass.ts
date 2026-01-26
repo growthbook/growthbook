@@ -27,17 +27,11 @@ import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { HoldoutInterface } from "../validators/holdout";
+import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
-class PermissionError extends Error {
-  status = 403;
-  constructor(message: string) {
-    super(message);
-    this.name = "PermissionError";
-  }
-}
 
 type NotificationEvent = {
   containsSecrets: boolean;
@@ -1234,9 +1228,9 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  public throwPermissionError(): void {
+  public throwPermissionError(message?: string): void {
     throw new PermissionError(
-      "You do not have permission to perform this action",
+      message ?? "You do not have permission to perform this action",
     );
   }
 

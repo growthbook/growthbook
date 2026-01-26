@@ -21,7 +21,6 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
-import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import {
   BLOCK_SUBGROUPS,
   BLOCK_TYPE_INFO,
@@ -99,11 +98,6 @@ export default function DashboardEditorSidebar({
     number | undefined
   >(undefined);
 
-  // TODO(incremental-refresh): remove when dimensions supported in dashboard
-  const experimentalRefreshMode = useExperimentPipelineMode(
-    experiment ?? undefined,
-  );
-
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
     setPreviewBlockPlacement(undefined);
@@ -132,11 +126,7 @@ export default function DashboardEditorSidebar({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(
-            bType,
-            isGeneralDashboard,
-            experimentalRefreshMode === "incremental-refresh",
-          ),
+          isBlockTypeAllowed(bType, isGeneralDashboard),
         );
 
         // Don't render the subgroup if no block types are allowed

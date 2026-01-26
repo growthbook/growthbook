@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -10,7 +10,6 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { DifferenceType } from "shared/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -59,7 +58,11 @@ export interface Props {
   sliceTagsFilter: string[];
   setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
-  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  setAnalysisBarSettings: (
+    s:
+      | AnalysisBarSettings
+      | ((prev: AnalysisBarSettings) => AnalysisBarSettings),
+  ) => void;
   sortBy: "significance" | "change" | null;
   setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
@@ -101,11 +104,11 @@ export default function ResultsTab({
   const { apiCall } = useAuth();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-  const [analysisModal, setAnalysisModal] = useState(false);
 
   const router = useRouter();
 
-  const { snapshot, analysis, setSnapshotType } = useSnapshot();
+  const { snapshot, analysis, setSnapshotType, setAnalysisSettings } =
+    useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
   const { organization } = useUser();
@@ -152,6 +155,20 @@ export default function ResultsTab({
     dimension: analysisBarSettings.dimension,
   };
 
+  const onSnapshotSuccessfulUpdate = useCallback(() => {
+    // Reset analysis settings to default
+    setAnalysisSettings(null);
+    setAnalysisBarSettings((prev) => ({
+      ...prev,
+      dimension: prev.dimension.startsWith("precomputed:")
+        ? ""
+        : prev.dimension,
+      baselineRow: 0,
+      variationFilter: [],
+      differenceType: "relative",
+    }));
+  }, [setAnalysisBarSettings, setAnalysisSettings]);
+
   return (
     <div>
       {isBandit && hasResults ? (
@@ -167,7 +184,11 @@ export default function ResultsTab({
             experiment.type === "multi-armed-bandit" &&
             experiment.status === "running"
           ) && permissionsUtil.canUpdateExperiment(experiment, {}) ? (
-            <Link type="button" onClick={() => setAnalysisModal(true)} mr="2">
+            <Link
+              type="button"
+              onClick={() => setAnalysisSettingsOpen(true)}
+              mr="2"
+            >
               Edit Settings
             </Link>
           ) : null}
@@ -275,7 +296,7 @@ export default function ResultsTab({
       </Box>
 
       <div className="appbox">
-        {analysisSettingsOpen && (
+        {analysisSettingsOpen ? (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
@@ -287,42 +308,16 @@ export default function ResultsTab({
             editVariationIds={false}
             source={"results-tab"}
           />
-        )}
-        {analysisModal && (
-          <AnalysisForm
-            cancel={() => setAnalysisModal(false)}
-            envs={envs}
-            experiment={experiment}
-            mutate={mutate}
-            phase={experiment.phases.length - 1}
-            editDates={true}
-            editVariationIds={false}
-            editMetrics={true}
-            source={"results-tab"}
-          />
-        )}
+        ) : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
+            variationFilter={analysisBarSettings.variationFilter}
             baselineRow={analysisBarSettings.baselineRow}
-            setVariationFilter={(v: number[]) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                variationFilter: v,
-              })
-            }
-            setBaselineRow={(b: number) =>
-              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
-            }
-            setDifferenceType={(d: DifferenceType) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                differenceType: d,
-              })
-            }
+            differenceType={analysisBarSettings.differenceType}
             dimension={analysisBarSettings.dimension}
             setDimension={(d: string, resetOtherSettings?: boolean) =>
               setAnalysisBarSettings({
@@ -346,6 +341,9 @@ export default function ResultsTab({
             availableSliceTags={availableSliceTags}
             sliceTagsFilter={sliceTagsFilter}
             setSliceTagsFilter={setSliceTagsFilter}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+            onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">

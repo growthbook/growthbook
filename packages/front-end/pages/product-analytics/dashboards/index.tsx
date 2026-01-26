@@ -64,6 +64,7 @@ export default function DashboardsPage() {
   const [showDuplicateModal, setShowDuplicateModal] = useState<
     DashboardInterface | undefined
   >(undefined);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [_blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
@@ -451,19 +452,29 @@ export default function DashboardsPage() {
                                           <BsThreeDotsVertical />
                                         </IconButton>
                                       }
+                                      menuPlacement="end"
+                                      variant="soft"
+                                      open={openDropdownId === d.id}
+                                      onOpenChange={(o) => {
+                                        setOpenDropdownId(o ? d.id : null);
+                                      }}
                                     >
-                                      <DropdownMenuItem
-                                        disabled={!canEdit}
-                                        onClick={() => setShowEditModal(d)}
-                                      >
-                                        Edit Dashboard Settings
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        disabled={!canDuplicate}
-                                        onClick={() => setShowDuplicateModal(d)}
-                                      >
-                                        Duplicate
-                                      </DropdownMenuItem>
+                                      {canEdit && (
+                                        <DropdownMenuItem
+                                          onClick={() => setShowEditModal(d)}
+                                        >
+                                          Edit Dashboard Settings
+                                        </DropdownMenuItem>
+                                      )}
+                                      {canDuplicate && (
+                                        <DropdownMenuItem
+                                          onClick={() =>
+                                            setShowDuplicateModal(d)
+                                          }
+                                        >
+                                          Duplicate
+                                        </DropdownMenuItem>
+                                      )}
                                       <DropdownMenuItem
                                         disabled={
                                           !canManageSharingAndEditLevels
@@ -476,30 +487,37 @@ export default function DashboardsPage() {
                                         Share...
                                       </DropdownMenuItem>
 
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        disabled={!canDelete}
-                                        color="red"
-                                        confirmation={{
-                                          confirmationTitle: (
-                                            <span>
-                                              Delete Dashboard <i>{d.title}</i>?
-                                            </span>
-                                          ),
-                                          cta: "Delete",
-                                          submit: async () => {
-                                            await apiCall(
-                                              `/dashboards/${d.id}`,
-                                              {
-                                                method: "DELETE",
+                                      {canDelete && (
+                                        <>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            color="red"
+                                            confirmation={{
+                                              confirmationTitle: (
+                                                <>
+                                                  Delete Dashboard{" "}
+                                                  <i>{d.title}</i>?
+                                                </>
+                                              ),
+                                              cta: "Delete",
+                                              submit: async () => {
+                                                await apiCall(
+                                                  `/dashboards/${d.id}`,
+                                                  {
+                                                    method: "DELETE",
+                                                  },
+                                                );
+                                                mutateDashboards();
                                               },
-                                            );
-                                            mutateDashboards();
-                                          },
-                                        }}
-                                      >
-                                        Delete
-                                      </DropdownMenuItem>
+                                              closeDropdown: () => {
+                                                setOpenDropdownId(null);
+                                              },
+                                            }}
+                                          >
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
                                     </DropdownMenu>
                                   </Flex>
                                 ) : null}

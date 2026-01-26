@@ -19,7 +19,6 @@ import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { isDefined } from "shared/util";
 
-import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -47,6 +46,12 @@ interface Props {
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
   close: () => void;
+  // for quick editing a block from the display view
+  initialEditBlockIndex?: number | null;
+  onConsumeInitialEditBlockIndex?: () => void;
+  updateTemporaryDashboard?: (update: {
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  }) => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -56,12 +61,12 @@ export default function DashboardWorkspace({
   mutate,
   submitDashboard,
   close,
+  initialEditBlockIndex,
+  onConsumeInitialEditBlockIndex,
+  updateTemporaryDashboard,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
-  const isIncrementalRefreshExperiment =
-    useExperimentPipelineMode(experiment ?? undefined) ===
-    "incremental-refresh";
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");
     for (const element of bodyElements) {
@@ -129,17 +134,32 @@ export default function DashboardWorkspace({
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
-      setBlocks(blocks);
       setHasMadeChanges(true);
-      await submit({
-        method: "PUT",
-        dashboardId: dashboard.id,
-        data: {
+
+      // For new dashboards, update temporary state instead of making API call
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({
           blocks,
-        },
-      });
+        });
+      } else {
+        setBlocks(blocks);
+        // For existing dashboards, make API call via submit
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            blocks,
+          },
+        });
+      }
     };
-  }, [setBlocks, submit, dashboard.id]);
+  }, [
+    setBlocks,
+    submit,
+    dashboard.id,
+    dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -160,6 +180,16 @@ export default function DashboardWorkspace({
   const [editingBlockIndex, setEditingBlockIndex] = useState<
     number | undefined
   >(undefined);
+
+  // One-shot edit (and scroll) when entering edit mode from a specific block.
+  useEffect(() => {
+    if (!isDefined(initialEditBlockIndex)) return;
+    // This sets editingBlockIndex + stagedEditBlock and relies on DashboardBlock's
+    // existing scroll behavior (it scrolls when `editingBlock` is true).
+    editBlock(initialEditBlockIndex);
+    onConsumeInitialEditBlockIndex?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditBlockIndex, onConsumeInitialEditBlockIndex]);
   const [addBlockIndex, setAddBlockIndex] = useState<number | undefined>(
     undefined,
   );
@@ -176,13 +206,7 @@ export default function DashboardWorkspace({
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     // Validate that the block type is allowed for this dashboard type
-    if (
-      !isBlockTypeAllowed(
-        bType,
-        isGeneralDashboard,
-        isIncrementalRefreshExperiment,
-      )
-    ) {
+    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
       );
@@ -308,7 +332,7 @@ export default function DashboardWorkspace({
             )}
           </Flex>
           <Flex align="center" gap="4">
-            {dashboardCopy && hasMadeChanges && (
+            {dashboardCopy && hasMadeChanges && !dashboardFirstSave && (
               <Tooltip
                 body="Undo all changes made during this current edit session"
                 tipPosition="top"
@@ -339,7 +363,7 @@ export default function DashboardWorkspace({
               </Tooltip>
             )}
             <Flex align="center" gap="2">
-              {dashboard.id === "new" && blocks.length === 0 && (
+              {dashboardFirstSave && (
                 <Link onClick={close} color="red" type="button" weight="bold">
                   Exit without saving
                 </Link>
@@ -391,7 +415,6 @@ export default function DashboardWorkspace({
               blocks={effectiveBlocks}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
-              isIncrementalRefreshExperiment={isIncrementalRefreshExperiment}
               enableAutoUpdates={dashboard.enableAutoUpdates}
               nextUpdate={
                 experiment
