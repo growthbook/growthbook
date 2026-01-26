@@ -64,10 +64,6 @@ function operatorToText({
       return `is in the list (case insensitive)`;
     case "$nini":
       return `is not in the list (case insensitive)`;
-    case "$all":
-      return `contains all of`;
-    case "$alli":
-      return `contains all of (case insensitive)`;
     case "$inGroup":
       return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
@@ -92,7 +88,7 @@ function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function hasMultiValues(operator: string) {
-  return ["$in", "$nin", "$ini", "$nini", "$all", "$alli"].includes(operator);
+  return ["$in", "$nin", "$ini", "$nini"].includes(operator);
 }
 function getValue(
   operator: string,

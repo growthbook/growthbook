@@ -1147,20 +1147,6 @@ export function jsonToConds(
           }
         }
 
-        if (operator === "$all" || operator === "$alli") {
-          if (Array.isArray(v)) {
-            if (v.some((str) => typeof str === "string" && str.includes(","))) {
-              valid = false;
-              return;
-            }
-            return conds.push({
-              field,
-              operator,
-              value: v.join(", "),
-            });
-          }
-        }
-
         if (operator === "$size") {
           if (v === 0) {
             return conds.push({
@@ -1322,9 +1308,7 @@ export function condToJson(
         operator === "$in" ||
         operator === "$nin" ||
         operator === "$ini" ||
-        operator === "$nini" ||
-        operator === "$all" ||
-        operator === "$alli"
+        operator === "$nini"
       ) {
         // Allow for the empty list
         if (value === "") {

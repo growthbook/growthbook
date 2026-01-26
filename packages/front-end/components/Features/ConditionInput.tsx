@@ -379,7 +379,7 @@ function ConditionAndGroupInput({
     },
   ];
 
-  const listOperators = ["$in", "$nin", "$ini", "$nini", "$alli"];
+  const listOperators = ["$in", "$nin", "$ini", "$nini"];
 
   const attributeSchema = useAttributeSchema(false, props.project);
 
