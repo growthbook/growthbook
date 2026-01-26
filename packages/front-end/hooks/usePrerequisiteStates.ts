@@ -62,20 +62,29 @@ export function usePrerequisiteStates({
 
 interface BatchPrerequisiteStatesResponse {
   status: 200;
-  results: Record<string, Record<string, PrerequisiteStateResult>>;
+  results: Record<
+    string,
+    {
+      states: Record<string, PrerequisiteStateResult>;
+      wouldBeCyclic: boolean;
+    }
+  >;
 }
 
 interface UseBatchPrerequisiteStatesOptions {
-  featureIds: string[];
+  targetFeatureId: string; // The feature we're adding prerequisites TO
+  featureIds: string[]; // The feature options we're checking
   environments: string[];
   enabled?: boolean;
 }
 
 /**
- * Hook to fetch prerequisite states for multiple features in a single request.
+ * Hook to fetch prerequisite states and cyclic checks for multiple features in a single request.
  * More efficient for use cases like feature selection dropdowns.
+ * Returns both prerequisite states and whether each option would create a cycle if selected.
  */
 export function useBatchPrerequisiteStates({
+  targetFeatureId,
   featureIds,
   environments,
   enabled = true,
@@ -84,8 +93,8 @@ export function useBatchPrerequisiteStates({
 
   // Create a stable key for SWR based on the request parameters
   const key =
-    enabled && featureIds.length && environments.length
-      ? `${orgId}::/features/batch-prerequisite-states|${featureIds
+    enabled && targetFeatureId && featureIds.length && environments.length
+      ? `${orgId}::/feature/${targetFeatureId}/batch-prerequisite-states|${featureIds
           .slice()
           .sort()
           .join(",")}|${environments.slice().sort().join(",")}`
@@ -95,7 +104,7 @@ export function useBatchPrerequisiteStates({
     key,
     async () => {
       return apiCall<BatchPrerequisiteStatesResponse>(
-        "/features/batch-prerequisite-states",
+        `/feature/${targetFeatureId}/batch-prerequisite-states`,
         {
           method: "POST",
           body: JSON.stringify({ featureIds, environments }),
@@ -110,6 +119,7 @@ export function useBatchPrerequisiteStates({
       !data &&
       !error &&
       enabled &&
+      !!targetFeatureId &&
       featureIds.length > 0 &&
       environments.length > 0,
     error,

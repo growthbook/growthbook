@@ -814,7 +814,7 @@ app.get(
   featuresController.getPrerequisiteStates,
 );
 app.post(
-  "/features/batch-prerequisite-states",
+  "/feature/:id/batch-prerequisite-states",
   featuresController.postBatchPrerequisiteStates,
 );
 app.get("/features/names", featuresController.getFeatureNames);

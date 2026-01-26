@@ -22,6 +22,7 @@ import {
   getFeatureDefaultValue,
   getPrerequisites,
   useEnvironments,
+  useFeaturesList,
 } from "@/services/features";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import track from "@/services/track";
@@ -67,7 +68,10 @@ export default function PrerequisiteModal({
   revisions,
   version,
 }: Props) {
-  const { features } = useFeaturesNames();
+  const { features: featureNames } = useFeaturesNames();
+  const { features: allFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
   const { projects } = useDefinitions();
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;
@@ -94,7 +98,8 @@ export default function PrerequisiteModal({
     },
   });
 
-  const parentFeature = features.find((f) => f.id === form.watch("id"));
+  const selectedFeatureId = form.watch("id");
+  const parentFeature = allFeatures.find((f) => f.id === selectedFeatureId);
   const parentFeatureId = parentFeature?.id;
 
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
@@ -104,11 +109,11 @@ export default function PrerequisiteModal({
     newFeature.prerequisites = [...prerequisites];
     newFeature.prerequisites[i] = form.getValues();
 
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
+    const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
     return isFeatureCyclic(newFeature, featuresMap, revision, envs);
   }, [
     parentFeatureId,
-    features,
+    allFeatures,
     revisions,
     version,
     envs,
@@ -120,46 +125,38 @@ export default function PrerequisiteModal({
 
   // Fetch prerequisite states for all features from the backend
   const featureIds = useMemo(
-    () => features.filter((f) => f.id !== feature?.id).map((f) => f.id),
-    [features, feature?.id],
+    () => featureNames.filter((f) => f.id !== feature?.id).map((f) => f.id),
+    [featureNames, feature?.id],
   );
 
   const { results: batchStates } = useBatchPrerequisiteStates({
+    targetFeatureId: feature.id,
     featureIds,
     environments: envs,
     enabled: featureIds.length > 0 && envs.length > 0,
   });
 
+  // Extract prerequisite states and wouldBeCyclic flags from backend response
   const featuresStates: Record<
     string,
     Record<string, PrerequisiteStateResult>
-  > = batchStates || {};
-
-  // Calculate wouldBeCyclicStates on frontend (best-effort, may not be accurate for deep cross-project chains)
-  const wouldBeCyclicStates = useMemo(() => {
-    const states: Record<string, boolean> = {};
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-
-    for (const f of features) {
-      const newFeature = cloneDeep(feature);
-      const revision = revisions?.find((r) => r.version === version);
-      newFeature.prerequisites = [...prerequisites];
-      newFeature.prerequisites[i] = {
-        id: f.id,
-        condition: getDefaultPrerequisiteCondition(),
-      };
-      states[f.id] = isFeatureCyclic(
-        newFeature,
-        featuresMap,
-        revision,
-        envs,
-      )[0];
+  > = useMemo(() => {
+    if (!batchStates) return {};
+    const states: Record<string, Record<string, PrerequisiteStateResult>> = {};
+    for (const [featureId, result] of Object.entries(batchStates)) {
+      states[featureId] = result.states;
     }
     return states;
-  }, [feature, features, envs, i, prerequisites, revisions, version]);
+  }, [batchStates]);
 
-  // Fetch prerequisite states for the selected feature from backend
-  const selectedFeatureId = form.watch("id");
+  const wouldBeCyclicStates: Record<string, boolean> = useMemo(() => {
+    if (!batchStates) return {};
+    const states: Record<string, boolean> = {};
+    for (const [featureId, result] of Object.entries(batchStates)) {
+      states[featureId] = result.wouldBeCyclic;
+    }
+    return states;
+  }, [batchStates]);
   const { states: prereqStates, loading: prereqStatesLoading } =
     usePrerequisiteStates({
       featureId: selectedFeatureId,
@@ -185,8 +182,9 @@ export default function PrerequisiteModal({
     return map;
   }, [projects]);
 
-  const allFeatureOptions = features
+  const allFeatureOptions = featureNames
     .filter((f) => f.id !== feature?.id)
+    .filter((f) => !f.archived)
     .filter(
       (f) =>
         !prerequisites.map((p) => p.id).includes(f.id) ||
@@ -226,10 +224,10 @@ export default function PrerequisiteModal({
 
   const featureProject = feature?.project || "";
   const featureOptionsInProject = allFeatureOptions.filter(
-    (f) => !f.meta?.isOtherProject && (f.project || "") === featureProject,
+    (f) => (f.project || "") === featureProject,
   );
   const featureOptionsInOtherProjects = allFeatureOptions.filter(
-    (f) => f.meta?.isOtherProject || (f.project || "") !== featureProject,
+    (f) => (f.project || "") !== featureProject,
   );
 
   const featureOptions = [

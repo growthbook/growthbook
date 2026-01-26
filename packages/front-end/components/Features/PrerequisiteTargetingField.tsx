@@ -1,10 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import {
-  FeatureInterface,
-  FeaturePrerequisite,
-  ForceRule,
-} from "shared/types/feature";
+import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import {
   FaExclamationCircle,
   FaExternalLinkAlt,
@@ -17,17 +13,16 @@ import {
   PiArrowSquareOut,
 } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
-import { getDefaultPrerequisiteCondition, isFeatureCyclic } from "shared/util";
+import { getDefaultPrerequisiteCondition } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
-import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import { getFeatureDefaultValue } from "@/services/features";
+import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
@@ -75,12 +70,15 @@ export default function PrerequisiteTargetingField({
   setValue,
   feature,
   project,
-  revisions,
-  version,
+  revisions: _revisions,
+  version: _version,
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features } = useFeaturesNames();
+  const { features: featureNames } = useFeaturesNames();
+  const { features: allFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
   const { projects } = useDefinitions();
   const valueStr = JSON.stringify(value);
 
@@ -100,7 +98,7 @@ export default function PrerequisiteTargetingField({
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
-      const parentFeature = features.find((f) => f.id === v.id);
+      const parentFeature = allFeatures.find((f) => f.id === v.id);
       const parentCondition = v.condition;
       if (parentFeature) {
         if (parentCondition === "" || parentCondition === "{}") {
@@ -122,24 +120,37 @@ export default function PrerequisiteTargetingField({
   // Get all feature IDs that we need states for (dropdown options + selected prerequisites)
   const allFeatureIds = useMemo(() => {
     const selectedIds = value.map((v) => v.id).filter(Boolean);
-    const dropdownIds = features
+    const dropdownIds = featureNames
       .filter((f) => f.id !== feature?.id)
       .map((f) => f.id);
     return [...new Set([...selectedIds, ...dropdownIds])];
-  }, [value, features, feature?.id]);
+  }, [value, featureNames, feature?.id]);
 
-  // Fetch prerequisite states from backend for all relevant features
+  // Fetch prerequisite states and cyclic checks from backend for all relevant features
+  const targetFeatureId = feature?.id || "";
   const { results: batchStates, loading: batchStatesLoading } =
     useBatchPrerequisiteStates({
+      targetFeatureId,
       featureIds: allFeatureIds,
       environments,
-      enabled: allFeatureIds.length > 0 && environments.length > 0,
+      enabled:
+        !!targetFeatureId &&
+        allFeatureIds.length > 0 &&
+        environments.length > 0,
     });
 
+  // Extract prerequisite states from backend response
   const featuresStates: Record<
     string,
     Record<string, PrerequisiteStateResult>
-  > = batchStates || {};
+  > = useMemo(() => {
+    if (!batchStates) return {};
+    const states: Record<string, Record<string, PrerequisiteStateResult>> = {};
+    for (const [featureId, result] of Object.entries(batchStates)) {
+      states[featureId] = result.states;
+    }
+    return states;
+  }, [batchStates]);
 
   // Map selected prerequisites to their states
   const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
@@ -150,49 +161,15 @@ export default function PrerequisiteTargetingField({
       });
     }, [value, featuresStates]);
 
-  // Calculate wouldBeCyclicStates on frontend (best-effort)
-  const wouldBeCyclicStates = useMemo(() => {
+  // Extract wouldBeCyclic flags from backend response
+  const wouldBeCyclicStates: Record<string, boolean> = useMemo(() => {
+    if (!batchStates) return {};
     const states: Record<string, boolean> = {};
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-
-    for (const f of features) {
-      let wouldBeCyclic = false;
-      if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
-        const newFeature = cloneDeep(feature);
-        const revision = revisions?.find((r) => r.version === version);
-        const newRevision = cloneDeep(revision);
-        const fakeRule: ForceRule = {
-          type: "force",
-          description: "fake rule",
-          id: "fake-rule",
-          value: "true",
-          prerequisites: [
-            {
-              id: f.id,
-              condition: getDefaultPrerequisiteCondition(),
-            },
-          ],
-          enabled: true,
-        };
-        if (newRevision) {
-          newRevision.rules[environments[0]] =
-            newRevision.rules[environments[0]] || [];
-          newRevision.rules[environments[0]].push(fakeRule);
-        } else {
-          newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
-        }
-
-        wouldBeCyclic = isFeatureCyclic(
-          newFeature,
-          featuresMap,
-          newRevision,
-          environments,
-        )[0];
-      }
-      states[f.id] = wouldBeCyclic;
+    for (const [featureId, result] of Object.entries(batchStates)) {
+      states[featureId] = result.wouldBeCyclic;
     }
     return states;
-  }, [feature, features, environments, revisions, version]);
+  }, [batchStates]);
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
@@ -206,7 +183,7 @@ export default function PrerequisiteTargetingField({
       }
     }
     return false;
-  }, [prereqStatesArr, features, valueStr, hasSDKWithPrerequisites]);
+  }, [prereqStatesArr, valueStr, hasSDKWithPrerequisites]);
 
   useEffect(() => {
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
@@ -220,18 +197,9 @@ export default function PrerequisiteTargetingField({
     return map;
   }, [projects]);
 
-  const selectedFeatureIds = useMemo(
-    () => new Set(value.map((v) => v.id).filter(Boolean)),
-    [value],
-  );
-
-  const featuresMap = useMemo(
-    () => new Map(features.map((f) => [f.id, f])),
-    [features],
-  );
-
-  const allFeatureOptions = features
+  const allFeatureOptions = featureNames
     .filter((f) => f.id !== feature?.id)
+    .filter((f) => !f.archived)
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "conditional",
@@ -258,25 +226,6 @@ export default function PrerequisiteTargetingField({
       };
     });
 
-  selectedFeatureIds.forEach((featureId) => {
-    if (!featuresMap.has(featureId) && featureId !== feature?.id) {
-      // This feature is selected but not in the filtered list - it's from another project
-      allFeatureOptions.push({
-        label: featureId,
-        value: featureId,
-        meta: {
-          conditional: false,
-          cyclic: false,
-          wouldBeCyclic: false,
-          disabled: false,
-          isOtherProject: true,
-        } as FeatureOptionMeta,
-        project: "",
-        projectName: null,
-      });
-    }
-  });
-
   allFeatureOptions.sort((a, b) => {
     if (b.meta?.disabled) return -1;
     return 0;
@@ -284,10 +233,10 @@ export default function PrerequisiteTargetingField({
 
   const featureProject = (feature ? feature?.project : project) || "";
   const featureOptionsInProject = allFeatureOptions.filter(
-    (f) => !f.meta?.isOtherProject && (f.project || "") === featureProject,
+    (f) => (f.project || "") === featureProject,
   );
   const featureOptionsInOtherProjects = allFeatureOptions.filter(
-    (f) => f.meta?.isOtherProject || (f.project || "") !== featureProject,
+    (f) => (f.project || "") !== featureProject,
   );
 
   const featureOptions = [
@@ -338,7 +287,7 @@ export default function PrerequisiteTargetingField({
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
-            const parentFeature = features.find((f) => f.id === v.id);
+            const parentFeature = allFeatures.find((f) => f.id === v.id);
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
               (s) => s.state === "conditional",

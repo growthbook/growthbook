@@ -1,18 +1,13 @@
+import { FeatureMetaInfo } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
-
-export interface FeatureName {
-  id: string;
-  project: string;
-  valueType: string;
-}
 
 interface FeaturesNamesResponse {
   status: 200;
-  features: FeatureName[];
+  features: FeatureMetaInfo[];
 }
 
 /**
- * Lightweight hook to fetch feature names for dropdowns.
+ * Lightweight hook to fetch feature metadata for dropdowns.
  * Much more efficient than useFeaturesList as it only returns minimal data.
  * Use this for prerequisite selection dropdowns instead of full feature objects.
  */

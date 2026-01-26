@@ -11,6 +11,7 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
+  getDefaultPrerequisiteCondition,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -29,6 +30,7 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
+  FeatureMetaInfo,
   JSONSchemaDef,
   FeatureUsageData,
   FeatureUsageDataPoint,
@@ -67,6 +69,7 @@ import {
   getAllFeatures,
   getFeature,
   getFeaturesByIds,
+  getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
   hasArchivedFeatures,
   migrateDraft,
@@ -3377,24 +3380,32 @@ export async function getPrerequisiteStates(
 }
 
 /**
- * Batch evaluates prerequisite states for multiple features.
- * This is more efficient when we need states for many features at once (e.g., for option lists).
+ * Batch evaluates prerequisite states for multiple features and checks if they would create cycles.
+ * This is used for feature selection dropdowns (e.g., prerequisite selection).
+ * The feature ID in params is the feature we're adding prerequisites TO.
  */
 export async function postBatchPrerequisiteStates(
   req: AuthRequest<
     { featureIds: string[]; environments: string[] },
-    Record<string, never>
+    { id: string }
   >,
   res: Response<
     {
       status: 200;
-      results: Record<string, Record<string, PrerequisiteStateResult>>;
+      results: Record<
+        string,
+        {
+          states: Record<string, PrerequisiteStateResult>;
+          wouldBeCyclic: boolean;
+        }
+      >;
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
   const { featureIds, environments } = req.body;
+  const { id: targetFeatureId } = req.params;
 
   if (!featureIds || !featureIds.length) {
     throw new Error("Must provide featureIds");
@@ -3403,24 +3414,128 @@ export async function postBatchPrerequisiteStates(
     throw new Error("Must provide environments");
   }
 
-  const features = await getFeaturesByIds(context, featureIds);
-  const featuresMap = new Map(features.map((f) => [f.id, f]));
+  // Get the target feature (the one we're adding prerequisites to)
+  const targetFeature = await getFeature(context, targetFeatureId);
+  if (!targetFeature) {
+    throw new Error("Could not find target feature");
+  }
 
-  const results: Record<string, Record<string, PrerequisiteStateResult>> = {};
+  // Get the latest revision for the target feature
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: targetFeatureId,
+    version: targetFeature.version,
+  });
+
+  // Get all option features (the ones we're checking)
+  const optionFeatures = await getFeaturesByIds(context, featureIds);
+  const featuresMap = new Map(optionFeatures.map((f) => [f.id, f]));
+
+  // Build a shared features map for JIT loading during evaluation
+  const sharedFeaturesMap = new Map<string, FeatureInterface>();
+  optionFeatures.forEach((f) => sharedFeaturesMap.set(f.id, f));
+
+  const results: Record<
+    string,
+    {
+      states: Record<string, PrerequisiteStateResult>;
+      wouldBeCyclic: boolean;
+    }
+  > = {};
 
   for (const featureId of featureIds) {
-    const feature = featuresMap.get(featureId);
-    if (!feature) continue;
+    const optionFeature = featuresMap.get(featureId);
+    if (!optionFeature) continue;
 
-    results[featureId] = {};
+    // Evaluate prerequisite states for this option feature
+    const states: Record<string, PrerequisiteStateResult> = {};
     for (const env of environments) {
-      results[featureId][env] = await evaluatePrerequisiteStateAsync(
+      states[env] = await evaluatePrerequisiteStateAsync(
         context,
-        feature,
+        optionFeature,
         env,
-        featuresMap,
+        sharedFeaturesMap,
       );
     }
+
+    // Check if adding this feature as a prerequisite would create a cycle
+    // Apply revision rules if available (similar to isFeatureCyclic)
+    const testFeature = cloneDeep(targetFeature);
+    if (revision) {
+      for (const env of Object.keys(testFeature.environmentSettings || {})) {
+        testFeature.environmentSettings[env].rules =
+          revision?.rules?.[env] || [];
+      }
+    }
+    testFeature.prerequisites = [
+      ...(testFeature.prerequisites || []),
+      {
+        id: featureId,
+        condition: getDefaultPrerequisiteCondition(),
+      },
+    ];
+
+    // Build features map for cyclic check (include target + all options)
+    const cyclicCheckMap = new Map<string, FeatureInterface>();
+    cyclicCheckMap.set(targetFeature.id, targetFeature);
+    optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
+
+    // JIT load any missing prerequisites during cyclic check
+    const checkCyclicAsync = async (f: FeatureInterface): Promise<boolean> => {
+      const visited = new Set<string>();
+      const visiting = new Set<string>();
+
+      const visit = async (feature: FeatureInterface): Promise<boolean> => {
+        if (visiting.has(feature.id)) return true;
+        if (visited.has(feature.id)) return false;
+
+        visiting.add(feature.id);
+
+        // Get all prerequisite IDs (top-level + rule-level)
+        const prerequisiteIds: string[] = (feature.prerequisites || []).map(
+          (p) => p.id,
+        );
+        for (const eid in feature.environmentSettings || {}) {
+          if (!environments.includes(eid)) continue;
+          const env = feature.environmentSettings?.[eid];
+          if (!env?.rules) continue;
+          for (const rule of env.rules || []) {
+            if (rule?.prerequisites?.length) {
+              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
+              prerequisiteIds.push(...rulePrerequisiteIds);
+            }
+          }
+        }
+
+        for (const prerequisiteId of prerequisiteIds) {
+          let prereqFeature = cyclicCheckMap.get(prerequisiteId);
+          if (!prereqFeature) {
+            const features = await getFeaturesByIds(context, [prerequisiteId]);
+            prereqFeature = features[0];
+            if (prereqFeature) {
+              cyclicCheckMap.set(prerequisiteId, prereqFeature);
+            }
+          }
+          if (prereqFeature && (await visit(prereqFeature))) {
+            return true;
+          }
+        }
+
+        visiting.delete(feature.id);
+        visited.add(feature.id);
+        return false;
+      };
+
+      return visit(f);
+    };
+
+    const wouldBeCyclic = await checkCyclicAsync(testFeature);
+
+    results[featureId] = {
+      states,
+      wouldBeCyclic,
+    };
   }
 
   res.status(200).json({
@@ -3472,7 +3587,8 @@ async function evaluatePrerequisiteStateAsync(
       let prereqFeature = featuresMap.get(prereq.id);
       if (!prereqFeature) {
         // JIT load the feature
-        prereqFeature = await getFeatureByIdForPrereq(context, prereq.id);
+        const features = await getFeaturesByIds(context, [prereq.id]);
+        prereqFeature = features[0];
         if (prereqFeature) {
           featuresMap.set(prereq.id, prereqFeature);
         }
@@ -3537,7 +3653,8 @@ async function evaluatePrerequisiteStateAsync(
       let prereqFeature = featuresMap.get(prereq.id);
       if (!prereqFeature) {
         // JIT load the feature
-        prereqFeature = await getFeatureByIdForPrereq(context, prereq.id);
+        const features = await getFeaturesByIds(context, [prereq.id]);
+        prereqFeature = features[0];
         if (prereqFeature) {
           featuresMap.set(prereq.id, prereqFeature);
         }
@@ -3620,7 +3737,7 @@ function evalDeterministicPrereqValueBackend(
 }
 
 /**
- * Returns lightweight feature names for dropdowns (e.g., prerequisite selection).
+ * Returns lightweight feature metadata for dropdowns (e.g., prerequisite selection).
  * This is much more efficient than fetching full feature objects.
  */
 export async function getFeatureNames(
@@ -3628,37 +3745,17 @@ export async function getFeatureNames(
   res: Response<
     {
       status: 200;
-      features: Array<{ id: string; project: string; valueType: string }>;
+      features: FeatureMetaInfo[];
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
 
-  // Get all features for the organization
-  const features = await getAllFeatures(context);
-
-  // Return only the minimal data needed for dropdowns
-  const lightweightFeatures = features.map((f) => ({
-    id: f.id,
-    project: f.project || "",
-    valueType: f.valueType,
-  }));
+  const features = await getFeatureMetaInfoById(context);
 
   res.status(200).json({
     status: 200,
-    features: lightweightFeatures,
+    features,
   });
-}
-
-/**
- * Helper to get a single feature by ID without project restrictions.
- * Used for JIT loading features during prerequisite evaluation.
- */
-async function getFeatureByIdForPrereq(
-  context: ReqContext | ApiReqContext,
-  id: string,
-): Promise<FeatureInterface | null> {
-  const features = await getFeaturesByIds(context, [id]);
-  return features[0] || null;
 }
