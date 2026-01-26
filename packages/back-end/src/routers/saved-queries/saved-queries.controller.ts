@@ -271,7 +271,7 @@ export async function executeAndSaveQuery(
 
   await context.models.savedQueries.update(savedQuery, {
     results: {
-      results,
+      results: results,
       error,
       duration,
       sql,
