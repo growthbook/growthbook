@@ -8,10 +8,17 @@ module.exports = {
       autorestart: process.env.PM2_AUTORESTART === "true",
       watch: false,
       max_memory_restart: process.env.PM2_MAX_MEMORY_RESTART || "6G",
+      ...(process.env.TRACING_PROVIDER === "datadog" && {
+        node_args: "--require ./dist/tracing.datadog.js",
+      }),
+      ...(process.env.TRACING_PROVIDER === "opentelemetry" && {
+        node_args: "--require ./dist/tracing.opentelemetry.js",
+      }),
     },
     {
       name: "front-end",
-      script: "./start-front-end.js",
+      script: "cd packages/front-end && ./node_modules/.bin/next",
+      args: "start",
       instances: 1,
       autorestart: process.env.PM2_AUTORESTART === "true",
       watch: false,

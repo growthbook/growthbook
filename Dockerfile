@@ -85,11 +85,8 @@ COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 
-# Copy PM2 config files
+# Copy PM2 config file
 COPY ecosystem.config.js ./ecosystem.config.js
-COPY ecosystem.tracing.config.js ./ecosystem.tracing.config.js
-COPY ecosystem.datadog.config.js ./ecosystem.datadog.config.js
-COPY start-front-end.js ./start-front-end.js
 
 # Copy yarn compatibility shim for users with custom entry points
 COPY bin/yarn ./bin/yarn
@@ -112,5 +109,5 @@ EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
 # Start both front-end and back-end at once
-# Use PM2_CONFIG_FILE env var to select config (ecosystem.config.js, ecosystem.tracing.config.js, or ecosystem.datadog.config.js)
-CMD ["sh", "-c", "npx pm2-runtime start ${PM2_CONFIG_FILE:-ecosystem.config.js}"]
+# Use TRACING_PROVIDER env var to enable tracing (datadog or opentelemetry)
+CMD ["node_modules/.bin/pm2-runtime", "start", "ecosystem.config.js"]
