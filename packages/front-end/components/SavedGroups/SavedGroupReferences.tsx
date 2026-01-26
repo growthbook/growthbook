@@ -26,7 +26,7 @@ export default function SavedGroupReferences({
 
   return (
     <Link onClick={onShowReferences}>
-        <BiShow /> {totalReferences} reference{totalReferences !== 1 && "s"}
+      <BiShow /> {totalReferences} reference{totalReferences !== 1 && "s"}
       {isScopedToProject && " in this project"}
     </Link>
   );
