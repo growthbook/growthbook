@@ -32,6 +32,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
   sliceId?: string;
+  baselineRow?: number;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -63,6 +64,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   pValueAdjustmentEnabled,
   firstDateToRender,
   sliceId,
+  baselineRow = 0,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -83,6 +85,15 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const filteredMetricTimeSeries = useMemo(() => {
     return filterInvalidMetricTimeSeries(data?.timeSeries || []);
   }, [data]);
+
+  if (baselineRow !== 0) {
+    return (
+      <Message>
+        Time series is only available when comparing against Control as a
+        baseline.
+      </Message>
+    );
+  }
 
   if (error) {
     return (
