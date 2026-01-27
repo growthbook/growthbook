@@ -6,7 +6,6 @@ import {
   SavedGroupTargeting,
 } from "shared/types/feature";
 import React from "react";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -58,8 +57,6 @@ export default function ExperimentRefNewFields({
   project,
   environments,
   defaultValues,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -93,8 +90,6 @@ export default function ExperimentRefNewFields({
   project?: string;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -386,8 +381,6 @@ export default function ExperimentRefNewFields({
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
             feature={feature}
-            revisions={revisions}
-            version={version}
             environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
