@@ -13,7 +13,6 @@ primary_region = 'sjc'
   IS_CLOUD = false
   IS_MULTI_ORG = true
   PREVIEW_IDLE_TIMEOUT_SECONDS = '1800'
-  TRACING_PROVIDER = 'opentelemetry'
 
 [[services]]
   protocol = 'tcp'
