@@ -18,14 +18,14 @@ We assume data are available in each cell, i.e., either the number of cells is n
 
 For each case there are 4 steps.
 
-1. In [Regression](##regression) we describe how to construct regression estimates of the treatment effect and control mean for each cell (i.e. dimension level).
-2. In [First Stage](##first-stage) we describe how to construct cell-specific estimates of absolute treatment effects and control means using cell-specific summary statistics.
-3. In [Second Stage](##second-stage) we describe how to combine estimates across cells to estimate population effects and population control means.
-4. Finally, in [Third Stage](##third-stage) we transform the combined estimates into estimates of lift, ratio parameters, etc.
+1. In [Regression](#regression) we describe how to construct regression estimates of the treatment effect and control mean for each cell (i.e. dimension level).
+2. In [Cell Moments](#cell-moments) we describe how to construct cell-specific estimates of absolute treatment effects and control means using cell-specific summary statistics.
+3. In [Combining Cell Estimates](#combining-cell-estimates) we describe how to combine estimates across cells to estimate population effects and population control means.
+4. Finally, in [Delta Method](#delta-method) we transform the combined estimates into estimates of lift, ratio parameters, etc.
 
 ## Regression
 
-Below we describe regression models for each cell, or dimension level. The regression output will be used in [the next section](##cell-moments) to construct the joint sampling distribution of effect estimates and control means within a stratification cell.
+Below we describe regression models for each cell, or dimension level. The regression output will be used in [the next section](#cell-moments) to construct the joint sampling distribution of effect estimates and control means within a stratification cell.
 
 We do this for ratio metrics, and discuss along the way the simpler case of count metrics.
 
@@ -63,7 +63,7 @@ $$
 
 ## Cell moments
 
-In this section we describe how to use the regression output from [the previous section](##regression) to construct the joint sampling distribution of effect estimates and control means within a stratification cell.
+In this section we describe how to use the regression output from [the previous section](#regression) to construct the joint sampling distribution of effect estimates and control means within a stratification cell.
 
 In the $k^{\text{th}}$ cell, our inferential focus is the vector $\boldsymbol{\alpha}_{k}$, which has four elements:
 

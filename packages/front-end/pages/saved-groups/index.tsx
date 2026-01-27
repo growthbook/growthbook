@@ -34,7 +34,7 @@ export const getSavedGroupMessage = (
   >,
   savedGroupsUsingSavedGroups?: SavedGroupInterface[],
 ) => {
-  return async () => {
+  return async function SavedGroupMessage() {
     if (
       isEmpty(featuresUsingSavedGroups) &&
       isEmpty(experimentsUsingSavedGroups) &&

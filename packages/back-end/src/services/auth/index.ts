@@ -106,7 +106,6 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 }
 
 export async function processJWT(
-  // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventUserForResponseLocals>,
   next: NextFunction,

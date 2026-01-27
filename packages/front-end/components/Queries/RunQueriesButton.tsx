@@ -107,7 +107,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
     const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
 
     // Used to refresh this component while query is running so we can show an elapsed timer
-    // eslint-disable-next-line
+
     const [_, setCounter] = useState(0);
 
     const numFinished = model.queries.filter(
