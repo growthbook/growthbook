@@ -61,7 +61,7 @@ The default display currency is USD, but you can change it under **Settings** �
 
 ## Metric Types
 
-There are 5 types of metrics you can create within GrowthBook - Proportion, Retention, Mean, Ratio, and Quantile.
+There are 6 types of metrics you can create within GrowthBook - Proportion, Retention, Daily Participation, Mean, Ratio, and Quantile.
 
 ### Proportion Metrics
 
@@ -76,6 +76,35 @@ Retention Metrics are used to measure the retention of users over time with resp
 You can use the filters to determine if a user qualifies as retained (using a row filter to only look for certain events or using a user filter to only look for users who completed an action a certain number of times).
 
 You then set the retention window, which is the amount of time after the first experiment exposure that a user must do the qualifying actions. You can also use a conversion window to only look for a certain time period after the start of the retention window. For example, if you want to measure the retention of users who came back to your site in the second full week after the experiment exposure, you would set the retention window to 7 days and the conversion window to 7 days.
+
+### Daily Participation Metrics
+
+Daily Participation Metrics measure the average percentage of days after experiment exposure that a user is active (i.e., meets the metric criteria). This is analogous to Daily Active Users (DAU) in an experiment context, where you want to measure engagement frequency over time.
+
+For each user, GrowthBook:
+
+1. Counts the number of distinct days they match the metric criteria (have rows in the Fact Table that meet your filters)
+2. Calculates the number of eligible days since their first experiment exposure (based on the metric window settings)
+3. Computes the user's participation rate as: `(matching days) / (eligible days)`
+4. Averages these participation rates across all users in the variation
+
+The result is displayed as a percentage (0-100%), representing the average daily participation rate for users in that variation.
+
+**Example:**
+
+If your control variation has two users:
+
+- **User 1**: Meets the active criteria on 2 days and has been in the experiment for 5 days → participation rate = 2/5 = 0.4 (40%)
+- **User 2**: Meets the active criteria on 3 out of 3 days → participation rate = 3/3 = 1.0 (100%)
+
+The variation average would be: (0.4 + 1.0) / 2 = 0.7, or **70%**. This means the average daily participation rate is 70% for users in this variation.
+
+If you had a conversion or lookback window, the number of eligible days would be limited to the number of days in that window and the participation rate would be calculated based only on that window.
+
+**Use Cases:**
+
+- Measuring user engagement frequency (e.g., "What percentage of days do users log in?")
+- Tracking feature adoption over time (e.g., "What percentage of days do users use the new feature?")
 
 ### Mean Metrics
 
