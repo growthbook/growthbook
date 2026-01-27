@@ -4,6 +4,7 @@
  */
 
 import normalCDF from "@stdlib/stats-base-dists-normal-cdf";
+import normalPDF from "@stdlib/stats-base-dists-normal-pdf";
 import normalQuantile from "@stdlib/stats-base-dists-normal-quantile";
 import chi2CDF from "@stdlib/stats-base-dists-chisquare-cdf";
 
@@ -86,21 +87,31 @@ export function truncatedNormalMean(
   const alpha = (a - mu) / sigma;
   const beta = (b - mu) / sigma;
 
-  // Standard normal PDF: phi(x) = exp(-x^2/2) / sqrt(2*pi)
-  const phi = (x: number): number => {
-    if (!isFinite(x)) return 0;
-    return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
-  };
+  // Use stdlib's PDF for better precision
+  const phiAlpha = isFinite(alpha) ? normalPDF(alpha, 0, 1) : 0;
+  const phiBeta = isFinite(beta) ? normalPDF(beta, 0, 1) : 0;
 
-  // CDF values using stdlib
-  const PhiAlpha = isFinite(alpha) ? normalCDF(alpha, 0, 1) : alpha < 0 ? 0 : 1;
-  const PhiBeta = isFinite(beta) ? normalCDF(beta, 0, 1) : beta < 0 ? 0 : 1;
+  // Use survival function identity for numerical stability
+  let PhiAlpha: number;
+  let PhiBeta: number;
+
+  if (isFinite(alpha)) {
+    PhiAlpha = alpha < 0 ? normalCDF(alpha, 0, 1) : 1 - normalCDF(-alpha, 0, 1);
+  } else {
+    PhiAlpha = alpha < 0 ? 0 : 1;
+  }
+
+  if (isFinite(beta)) {
+    PhiBeta = beta < 0 ? normalCDF(beta, 0, 1) : 1 - normalCDF(-beta, 0, 1);
+  } else {
+    PhiBeta = beta < 0 ? 0 : 1;
+  }
 
   // Handle edge cases
   const denominator = PhiBeta - PhiAlpha;
   if (denominator === 0) return mu;
 
-  return mu + (sigma * (phi(alpha) - phi(beta))) / denominator;
+  return mu + (sigma * (phiAlpha - phiBeta)) / denominator;
 }
 
 /**
