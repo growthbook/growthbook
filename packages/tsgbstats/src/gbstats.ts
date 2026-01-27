@@ -755,17 +755,19 @@ export function analyzeMetricDf(
       }
 
       // Build variation response based on test type
-      const baseVariationResponse: BaseVariationResponse = {
+      // Field order matches Python: cr, value, users, denominator, stats, expected, ci, uplift,
+      // errorMessage, chanceToWin, risk, riskType, realizedSettings, power, supplementalResults
+      const baseVariationResponse = {
         ...metricResponse,
         expected: res.expected,
-        uplift: res.uplift,
         ci,
+        uplift: res.uplift,
         errorMessage: res.errorMessage,
-        power,
-        realizedSettings: {
-          postStratificationApplied:
-            test.momentsResult?.postStratificationApplied ?? false,
-        },
+      };
+
+      const realizedSettings = {
+        postStratificationApplied:
+          test.momentsResult?.postStratificationApplied ?? false,
       };
 
       if ("chanceToWin" in res) {
@@ -776,6 +778,8 @@ export function analyzeMetricDf(
           chanceToWin: bayesRes.chanceToWin,
           risk: bayesRes.risk,
           riskType: bayesRes.riskType,
+          realizedSettings,
+          power,
         };
         variationData.push(bayesianResponse);
       } else {
@@ -785,6 +789,8 @@ export function analyzeMetricDf(
           ...baseVariationResponse,
           pValue: freqRes.pValue,
           pValueErrorMessage: freqRes.pValueErrorMessage,
+          realizedSettings,
+          power,
         };
         variationData.push(frequentistResponse);
       }
