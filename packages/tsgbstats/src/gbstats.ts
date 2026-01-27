@@ -34,6 +34,7 @@ import type {
   BayesianTestResult,
 } from "./models/results";
 import { checkSrm } from "./utils";
+import { createCoreAndSupplementalResults } from "./supplemental";
 
 // ==============================================================
 // Response Types
@@ -787,8 +788,13 @@ export function processAnalysis(
     !(analysis.postStratificationEnabled ?? false),
   );
 
-  // Run the analysis
-  return analyzeMetricDf(reducedMetricData, varNames.length, metric, analysis);
+  // Run the analysis with supplemental results
+  return createCoreAndSupplementalResults(
+    reducedMetricData,
+    varNames.length,
+    metric,
+    analysis,
+  );
 }
 
 /**
