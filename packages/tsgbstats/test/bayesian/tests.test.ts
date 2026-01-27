@@ -8,7 +8,7 @@ import {
   getTestCase,
   FixtureFile,
 } from "../helpers/fixtureLoader";
-import { roundResultDict, keysToSnake } from "../helpers/testUtils";
+import { roundResultDict } from "../helpers/testUtils";
 import {
   SampleMeanStatistic,
   ProportionStatistic,
@@ -76,6 +76,7 @@ describe("EffectBayesianABTest - Binomial", () => {
 
   it("should compute correct result for bayesian binomial test", () => {
     if (!fixtures) {
+      // eslint-disable-next-line no-console
       console.log("Fixtures not found, run pnpm fixtures:generate first");
       return;
     }
@@ -93,8 +94,8 @@ describe("EffectBayesianABTest - Binomial", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -146,8 +147,8 @@ describe("EffectBayesianABTest - Gaussian", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -172,8 +173,8 @@ describe("EffectBayesianABTest - Gaussian", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -227,8 +228,8 @@ describe("EffectBayesianABTest - Quantile", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -253,8 +254,8 @@ describe("EffectBayesianABTest - Quantile", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -279,8 +280,8 @@ describe("EffectBayesianABTest - Quantile", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -305,8 +306,8 @@ describe("EffectBayesianABTest - Quantile", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -331,8 +332,8 @@ describe("EffectBayesianABTest - Quantile", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -395,6 +396,7 @@ describe("EffectBayesianABTest - Risk", () => {
 
   it("should compute risk correctly with modified quantile bounds", () => {
     if (!fixtures) {
+      // eslint-disable-next-line no-console
       console.log("Fixtures not found, run pnpm fixtures:generate first");
       return;
     }
@@ -415,8 +417,8 @@ describe("EffectBayesianABTest - Risk", () => {
 
     const test = new EffectBayesianABTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);

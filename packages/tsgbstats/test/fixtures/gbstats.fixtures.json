@@ -41,10 +41,7 @@
               "count": 200
             }
           ],
-          "var_ids": [
-            "zero",
-            "one"
-          ]
+          "var_ids": ["zero", "one"]
         },
         "expected": []
       },
@@ -84,14 +81,9 @@
               "count": 200
             }
           ],
-          "var_ids": [
-            "zero",
-            "hello"
-          ]
+          "var_ids": ["zero", "hello"]
         },
-        "expected": [
-          "one"
-        ]
+        "expected": ["one"]
       },
       "test_unknown_variations_both": {
         "inputs": {
@@ -129,15 +121,9 @@
               "count": 200
             }
           ],
-          "var_ids": [
-            "hello",
-            "world"
-          ]
+          "var_ids": ["hello", "world"]
         },
-        "expected": [
-          "one",
-          "zero"
-        ]
+        "expected": ["one", "zero"]
       },
       "test_multiple_exposures": {
         "inputs": {
@@ -182,20 +168,13 @@
               "users": 500
             }
           ],
-          "var_ids": [
-            "zero",
-            "one"
-          ],
+          "var_ids": ["zero", "one"],
           "ignore_default": null,
-          "ignore_custom": [
-            "some_other"
-          ]
+          "ignore_custom": ["some_other"]
         },
         "expected": {
           "with_default_ignore": [],
-          "with_custom_ignore": [
-            "__multiple__"
-          ]
+          "with_custom_ignore": ["__multiple__"]
         }
       }
     },
@@ -236,10 +215,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ]
+          "var_names": ["zero", "one"]
         },
         "expected": {
           "count_equals_users": true,
@@ -284,7 +260,8 @@
             "covariate_metric_type": "count",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           }
         },
         "expected": {
@@ -368,10 +345,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "count_metric",
             "name": "count_metric",
@@ -386,21 +360,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "bayesian",
@@ -446,15 +412,9 @@
                   "stddev": 1.0
                 },
                 "expected": -0.07407,
-                "ci": [
-                  -0.17336,
-                  0.02521
-                ],
+                "ci": [-0.17336, 0.02521],
                 "chanceToWin": 0.07183,
-                "risk": [
-                  0.00162,
-                  0.07569
-                ]
+                "risk": [0.00162, 0.07569]
               }
             ]
           },
@@ -486,15 +446,9 @@
                   "stddev": 2.0
                 },
                 "expected": -0.05405,
-                "ci": [
-                  -0.1572,
-                  0.04909
-                ],
+                "ci": [-0.1572, 0.04909],
                 "chanceToWin": 0.15217,
-                "risk": [
-                  0.00416,
-                  0.05822
-                ]
+                "risk": [0.00416, 0.05822]
               }
             ]
           }
@@ -530,10 +484,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -548,21 +499,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "bayesian",
@@ -608,15 +551,9 @@
                   "stddev": 1.04196
                 },
                 "expected": 0.13333,
-                "ci": [
-                  -0.37921,
-                  0.64588
-                ],
+                "ci": [-0.37921, 0.64588],
                 "chanceToWin": 0.69493,
-                "risk": [
-                  0.18427,
-                  0.05093
-                ]
+                "risk": [0.18427, 0.05093]
               }
             ]
           }
@@ -662,10 +599,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "count_metric",
             "name": "count_metric",
@@ -680,21 +614,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "bayesian",
@@ -740,15 +666,9 @@
                   "stddev": 1.0
                 },
                 "expected": -0.07407,
-                "ci": [
-                  -0.17336,
-                  0.02521
-                ],
+                "ci": [-0.17336, 0.02521],
                 "chanceToWin": 0.92817,
-                "risk": [
-                  0.07569,
-                  0.00162
-                ]
+                "risk": [0.07569, 0.00162]
               }
             ]
           },
@@ -780,15 +700,9 @@
                   "stddev": 2.0
                 },
                 "expected": -0.05405,
-                "ci": [
-                  -0.1572,
-                  0.04909
-                ],
+                "ci": [-0.1572, 0.04909],
                 "chanceToWin": 0.84783,
-                "risk": [
-                  0.05822,
-                  0.00416
-                ]
+                "risk": [0.05822, 0.00416]
               }
             ]
           }
@@ -818,10 +732,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "count_metric",
             "name": "count_metric",
@@ -836,21 +747,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "bayesian",
@@ -896,15 +799,9 @@
                   "stddev": 0.0
                 },
                 "expected": 0.0,
-                "ci": [
-                  0.0,
-                  0.0
-                ],
+                "ci": [0.0, 0.0],
                 "chanceToWin": 0.5,
-                "risk": [
-                  0.0,
-                  0.0
-                ]
+                "risk": [0.0, 0.0]
               }
             ]
           }
@@ -940,10 +837,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -958,21 +852,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "bayesian",
@@ -1018,15 +904,9 @@
                   "stddev": 0.0
                 },
                 "expected": 0.0,
-                "ci": [
-                  0.0,
-                  0.0
-                ],
+                "ci": [0.0, 0.0],
                 "chanceToWin": 0.5,
-                "risk": [
-                  0.0,
-                  0.0
-                ]
+                "risk": [0.0, 0.0]
               }
             ]
           }
@@ -1074,10 +954,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "count_metric",
             "name": "count_metric",
@@ -1092,21 +969,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1152,10 +1021,7 @@
                   "stddev": 1.0
                 },
                 "expected": -0.07407,
-                "ci": [
-                  -0.17396,
-                  0.02581
-                ],
+                "ci": [-0.17396, 0.02581],
                 "pValue": 0.14522
               }
             ]
@@ -1188,10 +1054,7 @@
                   "stddev": 2.0
                 },
                 "expected": -0.05405,
-                "ci": [
-                  -0.1575,
-                  0.04939
-                ],
+                "ci": [-0.1575, 0.04939],
                 "pValue": 0.30495
               }
             ]
@@ -1228,10 +1091,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -1246,21 +1106,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1306,10 +1158,7 @@
                   "stddev": 1.04196
                 },
                 "expected": 0.13333,
-                "ci": [
-                  -0.38208,
-                  0.64874
-                ],
+                "ci": [-0.38208, 0.64874],
                 "pValue": 0.61066
               }
             ]
@@ -1340,10 +1189,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "count_metric",
             "name": "count_metric",
@@ -1358,21 +1204,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1418,10 +1256,7 @@
                   "stddev": 0.0
                 },
                 "expected": 0.0,
-                "ci": [
-                  0.0,
-                  0.0
-                ],
+                "ci": [0.0, 0.0],
                 "pValue": 1.0
               }
             ]
@@ -1458,10 +1293,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -1476,21 +1308,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1536,10 +1360,7 @@
                   "stddev": 0.0
                 },
                 "expected": 0.0,
-                "ci": [
-                  0.0,
-                  0.0
-                ],
+                "ci": [0.0, 0.0],
                 "pValue": 1.0
               }
             ]
@@ -1578,10 +1399,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -1596,21 +1414,13 @@
             "covariate_metric_type": "count",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1656,10 +1466,7 @@
                   "stddev": 0.42353
                 },
                 "expected": -0.28171,
-                "ci": [
-                  -0.47207,
-                  -0.09135
-                ],
+                "ci": [-0.47207, -0.09135],
                 "pValue": 0.00373
               }
             ]
@@ -1696,10 +1503,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -1714,21 +1518,13 @@
             "covariate_metric_type": "binomial",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1774,10 +1570,7 @@
                   "stddev": 0.36871
                 },
                 "expected": 0.14441,
-                "ci": [
-                  0.02714,
-                  0.26167
-                ],
+                "ci": [0.02714, 0.26167],
                 "pValue": 0.0158
               }
             ]
@@ -1832,10 +1625,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "",
             "name": "",
@@ -1850,21 +1640,13 @@
             "covariate_metric_type": "count",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -1910,10 +1692,7 @@
                   "stddev": 0.14013
                 },
                 "expected": -0.02235,
-                "ci": [
-                  -0.07496,
-                  0.03026
-                ],
+                "ci": [-0.07496, 0.03026],
                 "pValue": 0.40313
               }
             ]
@@ -1962,10 +1741,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "metric": {
             "id": "count_metric",
             "name": "count_metric",
@@ -1980,21 +1756,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -2040,10 +1808,7 @@
                   "stddev": 1.0
                 },
                 "expected": -0.07407,
-                "ci": [
-                  -0.23332,
-                  0.08517
-                ],
+                "ci": [-0.23332, 0.08517],
                 "pValue": 0.89233
               }
             ]
@@ -2076,10 +1841,7 @@
                   "stddev": 2.0
                 },
                 "expected": -0.05405,
-                "ci": [
-                  -0.21444,
-                  0.10633
-                ],
+                "ci": [-0.21444, 0.10633],
                 "pValue": 1.0
               }
             ]
@@ -2132,21 +1894,13 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "bayesian",
@@ -2164,12 +1918,7 @@
           }
         },
         "expected": {
-          "denominators": [
-            [
-              510,
-              500
-            ]
-          ],
+          "denominators": [[510, 500]],
           "first_dimension_baseline_denominator": 510,
           "first_dimension_variation_denominator": 500
         }
@@ -2218,11 +1967,7 @@
             "one": 1,
             "two": 2
           },
-          "var_names": [
-            "zero",
-            "one",
-            "two"
-          ],
+          "var_names": ["zero", "one", "two"],
           "metric": {
             "id": "",
             "name": "",
@@ -2237,23 +1982,14 @@
             "covariate_metric_type": "count",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one",
-              "two"
-            ],
-            "var_ids": [
-              "0",
-              "1",
-              "2"
-            ],
+            "var_names": ["zero", "one", "two"],
+            "var_ids": ["0", "1", "2"],
             "weights": [
-              0.3333333333333333,
-              0.3333333333333333,
-              0.3333333333333333
+              0.3333333333333333, 0.3333333333333333, 0.3333333333333333
             ],
             "baseline_index": 0,
             "dimension": "All",
@@ -2328,11 +2064,7 @@
             "one": 1,
             "two": 2
           },
-          "var_names": [
-            "zero",
-            "one",
-            "two"
-          ],
+          "var_names": ["zero", "one", "two"],
           "metric_cuped": {
             "id": "",
             "name": "",
@@ -2347,7 +2079,8 @@
             "covariate_metric_type": "count",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "metric_no_cuped": {
             "id": "count_metric",
@@ -2363,23 +2096,14 @@
             "covariate_metric_type": null,
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis": {
-            "var_names": [
-              "zero",
-              "one",
-              "two"
-            ],
-            "var_ids": [
-              "0",
-              "1",
-              "2"
-            ],
+            "var_names": ["zero", "one", "two"],
+            "var_ids": ["0", "1", "2"],
             "weights": [
-              0.3333333333333333,
-              0.3333333333333333,
-              0.3333333333333333
+              0.3333333333333333, 0.3333333333333333, 0.3333333333333333
             ],
             "baseline_index": 0,
             "dimension": "All",
@@ -2481,23 +2205,14 @@
             "covariate_metric_type": "count",
             "quantile_value": null,
             "business_metric_type": null,
-            "target_mde": 0.01
+            "target_mde": 0.01,
+            "compute_uncapped_metric": false
           },
           "analysis_three_armed": {
-            "var_names": [
-              "zero",
-              "one",
-              "two"
-            ],
-            "var_ids": [
-              "0",
-              "1",
-              "2"
-            ],
+            "var_names": ["zero", "one", "two"],
+            "var_ids": ["0", "1", "2"],
             "weights": [
-              0.3333333333333333,
-              0.3333333333333333,
-              0.3333333333333333
+              0.3333333333333333, 0.3333333333333333, 0.3333333333333333
             ],
             "baseline_index": 0,
             "dimension": "All",
@@ -2515,18 +2230,9 @@
             "post_stratification_enabled": false
           },
           "analysis_02": {
-            "var_names": [
-              "zero",
-              "one"
-            ],
-            "var_ids": [
-              "0",
-              "1"
-            ],
-            "weights": [
-              0.5,
-              0.5
-            ],
+            "var_names": ["zero", "one"],
+            "var_ids": ["0", "1"],
+            "weights": [0.5, 0.5],
             "baseline_index": 0,
             "dimension": "All",
             "stats_engine": "frequentist",
@@ -2616,10 +2322,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "num_variations": 2,
           "max_3": 3,
           "max_2": 2
@@ -2690,10 +2393,7 @@
             "zero": 0,
             "one": 1
           },
-          "var_names": [
-            "zero",
-            "one"
-          ],
+          "var_names": ["zero", "one"],
           "num_variations": 2,
           "max_20": 20,
           "max_1": 1

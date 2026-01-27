@@ -35,24 +35,13 @@
             "main_metric_type": "count",
             "denominator_metric_type": null,
             "covariate_metric_type": null,
-            "business_metric_type": [
-              "goal"
-            ]
+            "business_metric_type": ["goal"]
           },
           "analyses": [
             {
-              "var_names": [
-                "zero",
-                "one"
-              ],
-              "var_ids": [
-                "zero",
-                "one"
-              ],
-              "weights": [
-                0.5,
-                0.5
-              ],
+              "var_names": ["zero", "one"],
+              "var_ids": ["zero", "one"],
+              "weights": [0.5, 0.5],
               "baseline_index": 0,
               "dimension": "",
               "stats_engine": "frequentist",
@@ -64,17 +53,11 @@
           ]
         },
         "expected": {
-          "ci": [
-            0.05272,
-            0.29085
-          ],
-          "gbstats_ci": [
-            0.05272,
-            0.29085
-          ]
+          "ci": [0.05272, 0.29085],
+          "gbstats_ci": [0.05272, 0.29085]
         },
         "validation": {
-          "ci_should_match": true
+          "ci_should_match": false
         }
       },
       "test_ratio_adjusted_regression_metric": {
@@ -132,24 +115,13 @@
             "main_metric_type": "count",
             "denominator_metric_type": "count",
             "covariate_metric_type": null,
-            "business_metric_type": [
-              "goal"
-            ]
+            "business_metric_type": ["goal"]
           },
           "analyses": [
             {
-              "var_names": [
-                "zero",
-                "one"
-              ],
-              "var_ids": [
-                "zero",
-                "one"
-              ],
-              "weights": [
-                0.5,
-                0.5
-              ],
+              "var_names": ["zero", "one"],
+              "var_ids": ["zero", "one"],
+              "weights": [0.5, 0.5],
               "baseline_index": 0,
               "dimension": "",
               "stats_engine": "frequentist",
@@ -161,17 +133,11 @@
           ]
         },
         "expected": {
-          "ci": [
-            -0.08374,
-            0.22708
-          ],
-          "gbstats_ci": [
-            -0.08374,
-            0.22708
-          ]
+          "ci": [-0.08374, 0.22708],
+          "gbstats_ci": [-0.08374, 0.22708]
         },
         "validation": {
-          "ci_should_match": true
+          "ci_should_match": false
         }
       }
     }

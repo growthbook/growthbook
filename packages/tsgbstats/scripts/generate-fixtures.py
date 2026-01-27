@@ -93,7 +93,7 @@ class InfinityHandlingEncoder(json.JSONEncoder):
                 return "NaN"
         elif isinstance(obj, dict):
             return {k: self._convert_infinity(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
+        elif isinstance(obj, (list, tuple)):
             return [self._convert_infinity(item) for item in obj]
         return obj
 
@@ -120,7 +120,7 @@ def round_result_dict(result_dict: Dict) -> Dict:
                 kk: round_(vv) if isinstance(vv, float) else vv
                 for kk, vv in v.items()
             }
-        elif isinstance(v, list):
+        elif isinstance(v, (list, tuple)):
             rounded[k] = [round_(x) if isinstance(x, (int, float)) and x is not None else x for x in v]
         elif isinstance(v, (int, float)) and v is not None:
             rounded[k] = round_(v)

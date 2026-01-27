@@ -30,22 +30,16 @@
         },
         "expected": {
           "expected": 0.04082,
-          "ci": [
-            -0.24779,
-            0.32943
-          ],
+          "ci": [-0.24779, 0.32943],
           "uplift": {
             "dist": "normal",
             "mean": 0.04082,
             "stddev": 0.14725
           },
-          "error_message": null,
-          "chance_to_win": 0.60918,
-          "risk": [
-            0.0814,
-            0.04058
-          ],
-          "risk_type": "relative"
+          "errorMessage": null,
+          "chanceToWin": 0.60918,
+          "risk": [0.0814, 0.04058],
+          "riskType": "relative"
         }
       },
       "test_missing_data": {
@@ -73,22 +67,16 @@
         },
         "expected": {
           "expected": 0.0,
-          "ci": [
-            0.0,
-            0.0
-          ],
+          "ci": [0.0, 0.0],
           "uplift": {
             "dist": "normal",
             "mean": 0.0,
             "stddev": 0.0
           },
-          "error_message": "ZERO_NEGATIVE_VARIANCE",
-          "chance_to_win": 0.5,
-          "risk": [
-            0.0,
-            0.0
-          ],
-          "risk_type": "relative"
+          "errorMessage": "ZERO_NEGATIVE_VARIANCE",
+          "chanceToWin": 0.5,
+          "risk": [0.0, 0.0],
+          "riskType": "relative"
         }
       }
     },
@@ -120,22 +108,16 @@
         },
         "expected": {
           "expected": 0.05,
-          "ci": [
-            -0.02,
-            0.12
-          ],
+          "ci": [-0.02, 0.12],
           "uplift": {
             "dist": "normal",
             "mean": 0.05,
             "stddev": 0.03572
           },
-          "error_message": null,
-          "chance_to_win": 0.91923,
-          "risk": [
-            0.05131,
-            0.00131
-          ],
-          "risk_type": "relative"
+          "errorMessage": null,
+          "chanceToWin": 0.91923,
+          "risk": [0.05131, 0.00131],
+          "riskType": "relative"
         }
       },
       "test_bayesian_gaussian_ab_test_informative": {
@@ -165,22 +147,16 @@
         },
         "expected": {
           "expected": 0.05063,
-          "ci": [
-            -0.01893,
-            0.12019
-          ],
+          "ci": [-0.01893, 0.12019],
           "uplift": {
             "dist": "normal",
             "mean": 0.05063,
             "stddev": 0.03549
           },
-          "error_message": null,
-          "chance_to_win": 0.92315,
-          "risk": [
-            0.05186,
-            0.00123
-          ],
-          "risk_type": "relative"
+          "errorMessage": null,
+          "chanceToWin": 0.92315,
+          "risk": [0.05186, 0.00123],
+          "riskType": "relative"
         }
       },
       "test_missing_data": {
@@ -210,22 +186,16 @@
         },
         "expected": {
           "expected": 0.0,
-          "ci": [
-            0.0,
-            0.0
-          ],
+          "ci": [0.0, 0.0],
           "uplift": {
             "dist": "normal",
             "mean": 0.0,
             "stddev": 0.0
           },
-          "error_message": "ZERO_NEGATIVE_VARIANCE",
-          "chance_to_win": 0.5,
-          "risk": [
-            0.0,
-            0.0
-          ],
-          "risk_type": "relative"
+          "errorMessage": "ZERO_NEGATIVE_VARIANCE",
+          "chanceToWin": 0.5,
+          "risk": [0.0, 0.0],
+          "riskType": "relative"
         }
       }
     },
@@ -263,22 +233,16 @@
         },
         "expected": {
           "expected": 0.53651,
-          "ci": [
-            0.45726,
-            0.61577
-          ],
+          "ci": [0.45726, 0.61577],
           "uplift": {
             "dist": "normal",
             "mean": 0.53651,
             "stddev": 0.04044
           },
-          "error_message": null,
-          "chance_to_win": 1.0,
-          "risk": [
-            0.53651,
-            0.0
-          ],
-          "risk_type": "absolute"
+          "errorMessage": null,
+          "chanceToWin": 1.0,
+          "risk": [0.53651, 0.0],
+          "riskType": "absolute"
         }
       },
       "test_quantile_absolute_flat": {
@@ -314,22 +278,16 @@
         },
         "expected": {
           "expected": 0.53651,
-          "ci": [
-            0.45726,
-            0.61577
-          ],
+          "ci": [0.45726, 0.61577],
           "uplift": {
             "dist": "normal",
             "mean": 0.53651,
             "stddev": 0.04044
           },
-          "error_message": null,
-          "chance_to_win": 1.0,
-          "risk": [
-            0.53651,
-            0.0
-          ],
-          "risk_type": "absolute"
+          "errorMessage": null,
+          "chanceToWin": 1.0,
+          "risk": [0.53651, 0.0],
+          "riskType": "absolute"
         }
       },
       "test_quantile_relative_flat": {
@@ -365,22 +323,16 @@
         },
         "expected": {
           "expected": 0.07495,
-          "ci": [
-            0.06341,
-            0.0865
-          ],
+          "ci": [0.06341, 0.0865],
           "uplift": {
             "dist": "normal",
             "mean": 0.07495,
             "stddev": 0.00589
           },
-          "error_message": null,
-          "chance_to_win": 1.0,
-          "risk": [
-            0.07495,
-            0.0
-          ],
-          "risk_type": "relative"
+          "errorMessage": null,
+          "chanceToWin": 1.0,
+          "risk": [0.07495, 0.0],
+          "riskType": "relative"
         }
       },
       "test_quantile_absolute_informative": {
@@ -416,22 +368,16 @@
         },
         "expected": {
           "expected": 0.5365,
-          "ci": [
-            0.45724,
-            0.61575
-          ],
+          "ci": [0.45724, 0.61575],
           "uplift": {
             "dist": "normal",
             "mean": 0.5365,
             "stddev": 0.04044
           },
-          "error_message": null,
-          "chance_to_win": 1.0,
-          "risk": [
-            0.5365,
-            0.0
-          ],
-          "risk_type": "absolute"
+          "errorMessage": null,
+          "chanceToWin": 1.0,
+          "risk": [0.5365, 0.0],
+          "riskType": "absolute"
         }
       },
       "test_quantile_relative_informative": {
@@ -467,22 +413,16 @@
         },
         "expected": {
           "expected": 0.07495,
-          "ci": [
-            0.06341,
-            0.08649
-          ],
+          "ci": [0.06341, 0.08649],
           "uplift": {
             "dist": "normal",
             "mean": 0.07495,
             "stddev": 0.00589
           },
-          "error_message": null,
-          "chance_to_win": 1.0,
-          "risk": [
-            0.07495,
-            0.0
-          ],
-          "risk_type": "relative"
+          "errorMessage": null,
+          "chanceToWin": 1.0,
+          "risk": [0.07495, 0.0],
+          "riskType": "relative"
         }
       },
       "test_quantile_risk_calculation": {
@@ -518,22 +458,16 @@
         },
         "expected": {
           "expected": 0.53651,
-          "ci": [
-            -0.87764,
-            1.95066
-          ],
+          "ci": [-0.87764, 1.95066],
           "uplift": {
             "dist": "normal",
             "mean": 0.53651,
             "stddev": 0.72152
           },
-          "error_message": null,
-          "chance_to_win": 0.77144,
-          "risk": [
-            0.6322,
-            0.09569
-          ],
-          "risk_type": "absolute"
+          "errorMessage": null,
+          "chanceToWin": 0.77144,
+          "risk": [0.6322, 0.09569],
+          "riskType": "absolute"
         },
         "validation": {
           "risk_0": 0.6322,
@@ -583,41 +517,29 @@
         "expected": {
           "absolute_result": {
             "expected": 3.48639,
-            "ci": [
-              -6.81537,
-              13.78815
-            ],
+            "ci": [-6.81537, 13.78815],
             "uplift": {
               "dist": "normal",
               "mean": 3.48639,
               "stddev": 5.2561
             },
-            "error_message": null,
-            "chance_to_win": 0.74643,
-            "risk": [
-              4.28516,
-              0.79877
-            ],
-            "risk_type": "absolute"
+            "errorMessage": null,
+            "chanceToWin": 0.74643,
+            "risk": [4.28516, 0.79877],
+            "riskType": "absolute"
           },
           "relative_result": {
             "expected": 0.3671,
-            "ci": [
-              -0.70064,
-              1.43484
-            ],
+            "ci": [-0.70064, 1.43484],
             "uplift": {
               "dist": "normal",
               "mean": 0.3671,
               "stddev": 0.54477
             },
-            "error_message": null,
-            "chance_to_win": 0.7498,
-            "risk": [
-              0.44844,
-              0.08134
-            ],
-            "risk_type": "relative"
+            "errorMessage": null,
+            "chanceToWin": 0.7498,
+            "risk": [0.44844, 0.08134],
+            "riskType": "relative"
           }
         }
       }

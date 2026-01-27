@@ -8,7 +8,7 @@ import {
   getTestCase,
   FixtureFile,
 } from "../helpers/fixtureLoader";
-import { roundResultDict, keysToSnake } from "../helpers/testUtils";
+import { roundResultDict } from "../helpers/testUtils";
 import {
   SampleMeanStatistic,
   ProportionStatistic,
@@ -122,6 +122,7 @@ describe("TwoSidedTTest", () => {
     try {
       fixtures = loadFrequentistFixtures();
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.error("Error loading fixtures:", e);
       // Skip tests if fixtures don't exist
     }
@@ -129,6 +130,7 @@ describe("TwoSidedTTest", () => {
 
   it("should compute correct result for two_sided_ttest (relative)", () => {
     if (!fixtures) {
+      // eslint-disable-next-line no-console
       console.log("Fixtures not found, run pnpm fixtures:generate first");
       return;
     }
@@ -149,8 +151,8 @@ describe("TwoSidedTTest", () => {
 
     const test = new TwoSidedTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -175,8 +177,8 @@ describe("TwoSidedTTest", () => {
 
     const test = new TwoSidedTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -201,8 +203,8 @@ describe("TwoSidedTTest", () => {
 
     const test = new TwoSidedTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -227,8 +229,8 @@ describe("TwoSidedTTest", () => {
 
     const test = new TwoSidedTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -253,8 +255,8 @@ describe("TwoSidedTTest", () => {
 
     const test = new TwoSidedTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -291,8 +293,8 @@ describe("SequentialTwoSidedTTest", () => {
 
     const test = new SequentialTwoSidedTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -314,8 +316,8 @@ describe("SequentialTwoSidedTTest", () => {
 
     const test = new SequentialTwoSidedTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -337,8 +339,8 @@ describe("SequentialTwoSidedTTest", () => {
 
     const test = new SequentialTwoSidedTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -360,8 +362,8 @@ describe("SequentialTwoSidedTTest", () => {
 
     const test = new SequentialTwoSidedTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -454,8 +456,8 @@ describe("OneSidedTreatmentGreaterTTest", () => {
 
     const test = new OneSidedTreatmentGreaterTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -480,8 +482,8 @@ describe("OneSidedTreatmentGreaterTTest", () => {
 
     const test = new OneSidedTreatmentGreaterTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -515,8 +517,8 @@ describe("OneSidedTreatmentLesserTTest", () => {
 
     const test = new OneSidedTreatmentLesserTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -541,8 +543,8 @@ describe("OneSidedTreatmentLesserTTest", () => {
 
     const test = new OneSidedTreatmentLesserTTest([[statA, statB]], config);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -576,8 +578,8 @@ describe("SequentialOneSidedTreatmentGreaterTTest", () => {
 
     const test = new SequentialOneSidedTreatmentGreaterTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -605,8 +607,8 @@ describe("SequentialOneSidedTreatmentGreaterTTest", () => {
       config,
     );
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -640,8 +642,8 @@ describe("SequentialOneSidedTreatmentLesserTTest", () => {
 
     const test = new SequentialOneSidedTreatmentLesserTTest([[statA, statB]]);
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);
@@ -669,8 +671,8 @@ describe("SequentialOneSidedTreatmentLesserTTest", () => {
       config,
     );
     const result = test.computeResult();
-    const roundedResult = keysToSnake(
-      roundResultDict(result as unknown as Record<string, unknown>),
+    const roundedResult = roundResultDict(
+      result as unknown as Record<string, unknown>,
     );
 
     expect(roundedResult).toEqual(testCase.expected);

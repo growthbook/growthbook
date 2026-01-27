@@ -27,18 +27,15 @@
         },
         "expected": {
           "expected": 0.70732,
-          "ci": [
-            -0.03526,
-            1.44989
-          ],
+          "ci": [-0.03526, 1.44989],
           "uplift": {
             "dist": "normal",
             "mean": 0.70732,
             "stddev": 0.37879
           },
-          "error_message": null,
-          "p_value": 0.06191,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.06191,
+          "pValueErrorMessage": null
         }
       },
       "test_two_sided_ttest_absolute": {
@@ -63,18 +60,15 @@
         },
         "expected": {
           "expected": 0.29,
-          "ci": [
-            0.04538,
-            0.53462
-          ],
+          "ci": [0.04538, 0.53462],
           "uplift": {
             "dist": "normal",
             "mean": 0.29,
             "stddev": 0.12478
           },
-          "error_message": null,
-          "p_value": 0.02016,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.02016,
+          "pValueErrorMessage": null
         }
       },
       "test_two_sided_ttest_binom": {
@@ -97,18 +91,15 @@
         },
         "expected": {
           "expected": 0.06667,
-          "ci": [
-            -0.47767,
-            0.61101
-          ],
+          "ci": [-0.47767, 0.61101],
           "uplift": {
             "dist": "normal",
             "mean": 0.06667,
             "stddev": 0.2717
           },
-          "error_message": null,
-          "p_value": 0.80707,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.80707,
+          "pValueErrorMessage": null
         }
       },
       "test_two_sided_ttest_missing_variance": {
@@ -133,18 +124,15 @@
         },
         "expected": {
           "expected": 0.0,
-          "ci": [
-            0.0,
-            0.0
-          ],
+          "ci": [0.0, 0.0],
           "uplift": {
             "dist": "normal",
             "mean": 0.0,
             "stddev": 0.0
           },
-          "error_message": "ZERO_NEGATIVE_VARIANCE",
-          "p_value": 1.0,
-          "p_value_error_message": null
+          "errorMessage": "ZERO_NEGATIVE_VARIANCE",
+          "pValue": 1.0,
+          "pValueErrorMessage": null
         }
       },
       "test_two_sided_ttest_ratio_ra": {
@@ -227,18 +215,15 @@
         },
         "expected": {
           "expected": -0.0007,
-          "ci": [
-            -0.00841,
-            0.007
-          ],
+          "ci": [-0.00841, 0.007],
           "uplift": {
             "dist": "normal",
             "mean": -0.0007,
             "stddev": 0.00391
           },
-          "error_message": null,
-          "p_value": 0.85771,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.85771,
+          "pValueErrorMessage": null
         }
       }
     },
@@ -267,18 +252,15 @@
         },
         "expected": {
           "expected": 0.50336,
-          "ci": [
-            -0.55844,
-            1.56516
-          ],
+          "ci": [-0.55844, 1.56516],
           "uplift": {
             "dist": "normal",
             "mean": 0.50336,
             "stddev": 0.33341
           },
-          "error_message": null,
-          "p_value": 1.0,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 1.0,
+          "pValueErrorMessage": null
         }
       },
       "test_sequential_test_runs_prop": {
@@ -303,18 +285,15 @@
         },
         "expected": {
           "expected": 0.50386,
-          "ci": [
-            0.40098,
-            0.60675
-          ],
+          "ci": [0.40098, 0.60675],
           "uplift": {
             "dist": "normal",
             "mean": 0.50386,
             "stddev": 0.03386
           },
-          "error_message": null,
-          "p_value": 0.0,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.0,
+          "pValueErrorMessage": null
         }
       },
       "test_sequential_test_runs_ra": {
@@ -365,18 +344,15 @@
         },
         "expected": {
           "expected": 0.50338,
-          "ci": [
-            -0.50969,
-            1.51646
-          ],
+          "ci": [-0.50969, 1.51646],
           "uplift": {
             "dist": "normal",
             "mean": 0.50338,
             "stddev": 0.33341
           },
-          "error_message": null,
-          "p_value": 1.0,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 1.0,
+          "pValueErrorMessage": null
         }
       },
       "test_sequential_test_runs_ratio_ra": {
@@ -461,18 +437,15 @@
         },
         "expected": {
           "expected": -0.0007,
-          "ci": [
-            -0.02063,
-            0.01923
-          ],
+          "ci": [-0.02063, 0.01923],
           "uplift": {
             "dist": "normal",
             "mean": -0.0007,
             "stddev": 0.00391
           },
-          "error_message": null,
-          "p_value": 1.0,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 1.0,
+          "pValueErrorMessage": null
         }
       },
       "test_sequential_test_tuning_as_expected": {
@@ -514,48 +487,39 @@
         "expected": {
           "result_below": {
             "expected": 0.50336,
-            "ci": [
-              -0.76785,
-              1.77457
-            ],
+            "ci": [-0.76785, 1.77457],
             "uplift": {
               "dist": "normal",
               "mean": 0.50336,
               "stddev": 0.33341
             },
-            "error_message": null,
-            "p_value": 1.0,
-            "p_value_error_message": null
+            "errorMessage": null,
+            "pValue": 1.0,
+            "pValueErrorMessage": null
           },
           "result_near": {
             "expected": 0.50336,
-            "ci": [
-              -0.50861,
-              1.51534
-            ],
+            "ci": [-0.50861, 1.51534],
             "uplift": {
               "dist": "normal",
               "mean": 0.50336,
               "stddev": 0.33341
             },
-            "error_message": null,
-            "p_value": 1.0,
-            "p_value_error_message": null
+            "errorMessage": null,
+            "pValue": 1.0,
+            "pValueErrorMessage": null
           },
           "result_above": {
             "expected": 0.50336,
-            "ci": [
-              -0.51485,
-              1.52157
-            ],
+            "ci": [-0.51485, 1.52157],
             "uplift": {
               "dist": "normal",
               "mean": 0.50336,
               "stddev": 0.33341
             },
-            "error_message": null,
-            "p_value": 0.95385,
-            "p_value_error_message": null
+            "errorMessage": null,
+            "pValue": 0.95385,
+            "pValueErrorMessage": null
           },
           "below_wider_than_above": true,
           "below_wider_than_near": true,
@@ -586,18 +550,15 @@
         },
         "expected": {
           "expected": 0.50336,
-          "ci": [
-            -0.04514,
-            "Infinity"
-          ],
+          "ci": [-0.04514, "Infinity"],
           "uplift": {
             "dist": "normal",
             "mean": 0.50336,
             "stddev": 0.33341
           },
-          "error_message": null,
-          "p_value": 0.06558,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.06558,
+          "pValueErrorMessage": null
         }
       },
       "test_one_sided_ttest_absolute": {
@@ -622,18 +583,15 @@
         },
         "expected": {
           "expected": 0.23438,
-          "ci": [
-            0.02079,
-            "Infinity"
-          ],
+          "ci": [0.02079, "Infinity"],
           "uplift": {
             "dist": "normal",
             "mean": 0.23438,
             "stddev": 0.12983
           },
-          "error_message": null,
-          "p_value": 0.03554,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.03554,
+          "pValueErrorMessage": null
         }
       }
     },
@@ -660,18 +618,15 @@
         },
         "expected": {
           "expected": 0.50336,
-          "ci": [
-            "-Infinity",
-            1.05186
-          ],
+          "ci": ["-Infinity", 1.05186],
           "uplift": {
             "dist": "normal",
             "mean": 0.50336,
             "stddev": 0.33341
           },
-          "error_message": null,
-          "p_value": 0.93442,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.93442,
+          "pValueErrorMessage": null
         }
       },
       "test_one_sided_ttest_absolute": {
@@ -696,18 +651,15 @@
         },
         "expected": {
           "expected": 0.23438,
-          "ci": [
-            "-Infinity",
-            0.44796
-          ],
+          "ci": ["-Infinity", 0.44796],
           "uplift": {
             "dist": "normal",
             "mean": 0.23438,
             "stddev": 0.12983
           },
-          "error_message": null,
-          "p_value": 0.96446,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.96446,
+          "pValueErrorMessage": null
         }
       }
     },
@@ -736,18 +688,15 @@
         },
         "expected": {
           "expected": 0.50336,
-          "ci": [
-            -0.42356,
-            "Infinity"
-          ],
+          "ci": [-0.42356, "Infinity"],
           "uplift": {
             "dist": "normal",
             "mean": 0.50336,
             "stddev": 0.33341
           },
-          "error_message": null,
-          "p_value": 0.4999,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.4999,
+          "pValueErrorMessage": null
         }
       },
       "test_one_sided_ttest_absolute": {
@@ -774,18 +723,15 @@
         },
         "expected": {
           "expected": 0.23438,
-          "ci": [
-            -0.12657,
-            "Infinity"
-          ],
+          "ci": [-0.12657, "Infinity"],
           "uplift": {
             "dist": "normal",
             "mean": 0.23438,
             "stddev": 0.12983
           },
-          "error_message": null,
-          "p_value": 0.46316,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.46316,
+          "pValueErrorMessage": null
         }
       }
     },
@@ -814,18 +760,15 @@
         },
         "expected": {
           "expected": 0.50336,
-          "ci": [
-            "-Infinity",
-            1.43029
-          ],
+          "ci": ["-Infinity", 1.43029],
           "uplift": {
             "dist": "normal",
             "mean": 0.50336,
             "stddev": 0.33341
           },
-          "error_message": null,
-          "p_value": 0.4999,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.4999,
+          "pValueErrorMessage": null
         }
       },
       "test_one_sided_ttest_absolute": {
@@ -852,18 +795,15 @@
         },
         "expected": {
           "expected": 0.23438,
-          "ci": [
-            "-Infinity",
-            0.59532
-          ],
+          "ci": ["-Infinity", 0.59532],
           "uplift": {
             "dist": "normal",
             "mean": 0.23438,
             "stddev": 0.12983
           },
-          "error_message": null,
-          "p_value": 0.4999,
-          "p_value_error_message": null
+          "errorMessage": null,
+          "pValue": 0.4999,
+          "pValueErrorMessage": null
         }
       }
     }
