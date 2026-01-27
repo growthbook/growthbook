@@ -1,13 +1,7 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-
-interface MinimalFeatureInfo {
-  id: string;
-  valueType: "boolean" | "string" | "number" | "json";
-  project?: string;
-  defaultValue?: string;
-}
 import React, { useMemo } from "react";
+import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteInput";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,

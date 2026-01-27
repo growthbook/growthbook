@@ -1,13 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-
-interface MinimalFeatureInfo {
-  id: string;
-  valueType: "boolean" | "string" | "number" | "json";
-  project?: string;
-  defaultValue?: string;
-}
 import {
   FaExclamationCircle,
   FaExternalLinkAlt,
@@ -25,13 +18,14 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue } from "@/services/features";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  MinimalFeatureInfo,
+} from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -58,8 +52,6 @@ export interface Props {
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature?: FeatureInterface;
   project?: string; // only used if feature is not provided
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
 }
@@ -76,8 +68,6 @@ export default function PrerequisiteTargetingField({
   setValue,
   feature,
   project,
-  revisions: _revisions,
-  version: _version,
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
@@ -580,7 +570,7 @@ function PrereqStatesRows({
 }) {
   const [showDetails, setShowDetails] = useState(true);
 
-  if (!parentFeature) {
+  if (!parentFeature || !parentFeature.id) {
     return null;
   }
 
@@ -592,8 +582,7 @@ function PrereqStatesRows({
           target="_blank"
           style={{ whiteSpace: "nowrap" }}
         >
-          {parentFeature.id}
-          <FaExternalLinkAlt style={{ marginLeft: 4 }} />
+          {parentFeature.id} <PiArrowSquareOut />
         </Link>
         <Link onClick={() => setShowDetails(!showDetails)}>
           {showDetails ? (

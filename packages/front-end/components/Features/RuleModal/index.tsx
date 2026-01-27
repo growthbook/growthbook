@@ -1080,8 +1080,6 @@ export default function RuleModal({
                   project={feature.project}
                   environments={selectedEnvironments}
                   defaultValues={defaultValues}
-                  version={version}
-                  revisions={revisions}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)

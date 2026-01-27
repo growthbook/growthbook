@@ -2,13 +2,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from "react";
+import { RxInfoCircled, RxLoop } from "react-icons/rx";
 
-interface MinimalFeatureInfo {
+export interface MinimalFeatureInfo {
+  id?: string;
   valueType: "boolean" | "string" | "number" | "json";
   project?: string;
   defaultValue?: string;
 }
-import { RxInfoCircled, RxLoop } from "react-icons/rx";
 import { FaMagic } from "react-icons/fa";
 import { PrerequisiteStateResult } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";

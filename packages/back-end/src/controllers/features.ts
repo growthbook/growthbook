@@ -3314,10 +3314,7 @@ export async function postCopyEnvironmentRules(
   });
 }
 
-/**
- * Evaluates prerequisite states for a feature across environments using JIT feature loading.
- * This allows for proper cross-project prerequisite evaluation without requiring all features in memory.
- */
+// Evaluate prerequisite states with JIT feature loading for cross-project prerequisites
 export async function getPrerequisiteStates(
   req: AuthRequest<
     null,
@@ -3719,10 +3716,7 @@ type PrerequisiteStateResult = {
   value: PrerequisiteValue;
 };
 
-/**
- * Async version of evaluatePrerequisiteState that JIT loads features as needed.
- * This allows proper cross-project prerequisite evaluation.
- */
+// Async version of evaluatePrerequisiteState with JIT feature loading for cross-project prerequisites
 async function evaluatePrerequisiteStateAsync(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -3903,10 +3897,7 @@ function evalDeterministicPrereqValueBackend(
   }
 }
 
-/**
- * Returns lightweight feature metadata for dropdowns (e.g., prerequisite selection).
- * This is much more efficient than fetching full feature objects.
- */
+// Return lightweight feature metadata for UI components
 export async function getFeatureNames(
   req: AuthRequest<null, null, { defaultValue?: string }>,
   res: Response<
