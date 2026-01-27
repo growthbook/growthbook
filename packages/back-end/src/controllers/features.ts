@@ -3353,12 +3353,15 @@ export async function getPrerequisiteStates(
   const skipRootConditions = req.query.skipRootConditions === "true";
 
   const states: Record<string, PrerequisiteStateResult> = {};
+  const featuresMap = new Map<string, FeatureInterface>();
+  featuresMap.set(feature.id, feature);
+
   for (const env of envIds) {
     states[env] = await evaluatePrerequisiteStateAsync(
       context,
       feature,
       env,
-      undefined,
+      featuresMap,
       skipRootConditions,
     );
   }
@@ -3496,7 +3499,11 @@ export async function postBatchPrerequisiteStates(
       const visited = new Set<string>();
       const visiting = new Set<string>();
 
-      const visit = async (feature: FeatureInterface): Promise<boolean> => {
+      const visit = async (
+        feature: FeatureInterface,
+        depth: number = 0,
+      ): Promise<boolean> => {
+        if (depth >= PREREQUISITE_MAX_DEPTH) return true;
         if (visiting.has(feature.id)) return true;
         if (visited.has(feature.id)) return false;
 
@@ -3526,7 +3533,7 @@ export async function postBatchPrerequisiteStates(
               cyclicCheckMap.set(prerequisiteId, prereqFeature);
             }
           }
-          if (prereqFeature && (await visit(prereqFeature))) {
+          if (prereqFeature && (await visit(prereqFeature, depth + 1))) {
             return true;
           }
         }
@@ -3536,7 +3543,7 @@ export async function postBatchPrerequisiteStates(
         return false;
       };
 
-      return visit(f);
+      return visit(f, 0);
     };
 
     const wouldBeCyclic = await checkCyclicAsync(testFeature);
@@ -3560,7 +3567,9 @@ export async function postBatchPrerequisiteStates(
 
     const visit = async (
       feature: FeatureInterface,
+      depth: number = 0,
     ): Promise<[boolean, string | null]> => {
+      if (depth >= PREREQUISITE_MAX_DEPTH) return [true, feature.id];
       if (stack.has(feature.id)) return [true, feature.id];
       if (visited.has(feature.id)) return [false, null];
 
@@ -3606,7 +3615,7 @@ export async function postBatchPrerequisiteStates(
           }
         }
         if (prereqFeature) {
-          const [isCyclic, cyclicId] = await visit(prereqFeature);
+          const [isCyclic, cyclicId] = await visit(prereqFeature, depth + 1);
           if (isCyclic) {
             return [true, cyclicId || prerequisiteId];
           }
@@ -3617,7 +3626,7 @@ export async function postBatchPrerequisiteStates(
       return [false, null];
     };
 
-    return visit(testFeature);
+    return visit(testFeature, 0);
   };
 
   let checkPrerequisiteCyclic:
@@ -3708,6 +3717,8 @@ export async function postBatchPrerequisiteStates(
   });
 }
 
+const PREREQUISITE_MAX_DEPTH = 100;
+
 type PrerequisiteState = "deterministic" | "conditional" | "cyclic";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrerequisiteValue = any;
@@ -3737,7 +3748,11 @@ async function evaluatePrerequisiteStateAsync(
   const visited = new Set<string>();
   const visiting = new Set<string>();
 
-  const checkCyclic = async (f: FeatureInterface): Promise<boolean> => {
+  const checkCyclic = async (
+    f: FeatureInterface,
+    depth: number = 0,
+  ): Promise<boolean> => {
+    if (depth >= PREREQUISITE_MAX_DEPTH) return true;
     if (visited.has(f.id)) return false;
     if (visiting.has(f.id)) return true;
 
@@ -3754,7 +3769,7 @@ async function evaluatePrerequisiteStateAsync(
           featuresMap.set(prereq.id, prereqFeature);
         }
       }
-      if (prereqFeature && (await checkCyclic(prereqFeature))) {
+      if (prereqFeature && (await checkCyclic(prereqFeature, depth + 1))) {
         return true;
       }
     }
@@ -3764,7 +3779,7 @@ async function evaluatePrerequisiteStateAsync(
     return false;
   };
 
-  if (await checkCyclic(feature)) {
+  if (await checkCyclic(feature, 0)) {
     return { state: "cyclic", value: null };
   }
 
@@ -3772,7 +3787,11 @@ async function evaluatePrerequisiteStateAsync(
 
   const visit = async (
     f: FeatureInterface,
+    depth: number = 0,
   ): Promise<PrerequisiteStateResult> => {
+    if (depth >= PREREQUISITE_MAX_DEPTH) {
+      return { state: "cyclic", value: null };
+    }
     // 1. Current environment toggles take priority
     if (!f.environmentSettings[env]) {
       return { state: "deterministic", value: null };
@@ -3827,8 +3846,10 @@ async function evaluatePrerequisiteStateAsync(
         break;
       }
 
-      const { state: prereqState, value: prereqValue } =
-        await visit(prereqFeature);
+      const { state: prereqState, value: prereqValue } = await visit(
+        prereqFeature,
+        depth + 1,
+      );
 
       if (prereqState === "deterministic") {
         const evaled = evalDeterministicPrereqValueBackend(
@@ -3849,7 +3870,7 @@ async function evaluatePrerequisiteStateAsync(
     return { state, value };
   };
 
-  return visit(feature);
+  return visit(feature, 0);
 }
 
 function evalDeterministicPrereqValueBackend(
