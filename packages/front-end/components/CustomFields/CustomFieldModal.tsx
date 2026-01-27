@@ -101,6 +101,7 @@ export default function CustomFieldModal({
           // unset any placeholder value, as this is not applicable to boolean fields
           value.placeholder = "";
         }
+        const sectionValue = (value.section ?? section) as CustomFieldSection;
         if (existing.id) {
           const edit = customFields.filter((e) => e.id === existing.id)[0];
           if (!edit) throw new Error("Could not edit custom field");
@@ -112,7 +113,7 @@ export default function CustomFieldModal({
           edit.description = value?.description ?? "";
           edit.placeholder = value?.placeholder ?? "";
           edit.projects = value.projects;
-          edit.section = section;
+          edit.section = sectionValue;
 
           await apiCall(`/custom-fields/${existing.id}`, {
             method: "PUT",
@@ -133,7 +134,7 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            section: section,
+            section: sectionValue,
           };
 
           await apiCall(`/custom-fields`, {
@@ -172,6 +173,22 @@ export default function CustomFieldModal({
         placeholder=""
         required={true}
       />
+      <div className="mb-3">
+        <SelectField
+          label="Applies to"
+          value={form.watch("section") ?? section}
+          options={[
+            { label: "Feature", value: "feature" },
+            { label: "Experiment", value: "experiment" },
+          ]}
+          onChange={(v: CustomFieldSection) => {
+            form.setValue("section", v);
+          }}
+        />
+        <small className="text-gray">
+          Whether this field is used on feature flags or experiments
+        </small>
+      </div>
       <Field
         label="Description"
         {...form.register("description")}
@@ -179,7 +196,7 @@ export default function CustomFieldModal({
       />
       <div className="mb-3">
         <SelectField
-          label="Type"
+          label="Value type"
           value={form.watch("type") ?? "text"}
           options={fieldOptions.map((o) => ({ label: o, value: o }))}
           onChange={(v: CustomFieldTypes) => {
@@ -250,17 +267,19 @@ export default function CustomFieldModal({
           </div>
         )}
       </div>
-      <div className="mb-3 mt-3">
-        <Checkbox
-          id={"required"}
-          label="Required"
-          description="Make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
-          value={!!form.watch("required")}
-          setValue={(value) => {
-            form.setValue("required", value);
-          }}
-        />
-      </div>
+      {(form.watch("section") ?? section) === "experiment" && (
+        <div className="mb-3 mt-3">
+          <Checkbox
+            id={"required"}
+            label="Required"
+            description="Make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
+            value={!!form.watch("required")}
+            setValue={(value) => {
+              form.setValue("required", value);
+            }}
+          />
+        </div>
+      )}
       {showSearchableToggle && (
         <>
           <Checkbox
