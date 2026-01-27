@@ -212,14 +212,6 @@ type MyType = z.infer<typeof mySchema>;
 - Front-end: Define in `packages/front-end/services/env.ts`
 - Use environment-specific `.env.local` files for local overrides
 
-**Feature Flags**
-
-- License features: `packages/shared/src/enterprise/license-consts.ts`
-- Check with `hasCommercialFeature(feature)` in components
-- Types: `CommercialFeature` type from `shared/enterprise`
-
-## Running the Application
-
 ### Code Quality
 
 - **Lint**: `pnpm lint` (auto-fixes issues)
@@ -238,5 +230,6 @@ When assisting with GrowthBook development:
 6. **TypeScript strict mode** - use proper types, avoid `any`
 7. **Check commercial features** - use `hasCommercialFeature()` for premium functionality
 8. **Router pattern for APIs** - organize by resource with dedicated router files
+9. **Leverage the BaseModel** - when adding a new model, we should default to using the BaseModel except for rare cases
 
 These rules ensure consistency and maintainability across the GrowthBook codebase.
