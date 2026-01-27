@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "gbstats_version": "0.8.0",
+    "decimals": 5
+  },
+  "test_cases": {
+    "MidExperimentPower": {
+      "test_frequentist": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 500,
+            "sum": 499.99999999999994,
+            "sum_squares": 1499.999999999999
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 500,
+            "sum": 525.0000000000008,
+            "sum_squares": 1551.2499999999998
+          },
+          "alpha": 0.05,
+          "target_power": 0.8,
+          "target_mde": 0.05
+        },
+        "expected": {
+          "scaling_factor": 25.45703125,
+          "power_at_scaling_factor": 0.8000081752547903
+        }
+      },
+      "test_sequential": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 500,
+            "sum": 499.99999999999994,
+            "sum_squares": 1499.999999999999
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 500,
+            "sum": 525.0000000000008,
+            "sum_squares": 1551.2499999999998
+          },
+          "alpha": 0.05,
+          "target_power": 0.8,
+          "target_mde": 0.05,
+          "sequential": true,
+          "sequential_tuning_parameter": 5000
+        },
+        "expected": {
+          "scaling_factor": 55.66796875,
+          "power_at_scaling_factor": 0.799996675993821
+        }
+      },
+      "test_bayesian": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 500,
+            "sum": 499.99999999999994,
+            "sum_squares": 1499.999999999999
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 500,
+            "sum": 525.0000000000008,
+            "sum_squares": 1551.2499999999998
+          },
+          "alpha": 0.05,
+          "target_power": 0.8,
+          "target_mde": 0.05,
+          "prior_effect": {
+            "mean": 0.05,
+            "variance": 0.001,
+            "proper": true
+          }
+        },
+        "expected": {
+          "scaling_factor": 13.9404296875,
+          "power_at_scaling_factor": 0.8000038804451484
+        }
+      }
+    }
+  }
+}

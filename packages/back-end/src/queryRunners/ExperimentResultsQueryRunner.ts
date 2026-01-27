@@ -64,7 +64,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
-  banditResult?: BanditResult;
+  banditResult?: BanditResult | null;
   health?: ExperimentSnapshotHealth;
 };
 
@@ -382,6 +382,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        context: this.context,
       });
 
     const result: SnapshotResult = {

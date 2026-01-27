@@ -228,7 +228,7 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
-  banditResult?: BanditResult;
+  banditResult?: BanditResult | null;
 
   health?: ExperimentSnapshotHealth;
 }

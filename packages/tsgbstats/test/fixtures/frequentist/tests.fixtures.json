@@ -1,0 +1,811 @@
+{
+  "metadata": {
+    "gbstats_version": "0.8.0",
+    "decimals": 5
+  },
+  "test_cases": {
+    "TwoSidedTTest": {
+      "test_two_sided_ttest": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3407,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "relative",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.70732,
+          "ci": [-0.03526, 1.44989],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.70732,
+            "stddev": 0.37879
+          },
+          "errorMessage": null,
+          "pValue": 0.06191,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_two_sided_ttest_absolute": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3407,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.29,
+          "ci": [0.04538, 0.53462],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.29,
+            "stddev": 0.12478
+          },
+          "errorMessage": null,
+          "pValue": 0.02016,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_two_sided_ttest_binom": {
+        "inputs": {
+          "stat_a": {
+            "type": "ProportionStatistic",
+            "n": 28,
+            "sum": 14.0
+          },
+          "stat_b": {
+            "type": "ProportionStatistic",
+            "n": 30,
+            "sum": 16.0
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "relative",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.06667,
+          "ci": [-0.47767, 0.61101],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.06667,
+            "stddev": 0.2717
+          },
+          "errorMessage": null,
+          "pValue": 0.80707,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_two_sided_ttest_missing_variance": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 2,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "relative",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.0,
+          "ci": [0.0, 0.0],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.0,
+            "stddev": 0.0
+          },
+          "errorMessage": "ZERO_NEGATIVE_VARIANCE",
+          "pValue": 1.0,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_two_sided_ttest_ratio_ra": {
+        "inputs": {
+          "stat_a": {
+            "type": "RegressionAdjustedRatioStatistic",
+            "n": 100,
+            "m_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 485.112236689623,
+              "sum_squares": 2715.484666118136
+            },
+            "d_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 679.9093275844917,
+              "sum_squares": 4939.424001640236
+            },
+            "m_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 192.59138069991536,
+              "sum_squares": 460.076026390857
+            },
+            "d_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 290.1398399750233,
+              "sum_squares": 920.9461385038898
+            },
+            "m_post_m_pre_sum_of_products": 1113.6215759318352,
+            "d_post_d_pre_sum_of_products": 2130.9404074446747,
+            "m_pre_d_pre_sum_of_products": 634.239482353647,
+            "m_post_d_post_sum_of_products": 3602.146836776702,
+            "m_post_d_pre_sum_of_products": 1559.2878434944676,
+            "m_pre_d_post_sum_of_products": 1460.3181079276983,
+            "theta": null
+          },
+          "stat_b": {
+            "type": "RegressionAdjustedRatioStatistic",
+            "n": 100,
+            "m_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 514.7757826608777,
+              "sum_squares": 2994.897482705013
+            },
+            "d_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 705.4090874383759,
+              "sum_squares": 5291.36604146392
+            },
+            "m_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 206.94157227402536,
+              "sum_squares": 514.2903702246757
+            },
+            "d_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 302.54389139107326,
+              "sum_squares": 994.4506208125663
+            },
+            "m_post_m_pre_sum_of_products": 1237.0953021125997,
+            "d_post_d_pre_sum_of_products": 2292.081739775257,
+            "m_pre_d_pre_sum_of_products": 698.4173425817908,
+            "m_post_d_post_sum_of_products": 3918.1561431600717,
+            "m_post_d_pre_sum_of_products": 1701.0287270040265,
+            "m_pre_d_post_sum_of_products": 1604.0759503266522,
+            "theta": null
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "relative",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": -0.0007,
+          "ci": [-0.00841, 0.007],
+          "uplift": {
+            "dist": "normal",
+            "mean": -0.0007,
+            "stddev": 0.00391
+          },
+          "errorMessage": null,
+          "pValue": 0.85771,
+          "pValueErrorMessage": null
+        }
+      }
+    },
+    "SequentialTwoSidedTTest": {
+      "test_sequential_test_runs": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 1000.0,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.50336,
+          "ci": [-0.55844, 1.56516],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50336,
+            "stddev": 0.33341
+          },
+          "errorMessage": null,
+          "pValue": 1.0,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_sequential_test_runs_prop": {
+        "inputs": {
+          "stat_a": {
+            "type": "ProportionStatistic",
+            "n": 3000,
+            "sum": 1396.0
+          },
+          "stat_b": {
+            "type": "ProportionStatistic",
+            "n": 3461,
+            "sum": 2422.0
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.50386,
+          "ci": [0.40098, 0.60675],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50386,
+            "stddev": 0.03386
+          },
+          "errorMessage": null,
+          "pValue": 0.0,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_sequential_test_runs_ra": {
+        "inputs": {
+          "stat_a": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 3000,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3000,
+              "sum": 1396.87,
+              "sum_squares": 52377.9767
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3000,
+              "sum": 16.87,
+              "sum_squares": 527.9767
+            },
+            "post_pre_sum_of_products": 1.0,
+            "theta": null
+          },
+          "stat_b": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 3461,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3461,
+              "sum": 2422.7,
+              "sum_squares": 134698.29
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3461,
+              "sum": 22.7,
+              "sum_squares": 1348.29
+            },
+            "post_pre_sum_of_products": 1.0,
+            "theta": null
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.50338,
+          "ci": [-0.50969, 1.51646],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50338,
+            "stddev": 0.33341
+          },
+          "errorMessage": null,
+          "pValue": 1.0,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_sequential_test_runs_ratio_ra": {
+        "inputs": {
+          "stat_a": {
+            "type": "RegressionAdjustedRatioStatistic",
+            "n": 100,
+            "m_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 485.112236689623,
+              "sum_squares": 2715.484666118136
+            },
+            "d_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 679.9093275844917,
+              "sum_squares": 4939.424001640236
+            },
+            "m_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 192.59138069991536,
+              "sum_squares": 460.076026390857
+            },
+            "d_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 290.1398399750233,
+              "sum_squares": 920.9461385038898
+            },
+            "m_post_m_pre_sum_of_products": 1113.6215759318352,
+            "d_post_d_pre_sum_of_products": 2130.9404074446747,
+            "m_pre_d_pre_sum_of_products": 634.239482353647,
+            "m_post_d_post_sum_of_products": 3602.146836776702,
+            "m_post_d_pre_sum_of_products": 1559.2878434944676,
+            "m_pre_d_post_sum_of_products": 1460.3181079276983,
+            "theta": null
+          },
+          "stat_b": {
+            "type": "RegressionAdjustedRatioStatistic",
+            "n": 100,
+            "m_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 514.7757826608777,
+              "sum_squares": 2994.897482705013
+            },
+            "d_statistic_post": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 705.4090874383759,
+              "sum_squares": 5291.36604146392
+            },
+            "m_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 206.94157227402536,
+              "sum_squares": 514.2903702246757
+            },
+            "d_statistic_pre": {
+              "type": "SampleMeanStatistic",
+              "n": 100,
+              "sum": 302.54389139107326,
+              "sum_squares": 994.4506208125663
+            },
+            "m_post_m_pre_sum_of_products": 1237.0953021125997,
+            "d_post_d_pre_sum_of_products": 2292.081739775257,
+            "m_pre_d_pre_sum_of_products": 698.4173425817908,
+            "m_post_d_post_sum_of_products": 3918.1561431600717,
+            "m_post_d_pre_sum_of_products": 1701.0287270040265,
+            "m_pre_d_post_sum_of_products": 1604.0759503266522,
+            "theta": null
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": -0.0007,
+          "ci": [-0.02063, 0.01923],
+          "uplift": {
+            "dist": "normal",
+            "mean": -0.0007,
+            "stddev": 0.00391
+          },
+          "errorMessage": null,
+          "pValue": 1.0,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_sequential_test_tuning_as_expected": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config_below_n": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 10.0,
+            "rho": null
+          },
+          "config_near_n": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 6461.0,
+            "rho": null
+          },
+          "config_above_n": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 10000.0,
+            "rho": null
+          }
+        },
+        "expected": {
+          "result_below": {
+            "expected": 0.50336,
+            "ci": [-0.76785, 1.77457],
+            "uplift": {
+              "dist": "normal",
+              "mean": 0.50336,
+              "stddev": 0.33341
+            },
+            "errorMessage": null,
+            "pValue": 1.0,
+            "pValueErrorMessage": null
+          },
+          "result_near": {
+            "expected": 0.50336,
+            "ci": [-0.50861, 1.51534],
+            "uplift": {
+              "dist": "normal",
+              "mean": 0.50336,
+              "stddev": 0.33341
+            },
+            "errorMessage": null,
+            "pValue": 1.0,
+            "pValueErrorMessage": null
+          },
+          "result_above": {
+            "expected": 0.50336,
+            "ci": [-0.51485, 1.52157],
+            "uplift": {
+              "dist": "normal",
+              "mean": 0.50336,
+              "stddev": 0.33341
+            },
+            "errorMessage": null,
+            "pValue": 0.95385,
+            "pValueErrorMessage": null
+          },
+          "below_wider_than_above": true,
+          "below_wider_than_near": true,
+          "above_wider_than_near": true
+        }
+      }
+    },
+    "OneSidedTreatmentGreaterTTest": {
+      "test_one_sided_ttest": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "relative",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.50336,
+          "ci": [-0.04514, "Infinity"],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50336,
+            "stddev": 0.33341
+          },
+          "errorMessage": null,
+          "pValue": 0.06558,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_one_sided_ttest_absolute": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.23438,
+          "ci": [0.02079, "Infinity"],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.23438,
+            "stddev": 0.12983
+          },
+          "errorMessage": null,
+          "pValue": 0.03554,
+          "pValueErrorMessage": null
+        }
+      }
+    },
+    "OneSidedTreatmentLesserTTest": {
+      "test_one_sided_ttest": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "relative",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.50336,
+          "ci": ["-Infinity", 1.05186],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50336,
+            "stddev": 0.33341
+          },
+          "errorMessage": null,
+          "pValue": 0.93442,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_one_sided_ttest_absolute": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "FrequentistConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05
+          }
+        },
+        "expected": {
+          "expected": 0.23438,
+          "ci": ["-Infinity", 0.44796],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.23438,
+            "stddev": 0.12983
+          },
+          "errorMessage": null,
+          "pValue": 0.96446,
+          "pValueErrorMessage": null
+        }
+      }
+    },
+    "SequentialOneSidedTreatmentGreaterTTest": {
+      "test_one_sided_ttest": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.50336,
+          "ci": [-0.42356, "Infinity"],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50336,
+            "stddev": 0.33341
+          },
+          "errorMessage": null,
+          "pValue": 0.4999,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_one_sided_ttest_absolute": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.23438,
+          "ci": [-0.12657, "Infinity"],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.23438,
+            "stddev": 0.12983
+          },
+          "errorMessage": null,
+          "pValue": 0.46316,
+          "pValueErrorMessage": null
+        }
+      }
+    },
+    "SequentialOneSidedTreatmentLesserTTest": {
+      "test_one_sided_ttest": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.50336,
+          "ci": ["-Infinity", 1.43029],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.50336,
+            "stddev": 0.33341
+          },
+          "errorMessage": null,
+          "pValue": 0.4999,
+          "pValueErrorMessage": null
+        }
+      },
+      "test_one_sided_ttest_absolute": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 3000,
+            "sum": 1396.87,
+            "sum_squares": 52377.9767
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 3461,
+            "sum": 2422.7,
+            "sum_squares": 134698.29
+          },
+          "config": {
+            "type": "SequentialConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "sequential_tuning_parameter": 5000,
+            "rho": null
+          }
+        },
+        "expected": {
+          "expected": 0.23438,
+          "ci": ["-Infinity", 0.59532],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.23438,
+            "stddev": 0.12983
+          },
+          "errorMessage": null,
+          "pValue": 0.4999,
+          "pValueErrorMessage": null
+        }
+      }
+    }
+  }
+}

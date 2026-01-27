@@ -899,7 +899,7 @@ export function updateExperimentBanditSettings({
   }
   const phase = changes.phases.length - 1;
 
-  const banditResult: BanditResult | undefined = snapshot?.banditResult;
+  const banditResult: BanditResult | null | undefined = snapshot?.banditResult;
   const snapshotDateCreated =
     snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
@@ -1393,6 +1393,7 @@ export async function createSnapshotAnalyses(
   // calls stats engine to run analyses
   const results = await runSnapshotAnalyses(
     Array.from(analysisParamsMap.values()).map((v) => v.params),
+    context,
   );
 
   // parses results and writes to mongo
@@ -1440,6 +1441,7 @@ export async function createSnapshotAnalysis(
     analysisSettings: [analysisSettings],
     variationNames: experiment.variations.map((v) => v.name),
     metricMap: metricMap,
+    context,
   });
   analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";

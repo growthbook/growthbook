@@ -153,9 +153,9 @@ export type SingleVariationResult = {
 export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
-  banditResult?: BanditResult;
-  error?: string;
-  traceback?: string;
+  banditResult?: BanditResult | null;
+  error?: string | null;
+  traceback?: string | null;
 };
 
 // Keep these interfaces in sync with gbstats
