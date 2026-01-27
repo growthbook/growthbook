@@ -1,7 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import React, { useMemo } from "react";
-import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteInput";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
@@ -17,6 +16,7 @@ import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
+import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteInput";
 import {
   getFeatureDefaultValue,
   getPrerequisites,
