@@ -22,6 +22,7 @@ const compat = new FlatCompat({
 
 export default defineConfig([
   globalIgnores([
+    "**/.next",
     "**/dist",
     "**/coverage",
     "docs/docusaurus.config.js",
