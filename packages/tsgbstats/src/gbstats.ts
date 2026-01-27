@@ -75,15 +75,46 @@ export interface BaseVariationResponse extends BaselineResponse {
   realizedSettings: RealizedSettings;
 }
 
-export interface BayesianVariationResponse extends BaseVariationResponse {
+// Individual variation response without supplemental (for nesting)
+export interface BayesianVariationResponseIndividual
+  extends BaseVariationResponse {
   chanceToWin: number;
   risk: [number, number];
   riskType: "relative" | "absolute";
 }
 
-export interface FrequentistVariationResponse extends BaseVariationResponse {
+export interface FrequentistVariationResponseIndividual
+  extends BaseVariationResponse {
   pValue: number | null;
   pValueErrorMessage?: string | null;
+}
+
+export type VariationResponseIndividual =
+  | BaselineResponse
+  | BayesianVariationResponseIndividual
+  | FrequentistVariationResponseIndividual;
+
+export interface SupplementalResults {
+  cupedUnadjusted: VariationResponseIndividual | null;
+  uncapped: VariationResponseIndividual | null;
+  flatPrior: VariationResponseIndividual | null;
+  unstratified: VariationResponseIndividual | null;
+  noVarianceReduction: VariationResponseIndividual | null;
+}
+
+export interface BayesianVariationResponse
+  extends BayesianVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
+}
+
+export interface FrequentistVariationResponse
+  extends FrequentistVariationResponseIndividual {
+  supplementalResults?: SupplementalResults;
+}
+
+export interface BaselineResponseWithSupplementalResults
+  extends BaselineResponse {
+  supplementalResults?: SupplementalResults;
 }
 
 export type VariationResponse =
