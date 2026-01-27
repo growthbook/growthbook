@@ -77,6 +77,7 @@ export interface FactTableInterface {
   columnsError?: string | null;
   filters: FactFilterInterface[];
   archived?: boolean;
+  timestampColumn?: string;
 }
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;
