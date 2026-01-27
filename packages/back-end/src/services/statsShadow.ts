@@ -96,6 +96,9 @@ export function convertMetricSettings(
     priorProper: python.prior_proper,
     targetMde: python.target_mde,
     keepTheta: python.keep_theta,
+    businessMetricType: Array.isArray(python.business_metric_type)
+      ? python.business_metric_type.join(",")
+      : python.business_metric_type,
   };
 }
 
