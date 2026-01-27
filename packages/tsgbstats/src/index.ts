@@ -72,6 +72,8 @@ export {
   multinomialCovariance,
 } from "./utils";
 
+export { getCupedUnadjustedStat } from "./utils/cupedUnadjusted";
+
 // Power Analysis
 export {
   MidExperimentPower,
