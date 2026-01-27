@@ -95,22 +95,26 @@ export default function NewDashboardPage() {
         });
 
         setDashboard(res.dashboard);
-        if (method === "POST") {
-          router.push(`/product-analytics/dashboards/${res.dashboard.id}`);
-        }
+        return { dashboardId: res.dashboard.id };
       },
-      [apiCall, dashboard, router],
+      [apiCall, dashboard],
     );
 
-  const handleClose = useCallback(() => {
-    if (dashboard.id === "new") {
-      // If the user hasn't saved the dashboard, navigate back to the dashboards list
-      router.push("/product-analytics/dashboards");
-    } else {
-      // Navigate to the dashboard page
-      router.push(`/product-analytics/dashboards/${dashboard.id}`);
-    }
-  }, [dashboard, router]);
+  const handleClose = useCallback(
+    (savedDashboardId?: string) => {
+      if (savedDashboardId) {
+        // If we have a saved dashboard ID, navigate to it
+        router.push(`/product-analytics/dashboards/${savedDashboardId}`);
+      } else if (dashboard.id === "new") {
+        // If the user hasn't saved the dashboard, navigate back to the dashboards list
+        router.push("/product-analytics/dashboards");
+      } else {
+        // Navigate to the dashboard page
+        router.push(`/product-analytics/dashboards/${dashboard.id}`);
+      }
+    },
+    [dashboard.id, router],
+  );
 
   if (!hasCommercialFeature("product-analytics-dashboards")) {
     return (
