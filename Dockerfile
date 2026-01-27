@@ -82,27 +82,14 @@ RUN apt-get update && \
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 
-# Copy only production artifacts
-COPY --from=nodebuild /usr/local/src/app/packages/front-end/.next ./packages/front-end/.next
-COPY --from=nodebuild /usr/local/src/app/packages/front-end/public ./packages/front-end/public
-COPY --from=nodebuild /usr/local/src/app/packages/front-end/package.json ./packages/front-end/package.json
-COPY --from=nodebuild /usr/local/src/app/packages/front-end/next.config.js ./packages/front-end/next.config.js
-COPY --from=nodebuild /usr/local/src/app/packages/front-end/node_modules ./packages/front-end/node_modules
-
-COPY --from=nodebuild /usr/local/src/app/packages/back-end/dist ./packages/back-end/dist
-COPY --from=nodebuild /usr/local/src/app/packages/back-end/package.json ./packages/back-end/package.json
-COPY --from=nodebuild /usr/local/src/app/packages/back-end/node_modules ./packages/back-end/node_modules
-
-COPY --from=nodebuild /usr/local/src/app/packages/shared/dist ./packages/shared/dist
-COPY --from=nodebuild /usr/local/src/app/packages/shared/package.json ./packages/shared/package.json
-COPY --from=nodebuild /usr/local/src/app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=nodebuild /usr/local/src/app/packages/sdk-js/dist ./packages/sdk-js/dist
-COPY --from=nodebuild /usr/local/src/app/packages/sdk-js/package.json ./packages/sdk-js/package.json
-COPY --from=nodebuild /usr/local/src/app/packages/sdk-react/dist ./packages/sdk-react/dist
-COPY --from=nodebuild /usr/local/src/app/packages/sdk-react/package.json ./packages/sdk-react/package.json
-
+COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+
+# Remove TypeScript files from front-end so Next.js doesn't try to install TypeScript
+RUN rm -f packages/front-end/tsconfig.json && \
+    find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
+    find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
 # Copy PM2 config file
 COPY ecosystem.config.js ./ecosystem.config.js
