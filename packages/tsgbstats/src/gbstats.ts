@@ -10,7 +10,11 @@ import type {
   GaussianPrior,
 } from "./models/settings";
 import type { TestStatistic } from "./models/statistics";
-import type { EffectMomentsResult } from "./models/results";
+import type {
+  EffectMomentsResult,
+  FrequentistTestResult,
+  BayesianTestResult,
+} from "./models/results";
 import {
   MidExperimentPower,
   type MidExperimentPowerConfig,
@@ -35,10 +39,6 @@ import {
   SequentialOneSidedTreatmentLesserTTest,
 } from "./frequentist/tests";
 import { EffectBayesianABTest } from "./bayesian/tests";
-import type {
-  FrequentistTestResult,
-  BayesianTestResult,
-} from "./models/results";
 import { checkSrm } from "./utils";
 import { createCoreAndSupplementalResults } from "./supplemental";
 
@@ -763,7 +763,8 @@ export function analyzeMetricDf(
         errorMessage: res.errorMessage,
         power,
         realizedSettings: {
-          postStratificationApplied: false,
+          postStratificationApplied:
+            test.momentsResult?.postStratificationApplied ?? false,
         },
       };
 
