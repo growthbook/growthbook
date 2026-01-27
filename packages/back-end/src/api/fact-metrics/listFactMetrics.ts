@@ -1,4 +1,3 @@
-import { isProjectListValidForProject } from "shared/util";
 import { ListFactMetricsResponse } from "shared/types/openapi";
 import { listFactMetricsValidator } from "shared/validators";
 import {
@@ -9,31 +8,32 @@ import {
 export const listFactMetrics = createApiRequestHandler(
   listFactMetricsValidator,
 )(async (req): Promise<ListFactMetricsResponse> => {
-  const factMetrics = await req.context.models.factMetrics.getAll();
+  // Build database-level filter for better performance
+  const filter: Record<string, unknown> = {};
 
-  let matches = factMetrics;
-  if (req.query.projectId) {
-    matches = matches.filter((factMetric) =>
-      isProjectListValidForProject(factMetric.projects, req.query.projectId),
-    );
-  }
   if (req.query.datasourceId) {
-    matches = matches.filter(
-      (factMetric) => factMetric.datasource === req.query.datasourceId,
-    );
-  }
-  if (req.query.factTableId) {
-    matches = matches.filter(
-      (factMetric) =>
-        factMetric.numerator?.factTableId === req.query.factTableId,
-    );
+    filter.datasource = req.query.datasourceId;
   }
 
-  // TODO: Move sorting/limiting to the database query for better performance
-  const { filtered, returnFields } = applyPagination(
-    matches.sort((a, b) => a.id.localeCompare(b.id)),
-    req.query,
-  );
+  if (req.query.factTableId) {
+    filter["numerator.factTableId"] = req.query.factTableId;
+  }
+
+  if (req.query.projectId) {
+    // Match if: projects array contains the projectId OR projects is empty/missing
+    // (empty projects means the metric is available to all projects)
+    filter.$or = [
+      { projects: req.query.projectId },
+      { projects: { $size: 0 } },
+      { projects: { $exists: false } },
+    ];
+  }
+
+  // Use getAllSorted to sort at DB level for better performance
+  const factMetrics = await req.context.models.factMetrics.getAllSorted(filter);
+
+  // TODO: Move pagination (limit/offset) to database for better performance
+  const { filtered, returnFields } = applyPagination(factMetrics, req.query);
 
   return {
     factMetrics: filtered.map((factMetric) =>
