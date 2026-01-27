@@ -4,10 +4,6 @@
   "private": true,
   "main": "dist/index.js",
   "types": "src/index.ts",
-  "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*.js"
-  },
   "engines": {
     "node": ">=16"
   },
