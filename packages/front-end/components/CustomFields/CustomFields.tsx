@@ -37,7 +37,6 @@ function CustomFieldsTable({
   items,
   showAppliesTo,
   showRequired,
-  colSpan,
   deleteCustomField,
   setModalOpen,
   handleMoveUp,
@@ -48,7 +47,6 @@ function CustomFieldsTable({
   items: CustomField[];
   showAppliesTo: boolean;
   showRequired: boolean;
-  colSpan: number;
   deleteCustomField: (cf: CustomField) => Promise<void>;
   setModalOpen: (v: Partial<CustomField> | null) => void;
   handleMoveUp: (moveId: string, aboveId: string) => void;
@@ -56,6 +54,7 @@ function CustomFieldsTable({
   canManage: boolean;
 }) {
   const W = CUSTOM_FIELD_TABLE_WIDTHS;
+  const colSpan = 7 + (showAppliesTo ? 1 : 0) + (showRequired ? 1 : 0);
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return items;
@@ -190,7 +189,7 @@ const CustomFields: FC = () => {
   );
 
   function handleDragStart(event: { active: { id: string } }) {
-    setActiveId(String(event.active.id));
+    setActiveId(event.active.id);
   }
 
   async function handleDragEnd(event: {
@@ -275,7 +274,6 @@ const CustomFields: FC = () => {
                   items={items}
                   showAppliesTo={true}
                   showRequired={true}
-                  colSpan={9}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}
@@ -291,7 +289,6 @@ const CustomFields: FC = () => {
                   items={items}
                   showAppliesTo={false}
                   showRequired={true}
-                  colSpan={8}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}
@@ -307,7 +304,6 @@ const CustomFields: FC = () => {
                   items={items}
                   showAppliesTo={false}
                   showRequired={true}
-                  colSpan={8}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}

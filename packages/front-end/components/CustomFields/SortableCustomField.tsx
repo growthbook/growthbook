@@ -95,9 +95,6 @@ export function SortableCustomFieldRow(props: SortableProps) {
     cursor: `${isDragging ? "grabbing" : "grab"}`,
   };
 
-  const sectionLabel =
-    customField.section === "feature" ? "Feature" : "Experiment";
-
   return (
     <tr ref={setNodeRef} style={style}>
       <td
@@ -125,7 +122,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
       </td>
       {showAppliesTo && (
         <td style={{ width: WIDTHS.appliesTo }} className="text-gray">
-          {sectionLabel}
+          {customField.section === "feature" ? "Feature" : "Experiment"}
         </td>
       )}
       <td style={{ width: WIDTHS.valueType }} className="text-gray">
