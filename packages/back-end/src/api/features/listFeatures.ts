@@ -21,7 +21,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       projects: req.query.projectId ? [req.query.projectId] : undefined,
       includeArchived: true,
     });
-    const groupMap = await getSavedGroupMap(req.organization);
+    const groupMap = await getSavedGroupMap(req.context);
     const experimentMap = await getAllPayloadExperiments(
       req.context,
       req.query.projectId ? [req.query.projectId] : undefined,

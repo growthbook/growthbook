@@ -14,6 +14,7 @@ import {
   FactFilterTestResults,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
+import { CreateProps } from "shared/types/base-model";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -35,7 +36,8 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   runRefreshColumnsQuery,
-  runColumnTopValuesQuery,
+  runColumnsTopValuesQuery,
+  populateAutoSlices,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
@@ -137,7 +139,7 @@ export const putFactTable = async (
   req: AuthRequest<
     UpdateFactTableProps,
     { id: string },
-    { forceColumnRefresh?: string; dim?: string }
+    { forceColumnRefresh?: string }
   >,
   res: Response<{ status: 200 }>,
 ) => {
@@ -176,45 +178,6 @@ export const putFactTable = async (
         factTableId: factTable.id,
         removedColumns,
       });
-    }
-  }
-
-  // If dim parameter is provided, refresh top values for that specific column
-  if (req.query?.dim) {
-    const columnName = req.query.dim;
-    const column = factTable.columns.find((col) => col.column === columnName);
-
-    if (
-      column &&
-      canInlineFilterColumn(factTable, column.column) &&
-      column.datatype === "string"
-    ) {
-      try {
-        const topValues = await runColumnTopValuesQuery(
-          context,
-          datasource,
-          factTable,
-          column,
-        );
-
-        const maxSliceLevels =
-          context.org.settings?.maxMetricSliceLevels ??
-          DEFAULT_MAX_METRIC_SLICE_LEVELS;
-        const constrainedTopValues = topValues.slice(0, maxSliceLevels);
-
-        // Update the column with new top values
-        await updateColumn({
-          factTable,
-          column: column.column,
-          changes: {
-            topValues: constrainedTopValues,
-          },
-        });
-      } catch (e) {
-        logger.error(e, "Error running top values query for specific column", {
-          column: columnName,
-        });
-      }
     }
   }
 
@@ -300,6 +263,87 @@ export const deleteFactTable = async (
   });
 };
 
+export const postColumnTopValues = async (
+  req: AuthRequest<unknown, { id: string; column: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const column = factTable.columns.find(
+    (col) => col.column === req.params.column,
+  );
+  if (!column) {
+    throw new Error("Could not find column");
+  }
+
+  if (
+    (column.alwaysInlineFilter || column.isAutoSliceColumn) &&
+    canInlineFilterColumn(factTable, column.column) &&
+    column.datatype === "string"
+  ) {
+    try {
+      const topValuesByColumn = await runColumnsTopValuesQuery(
+        context,
+        datasource,
+        factTable,
+        [column],
+      );
+
+      const topValues = topValuesByColumn[column.column] || [];
+      const maxSliceLevels =
+        context.org.settings?.maxMetricSliceLevels ??
+        DEFAULT_MAX_METRIC_SLICE_LEVELS;
+
+      const changes: UpdateColumnProps = {
+        topValues,
+      };
+
+      if (column.isAutoSliceColumn) {
+        changes.autoSlices = populateAutoSlices(
+          column,
+          topValues,
+          maxSliceLevels,
+        );
+      }
+
+      // Update the column with new top values
+      await updateColumn({
+        context,
+        factTable,
+        column: column.column,
+        changes,
+      });
+    } catch (e) {
+      logger.error(e, "Error running top values query for specific column", {
+        column: req.params.column,
+      });
+      throw e;
+    }
+  } else {
+    throw new Error(
+      "Column does not meet requirements for top values refresh (must be string type and have alwaysInlineFilter or isAutoSliceColumn enabled)",
+    );
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
 export const putColumn = async (
   req: AuthRequest<UpdateColumnProps, { id: string; column: string }>,
   res: Response<{ status: 200 }>,
@@ -347,8 +391,9 @@ export const putColumn = async (
     }
 
     if (context.permissions.canRunFactQueries(datasource)) {
-      runColumnTopValuesQuery(context, datasource, factTable, col)
-        .then(async (values) => {
+      runColumnsTopValuesQuery(context, datasource, factTable, [col])
+        .then(async (topValuesByColumn) => {
+          const values = topValuesByColumn[col.column] || [];
           if (!values.length) return;
           await updateColumn({
             factTable,
@@ -514,13 +559,12 @@ export const getFactMetrics = async (
 };
 
 export const postFactMetric = async (
-  req: AuthRequest<unknown>,
+  req: AuthRequest<CreateProps<FactMetricInterface>>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>,
 ) => {
   const context = getContextFromReq(req);
-  const data = context.models.factMetrics.createValidator.parse(req.body);
 
-  const factMetric = await context.models.factMetrics.create(data);
+  const factMetric = await context.models.factMetrics.create(req.body);
 
   res.status(200).json({
     status: 200,
@@ -529,13 +573,12 @@ export const postFactMetric = async (
 };
 
 export const putFactMetric = async (
-  req: AuthRequest<unknown, { id: string }>,
+  req: AuthRequest<Partial<FactMetricInterface>, { id: string }>,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
-  const data = context.models.factMetrics.updateValidator.parse(req.body);
 
-  await context.models.factMetrics.updateById(req.params.id, data);
+  await context.models.factMetrics.updateById(req.params.id, req.body);
 
   res.status(200).json({
     status: 200,

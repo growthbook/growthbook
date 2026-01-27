@@ -367,9 +367,37 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/dashboards/{id}": {
+    /** Get a single dashboard */
+    get: operations["getDashboard"];
+    /** Update a single dashboard */
+    put: operations["updateDashboard"];
+    /** Delete a single dashboard */
+    delete: operations["deleteDashboard"];
+  };
+  "/dashboards": {
+    /** Get all dashboards */
+    get: operations["listDashboards"];
+    /** Create a single dashboard */
+    post: operations["createDashboard"];
+  };
+  "/dashboards/by-experiment/{experimentId}": {
+    /** Get all dashboards for an experiment */
+    get: operations["getDashboardsForExperiment"];
+  };
   "/custom-fields": {
-    /** Get list of custom fields */
-    get: operations["getCustomFields"];
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
+    /** Create a single customField */
+    post: operations["createCustomField"];
+  };
+  "/custom-fields/{id}": {
+    /** Get a single customField */
+    get: operations["getCustomField"];
+    /** Update a single customField */
+    put: operations["updateCustomField"];
+    /** Delete a single customField */
+    delete: operations["deleteCustomField"];
   };
 }
 
@@ -377,6 +405,195 @@ export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    Dashboard: {
+      id: string;
+      uid: string;
+      organization: string;
+      experimentId?: string;
+      isDefault: boolean;
+      isDeleted: boolean;
+      userId: string;
+      /** @enum {string} */
+      editLevel: "published" | "private";
+      /** @enum {string} */
+      shareLevel: "published" | "private";
+      enableAutoUpdates: boolean;
+      updateSchedule?: {
+        /** @constant */
+        type: "stale";
+        hours: number;
+      } | {
+        /** @constant */
+        type: "cron";
+        cron: string;
+      };
+      title: string;
+      projects?: (string)[];
+      /** Format: date-time */
+      nextUpdate?: string;
+      /** Format: date-time */
+      lastUpdated?: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      blocks: (({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "metric-explorer";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          factMetricId: string;
+          /** @enum {string} */
+          visualizationType: "histogram" | "bigNumber" | "timeseries";
+          /** @enum {string} */
+          valueType: "avg" | "sum";
+          metricAnalysisId: string;
+          analysisSettings: {
+            userIdType: string;
+            lookbackDays: number;
+            /** @enum {string} */
+            populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+            populationId: string | null;
+            additionalNumeratorFilters?: (string)[];
+            additionalDenominatorFilters?: (string)[];
+            startDate: string;
+            endDate: string;
+          };
+        }) | {
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "markdown";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          content: string;
+        } | {
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "experiment-metadata";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          experimentId: string;
+          showDescription: boolean;
+          showHypothesis: boolean;
+          showVariationImages: boolean;
+          variationIds?: (string)[];
+        } | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "experiment-metric";
+          title: string;
+          description: string;
+          snapshotId: string;
+          experimentId: string;
+          metricIds: (string)[];
+          variationIds: (string)[];
+          baselineRow: number;
+          /** @enum {string} */
+          differenceType: "absolute" | "relative" | "scaled";
+          columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+          sliceTagsFilter: (string)[];
+          metricTagFilter: (string)[];
+          sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+          sortDirection: ("asc" | "desc") | null;
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "experiment-dimension";
+          title: string;
+          description: string;
+          snapshotId: string;
+          experimentId: string;
+          dimensionId: string;
+          dimensionValues: (string)[];
+          metricIds: (string)[];
+          variationIds: (string)[];
+          baselineRow: number;
+          /** @enum {string} */
+          differenceType: "absolute" | "relative" | "scaled";
+          columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+          metricTagFilter: (string)[];
+          sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+          sortDirection: ("asc" | "desc") | null;
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "experiment-time-series";
+          title: string;
+          description: string;
+          snapshotId: string;
+          experimentId: string;
+          metricId?: string;
+          metricIds: (string)[];
+          variationIds: (string)[];
+          /** @enum {string} */
+          differenceType: "absolute" | "relative" | "scaled";
+          sliceTagsFilter: (string)[];
+          metricTagFilter: (string)[];
+          sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+          sortDirection: ("asc" | "desc") | null;
+        }) | {
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "experiment-traffic";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          experimentId: string;
+          showTable: boolean;
+          showTimeseries: boolean;
+        } | {
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "sql-explorer";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          savedQueryId: string;
+          dataVizConfigIndex?: number;
+          blockConfig: (string)[];
+        })[];
+    };
+    CustomField: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      placeholder?: string;
+      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      /** @enum {string} */
+      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+      values?: string;
+      required: boolean;
+      index?: boolean;
+      creator?: string;
+      projects?: (string)[];
+      /** @enum {string} */
+      section: "feature" | "experiment";
+      active?: boolean;
+    };
     PaginationFields: {
       limit: number;
       offset: number;
@@ -2936,8 +3153,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-      pinnedMetricSlices?: (string)[];
       /** @description Custom slices that apply to ALL applicable metrics in the experiment */
       customMetricSlices?: ({
           slices: ({
@@ -3272,8 +3487,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-      pinnedMetricSlices?: (string)[];
       /** @description Custom slices that apply to ALL applicable metrics in the experiment */
       customMetricSlices?: ({
           slices: ({
@@ -3442,6 +3655,8 @@ export interface components {
           isAutoSliceColumn?: boolean;
           /** @description Specific slices to automatically analyze for this column. */
           autoSlices?: (string)[];
+          /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+          lockedAutoSlices?: (string)[];
           /** Format: date-time */
           dateCreated?: string;
           /** Format: date-time */
@@ -3491,6 +3706,8 @@ export interface components {
       isAutoSliceColumn?: boolean;
       /** @description Specific slices to automatically analyze for this column. */
       autoSlices?: (string)[];
+      /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+      lockedAutoSlices?: (string)[];
       /** Format: date-time */
       dateCreated?: string;
       /** Format: date-time */
@@ -3794,20 +4011,6 @@ export interface components {
           /** @description The feature flag key referenced */
           flagKey: string;
         })[];
-    };
-    CustomField: {
-      id: string;
-      name: string;
-      type: string;
-      section: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      active: boolean;
-      required: boolean;
-      projects?: (string)[];
-      values?: string;
     };
   };
   responses: {
@@ -9183,8 +9386,6 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-                pinnedMetricSlices?: (string)[];
                 /** @description Custom slices that apply to ALL applicable metrics in the experiment */
                 customMetricSlices?: ({
                     slices: ({
@@ -9320,8 +9521,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-          pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
           customMetricSlices?: ({
               slices: ({
@@ -9479,8 +9678,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -9670,8 +9867,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -9811,8 +10006,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-          pinnedMetricSlices?: (string)[];
           /** @description Custom slices that apply to ALL applicable metrics in the experiment */
           customMetricSlices?: ({
               slices: ({
@@ -9970,8 +10163,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -11071,8 +11262,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
-              pinnedMetricSlices?: (string)[];
               /** @description Custom slices that apply to ALL applicable metrics in the experiment */
               customMetricSlices?: ({
                   slices: ({
@@ -12058,6 +12247,8 @@ export interface operations {
                     isAutoSliceColumn?: boolean;
                     /** @description Specific slices to automatically analyze for this column. */
                     autoSlices?: (string)[];
+                    /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                    lockedAutoSlices?: (string)[];
                     /** Format: date-time */
                     dateCreated?: string;
                     /** Format: date-time */
@@ -12166,6 +12357,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12245,6 +12438,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12326,6 +12521,8 @@ export interface operations {
               isAutoSliceColumn?: boolean;
               /** @description Specific slices to automatically analyze for this column. */
               autoSlices?: (string)[];
+              /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+              lockedAutoSlices?: (string)[];
               /** Format: date-time */
               dateCreated?: string;
               /** Format: date-time */
@@ -12390,6 +12587,8 @@ export interface operations {
                   isAutoSliceColumn?: boolean;
                   /** @description Specific slices to automatically analyze for this column. */
                   autoSlices?: (string)[];
+                  /** @description Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results. */
+                  lockedAutoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -14111,10 +14310,1358 @@ export interface operations {
       };
     };
   };
-  getCustomFields: {
-    /** Get list of custom fields */
+  getDashboard: {
+    /** Get a single dashboard */
     parameters: {
-        /** @description Filter by project id */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard: {
+              id: string;
+              uid: string;
+              organization: string;
+              experimentId?: string;
+              isDefault: boolean;
+              isDeleted: boolean;
+              userId: string;
+              /** @enum {string} */
+              editLevel: "published" | "private";
+              /** @enum {string} */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              updateSchedule?: {
+                /** @constant */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @constant */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              blocks: (({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-explorer";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  factMetricId: string;
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                    additionalNumeratorFilters?: (string)[];
+                    additionalDenominatorFilters?: (string)[];
+                    startDate: string;
+                    endDate: string;
+                  };
+                }) | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "markdown";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  content: string;
+                } | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-metadata";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-metric";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-dimension";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-time-series";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  metricId?: string;
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-traffic";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                } | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "sql-explorer";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  savedQueryId: string;
+                  dataVizConfigIndex?: number;
+                  blockConfig: (string)[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  updateDashboard: {
+    /** Update a single dashboard */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Dashboard */
+          title?: string;
+          /**
+           * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          editLevel?: "published" | "private";
+          /**
+           * @description General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          shareLevel?: "published" | "private";
+          /** @description If enabled for a General Dashboard, also requires an updateSchedule */
+          enableAutoUpdates?: boolean;
+          /** @description General Dashboards only. Experiment Dashboards update based on the parent experiment instead */
+          updateSchedule?: {
+            /** @constant */
+            type: "stale";
+            hours: number;
+          } | {
+            /** @constant */
+            type: "cron";
+            cron: string;
+          };
+          /** @description General Dashboards only, Experiment Dashboards use the experiment's projects */
+          projects?: (string)[];
+          blocks?: (({
+              /** @constant */
+              type: "markdown";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              content: string;
+            } | {
+              /** @constant */
+              type: "experiment-metadata";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              experimentId: string;
+              showDescription: boolean;
+              showHypothesis: boolean;
+              showVariationImages: boolean;
+              variationIds?: (string)[];
+            } | ({
+              /** @constant */
+              type: "experiment-metric";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              metricIds: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | ({
+              /** @constant */
+              type: "experiment-dimension";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              dimensionId: string;
+              dimensionValues: (string)[];
+              metricIds: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | ({
+              /** @constant */
+              type: "experiment-time-series";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              metricId?: string;
+              metricIds: (string)[];
+              variationIds: (string)[];
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | {
+              /** @constant */
+              type: "experiment-traffic";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              experimentId: string;
+              showTable: boolean;
+              showTimeseries: boolean;
+            } | {
+              /** @constant */
+              type: "sql-explorer";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              savedQueryId: string;
+              dataVizConfigIndex?: number;
+              blockConfig: (string)[];
+            } | ({
+              /** @constant */
+              type: "metric-explorer";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              factMetricId: string;
+              /** @enum {string} */
+              visualizationType: "histogram" | "bigNumber" | "timeseries";
+              /** @enum {string} */
+              valueType: "avg" | "sum";
+              metricAnalysisId: string;
+              analysisSettings: {
+                userIdType: string;
+                lookbackDays: number;
+                /** @enum {string} */
+                populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                populationId: string | null;
+                additionalNumeratorFilters?: (string)[];
+                additionalDenominatorFilters?: (string)[];
+                startDate: string;
+                endDate: string;
+              };
+            })) | (({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "metric-explorer";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              factMetricId: string;
+              /** @enum {string} */
+              visualizationType: "histogram" | "bigNumber" | "timeseries";
+              /** @enum {string} */
+              valueType: "avg" | "sum";
+              metricAnalysisId: string;
+              analysisSettings: {
+                userIdType: string;
+                lookbackDays: number;
+                /** @enum {string} */
+                populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                populationId: string | null;
+                additionalNumeratorFilters?: (string)[];
+                additionalDenominatorFilters?: (string)[];
+                startDate: string;
+                endDate: string;
+              };
+            }) | {
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "markdown";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              content: string;
+            } | {
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "experiment-metadata";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              experimentId: string;
+              showDescription: boolean;
+              showHypothesis: boolean;
+              showVariationImages: boolean;
+              variationIds?: (string)[];
+            } | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "experiment-metric";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              metricIds: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "experiment-dimension";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              dimensionId: string;
+              dimensionValues: (string)[];
+              metricIds: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "experiment-time-series";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              metricId?: string;
+              metricIds: (string)[];
+              variationIds: (string)[];
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | {
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "experiment-traffic";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              experimentId: string;
+              showTable: boolean;
+              showTimeseries: boolean;
+            } | {
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "sql-explorer";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              savedQueryId: string;
+              dataVizConfigIndex?: number;
+              blockConfig: (string)[];
+            }))[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard: {
+              id: string;
+              uid: string;
+              organization: string;
+              experimentId?: string;
+              isDefault: boolean;
+              isDeleted: boolean;
+              userId: string;
+              /** @enum {string} */
+              editLevel: "published" | "private";
+              /** @enum {string} */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              updateSchedule?: {
+                /** @constant */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @constant */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              blocks: (({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-explorer";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  factMetricId: string;
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                    additionalNumeratorFilters?: (string)[];
+                    additionalDenominatorFilters?: (string)[];
+                    startDate: string;
+                    endDate: string;
+                  };
+                }) | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "markdown";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  content: string;
+                } | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-metadata";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-metric";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-dimension";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-time-series";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  metricId?: string;
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-traffic";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                } | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "sql-explorer";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  savedQueryId: string;
+                  dataVizConfigIndex?: number;
+                  blockConfig: (string)[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteDashboard: {
+    /** Delete a single dashboard */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listDashboards: {
+    /** Get all dashboards */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboards: ({
+                id: string;
+                uid: string;
+                organization: string;
+                experimentId?: string;
+                isDefault: boolean;
+                isDeleted: boolean;
+                userId: string;
+                /** @enum {string} */
+                editLevel: "published" | "private";
+                /** @enum {string} */
+                shareLevel: "published" | "private";
+                enableAutoUpdates: boolean;
+                updateSchedule?: {
+                  /** @constant */
+                  type: "stale";
+                  hours: number;
+                } | {
+                  /** @constant */
+                  type: "cron";
+                  cron: string;
+                };
+                title: string;
+                projects?: (string)[];
+                /** Format: date-time */
+                nextUpdate?: string;
+                /** Format: date-time */
+                lastUpdated?: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                blocks: (({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-explorer";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    factMetricId: string;
+                    /** @enum {string} */
+                    visualizationType: "histogram" | "bigNumber" | "timeseries";
+                    /** @enum {string} */
+                    valueType: "avg" | "sum";
+                    metricAnalysisId: string;
+                    analysisSettings: {
+                      userIdType: string;
+                      lookbackDays: number;
+                      /** @enum {string} */
+                      populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                      populationId: string | null;
+                      additionalNumeratorFilters?: (string)[];
+                      additionalDenominatorFilters?: (string)[];
+                      startDate: string;
+                      endDate: string;
+                    };
+                  }) | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "markdown";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    content: string;
+                  } | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-metadata";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    experimentId: string;
+                    showDescription: boolean;
+                    showHypothesis: boolean;
+                    showVariationImages: boolean;
+                    variationIds?: (string)[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-metric";
+                    title: string;
+                    description: string;
+                    snapshotId: string;
+                    experimentId: string;
+                    metricIds: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-dimension";
+                    title: string;
+                    description: string;
+                    snapshotId: string;
+                    experimentId: string;
+                    dimensionId: string;
+                    dimensionValues: (string)[];
+                    metricIds: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-time-series";
+                    title: string;
+                    description: string;
+                    snapshotId: string;
+                    experimentId: string;
+                    metricId?: string;
+                    metricIds: (string)[];
+                    variationIds: (string)[];
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
+                  }) | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-traffic";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    experimentId: string;
+                    showTable: boolean;
+                    showTimeseries: boolean;
+                  } | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "sql-explorer";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    savedQueryId: string;
+                    dataVizConfigIndex?: number;
+                    blockConfig: (string)[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createDashboard: {
+    /** Create a single dashboard */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Dashboard */
+          title: string;
+          /**
+           * @description Dashboards that are "published" are editable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          editLevel: "published" | "private";
+          /**
+           * @description General Dashboards only. Dashboards that are "published" are viewable by organization members with appropriate permissions 
+           * @enum {string}
+           */
+          shareLevel: "published" | "private";
+          /** @description If enabled for a General Dashboard, also requires an updateSchedule */
+          enableAutoUpdates: boolean;
+          /** @description General Dashboards only. Experiment Dashboards update based on the parent experiment instead */
+          updateSchedule?: {
+            /** @constant */
+            type: "stale";
+            hours: number;
+          } | {
+            /** @constant */
+            type: "cron";
+            cron: string;
+          };
+          /** @description The parent experiment for an Experiment Dashboard, or undefined for a general dashboard */
+          experimentId?: string;
+          /** @description General Dashboards only, Experiment Dashboards use the experiment's projects */
+          projects?: (string)[];
+          blocks: ({
+              /** @constant */
+              type: "markdown";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              content: string;
+            } | {
+              /** @constant */
+              type: "experiment-metadata";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              experimentId: string;
+              showDescription: boolean;
+              showHypothesis: boolean;
+              showVariationImages: boolean;
+              variationIds?: (string)[];
+            } | ({
+              /** @constant */
+              type: "experiment-metric";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              metricIds: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | ({
+              /** @constant */
+              type: "experiment-dimension";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              dimensionId: string;
+              dimensionValues: (string)[];
+              metricIds: (string)[];
+              variationIds: (string)[];
+              baselineRow: number;
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | ({
+              /** @constant */
+              type: "experiment-time-series";
+              title: string;
+              description: string;
+              snapshotId: string;
+              experimentId: string;
+              metricId?: string;
+              metricIds: (string)[];
+              variationIds: (string)[];
+              /** @enum {string} */
+              differenceType: "absolute" | "relative" | "scaled";
+              sliceTagsFilter: (string)[];
+              metricTagFilter: (string)[];
+              sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+              sortDirection: ("asc" | "desc") | null;
+            }) | {
+              /** @constant */
+              type: "experiment-traffic";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              experimentId: string;
+              showTable: boolean;
+              showTimeseries: boolean;
+            } | {
+              /** @constant */
+              type: "sql-explorer";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              savedQueryId: string;
+              dataVizConfigIndex?: number;
+              blockConfig: (string)[];
+            } | ({
+              /** @constant */
+              type: "metric-explorer";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              factMetricId: string;
+              /** @enum {string} */
+              visualizationType: "histogram" | "bigNumber" | "timeseries";
+              /** @enum {string} */
+              valueType: "avg" | "sum";
+              metricAnalysisId: string;
+              analysisSettings: {
+                userIdType: string;
+                lookbackDays: number;
+                /** @enum {string} */
+                populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                populationId: string | null;
+                additionalNumeratorFilters?: (string)[];
+                additionalDenominatorFilters?: (string)[];
+                startDate: string;
+                endDate: string;
+              };
+            }))[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboard: {
+              id: string;
+              uid: string;
+              organization: string;
+              experimentId?: string;
+              isDefault: boolean;
+              isDeleted: boolean;
+              userId: string;
+              /** @enum {string} */
+              editLevel: "published" | "private";
+              /** @enum {string} */
+              shareLevel: "published" | "private";
+              enableAutoUpdates: boolean;
+              updateSchedule?: {
+                /** @constant */
+                type: "stale";
+                hours: number;
+              } | {
+                /** @constant */
+                type: "cron";
+                cron: string;
+              };
+              title: string;
+              projects?: (string)[];
+              /** Format: date-time */
+              nextUpdate?: string;
+              /** Format: date-time */
+              lastUpdated?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              blocks: (({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-explorer";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  factMetricId: string;
+                  /** @enum {string} */
+                  visualizationType: "histogram" | "bigNumber" | "timeseries";
+                  /** @enum {string} */
+                  valueType: "avg" | "sum";
+                  metricAnalysisId: string;
+                  analysisSettings: {
+                    userIdType: string;
+                    lookbackDays: number;
+                    /** @enum {string} */
+                    populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                    populationId: string | null;
+                    additionalNumeratorFilters?: (string)[];
+                    additionalDenominatorFilters?: (string)[];
+                    startDate: string;
+                    endDate: string;
+                  };
+                }) | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "markdown";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  content: string;
+                } | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-metadata";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  experimentId: string;
+                  showDescription: boolean;
+                  showHypothesis: boolean;
+                  showVariationImages: boolean;
+                  variationIds?: (string)[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-metric";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-dimension";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  dimensionId: string;
+                  dimensionValues: (string)[];
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  baselineRow: number;
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-time-series";
+                  title: string;
+                  description: string;
+                  snapshotId: string;
+                  experimentId: string;
+                  metricId?: string;
+                  metricIds: (string)[];
+                  variationIds: (string)[];
+                  /** @enum {string} */
+                  differenceType: "absolute" | "relative" | "scaled";
+                  sliceTagsFilter: (string)[];
+                  metricTagFilter: (string)[];
+                  sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                  sortDirection: ("asc" | "desc") | null;
+                }) | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "experiment-traffic";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  experimentId: string;
+                  showTable: boolean;
+                  showTimeseries: boolean;
+                } | {
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "sql-explorer";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  savedQueryId: string;
+                  dataVizConfigIndex?: number;
+                  blockConfig: (string)[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getDashboardsForExperiment: {
+    /** Get all dashboards for an experiment */
+    parameters: {
+      path: {
+        experimentId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dashboards: ({
+                id: string;
+                uid: string;
+                organization: string;
+                experimentId?: string;
+                isDefault: boolean;
+                isDeleted: boolean;
+                userId: string;
+                /** @enum {string} */
+                editLevel: "published" | "private";
+                /** @enum {string} */
+                shareLevel: "published" | "private";
+                enableAutoUpdates: boolean;
+                updateSchedule?: {
+                  /** @constant */
+                  type: "stale";
+                  hours: number;
+                } | {
+                  /** @constant */
+                  type: "cron";
+                  cron: string;
+                };
+                title: string;
+                projects?: (string)[];
+                /** Format: date-time */
+                nextUpdate?: string;
+                /** Format: date-time */
+                lastUpdated?: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                blocks: (({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-explorer";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    factMetricId: string;
+                    /** @enum {string} */
+                    visualizationType: "histogram" | "bigNumber" | "timeseries";
+                    /** @enum {string} */
+                    valueType: "avg" | "sum";
+                    metricAnalysisId: string;
+                    analysisSettings: {
+                      userIdType: string;
+                      lookbackDays: number;
+                      /** @enum {string} */
+                      populationType: "metric" | "factTable" | "exposureQuery" | "population" | "segment";
+                      populationId: string | null;
+                      additionalNumeratorFilters?: (string)[];
+                      additionalDenominatorFilters?: (string)[];
+                      startDate: string;
+                      endDate: string;
+                    };
+                  }) | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "markdown";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    content: string;
+                  } | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-metadata";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    experimentId: string;
+                    showDescription: boolean;
+                    showHypothesis: boolean;
+                    showVariationImages: boolean;
+                    variationIds?: (string)[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-metric";
+                    title: string;
+                    description: string;
+                    snapshotId: string;
+                    experimentId: string;
+                    metricIds: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-dimension";
+                    title: string;
+                    description: string;
+                    snapshotId: string;
+                    experimentId: string;
+                    dimensionId: string;
+                    dimensionValues: (string)[];
+                    metricIds: (string)[];
+                    variationIds: (string)[];
+                    baselineRow: number;
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    columnsFilter: (("Metric & Variation Names") | "Baseline Average" | "Variation Averages" | "Chance to Win" | "CI Graph" | "Lift")[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-time-series";
+                    title: string;
+                    description: string;
+                    snapshotId: string;
+                    experimentId: string;
+                    metricId?: string;
+                    metricIds: (string)[];
+                    variationIds: (string)[];
+                    /** @enum {string} */
+                    differenceType: "absolute" | "relative" | "scaled";
+                    sliceTagsFilter: (string)[];
+                    metricTagFilter: (string)[];
+                    sortBy: ("metrics" | "metricTags" | "significance" | "change") | null;
+                    sortDirection: ("asc" | "desc") | null;
+                  }) | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "experiment-traffic";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    experimentId: string;
+                    showTable: boolean;
+                    showTimeseries: boolean;
+                  } | {
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "sql-explorer";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    savedQueryId: string;
+                    dataVizConfigIndex?: number;
+                    blockConfig: (string)[];
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
       query: {
         projectId?: string;
       };
@@ -14124,25 +15671,207 @@ export interface operations {
         content: {
           "application/json": ({
               id: string;
-              name: string;
-              type: string;
-              section: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
-              active: boolean;
-              required: boolean;
-              projects?: (string)[];
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
               values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
             })[];
+        };
+      };
+    };
+  };
+  createCustomField: {
+    /** Create a single customField */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The unique key for the custom field */
+          id: string;
+          /** @description The display name of the custom field */
+          name: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getCustomField: {
+    /** Get a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateCustomField: {
+    /** Update a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the custom field */
+          name?: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required?: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section?: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteCustomField: {
+    /** Delete a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
         };
       };
     };
   };
 }
 import { z } from "zod";
-import * as openApiValidators from "shared/src/validators/openapi";
+import * as openApiValidators from "shared/validators";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
@@ -14186,7 +15915,6 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
-export type ApiCustomField = z.infer<typeof openApiValidators.apiCustomFieldValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -14285,4 +16013,3 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
-export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];

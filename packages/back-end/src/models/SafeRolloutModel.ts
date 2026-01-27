@@ -19,6 +19,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "safeRollout.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    autoSnapshots: true,
+  },
 });
 
 export class SafeRolloutModel extends BaseClass {
@@ -85,6 +88,11 @@ export class SafeRolloutModel extends BaseClass {
           [feature],
           getEnvironmentIdsFromOrg(this.context.org),
         ),
+        auditContext: {
+          event: "step changed",
+          model: "saferollout",
+          id: existing.featureId,
+        },
       });
     }
   }

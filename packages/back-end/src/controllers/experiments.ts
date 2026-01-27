@@ -10,6 +10,7 @@ import {
   isDefined,
 } from "shared/util";
 import {
+  expandAllSliceMetricsInMap,
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
@@ -1150,7 +1151,6 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
-    pinnedMetricSlices: data.pinnedMetricSlices,
     customMetricSlices: data.customMetricSlices,
   };
   const { settings } = getScopedSettings({
@@ -1511,7 +1511,6 @@ export async function postExperiment(
     "dismissedWarnings",
     "holdoutId",
     "defaultDashboardId",
-    "pinnedMetricSlices",
     "customMetricSlices",
   ];
   let changes: Changeset = {};
@@ -1530,7 +1529,6 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "variations" ||
       key === "customFields" ||
-      key === "pinnedMetricSlices" ||
       key === "customMetricSlices"
     ) {
       hasChanges =
@@ -3033,6 +3031,17 @@ export async function postSnapshotAnalysis(
   }
 
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  // This ensures slice metrics are available when passed to the stats engine
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment: experiment,
+    metricGroups,
+  });
 
   try {
     await createSnapshotAnalysis(context, {

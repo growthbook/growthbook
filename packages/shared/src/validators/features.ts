@@ -153,6 +153,9 @@ export const safeRolloutRule = baseRule
     controlValue: z.string(),
     variationValue: z.string(),
     safeRolloutId: z.string(),
+    // safeRolloutRule is a nested validator for feature rules, not a BaseModel entity,
+    // so the defaultValues mechanism doesn't apply. We need .default() here.
+    // eslint-disable-next-line no-restricted-syntax
     status: z.enum(safeRolloutStatusArray).default("running"),
     hashAttribute: z.string(),
     seed: z.string(),
@@ -281,7 +284,7 @@ export const featureInterface = z
 
 export type FeatureInterface = z.infer<typeof featureInterface>;
 
-const computedFeatureInterface = featureInterface
+export const computedFeatureInterface = featureInterface
   .extend({
     projectId: z.string(),
     projectName: z.string(),

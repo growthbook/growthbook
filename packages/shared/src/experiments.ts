@@ -48,6 +48,14 @@ import { stringToBoolean } from "./util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
+export type ExperimentSortBy =
+  | "significance"
+  | "change"
+  | "metrics"
+  | "metricTags"
+  | null;
+export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
+
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
 }
@@ -466,6 +474,25 @@ export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
+function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.type === "absolute" &&
+    !!metric.cappingSettings.value &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isSliceMetric(metric: ExperimentMetricInterface) {
+  return parseSliceMetricId(metric.id).isSliceMetric;
+}
+
+export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    !isSliceMetric(metric)
+  );
+}
+
 export function getMetricWindowHours(
   windowSettings: MetricWindowSettings,
 ): number {
@@ -582,6 +609,23 @@ export function parseSliceQueryString(
   return sliceLevels;
 }
 
+export function isSliceTagSelectAll(tagId: string): {
+  isSelectAll: boolean;
+  column?: string;
+} {
+  // Handle "select all" format: dim:column (no equals sign)
+  if (!tagId.includes("=")) {
+    const columnMatch = tagId.match(/^dim:(.+)$/);
+    if (columnMatch) {
+      return {
+        isSelectAll: true,
+        column: decodeURIComponent(columnMatch[1]),
+      };
+    }
+  }
+  return { isSelectAll: false };
+}
+
 export function parseSliceMetricId(
   metricId: string,
   factTableMap?: Record<string, FactTableInterface>,
@@ -613,27 +657,6 @@ export function parseSliceMetricId(
     baseMetricId,
     sliceLevels: sliceLevels,
   };
-}
-
-/**
- * Generates a pinned slice key for a metric with slice levels
- */
-export function generatePinnedSliceKey(
-  metricId: string,
-  sliceLevels: SliceLevelsData[],
-  location: "goal" | "secondary" | "guardrail",
-): string {
-  // Convert SliceLevelsData to SliceLevel format, handling boolean "null" values
-  const sliceLevelsForString = sliceLevels.map((dl) => {
-    // For boolean "null" slices, use empty array to generate ?dim:col= format
-    const isBooleanNull = dl.levels[0] === "null" && dl.datatype === "boolean";
-
-    const levels = isBooleanNull ? [] : dl.levels;
-    return { column: dl.column, datatype: dl.datatype, levels };
-  });
-
-  const sliceKeyParts = generateSliceStringFromLevels(sliceLevelsForString);
-  return `${metricId}?${sliceKeyParts}&location=${location}`;
 }
 
 export function getMetricLink(id: string): string {
@@ -1213,7 +1236,7 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-// Extracts all metric ids from an experiment, excluding ephemeral metrics (slices)
+// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
 // NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
@@ -1240,7 +1263,7 @@ export function getAllExpandedMetricIdsFromExperiment({
 
   // Add all slice metrics that are already in the expandedMetricMap
   // This includes both standard and custom dimension metrics
-  expandedMetricMap.forEach((metric, metricId) => {
+  expandedMetricMap.forEach((_, metricId) => {
     // Check if this is a dimension metric (contains dim: parameter)
     if (/[?&]dim:/.test(metricId)) {
       expandedMetricIds.add(metricId);
@@ -1266,6 +1289,7 @@ export interface SliceDataForMetric {
 }
 
 // Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+// Used for FE: row generation, slice filtering/expansion
 export function createAutoSliceDataForMetric({
   parentMetric,
   factTable,
@@ -1354,15 +1378,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices:
-    | Array<{
-        slices: Array<{
-          column: string;
-          levels: string[];
-        }>;
-      }>
-    | null
-    | undefined;
+  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
   factTable?: FactTableInterface | null;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -1422,6 +1438,11 @@ export function createCustomSliceDataForMetric({
   });
 
   return customSliceData;
+}
+
+export function generateSelectAllSliceString(column: string): string {
+  // Generate "select all" tag format: dim:column (no equals sign)
+  return `dim:${encodeURIComponent(column)}`;
 }
 
 export function generateSliceString(slices: Record<string, string>): string {

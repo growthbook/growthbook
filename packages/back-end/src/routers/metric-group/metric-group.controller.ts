@@ -34,7 +34,7 @@ export const postMetricGroup = async (
 
   const datasourceDoc = await getDataSourceById(context, data.datasource);
   if (!datasourceDoc) {
-    throw new Error("Invalid data source");
+    context.throwBadRequestError("Invalid data source");
   }
 
   const baseMetricGroup: Omit<
@@ -67,10 +67,14 @@ export const putMetricGroup = async (
 
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
-    throw new Error("Could not find metric group with that id");
+    return context.throwNotFoundError(
+      "Could not find metric group with that id",
+    );
   }
   if (org.id !== metricGroup.organization) {
-    throw new Error("You don't have access to that metric group");
+    context.permissions.throwPermissionError(
+      "You don't have access to that metric group",
+    );
   }
 
   if (!context.permissions.canUpdateMetricGroup()) {
@@ -82,7 +86,7 @@ export const putMetricGroup = async (
     data?.datasource || metricGroup.datasource,
   );
   if (!datasourceDoc) {
-    throw new Error("Invalid data source");
+    context.throwBadRequestError("Invalid data source");
   }
   await context.models.metricGroups.updateById(req.params.id, data);
 
@@ -104,7 +108,7 @@ export const deleteMetricGroup = async (
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
 
   if (!metricGroup) {
-    throw new Error("Could not find the metric group");
+    return context.throwNotFoundError("Could not find the metric group");
   }
 
   // should we delete all references to this metric group in the experiments?
@@ -127,13 +131,17 @@ export const putMetricGroupReorder = async (
   const { id } = req.params;
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
-    throw new Error("Could not find metric group with that id");
+    return context.throwNotFoundError(
+      "Could not find metric group with that id",
+    );
   }
   if (!context.permissions.canUpdateMetricGroup()) {
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
-    throw new Error("You don't have access to that metric group");
+    context.permissions.throwPermissionError(
+      "You don't have access to that metric group",
+    );
   }
 
   const { from, to } = req.body;
@@ -161,19 +169,23 @@ export const removeMetricFromGroup = async (
   const { id, metricId } = req.params;
   const metricGroup = await context.models.metricGroups.getById(req.params.id);
   if (!metricGroup) {
-    throw new Error("Could not find metric group with that id");
+    return context.throwNotFoundError(
+      "Could not find metric group with that id",
+    );
   }
   if (!context.permissions.canUpdateMetricGroup()) {
     context.permissions.throwPermissionError();
   }
   if (metricGroup.organization !== context.org.id) {
-    throw new Error("You don't have access to that metric group");
+    context.permissions.throwPermissionError(
+      "You don't have access to that metric group",
+    );
   }
 
   const existingMetrics = metricGroup.metrics;
   const index = existingMetrics.indexOf(metricId);
   if (index === -1) {
-    throw new Error("Could not find metric in group");
+    context.throwBadRequestError("Could not find metric in group");
   }
   existingMetrics.splice(index, 1);
 

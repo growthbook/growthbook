@@ -35,6 +35,10 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+    tags: [],
+  },
 });
 
 // extra checks on user filter
@@ -255,6 +259,10 @@ export class FactMetricModel extends BaseClass {
         "Cannot delete fact metric managed by API if the request isn't from the API.",
       );
     }
+  }
+
+  protected async afterDelete(doc: FactMetricInterface) {
+    await this.context.models.metricGroups.removeMetricFromAllGroups(doc.id);
   }
 
   // TODO: Once we migrate fact tables to new data model, we can use that instead

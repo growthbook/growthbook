@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { OrganizationSettings } from "shared/types/organization";
+import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -40,7 +41,7 @@ import {
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
-import { hasOpenAIKey } from "@/services/env";
+import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -188,6 +189,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   >([]);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [enoughWords, setEnoughWords] = useState(false);
+  const [missingEmbeddingKey, setMissingEmbeddingKey] = useState<{
+    provider: string;
+    envVar: string;
+  } | null>(null);
   const [expandSimilarResults, setExpandSimilarResults] = useState(false);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
@@ -324,7 +329,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
-      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
@@ -502,7 +506,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         keepDefaultValues: true,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // If a holdout is set for a new experiment, use the hash attribute of the holdout experiment
@@ -550,8 +553,41 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const trackingKeyFieldHandlers = form.register("trackingKey");
 
   const checkForSimilar = useCallback(async () => {
-    // only OpenAI allows for embeddings right now.
-    if (!aiEnabled || !useCheckForSimilar || !hasOpenAIKey()) return;
+    if (!aiEnabled || !useCheckForSimilar) return;
+
+    // Check if we have the API key for the embedding model provider
+    const embeddingModel = settings.embeddingModel || "text-embedding-ada-002";
+    let hasEmbeddingKey = false;
+    let embeddingProvider = "openai";
+    const providerEnvVars: Record<string, string> = {
+      openai: "OPENAI_API_KEY",
+      mistral: "MISTRAL_API_KEY",
+      google: "GOOGLE_AI_API_KEY",
+    };
+    try {
+      embeddingProvider = getProviderFromEmbeddingModel(embeddingModel);
+      if (embeddingProvider === "openai") {
+        hasEmbeddingKey = hasOpenAIKey();
+      } else if (embeddingProvider === "mistral") {
+        hasEmbeddingKey = hasMistralKey();
+      } else if (embeddingProvider === "google") {
+        hasEmbeddingKey = hasGoogleAIKey();
+      }
+    } catch {
+      //  Ignore if we can't determine the provider
+    }
+
+    if (!hasEmbeddingKey) {
+      setMissingEmbeddingKey({
+        provider:
+          embeddingProvider.charAt(0).toUpperCase() +
+          embeddingProvider.slice(1),
+        envVar: providerEnvVars[embeddingProvider] || "API_KEY",
+      });
+      return;
+    }
+
+    setMissingEmbeddingKey(null);
 
     // check how many words we're sending in the hypothesis, name, and description:
     const wordCount =
@@ -811,7 +847,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {useCheckForSimilar && (
               <>
-                {!enoughWords ? (
+                {missingEmbeddingKey ? (
+                  <Box my="4">
+                    <Callout status="warning">
+                      {missingEmbeddingKey.provider} API key is required for
+                      checking similar experiments. Please set{" "}
+                      <code>{missingEmbeddingKey.envVar}</code> in your
+                      environment variables.
+                    </Callout>
+                  </Box>
+                ) : !enoughWords ? (
                   <Box my="4">
                     <Flex gap="2" className="text-muted" align="center">
                       <FaExclamationCircle />

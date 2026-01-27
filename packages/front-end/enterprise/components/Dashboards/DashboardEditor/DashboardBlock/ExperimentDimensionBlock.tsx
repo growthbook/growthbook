@@ -9,12 +9,11 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { expandMetricGroups } from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
 import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
@@ -23,18 +22,19 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-  metrics,
+  isEditing,
+  setBlock,
 }: BlockProps<ExperimentDimensionBlockInterface>) {
   const {
-    baselineRow,
     columnsFilter,
-    variationIds,
     dimensionId,
     dimensionValues,
-    differenceType,
-    metricSelector,
-    metricIds,
+    metricIds: blockMetricIds,
+    metricTagFilter: blockMetricTagFilter,
+    sortBy: blockSortBy,
+    sortDirection: blockSortDirection,
   } = block;
+
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
@@ -43,20 +43,6 @@ export default function ExperimentDimensionBlock({
   const blockId = useMemo(() => blockInherentId ?? uuid4(), [blockInherentId]);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups } = useDefinitions();
-  const expandedMetricIds = metrics.map((m) => m.id);
-  const expGoalMetrics = expandMetricGroups(
-    experiment.goalMetrics,
-    metricGroups,
-  );
-  const expSecondaryMetrics = expandMetricGroups(
-    experiment.secondaryMetrics,
-    metricGroups,
-  );
-  const expGuardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
-    metricGroups,
-  );
 
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
@@ -68,17 +54,18 @@ export default function ExperimentDimensionBlock({
       experiment.phases[experiment.phases.length - 1]?.variationWeights?.[i] ||
       0,
   }));
-  const indexedVariations = experiment.variations.map((v, i) => ({
-    ...v,
-    index: i,
-  }));
 
-  const variationFilter =
-    variationIds && variationIds.length > 0
-      ? indexedVariations
-          .filter((v) => !variationIds.includes(v.id))
-          .map((v) => v.index)
-      : undefined;
+  // Use shared editor hooks for state management
+  const {
+    baselineRow,
+    variationFilter,
+    differenceType,
+    setSortBy,
+    setSortDirection,
+    setBaselineRow,
+    setVariationFilter,
+    setDifferenceType,
+  } = useDashboardEditorHooks(block, setBlock, variations);
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
@@ -104,15 +91,12 @@ export default function ExperimentDimensionBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  const goalMetrics = expGoalMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId),
-  );
-  const secondaryMetrics = expSecondaryMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId),
-  );
-  const guardrailMetrics = expGuardrailMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId),
-  );
+  // Use all metrics - filtering is handled by metricIds in the hook
+  const { goalMetrics, secondaryMetrics, guardrailMetrics } = {
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+  };
 
   return (
     <BreakDownResults
@@ -124,7 +108,9 @@ export default function ExperimentDimensionBlock({
       queryStatusData={queryStatusData}
       variations={variations}
       variationFilter={variationFilter}
+      setVariationFilter={isEditing ? setVariationFilter : undefined}
       baselineRow={baselineRow}
+      setBaselineRow={isEditing ? setBaselineRow : undefined}
       columnsFilter={columnsFilter}
       goalMetrics={goalMetrics}
       secondaryMetrics={secondaryMetrics}
@@ -144,12 +130,22 @@ export default function ExperimentDimensionBlock({
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
+      setDifferenceType={isEditing ? setDifferenceType : undefined}
       renderMetricName={(metric) => metric.name}
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
-      sortBy={metricSelector === "custom" ? "custom" : null}
-      customMetricOrder={metricSelector === "custom" ? metricIds : undefined}
+      sortBy={blockSortBy ?? null}
+      setSortBy={isEditing ? setSortBy : undefined}
+      sortDirection={blockSortDirection ?? null}
+      setSortDirection={isEditing ? setSortDirection : undefined}
+      customMetricOrder={
+        blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
+          ? blockMetricIds
+          : undefined
+      }
+      metricTagFilter={blockMetricTagFilter}
+      metricsFilter={blockMetricIds}
     />
   );
 }

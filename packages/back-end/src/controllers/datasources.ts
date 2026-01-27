@@ -28,6 +28,7 @@ import {
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { FactTableColumnType } from "shared/types/fact-table";
+import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -65,10 +66,7 @@ import {
   getDimensionSlicesById,
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
-import {
-  SourceIntegrationInterface,
-  SQLExecutionError,
-} from "back-end/src/types/Integration";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   _dangerousRecreateClickhouseTables,
@@ -776,9 +774,7 @@ export async function postGoogleOauthRedirect(
   const oauth2Client = getOauth2Client();
 
   const url = oauth2Client.generateAuthUrl({
-    // eslint-disable-next-line
     access_type: "offline",
-    // eslint-disable-next-line
     include_granted_scopes: true,
     prompt: "consent",
     scope: "https://www.googleapis.com/auth/analytics.readonly",
@@ -1069,7 +1065,7 @@ export async function postDimensionSlices(
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
-    lookbackDays: Number(lookbackDays) ?? 30,
+    lookbackDays: Number(lookbackDays) || 30,
   });
   res.status(200).json({
     status: 200,

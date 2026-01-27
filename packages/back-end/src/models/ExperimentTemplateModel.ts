@@ -15,6 +15,11 @@ const BaseClass = MakeModelClass({
     deleteEvent: "experimentTemplate.delete",
   },
   globallyUniqueIds: false,
+  defaultValues: {
+    targeting: {
+      condition: "{}",
+    },
+  },
 });
 
 export class ExperimentTemplatesModel extends BaseClass {

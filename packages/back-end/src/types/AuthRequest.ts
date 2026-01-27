@@ -25,7 +25,6 @@ export type PermissionFunctions = {
   ): void;
 };
 
-// eslint-disable-next-line
 export type AuthRequest<
   Body = unknown,
   Params = unknown,

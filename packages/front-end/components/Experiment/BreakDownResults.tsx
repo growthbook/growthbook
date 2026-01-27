@@ -19,7 +19,11 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  ExperimentSortBy,
+  SetExperimentSortBy,
+} from "shared/experiments";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -78,13 +82,12 @@ const BreakDownResults: FC<{
   metricsFilter?: string[];
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
   renderMetricName?: (
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "significance" | "change" | "custom" | null;
-  setSortBy?: (s: "significance" | "change" | "custom" | null) => void;
+  sortBy?: ExperimentSortBy;
+  setSortBy?: SetExperimentSortBy;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
   customMetricOrder?: string[];
@@ -97,7 +100,7 @@ const BreakDownResults: FC<{
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
@@ -132,7 +135,6 @@ const BreakDownResults: FC<{
   metricsFilter,
   experimentType,
   ssrPolyfills,
-  hideDetails,
   renderMetricName,
   noStickyHeader,
   sortBy,
@@ -260,12 +262,7 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn({
-                      statsEngine,
-                      hideDetails,
-                      experimentType,
-                      className: "",
-                    })({
+                    {getRenderLabelColumn({})({
                       label: table.metric.name,
                       metric: table.metric,
                       row: table.rows[0],

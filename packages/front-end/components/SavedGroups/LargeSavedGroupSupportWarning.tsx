@@ -49,7 +49,7 @@ export default function LargeSavedGroupPerformanceWarning({
 }: LargeSavedGroupSupportWarningProps) {
   if (!hasLargeSavedGroupFeature) {
     return (
-      <Callout status="info">
+      <Callout status="info" mb="4">
         Performance improvements for Saved Groups are available with an
         Enterprise plan.
         {openUpgradeModal && (
@@ -61,10 +61,10 @@ export default function LargeSavedGroupPerformanceWarning({
       </Callout>
     );
   }
-  if (unsupportedConnections.length === 0) return <></>;
+  if (unsupportedConnections.length === 0) return null;
 
   return (
-    <Callout status="warning" mb="3">
+    <Callout status="warning" mb="4">
       Enable &quot;Pass Saved Groups by reference&quot; to improve SDK
       performance. <Link href="/sdks">View SDKs</Link>
     </Callout>
