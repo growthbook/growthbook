@@ -176,3 +176,24 @@ export function multinomialCovariance(nu: number[]): number[][] {
 export function isStatisticallySignificant(ci: [number, number]): boolean {
   return ci[0] > 0 || ci[1] < 0;
 }
+
+/**
+ * Normal survival function (1 - CDF) with better numerical stability.
+ * For values where CDF is close to 1, uses the complementary calculation.
+ * Uses the identity: SF(x; mu, sigma) = CDF(-z; 0, 1) where z = (x - mu) / sigma
+ */
+export function normalSF(x: number, mu: number, sigma: number): number {
+  // Handle degenerate distribution (all probability mass at mu)
+  if (sigma <= 0) {
+    return x < mu ? 1 : 0;
+  }
+  const z = (x - mu) / sigma;
+  if (z > 0) {
+    // When z > 0, CDF(z) is close to 1, so 1-CDF(z) loses precision
+    // Use identity: 1 - CDF(z) = CDF(-z) for standard normal
+    return normalCDF(-z, 0, 1);
+  } else {
+    // When z <= 0, direct calculation is stable
+    return 1 - normalCDF(z, 0, 1);
+  }
+}

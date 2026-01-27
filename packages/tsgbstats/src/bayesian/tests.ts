@@ -19,7 +19,11 @@ import {
   type EffectMomentsConfig,
   BASELINE_VARIATION_ZERO_MESSAGE,
 } from "../frequentist/postStratification";
-import { truncatedNormalMean, gaussianCredibleInterval } from "../utils";
+import {
+  truncatedNormalMean,
+  gaussianCredibleInterval,
+  normalSF,
+} from "../utils";
 
 /**
  * Effect-based Bayesian A/B test.
@@ -171,8 +175,8 @@ export class EffectBayesianABTest {
    * where Phi_sf is the survival function (1 - CDF).
    */
   chanceToWin(meanDiff: number, stdDiff: number): number {
-    // Survival function = 1 - CDF
-    const sf = 1 - normalCDF(0, meanDiff, stdDiff);
+    // Use numerically stable survival function
+    const sf = normalSF(0, meanDiff, stdDiff);
     return this.inverse ? 1 - sf : sf;
   }
 
