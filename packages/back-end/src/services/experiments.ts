@@ -899,7 +899,7 @@ export function updateExperimentBanditSettings({
   }
   const phase = changes.phases.length - 1;
 
-  const banditResult: BanditResult | undefined = snapshot?.banditResult;
+  const banditResult: BanditResult | null | undefined = snapshot?.banditResult;
   const snapshotDateCreated =
     snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 

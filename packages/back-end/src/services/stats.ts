@@ -228,7 +228,10 @@ function createStatsEngineData(
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams,
   context?: ReqContext | ApiReqContext,
-): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+): Promise<{
+  results: ExperimentMetricAnalysis;
+  banditResult?: BanditResult | null;
+}> {
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine(
       [{ id: params.id, data: createStatsEngineData(params) }],
@@ -668,7 +671,7 @@ export async function analyzeExperimentResults({
   context?: ReqContext | ApiReqContext;
 }): Promise<{
   results: ExperimentReportResults[];
-  banditResult?: BanditResult;
+  banditResult?: BanditResult | null;
 }> {
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,

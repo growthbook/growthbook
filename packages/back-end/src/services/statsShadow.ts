@@ -170,15 +170,18 @@ function runTsStatsEngine(
       const results = runTsStatsForExperiment(exp.data);
       return {
         id: exp.id,
-        // Cast to shared type - the structure is the same, just minor type differences
         results:
           results as unknown as MultipleExperimentMetricAnalysis["results"],
+        banditResult: null,
+        error: null,
+        traceback: null,
       };
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       return {
         id: exp.id,
         results: [] as MultipleExperimentMetricAnalysis["results"],
+        banditResult: null,
         error: err.message,
         traceback: err.stack,
       };
