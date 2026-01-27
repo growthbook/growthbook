@@ -390,7 +390,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getAuth() {
     const client = getOauth2Client();
     client.setCredentials({
-      // eslint-disable-next-line
       refresh_token: this.params.refreshToken,
     });
     return client;

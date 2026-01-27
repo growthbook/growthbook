@@ -40,12 +40,10 @@ export function useResultsTableTooltip({
   const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
     useTooltip<TooltipData>();
 
-  const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
-    {
-      scroll: true,
-      detectBounds: false,
-    },
-  );
+  const { containerRef } = useTooltipInPortal({
+    scroll: true,
+    detectBounds: false,
+  });
 
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
@@ -53,16 +51,12 @@ export function useResultsTableTooltip({
   );
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
-  const [hoveredXViewport, setHoveredXViewport] = useState<number | null>(null);
-  const [hoveredYViewport, setHoveredYViewport] = useState<number | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
 
   const clearHover = () => {
     hideTooltip();
     setHoveredX(null);
     setHoveredY(null);
-    setHoveredXViewport(null);
-    setHoveredYViewport(null);
     setHoveredMetricRow(null);
     setHoveredVariationRow(null);
   };
@@ -142,11 +136,8 @@ export function useResultsTableTooltip({
     }
 
     if (hoveredX === null && hoveredY === null) {
-      setHoveredX(targetLeft - containerBounds.left);
-      setHoveredY(targetTop - containerBounds.top);
-      // viewport coordinates for portaling
-      setHoveredXViewport(targetLeft);
-      setHoveredYViewport(targetTop);
+      setHoveredX(targetLeft);
+      setHoveredY(targetTop);
     }
 
     // Show tooltip logic
@@ -216,14 +207,11 @@ export function useResultsTableTooltip({
     tooltipData: tooltipData as TooltipData,
     hoveredX,
     hoveredY,
-    hoveredXViewport,
-    hoveredYViewport,
     hoverRow,
     leaveRow,
     closeTooltip,
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
-    TooltipInPortal,
   };
 }
