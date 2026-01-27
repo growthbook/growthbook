@@ -170,8 +170,11 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
 }) => {
   const { analysis } = useSnapshot();
 
-  // TODO: Check if it is safe to use first results
-  const results = analysis?.results?.[0] ?? initialResults;
+  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
+  // which contains the correct dimension-specific data. Otherwise, use snapshot results.
+  const results = dimensionInfo
+    ? initialResults
+    : (analysis?.results?.[0] ?? initialResults);
 
   // TODO: Check what we need here
   const [expandedMetrics] = useState<Record<string, boolean>>(() => {

@@ -9,6 +9,7 @@ import {
 } from "shared/constants";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
+import { formatDimensionValueForDisplay } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -91,6 +92,7 @@ const Results: FC<{
       initialTab?: MetricDrilldownTab;
       initialSliceSearchTerm?: string;
       dimensionInfo?: { name: string; value: string };
+      dimensionIndex?: number;
     } | null>(null);
 
   // todo: move to snapshot property
@@ -163,6 +165,15 @@ const Results: FC<{
       row: ExperimentTableRow,
       dimensionInfo?: { name: string; value: string },
     ) => {
+      // Find the dimension index if dimensionInfo is provided (from BreakDownResults)
+      let dimensionIndex: number | undefined;
+      if (dimensionInfo && analysis?.results) {
+        dimensionIndex = analysis.results.findIndex(
+          (r) => formatDimensionValueForDisplay(r.name) === dimensionInfo.value,
+        );
+        if (dimensionIndex === -1) dimensionIndex = undefined;
+      }
+
       if (row.isSliceRow) {
         setOpenMetricDrilldownModalInfo({
           metricRow: row,
@@ -170,16 +181,18 @@ const Results: FC<{
           initialSliceSearchTerm:
             typeof row.label === "string" ? row.label : "",
           dimensionInfo,
+          dimensionIndex,
         });
       } else {
         setOpenMetricDrilldownModalInfo({
           metricRow: row,
           initialTab: "overview",
           dimensionInfo,
+          dimensionIndex,
         });
       }
     },
-    [],
+    [analysis?.results],
   );
 
   const showCompactResults =
@@ -511,7 +524,9 @@ const Results: FC<{
           close={() => setOpenMetricDrilldownModalInfo(null)}
           initialTab={openMetricDrilldownModalInfo.initialTab}
           // useExperimentTableRows parameters
-          results={analysis.results[0]}
+          results={
+            analysis.results[openMetricDrilldownModalInfo.dimensionIndex ?? 0]
+          }
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
