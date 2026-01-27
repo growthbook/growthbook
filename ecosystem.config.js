@@ -12,7 +12,8 @@ module.exports = {
         node_args: "--require ./packages/back-end/dist/tracing.datadog.js",
       }),
       ...(process.env.TRACING_PROVIDER === "opentelemetry" && {
-        node_args: "--require ./packages/back-end/dist/tracing.opentelemetry.js",
+        node_args:
+          "--require ./packages/back-end/dist/tracing.opentelemetry.js",
       }),
     },
     {
