@@ -38,7 +38,6 @@ export default function ProjectBadges({
   sort = true,
   skipMargin = false,
 }: Props) {
-  console.log("projectIds", projectIds);
   const { projects, project } = useDefinitions();
   if (!projectIds) {
     if (singularProjectTypes.includes(resourceType)) {

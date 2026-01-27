@@ -28,6 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import useURLHash from "@/hooks/useURLHash";
 
 export type AppliesToFilter = "all" | CustomFieldSection;
 
@@ -146,7 +147,10 @@ function CustomFieldsTable({
   );
 }
 
+const TAB_VALUES = ["all", "feature", "experiment"] as const;
+
 const CustomFields: FC = () => {
+  const [activeFilter] = useURLHash(TAB_VALUES as unknown as string[]);
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const { customFields, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
@@ -331,7 +335,12 @@ const CustomFields: FC = () => {
       {modalOpen !== null && (
         <CustomFieldModal
           existing={modalOpen}
-          section={modalOpen.section ?? "feature"}
+          section={
+            modalOpen.section ??
+            (activeFilter === "all"
+              ? "feature"
+              : (activeFilter as CustomFieldSection))
+          }
           close={() => setModalOpen(null)}
           onSuccess={mutateDefinitions}
         />

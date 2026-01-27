@@ -17,6 +17,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import RadioGroup from "@/ui/RadioGroup";
 
 export default function CustomFieldModal({
   existing,
@@ -32,7 +33,7 @@ export default function CustomFieldModal({
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const form = useForm<Partial<CustomField>>({
+  const form = useForm<CustomField>({
     defaultValues: {
       id: existing.id || "",
       name: existing.name || "",
@@ -101,7 +102,6 @@ export default function CustomFieldModal({
           // unset any placeholder value, as this is not applicable to boolean fields
           value.placeholder = "";
         }
-        const sectionValue = (value.section ?? section) as CustomFieldSection;
         if (existing.id) {
           const edit = customFields.filter((e) => e.id === existing.id)[0];
           if (!edit) throw new Error("Could not edit custom field");
@@ -113,7 +113,7 @@ export default function CustomFieldModal({
           edit.description = value?.description ?? "";
           edit.placeholder = value?.placeholder ?? "";
           edit.projects = value.projects;
-          edit.section = sectionValue;
+          edit.section = value.section;
 
           await apiCall(`/custom-fields/${existing.id}`, {
             method: "PUT",
@@ -134,7 +134,7 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            section: sectionValue,
+            section: value.section,
           };
 
           await apiCall(`/custom-fields`, {
@@ -174,20 +174,15 @@ export default function CustomFieldModal({
         required={true}
       />
       <div className="mb-3">
-        <SelectField
-          label="Applies to"
+        <label className="form-label">Applies to</label>
+        <RadioGroup
           value={form.watch("section") ?? section}
+          setValue={(v) => form.setValue("section", v as CustomFieldSection)}
           options={[
-            { label: "Feature", value: "feature" },
-            { label: "Experiment", value: "experiment" },
+            { value: "feature", label: "Feature" },
+            { value: "experiment", label: "Experiment" },
           ]}
-          onChange={(v: CustomFieldSection) => {
-            form.setValue("section", v);
-          }}
         />
-        <small className="text-gray">
-          Whether this field is used on feature flags or experiments
-        </small>
       </div>
       <Field
         label="Description"
