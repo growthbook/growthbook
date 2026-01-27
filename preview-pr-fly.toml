@@ -12,6 +12,7 @@ primary_region = 'sjc'
   DISABLE_TELEMETRY = 'debug'
   IS_CLOUD = false
   IS_MULTI_ORG = true
+  NODE_ENV = 'production'
   PREVIEW_IDLE_TIMEOUT_SECONDS = '1800'
 
 [[services]]
