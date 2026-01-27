@@ -320,7 +320,7 @@ Metric slices are enabled for Fact Metrics. We offer two key ways to slice your 
 
 ### Auto Slices
 
-These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When a auto slice is added to a Fact Metric, it is automatically added to all experiments which use the metric. This allows for a standardized deep-dive analyses across your experiments.
+These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When an auto slice is added to a Fact Metric, it is automatically added to all experiments that use the metric. This allows for a standardized deep-dive analyses across your experiments.
 
 To set up Auto Slices:
 
@@ -347,7 +347,7 @@ You can enable automatic updates of auto slice levels based on top column values
 
 **Fact Table level setting:**
 
-In the **Fact Table** modal, check the **"Auto-update slice levels"** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values** using a 14-day lookback period. The job runs:
+In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values** using a 14-day lookback period. The job runs:
 
 - Every 7 days by default (configurable via `AUTO_SLICE_UPDATE_FREQUENCY_HOURS` environment variable for self-hosted users)
 - Automatically when the fact table changes
