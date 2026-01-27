@@ -225,6 +225,9 @@ export async function deleteMetricById(
   // Experiments
   await removeMetricFromExperiments(context, metric.id);
 
+  // Metric Groups
+  await context.models.metricGroups.removeMetricFromAllGroups(metric.id);
+
   await MetricModel.deleteOne({
     id: metric.id,
     organization: context.org.id,

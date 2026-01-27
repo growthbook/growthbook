@@ -489,7 +489,7 @@ export default function UpgradeModal({
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
-              {dynamicBullet || "Add up to 100 team members"}
+              {dynamicBullet || "Add up to 50 team members"}
             </Text>
           </Flex>
           <Flex align="center" className="pb-2">
@@ -499,7 +499,7 @@ export default function UpgradeModal({
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
               {dynamicBullet === "advanced-permissions"
-                ? "Add up to 100 team members"
+                ? "Add up to 50 team members"
                 : "Manage advanced user permissions"}
             </Text>
           </Flex>
