@@ -12,11 +12,7 @@ import type {
   EffectMomentsResult,
 } from "../models/results";
 import { defaultBayesianResult } from "../models/results";
-import type {
-  EffectBayesianConfig,
-  GaussianPrior,
-  DifferenceType,
-} from "../models/settings";
+import type { EffectBayesianConfig } from "../models/settings";
 import { DEFAULT_EFFECT_BAYESIAN_CONFIG } from "../models/settings";
 import {
   EffectMoments,
@@ -33,7 +29,7 @@ export class EffectBayesianABTest {
   protected config: EffectBayesianConfig;
   public statA: TestStatistic;
   public statB: TestStatistic;
-  protected momentsResult: EffectMomentsResult;
+  public momentsResult: EffectMomentsResult;
   protected relative: boolean;
   protected alpha: number;
   protected inverse: boolean;

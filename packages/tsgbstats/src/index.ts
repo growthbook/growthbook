@@ -119,6 +119,7 @@ export {
   type ExperimentMetricAnalysis,
   type ExperimentMetricAnalysisResult,
   type RealizedSettings,
+  type PowerResponse,
 } from "./gbstats";
 
 // High-Level API Settings

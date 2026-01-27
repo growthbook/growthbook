@@ -10,6 +10,12 @@ import type {
   GaussianPrior,
 } from "./models/settings";
 import type { TestStatistic } from "./models/statistics";
+import type { EffectMomentsResult } from "./models/results";
+import {
+  MidExperimentPower,
+  type MidExperimentPowerConfig,
+} from "./power/midexperimentpower";
+import { decisionMakingConditions } from "./utils/decisionMaking";
 import {
   SampleMeanStatistic,
   ProportionStatistic,
@@ -67,12 +73,25 @@ export interface RealizedSettings {
   postStratificationApplied: boolean;
 }
 
+export interface PowerResponse {
+  status: string;
+  errorMessage: string | null;
+  firstPeriodPairwiseSampleSize: number;
+  targetMDE: number | null;
+  sigmahat2Delta: number;
+  priorProper: boolean | null;
+  priorLiftMean: number | null;
+  priorLiftVariance: number | null;
+  upperBoundAchieved: boolean | null;
+  scalingFactor: number | null;
+}
+
 export interface BaseVariationResponse extends BaselineResponse {
   expected: number;
   uplift: Uplift;
   ci: ResponseCI;
   errorMessage: string | null;
-  power: null;
+  power: PowerResponse | null;
   realizedSettings: RealizedSettings;
 }
 
@@ -616,6 +635,61 @@ function getMetricResponse(
 }
 
 /**
+ * Calculate mid-experiment power for a variation.
+ */
+function runMidExperimentPower(
+  totalUsers: number,
+  numVariations: number,
+  effectMoments: EffectMomentsResult,
+  res: BayesianTestResult | FrequentistTestResult,
+  metric: MetricSettingsForStatsEngine,
+  analysis: AnalysisSettingsForStatsEngine,
+): PowerResponse {
+  const isBayesian = "chanceToWin" in res;
+
+  const prior: GaussianPrior | null = isBayesian
+    ? {
+        mean: metric.priorMean ?? 0,
+        variance: Math.pow(metric.priorStddev ?? 0.5, 2),
+        proper: metric.priorProper ?? false,
+      }
+    : null;
+
+  const powerConfig: MidExperimentPowerConfig = {
+    targetPower: 0.8,
+    targetMde: metric.targetMde ?? 0.05,
+    numGoalMetrics: analysis.numGoalMetrics,
+    numVariations: numVariations,
+    priorEffect: prior,
+    pValueCorrected: analysis.pValueCorrected,
+    sequential: analysis.sequentialTestingEnabled,
+    sequentialTuningParameter: analysis.sequentialTuningParameter,
+  };
+
+  const midExperimentPower = new MidExperimentPower(
+    effectMoments,
+    res,
+    { alpha: analysis.alpha ?? 0.05 },
+    powerConfig,
+  );
+
+  const powerResult = midExperimentPower.calculateScalingFactor();
+
+  return {
+    status: powerResult.error ? "error" : "success",
+    errorMessage: powerResult.error ?? null,
+    firstPeriodPairwiseSampleSize: effectMoments.pairwiseSampleSize,
+    targetMDE: metric.targetMde ?? null,
+    sigmahat2Delta: effectMoments.standardError * effectMoments.standardError,
+    priorProper: prior?.proper ?? null,
+    priorLiftMean: prior?.mean ?? null,
+    priorLiftVariance: prior?.variance ?? null,
+    upperBoundAchieved: powerResult.upperBoundAchieved ?? null,
+    scalingFactor: powerResult.scalingFactor,
+  };
+}
+
+/**
  * Run A/B test analysis for each variation and dimension.
  */
 export function analyzeMetricDf(
@@ -667,6 +741,19 @@ export function analyzeMetricDf(
         res.ci[1] === Infinity ? null : res.ci[1],
       ];
 
+      // Calculate power if conditions are met
+      let power: PowerResponse | null = null;
+      if (decisionMakingConditions(metric, analysis)) {
+        power = runMidExperimentPower(
+          dimensionData.totalUnits,
+          numVariations,
+          test.momentsResult,
+          res,
+          metric,
+          analysis,
+        );
+      }
+
       // Build variation response based on test type
       const baseVariationResponse: BaseVariationResponse = {
         ...metricResponse,
@@ -674,7 +761,7 @@ export function analyzeMetricDf(
         uplift: res.uplift,
         ci,
         errorMessage: res.errorMessage,
-        power: null,
+        power,
         realizedSettings: {
           postStratificationApplied: false,
         },

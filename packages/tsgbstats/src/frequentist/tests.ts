@@ -19,11 +19,7 @@ import {
   DEFAULT_FREQUENTIST_CONFIG,
   DEFAULT_SEQUENTIAL_CONFIG,
 } from "../models/settings";
-import {
-  EffectMoments,
-  type EffectMomentsConfig,
-  DEFAULT_EFFECT_MOMENTS_CONFIG,
-} from "./postStratification";
+import { EffectMoments, type EffectMomentsConfig } from "./postStratification";
 
 /**
  * P-value result structure.
@@ -41,7 +37,7 @@ abstract class TTest {
   protected config: FrequentistConfig;
   public statA: TestStatistic;
   public statB: TestStatistic;
-  protected momentsResult: EffectMomentsResult;
+  public momentsResult: EffectMomentsResult;
   protected relative: boolean;
   protected alpha: number;
 
