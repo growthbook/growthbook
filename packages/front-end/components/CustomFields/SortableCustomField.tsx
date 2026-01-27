@@ -3,8 +3,8 @@ import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import { CustomField } from "shared/types/custom-fields";
 import { RiDraggable } from "react-icons/ri";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import CustomFieldRowMenu from "@/components/CustomFields/CustomFieldRowMenu";
+import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MULTI_VALUE_LIMIT = 3;
@@ -51,7 +51,7 @@ export const CUSTOM_FIELD_TABLE_WIDTHS = {
   description: "20%",
   appliesTo: "8%",
   valueType: undefined, // fill width
-  projects: "10%",
+  projects: "15%",
   required: "7%",
 } as const;
 
@@ -77,7 +77,6 @@ export function SortableCustomFieldRow(props: SortableProps) {
     transition,
     isDragging,
   } = useSortable({ id: props.customField.id });
-  const { getProjectById } = useDefinitions();
   const customField = props.customField;
   const { showAppliesTo, showRequired } = props;
   const W = CUSTOM_FIELD_TABLE_WIDTHS;
@@ -105,7 +104,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
         style={{
           width: W.dragHandle,
           minWidth: W.dragHandle,
-          padding: "0.5rem 0",
+          padding: "0.4rem 0",
           textAlign: "center",
         }}
       >
@@ -137,11 +136,12 @@ export function SortableCustomFieldRow(props: SortableProps) {
         )}
       </td>
       <td style={{ width: W.projects }} className="text-gray">
-        {customField.projects?.length
-          ? customField.projects
-              .map((p) => getProjectById(p)?.name ?? "")
-              .join(", ")
-          : ""}
+        <ProjectBadges
+          resourceType="custom field"
+          projectIds={
+            customField?.projects?.length ? customField.projects : undefined
+          }
+        />
       </td>
       {showRequired && (
         <td style={{ width: W.required }} className="text-gray">
@@ -152,7 +152,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
         style={{
           width: W.menu,
           minWidth: W.menu,
-          padding: "0.75rem 0.5rem 0 0",
+          padding: "0.6rem 0.5rem 0 0",
           textAlign: "center",
         }}
       >
@@ -181,7 +181,6 @@ export function StaticCustomFieldRow({
   showRequired?: boolean;
 }) {
   const W = CUSTOM_FIELD_TABLE_WIDTHS;
-  const { getProjectById } = useDefinitions();
   const style = { opacity: 0.6 };
   const handleStyle = {
     fontSize: 20,
@@ -229,11 +228,14 @@ export function StaticCustomFieldRow({
         )}
       </td>
       <td style={{ width: W.projects }} className="text-gray">
-        {customField.projects?.length
-          ? customField.projects
-              .map((p) => getProjectById(p)?.name ?? "")
-              .join(", ")
-          : ""}
+        {(customField.projects?.length || 0) > 0 ? (
+          <ProjectBadges
+            resourceType="custom field"
+            projectIds={customField.projects}
+          />
+        ) : (
+          <ProjectBadges resourceType="custom field" />
+        )}
       </td>
       {showRequired && (
         <td style={{ width: W.required }} className="text-gray">
