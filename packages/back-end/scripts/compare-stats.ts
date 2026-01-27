@@ -33,8 +33,10 @@ const FIXTURE_PATH = path.join(
 interface PythonResult {
   id: string;
   results?: unknown[];
+  banditResult?: unknown;
   error?: string;
   stack_trace?: string;
+  traceback?: string;
   time: number;
 }
 
@@ -111,7 +113,9 @@ async function runPythonStats(
       results.push({
         id: result.id,
         results: result.results as MultipleExperimentMetricAnalysis["results"],
-        banditResult: null,
+        banditResult:
+          (result.banditResult as MultipleExperimentMetricAnalysis["banditResult"]) ||
+          null,
         error: null,
         traceback: null,
       });
