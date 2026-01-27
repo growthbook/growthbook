@@ -286,8 +286,8 @@ const CustomFields: FC = () => {
                   filter="feature"
                   items={items}
                   showAppliesTo={false}
-                  showRequired={false}
-                  colSpan={7}
+                  showRequired={true}
+                  colSpan={8}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}

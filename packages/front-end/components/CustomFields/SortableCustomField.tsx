@@ -145,11 +145,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
       </td>
       {showRequired && (
         <td style={{ width: W.required }} className="text-gray">
-          {customField.section === "experiment" && customField.required ? (
-            <>yes</>
-          ) : (
-            ""
-          )}
+          {customField.required ? <>yes</> : ""}
         </td>
       )}
       <td
@@ -241,11 +237,7 @@ export function StaticCustomFieldRow({
       </td>
       {showRequired && (
         <td style={{ width: W.required }} className="text-gray">
-          {customField.section === "experiment" && customField.required ? (
-            <>yes</>
-          ) : (
-            ""
-          )}
+          {customField.required ? <>yes</> : ""}
         </td>
       )}
       <td

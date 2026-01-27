@@ -267,19 +267,17 @@ export default function CustomFieldModal({
           </div>
         )}
       </div>
-      {(form.watch("section") ?? section) === "experiment" && (
-        <div className="mb-3 mt-3">
-          <Checkbox
-            id={"required"}
-            label="Required"
-            description="Make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
-            value={!!form.watch("required")}
-            setValue={(value) => {
-              form.setValue("required", value);
-            }}
-          />
-        </div>
-      )}
+      <div className="mb-3 mt-3">
+        <Checkbox
+          id={"required"}
+          label="Required"
+          description="Make the custom field required when creating or editing features or experiments. You can also make this field required before starting an experiment from launch checklists."
+          value={!!form.watch("required")}
+          setValue={(value) => {
+            form.setValue("required", value);
+          }}
+        />
+      </div>
       {showSearchableToggle && (
         <>
           <Checkbox
