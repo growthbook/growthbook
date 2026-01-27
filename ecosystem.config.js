@@ -18,7 +18,7 @@ module.exports = {
     },
     {
       name: "front-end",
-      script: "../../node_modules/.bin/next",
+      script: "./node_modules/.bin/next",
       args: "start",
       cwd: "./packages/front-end",
       instances: 1,

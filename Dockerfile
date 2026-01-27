@@ -87,12 +87,15 @@ COPY --from=nodebuild /usr/local/src/app/packages/front-end/.next ./packages/fro
 COPY --from=nodebuild /usr/local/src/app/packages/front-end/public ./packages/front-end/public
 COPY --from=nodebuild /usr/local/src/app/packages/front-end/package.json ./packages/front-end/package.json
 COPY --from=nodebuild /usr/local/src/app/packages/front-end/next.config.js ./packages/front-end/next.config.js
+COPY --from=nodebuild /usr/local/src/app/packages/front-end/node_modules ./packages/front-end/node_modules
 
 COPY --from=nodebuild /usr/local/src/app/packages/back-end/dist ./packages/back-end/dist
 COPY --from=nodebuild /usr/local/src/app/packages/back-end/package.json ./packages/back-end/package.json
+COPY --from=nodebuild /usr/local/src/app/packages/back-end/node_modules ./packages/back-end/node_modules
 
 COPY --from=nodebuild /usr/local/src/app/packages/shared/dist ./packages/shared/dist
 COPY --from=nodebuild /usr/local/src/app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=nodebuild /usr/local/src/app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=nodebuild /usr/local/src/app/packages/sdk-js/dist ./packages/sdk-js/dist
 COPY --from=nodebuild /usr/local/src/app/packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY --from=nodebuild /usr/local/src/app/packages/sdk-react/dist ./packages/sdk-react/dist
