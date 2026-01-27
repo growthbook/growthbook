@@ -82,6 +82,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       analysisSettings: [analysisSettings],
       variationNames: ["control", "variation"],
       metricMap: this.metricMap,
+      context: this.context,
     });
 
     const result: SafeRolloutSnapshotResult = {

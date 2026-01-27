@@ -118,6 +118,7 @@
     "saslprep": "^1.0.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
+    "tsgbstats": "workspace:*",
     "snowflake-sdk": "2.3.3",
     "ssrf-req-filter": "^1.1.1",
     "string-env-interpolation": "^1.0.1",

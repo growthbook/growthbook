@@ -1,0 +1,626 @@
+{
+  "metadata": {
+    "gbstats_version": "0.8.0",
+    "decimals": 5
+  },
+  "test_cases": {
+    "TestBinom": {
+      "test_bayesian_binomial_ab_test": {
+        "inputs": {
+          "stat_a": {
+            "type": "ProportionStatistic",
+            "n": 100,
+            "sum": 49.0
+          },
+          "stat_b": {
+            "type": "ProportionStatistic",
+            "n": 100,
+            "sum": 51.0
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1,
+              "proper": false
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.04082,
+          "ci": [
+            -0.24779,
+            0.32943
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.04082,
+            "stddev": 0.14725
+          },
+          "error_message": null,
+          "chance_to_win": 0.60918,
+          "risk": [
+            0.0814,
+            0.04058
+          ],
+          "risk_type": "relative"
+        }
+      },
+      "test_missing_data": {
+        "inputs": {
+          "stat_a": {
+            "type": "ProportionStatistic",
+            "n": 0,
+            "sum": 0.0
+          },
+          "stat_b": {
+            "type": "ProportionStatistic",
+            "n": 0,
+            "sum": 0.0
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1,
+              "proper": false
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.0,
+          "ci": [
+            0.0,
+            0.0
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.0,
+            "stddev": 0.0
+          },
+          "error_message": "ZERO_NEGATIVE_VARIANCE",
+          "chance_to_win": 0.5,
+          "risk": [
+            0.0,
+            0.0
+          ],
+          "risk_type": "relative"
+        }
+      }
+    },
+    "TestNorm": {
+      "test_bayesian_gaussian_ab_test": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 10,
+            "sum": 100.0,
+            "sum_squares": 1002.25
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 10,
+            "sum": 105.0,
+            "sum_squares": 1111.5
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1,
+              "proper": false
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.05,
+          "ci": [
+            -0.02,
+            0.12
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.05,
+            "stddev": 0.03572
+          },
+          "error_message": null,
+          "chance_to_win": 0.91923,
+          "risk": [
+            0.05131,
+            0.00131
+          ],
+          "risk_type": "relative"
+        }
+      },
+      "test_bayesian_gaussian_ab_test_informative": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 10,
+            "sum": 100.0,
+            "sum_squares": 1002.25
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 10,
+            "sum": 105.0,
+            "sum_squares": 1111.5
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0.1,
+              "variance": 0.1,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.05063,
+          "ci": [
+            -0.01893,
+            0.12019
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.05063,
+            "stddev": 0.03549
+          },
+          "error_message": null,
+          "chance_to_win": 0.92315,
+          "risk": [
+            0.05186,
+            0.00123
+          ],
+          "risk_type": "relative"
+        }
+      },
+      "test_missing_data": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 0,
+            "sum": 0.0,
+            "sum_squares": 0.0
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 0,
+            "sum": 0.0,
+            "sum_squares": 0.0
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1,
+              "proper": false
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.0,
+          "ci": [
+            0.0,
+            0.0
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.0,
+            "stddev": 0.0
+          },
+          "error_message": "ZERO_NEGATIVE_VARIANCE",
+          "chance_to_win": 0.5,
+          "risk": [
+            0.0,
+            0.0
+          ],
+          "risk_type": "relative"
+        }
+      }
+    },
+    "TestEffectBayesianABTest": {
+      "test_quantile_improper_flat": {
+        "inputs": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 7.098780136176828,
+            "quantile_upper": 7.217194843758751
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 7.64180598628119,
+            "quantile_upper": 7.747193868770344
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1,
+              "proper": false
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.53651,
+          "ci": [
+            0.45726,
+            0.61577
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.53651,
+            "stddev": 0.04044
+          },
+          "error_message": null,
+          "chance_to_win": 1.0,
+          "risk": [
+            0.53651,
+            0.0
+          ],
+          "risk_type": "absolute"
+        }
+      },
+      "test_quantile_absolute_flat": {
+        "inputs": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 7.098780136176828,
+            "quantile_upper": 7.217194843758751
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 7.64180598628119,
+            "quantile_upper": 7.747193868770344
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1000000.0,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.53651,
+          "ci": [
+            0.45726,
+            0.61577
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.53651,
+            "stddev": 0.04044
+          },
+          "error_message": null,
+          "chance_to_win": 1.0,
+          "risk": [
+            0.53651,
+            0.0
+          ],
+          "risk_type": "absolute"
+        }
+      },
+      "test_quantile_relative_flat": {
+        "inputs": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 7.098780136176828,
+            "quantile_upper": 7.217194843758751
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 7.64180598628119,
+            "quantile_upper": 7.747193868770344
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1000000.0,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.07495,
+          "ci": [
+            0.06341,
+            0.0865
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.07495,
+            "stddev": 0.00589
+          },
+          "error_message": null,
+          "chance_to_win": 1.0,
+          "risk": [
+            0.07495,
+            0.0
+          ],
+          "risk_type": "relative"
+        }
+      },
+      "test_quantile_absolute_informative": {
+        "inputs": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 7.098780136176828,
+            "quantile_upper": 7.217194843758751
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 7.64180598628119,
+            "quantile_upper": 7.747193868770344
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1.0,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.5365,
+          "ci": [
+            0.45724,
+            0.61575
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.5365,
+            "stddev": 0.04044
+          },
+          "error_message": null,
+          "chance_to_win": 1.0,
+          "risk": [
+            0.5365,
+            0.0
+          ],
+          "risk_type": "absolute"
+        }
+      },
+      "test_quantile_relative_informative": {
+        "inputs": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 7.098780136176828,
+            "quantile_upper": 7.217194843758751
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 7.64180598628119,
+            "quantile_upper": 7.747193868770344
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1.0,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.07495,
+          "ci": [
+            0.06341,
+            0.08649
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.07495,
+            "stddev": 0.00589
+          },
+          "error_message": null,
+          "chance_to_win": 1.0,
+          "risk": [
+            0.07495,
+            0.0
+          ],
+          "risk_type": "relative"
+        }
+      },
+      "test_quantile_risk_calculation": {
+        "inputs": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 6.157987489967789,
+            "quantile_upper": 8.15798748996779
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 6.694499927525767,
+            "quantile_upper": 8.694499927525767
+          },
+          "config": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 0,
+              "variance": 1000000.0,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "expected": 0.53651,
+          "ci": [
+            -0.87764,
+            1.95066
+          ],
+          "uplift": {
+            "dist": "normal",
+            "mean": 0.53651,
+            "stddev": 0.72152
+          },
+          "error_message": null,
+          "chance_to_win": 0.77144,
+          "risk": [
+            0.6322,
+            0.09569
+          ],
+          "risk_type": "absolute"
+        },
+        "validation": {
+          "risk_0": 0.6322,
+          "risk_1": 0.09569,
+          "expected": 0.53651,
+          "ci_lower": -0.87764,
+          "ci_upper": 1.95066
+        }
+      }
+    },
+    "TestGaussianEffectRelativeAbsolutePriors": {
+      "test_bayesian_effect_relative_effect": {
+        "inputs": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 100,
+            "sum": 1000.0,
+            "sum_squares": 200000.0
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 100,
+            "sum": 1100.0,
+            "sum_squares": 200005.0
+          },
+          "config_absolute": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "absolute",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 1.0,
+              "variance": 1.0,
+              "proper": true
+            }
+          },
+          "config_relative": {
+            "type": "EffectBayesianConfig",
+            "difference_type": "relative",
+            "alpha": 0.05,
+            "prior_effect": {
+              "mean": 1.0,
+              "variance": 1.0,
+              "proper": true
+            }
+          }
+        },
+        "expected": {
+          "absolute_result": {
+            "expected": 3.48639,
+            "ci": [
+              -6.81537,
+              13.78815
+            ],
+            "uplift": {
+              "dist": "normal",
+              "mean": 3.48639,
+              "stddev": 5.2561
+            },
+            "error_message": null,
+            "chance_to_win": 0.74643,
+            "risk": [
+              4.28516,
+              0.79877
+            ],
+            "risk_type": "absolute"
+          },
+          "relative_result": {
+            "expected": 0.3671,
+            "ci": [
+              -0.70064,
+              1.43484
+            ],
+            "uplift": {
+              "dist": "normal",
+              "mean": 0.3671,
+              "stddev": 0.54477
+            },
+            "error_message": null,
+            "chance_to_win": 0.7498,
+            "risk": [
+              0.44844,
+              0.08134
+            ],
+            "risk_type": "relative"
+          }
+        }
+      }
+    }
+  }
+}

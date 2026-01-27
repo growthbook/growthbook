@@ -61,6 +61,9 @@ import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlInte
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
+import { runShadowComparison } from "back-end/src/services/statsShadow";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -133,7 +136,11 @@ export function getBanditSettingsForStatsEngine(
 
 export async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[],
+  context?: ReqContext | ApiReqContext,
 ): Promise<MultipleExperimentMetricAnalysis[]> {
+  const startTime = Date.now();
+  let pythonResult: MultipleExperimentMetricAnalysis[];
+
   if (process.env.EXTERNAL_PYTHON_SERVER_URL) {
     const retVal = await fetch(
       `${process.env.EXTERNAL_PYTHON_SERVER_URL}/stats`,
@@ -154,7 +161,7 @@ export async function runStatsEngine(
       throw new Error(error);
     }
     const { results } = await retVal.json();
-    return results;
+    pythonResult = results;
   } else {
     const acquireStart = Date.now();
     const server = await statsServerPool.acquire();
@@ -162,11 +169,28 @@ export async function runStatsEngine(
       .getHistogram("python.stats_pool_acquire_ms")
       .record(Date.now() - acquireStart);
     try {
-      return await server.call(statsData);
+      pythonResult = await server.call(statsData);
     } finally {
       statsServerPool.release(server);
     }
   }
+
+  const pythonDurationMs = Date.now() - startTime;
+
+  // Fire-and-forget shadow comparison (non-blocking)
+  if (process.env.ENABLE_TS_STATS_SHADOW === "true" && context) {
+    runShadowComparison({
+      experiments: statsData,
+      pythonResult,
+      pythonDurationMs,
+      context,
+    }).catch((err) => {
+      logger.error(err, "Shadow comparison failed");
+    });
+  }
+
+  // Return Python result immediately (unchanged behavior)
+  return pythonResult;
 }
 
 function createStatsEngineData(
@@ -203,11 +227,13 @@ function createStatsEngineData(
 
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams,
+  context?: ReqContext | ApiReqContext,
 ): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
-    await runStatsEngine([
-      { id: params.id, data: createStatsEngineData(params) },
-    ])
+    await runStatsEngine(
+      [{ id: params.id, data: createStatsEngineData(params) }],
+      context,
+    )
   )?.[0];
 
   if (!analysis) {
@@ -230,6 +256,7 @@ export async function runSnapshotAnalysis(
 
 export async function runSnapshotAnalyses(
   params: ExperimentMetricAnalysisParams[],
+  context?: ReqContext | ApiReqContext,
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const paramsWithId = params.map((p) => {
     return { id: p.id, data: createStatsEngineData(p) };
@@ -237,8 +264,8 @@ export async function runSnapshotAnalyses(
   const chunkSize = 10;
   const chunks = chunk(paramsWithId, chunkSize);
   const results: MultipleExperimentMetricAnalysis[][] = [];
-  for (const chunk of chunks) {
-    results.push(await runStatsEngine(chunk));
+  for (const c of chunks) {
+    results.push(await runStatsEngine(c, context));
   }
   return results.flat();
 }
@@ -631,12 +658,14 @@ export async function analyzeExperimentResults({
   snapshotSettings,
   variationNames,
   metricMap,
+  context,
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
+  context?: ReqContext | ApiReqContext;
 }): Promise<{
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
@@ -665,7 +694,10 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
-  const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
+  const { results: analysis, banditResult } = await runSnapshotAnalysis(
+    params,
+    context,
+  );
 
   const results = parseStatsEngineResult({
     analysisSettings,

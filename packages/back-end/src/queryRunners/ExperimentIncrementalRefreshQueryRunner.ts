@@ -845,6 +845,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         analysisSettings: this.model.analyses.map((a) => a.settings),
         variationNames: this.variationNames,
         metricMap: this.metricMap,
+        context: this.context,
       });
 
     const result: SnapshotResult = {

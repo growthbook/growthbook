@@ -1,0 +1,179 @@
+{
+  "metadata": {
+    "description": "Devtools/simulation test fixtures",
+    "source": "packages/stats/tests/test_devtools.py",
+    "gbstats_version": "0.8.0"
+  },
+  "test_cases": {
+    "TestCreateRows": {
+      "test_count_metric": {
+        "description": "Test that count metric pipeline produces same CI as direct TwoSidedTTest",
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "",
+              "variation": "zero",
+              "users": 599,
+              "count": 599,
+              "main_sum": 612.1025160811336,
+              "main_sum_squares": 1206.947780736109
+            },
+            {
+              "dimension": "",
+              "variation": "one",
+              "users": 500,
+              "count": 500,
+              "main_sum": 596.8284271265914,
+              "main_sum_squares": 1226.0571424827297
+            }
+          ],
+          "metric": {
+            "id": "count_metric_1",
+            "name": "count_metric_1",
+            "inverse": false,
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "business_metric_type": [
+              "goal"
+            ]
+          },
+          "analyses": [
+            {
+              "var_names": [
+                "zero",
+                "one"
+              ],
+              "var_ids": [
+                "zero",
+                "one"
+              ],
+              "weights": [
+                0.5,
+                0.5
+              ],
+              "baseline_index": 0,
+              "dimension": "",
+              "stats_engine": "frequentist",
+              "sequential_testing_enabled": false,
+              "sequential_tuning_parameter": 5000.0,
+              "difference_type": "absolute",
+              "phase_length_days": 7.0
+            }
+          ]
+        },
+        "expected": {
+          "ci": [
+            0.05272,
+            0.29085
+          ],
+          "gbstats_ci": [
+            0.05272,
+            0.29085
+          ]
+        },
+        "validation": {
+          "ci_should_match": true
+        }
+      },
+      "test_ratio_adjusted_regression_metric": {
+        "description": "Test that ratio_ra metric pipeline produces same CI as direct TwoSidedTTest",
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "",
+              "variation": "zero",
+              "users": 599,
+              "count": 599,
+              "main_sum": 612.1025160811336,
+              "main_sum_squares": 1206.947780736109,
+              "denominator_sum": 618.4385992110163,
+              "denominator_sum_squares": 1253.9278001837538,
+              "main_denominator_sum_product": 638.7434972536344,
+              "covariate_sum": -7.554650062472177,
+              "covariate_sum_squares": 629.0813082717656,
+              "denominator_pre_sum": 49.54987923097494,
+              "denominator_pre_sum_squares": 575.2806407155493,
+              "main_covariate_sum_product": -13.053167911113222,
+              "main_post_denominator_pre_sum_product": 70.74983599535175,
+              "main_pre_denominator_post_sum_product": -2.5987134816455892,
+              "main_pre_denominator_pre_sum_product": 5.651439271583161,
+              "denominator_post_denominator_pre_sum_product": 67.23254496284643,
+              "theta": 0
+            },
+            {
+              "dimension": "",
+              "variation": "one",
+              "users": 500,
+              "count": 500,
+              "main_sum": 596.8284271265914,
+              "main_sum_squares": 1226.0571424827297,
+              "denominator_sum": 562.2368066702506,
+              "denominator_sum_squares": 1147.0659628224373,
+              "main_denominator_sum_product": 709.6715023397087,
+              "covariate_sum": -3.7700226146776306,
+              "covariate_sum_squares": 560.4032741310878,
+              "denominator_pre_sum": 6.3281206801381025,
+              "denominator_pre_sum_squares": 461.52770063531545,
+              "main_covariate_sum_product": -19.234445445275945,
+              "main_post_denominator_pre_sum_product": 13.12682856004557,
+              "main_pre_denominator_post_sum_product": 10.490091320207002,
+              "main_pre_denominator_pre_sum_product": 55.6648290801497,
+              "denominator_post_denominator_pre_sum_product": -12.319894055924479,
+              "theta": 0
+            }
+          ],
+          "metric": {
+            "id": "ratio_ra_metric_1",
+            "name": "ratio_ra_metric_1",
+            "inverse": false,
+            "statistic_type": "ratio_ra",
+            "main_metric_type": "count",
+            "denominator_metric_type": "count",
+            "covariate_metric_type": null,
+            "business_metric_type": [
+              "goal"
+            ]
+          },
+          "analyses": [
+            {
+              "var_names": [
+                "zero",
+                "one"
+              ],
+              "var_ids": [
+                "zero",
+                "one"
+              ],
+              "weights": [
+                0.5,
+                0.5
+              ],
+              "baseline_index": 0,
+              "dimension": "",
+              "stats_engine": "frequentist",
+              "sequential_testing_enabled": false,
+              "sequential_tuning_parameter": 5000.0,
+              "difference_type": "absolute",
+              "phase_length_days": 7.0
+            }
+          ]
+        },
+        "expected": {
+          "ci": [
+            -0.08374,
+            0.22708
+          ],
+          "gbstats_ci": [
+            -0.08374,
+            0.22708
+          ]
+        },
+        "validation": {
+          "ci_should_match": true
+        }
+      }
+    }
+  }
+}

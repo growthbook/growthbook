@@ -1,0 +1,2734 @@
+{
+  "metadata": {
+    "gbstats_version": "0.8.0",
+    "decimals": 5
+  },
+  "test_cases": {
+    "TestDetectVariations": {
+      "test_unknown_variations_none": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_ids": [
+            "zero",
+            "one"
+          ]
+        },
+        "expected": []
+      },
+      "test_unknown_variations_one": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_ids": [
+            "zero",
+            "hello"
+          ]
+        },
+        "expected": [
+          "one"
+        ]
+      },
+      "test_unknown_variations_both": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_ids": [
+            "hello",
+            "world"
+          ]
+        },
+        "expected": [
+          "one",
+          "zero"
+        ]
+      },
+      "test_multiple_exposures": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            },
+            {
+              "dimension": "All",
+              "variation": "__multiple__",
+              "main_sum": 99,
+              "main_sum_squares": 9999,
+              "users": 500
+            }
+          ],
+          "var_ids": [
+            "zero",
+            "one"
+          ],
+          "ignore_default": null,
+          "ignore_custom": [
+            "some_other"
+          ]
+        },
+        "expected": {
+          "with_default_ignore": [],
+          "with_custom_ignore": [
+            "__multiple__"
+          ]
+        }
+      }
+    },
+    "TestGetMetricDf": {
+      "test_get_metric_dfs_missing_count": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ]
+        },
+        "expected": {
+          "count_equals_users": true,
+          "first_dimension_baseline_count": 100,
+          "first_dimension_baseline_users": 100,
+          "first_dimension_v1_count": 120,
+          "first_dimension_v1_users": 120
+        }
+      }
+    },
+    "TestVariationStatisticBuilder": {
+      "test_ra_statistic_type": {
+        "inputs": {
+          "row": {
+            "statistic_type": "mean_ra",
+            "baseline_main_sum": 222,
+            "baseline_main_sum_squares": 555,
+            "baseline_covariate_sum": 120,
+            "baseline_covariate_sum_squares": 405,
+            "baseline_main_covariate_sum_product": -10,
+            "baseline_users": 3000,
+            "baseline_count": 3000,
+            "v1_main_sum": 333,
+            "v1_main_sum_squares": 999,
+            "v1_covariate_sum": 210,
+            "v1_covariate_sum_squares": 415,
+            "v1_main_covariate_sum_product": -20,
+            "v1_users": 3001,
+            "v1_count": 3001
+          },
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "mean_ra",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": "count",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          }
+        },
+        "expected": {
+          "baseline": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 3000,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3000,
+              "sum": 222.0,
+              "sum_squares": 555.0
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3000,
+              "sum": 120.0,
+              "sum_squares": 405.0
+            },
+            "post_pre_sum_of_products": -10.0,
+            "theta": null
+          },
+          "v1": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 3001,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3001,
+              "sum": 333.0,
+              "sum_squares": 999.0
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 3001,
+              "sum": 210.0,
+              "sum_squares": 415.0
+            },
+            "post_pre_sum_of_products": -20.0,
+            "theta": null
+          }
+        }
+      }
+    },
+    "TestAnalyzeMetricDfBayesian": {
+      "test_get_metric_dfs_new": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "bayesian",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 2.7,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 2.7,
+                  "stddev": 1.1
+                }
+              },
+              {
+                "cr": 2.5,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 2.5,
+                  "stddev": 1.0
+                },
+                "expected": -0.07407,
+                "ci": [
+                  -0.17336,
+                  0.02521
+                ],
+                "chanceToWin": 0.07183,
+                "risk": [
+                  0.00162,
+                  0.07569
+                ]
+              }
+            ]
+          },
+          {
+            "dimension": "two",
+            "srm": 0.32911,
+            "variations": [
+              {
+                "cr": 3.7,
+                "value": 740.0,
+                "users": 200.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 200,
+                  "count": 200,
+                  "mean": 3.7,
+                  "stddev": 2.1
+                }
+              },
+              {
+                "cr": 3.5,
+                "value": 770.0,
+                "users": 220.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 220,
+                  "count": 220,
+                  "mean": 3.5,
+                  "stddev": 2.0
+                },
+                "expected": -0.05405,
+                "ci": [
+                  -0.1572,
+                  0.04909
+                ],
+                "chanceToWin": 0.15217,
+                "risk": [
+                  0.00416,
+                  0.05822
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_bayesian_ratio": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 500,
+              "denominator_sum_squares": 800,
+              "main_denominator_sum_product": -905
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "ratio",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": "count",
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "bayesian",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 0.52941,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 510.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 0.52941,
+                  "stddev": 0.88762
+                }
+              },
+              {
+                "cr": 0.6,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 500.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 0.6,
+                  "stddev": 1.04196
+                },
+                "expected": 0.13333,
+                "ci": [
+                  -0.37921,
+                  0.64588
+                ],
+                "chanceToWin": 0.69493,
+                "risk": [
+                  0.18427,
+                  0.05093
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_inverse": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": true,
+            "prior_proper": false,
+            "prior_mean": 0.0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "bayesian",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 2.7,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 2.7,
+                  "stddev": 1.1
+                }
+              },
+              {
+                "cr": 2.5,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 2.5,
+                  "stddev": 1.0
+                },
+                "expected": -0.07407,
+                "ci": [
+                  -0.17336,
+                  0.02521
+                ],
+                "chanceToWin": 0.92817,
+                "risk": [
+                  0.07569,
+                  0.00162
+                ]
+              }
+            ]
+          },
+          {
+            "dimension": "two",
+            "srm": 0.32911,
+            "variations": [
+              {
+                "cr": 3.7,
+                "value": 740.0,
+                "users": 200.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 200,
+                  "count": 200,
+                  "mean": 3.7,
+                  "stddev": 2.1
+                }
+              },
+              {
+                "cr": 3.5,
+                "value": 770.0,
+                "users": 220.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 220,
+                  "count": 220,
+                  "mean": 3.5,
+                  "stddev": 2.0
+                },
+                "expected": -0.05405,
+                "ci": [
+                  -0.1572,
+                  0.04909
+                ],
+                "chanceToWin": 0.84783,
+                "risk": [
+                  0.05822,
+                  0.00416
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_zero_val": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 1,
+              "main_sum_squares": 1,
+              "users": 1,
+              "count": 1
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 20,
+              "main_sum_squares": 443,
+              "users": 3,
+              "count": 3
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": true,
+            "prior_proper": false,
+            "prior_mean": 0.0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "bayesian",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.31731,
+            "variations": [
+              {
+                "cr": 6.66667,
+                "value": 20.0,
+                "users": 3.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 3,
+                  "count": 3,
+                  "mean": 6.66667,
+                  "stddev": 12.4432
+                }
+              },
+              {
+                "cr": 1.0,
+                "value": 1.0,
+                "users": 1.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 1,
+                  "count": 1,
+                  "mean": 1.0,
+                  "stddev": 0.0
+                },
+                "expected": 0.0,
+                "ci": [
+                  0.0,
+                  0.0
+                ],
+                "chanceToWin": 0.5,
+                "risk": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_ratio_zero_denom": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 0,
+              "denominator_sum_squares": 0,
+              "main_denominator_sum_product": 0
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "ratio",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": "count",
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "bayesian",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 0.52941,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 510.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 0.52941,
+                  "stddev": 0.88762
+                }
+              },
+              {
+                "cr": 0.0,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 0.0,
+                  "stddev": 0.0
+                },
+                "expected": 0.0,
+                "ci": [
+                  0.0,
+                  0.0
+                ],
+                "chanceToWin": 0.5,
+                "risk": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "TestAnalyzeMetricDfFrequentist": {
+      "test_get_metric_dfs_frequentist": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 2.7,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 2.7,
+                  "stddev": 1.1
+                }
+              },
+              {
+                "cr": 2.5,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 2.5,
+                  "stddev": 1.0
+                },
+                "expected": -0.07407,
+                "ci": [
+                  -0.17396,
+                  0.02581
+                ],
+                "pValue": 0.14522
+              }
+            ]
+          },
+          {
+            "dimension": "two",
+            "srm": 0.32911,
+            "variations": [
+              {
+                "cr": 3.7,
+                "value": 740.0,
+                "users": 200.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 200,
+                  "count": 200,
+                  "mean": 3.7,
+                  "stddev": 2.1
+                }
+              },
+              {
+                "cr": 3.5,
+                "value": 770.0,
+                "users": 220.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 220,
+                  "count": 220,
+                  "mean": 3.5,
+                  "stddev": 2.0
+                },
+                "expected": -0.05405,
+                "ci": [
+                  -0.1575,
+                  0.04939
+                ],
+                "pValue": 0.30495
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_frequentist_ratio": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 500,
+              "denominator_sum_squares": 800,
+              "main_denominator_sum_product": -905
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "ratio",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": "count",
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 0.52941,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 510.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 0.52941,
+                  "stddev": 0.88762
+                }
+              },
+              {
+                "cr": 0.6,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 500.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 0.6,
+                  "stddev": 1.04196
+                },
+                "expected": 0.13333,
+                "ci": [
+                  -0.38208,
+                  0.64874
+                ],
+                "pValue": 0.61066
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_zero_val": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 1,
+              "main_sum_squares": 1,
+              "users": 1,
+              "count": 1
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 20,
+              "main_sum_squares": 443,
+              "users": 3,
+              "count": 3
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.31731,
+            "variations": [
+              {
+                "cr": 6.66667,
+                "value": 20.0,
+                "users": 3.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 3,
+                  "count": 3,
+                  "mean": 6.66667,
+                  "stddev": 12.4432
+                }
+              },
+              {
+                "cr": 1.0,
+                "value": 1.0,
+                "users": 1.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 1,
+                  "count": 1,
+                  "mean": 1.0,
+                  "stddev": 0.0
+                },
+                "expected": 0.0,
+                "ci": [
+                  0.0,
+                  0.0
+                ],
+                "pValue": 1.0
+              }
+            ]
+          }
+        ]
+      },
+      "test_get_metric_dfs_ratio_zero_denom": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 0,
+              "denominator_sum_squares": 0,
+              "main_denominator_sum_product": 0
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "ratio",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": "count",
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 0.52941,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 510.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 0.52941,
+                  "stddev": 0.88762
+                }
+              },
+              {
+                "cr": 0.0,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 0.0,
+                  "stddev": 0.0
+                },
+                "expected": 0.0,
+                "ci": [
+                  0.0,
+                  0.0
+                ],
+                "pValue": 1.0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "TestAnalyzeMetricDfRegressionAdjustment": {
+      "test_analyze_metric_df_ra": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "All",
+              "variation": "one",
+              "main_sum": 222,
+              "main_sum_squares": 555,
+              "covariate_sum": 120,
+              "covariate_sum_squares": 405,
+              "main_covariate_sum_product": -10,
+              "users": 3000,
+              "count": 3000
+            },
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "main_sum": 300,
+              "main_sum_squares": 600,
+              "covariate_sum": 210,
+              "covariate_sum_squares": 415,
+              "main_covariate_sum_product": -20,
+              "users": 3001,
+              "count": 3001
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "mean_ra",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": "count",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "All",
+            "srm": 0.9897,
+            "variations": [
+              {
+                "cr": 0.09997,
+                "value": 300.0,
+                "users": 3001.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 3001,
+                  "count": 3001,
+                  "mean": 0.09997,
+                  "stddev": 0.43442
+                }
+              },
+              {
+                "cr": 0.074,
+                "value": 222.0,
+                "users": 3000.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 3000,
+                  "count": 3000,
+                  "mean": 0.074,
+                  "stddev": 0.42353
+                },
+                "expected": -0.28171,
+                "ci": [
+                  -0.47207,
+                  -0.09135
+                ],
+                "pValue": 0.00373
+              }
+            ]
+          }
+        ]
+      },
+      "test_analyze_metric_df_ra_proportion": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "All",
+              "variation": "one",
+              "main_sum": 600,
+              "main_sum_squares": 600,
+              "covariate_sum": 300,
+              "covariate_sum_squares": 300,
+              "main_covariate_sum_product": 200,
+              "users": 3000,
+              "count": 3000
+            },
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "main_sum": 500,
+              "main_sum_squares": 500,
+              "covariate_sum": 250,
+              "covariate_sum_squares": 250,
+              "main_covariate_sum_product": 180,
+              "users": 3001,
+              "count": 3001
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "mean_ra",
+            "main_metric_type": "binomial",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": "binomial",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "All",
+            "srm": 0.9897,
+            "variations": [
+              {
+                "cr": 0.16661,
+                "value": 500.0,
+                "users": 3001.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 3001,
+                  "count": 3001,
+                  "mean": 0.16661,
+                  "stddev": 0.33343
+                }
+              },
+              {
+                "cr": 0.2,
+                "value": 600.0,
+                "users": 3000.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 3000,
+                  "count": 3000,
+                  "mean": 0.2,
+                  "stddev": 0.36871
+                },
+                "expected": 0.14441,
+                "ci": [
+                  0.02714,
+                  0.26167
+                ],
+                "pValue": 0.0158
+              }
+            ]
+          }
+        ]
+      },
+      "test_analyze_metric_df_ratio_ra": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "All",
+              "variation": "one",
+              "users": 100,
+              "count": 100,
+              "main_sum": 485.1,
+              "main_sum_squares": 2715.5,
+              "denominator_sum": 679.9,
+              "denominator_sum_squares": 4939.4,
+              "main_denominator_sum_product": 3602.1,
+              "covariate_sum": 192.6,
+              "covariate_sum_squares": 460.1,
+              "covariate_denominator_sum": 290.1,
+              "covariate_denominator_sum_squares": 920.9,
+              "main_covariate_sum_product": 1113.6,
+              "denominator_covariate_denominator_sum_product": 2130.9,
+              "covariate_covariate_denominator_sum_product": 634.2,
+              "main_covariate_denominator_sum_product": 1559.3,
+              "covariate_main_denominator_sum_product": 1460.3
+            },
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "users": 100,
+              "count": 100,
+              "main_sum": 514.8,
+              "main_sum_squares": 2994.9,
+              "denominator_sum": 705.4,
+              "denominator_sum_squares": 5291.4,
+              "main_denominator_sum_product": 3918.2,
+              "covariate_sum": 206.9,
+              "covariate_sum_squares": 514.3,
+              "covariate_denominator_sum": 302.5,
+              "covariate_denominator_sum_squares": 994.5,
+              "main_covariate_sum_product": 1237.1,
+              "denominator_covariate_denominator_sum_product": 2292.1,
+              "covariate_covariate_denominator_sum_product": 698.4,
+              "main_covariate_denominator_sum_product": 1701.0,
+              "covariate_main_denominator_sum_product": 1604.1
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "ratio_ra",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": "count",
+            "covariate_metric_type": "count",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "All",
+            "srm": 1.0,
+            "variations": [
+              {
+                "cr": 0.7298,
+                "value": 514.8,
+                "users": 100.0,
+                "denominator": 705.4,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 0.7298,
+                  "stddev": 0.13824
+                }
+              },
+              {
+                "cr": 0.71349,
+                "value": 485.1,
+                "users": 100.0,
+                "denominator": 679.9,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 0.71349,
+                  "stddev": 0.14013
+                },
+                "expected": -0.02235,
+                "ci": [
+                  -0.07496,
+                  0.03026
+                ],
+                "pValue": 0.40313
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "TestAnalyzeMetricDfSequential": {
+      "test_analyze_metric_df_sequential": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": true,
+            "sequential_tuning_parameter": 600.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": [
+          {
+            "dimension": "one",
+            "srm": 0.17753,
+            "variations": [
+              {
+                "cr": 2.7,
+                "value": 270.0,
+                "users": 100.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 100,
+                  "count": 100,
+                  "mean": 2.7,
+                  "stddev": 1.1
+                }
+              },
+              {
+                "cr": 2.5,
+                "value": 300.0,
+                "users": 120.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 120,
+                  "count": 120,
+                  "mean": 2.5,
+                  "stddev": 1.0
+                },
+                "expected": -0.07407,
+                "ci": [
+                  -0.23332,
+                  0.08517
+                ],
+                "pValue": 0.89233
+              }
+            ]
+          },
+          {
+            "dimension": "two",
+            "srm": 0.32911,
+            "variations": [
+              {
+                "cr": 3.7,
+                "value": 740.0,
+                "users": 200.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 200,
+                  "count": 200,
+                  "mean": 3.7,
+                  "stddev": 2.1
+                }
+              },
+              {
+                "cr": 3.5,
+                "value": 770.0,
+                "users": 220.0,
+                "denominator": 0.0,
+                "stats": {
+                  "users": 220,
+                  "count": 220,
+                  "mean": 3.5,
+                  "stddev": 2.0
+                },
+                "expected": -0.05405,
+                "ci": [
+                  -0.21444,
+                  0.10633
+                ],
+                "pValue": 1.0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "TestProcessAnalysis": {
+      "test_process_analysis_denominator": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 500,
+              "denominator_sum_squares": 800,
+              "main_denominator_sum_product": -905
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "metric": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "bayesian",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": {
+          "denominators": [
+            [
+              510,
+              500
+            ]
+          ],
+          "first_dimension_baseline_denominator": 510,
+          "first_dimension_variation_denominator": 500
+        }
+      }
+    },
+    "TestThreeArmedCuped": {
+      "test_three_armed_cuped_baseline_stats_hardcoded": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "main_sum": 300,
+              "main_sum_squares": 600,
+              "covariate_sum": 210,
+              "covariate_sum_squares": 415,
+              "main_covariate_sum_product": -20,
+              "users": 3001,
+              "count": 3001
+            },
+            {
+              "dimension": "All",
+              "variation": "one",
+              "main_sum": 222,
+              "main_sum_squares": 555,
+              "covariate_sum": 120,
+              "covariate_sum_squares": 405,
+              "main_covariate_sum_product": -10,
+              "users": 3000,
+              "count": 3000
+            },
+            {
+              "dimension": "All",
+              "variation": "two",
+              "main_sum": 450,
+              "main_sum_squares": 900,
+              "covariate_sum": 300,
+              "covariate_sum_squares": 600,
+              "main_covariate_sum_product": -30,
+              "users": 4000,
+              "count": 4000
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1,
+            "two": 2
+          },
+          "var_names": [
+            "zero",
+            "one",
+            "two"
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "mean_ra",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": "count",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one",
+              "two"
+            ],
+            "var_ids": [
+              "0",
+              "1",
+              "2"
+            ],
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": {
+          "baseline_users": 3001,
+          "baseline_count": 3001,
+          "baseline_mean": 0.09997,
+          "baseline_stddev": 0.43429,
+          "v1_users": 3000,
+          "v1_count": 3000,
+          "v1_mean": 0.074,
+          "v1_stddev": 0.42353,
+          "v2_users": 4000,
+          "v2_count": 4000,
+          "v2_mean": 0.1125,
+          "v2_stddev": 0.45895
+        }
+      },
+      "test_three_armed_cuped_baseline_stddev_different_from_no_cuped": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "main_sum": 300,
+              "main_sum_squares": 600,
+              "covariate_sum": 210,
+              "covariate_sum_squares": 415,
+              "main_covariate_sum_product": -20,
+              "users": 3001,
+              "count": 3001
+            },
+            {
+              "dimension": "All",
+              "variation": "one",
+              "main_sum": 222,
+              "main_sum_squares": 555,
+              "covariate_sum": 120,
+              "covariate_sum_squares": 405,
+              "main_covariate_sum_product": -10,
+              "users": 3000,
+              "count": 3000
+            },
+            {
+              "dimension": "All",
+              "variation": "two",
+              "main_sum": 450,
+              "main_sum_squares": 900,
+              "covariate_sum": 300,
+              "covariate_sum_squares": 600,
+              "main_covariate_sum_product": -30,
+              "users": 4000,
+              "count": 4000
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1,
+            "two": 2
+          },
+          "var_names": [
+            "zero",
+            "one",
+            "two"
+          ],
+          "metric_cuped": {
+            "id": "",
+            "name": "",
+            "statistic_type": "mean_ra",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": "count",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "metric_no_cuped": {
+            "id": "count_metric",
+            "name": "count_metric",
+            "statistic_type": "mean",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": null,
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis": {
+            "var_names": [
+              "zero",
+              "one",
+              "two"
+            ],
+            "var_ids": [
+              "0",
+              "1",
+              "2"
+            ],
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": {
+          "cuped_baseline_stddev": 0.43429,
+          "no_cuped_baseline_stddev": 0.43589,
+          "cuped_baseline_mean": 0.09997,
+          "no_cuped_baseline_mean": 0.09997,
+          "stddev_different": true,
+          "mean_same": true
+        }
+      },
+      "test_three_armed_cuped_baseline_stats_same_as_0_vs_2": {
+        "inputs": {
+          "rows_three_armed": [
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "main_sum": 300,
+              "main_sum_squares": 600,
+              "covariate_sum": 210,
+              "covariate_sum_squares": 415,
+              "main_covariate_sum_product": -20,
+              "users": 3001,
+              "count": 3001
+            },
+            {
+              "dimension": "All",
+              "variation": "one",
+              "main_sum": 222,
+              "main_sum_squares": 555,
+              "covariate_sum": 120,
+              "covariate_sum_squares": 405,
+              "main_covariate_sum_product": -10,
+              "users": 3000,
+              "count": 3000
+            },
+            {
+              "dimension": "All",
+              "variation": "two",
+              "main_sum": 450,
+              "main_sum_squares": 900,
+              "covariate_sum": 300,
+              "covariate_sum_squares": 600,
+              "main_covariate_sum_product": -30,
+              "users": 4000,
+              "count": 4000
+            }
+          ],
+          "rows_02": [
+            {
+              "dimension": "All",
+              "variation": "zero",
+              "main_sum": 300,
+              "main_sum_squares": 600,
+              "covariate_sum": 210,
+              "covariate_sum_squares": 415,
+              "main_covariate_sum_product": -20,
+              "users": 3001,
+              "count": 3001
+            },
+            {
+              "dimension": "All",
+              "variation": "one",
+              "main_sum": 450,
+              "main_sum_squares": 900,
+              "covariate_sum": 300,
+              "covariate_sum_squares": 600,
+              "main_covariate_sum_product": -30,
+              "users": 4000,
+              "count": 4000
+            }
+          ],
+          "metric": {
+            "id": "",
+            "name": "",
+            "statistic_type": "mean_ra",
+            "main_metric_type": "count",
+            "inverse": false,
+            "prior_proper": false,
+            "prior_mean": 0,
+            "prior_stddev": 0.1,
+            "keep_theta": false,
+            "denominator_metric_type": null,
+            "covariate_metric_type": "count",
+            "quantile_value": null,
+            "business_metric_type": null,
+            "target_mde": 0.01
+          },
+          "analysis_three_armed": {
+            "var_names": [
+              "zero",
+              "one",
+              "two"
+            ],
+            "var_ids": [
+              "0",
+              "1",
+              "2"
+            ],
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          },
+          "analysis_02": {
+            "var_names": [
+              "zero",
+              "one"
+            ],
+            "var_ids": [
+              "0",
+              "1"
+            ],
+            "weights": [
+              0.5,
+              0.5
+            ],
+            "baseline_index": 0,
+            "dimension": "All",
+            "stats_engine": "frequentist",
+            "p_value_corrected": false,
+            "sequential_testing_enabled": false,
+            "sequential_tuning_parameter": 5000.0,
+            "difference_type": "relative",
+            "phase_length_days": 1.0,
+            "alpha": 0.05,
+            "max_dimensions": 20,
+            "traffic_percentage": 1.0,
+            "num_goal_metrics": 1,
+            "one_sided_intervals": false,
+            "post_stratification_enabled": false
+          }
+        },
+        "expected": {
+          "three_armed_baseline_users": 3001,
+          "three_armed_baseline_count": 3001,
+          "three_armed_baseline_mean": 0.09997,
+          "three_armed_baseline_stddev": 0.43429,
+          "two_armed_baseline_users": 3001,
+          "two_armed_baseline_count": 3001,
+          "two_armed_baseline_mean": 0.09997,
+          "two_armed_baseline_stddev": 0.43429,
+          "users_same": true,
+          "count_same": true,
+          "mean_same": true,
+          "stddev_same": true
+        }
+      }
+    },
+    "TestReduceDimensionality": {
+      "test_reduce_dimensionality": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "users": 120,
+              "count": 120
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "main_sum_squares": 848.79,
+              "users": 100,
+              "count": 100
+            },
+            {
+              "dimension": "two",
+              "variation": "one",
+              "main_sum": 770,
+              "main_sum_squares": 3571,
+              "users": 220,
+              "count": 220
+            },
+            {
+              "dimension": "two",
+              "variation": "zero",
+              "main_sum": 740,
+              "main_sum_squares": 3615.59,
+              "users": 200,
+              "count": 200
+            },
+            {
+              "dimension": "three",
+              "variation": "one",
+              "main_sum": 222,
+              "main_sum_squares": 555,
+              "users": 3000,
+              "count": 3000
+            },
+            {
+              "dimension": "three",
+              "variation": "zero",
+              "main_sum": 333,
+              "main_sum_squares": 999,
+              "users": 3001,
+              "count": 3001
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "num_variations": 2,
+          "max_3": 3,
+          "max_2": 2
+        },
+        "expected": {
+          "reduced_3_length": 3,
+          "reduced_3_first_dimension": "three",
+          "reduced_3_first_v1_main_sum": 222.0,
+          "reduced_2_length": 2,
+          "reduced_2_second_dimension": "(other)",
+          "reduced_2_second_v1_main_sum": 1070.0,
+          "reduced_2_second_v1_main_sum_squares": 4440.0,
+          "reduced_2_second_v1_users": 340.0,
+          "reduced_2_second_baseline_users": 300.0,
+          "reduced_2_second_baseline_main_sum": 1010.0,
+          "reduced_2_second_baseline_main_sum_squares": 4464.38
+        }
+      },
+      "test_reduce_dimensionality_ratio": {
+        "inputs": {
+          "rows": [
+            {
+              "dimension": "one",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 500,
+              "denominator_sum_squares": 800,
+              "main_denominator_sum_product": -905
+            },
+            {
+              "dimension": "one",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            },
+            {
+              "dimension": "fifth",
+              "variation": "one",
+              "users": 120,
+              "count": 120,
+              "main_sum": 300,
+              "main_sum_squares": 869,
+              "denominator_sum": 500,
+              "denominator_sum_squares": 800,
+              "main_denominator_sum_product": -905
+            },
+            {
+              "dimension": "fifth",
+              "variation": "zero",
+              "main_sum": 270,
+              "users": 100,
+              "count": 100,
+              "main_sum_squares": 848.79,
+              "denominator_sum": 510,
+              "denominator_sum_squares": 810,
+              "main_denominator_sum_product": -900
+            }
+          ],
+          "var_id_map": {
+            "zero": 0,
+            "one": 1
+          },
+          "var_names": [
+            "zero",
+            "one"
+          ],
+          "num_variations": 2,
+          "max_20": 20,
+          "max_1": 1
+        },
+        "expected": {
+          "reduced_20_length": 2,
+          "reduced_20_first_dimension": "one",
+          "reduced_20_first_v1_users": 120.0,
+          "reduced_20_first_v1_main_sum": 300.0,
+          "reduced_20_first_v1_main_sum_squares": 869.0,
+          "reduced_20_first_v1_denominator_sum": 500.0,
+          "reduced_20_first_v1_denominator_sum_squares": 800.0,
+          "reduced_20_first_v1_main_denominator_sum_product": -905.0,
+          "reduced_20_first_baseline_users": 100.0,
+          "reduced_20_first_baseline_main_sum": 270.0,
+          "reduced_20_first_baseline_main_sum_squares": 848.79,
+          "reduced_20_first_baseline_denominator_sum": 510.0,
+          "reduced_20_first_baseline_denominator_sum_squares": 810.0,
+          "reduced_20_first_baseline_main_denominator_sum_product": -900.0,
+          "reduced_1_length": 1,
+          "reduced_1_first_dimension": "(other)",
+          "reduced_1_first_v1_users": 240.0,
+          "reduced_1_first_v1_main_sum": 600.0,
+          "reduced_1_first_v1_main_sum_squares": 1738.0,
+          "reduced_1_first_v1_denominator_sum": 1000.0,
+          "reduced_1_first_v1_denominator_sum_squares": 1600.0,
+          "reduced_1_first_v1_main_denominator_sum_product": -1810.0,
+          "reduced_1_first_baseline_users": 200.0,
+          "reduced_1_first_baseline_main_sum": 540.0,
+          "reduced_1_first_baseline_main_sum_squares": 1697.58,
+          "reduced_1_first_baseline_denominator_sum": 1020.0,
+          "reduced_1_first_baseline_denominator_sum_squares": 1620.0,
+          "reduced_1_first_baseline_main_denominator_sum_product": -1800.0
+        }
+      }
+    }
+  }
+}

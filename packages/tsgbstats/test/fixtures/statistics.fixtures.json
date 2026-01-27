@@ -1,0 +1,441 @@
+{
+  "metadata": {
+    "gbstats_version": "0.8.0",
+    "decimals": 5
+  },
+  "test_cases": {
+    "SampleMeanStatistic": {
+      "test_sample_mean_statistic": {
+        "inputs": {
+          "n": 4,
+          "sum": 23.7,
+          "sum_squares": 485.15
+        },
+        "expected": {
+          "mean": 5.925,
+          "variance": 114.90916666666665
+        }
+      },
+      "test_sample_mean_statistic_low_n": {
+        "inputs": {
+          "n": 1,
+          "sum": 23.7,
+          "sum_squares": 485.15
+        },
+        "expected": {
+          "variance": 0
+        }
+      }
+    },
+    "ProportionStatistic": {
+      "test_proportion_statistic": {
+        "inputs": {
+          "n": 4,
+          "sum": 3
+        },
+        "expected": {
+          "mean": 0.75,
+          "variance": 0.1875
+        }
+      }
+    },
+    "RatioStatistic": {
+      "test_ratio_statistic_covariance": {
+        "inputs": {
+          "m_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 4,
+            "sum": 23.7,
+            "sum_squares": 485.15
+          },
+          "d_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 4,
+            "sum": 11.0,
+            "sum_squares": 39.0
+          },
+          "m_d_sum_of_products": 71.6,
+          "n": 4
+        },
+        "expected": {
+          "covariance": 2.1416666666666666
+        }
+      },
+      "test_ratio_denom_zero": {
+        "inputs": {
+          "m_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 4,
+            "sum": 23.7,
+            "sum_squares": 485.15
+          },
+          "d_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 4,
+            "sum": 0.0,
+            "sum_squares": 39.0
+          },
+          "m_d_sum_of_products": 71.6,
+          "n": 4
+        },
+        "expected": {
+          "variance": 0
+        }
+      }
+    },
+    "RegressionAdjustedStatistic": {
+      "test_theta_zero": {
+        "inputs": {
+          "post_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 4,
+            "sum": 11.0,
+            "sum_squares": 39.0
+          },
+          "pre_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 4,
+            "sum": 23.7,
+            "sum_squares": 485.15
+          },
+          "n": 4,
+          "post_pre_sum_of_products": 71.6,
+          "theta": 0
+        },
+        "expected": {
+          "mean": 2.75,
+          "variance": 2.9166666666666665
+        }
+      },
+      "test_regression_adjusted_small_n": {
+        "inputs": {
+          "post_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 1,
+            "sum": 11.0,
+            "sum_squares": 39.0
+          },
+          "pre_statistic": {
+            "type": "SampleMeanStatistic",
+            "n": 1,
+            "sum": 23.7,
+            "sum_squares": 485.15
+          },
+          "n": 1,
+          "post_pre_sum_of_products": 71.6,
+          "theta": 0.3
+        },
+        "expected": {
+          "variance": 0
+        }
+      }
+    },
+    "compute_theta": {
+      "test_returns_theta": {
+        "inputs": {
+          "stat_a": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 4,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 11.0,
+              "sum_squares": 39.0
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 23.7,
+              "sum_squares": 485.15
+            },
+            "post_pre_sum_of_products": 71.6,
+            "theta": 999.0
+          },
+          "stat_b": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 4,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 11.0,
+              "sum_squares": 39.0
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 23.7,
+              "sum_squares": 485.15
+            },
+            "post_pre_sum_of_products": 71.6,
+            "theta": 999.0
+          }
+        },
+        "expected": {
+          "theta": 0.01864
+        }
+      },
+      "test_returns_0_no_variance": {
+        "inputs": {
+          "stat_a": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 4,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 11.0,
+              "sum_squares": 39.0
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 0.0,
+              "sum_squares": 0.0
+            },
+            "post_pre_sum_of_products": 0.0,
+            "theta": 999.0
+          },
+          "stat_b": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 4,
+            "post_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 11.0,
+              "sum_squares": 39.0
+            },
+            "pre_statistic": {
+              "type": "SampleMeanStatistic",
+              "n": 4,
+              "sum": 0.0,
+              "sum_squares": 0.0
+            },
+            "post_pre_sum_of_products": 0.0,
+            "theta": 999.0
+          }
+        },
+        "expected": {
+          "theta": 0
+        }
+      }
+    },
+    "sum_stats": {
+      "test_sum_correct": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 10.0,
+                "sum_squares": 75.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 4.0,
+                "sum_squares": 7.0
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 40.0,
+                "sum_squares": 73.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 20.0,
+                "sum_squares": 13.0
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 10.0,
+                "sum_squares": 75.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 4.0,
+                "sum_squares": 7.0
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 40.0,
+                "sum_squares": 73.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 500,
+                "sum": 20.0,
+                "sum_squares": 13.0
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "stat_a": {
+            "type": "SampleMeanStatistic",
+            "n": 2000,
+            "sum": 100.0,
+            "sum_squares": 296.0
+          },
+          "stat_b": {
+            "type": "SampleMeanStatistic",
+            "n": 2000,
+            "sum": 48.0,
+            "sum_squares": 40.0
+          }
+        }
+      }
+    },
+    "QuantileStatistic": {
+      "test_quantile_sum_single": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "QuantileStatistic",
+                "n": 11054,
+                "n_star": 11054,
+                "nu": 0.9,
+                "quantile_hat": 7.157987489967789,
+                "quantile_lower": 7.098780136176828,
+                "quantile_upper": 7.217194843758751
+              },
+              {
+                "type": "QuantileStatistic",
+                "n": 10861,
+                "n_star": 10861,
+                "nu": 0.9,
+                "quantile_hat": 7.694499927525767,
+                "quantile_lower": 7.64180598628119,
+                "quantile_upper": 7.747193868770344
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "stat_a": {
+            "type": "QuantileStatistic",
+            "n": 11054,
+            "n_star": 11054,
+            "nu": 0.9,
+            "quantile_hat": 7.157987489967789,
+            "quantile_lower": 7.098780136176828,
+            "quantile_upper": 7.217194843758751
+          },
+          "stat_b": {
+            "type": "QuantileStatistic",
+            "n": 10861,
+            "n_star": 10861,
+            "nu": 0.9,
+            "quantile_hat": 7.694499927525767,
+            "quantile_lower": 7.64180598628119,
+            "quantile_upper": 7.747193868770344
+          }
+        }
+      },
+      "test_quantile_sum_multiple_fails": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "QuantileStatistic",
+                "n": 11054,
+                "n_star": 11054,
+                "nu": 0.9,
+                "quantile_hat": 7.157987489967789,
+                "quantile_lower": 7.098780136176828,
+                "quantile_upper": 7.217194843758751
+              },
+              {
+                "type": "QuantileStatistic",
+                "n": 10861,
+                "n_star": 10861,
+                "nu": 0.9,
+                "quantile_hat": 7.694499927525767,
+                "quantile_lower": 7.64180598628119,
+                "quantile_upper": 7.747193868770344
+              }
+            ],
+            [
+              {
+                "type": "QuantileStatistic",
+                "n": 11054,
+                "n_star": 11054,
+                "nu": 0.9,
+                "quantile_hat": 7.157987489967789,
+                "quantile_lower": 7.098780136176828,
+                "quantile_upper": 7.217194843758751
+              },
+              {
+                "type": "QuantileStatistic",
+                "n": 10861,
+                "n_star": 10861,
+                "nu": 0.9,
+                "quantile_hat": 7.694499927525767,
+                "quantile_lower": 7.64180598628119,
+                "quantile_upper": 7.747193868770344
+              }
+            ]
+          ]
+        },
+        "expected": {
+          "error": true,
+          "error_message": "sum_stats does not support summing multiple QuantileStatistic"
+        }
+      }
+    },
+    "EffectMomentsResult": {
+      "test_negative_variance": {
+        "inputs": {
+          "stat_a": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 4,
+            "post_statistic": {
+              "type": "ProportionStatistic",
+              "n": 4,
+              "sum": -7.0
+            },
+            "pre_statistic": {
+              "type": "ProportionStatistic",
+              "n": 4,
+              "sum": 0.0
+            },
+            "post_pre_sum_of_products": 0.0,
+            "theta": null
+          },
+          "stat_b": {
+            "type": "RegressionAdjustedStatistic",
+            "n": 3,
+            "post_statistic": {
+              "type": "ProportionStatistic",
+              "n": 3,
+              "sum": 1.0
+            },
+            "pre_statistic": {
+              "type": "ProportionStatistic",
+              "n": 3,
+              "sum": 1.0
+            },
+            "post_pre_sum_of_products": 1.0,
+            "theta": null
+          },
+          "difference_type": "absolute"
+        },
+        "expected": {
+          "variance": -1.1023019547325101,
+          "error_message": "ZERO_NEGATIVE_VARIANCE"
+        }
+      }
+    }
+  }
+}

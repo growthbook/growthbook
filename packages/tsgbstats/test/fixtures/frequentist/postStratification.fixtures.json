@@ -1,0 +1,3506 @@
+{
+  "metadata": {
+    "gbstats_version": "0.8.0",
+    "decimals": 5
+  },
+  "test_cases": {
+    "EffectMomentsPostStratification": {
+      "test_zero_negative_variance": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 21,
+                "sum": 0.0,
+                "sum_squares": 0.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 42,
+                "sum": 0.0,
+                "sum_squares": 0.0
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 65,
+                "sum": 0.0,
+                "sum_squares": 0.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 75,
+                "sum": 0.0,
+                "sum_squares": 0.0
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.0,
+          "standard_error": 0.0,
+          "pairwise_sample_size": 0,
+          "error_message": "ZERO_NEGATIVE_VARIANCE",
+          "post_stratification_applied": true
+        }
+      },
+      "test_baseline_variation_zero": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 21,
+                "sum": 0.0,
+                "sum_squares": 10.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 42,
+                "sum": 0.0,
+                "sum_squares": 10.0
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 65,
+                "sum": 0.0,
+                "sum_squares": 10.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 75,
+                "sum": 0.0,
+                "sum_squares": 10.0
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.0,
+          "standard_error": 0.0,
+          "pairwise_sample_size": 0,
+          "error_message": "ZERO_NEGATIVE_BASELINE_VARIATION",
+          "post_stratification_applied": true
+        }
+      },
+      "test_baseline_variation_adjusted_zero": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 21,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 5377.811252605509
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 104.90748970535698,
+                  "sum_squares": 544.8528083123211
+                },
+                "post_pre_sum_of_products": 1709.8485612477339,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 42,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 12249.255519049513
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 205.17072061676208,
+                  "sum_squares": 1040.6742753852225
+                },
+                "post_pre_sum_of_products": 3561.161673449451,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 65,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 30546.63404187155
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 315.83926510817054,
+                  "sum_squares": 1578.8689285910423
+                },
+                "post_pre_sum_of_products": 6938.770455871619,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 75,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 45000.287664918586
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 377.29540367369503,
+                  "sum_squares": 1981.0803020754106
+                },
+                "post_pre_sum_of_products": 9428.146405105292,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.0,
+          "standard_error": 0.0,
+          "pairwise_sample_size": 0,
+          "error_message": "ZERO_NEGATIVE_BASELINE_VARIATION",
+          "post_stratification_applied": true
+        }
+      },
+      "test_missing_variation_data": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 21,
+                "sum": 330.0696210595999,
+                "sum_squares": 5377.811252605509
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 42,
+                "sum": 708.1220000911836,
+                "sum_squares": 12249.255519049513
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 65,
+                "sum": 1391.96628040659,
+                "sum_squares": 30546.63404187155
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 75,
+                "sum": 1807.4703052657744,
+                "sum_squares": 45000.287664918586
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 102,
+                "sum": 2916.824124651419,
+                "sum_squares": 86396.06886690554
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 101,
+                "sum": 3104.5399914554023,
+                "sum_squares": 98365.40553530994
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 151,
+                "sum": 5172.587929941052,
+                "sum_squares": 182453.04528037464
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 121,
+                "sum": 4613.696610070716,
+                "sum_squares": 180520.64781229294
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 159,
+                "sum": 6538.348445231273,
+                "sum_squares": 274980.98909352464
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 162,
+                "sum": 7431.953259880505,
+                "sum_squares": 349244.6690736718
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 1,
+                "sum": 1.0,
+                "sum_squares": 1.0
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 0,
+                "sum": 0.0,
+                "sum_squares": 0.0
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 3.54809,
+          "standard_error": 0.37634,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        },
+        "validation": {
+          "should_equal_original": true,
+          "original_result": {
+            "point_estimate": 3.54809,
+            "standard_error": 0.37634,
+            "pairwise_sample_size": 1000,
+            "error_message": null,
+            "post_stratification_applied": true
+          }
+        }
+      },
+      "test_post_strat_count_effect_moments_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 21,
+                "sum": 330.0696210595999,
+                "sum_squares": 5377.811252605509
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 42,
+                "sum": 708.1220000911836,
+                "sum_squares": 12249.255519049513
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 65,
+                "sum": 1391.96628040659,
+                "sum_squares": 30546.63404187155
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 75,
+                "sum": 1807.4703052657744,
+                "sum_squares": 45000.287664918586
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 102,
+                "sum": 2916.824124651419,
+                "sum_squares": 86396.06886690554
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 101,
+                "sum": 3104.5399914554023,
+                "sum_squares": 98365.40553530994
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 151,
+                "sum": 5172.587929941052,
+                "sum_squares": 182453.04528037464
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 121,
+                "sum": 4613.696610070716,
+                "sum_squares": 180520.64781229294
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 160,
+                "sum": 6539.348445231273,
+                "sum_squares": 274981.98909352464
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 162,
+                "sum": 7431.953259880505,
+                "sum_squares": 349244.6690736718
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.10995,
+          "standard_error": 0.01223,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_count_effect_moments_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 21,
+                "sum": 330.0696210595999,
+                "sum_squares": 5377.811252605509
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 42,
+                "sum": 708.1220000911836,
+                "sum_squares": 12249.255519049513
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 65,
+                "sum": 1391.96628040659,
+                "sum_squares": 30546.63404187155
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 75,
+                "sum": 1807.4703052657744,
+                "sum_squares": 45000.287664918586
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 102,
+                "sum": 2916.824124651419,
+                "sum_squares": 86396.06886690554
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 101,
+                "sum": 3104.5399914554023,
+                "sum_squares": 98365.40553530994
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 151,
+                "sum": 5172.587929941052,
+                "sum_squares": 182453.04528037464
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 121,
+                "sum": 4613.696610070716,
+                "sum_squares": 180520.64781229294
+              }
+            ],
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 160,
+                "sum": 6539.348445231273,
+                "sum_squares": 274981.98909352464
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 162,
+                "sum": 7431.953259880505,
+                "sum_squares": 349244.6690736718
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 3.54809,
+          "standard_error": 0.37634,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_ratio_effect_moments_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 21,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 890.9766550739607,
+                  "sum_squares": 38220.95223835553
+                },
+                "m_d_sum_of_products": 14263.937571840695
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 42,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 1745.9858250014954,
+                  "sum_squares": 73194.53424221886
+                },
+                "m_d_sum_of_products": 29826.620793423102
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 65,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 2769.8126179473184,
+                  "sum_squares": 118719.96077578884
+                },
+                "m_d_sum_of_products": 59924.702385890436
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 75,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 3184.8395612061063,
+                  "sum_squares": 136710.92474497214
+                },
+                "m_d_sum_of_products": 78119.14871556411
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 102,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 4445.780384331884,
+                  "sum_squares": 195387.7733842407
+                },
+                "m_d_sum_of_products": 129041.55268673625
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 101,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 4235.277718489282,
+                  "sum_squares": 179690.4720421368
+                },
+                "m_d_sum_of_products": 132444.36911739354
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 151,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 6510.170220892494,
+                  "sum_squares": 283094.7243365024
+                },
+                "m_d_sum_of_products": 226127.20135744457
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 121,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 5079.943060454901,
+                  "sum_squares": 215529.32009367683
+                },
+                "m_d_sum_of_products": 196562.8269130501
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 160,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6906.305872710853,
+                  "sum_squares": 300900.3106781779
+                },
+                "m_d_sum_of_products": 286483.9732935189
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 162,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 6899.004661928157,
+                  "sum_squares": 296839.44355002965
+                },
+                "m_d_sum_of_products": 321057.8410309036
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.13371,
+          "standard_error": 0.00713,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_ratio_effect_moments_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 21,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 890.9766550739607,
+                  "sum_squares": 38220.95223835553
+                },
+                "m_d_sum_of_products": 14263.937571840695
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 42,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 1745.9858250014954,
+                  "sum_squares": 73194.53424221886
+                },
+                "m_d_sum_of_products": 29826.620793423102
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 65,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 2769.8126179473184,
+                  "sum_squares": 118719.96077578884
+                },
+                "m_d_sum_of_products": 59924.702385890436
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 75,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 3184.8395612061063,
+                  "sum_squares": 136710.92474497214
+                },
+                "m_d_sum_of_products": 78119.14871556411
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 102,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 4445.780384331884,
+                  "sum_squares": 195387.7733842407
+                },
+                "m_d_sum_of_products": 129041.55268673625
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 101,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 4235.277718489282,
+                  "sum_squares": 179690.4720421368
+                },
+                "m_d_sum_of_products": 132444.36911739354
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 151,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 6510.170220892494,
+                  "sum_squares": 283094.7243365024
+                },
+                "m_d_sum_of_products": 226127.20135744457
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 121,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 5079.943060454901,
+                  "sum_squares": 215529.32009367683
+                },
+                "m_d_sum_of_products": 196562.8269130501
+              }
+            ],
+            [
+              {
+                "type": "RatioStatistic",
+                "n": 160,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6906.305872710853,
+                  "sum_squares": 300900.3106781779
+                },
+                "m_d_sum_of_products": 286483.9732935189
+              },
+              {
+                "type": "RatioStatistic",
+                "n": 162,
+                "m_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "d_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 6899.004661928157,
+                  "sum_squares": 296839.44355002965
+                },
+                "m_d_sum_of_products": 321057.8410309036
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.10009,
+          "standard_error": 0.00507,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_count_reg_effect_moments_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 21,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 104.90748970535698,
+                  "sum_squares": 544.8528083123211
+                },
+                "post_pre_sum_of_products": 1709.8485612477339,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 42,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 205.17072061676208,
+                  "sum_squares": 1040.6742753852225
+                },
+                "post_pre_sum_of_products": 3561.161673449451,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 65,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 315.83926510817054,
+                  "sum_squares": 1578.8689285910423
+                },
+                "post_pre_sum_of_products": 6938.770455871619,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 75,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 377.29540367369503,
+                  "sum_squares": 1981.0803020754106
+                },
+                "post_pre_sum_of_products": 9428.146405105292,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 102,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 523.2717238353379,
+                  "sum_squares": 2797.158898626946
+                },
+                "post_pre_sum_of_products": 15535.162216800189,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 101,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 501.0447878972627,
+                  "sum_squares": 2596.899156698453
+                },
+                "post_pre_sum_of_products": 15962.754636573465,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 151,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 758.3911049329452,
+                  "sum_squares": 3955.922281372593
+                },
+                "post_pre_sum_of_products": 26846.415701194885,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 121,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 603.9456523430367,
+                  "sum_squares": 3144.0820997706583
+                },
+                "post_pre_sum_of_products": 23789.82730157116,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 160,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 823.2824168385916,
+                  "sum_squares": 4389.893995072177
+                },
+                "post_pre_sum_of_products": 34727.84795433773,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 162,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 832.356528363269,
+                  "sum_squares": 4439.253146704266
+                },
+                "post_pre_sum_of_products": 39332.667494781235,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.1153,
+          "standard_error": 0.00221,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_count_reg_effect_moments_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 21,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 104.90748970535698,
+                  "sum_squares": 544.8528083123211
+                },
+                "post_pre_sum_of_products": 1709.8485612477339,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 42,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 205.17072061676208,
+                  "sum_squares": 1040.6742753852225
+                },
+                "post_pre_sum_of_products": 3561.161673449451,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 65,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 315.83926510817054,
+                  "sum_squares": 1578.8689285910423
+                },
+                "post_pre_sum_of_products": 6938.770455871619,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 75,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 377.29540367369503,
+                  "sum_squares": 1981.0803020754106
+                },
+                "post_pre_sum_of_products": 9428.146405105292,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 102,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 523.2717238353379,
+                  "sum_squares": 2797.158898626946
+                },
+                "post_pre_sum_of_products": 15535.162216800189,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 101,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 501.0447878972627,
+                  "sum_squares": 2596.899156698453
+                },
+                "post_pre_sum_of_products": 15962.754636573465,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 151,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 758.3911049329452,
+                  "sum_squares": 3955.922281372593
+                },
+                "post_pre_sum_of_products": 26846.415701194885,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 121,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 603.9456523430367,
+                  "sum_squares": 3144.0820997706583
+                },
+                "post_pre_sum_of_products": 23789.82730157116,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 160,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 823.2824168385916,
+                  "sum_squares": 4389.893995072177
+                },
+                "post_pre_sum_of_products": 34727.84795433773,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 162,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 832.356528363269,
+                  "sum_squares": 4439.253146704266
+                },
+                "post_pre_sum_of_products": 39332.667494781235,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 3.71169,
+          "standard_error": 0.0739,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_ratio_reg_effect_moments_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 21,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 890.9766550739607,
+                  "sum_squares": 38220.95223835553
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 104.90748970535698,
+                  "sum_squares": 544.8528083123211
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 207.89392275808956,
+                  "sum_squares": 2084.9576141182224
+                },
+                "m_post_m_pre_sum_of_products": 1709.8485612477339,
+                "d_post_d_pre_sum_of_products": 8924.759241535443,
+                "m_pre_d_pre_sum_of_products": 1060.4394881503144,
+                "m_post_d_post_sum_of_products": 14263.937571840695,
+                "m_post_d_pre_sum_of_products": 3331.5604732242236,
+                "m_pre_d_post_sum_of_products": 4536.239751943664,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 42,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 1745.9858250014954,
+                  "sum_squares": 73194.53424221886
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 205.17072061676208,
+                  "sum_squares": 1040.6742753852225
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 412.711880878505,
+                  "sum_squares": 4096.604057794132
+                },
+                "m_post_m_pre_sum_of_products": 3561.161673449451,
+                "d_post_d_pre_sum_of_products": 17309.48641894266,
+                "m_pre_d_pre_sum_of_products": 2052.459256425701,
+                "m_post_d_post_sum_of_products": 29826.620793423102,
+                "m_post_d_pre_sum_of_products": 7054.607772583746,
+                "m_pre_d_post_sum_of_products": 8661.515319014929,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 65,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 2769.8126179473184,
+                  "sum_squares": 118719.96077578884
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 315.83926510817054,
+                  "sum_squares": 1578.8689285910423
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 642.2456105047289,
+                  "sum_squares": 6391.278897716863
+                },
+                "m_post_m_pre_sum_of_products": 6938.770455871619,
+                "d_post_d_pre_sum_of_products": 27539.520078090354,
+                "m_pre_d_pre_sum_of_products": 3159.649493130578,
+                "m_post_d_post_sum_of_products": 59924.702385890436,
+                "m_post_d_pre_sum_of_products": 13907.522729117181,
+                "m_pre_d_post_sum_of_products": 13603.664018221429,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 75,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 3184.8395612061063,
+                  "sum_squares": 136710.92474497214
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 377.29540367369503,
+                  "sum_squares": 1981.0803020754106
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 758.076359391088,
+                  "sum_squares": 7750.7726864492015
+                },
+                "m_post_m_pre_sum_of_products": 9428.146405105292,
+                "d_post_d_pre_sum_of_products": 32540.687226429243,
+                "m_pre_d_pre_sum_of_products": 3894.390731281282,
+                "m_post_d_post_sum_of_products": 78119.14871556411,
+                "m_post_d_pre_sum_of_products": 18589.628595670973,
+                "m_pre_d_post_sum_of_products": 16346.199623884253,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 102,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 4445.780384331884,
+                  "sum_squares": 195387.7733842407
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 523.2717238353379,
+                  "sum_squares": 2797.158898626946
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 1036.3070573097948,
+                  "sum_squares": 10619.969725470164
+                },
+                "m_post_m_pre_sum_of_products": 15535.162216800189,
+                "d_post_d_pre_sum_of_products": 45542.18577719637,
+                "m_pre_d_pre_sum_of_products": 5404.918238379167,
+                "m_post_d_post_sum_of_products": 129041.55268673625,
+                "m_post_d_pre_sum_of_products": 30084.67030990572,
+                "m_pre_d_post_sum_of_products": 23168.39181193194,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 101,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 4235.277718489282,
+                  "sum_squares": 179690.4720421368
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 501.0447878972627,
+                  "sum_squares": 2596.899156698453
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 1010.378433449463,
+                  "sum_squares": 10223.916200184585
+                },
+                "m_post_m_pre_sum_of_products": 15962.754636573465,
+                "d_post_d_pre_sum_of_products": 42848.21621273023,
+                "m_pre_d_pre_sum_of_products": 5115.7607599471585,
+                "m_post_d_post_sum_of_products": 132444.36911739354,
+                "m_post_d_pre_sum_of_products": 31588.028767759377,
+                "m_pre_d_post_sum_of_products": 21431.70320453045,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 151,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 6510.170220892494,
+                  "sum_squares": 283094.7243365024
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 758.3911049329452,
+                  "sum_squares": 3955.922281372593
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 1512.006054112595,
+                  "sum_squares": 15285.151021409667
+                },
+                "m_post_m_pre_sum_of_products": 26846.415701194885,
+                "d_post_d_pre_sum_of_products": 65760.83670959483,
+                "m_pre_d_pre_sum_of_products": 7722.607914963395,
+                "m_post_d_post_sum_of_products": 226127.20135744457,
+                "m_post_d_pre_sum_of_products": 52549.76208497923,
+                "m_pre_d_post_sum_of_products": 33204.9846415661,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 121,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 5079.943060454901,
+                  "sum_squares": 215529.32009367683
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 603.9456523430367,
+                  "sum_squares": 3144.0820997706583
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 1204.8449120624373,
+                  "sum_squares": 12136.926835557133
+                },
+                "m_post_m_pre_sum_of_products": 23789.82730157116,
+                "d_post_d_pre_sum_of_products": 51127.544981001134,
+                "m_pre_d_pre_sum_of_products": 6133.9761958037225,
+                "m_post_d_post_sum_of_products": 196562.8269130501,
+                "m_post_d_pre_sum_of_products": 46652.31675719776,
+                "m_pre_d_post_sum_of_products": 25819.033228132084,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 160,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6906.305872710853,
+                  "sum_squares": 300900.3106781779
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 823.2824168385916,
+                  "sum_squares": 4389.893995072177
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 1614.6469506831402,
+                  "sum_squares": 16462.430726309674
+                },
+                "m_post_m_pre_sum_of_products": 34727.84795433773,
+                "d_post_d_pre_sum_of_products": 70363.18868076446,
+                "m_pre_d_pre_sum_of_products": 8454.545756182042,
+                "m_post_d_post_sum_of_products": 286483.9732935189,
+                "m_post_d_pre_sum_of_products": 67017.16816048721,
+                "m_pre_d_post_sum_of_products": 36121.28274124097,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 162,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 6899.004661928157,
+                  "sum_squares": 296839.44355002965
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 832.356528363269,
+                  "sum_squares": 4439.253146704266
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 1645.0526462449084,
+                  "sum_squares": 16880.972871039336
+                },
+                "m_post_m_pre_sum_of_products": 39332.667494781235,
+                "d_post_d_pre_sum_of_products": 70764.05432525955,
+                "m_pre_d_pre_sum_of_products": 8606.62830914991,
+                "m_post_d_post_sum_of_products": 321057.8410309036,
+                "m_post_d_pre_sum_of_products": 76550.57235527673,
+                "m_pre_d_post_sum_of_products": 36071.28512692181,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.13929,
+          "standard_error": 0.00123,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_ratio_reg_effect_moments_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 21,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 890.9766550739607,
+                  "sum_squares": 38220.95223835553
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 104.90748970535698,
+                  "sum_squares": 544.8528083123211
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 207.89392275808956,
+                  "sum_squares": 2084.9576141182224
+                },
+                "m_post_m_pre_sum_of_products": 1709.8485612477339,
+                "d_post_d_pre_sum_of_products": 8924.759241535443,
+                "m_pre_d_pre_sum_of_products": 1060.4394881503144,
+                "m_post_d_post_sum_of_products": 14263.937571840695,
+                "m_post_d_pre_sum_of_products": 3331.5604732242236,
+                "m_pre_d_post_sum_of_products": 4536.239751943664,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 42,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 1745.9858250014954,
+                  "sum_squares": 73194.53424221886
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 205.17072061676208,
+                  "sum_squares": 1040.6742753852225
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 412.711880878505,
+                  "sum_squares": 4096.604057794132
+                },
+                "m_post_m_pre_sum_of_products": 3561.161673449451,
+                "d_post_d_pre_sum_of_products": 17309.48641894266,
+                "m_pre_d_pre_sum_of_products": 2052.459256425701,
+                "m_post_d_post_sum_of_products": 29826.620793423102,
+                "m_post_d_pre_sum_of_products": 7054.607772583746,
+                "m_pre_d_post_sum_of_products": 8661.515319014929,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 65,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 2769.8126179473184,
+                  "sum_squares": 118719.96077578884
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 315.83926510817054,
+                  "sum_squares": 1578.8689285910423
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 642.2456105047289,
+                  "sum_squares": 6391.278897716863
+                },
+                "m_post_m_pre_sum_of_products": 6938.770455871619,
+                "d_post_d_pre_sum_of_products": 27539.520078090354,
+                "m_pre_d_pre_sum_of_products": 3159.649493130578,
+                "m_post_d_post_sum_of_products": 59924.702385890436,
+                "m_post_d_pre_sum_of_products": 13907.522729117181,
+                "m_pre_d_post_sum_of_products": 13603.664018221429,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 75,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 3184.8395612061063,
+                  "sum_squares": 136710.92474497214
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 377.29540367369503,
+                  "sum_squares": 1981.0803020754106
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 758.076359391088,
+                  "sum_squares": 7750.7726864492015
+                },
+                "m_post_m_pre_sum_of_products": 9428.146405105292,
+                "d_post_d_pre_sum_of_products": 32540.687226429243,
+                "m_pre_d_pre_sum_of_products": 3894.390731281282,
+                "m_post_d_post_sum_of_products": 78119.14871556411,
+                "m_post_d_pre_sum_of_products": 18589.628595670973,
+                "m_pre_d_post_sum_of_products": 16346.199623884253,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 102,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 4445.780384331884,
+                  "sum_squares": 195387.7733842407
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 523.2717238353379,
+                  "sum_squares": 2797.158898626946
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 1036.3070573097948,
+                  "sum_squares": 10619.969725470164
+                },
+                "m_post_m_pre_sum_of_products": 15535.162216800189,
+                "d_post_d_pre_sum_of_products": 45542.18577719637,
+                "m_pre_d_pre_sum_of_products": 5404.918238379167,
+                "m_post_d_post_sum_of_products": 129041.55268673625,
+                "m_post_d_pre_sum_of_products": 30084.67030990572,
+                "m_pre_d_post_sum_of_products": 23168.39181193194,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 101,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 4235.277718489282,
+                  "sum_squares": 179690.4720421368
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 501.0447878972627,
+                  "sum_squares": 2596.899156698453
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 1010.378433449463,
+                  "sum_squares": 10223.916200184585
+                },
+                "m_post_m_pre_sum_of_products": 15962.754636573465,
+                "d_post_d_pre_sum_of_products": 42848.21621273023,
+                "m_pre_d_pre_sum_of_products": 5115.7607599471585,
+                "m_post_d_post_sum_of_products": 132444.36911739354,
+                "m_post_d_pre_sum_of_products": 31588.028767759377,
+                "m_pre_d_post_sum_of_products": 21431.70320453045,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 151,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 6510.170220892494,
+                  "sum_squares": 283094.7243365024
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 758.3911049329452,
+                  "sum_squares": 3955.922281372593
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 1512.006054112595,
+                  "sum_squares": 15285.151021409667
+                },
+                "m_post_m_pre_sum_of_products": 26846.415701194885,
+                "d_post_d_pre_sum_of_products": 65760.83670959483,
+                "m_pre_d_pre_sum_of_products": 7722.607914963395,
+                "m_post_d_post_sum_of_products": 226127.20135744457,
+                "m_post_d_pre_sum_of_products": 52549.76208497923,
+                "m_pre_d_post_sum_of_products": 33204.9846415661,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 121,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 5079.943060454901,
+                  "sum_squares": 215529.32009367683
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 603.9456523430367,
+                  "sum_squares": 3144.0820997706583
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 1204.8449120624373,
+                  "sum_squares": 12136.926835557133
+                },
+                "m_post_m_pre_sum_of_products": 23789.82730157116,
+                "d_post_d_pre_sum_of_products": 51127.544981001134,
+                "m_pre_d_pre_sum_of_products": 6133.9761958037225,
+                "m_post_d_post_sum_of_products": 196562.8269130501,
+                "m_post_d_pre_sum_of_products": 46652.31675719776,
+                "m_pre_d_post_sum_of_products": 25819.033228132084,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 160,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6906.305872710853,
+                  "sum_squares": 300900.3106781779
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 823.2824168385916,
+                  "sum_squares": 4389.893995072177
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 1614.6469506831402,
+                  "sum_squares": 16462.430726309674
+                },
+                "m_post_m_pre_sum_of_products": 34727.84795433773,
+                "d_post_d_pre_sum_of_products": 70363.18868076446,
+                "m_pre_d_pre_sum_of_products": 8454.545756182042,
+                "m_post_d_post_sum_of_products": 286483.9732935189,
+                "m_post_d_pre_sum_of_products": 67017.16816048721,
+                "m_pre_d_post_sum_of_products": 36121.28274124097,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 162,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 6899.004661928157,
+                  "sum_squares": 296839.44355002965
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 832.356528363269,
+                  "sum_squares": 4439.253146704266
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 1645.0526462449084,
+                  "sum_squares": 16880.972871039336
+                },
+                "m_post_m_pre_sum_of_products": 39332.667494781235,
+                "d_post_d_pre_sum_of_products": 70764.05432525955,
+                "m_pre_d_pre_sum_of_products": 8606.62830914991,
+                "m_post_d_post_sum_of_products": 321057.8410309036,
+                "m_post_d_pre_sum_of_products": 76550.57235527673,
+                "m_pre_d_post_sum_of_products": 36071.28512692181,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.10399,
+          "standard_error": 0.00123,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_count_effect_moments_fallback_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 21,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 42,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 65,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 75,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 102,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 101,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 151,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 121,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 160,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 162,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.10995,
+          "standard_error": 0.01223,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_count_effect_moments_fallback_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 21,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 42,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 65,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 75,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 102,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 101,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 151,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 121,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 160,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 162,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "post_pre_sum_of_products": 0.0,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 3.54809,
+          "standard_error": 0.37634,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_single_cell_count": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "SampleMeanStatistic",
+                "n": 21,
+                "sum": 330.0696210595999,
+                "sum_squares": 5377.811252605509
+              },
+              {
+                "type": "SampleMeanStatistic",
+                "n": 42,
+                "sum": 708.1220000911836,
+                "sum_squares": 12249.255519049513
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.07269,
+          "standard_error": 0.05325,
+          "pairwise_sample_size": 63,
+          "error_message": null,
+          "post_stratification_applied": false
+        }
+      },
+      "test_post_strat_count_reg_effect_moments_single_cell_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 499,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 16350.796401289934,
+                  "sum_squares": 579755.5485352819
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 2525.692000420402,
+                  "sum_squares": 13266.69691197508
+                },
+                "post_pre_sum_of_products": 85758.04488945215,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 501,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 17665.78216676358,
+                  "sum_squares": 685380.2656052428
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 2519.8130928940254,
+                  "sum_squares": 13201.98898063401
+                },
+                "post_pre_sum_of_products": 92074.55751148061,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.08209,
+          "standard_error": 0.01643,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": false
+        }
+      },
+      "test_post_strat_count_reg_effect_moments_single_cell_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 499,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 16350.796401289934,
+                  "sum_squares": 579755.5485352819
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 2525.692000420402,
+                  "sum_squares": 13266.69691197508
+                },
+                "post_pre_sum_of_products": 85758.04488945215,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedStatistic",
+                "n": 501,
+                "post_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 17665.78216676358,
+                  "sum_squares": 685380.2656052428
+                },
+                "pre_statistic": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 2519.8130928940254,
+                  "sum_squares": 13201.98898063401
+                },
+                "post_pre_sum_of_products": 92074.55751148061,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 2.68974,
+          "standard_error": 0.52247,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": false
+        }
+      },
+      "test_post_strat_ratio_reg_effect_moments_single_cell_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 499,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 16350.796401289934,
+                  "sum_squares": 579755.5485352819
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 21523.04575095651,
+                  "sum_squares": 936323.7214130654
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 2525.692000420402,
+                  "sum_squares": 13266.69691197508
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 5013.099595368349,
+                  "sum_squares": 50843.787985024595
+                },
+                "m_post_m_pre_sum_of_products": 85758.04488945215,
+                "d_post_d_pre_sum_of_products": 218130.49048718147,
+                "m_pre_d_pre_sum_of_products": 25802.1608908055,
+                "m_post_d_post_sum_of_products": 715841.3672954309,
+                "m_post_d_pre_sum_of_products": 166890.6837577136,
+                "m_pre_d_post_sum_of_products": 110634.56296490411,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 501,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 17665.78216676358,
+                  "sum_squares": 685380.2656052428
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 21145.05082707994,
+                  "sum_squares": 901964.6946730342
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 2519.8130928940254,
+                  "sum_squares": 13201.98898063401
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 5031.064232026401,
+                  "sum_squares": 51089.192651024394
+                },
+                "m_post_m_pre_sum_of_products": 92074.55751148061,
+                "d_post_d_pre_sum_of_products": 214589.9891643628,
+                "m_pre_d_pre_sum_of_products": 25803.215252607773,
+                "m_post_d_post_sum_of_products": 758010.8065703345,
+                "m_post_d_pre_sum_of_products": 180435.1542484886,
+                "m_pre_d_post_sum_of_products": 108329.73650248353,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.10537,
+          "standard_error": 0.01679,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": false
+        }
+      },
+      "test_post_strat_ratio_reg_effect_moments_single_cell_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 499,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 16350.796401289934,
+                  "sum_squares": 579755.5485352819
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 21523.04575095651,
+                  "sum_squares": 936323.7214130654
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 2525.692000420402,
+                  "sum_squares": 13266.69691197508
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 499,
+                  "sum": 5013.099595368349,
+                  "sum_squares": 50843.787985024595
+                },
+                "m_post_m_pre_sum_of_products": 85758.04488945215,
+                "d_post_d_pre_sum_of_products": 218130.49048718147,
+                "m_pre_d_pre_sum_of_products": 25802.1608908055,
+                "m_post_d_post_sum_of_products": 715841.3672954309,
+                "m_post_d_pre_sum_of_products": 166890.6837577136,
+                "m_pre_d_post_sum_of_products": 110634.56296490411,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 501,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 17665.78216676358,
+                  "sum_squares": 685380.2656052428
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 21145.05082707994,
+                  "sum_squares": 901964.6946730342
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 2519.8130928940254,
+                  "sum_squares": 13201.98898063401
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 501,
+                  "sum": 5031.064232026401,
+                  "sum_squares": 51089.192651024394
+                },
+                "m_post_m_pre_sum_of_products": 92074.55751148061,
+                "d_post_d_pre_sum_of_products": 214589.9891643628,
+                "m_pre_d_pre_sum_of_products": 25803.215252607773,
+                "m_post_d_post_sum_of_products": 758010.8065703345,
+                "m_post_d_pre_sum_of_products": 180435.1542484886,
+                "m_pre_d_post_sum_of_products": 108329.73650248353,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.08005,
+          "standard_error": 0.01226,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": false
+        }
+      },
+      "test_post_strat_ratio_effect_moments_fallback_relative": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 21,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 890.9766550739607,
+                  "sum_squares": 38220.95223835553
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 14263.937571840695,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 42,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 1745.9858250014954,
+                  "sum_squares": 73194.53424221886
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 29826.620793423102,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 65,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 2769.8126179473184,
+                  "sum_squares": 118719.96077578884
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 59924.702385890436,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 75,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 3184.8395612061063,
+                  "sum_squares": 136710.92474497214
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 78119.14871556411,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 102,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 4445.780384331884,
+                  "sum_squares": 195387.7733842407
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 129041.55268673625,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 101,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 4235.277718489282,
+                  "sum_squares": 179690.4720421368
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 132444.36911739354,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 151,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 6510.170220892494,
+                  "sum_squares": 283094.7243365024
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 226127.20135744457,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 121,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 5079.943060454901,
+                  "sum_squares": 215529.32009367683
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 196562.8269130501,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 160,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6906.305872710853,
+                  "sum_squares": 300900.3106781779
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 286483.9732935189,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 162,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 6899.004661928157,
+                  "sum_squares": 296839.44355002965
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 321057.8410309036,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "relative"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.13371,
+          "standard_error": 0.00713,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      },
+      "test_post_strat_ratio_effect_moments_fallback_absolute": {
+        "inputs": {
+          "stats": [
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 21,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 330.0696210595999,
+                  "sum_squares": 5377.811252605509
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 890.9766550739607,
+                  "sum_squares": 38220.95223835553
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 21,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 14263.937571840695,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 42,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 708.1220000911836,
+                  "sum_squares": 12249.255519049513
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 1745.9858250014954,
+                  "sum_squares": 73194.53424221886
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 42,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 29826.620793423102,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 65,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 1391.96628040659,
+                  "sum_squares": 30546.63404187155
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 2769.8126179473184,
+                  "sum_squares": 118719.96077578884
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 65,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 59924.702385890436,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 75,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 1807.4703052657744,
+                  "sum_squares": 45000.287664918586
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 3184.8395612061063,
+                  "sum_squares": 136710.92474497214
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 75,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 78119.14871556411,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 102,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 2916.824124651419,
+                  "sum_squares": 86396.06886690554
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 4445.780384331884,
+                  "sum_squares": 195387.7733842407
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 102,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 129041.55268673625,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 101,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 3104.5399914554023,
+                  "sum_squares": 98365.40553530994
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 4235.277718489282,
+                  "sum_squares": 179690.4720421368
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 101,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 132444.36911739354,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 151,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 5172.587929941052,
+                  "sum_squares": 182453.04528037464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 6510.170220892494,
+                  "sum_squares": 283094.7243365024
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 151,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 226127.20135744457,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 121,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 4613.696610070716,
+                  "sum_squares": 180520.64781229294
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 5079.943060454901,
+                  "sum_squares": 215529.32009367683
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 121,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 196562.8269130501,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ],
+            [
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 160,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6539.348445231273,
+                  "sum_squares": 274981.98909352464
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 6906.305872710853,
+                  "sum_squares": 300900.3106781779
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 160,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 286483.9732935189,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              },
+              {
+                "type": "RegressionAdjustedRatioStatistic",
+                "n": 162,
+                "m_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 7431.953259880505,
+                  "sum_squares": 349244.6690736718
+                },
+                "d_statistic_post": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 6899.004661928157,
+                  "sum_squares": 296839.44355002965
+                },
+                "m_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "d_statistic_pre": {
+                  "type": "SampleMeanStatistic",
+                  "n": 162,
+                  "sum": 0.0,
+                  "sum_squares": 0.0
+                },
+                "m_post_m_pre_sum_of_products": 0.0,
+                "d_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_pre_sum_of_products": 0.0,
+                "m_post_d_post_sum_of_products": 321057.8410309036,
+                "m_post_d_pre_sum_of_products": 0.0,
+                "m_pre_d_post_sum_of_products": 0.0,
+                "theta": null
+              }
+            ]
+          ],
+          "config": {
+            "difference_type": "absolute"
+          }
+        },
+        "expected": {
+          "point_estimate": 0.10009,
+          "standard_error": 0.00507,
+          "pairwise_sample_size": 1000,
+          "error_message": null,
+          "post_stratification_applied": true
+        }
+      }
+    }
+  }
+}
