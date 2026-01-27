@@ -25,8 +25,9 @@ export default defineConfig([
     "**/.next",
     "**/dist",
     "**/coverage",
+    "docs/.docusaurus",
     "docs/docusaurus.config.js",
-    "docs/build/",
+    "docs/build",
     "packages/sdk-js/scripts",
   ]),
   {
