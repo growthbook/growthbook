@@ -85,6 +85,9 @@ export {
   MidExperimentPowerResult,
 } from "./power/midexperimentpower";
 
+// Supplemental Results
+export { createCoreAndSupplementalResults } from "./supplemental";
+
 // High-Level API
 export {
   detectUnknownVariations,
