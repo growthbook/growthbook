@@ -25,5 +25,17 @@ module.exports = {
       watch: false,
       max_memory_restart: process.env.PM2_MAX_MEMORY_RESTART || "6G",
     },
+    // Idle monitor for preview environments - shuts down container after inactivity
+    ...(process.env.PREVIEW_IDLE_TIMEOUT_SECONDS
+      ? [
+          {
+            name: "idle-monitor",
+            script: "./preview/idle-monitor.sh",
+            instances: 1,
+            autorestart: false,
+            watch: false,
+          },
+        ]
+      : []),
   ],
 };
