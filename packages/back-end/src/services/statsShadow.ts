@@ -31,7 +31,7 @@ export interface ShadowComparisonInput {
   context: Context;
 }
 
-interface ComparisonResult {
+export interface ComparisonResult {
   status: "match" | "mismatch" | "ts_error";
   diff?: {
     summary: string;
@@ -43,7 +43,7 @@ interface ComparisonResult {
 /**
  * Convert Python snake_case analysis settings to TypeScript camelCase.
  */
-function convertAnalysisSettings(
+export function convertAnalysisSettings(
   python: PythonAnalysisSettings,
 ): TsAnalysisSettings {
   return {
@@ -73,7 +73,9 @@ function convertAnalysisSettings(
 /**
  * Convert Python snake_case metric settings to TypeScript camelCase.
  */
-function convertMetricSettings(python: PythonMetricSettings): TsMetricSettings {
+export function convertMetricSettings(
+  python: PythonMetricSettings,
+): TsMetricSettings {
   return {
     id: python.id,
     name: python.name,
@@ -100,7 +102,7 @@ function convertMetricSettings(python: PythonMetricSettings): TsMetricSettings {
 /**
  * Run the TypeScript stats engine on a single experiment's data.
  */
-function runTsStatsForExperiment(
+export function runTsStatsForExperiment(
   data: ExperimentDataForStatsEngine["data"],
 ): ExperimentMetricAnalysis[] {
   const { analyses, metrics, query_results } = data;
@@ -162,7 +164,7 @@ function runTsStatsForExperiment(
  * from the shared types (e.g., errorMessage: string | null vs string | undefined).
  * Since we're doing JSON string comparison, the exact types don't matter at runtime.
  */
-function runTsStatsEngine(
+export function runTsStatsEngine(
   experiments: ExperimentDataForStatsEngine[],
 ): MultipleExperimentMetricAnalysis[] {
   return experiments.map((exp) => {
@@ -200,7 +202,7 @@ function runTsStatsEngine(
  * By rounding to 10 decimal places before comparison, we tolerate minor differences
  * that are not statistically significant while still catching real bugs.
  */
-function normalizeForComparison(obj: unknown): unknown {
+export function normalizeForComparison(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -229,7 +231,7 @@ function normalizeForComparison(obj: unknown): unknown {
  *
  * Uses epsilon-based float comparison by normalizing values before comparison.
  */
-function compareResults(
+export function compareResults(
   pythonResult: MultipleExperimentMetricAnalysis[],
   tsResult: MultipleExperimentMetricAnalysis[],
 ): ComparisonResult {
