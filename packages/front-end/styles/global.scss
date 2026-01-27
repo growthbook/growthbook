@@ -1010,6 +1010,13 @@ main.main {
     vertical-align: middle;
   }
 
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
+  }
+
   .dark-theme &.decision-criteria-table {
     tbody {
       tr {
