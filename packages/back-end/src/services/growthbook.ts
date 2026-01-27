@@ -1,7 +1,7 @@
 import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
 import * as EventSource from "eventsource";
 import { logger } from "back-end/src/util/logger";
-import { GB_SDK_ID, IS_CLOUD } from "back-end/src/util/secrets";
+import { GB_SDK_ID, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { AppFeatures } from "back-end/types/app-features";
 
 // Set up Node.js polyfills for streaming support
@@ -22,6 +22,10 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
     gbClient = new GrowthBookClient<AppFeatures>({
       apiHost: "https://cdn.growthbook.io",
       clientKey: GB_SDK_ID,
+      globalAttributes: {
+        cloud: IS_CLOUD,
+        multiOrg: IS_MULTI_ORG,
+      },
     });
   }
 
@@ -47,13 +51,19 @@ export async function initializeGrowthBookClient(): Promise<void> {
     try {
       const client = getGrowthBookClient();
       if (client) {
-        await client.init({
+        const { success, source, error } = await client.init({
           timeout: 3000,
           streaming: true, // Enable real-time updates via SSE
         });
-        logger.info(
-          "GrowthBook client initialized successfully with streaming",
-        );
+
+        if (!success) {
+          logger.warn("GrowthBook features not loaded", { source, error });
+        } else {
+          logger.info("GrowthBook client initialized successfully", {
+            source,
+            streaming: true,
+          });
+        }
       }
     } catch (error) {
       logger.error("Failed to initialize GrowthBook client", { error });

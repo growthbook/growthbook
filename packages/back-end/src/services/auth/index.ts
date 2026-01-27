@@ -10,7 +10,7 @@ import {
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
@@ -296,10 +296,10 @@ export async function processJWT(
         });
 
         // Define user attributes
+        // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
         const attributes = {
           id: user.id,
           url: req.originalUrl,
-          cloud: IS_CLOUD,
           freeSeats: req.organization?.freeSeats,
           discountCode: req.organization?.discountCode,
           organizationId: req.organization?.id,
@@ -309,7 +309,6 @@ export async function processJWT(
           superAdmin: user.superAdmin,
           orgDateCreated: req.organization?.dateCreated,
           anonymous_id: req.cookies["gb_device_id"],
-          multiOrg: IS_MULTI_ORG,
           role: req.organization?.members.find((m) => m.id === user.id)?.role,
           hasLicenseKey: req.organization?.licenseKey ? true : false,
           configFile: usingFileConfig(),
