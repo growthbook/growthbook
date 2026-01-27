@@ -1162,7 +1162,6 @@ export default function FeaturesOverview({
                       feature={feature}
                       isLocked={isLocked}
                       canEditDrafts={canEditDrafts}
-                      revisions={revisions}
                       experimentsMap={experimentsMap}
                       mutate={mutate}
                       currentVersion={currentVersion}

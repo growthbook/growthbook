@@ -5,7 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 
 interface SavedGroupRowMenuProps {
@@ -42,8 +41,8 @@ export default function SavedGroupRowMenu({
       menuPlacement="end"
       variant="soft"
     >
-      {canUpdate && (
-        <DropdownMenuGroup>
+      <DropdownMenuGroup>
+        {canUpdate && (
           <DropdownMenuItem
             onClick={() => {
               onEdit();
@@ -52,11 +51,8 @@ export default function SavedGroupRowMenu({
           >
             Edit
           </DropdownMenuItem>
-        </DropdownMenuGroup>
-      )}
-      {canUpdate && canDelete && <DropdownMenuSeparator />}
-      {canDelete && (
-        <DropdownMenuGroup>
+        )}
+        {canDelete && (
           <DropdownMenuItem
             color="red"
             onClick={() => {
@@ -66,8 +62,8 @@ export default function SavedGroupRowMenu({
           >
             Delete
           </DropdownMenuItem>
-        </DropdownMenuGroup>
-      )}
+        )}
+      </DropdownMenuGroup>
     </DropdownMenu>
   );
 }

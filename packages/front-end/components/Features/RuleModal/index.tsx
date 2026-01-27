@@ -13,7 +13,6 @@ import {
   generateVariationId,
   isProjectListValidForProject,
 } from "shared/util";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -76,7 +75,6 @@ export interface Props {
   i: number;
   environment: string;
   defaultType?: string;
-  revisions?: FeatureRevisionInterface[];
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
 }
@@ -109,7 +107,6 @@ export default function RuleModal({
   defaultType = "",
   version,
   setVersion,
-  revisions,
   mode,
   safeRolloutsMap,
 }: Props) {
@@ -995,8 +992,6 @@ export default function RuleModal({
             feature={feature}
             environments={selectedEnvironments}
             defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -1013,8 +1008,6 @@ export default function RuleModal({
             feature={feature}
             environments={selectedEnvironments}
             defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -1031,8 +1024,6 @@ export default function RuleModal({
             feature={feature}
             environment={environment}
             defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -1143,8 +1134,6 @@ export default function RuleModal({
                   feature={feature}
                   project={feature.project}
                   environments={selectedEnvironments}
-                  version={version}
-                  revisions={revisions}
                   prerequisiteValue={form.watch("prerequisites") || []}
                   setPrerequisiteValue={(prerequisites) =>
                     form.setValue("prerequisites", prerequisites)
