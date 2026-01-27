@@ -18,8 +18,9 @@ module.exports = {
     },
     {
       name: "front-end",
-      script: "cd packages/front-end && ./node_modules/.bin/next",
+      script: "../../node_modules/.bin/next",
       args: "start",
+      cwd: "./packages/front-end",
       instances: 1,
       autorestart: process.env.PM2_AUTORESTART === "true",
       watch: false,
