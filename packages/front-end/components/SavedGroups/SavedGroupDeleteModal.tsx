@@ -17,6 +17,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import SavedGroupReferencesList from "./SavedGroupReferencesList";
 
 interface SavedGroupDeleteModalProps {
@@ -142,7 +143,14 @@ export default function SavedGroupDeleteModal({
   return (
     <Modal
       trackingEventModalType=""
-      header={`Delete ${savedGroup.groupName}`}
+      header={
+        <>
+          Delete{" "}
+          <OverflowText>
+            <em>{savedGroup.groupName}</em>
+          </OverflowText>
+        </>
+      }
       close={close}
       open={true}
       cta="Delete"
