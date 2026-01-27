@@ -6,93 +6,23 @@ import {
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { isProjectListValidForProject, truncateString } from "shared/util";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { Box, IconButton } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
+import SavedGroupRowMenu from "./SavedGroupRowMenu";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
-}
-
-// Row menu component with controlled dropdown state
-function SavedGroupRowMenu({
-  canUpdate,
-  canDelete,
-  onEdit,
-  onDelete,
-}: {
-  savedGroup: SavedGroupWithoutValues;
-  canUpdate: boolean;
-  canDelete: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <DropdownMenu
-      trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
-          mt="1"
-        >
-          <BsThreeDotsVertical size={18} />
-        </IconButton>
-      }
-      open={open}
-      onOpenChange={setOpen}
-      menuPlacement="end"
-      variant="soft"
-    >
-      {canUpdate && (
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            onClick={() => {
-              onEdit();
-              setOpen(false);
-            }}
-          >
-            Edit
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      )}
-      {canUpdate && canDelete && <DropdownMenuSeparator />}
-      {canDelete && (
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            color="red"
-            onClick={() => {
-              onDelete();
-              setOpen(false);
-            }}
-          >
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      )}
-    </DropdownMenu>
-  );
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
@@ -248,7 +178,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                           <td>{ago(s.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu
-                              savedGroup={s}
                               canUpdate={canUpdate(s)}
                               canDelete={canDeleteSavedGroup(s)}
                               onEdit={() => setSavedGroupForm(s)}

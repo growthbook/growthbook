@@ -132,7 +132,11 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
-  const { features, mutate: mutateFeatures } = useFeaturesList();
+  // Scope features to the experiment's project (or all features if experiment has no project)
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    project: experiment.project,
+    useCurrentProject: false,
+  });
 
   // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {

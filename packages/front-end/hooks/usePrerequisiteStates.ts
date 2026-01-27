@@ -131,6 +131,12 @@ export function useBatchPrerequisiteStates({
 
   // Allow request if we have featureIds OR if we're doing cycle checks
   const hasCycleCheck = !!(checkPrerequisite || checkRulePrerequisites);
+  const rulePrereqsKey = checkRulePrerequisites
+    ? `checkRule:${checkRulePrerequisites.environment}:${checkRulePrerequisites.ruleIndex}:${checkRulePrerequisites.prerequisites
+        .map((p) => `${p.id}:${p.condition}`)
+        .sort()
+        .join(",")}`
+    : "";
   const key =
     enabled &&
     targetFeatureId &&
@@ -141,7 +147,7 @@ export function useBatchPrerequisiteStates({
           .sort()
           .join(
             ",",
-          )}|${environments.slice().sort().join(",")}|${checkPrerequisite ? `checkPrereq:${checkPrerequisite.id}:${checkPrerequisite.prerequisiteIndex ?? -1}` : ""}|${checkRulePrerequisites ? `checkRule:${checkRulePrerequisites.environment}:${checkRulePrerequisites.ruleIndex}` : ""}`
+          )}|${environments.slice().sort().join(",")}|${checkPrerequisite ? `checkPrereq:${checkPrerequisite.id}:${checkPrerequisite.prerequisiteIndex ?? -1}` : ""}|${rulePrereqsKey}`
       : null;
 
   const { data, error, mutate } = useSWR<BatchPrerequisiteStatesResponse>(

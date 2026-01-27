@@ -150,7 +150,7 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const featureProject = feature?.project || "";
+  const featureProject = feature.project;
   const { features } = useFeaturesList(
     showOtherProjectDependents || !featureProject
       ? { useCurrentProject: false }
