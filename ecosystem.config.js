@@ -21,6 +21,7 @@ module.exports = {
       script: "node_modules/next/dist/bin/next",
       args: "start",
       cwd: "./packages/front-end",
+      exec_mode: "fork",
       instances: 1,
       autorestart: process.env.PM2_AUTORESTART === "true",
       watch: false,
