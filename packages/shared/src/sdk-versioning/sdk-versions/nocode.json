@@ -16,7 +16,8 @@
         "redirects",
         "stickyBucketing",
         "savedGroupReferences",
-        "caseInsensitiveRegex"
+        "caseInsensitiveRegex",
+        "caseInsensitiveMembership"
       ]
     }
   ]

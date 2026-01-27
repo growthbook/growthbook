@@ -73,7 +73,7 @@
   },
   "pnpm": {
     "overrides": {
-      "@growthbook/growthbook": "1.6.3",
+      "@growthbook/growthbook": "1.6.4",
       "vite": "^6.0.0",
       "execa": "^5.0.0",
       "form-data@2": "^2.5.5",
