@@ -123,7 +123,6 @@ function useGetById<T extends IndexableItem>(
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
-      // eslint-disable-next-line
       return () => null;
     }
 
