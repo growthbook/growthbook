@@ -9,10 +9,10 @@ module.exports = {
       watch: false,
       max_memory_restart: process.env.PM2_MAX_MEMORY_RESTART || "6G",
       ...(process.env.TRACING_PROVIDER === "datadog" && {
-        node_args: "--require ./dist/tracing.datadog.js",
+        node_args: "--require ./packages/back-end/dist/tracing.datadog.js",
       }),
       ...(process.env.TRACING_PROVIDER === "opentelemetry" && {
-        node_args: "--require ./dist/tracing.opentelemetry.js",
+        node_args: "--require ./packages/back-end/dist/tracing.opentelemetry.js",
       }),
     },
     {
