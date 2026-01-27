@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@growthbook/growthbook': 1.6.3
+  '@growthbook/growthbook': 1.6.4
   vite: ^6.0.0
   execa: ^5.0.0
   form-data@2: ^2.5.5
@@ -139,11 +139,11 @@ importers:
         specifier: ^5.20.5
         version: 5.20.5(encoding@0.1.13)
       '@growthbook/growthbook':
-        specifier: 1.6.3
-        version: 1.6.3
+        specifier: 1.6.4
+        version: 1.6.4
       '@growthbook/proxy-eval':
-        specifier: ^1.1.1
-        version: 1.1.1
+        specifier: ^1.1.2
+        version: 1.1.2
       '@octokit/auth-app':
         specifier: ^6.0.1
         version: 6.0.1
@@ -579,11 +579,11 @@ importers:
         specifier: ^0.25.4
         version: 0.25.4(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@growthbook/growthbook':
-        specifier: 1.6.3
-        version: 1.6.3
+        specifier: 1.6.4
+        version: 1.6.4
       '@growthbook/growthbook-react':
-        specifier: ^1.6.3
-        version: 1.6.3(react@18.2.0)
+        specifier: ^1.6.4
+        version: 1.6.4(react@18.2.0)
       '@jitsu/sdk-js':
         specifier: ^2.2.0
         version: 2.2.0
@@ -1026,8 +1026,8 @@ importers:
   packages/sdk-react:
     dependencies:
       '@growthbook/growthbook':
-        specifier: 1.6.3
-        version: 1.6.3
+        specifier: 1.6.4
+        version: 1.6.4
       react:
         specifier: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
         version: 18.2.0
@@ -1102,8 +1102,8 @@ importers:
         specifier: ^8.1.1
         version: 8.1.1
       '@growthbook/growthbook':
-        specifier: 1.6.3
-        version: 1.6.3
+        specifier: 1.6.4
+        version: 1.6.4
       '@stdlib/stats':
         specifier: ^0.1.1
         version: 0.1.1
@@ -3198,18 +3198,18 @@ packages:
     resolution: {integrity: sha512-aBNejLVzHpI7C8eJSMpBpfdq1lxvYuHqG+zy/xvs032RyPRxuu45DLMeXuAbgwyx1VBsxWGYifrPDx+O7hJrmw==}
     engines: {node: '>=14'}
 
-  '@growthbook/growthbook-react@1.6.3':
-    resolution: {integrity: sha512-oHnXKl9UDbd8LjjoPKV67GcnM8gcboiJpZge+Gmjm5hTy7HdURd1Ssc/vGaExRSKjnhlBTuK1U/7Ey3sBYEleA==}
+  '@growthbook/growthbook-react@1.6.4':
+    resolution: {integrity: sha512-jWzk2iPLTUwIArjI57kk8WKNKSwBUxakt7NltDiYv1gTeGj4UBInDwmFK5NmRlED7S0ycz27RL0wEYlJpDuo4A==}
     engines: {node: '>=10'}
     peerDependencies:
       react: ^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0 || ^19.0.0-0
 
-  '@growthbook/growthbook@1.6.3':
-    resolution: {integrity: sha512-9G8ERv4oW5klFwyJUYs5c+TkTNKUL7/DkgjjvR2dKavj9lGpHSQI6XHKzfZxC7BrnHsOiEGpdCWlNplKQ7iBcw==}
+  '@growthbook/growthbook@1.6.4':
+    resolution: {integrity: sha512-EID0PBixS9PyWLVEDT0FLGWSQ4kSaGo1kFOTFgIYxwI7/SRqesbYOt2Bc+79vb6HcQANzRhdmtz/9rZ3JsOVYA==}
     engines: {node: '>=10'}
 
-  '@growthbook/proxy-eval@1.1.1':
-    resolution: {integrity: sha512-QVKlpQYsE7maUdYxb+Nt0tqx0EUGoR1UF3vnf3+26mIxWyzqkOKl8u+eb8klBubjXuXPn7PgYRG0WbhynNVgFw==}
+  '@growthbook/proxy-eval@1.1.2':
+    resolution: {integrity: sha512-xd2sPVvOnupl1JtjZp/rDKqtO0BMRTrjng3MhG1RNhUPah2AXvXSq0XBxEs7n6TxEjElEDe1DvtL6wWWpQY37g==}
 
   '@grpc/grpc-js@1.8.22':
     resolution: {integrity: sha512-oAjDdN7fzbUi+4hZjKG96MR6KTEubAeMpQEb+77qy+3r0Ua5xTFuie6JOLr4ZZgl5g+W5/uRTS2M1V8mVAFPuA==}
@@ -17375,18 +17375,18 @@ snapshots:
       - encoding
       - supports-color
 
-  '@growthbook/growthbook-react@1.6.3(react@18.2.0)':
+  '@growthbook/growthbook-react@1.6.4(react@18.2.0)':
     dependencies:
-      '@growthbook/growthbook': 1.6.3
+      '@growthbook/growthbook': 1.6.4
       react: 18.2.0
 
-  '@growthbook/growthbook@1.6.3':
+  '@growthbook/growthbook@1.6.4':
     dependencies:
       dom-mutator: 0.6.0
 
-  '@growthbook/proxy-eval@1.1.1':
+  '@growthbook/proxy-eval@1.1.2':
     dependencies:
-      '@growthbook/growthbook': 1.6.3
+      '@growthbook/growthbook': 1.6.4
 
   '@grpc/grpc-js@1.8.22':
     dependencies:
@@ -20107,7 +20107,7 @@ snapshots:
       - supports-color
       - webpack
 
-  '@sentry/node-core@9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.36.0)':
+  '@sentry/node-core@9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.4.1))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.36.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/context-async-hooks': 1.30.1(@opentelemetry/api@1.9.0)
@@ -20153,7 +20153,7 @@ snapshots:
       '@opentelemetry/semantic-conventions': 1.36.0
       '@prisma/instrumentation': 6.11.1(@opentelemetry/api@1.9.0)
       '@sentry/core': 9.40.0
-      '@sentry/node-core': 9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.9.0))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.36.0)
+      '@sentry/node-core': 9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.4.1))(@opentelemetry/resources@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.36.0)
       '@sentry/opentelemetry': 9.40.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/core@1.30.1(@opentelemetry/api@1.4.1))(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.36.0)
       import-in-the-middle: 1.14.2
       minimatch: 9.0.5
