@@ -78,6 +78,8 @@ export { testPostStratEligible } from "./utils/postStratEligible";
 
 export { replaceWithUncapped } from "./utils/uncapped";
 
+export { decisionMakingConditions } from "./utils/decisionMaking";
+
 // Power Analysis
 export {
   MidExperimentPower,
