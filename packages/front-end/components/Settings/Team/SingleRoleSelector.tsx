@@ -38,6 +38,7 @@ export default function SingleRoleSelector({
   const deactivatedRoles = organization.deactivatedRoles || [];
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
+  const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
 
   let roleOptions = [...roles];
 
@@ -49,7 +50,8 @@ export default function SingleRoleSelector({
     roleOptions = roleOptions.filter((r) => r.id !== "admin");
   }
 
-  if (!includeProjectAdminRole) {
+  // If the org doesn't have the project-admin-role feature, remove the project admin role
+  if (!includeProjectAdminRole || !isProjectAdminRoleEnabled) {
     roleOptions = roleOptions.filter((r) => r.id !== "gbDefault_projectAdmin");
   }
 
