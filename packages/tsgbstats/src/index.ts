@@ -76,6 +76,8 @@ export { getCupedUnadjustedStat } from "./utils/cupedUnadjusted";
 
 export { testPostStratEligible } from "./utils/postStratEligible";
 
+export { replaceWithUncapped } from "./utils/uncapped";
+
 // Power Analysis
 export {
   MidExperimentPower,
