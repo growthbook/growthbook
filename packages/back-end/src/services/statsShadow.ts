@@ -190,14 +190,54 @@ function runTsStatsEngine(
 }
 
 /**
+ * Normalize values for comparison by rounding floats and sorting object keys.
+ *
+ * Python and TypeScript may produce slightly different floating-point results due to:
+ * 1. Different internal precision handling
+ * 2. Different rounding modes
+ * 3. Different library implementations for statistical functions
+ *
+ * By rounding to 10 decimal places before comparison, we tolerate minor differences
+ * that are not statistically significant while still catching real bugs.
+ */
+function normalizeForComparison(obj: unknown): unknown {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  if (typeof obj === "number") {
+    // Round to 10 decimal places to handle floating point differences
+    return Math.round(obj * 1e10) / 1e10;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(normalizeForComparison);
+  }
+  if (typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    const sorted = Object.keys(obj as Record<string, unknown>).sort();
+    for (const key of sorted) {
+      result[key] = normalizeForComparison(
+        (obj as Record<string, unknown>)[key],
+      );
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
  * Compare Python and TypeScript results using JSON string comparison.
+ *
+ * Uses epsilon-based float comparison by normalizing values before comparison.
  */
 function compareResults(
   pythonResult: MultipleExperimentMetricAnalysis[],
   tsResult: MultipleExperimentMetricAnalysis[],
 ): ComparisonResult {
-  const pythonJson = JSON.stringify(pythonResult);
-  const tsJson = JSON.stringify(tsResult);
+  const normalizedPython = normalizeForComparison(pythonResult);
+  const normalizedTs = normalizeForComparison(tsResult);
+
+  const pythonJson = JSON.stringify(normalizedPython);
+  const tsJson = JSON.stringify(normalizedTs);
 
   if (pythonJson === tsJson) {
     return { status: "match" };
@@ -207,8 +247,8 @@ function compareResults(
     status: "mismatch",
     diff: {
       summary: `JSON strings differ (Python: ${pythonJson.length} chars, TS: ${tsJson.length} chars)`,
-      pythonJson,
-      tsJson,
+      pythonJson: JSON.stringify(pythonResult),
+      tsJson: JSON.stringify(tsResult),
     },
   };
 }
