@@ -271,7 +271,7 @@ export default function CustomFieldModal({
         <Checkbox
           id={"required"}
           label="Required"
-          description="Make the custom field required when creating or editing features or experiments. You can also make this field required before starting an experiment from launch checklists."
+          description="Make the custom field required when creating or editing features or experiments."
           value={!!form.watch("required")}
           setValue={(value) => {
             form.setValue("required", value);
