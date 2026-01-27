@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@stdlib/stats-base-dists-normal-cdf": "^0.2.2",
+    "@stdlib/stats-base-dists-normal-pdf": "^0.2.2",
     "@stdlib/stats-base-dists-normal-quantile": "^0.2.2",
     "@stdlib/stats-base-dists-t-cdf": "^0.2.2",
     "@stdlib/stats-base-dists-t-quantile": "^0.2.2",
