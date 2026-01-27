@@ -1096,7 +1096,12 @@ export function jsonToConds(
       Object.keys(value).forEach((operator) => {
         const v = value[operator];
 
-        if (operator === "$in" || operator === "$nin") {
+        if (
+          operator === "$in" ||
+          operator === "$nin" ||
+          operator === "$ini" ||
+          operator === "$nini"
+        ) {
           if (v.some((str) => typeof str === "string" && str.includes(","))) {
             valid = false;
             return;
@@ -1310,7 +1315,12 @@ export function condToJson(
         obj[field]["$size"] = 0;
       } else if (operator === "$notEmpty") {
         obj[field]["$size"] = { $gt: 0 };
-      } else if (operator === "$in" || operator === "$nin") {
+      } else if (
+        operator === "$in" ||
+        operator === "$nin" ||
+        operator === "$ini" ||
+        operator === "$nini"
+      ) {
         // Allow for the empty list
         if (value === "") {
           obj[field][operator] = [];
