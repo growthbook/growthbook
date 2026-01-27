@@ -157,7 +157,7 @@ export default function SavedGroupDeleteModal({
         close();
       }}
       ctaEnabled={canDelete}
-      increasedElevation={true}
+      useRadixButton={true}
     >
       {loading ? (
         <Text color="gray">

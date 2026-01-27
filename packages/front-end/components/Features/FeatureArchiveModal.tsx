@@ -53,7 +53,7 @@ export default function FeatureArchiveModal({
         close();
       }}
       ctaEnabled={!featuresLoading && !experimentsLoading && dependents === 0}
-      increasedElevation={true}
+      useRadixButton={true}
     >
       {featuresLoading || experimentsLoading ? (
         <Text color="gray">
