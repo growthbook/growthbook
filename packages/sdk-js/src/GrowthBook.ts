@@ -892,7 +892,7 @@ export class GrowthBook<
    * @deprecated Use {@link evalFeature}
    * @param id
    */
-  // eslint-disable-next-line
+
   public feature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,

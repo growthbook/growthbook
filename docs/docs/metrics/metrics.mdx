@@ -314,24 +314,24 @@ You can read more about Bayesian priors on [our statistical details page](/stati
 Many metrics are easily decomposed, and you may want to learn about the different elements.
 For example, you may want to see revenue across different product types (e.g. "apparel", "equipment").
 
-Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type. These drilldown metrics are also sometimes referred to as "metric dimensions" in the experimentation community.
+Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type.
 
 Metric slices are enabled for Fact Metrics. We offer two key ways to slice your metrics: Auto Slices and Custom Slices.
 
 ### Auto Slices
 
-These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When using auto slices in your Fact Metric, each slice analysis (a dimension + value pair) will materialize across **all** experiments which use the metric. This allows for a standardized deep-dive analyses across your experiments.
+These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When an auto slice is added to a Fact Metric, it is automatically added to all experiments that use the metric. This allows for a standardized deep-dive analyses across your experiments.
 
 To set up Auto Slices:
 
-1. Navigate to your Fact Table that has the right columns. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only **string** and **boolean** columns can be used.
+1. Navigate to your Fact Table that has the metrics and the columns by which you want to slice. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only **string** and **boolean** columns can be used.
 
 <MaxWidthImage maxWidth={700}>
   <img src="/images/metrics/metric-dim-config.png" alt="Configuring a column for metric slicing" />
 </MaxWidthImage>
 
 2. With your column (`product_type`) in the Fact Table SQL, you now edit the column property in the "Columns" table. Click the edit icon next to your column and then check the "Enable Auto Slices" checkbox in the window that pops up.
-   - For **string** columns, add the slices you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Slice values here could be "apparel", "equipment", and more. An "other" slice will also be shown if any metric value is attributed to values outside of your selected slices.
+   - For **string** columns, add the slices you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Slice values here could be "apparel", "equipment", and more. An "other" slice will also be shown if any metric value is attributed to values outside of your selected slices. You can have these levels automatically refresh over time by enabling [auto-update slice levels](#auto-update-slice-levels).
    - For **boolean** columns, no other slice configuration is necessary—both "true" and "false" slices will be generated. A "null" slice will also be shown for nullable columns if any metric value is attributed to "null".
 
 <MaxWidthImage maxWidth={350}>
@@ -339,11 +339,32 @@ To set up Auto Slices:
 </MaxWidthImage>
 
 3. Scroll down to the list of Fact Metrics, or navigate to a Fact Metric from this Fact Table.
-4. Click "Edit" and select your slices.
-5. If there are slices you want run for every experiment (e.g., "I want revenue breakdowns by product type for every experiment"), please continue reading, otherwise, skip to the next step. Go to your metric page. Add the slices that will be analyzed for every experiment including this metric.
+4. Click "Edit" and select your slices you want to apply to that metric for all experiments.
 
-<MaxWidthImage maxWidth={700}>
-  <img src="/images/metrics/auto-slices.png" alt="Adding auto slices" />
+#### Auto-update slice levels
+
+You can enable automatic updates of auto slice levels based on top column values. This keeps your slice levels current with your data without manual intervention.
+
+**Fact Table level setting:**
+
+In the **Fact Table** modal, check the **Auto-update slice levels** checkbox. When enabled, a scheduled job periodically refreshes auto slice levels from **top values** using a 14-day lookback period. The job runs:
+
+- Every 7 days by default (configurable via `AUTO_SLICE_UPDATE_FREQUENCY_HOURS` environment variable for self-hosted users)
+- Automatically when the fact table changes
+- Manually when you click **Update** in the column modal
+
+<MaxWidthImage maxWidth={350} border>
+  ![Fact Table modal with auto-update slice levels checkbox](/images/metrics/auto-slice-updates-fact-table.png)
+</MaxWidthImage>
+
+#### Locking slice levels
+
+When auto-updates are enabled, you can **lock** specific slice levels in the column modal to ensure they are never removed by the auto-update job. This is useful for important segments or product types that you always want to track, even if they're not currently in the top values.
+
+In the column modal, each slice level has a **Lock** checkbox. Locked levels are always preserved when the top-values job runs, while unlocked levels may be replaced if they're no longer in the top values.
+
+<MaxWidthImage maxWidth={350} border>
+  ![Column modal showing slice levels with Lock checkboxes](/images/metrics/auto-slice-levels-locking.png)
 </MaxWidthImage>
 
 ### Custom Slices
@@ -358,19 +379,15 @@ Custom slices can be created using any non-user-identifier string or boolean col
   <img src="/images/metrics/custom-slices.png" alt="Adding custom slices" />
 </MaxWidthImage>
 
-### Viewing and pinning metric slices
+### Viewing metric slices
 
 Using our revenue metric as an example, when you run an experiment you will now have the option to split revenue by product type (auto slice) and/or by "apparel and EU" (custom slice).
 
-If you click the arrow icon next to "revenue" on the experiment results table, you will see these slices expand under the base metric row (revenue), each slice materialized as its own sub-row.
-
-You may "pin" these metric slice rows so that they always render on the results table, even when the metric is collapsed or you return to the page.
+If you click the arrow icon next to "revenue" on the experiment results table, you will see these slices expand under the base metric row (revenue), each slice materialized as its own sub-row. You also can use the Filter button at the top of the results to filter all metrics by slices, or click in to a row for the [Metric Drilldown](/app/experiment-results#metric-drilldown) to view slices with search, sorting, and time-series analysis capabilities.
 
 <MaxWidthImage maxWidth={800}>
   <img src="/images/metrics/metric-dim-results.png" alt="Metric slice results" />
 </MaxWidthImage>
-
-<br />
 
 :::note Dimensions versus Slices
 
