@@ -506,7 +506,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         keepDefaultValues: true,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // If a holdout is set for a new experiment, use the hash attribute of the holdout experiment

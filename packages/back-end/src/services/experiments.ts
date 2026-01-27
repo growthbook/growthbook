@@ -1487,13 +1487,17 @@ function getExperimentMetric(
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterfaceExcludingHoldouts,
+  projectMap?: Map<string, ProjectInterface>,
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
 
   let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await context.models.projects.getById(experiment.project);
+    // Use pre-loaded project from map if available, otherwise fetch individually
+    project =
+      projectMap?.get(experiment.project) ??
+      (await context.models.projects.getById(experiment.project));
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
