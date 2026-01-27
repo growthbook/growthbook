@@ -54,10 +54,8 @@ app.get("/api/my-resource", myController.getMyResource);
 
 ### Additional Rules
 
-- If creating a new controller and router, we should use the pattern of putting the router in the `src/routers/` directory, and no using the `back-end/src/app.ts` file - that is the old way of doing things.
+- If creating a new controller and router, use the pattern of putting the router in the `src/routers/` directory, and not using the `back-end/src/app.ts` file - that is the old way of doing things.
 - If building a new model, the model should not be exported from the model file - only the functions and methods should be exported.
-
-###
 
 ## External REST API (Customer Integration)
 

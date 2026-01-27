@@ -359,14 +359,16 @@ if (!permissions.manageFeatures) {
 ### 3. Pass Complete Objects for Update Checks
 
 ```typescript
-// Good - pass both existing and updated states
+// Good - pass both existing and updated states (merged object)
 const canUpdate = permissionsUtil.canUpdateFeature(existingFeature, {
   ...existingFeature,
   ...updates,
 });
 
-// Bad - only pass updates
-const canUpdate = permissionsUtil.canUpdateFeature(existingFeature, updates);
+// Bad - passing partial updates without merging with existing state
+const canUpdate = permissionsUtil.canUpdateFeature(existingFeature, {
+  name: "new name", // Missing other fields from existingFeature
+});
 ```
 
 ### 4. Handle Both Permission and Feature Gates

@@ -34,7 +34,8 @@ export default function MyComponent({
 
   return (
     <div>
-      {/* JSX here */}
+      {hasFeature && <span>Premium content</span>}
+      <input value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## General Rules
 
-- **Do NOT write tests** unless explicitly requested by the user
+- **Do NOT write tests** unless explicitly requested, or when modifying code that already has test coverage
 - Follow existing patterns in the codebase
 - When in doubt, search for similar existing code and follow that pattern
 - Use existing ESLint rules - they're comprehensive and enforced in CI
