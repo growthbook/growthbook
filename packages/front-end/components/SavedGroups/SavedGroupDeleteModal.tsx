@@ -144,12 +144,9 @@ export default function SavedGroupDeleteModal({
     <Modal
       trackingEventModalType=""
       header={
-        <>
-          Delete{" "}
-          <OverflowText>
-            <em>{savedGroup.groupName}</em>
-          </OverflowText>
-        </>
+        <OverflowText maxWidth={400}>
+          Delete <em>{savedGroup.groupName}</em>
+        </OverflowText>
       }
       close={close}
       open={true}
