@@ -9,8 +9,8 @@ These restrictions are enforced by ESLint and must be strictly followed.
 
 ## Front-end Package
 
-- ✅ CAN import from: `shared` package, itself
-- ❌ CANNOT import from: `back-end`, `sdk-js`, `sdk-react`
+- ✅ CAN import from: `shared` package, itself, `sdk-js`, and `sdk-react`
+- ❌ CANNOT import from: `back-end`
 - ❌ DO NOT import Radix UI components directly - use design system wrappers from `@/ui/` instead
   - Bad: `import { Button } from "@radix-ui/themes"`
   - Good: `import { Button } from "@/ui/Button"`
@@ -20,20 +20,21 @@ These restrictions are enforced by ESLint and must be strictly followed.
 
 ## Back-end Package
 
-- ✅ CAN import from: `shared` package, itself
-- ❌ CANNOT import from: `front-end`, `sdk-js`, `sdk-react`
+- ✅ CAN import from: `shared` package, itself, `sdk-js`
+- ❌ CANNOT import from: `front-end`, `sdk-react`
 - ❌ DO NOT import `node-fetch` directly
   - Use `import { fetch } from "back-end/src/util/http.util"` instead
 
 ## Shared Package
 
-- ✅ CAN import from: itself only
-- ❌ CANNOT import from: `back-end`, `front-end`
+- ✅ CAN import from: itself, `sdk-js`
+- ❌ CANNOT import from: `back-end`, `front-end`, `sdk-react`
 - ❌ DO NOT use `.default()` on Zod schemas in `packages/shared/src/validators/*`
   - Use the `defaultValues` option in the BaseModel config instead
 
 ## SDK Packages
 
-- ✅ CAN import from: themselves only
+- ✅ CAN import from: themselves only (React can import from JS, but not the other way around)
 - ❌ CANNOT import from: `back-end`, `front-end`, `shared`, or any internal package
+- ❌ CANNOT use any 3rd party npm libraries. Must have zero dependencies and be self-contained.
 - Must remain fully isolated for npm distribution

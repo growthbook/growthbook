@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Overview
 
-GrowthBook uses a `BaseModel` pattern built on MongoDB. New models should use `MakeModelClass()` to create a base class, then extend it with permission logic.
+GrowthBook uses a `BaseModel` pattern built on MongoDB. New models should use `MakeModelClass()` to create a base class, then extend it with permission logic and customize further if needed.
 
 **Location:** `packages/back-end/src/models/`
 
@@ -26,7 +26,7 @@ const BaseClass = MakeModelClass({
   collectionName: "myresources", // MongoDB collection name
   idPrefix: "res_", // ID prefix for generation
   auditLog: {
-    // Audit logging config
+    // Audit logging config (optional)
     entity: "myResource",
     createEvent: "myResource.create",
     updateEvent: "myResource.update",
@@ -67,37 +67,12 @@ export class MyResourceModel extends BaseClass {
 }
 ```
 
-### Step 3: Export Functions (Not the Class)
+### Step 3: Add to the RequestContext so it can be used from anywhere
 
-Models should NOT export the class directly. Export functions instead:
+Add the model to `back-end/src/services/context.ts`. That way it can be referenced from anywhere. Use the plural version of the model name here. For example:
 
-```typescript
-// Good - export functions
-export async function getMyResourceById(context: ReqContext, id: string) {
-  return new MyResourceModel(context).getById(id);
-}
-
-export async function createMyResource(
-  context: ReqContext,
-  data: CreateMyResourceInput,
-) {
-  return new MyResourceModel(context).create(data);
-}
-
-export async function updateMyResource(
-  context: ReqContext,
-  id: string,
-  updates: UpdateMyResourceInput,
-) {
-  return new MyResourceModel(context).updateById(id, updates);
-}
-
-export async function deleteMyResource(context: ReqContext, id: string) {
-  return new MyResourceModel(context).deleteById(id);
-}
-
-// Bad - don't export the class
-// export { MyResourceModel };
+```ts
+const resource = req.context.myResources.getById("abc123");
 ```
 
 ## Configuration Options
@@ -286,36 +261,21 @@ await model.dangerousUpdateByIdBypassPermission(id, updates);
 
 ## Adding Custom Methods
 
-Add domain-specific methods to your model:
+You can add more tailored data fetching methods as needed by referencing the `_findOne` and `_find` methods. There are similar protected methods for write operations, although those are rarely needed.
 
-```typescript
-export class MyResourceModel extends BaseClass {
-  // ... permission methods ...
+Here's an example:
 
-  // Custom query method
-  async getByProject(projectId: string): Promise<MyResourceInterface[]> {
-    return this.getAll({ project: projectId });
-  }
+```ts
+export class FooDataModel extends BaseClass {
+  // ...
 
-  // Custom business logic
-  async archive(id: string): Promise<MyResourceInterface> {
-    const doc = await this.getById(id);
-    if (!doc) throw new Error("Resource not found");
-
-    return this.update(doc, {
-      archived: true,
-      dateArchived: new Date(),
-    });
-  }
-
-  // Bulk operations
-  async bulkUpdateStatus(ids: string[], status: string): Promise<void> {
-    for (const id of ids) {
-      await this.updateById(id, { status });
-    }
+  public getByNames(names: string[]) {
+    return this._find({ name: { $in: names } });
   }
 }
 ```
+
+Note: Permission checks, migrations, etc. are all done automatically within the `_find` method, so you don't need to repeat any of that in your custom methods. Also, the `organization` field is automatically added to every query, so it will always be multi-tenant safe.
 
 ## Complete Example
 
@@ -343,7 +303,7 @@ const BaseClass = MakeModelClass({
   readonlyFields: ["organization"],
 });
 
-class WidgetModel extends BaseClass {
+export class WidgetModel extends BaseClass {
   protected canRead(doc: WidgetInterface) {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -374,39 +334,8 @@ class WidgetModel extends BaseClass {
 
   // Custom method
   async getEnabledByProject(projectId: string): Promise<WidgetInterface[]> {
-    return this.getAll({ project: projectId, enabled: true });
+    return this._find({ project: projectId, enabled: true });
   }
-}
-
-// Export functions, not the class
-export async function getWidgetById(context: ReqContext, id: string) {
-  return new WidgetModel(context).getById(id);
-}
-
-export async function createWidget(
-  context: ReqContext,
-  data: Omit<WidgetInterface, "id" | "dateCreated" | "dateUpdated">,
-) {
-  return new WidgetModel(context).create(data);
-}
-
-export async function updateWidget(
-  context: ReqContext,
-  id: string,
-  updates: Partial<WidgetInterface>,
-) {
-  return new WidgetModel(context).updateById(id, updates);
-}
-
-export async function deleteWidget(context: ReqContext, id: string) {
-  return new WidgetModel(context).deleteById(id);
-}
-
-export async function getEnabledWidgetsByProject(
-  context: ReqContext,
-  projectId: string,
-) {
-  return new WidgetModel(context).getEnabledByProject(projectId);
 }
 ```
 
@@ -414,8 +343,7 @@ export async function getEnabledWidgetsByProject(
 
 1. **Always use MakeModelClass** for new models (unless there's a specific reason not to)
 2. **Implement all four permission methods** - canRead, canCreate, canUpdate, canDelete
-3. **Export functions, not the class** - keeps API clean and testable
-4. **Use hooks for side effects** - afterUpdate for cache invalidation, beforeDelete for dependency checks
-5. **Use migrate() for schema evolution** - handles legacy documents gracefully
-6. **Choose appropriate ID prefix** - follow existing conventions
-7. **Enable audit logging** - for user-facing entities that need tracking
+3. **Use hooks for side effects** - afterUpdate for cache invalidation, beforeDelete for dependency checks
+4. **Use migrate() for schema evolution** - handles legacy documents gracefully
+5. **Choose appropriate ID prefix** - follow existing conventions
+6. **Enable audit logging** - for user-facing entities that need tracking

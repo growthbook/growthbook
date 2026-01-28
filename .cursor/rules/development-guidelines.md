@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## General Rules
 
-- **Do NOT write tests** unless explicitly requested, or when modifying code that already has test coverage
+- DO NOT write tests for front-end components or back-end routers/controllers/models. DO write tests for critical utility/helper functions
 - Follow existing patterns in the codebase
 - When in doubt, search for similar existing code and follow that pattern
 - Use existing ESLint rules - they're comprehensive and enforced in CI
@@ -15,9 +15,10 @@ alwaysApply: true
 
 ## Code Quality
 
-- TypeScript: Use strict types, avoid `any` when possible (ESLint warns on `any`)
-- Unused variables: Prefix with `_` to indicate intentionally unused
-- Console logging: Avoid `console.log` in production code (ESLint warns)
+- TypeScript: Use strict types. Never use `any`. If you don't know the type, use `unknown`.
+- If data is coming from an untrusted source (like the request body or JSON.parse), it should start out as `unknown` until you validate it (usually with zod).
+- Avoid unused variables whenever possible. If you absolutely must use them, prefix with `_`.
+- Console logging: Avoid `console.log` in production code (ESLint warns). On the back-end, you can import from `util/logger` instead.
 
 ## Common Patterns
 
@@ -39,12 +40,14 @@ type MyType = z.infer<typeof mySchema>;
 - Shared types go in `packages/shared/types/*.d.ts`
 - Use `.d.ts` files for type-only definitions
 - Export types with `export type` or `export interface`
+- Only declare types/interfaces from scratch when there is no Zod schema. When there is a corresponding Zod schema, use that as the source of truth and infer the type.
 
 ### Environment Variables
 
 - Back-end: Define in `packages/back-end/src/util/secrets.ts`
-- Front-end: Define in `packages/front-end/services/env.ts`
+- Front-end: Define in `packages/front-end/pages/api/init.ts` and `packages/front-end/services/env.ts`
 - Use environment-specific `.env.local` files for local overrides
+- DO NOT reference `process.env` directly outside of the files above.
 
 ## Code Quality Commands
 
@@ -58,11 +61,10 @@ type MyType = z.infer<typeof mySchema>;
 2. **Use design system components** - don't import Radix UI directly in front-end
 3. **Follow existing patterns** - search the codebase for similar code
 4. **Use pnpm** - this is a pnpm workspace
-5. **No tests by default** - only write tests if explicitly requested
-6. **TypeScript strict mode** - use proper types, avoid `any`
-7. **Check commercial features** - use `hasCommercialFeature()` for premium functionality
-8. **Router pattern for APIs** - organize by resource with dedicated router files
-9. **Leverage the BaseModel** - when adding a new model, default to using the BaseModel except for rare cases
-10. **Use permissionsUtil** - when checking permissions, leverage the permissionsUtil class and it's included helpers
+5. **TypeScript strict mode** - use proper types, avoid `any`
+6. **Check commercial features** - use `hasCommercialFeature()` for premium functionality
+7. **Router pattern for APIs** - organize by resource with dedicated router files
+8. **Leverage the BaseModel** - when adding a new model, default to using the BaseModel except for rare cases
+9. **Use permissionsUtil** - when checking permissions, leverage the permissionsUtil class and it's included helpers
 
 These rules ensure consistency and maintainability across the GrowthBook codebase.
