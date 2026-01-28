@@ -129,7 +129,7 @@ jobs:
           sourcemaps: "./front-end-dist"
           release: ${{ github.sha }}
           inject: false
-          url_prefix: "~/_next"
+          url_prefix: "app:///_next"
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
