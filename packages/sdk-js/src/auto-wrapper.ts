@@ -18,6 +18,7 @@ import {
   thirdPartyTrackingPlugin,
   Trackers,
 } from "./plugins/third-party-tracking";
+import { browserPerformancePlugin } from "./plugins/performance/browser-performance";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
@@ -32,6 +33,9 @@ type WindowContext = Context & {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
+  cwvSamplingRate?: number;
+  errorSamplingRate?: number;
+  pageViewSamplingRate?: number;
 };
 declare global {
   interface Window {
@@ -125,7 +129,7 @@ if (
   });
 }
 
-const uuid = dataContext.uuid || windowContext.uuid;
+const uuid = windowContext.uuid || dataContext.uuid;
 const plugins: Plugin[] = [
   autoAttributesPlugin({
     uuid,
@@ -158,6 +162,25 @@ if (tracking !== "none") {
       }),
     );
   }
+}
+
+const cwvSamplingRate = dataContext.cwvSamplingRate
+  ? parseFloat(dataContext.cwvSamplingRate)
+  : windowContext.cwvSamplingRate;
+const errorSamplingRate = dataContext.errorSamplingRate
+  ? parseFloat(dataContext.errorSamplingRate)
+  : windowContext.errorSamplingRate;
+const pageViewSamplingRate = dataContext.pageViewSamplingRate
+  ? parseFloat(dataContext.pageViewSamplingRate)
+  : windowContext.pageViewSamplingRate;
+if (cwvSamplingRate || errorSamplingRate || pageViewSamplingRate) {
+  plugins.push(
+    browserPerformancePlugin({
+      cwvSamplingRate,
+      errorSamplingRate,
+      pageViewSamplingRate,
+    }),
+  );
 }
 
 // Create GrowthBook instance
