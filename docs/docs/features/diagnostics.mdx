@@ -1,0 +1,42 @@
+---
+title: Feature Evaluation Diagnostics
+description: Validate feature evaluations with diagnostics
+sidebar_label: Feature Diagnostics
+slug: features/diagnostics
+---
+
+# Feature Evaluation Diagnostics
+
+Feature Evaluation Diagnostics allow you to inspect the most recent feature evaluations that occurred in your app by querying SDK evaluation events stored in your data warehouse. This makes it easier to verify that targeting rules and rollouts are behaving as expected in production.
+
+## Setup
+
+In order to use Feature Diagnostics, you'll need to make sure you're sending feature evaluation events to your data warehouse. The only columns we require are `feature_key` and `timestamp`, but we allow you to include any additional metadata that you may be interested in for your diagnostics such as: `unit_id`, `value`, `reason`, etc.
+
+You can setup your SDK to send feature evaluation events to your data warehouse using our built in `onFeatureUsage` callback, as shown in the example snippet below.
+
+```javascript
+const gb = new GrowthBookClient({
+  onFeatureUsage: (featureKey, result) => {
+    // Example using Segment
+    analytics.track("Feature Evaluated", {
+      featureKey: featureKey,
+      value: result.value,
+    });
+  }
+});
+```
+
+Once you have Feature Evaluation data in your data warehouse, you can setup your feature usage query in GrowthBook. Navigate to the data source you are using (or create it if it hasn't been set up) and scroll down to `Feature Usage Query` and click add to specify the SQL query for your feature evaluation events.
+
+![datasource-usage-query-block.png](/images/features/feature-diagnostics/datasource-usage-query-block.png)
+
+## Feature Diagnostics Tab
+
+Once your usage query is setup, you can view diagnostic events for your feature flag within the `Diagnostics` tab in the feature. Simply select your data source and click `View recent feature evaluations` to see the latest 100 feature evaluation events.
+
+![diagnostics-tab.png](/images/features/feature-diagnostics/diagnostics-tab.png)
+
+:::note
+Query results are not cached so you will need to re-run the query whenever you navigate away from the feature page
+:::
