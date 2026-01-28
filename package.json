@@ -8,7 +8,7 @@
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
     "type-check": "pnpm -r --workspace-concurrency=1 run type-check",
-    "clean": "pnpm -r run clean && pnpm store prune && rimraf node_modules",
+    "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
     "test": "pnpm -r --workspace-concurrency=1 run test",
@@ -18,9 +18,9 @@
     "build:deps": "pnpm --filter @growthbook/growthbook --filter @growthbook/growthbook-react --filter shared run build",
     "build:app": "pnpm --filter back-end --filter front-end run build",
     "build": "pnpm build:deps && pnpm build:app",
-    "start": "pnpm --filter back-end --filter front-end -r --parallel run start",
-    "start:with-tracing": "pnpm --filter back-end --filter front-end -r --parallel run start:with-tracing",
-    "start:with-datadog": "pnpm --filter back-end --filter front-end -r --parallel run start:with-datadog",
+    "start": "pm2-runtime start ecosystem.config.js",
+    "start:with-tracing": "TRACING_PROVIDER=opentelemetry pm2-runtime start ecosystem.config.js",
+    "start:with-datadog": "TRACING_PROVIDER=datadog pm2-runtime start ecosystem.config.js",
     "update-stats-deps": ". $(cd packages/stats && poetry env info --path)/bin/activate && (cd packages/stats && poetry install)",
     "setup": "pnpm build:deps & pnpm --filter stats run setup & (cd docs && pnpm install) & wait",
     "prepare": "command -v husky >/dev/null 2>&1 && husky install || true",
@@ -33,7 +33,8 @@
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
   "dependencies": {
-    "dd-trace": "^5.46.0"
+    "dd-trace": "^5.46.0",
+    "pm2": "^6.0.14"
   },
   "devDependencies": {
     "@eslint/compat": "^1.3.1",
@@ -87,6 +88,11 @@
       "@octokit/request@8": "^8.4.1",
       "@octokit/request-error@5": "^5.1.1",
       "prismjs@1": "^1.30.0"
+    },
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react-native"
+      ]
     },
     "patchedDependencies": {
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
