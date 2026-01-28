@@ -73,11 +73,12 @@ export default function CustomFieldModal({
   const showSearchableToggle = false;
   return (
     <Modal
-      trackingEventModalType={"custom-field"}
+      trackingEventModalType="custom-field"
       open={true}
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
-      cta={"Save"}
+      cta="Save"
+      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         if (value.type === "boolean") {
           // make sure the default value is a boolean

@@ -41,7 +41,7 @@ export default function CustomFieldRowMenu({
           radius="full"
           size="2"
           highContrast
-          mt="1"
+          style={{ margin: 0 }}
         >
           <BsThreeDotsVertical size={18} />
         </IconButton>

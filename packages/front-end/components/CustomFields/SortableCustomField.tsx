@@ -45,7 +45,7 @@ function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
 
 export const CUSTOM_FIELD_TABLE_WIDTHS = {
   dragHandle: 30,
-  menu: 30,
+  menu: 40,
   name: "10%",
   key: "14%",
   description: "20%",
@@ -149,7 +149,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
         style={{
           width: WIDTHS.menu,
           minWidth: WIDTHS.menu,
-          padding: "0.6rem 0.5rem 0 0",
+          padding: "0.4rem 0",
           textAlign: "center",
         }}
       >
