@@ -10,6 +10,7 @@ import {
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
+import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
 
@@ -18,9 +19,7 @@ const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
 export const GB_SDK_ID =
-  process.env.NODE_ENV === "production"
-    ? "sdk-ueFMOgZ2daLa0M"
-    : "sdk-UmQ03OkUDAu7Aox";
+  process.env.NODE_ENV === "production" ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export const gbContext: Context = {
   apiHost: "https://cdn.growthbook.io",

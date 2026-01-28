@@ -1,7 +1,11 @@
 import Handlebars from "handlebars";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
-import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import {
+  GB_SDK_ID_DEV,
+  GB_SDK_ID_PROD,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -295,6 +299,8 @@ export const CLICKHOUSE_DEV_PREFIX =
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
 );
+
+export const GB_SDK_ID = prod ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,
