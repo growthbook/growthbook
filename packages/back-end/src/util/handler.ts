@@ -197,7 +197,7 @@ export type PaginationParams = {
 };
 
 /**
- * Validates limit (1–100) and offset (≥ 0) from a query. Use before DB-level pagination
+ * Validates limit and offset params from a query. Use before DB-level pagination
  */
 export function validatePagination(
   query: PaginationQuery,

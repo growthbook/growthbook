@@ -1,4 +1,7 @@
 summary: Get all features
+description: |
+  Returns features with pagination. The skipPagination query parameter is
+  honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
 tags:
   - features
 parameters:

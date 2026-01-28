@@ -12,7 +12,11 @@ type OneOf<T extends any[]> = T extends [infer Only] ? Only : T extends [infer A
 
 export interface paths {
   "/features": {
-    /** Get all features */
+    /**
+     * Get all features 
+     * @description Returns features with pagination. The skipPagination query parameter is
+     * honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
+     */
     get: operations["listFeatures"];
     /** Create a single feature */
     post: operations["postFeature"];
@@ -4045,7 +4049,10 @@ export interface components {
     globalRole: string;
     /** @description Filter by a SDK connection's client key */
     clientKey: string;
-    /** @description If true, return all matching features and ignore limit/offset */
+    /**
+     * @description If true, return all matching features and ignore limit/offset.
+     * Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+     */
     skipPagination: boolean;
   };
   requestBodies: never;
@@ -4058,13 +4065,20 @@ export type external = Record<string, never>;
 export interface operations {
 
   listFeatures: {
-    /** Get all features */
+    /**
+     * Get all features 
+     * @description Returns features with pagination. The skipPagination query parameter is
+     * honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
+     */
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
         /** @description Filter by a SDK connection's client key */
-        /** @description If true, return all matching features and ignore limit/offset */
+        /**
+         * @description If true, return all matching features and ignore limit/offset.
+         * Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+         */
       query: {
         limit?: number;
         offset?: number;

@@ -18,6 +18,7 @@ import {
   createApiRequestHandler,
   validatePagination,
 } from "back-end/src/util/handler";
+import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
 const emptyListResponse = (
@@ -36,6 +37,11 @@ const emptyListResponse = (
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
     const projectId = req.query.projectId;
+    if (req.query.skipPagination && !API_ALLOW_SKIP_PAGINATION) {
+      throw new Error(
+        "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
+      );
+    }
     const skipPagination = !!req.query.skipPagination;
     let limit: number;
     let offset: number;
