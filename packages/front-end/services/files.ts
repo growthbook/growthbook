@@ -44,7 +44,11 @@ export async function uploadFile(
       let uploadResponse: Response;
 
       // Determine upload method based on URL and fields
-      const isS3Post = signedUrl.includes("s3.amazonaws.com");
+      // Detect S3 URLs (virtual-hosted, path-style, regional, legacy)
+      const isS3Post =
+        /https?:\/\/(?:[\w-]+\.)?s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com/.test(
+          signedUrl,
+        );
 
       if (isS3Post && fields) {
         // S3 POST-based upload with policy enforcement
