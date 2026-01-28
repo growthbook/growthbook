@@ -1009,7 +1009,6 @@ main.main {
   td {
     vertical-align: middle;
   }
-
   &.table-valign-top {
     td,
     th {
@@ -1039,6 +1038,12 @@ main.main {
   }
   td {
     vertical-align: middle;
+  }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
   }
 }
 
