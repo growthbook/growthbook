@@ -106,9 +106,9 @@ run()
     process.exit(1);
   });
 
+// Query params are strings; accept "true"/"false"/"0"/"1" and coerce to boolean.
 const QUERY_BOOLEAN_COERCION =
   'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1")';
-
 const QUERY_BOOLEAN_COERCION_TRUE =
   'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(true).transform((v) => v === true || v === "true" || v === "1")';
 
@@ -132,16 +132,13 @@ function generateZodSchema(
   }
 
   if (coerceBooleansFromQuery) {
-    // Query params are always strings; accept "true"/"false"/"0"/"1" and coerce to boolean
+    // Single pass: one regex matches .default(true), .default(false), or bare z.boolean().
+    // A second pass would match z.boolean() inside the replacement and create nested unions.
     zod = zod.replace(
-      /z\.boolean\(\)\.default\(true\)/g,
-      QUERY_BOOLEAN_COERCION_TRUE,
+      /z\.boolean\(\)(\.default\((true|false)\))?/g,
+      (_, _suffix, defaultVal) =>
+        defaultVal === "true" ? QUERY_BOOLEAN_COERCION_TRUE : QUERY_BOOLEAN_COERCION,
     );
-    zod = zod.replace(
-      /z\.boolean\(\)\.default\(false\)/g,
-      QUERY_BOOLEAN_COERCION,
-    );
-    zod = zod.replace(/z\.boolean\(\)/g, QUERY_BOOLEAN_COERCION);
   }
 
   // remove overly strick datetime zod validation

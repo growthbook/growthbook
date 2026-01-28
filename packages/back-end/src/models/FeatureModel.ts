@@ -210,6 +210,22 @@ export async function getAllFeatures(
   );
 }
 
+function featureListQuery(
+  orgId: string,
+  opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+): FilterQuery<FeatureDocument> {
+  const { project, projectIds, includeArchived = false } = opts;
+  return {
+    organization: orgId,
+    ...(project != null
+      ? { project }
+      : projectIds != null
+        ? { project: { $in: projectIds } }
+        : {}),
+    ...(includeArchived ? {} : { archived: { $ne: true } }),
+  };
+}
+
 export async function getFeaturesPage(
   context: ReqContext | ApiReqContext,
   {
@@ -227,15 +243,11 @@ export async function getFeaturesPage(
   },
 ): Promise<FeatureInterface[]> {
   if (projectIds?.length === 0) return [];
-  const q: FilterQuery<FeatureDocument> = {
-    organization: context.org.id,
-    ...(project != null
-      ? { project }
-      : projectIds != null
-        ? { project: { $in: projectIds } }
-        : {}),
-    ...(includeArchived ? {} : { archived: { $ne: true } }),
-  };
+  const q = featureListQuery(context.org.id, {
+    project,
+    projectIds,
+    includeArchived,
+  });
   const docs = await FeatureModel.find(q)
     .sort({ dateCreated: 1 })
     .skip(offset)
@@ -256,16 +268,9 @@ export async function countFeatures(
   }: { project?: string; projectIds?: string[]; includeArchived?: boolean },
 ): Promise<number> {
   if (projectIds?.length === 0) return 0;
-  const q: FilterQuery<FeatureDocument> = {
-    organization: context.org.id,
-    ...(project != null
-      ? { project }
-      : projectIds != null
-        ? { project: { $in: projectIds } }
-        : {}),
-    ...(includeArchived ? {} : { archived: { $ne: true } }),
-  };
-  return FeatureModel.countDocuments(q);
+  return FeatureModel.countDocuments(
+    featureListQuery(context.org.id, { project, projectIds, includeArchived }),
+  );
 }
 
 export async function hasArchivedFeatures(
