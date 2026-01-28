@@ -106,13 +106,6 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
         filtered = page;
         total = filteredFeatures.length;
       }
-    } else if (
-      projectId &&
-      !req.context.permissions.canReadSingleProjectResource(projectId)
-    ) {
-      // projectId but no read access: empty result
-      filtered = [];
-      total = 0;
     } else if (projectId) {
       // projectId and can read
       if (skipPagination) {
@@ -195,7 +188,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       count: filtered.length,
       total,
       hasMore,
-      nextOffset: hasMore ? nextOffset : null,
+      nextOffset,
     };
   },
 );
