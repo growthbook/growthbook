@@ -278,9 +278,21 @@ export function useDashboardSnapshot(
     useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
   const [fetchingSnapshotFailed, setFetchingSnapshotFailed] = useState(false);
+  // Store fetched snapshots locally for new/unsaved dashboards where snapshotsMap is empty
+  const [localSnapshotsMap, setLocalSnapshotsMap] = useState<
+    Map<string, ExperimentSnapshotInterface>
+  >(new Map());
+
+  // Store setBlock in a ref so we can access the latest version without it being a dependency
+  const setBlockRef = useRef(setBlock);
+  useEffect(() => {
+    setBlockRef.current = setBlock;
+  }, [setBlock]);
 
   const blockSnapshotId = block?.snapshotId;
-  const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
+  const blockSnapshot =
+    snapshotsMap.get(blockSnapshotId ?? "") ||
+    localSnapshotsMap.get(blockSnapshotId ?? "");
 
   const snapshot =
     blockSnapshotId && blockSnapshot ? blockSnapshot : defaultSnapshot;
@@ -308,7 +320,7 @@ export function useDashboardSnapshot(
   useEffect(() => {
     if (
       !block ||
-      !setBlock ||
+      !setBlockRef.current ||
       !experiment ||
       !snapshot ||
       snapshotSettingsMatch ||
@@ -329,7 +341,14 @@ export function useDashboardSnapshot(
       if (!res.snapshot) {
         setFetchingSnapshotFailed(true);
       } else {
-        setBlock({ ...block, snapshotId: res.snapshot.id });
+        const fetchedSnapshot = res.snapshot;
+        // Store the snapshot locally so it can be found even on unsaved dashboards
+        setLocalSnapshotsMap((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(fetchedSnapshot.id, fetchedSnapshot);
+          return newMap;
+        });
+        setBlockRef.current?.({ ...block, snapshotId: fetchedSnapshot.id });
       }
       setFetchingSnapshot(false);
     };
@@ -342,7 +361,6 @@ export function useDashboardSnapshot(
     fetchingSnapshotFailed,
     apiCall,
     block,
-    setBlock,
   ]);
 
   // If unable to get the necessary analysis on the current snapshot, post the updated settings
