@@ -16,6 +16,7 @@ import {
 import {
   applyPagination,
   createApiRequestHandler,
+  validatePagination,
 } from "back-end/src/util/handler";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
@@ -34,10 +35,16 @@ const emptyListResponse = (
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
-    const limit = req.query.limit ?? 10;
-    const offset = req.query.offset ?? 0;
     const projectId = req.query.projectId;
     const skipPagination = !!req.query.skipPagination;
+    let limit: number;
+    let offset: number;
+    if (skipPagination) {
+      limit = req.query.limit ?? 10;
+      offset = req.query.offset ?? 0;
+    } else {
+      ({ limit, offset } = validatePagination(req.query));
+    }
 
     // Resolve empty-result cases before loading groupMap/experimentMap
     if (
