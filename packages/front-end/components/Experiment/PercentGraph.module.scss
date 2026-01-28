@@ -3,6 +3,7 @@
   border-radius: var(--radius-3);
   background-color: var(--color-panel);
   box-shadow: var(--shadow-5);
+  outline: none;
   animation-duration: 200ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
