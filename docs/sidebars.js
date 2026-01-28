@@ -93,6 +93,11 @@ const sidebars = {
           id: "features/custom-hooks",
           label: "Custom Hooks",
         },
+        {
+          type: "doc",
+          id: "features/diagnostics",
+          label: "Feature Evaluation Diagnostics",
+        },
       ],
     },
     {
