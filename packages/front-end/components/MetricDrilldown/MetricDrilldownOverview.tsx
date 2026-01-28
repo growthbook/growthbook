@@ -34,6 +34,7 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  dimensionInfo?: { name: string; value: string };
 }
 
 function MetricDrilldownOverview({
@@ -57,6 +58,7 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  dimensionInfo,
 }: MetricDrilldownOverviewProps) {
   const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
     useSnapshot();
@@ -101,9 +103,14 @@ function MetricDrilldownOverview({
         tableRowAxis="metric"
         labelHeader={labelHeader}
         renderLabelColumn={({ label }) => (
-          <Text weight="bold" ml="4">
-            {label}
-          </Text>
+          <Flex direction="column" gap="1" ml="3">
+            <Text weight="medium">{label}</Text>
+            {dimensionInfo && (
+              <Text size="1" style={{ color: "var(--color-text-low)" }}>
+                {dimensionInfo.name}: {dimensionInfo.value}
+              </Text>
+            )}
+          </Flex>
         )}
         statsEngine={statsEngine}
         pValueCorrection={pValueCorrection}

@@ -84,6 +84,9 @@ interface MetricDrilldownModalProps {
 
   // Slice-specific props
   initialSliceSearchTerm?: string;
+
+  // Dimension info (when opened from BreakDownResults)
+  dimensionInfo?: { name: string; value: string };
 }
 
 /**
@@ -128,6 +131,7 @@ interface MetricDrilldownContentProps {
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
+  dimensionInfo?: { name: string; value: string };
 }
 
 const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
@@ -162,11 +166,15 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localSortDirection,
   initialSliceSearchTerm,
   initialTab,
+  dimensionInfo,
 }) => {
   const { analysis } = useSnapshot();
 
-  // TODO: Check if it is safe to use first results
-  const results = analysis?.results?.[0] ?? initialResults;
+  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
+  // which contains the correct dimension-specific data. Otherwise, use snapshot results.
+  const results = dimensionInfo
+    ? initialResults
+    : (analysis?.results?.[0] ?? initialResults);
 
   // TODO: Check what we need here
   const [expandedMetrics] = useState<Record<string, boolean>>(() => {
@@ -277,6 +285,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           localDifferenceType={localDifferenceType}
           setLocalDifferenceType={setLocalDifferenceType}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -307,6 +316,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setSearchTerm={setSliceSearchTerm}
           visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="debug">
@@ -371,6 +381,8 @@ const MetricDrilldownModal = ({
   initialSortDirection,
   // Slice-specific
   initialSliceSearchTerm,
+  // Dimension info
+  dimensionInfo,
 }: MetricDrilldownModalProps) => {
   useKeydown("Escape", close);
   useBodyScrollLock(true);
@@ -427,6 +439,7 @@ const MetricDrilldownModal = ({
     localSortDirection,
     initialSliceSearchTerm,
     initialTab,
+    dimensionInfo,
   };
 
   return (
