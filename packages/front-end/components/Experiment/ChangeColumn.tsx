@@ -11,10 +11,12 @@ import {
   getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { CursorTooltip } from "@/hooks/useCursorTooltip";
+import { useHoverTooltip } from "@/hooks/useCursorTooltip";
+import { Popover } from "@/ui/Popover";
+import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
+import styles from "./PercentGraph.module.scss";
 
 interface Props
   extends DetailedHTMLProps<
@@ -25,7 +27,11 @@ interface Props
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
-    "directionalStatus" | "enoughData" | "hasScaledImpact"
+    | "directionalStatus"
+    | "enoughData"
+    | "hasScaledImpact"
+    | "resultsStatus"
+    | "significant"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -50,13 +56,10 @@ export default function ChangeColumn({
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
-  const _confidenceLevels = useConfidenceLevels();
   const { getFactTableById: _getFactTableById } = useDefinitions();
 
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
-  const { ciUpperDisplay } =
-    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
 
   const expected = stats?.expected ?? 0;
   const ci0 = stats?.ciAdjusted?.[0] ?? stats?.ci?.[0] ?? 0;
@@ -75,11 +78,18 @@ export default function ChangeColumn({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
+  const showPopover = !!stats?.ci;
+
+  const {
+    handleMouseEnter,
+    handleMouseMove,
+    handleMouseLeave,
+    renderAtAnchor,
+  } = useHoverTooltip({ enabled: showPopover, positioning: "cursor" });
+
   if (!rowResults.hasScaledImpact && differenceType === "scaled") {
     return null;
   }
-
-  const ciTooltipText = `${ciUpperDisplay} CI: [${formatter(ci0, formatterOptions)}, ${formatter(ci1, formatterOptions)}]`;
 
   const changeContent = (
     <div
@@ -127,15 +137,59 @@ export default function ChangeColumn({
       {metric && rowResults.enoughData ? (
         <td className={clsx("results-change", className)} {...otherProps}>
           <Flex align="center" justify="end" gap="2">
-            <CursorTooltip content={ciTooltipText}>
+            <span
+              onMouseEnter={handleMouseEnter}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+              style={{ display: "contents" }}
+            >
               {changeContent}
-            </CursorTooltip>
+            </span>
             {additionalButton}
           </Flex>
         </td>
       ) : (
         <td />
       )}
+      {showPopover &&
+        renderAtAnchor((pos) => (
+          <Popover
+            disableDismiss={true}
+            open={true}
+            onOpenChange={() => {}}
+            trigger={
+              <span
+                style={{
+                  position: "fixed",
+                  left: pos.x,
+                  top: pos.y - 10,
+                  width: 1,
+                  height: 1,
+                  pointerEvents: "none",
+                }}
+              />
+            }
+            contentStyle={{
+              padding: 0,
+            }}
+            anchorOnly
+            side="top"
+            align="center"
+            showArrow={false}
+            contentClassName={styles.popoverContent}
+            content={
+              <ExperimentResultTooltipContent
+                stats={stats}
+                metric={metric}
+                significant={rowResults.significant}
+                resultsStatus={rowResults.resultsStatus}
+                differenceType={differenceType}
+                statsEngine={statsEngine}
+                ssrPolyfills={ssrPolyfills}
+              />
+            }
+          />
+        ))}
     </>
   );
 }

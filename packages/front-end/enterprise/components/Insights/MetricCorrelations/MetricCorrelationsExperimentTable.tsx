@@ -303,6 +303,9 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                     enoughData: true,
                     directionalStatus: mr.directionalStatus ?? "losing",
                     hasScaledImpact: true,
+                    significant: mr.significant ?? false,
+                    resultsStatus:
+                      (mr.resultsStatus as "won" | "lost" | "draw") ?? "",
                   }}
                   showPlusMinus={false}
                   statsEngine={e.statsEngine}

@@ -236,6 +236,9 @@ function MetricExperimentResultTab({
                 enoughData: true,
                 directionalStatus: e.directionalStatus ?? "losing",
                 hasScaledImpact: true,
+                significant: e.significant ?? false,
+                resultsStatus:
+                  (e.resultsStatus as "won" | "lost" | "draw") ?? "",
               }}
               showPlusMinus={false}
               statsEngine={e.statsEngine}

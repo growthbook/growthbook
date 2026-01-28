@@ -5,19 +5,18 @@ import {
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
-import { DifferenceType } from "shared/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  formatPercent,
-  getExperimentMetricFormatter,
-} from "@/services/metrics";
-import { useCursorTooltip } from "@/hooks/useCursorTooltip";
+import { useHoverTooltip } from "@/hooks/useCursorTooltip";
+import { Popover } from "@/ui/Popover";
 import AlignedGraph from "./AlignedGraph";
+import ExperimentResultTooltipContent, {
+  ResultStatus,
+} from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
+import styles from "./PercentGraph.module.scss";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -41,6 +40,8 @@ interface Props
   rowStatus?: string;
   ssrPolyfills?: SSRPolyfills;
   differenceType?: DifferenceType;
+  resultsStatus?: ResultStatus;
+  statsEngine?: StatsEngine;
 }
 
 export default function PercentGraph({
@@ -64,28 +65,20 @@ export default function PercentGraph({
   rowStatus,
   ssrPolyfills,
   differenceType = "relative",
+  resultsStatus = "",
+  statsEngine = "frequentist",
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
-  const _displayCurrency = useCurrency();
-  const { getFactTableById: _getFactTableById } = useDefinitions();
 
   const metricDefaults =
     ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
     _metricDefaults;
-  const { ciUpper, ciLower, ciUpperDisplay } =
+  const { ciUpper, ciLower } =
     ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
-  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-
-  const {
-    handleMouseMove: tooltipMouseMove,
-    handleMouseLeave: tooltipMouseLeave,
-    renderTooltip,
-  } = useCursorTooltip();
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
 
@@ -107,41 +100,20 @@ export default function PercentGraph({
     }
   }
 
-  const formatCI = () => {
-    const ci = stats?.ciAdjusted ?? stats?.ci;
-    if (!ci || ci.length < 2) return null;
+  const showPopover = showGraph && stats?.ci;
 
-    const formatter =
-      differenceType === "relative"
-        ? formatPercent
-        : getExperimentMetricFormatter(
-            metric,
-            getFactTableById,
-            differenceType === "absolute" ? "percentagePoints" : "number",
-          );
-    const formatterOptions: Intl.NumberFormatOptions = {
-      currency: displayCurrency,
-      ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
-      ...(differenceType === "scaled" ? { notation: "compact" } : {}),
-    };
+  const {
+    handleMouseEnter: popoverMouseEnter,
+    handleMouseLeave: popoverMouseLeave,
+    renderAtAnchor,
+  } = useHoverTooltip({ enabled: !!showPopover, positioning: "element" });
 
-    return `${ciUpperDisplay} CI: [${formatter(ci[0], formatterOptions)}, ${formatter(ci[1], formatterOptions)}]`;
-  };
-
-  const ciText = showGraph ? formatCI() : null;
-
-  // Combine external mouse handlers with tooltip handlers
-  const handleMouseMove = (e: React.MouseEvent<SVGPathElement>) => {
-    if (ciText) {
-      tooltipMouseMove(e);
-    }
-    onMouseMove?.(e);
+  const handleMouseEnter = (e: React.MouseEvent<SVGPathElement>) => {
+    popoverMouseEnter(e);
   };
 
   const handleMouseLeave = (e: React.MouseEvent<SVGPathElement>) => {
-    if (ciText) {
-      tooltipMouseLeave();
-    }
+    popoverMouseLeave();
     onMouseLeave?.(e);
   };
 
@@ -164,12 +136,51 @@ export default function PercentGraph({
         className={className}
         isHovered={isHovered}
         percent={percent}
-        onMouseMove={handleMouseMove}
+        onMouseMove={onMouseMove}
+        onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={onClick}
         rowStatus={rowStatus}
       />
-      {ciText && renderTooltip(ciText)}
+      {showPopover &&
+        renderAtAnchor((pos) => (
+          <Popover
+            disableDismiss={true}
+            open={true}
+            onOpenChange={() => {}}
+            trigger={
+              <span
+                style={{
+                  position: "fixed",
+                  left: pos.x,
+                  top: pos.y - 10,
+                  width: 1,
+                  height: 1,
+                  pointerEvents: "none",
+                }}
+              />
+            }
+            contentStyle={{
+              padding: 0,
+            }}
+            anchorOnly
+            side="top"
+            align="center"
+            showArrow={false}
+            contentClassName={styles.popoverContent}
+            content={
+              <ExperimentResultTooltipContent
+                stats={stats}
+                metric={metric}
+                significant={significant ?? false}
+                resultsStatus={resultsStatus}
+                differenceType={differenceType}
+                statsEngine={statsEngine}
+                ssrPolyfills={ssrPolyfills}
+              />
+            }
+          />
+        ))}
     </>
   );
 }

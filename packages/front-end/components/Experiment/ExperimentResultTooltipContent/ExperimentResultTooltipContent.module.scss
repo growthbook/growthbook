@@ -1,0 +1,34 @@
+.badge {
+  background-color: var(--gray-12);
+  color: var(--gray-1);
+  border-radius: var(--radius-3) var(--radius-3) 0 0;
+  //   display: flex;
+  //   padding: var(--space-1) var(--space-2);
+  //   font-size: 10px;
+  //   font-weight: 600;
+  //   letter-spacing: 0.02em;
+  //   white-space: nowrap;
+}
+
+.badgeWon {
+  background-color: var(--green-11);
+}
+
+.badgeLost {
+  background-color: var(--red-11);
+}
+
+// .ciText {
+//   font-size: 12px;
+//   font-weight: 500;
+//   color: var(--color-text-high);
+//   white-space: nowrap;
+// }
+
+// .ciTextWon {
+//   color: var(--green-11);
+// }
+
+// .ciTextLost {
+//   color: var(--red-a12);
+// }

@@ -527,7 +527,7 @@ export default function ResultsTable({
     handleMouseLeave: onRowMouseLeave,
     renderTooltip: renderRowTooltip,
   } = useCursorTooltip({
-    delay: 2000,
+    delayMs: 1500,
     enabled: !!onRowClick && !noTooltip,
   });
 
@@ -1179,6 +1179,10 @@ export default function ResultsTable({
                                               ? rowResults.resultsStatus
                                               : undefined
                                           }
+                                          resultsStatus={
+                                            rowResults.resultsStatus
+                                          }
+                                          statsEngine={statsEngine}
                                           ssrPolyfills={ssrPolyfills}
                                         />
                                       ) : (
@@ -1279,9 +1283,9 @@ export default function ResultsTable({
                         </tbody>
                         {renderRowTooltip(
                           <>
-                            Click anywhere in a row to view a
+                            Click anywhere in a row to
                             <br />
-                            detailed breakdown of metric values
+                            open the Metric Drilldown.
                           </>,
                         )}
                       </>
