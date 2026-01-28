@@ -1240,6 +1240,20 @@ export class Permissions {
     return this.hasPermission("readData", project || "");
   };
 
+  // Project IDs where the user has the given permission
+  // Return value:
+  //   string[] = specific projects
+  //   [] = no projects
+  //   null = global (all projects)
+  public getProjectsWithPermission = (
+    permission: Permission,
+  ): string[] | null => {
+    if (this.hasPermission(permission, "")) return null;
+    return Object.keys(this.userPermissions.projects).filter((p) =>
+      this.hasPermission(permission, p),
+    );
+  };
+
   public canReadMultiProjectResource = (
     projects: string[] | undefined,
   ): boolean => {
