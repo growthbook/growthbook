@@ -63,7 +63,6 @@ jobs:
             DD_GIT_COMMIT_SHA=${{ github.sha }}
             DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
             DD_VERSION=${{ github.sha }}
-            INJECT_SENTRY_DEBUG_ID=true
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
@@ -117,6 +116,7 @@ jobs:
           environment: "production"
           sourcemaps: "./back-end-dist"
           release: ${{ github.sha }}
+          inject: false
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
@@ -128,6 +128,8 @@ jobs:
           environment: "production"
           sourcemaps: "./front-end-dist"
           release: ${{ github.sha }}
+          inject: false
+          url_prefix: "~/_next"
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
