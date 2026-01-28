@@ -210,6 +210,9 @@ tags:
   - name: MetricAnalysis_model
     x-displayName: MetricAnalysis
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
+  - name: MetricUsage_model
+    x-displayName: MetricUsage
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -3326,6 +3329,49 @@ paths:
                 properties:
                   deletedId:
                     type: string
+  /metric-usage:
+    post:
+      summary: Get metric usage across experiments
+      description: |
+        Returns usage information for one or more metrics, showing which experiments use each metric 
+        and summary statistics. Metric groups are automatically expanded to include their member metrics.
+      tags:
+        - metrics
+      operationId: postMetricUsage
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/metric-usage \
+              -d '{"metricIds":["met_abc123","met_xyz456"]}' \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - metricIds
+              properties:
+                metricIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of metric IDs to get usage for
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricUsage
+                properties:
+                  metricUsage:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MetricUsage'
   '/visual-changesets/{id}':
     get:
       parameters:
@@ -14163,6 +14209,54 @@ components:
           description: 'The status of the analysis (e.g., "running", "completed", "error")'
         settings:
           type: object
+    MetricUsage:
+      type: object
+      required:
+        - metricId
+        - experiments
+        - nRunningExperiments
+        - nTotalExperiments
+        - lastSnapshotAttempt
+      properties:
+        metricId:
+          type: string
+          description: The metric ID
+        experiments:
+          type: array
+          description: List of experiments using this metric
+          items:
+            type: object
+            required:
+              - experimentId
+              - experimentStatus
+              - lastSnapshotAttempt
+            properties:
+              experimentId:
+                type: string
+                description: The experiment ID
+              experimentStatus:
+                type: string
+                enum:
+                  - draft
+                  - running
+                  - stopped
+                description: The current status of the experiment
+              lastSnapshotAttempt:
+                type: string
+                format: date-time
+                nullable: true
+                description: The last time a snapshot was attempted for this experiment
+        nRunningExperiments:
+          type: integer
+          description: Number of running experiments using this metric
+        nTotalExperiments:
+          type: integer
+          description: Total number of experiments using this metric
+        lastSnapshotAttempt:
+          type: string
+          format: date-time
+          nullable: true
+          description: The most recent snapshot attempt across all experiments using this metric
     Member:
       type: object
       required:
@@ -14630,6 +14724,7 @@ x-tagGroups:
       - Member_model
       - Metric_model
       - MetricAnalysis_model
+      - MetricUsage_model
       - Organization_model
       - PaginationFields_model
       - Project_model

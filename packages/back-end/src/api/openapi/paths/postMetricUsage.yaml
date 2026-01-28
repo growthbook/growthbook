@@ -1,0 +1,36 @@
+post:
+  summary: Get metric usage across experiments
+  description: |
+    Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
+    and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+    access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+    all experiments.
+  tags:
+    - metrics
+  operationId: postMetricUsage
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/metric-usage \
+          -d '{"metricIds":["met_abc123","met_xyz456"]}' \
+          -H "Content-Type: application/json" \
+          -u secret_abc123DEF456:
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../payload-schemas/PostMetricUsagePayload.yaml"
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - metricUsage
+            properties:
+              metricUsage:
+                type: array
+                items:
+                  $ref: "../schemas/MetricUsage.yaml"
