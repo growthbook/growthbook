@@ -250,7 +250,7 @@ export async function getFeaturesPage(
     includeArchived,
   });
   const docs = await FeatureModel.find(q)
-    .sort({ dateCreated: 1 })
+    .sort({ dateCreated: 1, id: 1 })
     .skip(offset)
     .limit(limit);
   return docs

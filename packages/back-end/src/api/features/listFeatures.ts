@@ -103,7 +103,11 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       });
       const filteredFeatures = features
         .filter((f) => f.id in payload.features)
-        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime());
+        .sort(
+          (a, b) =>
+            a.dateCreated.getTime() - b.dateCreated.getTime() ||
+            (a.id || "").localeCompare(b.id || ""),
+        );
       if (skipPagination) {
         filtered = filteredFeatures;
         total = filteredFeatures.length;
@@ -120,7 +124,9 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
           includeArchived: true,
         });
         const sorted = features.sort(
-          (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
+          (a, b) =>
+            a.dateCreated.getTime() - b.dateCreated.getTime() ||
+            (a.id || "").localeCompare(b.id || ""),
         );
         filtered = sorted;
         total = sorted.length;
@@ -145,7 +151,9 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
           includeArchived: true,
         });
         const sorted = features.sort(
-          (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
+          (a, b) =>
+            a.dateCreated.getTime() - b.dateCreated.getTime() ||
+            (a.id || "").localeCompare(b.id || ""),
         );
         filtered = sorted;
         total = sorted.length;
