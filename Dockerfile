@@ -28,6 +28,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
+COPY .npmrc ./.npmrc
 COPY package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
