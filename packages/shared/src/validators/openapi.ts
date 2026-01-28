@@ -90,7 +90,7 @@ export const apiCodeRefValidator = z.object({ "organization": z.string().describ
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional(), "skipPagination": z.boolean().default(false) }).strict(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional(), "skipPagination": z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1")]).optional().default(false).transform((v) => v === true || v === "true" || v === "1") }).strict(),
   paramsSchema: z.never(),
 };
 
