@@ -69,7 +69,7 @@ export class SdkWebhookModel extends BaseClass {
   public async findAllSdkWebhooksByConnectionIds(
     sdkConnectionIds: string[],
   ): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       sdks: { $in: sdkConnectionIds },
     });
   }
@@ -77,7 +77,7 @@ export class SdkWebhookModel extends BaseClass {
   public async findAllSdkWebhooksByPayloadFormat(
     payloadFormat: string,
   ): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       payloadFormat,
     });
   }
@@ -85,13 +85,13 @@ export class SdkWebhookModel extends BaseClass {
   public async findAllSdkWebhooksByConnection(
     sdkConnectionId: string,
   ): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       sdks: sdkConnectionId,
     });
   }
 
   public async findAllLegacySdkWebhooks(): Promise<WebhookInterface[]> {
-    return await this.getAll({
+    return await this._find({
       useSdkMode: { $ne: true },
     });
   }
