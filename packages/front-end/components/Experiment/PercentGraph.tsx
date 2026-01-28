@@ -5,10 +5,18 @@ import {
   hasEnoughData,
   isStatSig,
 } from "shared/experiments";
+import { DifferenceType } from "shared/types/stats";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  formatPercent,
+  getExperimentMetricFormatter,
+} from "@/services/metrics";
+import { useCursorTooltip } from "@/hooks/useCursorTooltip";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props
@@ -32,6 +40,7 @@ interface Props
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
   rowStatus?: string;
   ssrPolyfills?: SSRPolyfills;
+  differenceType?: DifferenceType;
 }
 
 export default function PercentGraph({
@@ -54,18 +63,29 @@ export default function PercentGraph({
   onClick,
   rowStatus,
   ssrPolyfills,
+  differenceType = "relative",
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
 
   const metricDefaults =
     ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
     _metricDefaults;
-  const { ciUpper, ciLower } =
+  const { ciUpper, ciLower, ciUpperDisplay } =
     ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+
+  const {
+    handleMouseMove: tooltipMouseMove,
+    handleMouseLeave: tooltipMouseLeave,
+    renderTooltip,
+  } = useCursorTooltip();
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
 
@@ -87,28 +107,69 @@ export default function PercentGraph({
     }
   }
 
+  const formatCI = () => {
+    const ci = stats?.ciAdjusted ?? stats?.ci;
+    if (!ci || ci.length < 2) return null;
+
+    const formatter =
+      differenceType === "relative"
+        ? formatPercent
+        : getExperimentMetricFormatter(
+            metric,
+            getFactTableById,
+            differenceType === "absolute" ? "percentagePoints" : "number",
+          );
+    const formatterOptions: Intl.NumberFormatOptions = {
+      currency: displayCurrency,
+      ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
+      ...(differenceType === "scaled" ? { notation: "compact" } : {}),
+    };
+
+    return `${ciUpperDisplay} CI: [${formatter(ci[0], formatterOptions)}, ${formatter(ci[1], formatterOptions)}]`;
+  };
+
+  const ciText = showGraph ? formatCI() : null;
+
+  // Combine external mouse handlers with tooltip handlers
+  const handleMouseMove = (e: React.MouseEvent<SVGPathElement>) => {
+    if (ciText) {
+      tooltipMouseMove(e);
+    }
+    onMouseMove?.(e);
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent<SVGPathElement>) => {
+    if (ciText) {
+      tooltipMouseLeave();
+    }
+    onMouseLeave?.(e);
+  };
+
   return (
-    <AlignedGraph
-      ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
-      id={id}
-      domain={domain}
-      uplift={showGraph ? stats.uplift : undefined}
-      expected={showGraph ? stats.expected : undefined}
-      barType={barType}
-      barFillType={barFillType}
-      axisOnly={!showGraph}
-      showAxis={false}
-      significant={significant}
-      graphWidth={graphWidth}
-      height={height}
-      inverse={!!metric?.inverse}
-      className={className}
-      isHovered={isHovered}
-      percent={percent}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      onClick={onClick}
-      rowStatus={rowStatus}
-    />
+    <>
+      <AlignedGraph
+        ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
+        id={id}
+        domain={domain}
+        uplift={showGraph ? stats.uplift : undefined}
+        expected={showGraph ? stats.expected : undefined}
+        barType={barType}
+        barFillType={barFillType}
+        axisOnly={!showGraph}
+        showAxis={false}
+        significant={significant}
+        graphWidth={graphWidth}
+        height={height}
+        inverse={!!metric?.inverse}
+        className={className}
+        isHovered={isHovered}
+        percent={percent}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={onClick}
+        rowStatus={rowStatus}
+      />
+      {ciText && renderTooltip(ciText)}
+    </>
   );
 }
