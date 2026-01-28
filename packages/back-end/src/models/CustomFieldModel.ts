@@ -85,6 +85,21 @@ export class CustomFieldModel extends BaseClass {
     return this.context.hasPremiumFeature("custom-metadata");
   }
 
+  /**
+   * JIT readonly migration: normalize projects so [""] from legacy data
+   * is never returned. Does not persist.
+   */
+  protected migrate(legacyDoc: unknown): z.infer<typeof customFieldsValidator> {
+    const doc = legacyDoc as z.infer<typeof customFieldsValidator>;
+    return {
+      ...doc,
+      fields: doc.fields.map((f) => ({
+        ...f,
+        projects: (f.projects ?? []).filter((p) => p !== ""),
+      })),
+    };
+  }
+
   public async getCustomFields() {
     const customFieldsArr = await this.getAll();
     if (customFieldsArr && customFieldsArr.length > 0) {
@@ -162,6 +177,7 @@ export class CustomFieldModel extends BaseClass {
     const newCustomField = {
       active: true,
       ...customField,
+      projects: (customField.projects ?? []).filter((p) => p !== ""),
       creator: this.context.userId,
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -201,13 +217,15 @@ export class CustomFieldModel extends BaseClass {
     }
     const newFields = existing.fields.map((field) => {
       if (field.id === customFieldId) {
-        return {
+        const merged = {
           ...field,
           ...customFieldUpdates,
           id: customFieldId,
           dateCreated: field.dateCreated,
           dateUpdated: new Date(),
-        } as CustomField;
+        };
+        merged.projects = (merged.projects ?? []).filter((p) => p !== "");
+        return merged as CustomField;
       }
       return field;
     });
