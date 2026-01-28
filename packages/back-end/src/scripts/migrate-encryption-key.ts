@@ -56,14 +56,12 @@ async function run() {
         params: encryptParams(parsed),
       });
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.log(`- Could not decrypt '${ds.name}' (${ds.id}), skipping`);
     }
   }
 }
 run()
   .then(() => {
-    // eslint-disable-next-line no-console
     console.log("Done!");
   })
   .catch((e) => {

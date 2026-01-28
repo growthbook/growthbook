@@ -1,9 +1,6 @@
 import { FC } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "shared/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -13,7 +10,7 @@ import Badge from "@/ui/Badge";
 
 interface SavedGroupReferencesListProps {
   features?: FeatureInterface[];
-  experiments?: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
+  experiments?: ExperimentInterfaceStringDates[];
   savedGroups?: SavedGroupWithoutValues[];
 }
 

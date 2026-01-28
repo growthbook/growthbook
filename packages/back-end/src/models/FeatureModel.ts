@@ -1174,6 +1174,40 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
   return !!feature;
 }
 
+export async function getFeatureMetaInfoById(
+  context: ReqContext | ApiReqContext,
+  includeDefaultValue = false,
+): Promise<FeatureMetaInfo[]> {
+  const projection: Record<string, number> = {
+    id: 1,
+    project: 1,
+    archived: 1,
+    dateCreated: 1,
+    tags: 1,
+    owner: 1,
+    valueType: 1,
+  };
+  if (includeDefaultValue) {
+    projection.defaultValue = 1;
+  }
+
+  const features = await FeatureModel.find(
+    { organization: context.org.id },
+    projection,
+  );
+
+  return features.map((f) => ({
+    id: f.id,
+    project: f.project,
+    archived: f.archived,
+    dateCreated: f.dateCreated,
+    tags: f.tags,
+    owner: f.owner,
+    valueType: f.valueType,
+    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+  }));
+}
+
 export async function getFeatureMetaInfoByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],

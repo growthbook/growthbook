@@ -34,7 +34,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<null | string>(null);
   const { refreshOrganization } = useUser();
 
-  const { features } = useFeaturesList(false);
+  const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
 
   const { attributeFeatures, attributeExperiments, attributeGroups } =
