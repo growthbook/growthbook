@@ -158,8 +158,7 @@ const featureSchema = new mongoose.Schema({
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
-featureSchema.index({ organization: 1, project: 1, dateCreated: 1 });
-featureSchema.index({ organization: 1, dateCreated: 1 });
+featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -250,7 +249,7 @@ export async function getFeaturesPage(
     includeArchived,
   });
   const docs = await FeatureModel.find(q)
-    .sort({ dateCreated: 1 })
+    .sort({ _id: 1 })
     .skip(offset)
     .limit(limit);
   return docs
