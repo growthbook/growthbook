@@ -563,7 +563,10 @@ const AnalysisForm: FC<{
                     {!isExperimentIncludedInIncrementalRefresh ? (
                       <>
                         {" "}
-                        <MetricsSelectorTooltip onlyBinomial={true} />
+                        <MetricsSelectorTooltip
+                          onlyBinomial={true}
+                          isSingular={true}
+                        />
                       </>
                     ) : null}
                   </>
