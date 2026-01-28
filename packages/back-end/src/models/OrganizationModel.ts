@@ -501,6 +501,7 @@ export const customRoleValidator = z
     id: z.string().min(2).max(64),
     description: z.string().max(100),
     policies: z.array(z.enum(POLICIES)),
+    displayName: z.string().max(64).optional(),
   })
   .strict();
 
@@ -511,6 +512,13 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
   // Make sure role id is not reserved
   if (RESERVED_ROLE_IDS.includes(role.id)) {
     throw new Error("That role id is reserved and cannot be used");
+  }
+
+  // Make sure role id doesn't start with gbDefault_ prefix
+  if (role.id.startsWith("gbDefault_")) {
+    throw new Error(
+      "Role id cannot start with 'gbDefault_' as this prefix is reserved for default roles",
+    );
   }
 
   // Make sure role id is not already in use

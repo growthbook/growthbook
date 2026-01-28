@@ -319,6 +319,7 @@ const ProjectPage: FC = () => {
                   mutate={refreshOrganization}
                   project={pid}
                   canEditRoles={canManageTeam}
+                  canEditProjectRoles={canEditSettings}
                   canDeleteMembers={false}
                   canInviteMembers={false}
                 />

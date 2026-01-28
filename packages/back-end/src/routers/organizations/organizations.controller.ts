@@ -21,6 +21,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  ProjectMemberRole,
   Role,
   SDKAttribute,
 } from "shared/types/organization";
@@ -143,6 +144,7 @@ import {
   getEffectiveAccountPlan,
   getLicenseError,
   getSubscriptionFromLicense,
+  orgHasPremiumFeature,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
@@ -487,6 +489,98 @@ export async function putMemberRole(
     return res.status(400).json({
       status: 400,
       message: e.message || "Failed to change role",
+    });
+  }
+}
+
+export async function putMemberProjectRole(
+  req: AuthRequest<{ projectRole: ProjectMemberRole }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  const { org, userId } = context;
+  const { projectRole } = req.body;
+  const { id } = req.params;
+
+  // Project-admins can update project roles for their project - so we check if they have the canUpdateProject permission
+  // rather than the canManageTeam permission
+  if (!context.permissions.canUpdateProject(projectRole.project)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (id === userId) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot change your own role",
+    });
+  }
+
+  if (!orgHasPremiumFeature(org, "advanced-permissions")) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Your plan does not support providing users with project-level permissions.",
+    });
+  }
+
+  // Validate the project role
+  const { memberIsValid, reason } = validateRoleAndEnvs(
+    org,
+    projectRole.role,
+    projectRole.limitAccessByEnvironment || false,
+    projectRole.environments,
+  );
+
+  if (!memberIsValid) {
+    return res.status(400).json({
+      status: 400,
+      message: reason,
+    });
+  }
+  const updatedProjectRole: ProjectMemberRole = {
+    ...projectRole,
+  };
+
+  let found = false;
+  org.members.forEach((m) => {
+    if (m.id === id) {
+      if (!m.projectRoles) {
+        m.projectRoles = [];
+      }
+      // Check if project role already exists
+      const existingIndex = m.projectRoles.findIndex(
+        (pr) => pr.project === projectRole.project,
+      );
+      if (existingIndex >= 0) {
+        // Update existing project role
+        m.projectRoles[existingIndex] = updatedProjectRole;
+      } else {
+        // Add new project role
+        m.projectRoles.push(updatedProjectRole);
+      }
+      found = true;
+    }
+  });
+
+  if (!found) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+
+  try {
+    await updateOrganization(org.id, {
+      members: org.members,
+    });
+    return res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to update project role",
     });
   }
 }
