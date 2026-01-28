@@ -6,6 +6,7 @@ parameters:
   - $ref: "../parameters.yaml#/offset"
   - $ref: "../parameters.yaml#/projectId"
   - $ref: "../parameters.yaml#/clientKey"
+  - $ref: "../parameters.yaml#/skipPagination"
 operationId: listFeatures
 x-codeSamples:
   - lang: "cURL"

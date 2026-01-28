@@ -96,3 +96,10 @@ clientKey:
   description: Filter by a SDK connection's client key
   schema:
     type: string
+skipPagination:
+  name: skipPagination
+  in: query
+  description: If true, return all matching features and ignore limit/offset
+  schema:
+    type: boolean
+    default: false

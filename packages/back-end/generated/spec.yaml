@@ -260,6 +260,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/skipPagination'
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -11102,6 +11103,13 @@ components:
       description: Filter by a SDK connection's client key
       schema:
         type: string
+    skipPagination:
+      name: skipPagination
+      in: query
+      description: 'If true, return all matching features and ignore limit/offset'
+      schema:
+        type: boolean
+        default: false
   schemas:
     Dashboard:
       $schema: 'https://json-schema.org/draft/2020-12/schema'

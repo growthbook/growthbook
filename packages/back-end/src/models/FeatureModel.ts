@@ -210,6 +210,64 @@ export async function getAllFeatures(
   );
 }
 
+export async function getFeaturesPage(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+    limit = 10,
+    offset = 0,
+  }: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<FeatureInterface[]> {
+  if (projectIds?.length === 0) return [];
+  const q: FilterQuery<FeatureDocument> = {
+    organization: context.org.id,
+    ...(project != null
+      ? { project }
+      : projectIds != null
+        ? { project: { $in: projectIds } }
+        : {}),
+    ...(includeArchived ? {} : { archived: { $ne: true } }),
+  };
+  const docs = await FeatureModel.find(q)
+    .sort({ dateCreated: 1 })
+    .skip(offset)
+    .limit(limit);
+  return docs
+    .map((m) => upgradeFeatureInterface(toInterface(m, context)))
+    .filter((feature) =>
+      context.permissions.canReadSingleProjectResource(feature.project),
+    );
+}
+
+export async function countFeatures(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+  }: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+): Promise<number> {
+  if (projectIds?.length === 0) return 0;
+  const q: FilterQuery<FeatureDocument> = {
+    organization: context.org.id,
+    ...(project != null
+      ? { project }
+      : projectIds != null
+        ? { project: { $in: projectIds } }
+        : {}),
+    ...(includeArchived ? {} : { archived: { $ne: true } }),
+  };
+  return FeatureModel.countDocuments(q);
+}
+
 export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string,

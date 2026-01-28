@@ -4045,6 +4045,8 @@ export interface components {
     globalRole: string;
     /** @description Filter by a SDK connection's client key */
     clientKey: string;
+    /** @description If true, return all matching features and ignore limit/offset */
+    skipPagination: boolean;
   };
   requestBodies: never;
   headers: never;
@@ -4062,11 +4064,13 @@ export interface operations {
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
         /** @description Filter by a SDK connection's client key */
+        /** @description If true, return all matching features and ignore limit/offset */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
         clientKey?: string;
+        skipPagination?: boolean;
       };
     };
     responses: {
