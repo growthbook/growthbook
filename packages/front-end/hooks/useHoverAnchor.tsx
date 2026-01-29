@@ -104,7 +104,6 @@ interface UseHoverAnchorReturn {
   /**
    * Renders content at the anchor position using a portal.
    * The render function receives the position and should return the content to render.
-   * This allows consumers to use any component (Tooltip, Popover, custom) for rendering.
    */
   renderAtAnchor: (
     render: (pos: { x: number; y: number }) => React.ReactNode,

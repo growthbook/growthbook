@@ -7,7 +7,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useHoverAnchor, UseHoverAnchorOptions } from "@/hooks/useHoverAnchor";
 import { Popover } from "@/ui/Popover";
 import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
-import styles from "./PercentGraph.module.scss";
+import styles from "./useResultPopover.module.scss";
 
 const POPOVER_VERTICAL_OFFSET = 10;
 
