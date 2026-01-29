@@ -85,8 +85,8 @@ interface MetricDrilldownModalProps {
   // Slice-specific props
   initialSliceSearchTerm?: string;
 
-  // Dimension info (when opened from BreakDownResults)
-  dimensionInfo?: { name: string; value: string };
+  // Dimension info
+  dimensionInfo?: { name: string; value: string; index: number };
 }
 
 /**
@@ -131,8 +131,7 @@ interface MetricDrilldownContentProps {
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
-  // When true, use initialResults directly (for dimension-specific data from BreakDownResults)
-  useInitialResults?: boolean;
+  dimensionInfo?: { name: string; value: string; index: number };
 }
 
 const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
@@ -167,13 +166,13 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localSortDirection,
   initialSliceSearchTerm,
   initialTab,
-  useInitialResults,
+  dimensionInfo,
 }) => {
   const { analysis } = useSnapshot();
 
-  // When useInitialResults is true (from BreakDownResults), use the passed initialResults
+  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
   // which contains the correct dimension-specific data. Otherwise, use snapshot results.
-  const results = useInitialResults
+  const results = dimensionInfo
     ? initialResults
     : (analysis?.results?.[0] ?? initialResults);
 
@@ -438,7 +437,7 @@ const MetricDrilldownModal = ({
     localSortDirection,
     initialSliceSearchTerm,
     initialTab,
-    useInitialResults: !!dimensionInfo,
+    dimensionInfo,
   };
 
   return (

@@ -101,9 +101,9 @@ function MetricDrilldownOverview({
         tableRowAxis="metric"
         labelHeader={labelHeader}
         renderLabelColumn={({ label }) => (
-          <Flex direction="column" gap="1" ml="3">
-            <Text weight="medium">{label}</Text>
-          </Flex>
+          <Text weight="bold" ml="4">
+            {label}
+          </Text>
         )}
         statsEngine={statsEngine}
         pValueCorrection={pValueCorrection}

@@ -91,8 +91,7 @@ const Results: FC<{
       metricRow: ExperimentTableRow;
       initialTab?: MetricDrilldownTab;
       initialSliceSearchTerm?: string;
-      dimensionInfo?: { name: string; value: string };
-      dimensionIndex?: number;
+      dimensionInfo?: { name: string; value: string; index: number };
     } | null>(null);
 
   // todo: move to snapshot property
@@ -165,13 +164,18 @@ const Results: FC<{
       row: ExperimentTableRow,
       dimensionInfo?: { name: string; value: string },
     ) => {
-      // Find the dimension index if dimensionInfo is provided (from BreakDownResults)
-      let dimensionIndex: number | undefined;
+      // Find the dimension index if dimensionInfo is provided
+      let resolvedDimensionInfo:
+        | { name: string; value: string; index: number }
+        | undefined;
+
       if (dimensionInfo && analysis?.results) {
-        dimensionIndex = analysis.results.findIndex(
+        const index = analysis.results.findIndex(
           (r) => formatDimensionValueForDisplay(r.name) === dimensionInfo.value,
         );
-        if (dimensionIndex === -1) dimensionIndex = undefined;
+        if (index !== -1) {
+          resolvedDimensionInfo = { ...dimensionInfo, index };
+        }
       }
 
       if (row.isSliceRow) {
@@ -180,15 +184,13 @@ const Results: FC<{
           initialTab: "slices",
           initialSliceSearchTerm:
             typeof row.label === "string" ? row.label : "",
-          dimensionInfo,
-          dimensionIndex,
+          dimensionInfo: resolvedDimensionInfo,
         });
       } else {
         setOpenMetricDrilldownModalInfo({
           metricRow: row,
           initialTab: "overview",
-          dimensionInfo,
-          dimensionIndex,
+          dimensionInfo: resolvedDimensionInfo,
         });
       }
     },
@@ -518,14 +520,16 @@ const Results: FC<{
         />
       )}
 
-      {openMetricDrilldownModalInfo !== null && analysis?.results?.[0] && (
+      {openMetricDrilldownModalInfo !== null && analysis && (
         <MetricDrilldownModal
           row={openMetricDrilldownModalInfo.metricRow}
           close={() => setOpenMetricDrilldownModalInfo(null)}
           initialTab={openMetricDrilldownModalInfo.initialTab}
           // useExperimentTableRows parameters
           results={
-            analysis.results[openMetricDrilldownModalInfo.dimensionIndex ?? 0]
+            analysis.results[
+              openMetricDrilldownModalInfo.dimensionInfo?.index ?? 0
+            ]
           }
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
