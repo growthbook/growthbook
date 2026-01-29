@@ -58,7 +58,7 @@ export default function RoleForm({
     }
 
     if (input.displayName && input.displayName.length > 64) {
-      setError("Display name must be 100 characters or less.");
+      setError("Display name must be 64 characters or less.");
       return false;
     }
 
