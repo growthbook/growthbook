@@ -128,7 +128,7 @@ export interface RunFactTableAnalysisParams {
 function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = (hash << 5) - hash + str.charCodeAt(i);
     hash = hash & hash; // Convert to 32bit integer
   }
   return hash;
@@ -149,14 +149,14 @@ function seededRandom(seed: number): () => number {
  * Data pattern types for generating varied mock data.
  */
 type DataPattern =
-  | "steady"           // Relatively flat with small noise
-  | "growing"          // Upward trend
-  | "declining"        // Downward trend
-  | "seasonal"         // Weekly seasonality pattern
-  | "volatile"         // High variance
-  | "spiky"           // Occasional large spikes
-  | "weekend_dip"     // Lower on weekends
-  | "hockey_stick";   // Flat then sudden growth
+  | "steady" // Relatively flat with small noise
+  | "growing" // Upward trend
+  | "declining" // Downward trend
+  | "seasonal" // Weekly seasonality pattern
+  | "volatile" // High variance
+  | "spiky" // Occasional large spikes
+  | "weekend_dip" // Lower on weekends
+  | "hockey_stick"; // Flat then sudden growth
 
 /**
  * Configuration for different metric archetypes.
@@ -166,7 +166,7 @@ interface MetricArchetype {
   baseMean: number;
   baseUnits: number;
   volatility: number; // 0-1 scale
-  isRatio: boolean;   // Whether to include numerator/denominator
+  isRatio: boolean; // Whether to include numerator/denominator
   ratioBase?: number; // Base denominator for ratio metrics
 }
 
@@ -175,25 +175,90 @@ interface MetricArchetype {
  */
 const METRIC_ARCHETYPES: MetricArchetype[] = [
   // Revenue per user - steady with some growth
-  { pattern: "growing", baseMean: 45.50, baseUnits: 12500, volatility: 0.15, isRatio: false },
+  {
+    pattern: "growing",
+    baseMean: 45.5,
+    baseUnits: 12500,
+    volatility: 0.15,
+    isRatio: false,
+  },
   // Conversion rate - ratio metric with weekend dips
-  { pattern: "weekend_dip", baseMean: 0.032, baseUnits: 85000, volatility: 0.08, isRatio: true, ratioBase: 100000 },
+  {
+    pattern: "weekend_dip",
+    baseMean: 0.032,
+    baseUnits: 85000,
+    volatility: 0.08,
+    isRatio: true,
+    ratioBase: 100000,
+  },
   // Page views - high volume, seasonal pattern
-  { pattern: "seasonal", baseMean: 3.2, baseUnits: 450000, volatility: 0.25, isRatio: false },
+  {
+    pattern: "seasonal",
+    baseMean: 3.2,
+    baseUnits: 450000,
+    volatility: 0.25,
+    isRatio: false,
+  },
   // Cart abandonment rate - volatile ratio
-  { pattern: "volatile", baseMean: 0.68, baseUnits: 15000, volatility: 0.2, isRatio: true, ratioBase: 22000 },
+  {
+    pattern: "volatile",
+    baseMean: 0.68,
+    baseUnits: 15000,
+    volatility: 0.2,
+    isRatio: true,
+    ratioBase: 22000,
+  },
   // New signups - hockey stick growth
-  { pattern: "hockey_stick", baseMean: 1, baseUnits: 500, volatility: 0.3, isRatio: false },
+  {
+    pattern: "hockey_stick",
+    baseMean: 1,
+    baseUnits: 500,
+    volatility: 0.3,
+    isRatio: false,
+  },
   // Average session duration - steady
-  { pattern: "steady", baseMean: 245, baseUnits: 180000, volatility: 0.1, isRatio: false },
+  {
+    pattern: "steady",
+    baseMean: 245,
+    baseUnits: 180000,
+    volatility: 0.1,
+    isRatio: false,
+  },
   // Error rate - low with occasional spikes
-  { pattern: "spiky", baseMean: 0.002, baseUnits: 500000, volatility: 0.5, isRatio: true, ratioBase: 500000 },
+  {
+    pattern: "spiky",
+    baseMean: 0.002,
+    baseUnits: 500000,
+    volatility: 0.5,
+    isRatio: true,
+    ratioBase: 500000,
+  },
   // Churn rate - declining (improving)
-  { pattern: "declining", baseMean: 0.045, baseUnits: 25000, volatility: 0.12, isRatio: true, ratioBase: 25000 },
+  {
+    pattern: "declining",
+    baseMean: 0.045,
+    baseUnits: 25000,
+    volatility: 0.12,
+    isRatio: true,
+    ratioBase: 25000,
+  },
   // Orders per day - weekend dip pattern
-  { pattern: "weekend_dip", baseMean: 2.1, baseUnits: 8500, volatility: 0.18, isRatio: false },
+  {
+    pattern: "weekend_dip",
+    baseMean: 2.1,
+    baseUnits: 8500,
+    volatility: 0.18,
+    isRatio: false,
+  },
   // Feature adoption - growing
-  { pattern: "growing", baseMean: 0.15, baseUnits: 45000, volatility: 0.1, isRatio: true, ratioBase: 50000 },
+  {
+    pattern: "growing",
+    baseMean: 0.15,
+    baseUnits: 45000,
+    volatility: 0.1,
+    isRatio: true,
+    ratioBase: 50000,
+  },
 ];
 
 /**
@@ -205,7 +270,7 @@ function applyPattern(
   totalDays: number,
   random: () => number,
   baseValue: number,
-  volatility: number
+  volatility: number,
 ): number {
   const progress = dayIndex / Math.max(totalDays - 1, 1);
   const dayOfWeek = dayIndex % 7;
@@ -265,7 +330,7 @@ function applyPattern(
  */
 function generateHistogram(
   dataPoints: SeriesDataPoint[],
-  bucketCount: number = 20
+  bucketCount: number = 20,
 ): HistogramBucket[] {
   const values = dataPoints.map((d) => d.mean);
   const min = Math.min(...values);
@@ -295,7 +360,7 @@ function generateDataPoints(
   archetype: MetricArchetype,
   random: () => number,
   baseMeanOverride?: number,
-  baseUnitsOverride?: number
+  baseUnitsOverride?: number,
 ): {
   dates: SeriesDataPoint[];
   totalUnits: number;
@@ -309,16 +374,18 @@ function generateDataPoints(
   let totalUnits = 0;
   let sumOfMeans = 0;
 
-  const totalDays = Math.ceil(
-    (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-  ) + 1;
+  const totalDays =
+    Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+    ) + 1;
 
-  const granularityMultiplier = {
-    day: 1,
-    week: 7,
-    month: 30,
-    year: 365,
-  }[granularity] || 1;
+  const granularityMultiplier =
+    {
+      day: 1,
+      week: 7,
+      month: 30,
+      year: 365,
+    }[granularity] || 1;
 
   const incrementDate = (d: Date) => {
     switch (granularity) {
@@ -341,7 +408,7 @@ function generateDataPoints(
 
   for (let d = new Date(startDate); d <= endDate; incrementDate(d)) {
     const dayIndex = Math.floor(
-      (d.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      (d.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     // Apply pattern to get the mean value
@@ -351,12 +418,14 @@ function generateDataPoints(
       totalDays,
       random,
       baseMean,
-      archetype.volatility
+      archetype.volatility,
     );
 
     // Generate units with some correlation to mean
     const unitsVariation = 1 + (random() - 0.5) * 0.4;
-    const units = Math.floor(baseUnits * unitsVariation * granularityMultiplier);
+    const units = Math.floor(
+      baseUnits * unitsVariation * granularityMultiplier,
+    );
 
     // Calculate stddev as percentage of mean
     const stddevPercent = 0.1 + random() * 0.15; // 10-25% of mean
@@ -366,7 +435,9 @@ function generateDataPoints(
     let numerator: number | undefined;
     let denominator: number | undefined;
     if (archetype.isRatio && archetype.ratioBase) {
-      denominator = Math.floor(archetype.ratioBase * unitsVariation * granularityMultiplier);
+      denominator = Math.floor(
+        archetype.ratioBase * unitsVariation * granularityMultiplier,
+      );
       numerator = Math.floor(mean * denominator);
     }
 
@@ -397,7 +468,7 @@ function calculateAggregates(
   sumOfMeans: number,
   totalNumerator: number,
   totalDenominator: number,
-  isRatio: boolean
+  isRatio: boolean,
 ) {
   const aggMean = sumOfMeans / (dates.length || 1);
   let sumOfSquaredDiffs = 0;
@@ -420,7 +491,9 @@ function calculateAggregates(
 /**
  * Generates mock series data based on the metric ID and value type.
  */
-export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesAnalysis {
+export function generateMockSeriesData(
+  params: RunSeriesAnalysisParams,
+): SeriesAnalysis {
   const { factMetricId, valueType, settings } = params;
 
   // Create a unique ID for this analysis
@@ -440,14 +513,20 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
   const granularity = settings.granularity || "day";
 
   // Generate main series data
-  const mainData = generateDataPoints(startDate, endDate, granularity, archetype, random);
+  const mainData = generateDataPoints(
+    startDate,
+    endDate,
+    granularity,
+    archetype,
+    random,
+  );
   const mainAggregates = calculateAggregates(
     mainData.dates,
     mainData.totalUnits,
     mainData.sumOfMeans,
     mainData.totalNumerator,
     mainData.totalDenominator,
-    archetype.isRatio
+    archetype.isRatio,
   );
   const histogram = generateHistogram(mainData.dates);
 
@@ -458,7 +537,7 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
     // In reality, this would be a combination of all dimensions
     const primaryDimension = settings.groupBy[0];
     let groupNames = ["Group A", "Group B", "Group C", "Group D", "Other"];
-    
+
     // Generate realistic group names based on the dimension
     const dimension = primaryDimension.toLowerCase();
     if (dimension.includes("browser")) {
@@ -470,10 +549,20 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
     } else if (dimension.includes("os") || dimension.includes("platform")) {
       groupNames = ["Windows", "macOS", "iOS", "Android", "Linux", "Other"];
     } else if (dimension.includes("source") || dimension.includes("referrer")) {
-      groupNames = ["Google", "Direct", "Facebook", "Twitter", "Email", "Other"];
+      groupNames = [
+        "Google",
+        "Direct",
+        "Facebook",
+        "Twitter",
+        "Email",
+        "Other",
+      ];
     } else if (dimension.includes("status")) {
       groupNames = ["Active", "Inactive", "Pending", "Archived"];
-    } else if (dimension.includes("plan") || dimension.includes("subscription")) {
+    } else if (
+      dimension.includes("plan") ||
+      dimension.includes("subscription")
+    ) {
       groupNames = ["Free", "Starter", "Pro", "Enterprise"];
     } else if (dimension.includes("category")) {
       groupNames = ["Electronics", "Clothing", "Home", "Sports", "Books"];
@@ -485,12 +574,14 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
     if (settings.groupBy.length > 1) {
       const secondDim = settings.groupBy[1].toLowerCase();
       const suffixes = ["A", "B"];
-      if (secondDim.includes("device")) suffixes.splice(0, 2, "Desktop", "Mobile");
-      else if (secondDim.includes("status")) suffixes.splice(0, 2, "Active", "Inactive");
-      
+      if (secondDim.includes("device"))
+        suffixes.splice(0, 2, "Desktop", "Mobile");
+      else if (secondDim.includes("status"))
+        suffixes.splice(0, 2, "Active", "Inactive");
+
       const newGroupNames: string[] = [];
-      groupNames.slice(0, 3).forEach(g => {
-        suffixes.forEach(s => newGroupNames.push(`${g} / ${s}`));
+      groupNames.slice(0, 3).forEach((g) => {
+        suffixes.forEach((s) => newGroupNames.push(`${g} / ${s}`));
       });
       groupNames = newGroupNames;
     }
@@ -508,7 +599,7 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
         archetype,
         groupRandom,
         groupBaseMean,
-        groupBaseUnits
+        groupBaseUnits,
       );
       const groupAggregates = calculateAggregates(
         groupData.dates,
@@ -516,7 +607,7 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
         groupData.sumOfMeans,
         groupData.totalNumerator,
         groupData.totalDenominator,
-        archetype.isRatio
+        archetype.isRatio,
       );
 
       return {
@@ -555,18 +646,51 @@ export function generateMockSeriesData(params: RunSeriesAnalysisParams): SeriesA
  * Fact table archetypes for generating realistic data patterns.
  */
 const FACT_TABLE_ARCHETYPES: Record<string, MetricArchetype> = {
-  ft_orders: { pattern: "weekend_dip", baseMean: 125, baseUnits: 8500, volatility: 0.18, isRatio: false },
-  ft_sessions: { pattern: "seasonal", baseMean: 3.2, baseUnits: 450000, volatility: 0.25, isRatio: false },
-  ft_signups: { pattern: "growing", baseMean: 1, baseUnits: 2500, volatility: 0.22, isRatio: false },
-  ft_errors: { pattern: "spiky", baseMean: 15, baseUnits: 500, volatility: 0.5, isRatio: false },
-  ft_cart: { pattern: "volatile", baseMean: 85, baseUnits: 15000, volatility: 0.2, isRatio: false },
+  ft_orders: {
+    pattern: "weekend_dip",
+    baseMean: 125,
+    baseUnits: 8500,
+    volatility: 0.18,
+    isRatio: false,
+  },
+  ft_sessions: {
+    pattern: "seasonal",
+    baseMean: 3.2,
+    baseUnits: 450000,
+    volatility: 0.25,
+    isRatio: false,
+  },
+  ft_signups: {
+    pattern: "growing",
+    baseMean: 1,
+    baseUnits: 2500,
+    volatility: 0.22,
+    isRatio: false,
+  },
+  ft_errors: {
+    pattern: "spiky",
+    baseMean: 15,
+    baseUnits: 500,
+    volatility: 0.5,
+    isRatio: false,
+  },
+  ft_cart: {
+    pattern: "volatile",
+    baseMean: 85,
+    baseUnits: 15000,
+    volatility: 0.2,
+    isRatio: false,
+  },
 };
 
 /**
  * Generates mock data for a fact table series query.
  */
-export function generateMockFactTableData(params: RunFactTableAnalysisParams): SeriesAnalysis {
-  const { seriesId, factTableId, valueType, unitType, valueColumn, settings } = params;
+export function generateMockFactTableData(
+  params: RunFactTableAnalysisParams,
+): SeriesAnalysis {
+  const { seriesId, factTableId, valueType, unitType, valueColumn, settings } =
+    params;
 
   // Create a unique ID for this analysis
   const analysisId = `mock_ft_${seriesId}_${Date.now()}`;
@@ -618,7 +742,7 @@ export function generateMockFactTableData(params: RunFactTableAnalysisParams): S
     archetype,
     random,
     adjustedBaseMean,
-    adjustedBaseUnits
+    adjustedBaseUnits,
   );
   const mainAggregates = calculateAggregates(
     mainData.dates,
@@ -626,7 +750,7 @@ export function generateMockFactTableData(params: RunFactTableAnalysisParams): S
     mainData.sumOfMeans,
     mainData.totalNumerator,
     mainData.totalDenominator,
-    archetype.isRatio
+    archetype.isRatio,
   );
   const histogram = generateHistogram(mainData.dates);
 
@@ -646,7 +770,7 @@ export function generateMockFactTableData(params: RunFactTableAnalysisParams): S
         archetype,
         groupRandom,
         groupBaseMean,
-        groupBaseUnits
+        groupBaseUnits,
       );
       const groupAggregates = calculateAggregates(
         groupData.dates,
@@ -654,7 +778,7 @@ export function generateMockFactTableData(params: RunFactTableAnalysisParams): S
         groupData.sumOfMeans,
         groupData.totalNumerator,
         groupData.totalDenominator,
-        archetype.isRatio
+        archetype.isRatio,
       );
 
       return {
@@ -695,13 +819,11 @@ export function generateMockFactTableData(params: RunFactTableAnalysisParams): S
  * TODO: Replace with actual API call using apiCall from useAuth()
  */
 async function fetchSeriesAnalysis(
-  params: RunSeriesAnalysisParams
+  params: RunSeriesAnalysisParams,
 ): Promise<SeriesAnalysis> {
   console.log("Requesting series analysis data...", params);
   // Simulate network delay (50-150ms)
-  await new Promise((resolve) =>
-    setTimeout(resolve, 50 + Math.random() * 100)
-  );
+  await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 100));
 
   const result = generateMockSeriesData(params);
   console.log("Received series analysis data:", result);
@@ -729,9 +851,7 @@ async function fetchSeriesAnalysis(
  * 2. Add shouldRun condition based on factMetricId
  * 3. Use mutate() for refresh
  */
-export function useSeriesAnalysis(
-  params: RunSeriesAnalysisParams | null
-): {
+export function useSeriesAnalysis(params: RunSeriesAnalysisParams | null): {
   data: SeriesAnalysis | null;
   loading: boolean;
   error: Error | null;
@@ -758,7 +878,14 @@ export function useSeriesAnalysis(
     } finally {
       setLoading(false);
     }
-  }, [params?.factMetricId, params?.valueType, params?.settings?.startDate?.toString(), params?.settings?.endDate?.toString(), params?.settings?.granularity, params?.settings?.groupBy]);
+  }, [
+    params?.factMetricId,
+    params?.valueType,
+    params?.settings?.startDate?.toString(),
+    params?.settings?.endDate?.toString(),
+    params?.settings?.granularity,
+    params?.settings?.groupBy,
+  ]);
 
   // Fetch on mount and when params change
   useEffect(() => {
@@ -787,15 +914,15 @@ export function useSeriesAnalysis(
  * const seriesAData = dataMap.get("fact_abc");
  * ```
  */
-export function useMultiSeriesAnalysis(
-  paramsList: RunSeriesAnalysisParams[]
-): {
+export function useMultiSeriesAnalysis(paramsList: RunSeriesAnalysisParams[]): {
   dataMap: Map<string, SeriesAnalysis>;
   loading: boolean;
   errors: Map<string, Error>;
   refreshAll: () => Promise<void>;
 } {
-  const [dataMap, setDataMap] = useState<Map<string, SeriesAnalysis>>(new Map());
+  const [dataMap, setDataMap] = useState<Map<string, SeriesAnalysis>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Map<string, Error>>(new Map());
 
@@ -803,10 +930,13 @@ export function useMultiSeriesAnalysis(
   const paramsKey = useMemo(
     () =>
       paramsList
-        .map((p) => `${p.factMetricId}:${p.valueType}:${p.settings.startDate}:${p.settings.endDate}:${p.settings.granularity}:${p.settings.groupBy}`)
+        .map(
+          (p) =>
+            `${p.factMetricId}:${p.valueType}:${p.settings.startDate}:${p.settings.endDate}:${p.settings.granularity}:${p.settings.groupBy}`,
+        )
         .sort()
         .join("|"),
-    [paramsList]
+    [paramsList],
   );
 
   const fetchAll = useCallback(async () => {
@@ -828,10 +958,10 @@ export function useMultiSeriesAnalysis(
         } catch (e) {
           newErrors.set(
             params.factMetricId,
-            e instanceof Error ? e : new Error(String(e))
+            e instanceof Error ? e : new Error(String(e)),
           );
         }
-      })
+      }),
     );
 
     setDataMap(newDataMap);
@@ -855,13 +985,11 @@ export function useMultiSeriesAnalysis(
  * Simulates an async API call for fact table series.
  */
 async function fetchFactTableAnalysis(
-  params: RunFactTableAnalysisParams
+  params: RunFactTableAnalysisParams,
 ): Promise<SeriesAnalysis> {
   console.log("Requesting fact table analysis data...", params);
   // Simulate network delay (50-150ms)
-  await new Promise((resolve) =>
-    setTimeout(resolve, 50 + Math.random() * 100)
-  );
+  await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 100));
 
   const result = generateMockFactTableData(params);
   console.log("Received fact table analysis data:", result);
@@ -872,14 +1000,16 @@ async function fetchFactTableAnalysis(
  * Hook to fetch analysis data for multiple fact table series.
  */
 export function useMultiFactTableAnalysis(
-  paramsList: RunFactTableAnalysisParams[]
+  paramsList: RunFactTableAnalysisParams[],
 ): {
   dataMap: Map<string, SeriesAnalysis>;
   loading: boolean;
   errors: Map<string, Error>;
   refreshAll: () => Promise<void>;
 } {
-  const [dataMap, setDataMap] = useState<Map<string, SeriesAnalysis>>(new Map());
+  const [dataMap, setDataMap] = useState<Map<string, SeriesAnalysis>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Map<string, Error>>(new Map());
 
@@ -887,10 +1017,13 @@ export function useMultiFactTableAnalysis(
   const paramsKey = useMemo(
     () =>
       paramsList
-        .map((p) => `${p.seriesId}:${p.factTableId}:${p.valueType}:${p.unitType || ""}:${p.valueColumn || ""}:${p.settings.startDate}:${p.settings.endDate}:${p.settings.granularity}:${p.settings.groupBy}`)
+        .map(
+          (p) =>
+            `${p.seriesId}:${p.factTableId}:${p.valueType}:${p.unitType || ""}:${p.valueColumn || ""}:${p.settings.startDate}:${p.settings.endDate}:${p.settings.granularity}:${p.settings.groupBy}`,
+        )
         .sort()
         .join("|"),
-    [paramsList]
+    [paramsList],
   );
 
   const fetchAll = useCallback(async () => {
@@ -912,10 +1045,10 @@ export function useMultiFactTableAnalysis(
         } catch (e) {
           newErrors.set(
             params.seriesId,
-            e instanceof Error ? e : new Error(String(e))
+            e instanceof Error ? e : new Error(String(e)),
           );
         }
-      })
+      }),
     );
 
     setDataMap(newDataMap);
@@ -945,15 +1078,13 @@ export function useMultiFactTableAnalysis(
  */
 export function getSeriesChartData(
   analysis: SeriesAnalysis | null,
-  valueType: "sum" | "avg"
+  valueType: "sum" | "avg",
 ): { x: Date; y: number }[] {
   if (!analysis?.result?.dates) return [];
 
   return analysis.result.dates.map((d) => ({
     x: d.date,
-    y: valueType === "sum"
-      ? (d.numerator ?? d.mean * d.units)
-      : d.mean,
+    y: valueType === "sum" ? (d.numerator ?? d.mean * d.units) : d.mean,
   }));
 }
 
@@ -963,7 +1094,7 @@ export function getSeriesChartData(
  */
 export function getSeriesTableData(
   analysis: SeriesAnalysis | null,
-  valueType: "sum" | "avg"
+  valueType: "sum" | "avg",
 ): Array<{
   date: Date;
   mean: number;
@@ -980,9 +1111,7 @@ export function getSeriesTableData(
       date: d.date,
       mean: d.mean,
       units: d.units,
-      value: valueType === "sum"
-        ? (d.numerator ?? d.mean * d.units)
-        : d.mean,
+      value: valueType === "sum" ? (d.numerator ?? d.mean * d.units) : d.mean,
       stddev: d.stddev,
       numerator: d.numerator,
       denominator: d.denominator,
@@ -993,9 +1122,7 @@ export function getSeriesTableData(
 /**
  * Gets aggregate statistics from the analysis result.
  */
-export function getSeriesAggregates(
-  analysis: SeriesAnalysis | null
-): {
+export function getSeriesAggregates(analysis: SeriesAnalysis | null): {
   mean: number;
   units: number;
   stddev: number;
@@ -1017,7 +1144,7 @@ export function getSeriesAggregates(
  * Gets histogram data for distribution visualization.
  */
 export function getSeriesHistogram(
-  analysis: SeriesAnalysis | null
+  analysis: SeriesAnalysis | null,
 ): HistogramBucket[] {
   return analysis?.result?.histogram ?? [];
 }
@@ -1026,7 +1153,7 @@ export function getSeriesHistogram(
  * Gets grouped data for visualization.
  */
 export function getSeriesGroups(
-  analysis: SeriesAnalysis | null
+  analysis: SeriesAnalysis | null,
 ): SeriesAnalysisGroup[] {
   return analysis?.result?.groups ?? [];
 }

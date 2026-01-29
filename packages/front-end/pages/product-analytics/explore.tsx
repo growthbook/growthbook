@@ -8,7 +8,16 @@ export default function ExplorePage() {
       <Flex justify="between" align="center">
         <h1>Explore</h1>
       </Flex>
-      <Flex width="100%" justify="center" align="center" height="300px" style={{ border: "2px dashed var(--gray-a3)", borderRadius: "var(--radius-4)" }}>
+      <Flex
+        width="100%"
+        justify="center"
+        align="center"
+        height="300px"
+        style={{
+          border: "2px dashed var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+        }}
+      >
         <LinkButton href="/product-analytics/explore/new">
           New Exploration
         </LinkButton>

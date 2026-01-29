@@ -250,7 +250,7 @@ const metricExplorerBlockInterface = baseBlockInterface
           key: z.string(),
           value: z.string(),
           type: z.string(),
-        })
+        }),
       )
       .optional(),
     visualizationType: z.enum(["histogram", "bigNumber", "timeseries", "bar"]),

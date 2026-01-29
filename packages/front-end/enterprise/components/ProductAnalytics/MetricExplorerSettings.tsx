@@ -1,6 +1,11 @@
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
+  ExploreSeries,
+  ExploreSeriesType,
+  ExploreValueType,
+  MetricSeriesConfig,
+  FactTableSeriesConfig,
 } from "shared/enterprise";
 import React from "react";
 import { Flex, Text, Box, DropdownMenu, TextField } from "@radix-ui/themes";
@@ -27,16 +32,14 @@ import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import {
-  ExploreSeries,
-  SeriesType,
-  MetricSeriesConfig,
-  FactTableSeriesConfig,
-  FactTableValueType,
-  getSeriesIcon,
   getSeriesLabel,
   getSeriesTag,
   SERIES_COLORS,
-} from "./MetricExplorer";
+} from "./util";
+import { getSeriesIcon } from "./Explorer";
+
+type SeriesType = ExploreSeriesType;
+type FactTableValueType = ExploreValueType;
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -51,9 +54,17 @@ interface Props {
   onDeleteSeries: (id: string) => void;
 }
 
-const VALUE_TYPE_OPTIONS: { value: FactTableValueType; label: string; description: string }[] = [
+const VALUE_TYPE_OPTIONS: {
+  value: FactTableValueType;
+  label: string;
+  description: string;
+}[] = [
   { value: "count", label: "Count", description: "Count total rows" },
-  { value: "unit_count", label: "Unit Count", description: "Count distinct units" },
+  {
+    value: "unit_count",
+    label: "Unit Count",
+    description: "Count distinct units",
+  },
   { value: "sum", label: "Sum", description: "Sum a numeric column" },
 ];
 
@@ -74,9 +85,12 @@ function SeriesCard({
   onUpdate: (updates: Partial<ExploreSeries>) => void;
   onDelete: () => void;
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>>;
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>
+  >;
 }) {
-  const { getFactMetricById, getFactTableById, factMetrics, factTables } = useDefinitions();
+  const { getFactMetricById, getFactTableById, factMetrics, factTables } =
+    useDefinitions();
   const tag = getSeriesTag(index);
 
   // Get display name based on series type and config
@@ -101,21 +115,19 @@ function SeriesCard({
   // For metric series, get the metric and fact table
   const metric =
     s.type === "metric"
-      ? getFactMetricById(
-          (s.config as MetricSeriesConfig).factMetricId
-        )
+      ? getFactMetricById((s.config as MetricSeriesConfig).factMetricId)
       : null;
   const factTable = getFactTableById(
-    s.type === "factTable" 
-      ? (s.config as FactTableSeriesConfig).factTableId 
-      : (metric?.numerator?.factTableId || "")
+    s.type === "factTable"
+      ? (s.config as FactTableSeriesConfig).factTableId
+      : metric?.numerator?.factTableId || "",
   );
-  
+
   let denominatorFactTable: FactTableInterface | null = null;
   if (metric?.denominator?.factTableId) {
     if (metric?.numerator?.factTableId !== metric?.denominator?.factTableId) {
       denominatorFactTable = getFactTableById(
-        metric?.denominator?.factTableId || ""
+        metric?.denominator?.factTableId || "",
       );
     } else {
       denominatorFactTable = factTable;
@@ -123,9 +135,8 @@ function SeriesCard({
   }
 
   // Get numeric columns for the sum value selector (Fact Table Series)
-  const numericColumns = factTable?.columns?.filter(
-    (col) => col.datatype === "number"
-  ) || [];
+  const numericColumns =
+    factTable?.columns?.filter((col) => col.datatype === "number") || [];
 
   return (
     <Flex
@@ -162,7 +173,8 @@ function SeriesCard({
                     width: "20px",
                     height: "20px",
                     borderRadius: "var(--radius-2)",
-                    backgroundColor: s.color || SERIES_COLORS[index % SERIES_COLORS.length],
+                    backgroundColor:
+                      s.color || SERIES_COLORS[index % SERIES_COLORS.length],
                     color: "white",
                     fontSize: "11px",
                     fontWeight: 600,
@@ -202,12 +214,12 @@ function SeriesCard({
                     <PiTrash size={12} />
                   </Button>
                 </Tooltip>
-                <FaAngleRight 
-                  className="chevron" 
-                  style={{ 
+                <FaAngleRight
+                  className="chevron"
+                  style={{
                     transform: isOpen ? "rotate(90deg)" : "none",
-                    transition: "transform 0.2s"
-                  }} 
+                    transition: "transform 0.2s",
+                  }}
                 />
               </Flex>
             </Flex>
@@ -328,8 +340,7 @@ function SeriesCard({
                         <PopulationChooser
                           datasourceId={factTable.datasource}
                           value={
-                            block.analysisSettings.populationType ??
-                            "factTable"
+                            block.analysisSettings.populationType ?? "factTable"
                           }
                           setValue={(v, populationId) =>
                             setBlock({
@@ -389,8 +400,15 @@ function SeriesCard({
                             ...s.config,
                             valueType: v as FactTableValueType,
                             // Clear dependent fields when type changes
-                            unitType: v === "unit_count" ? (s.config as FactTableSeriesConfig).unitType : undefined,
-                            valueColumn: v === "sum" ? (s.config as FactTableSeriesConfig).valueColumn : undefined,
+                            unitType:
+                              v === "unit_count"
+                                ? (s.config as FactTableSeriesConfig).unitType
+                                : undefined,
+                            valueColumn:
+                              v === "sum"
+                                ? (s.config as FactTableSeriesConfig)
+                                    .valueColumn
+                                : undefined,
                           } as FactTableSeriesConfig,
                         })
                       }
@@ -402,11 +420,14 @@ function SeriesCard({
                       ))}
                     </Select>
 
-                    {(s.config as FactTableSeriesConfig).valueType === "unit_count" && (
+                    {(s.config as FactTableSeriesConfig).valueType ===
+                      "unit_count" && (
                       <Select
                         label="Unit"
                         size="2"
-                        value={(s.config as FactTableSeriesConfig).unitType || ""}
+                        value={
+                          (s.config as FactTableSeriesConfig).unitType || ""
+                        }
                         placeholder="Select unit to count"
                         setValue={(v) =>
                           onUpdate({
@@ -425,11 +446,14 @@ function SeriesCard({
                       </Select>
                     )}
 
-                    {(s.config as FactTableSeriesConfig).valueType === "sum" && (
+                    {(s.config as FactTableSeriesConfig).valueType ===
+                      "sum" && (
                       <Select
                         label="Value Column"
                         size="2"
-                        value={(s.config as FactTableSeriesConfig).valueColumn || ""}
+                        value={
+                          (s.config as FactTableSeriesConfig).valueColumn || ""
+                        }
                         placeholder="Select column to sum"
                         setValue={(v) =>
                           onUpdate({
@@ -507,10 +531,15 @@ function SeriesCard({
                       <Badge
                         label={
                           s.type === "factTable"
-                            ? ((s.config as FactTableSeriesConfig).rowFilters?.length || 0).toString()
+                            ? (
+                                (s.config as FactTableSeriesConfig).rowFilters
+                                  ?.length || 0
+                              ).toString()
                             : (
-                                (block.analysisSettings.additionalNumeratorFilters?.length || 0) +
-                                (block.analysisSettings.additionalDenominatorFilters?.length || 0)
+                                (block.analysisSettings
+                                  .additionalNumeratorFilters?.length || 0) +
+                                (block.analysisSettings
+                                  .additionalDenominatorFilters?.length || 0)
                               ).toString()
                         }
                         color="violet"
@@ -531,7 +560,9 @@ function SeriesCard({
                   <Flex direction="column" gap="3">
                     {s.type === "factTable" ? (
                       <RowFilterInput
-                        value={(s.config as FactTableSeriesConfig).rowFilters || []}
+                        value={
+                          (s.config as FactTableSeriesConfig).rowFilters || []
+                        }
                         setValue={(filters: RowFilter[]) =>
                           onUpdate({
                             config: {
@@ -559,7 +590,10 @@ function SeriesCard({
                               ) : null}
                             </Flex>
                           }
-                          value={block.analysisSettings.additionalNumeratorFilters ?? []}
+                          value={
+                            block.analysisSettings.additionalNumeratorFilters ??
+                            []
+                          }
                           containerClassName="mb-0"
                           labelClassName="mb-0"
                           onChange={(filters) =>
@@ -592,7 +626,10 @@ function SeriesCard({
                                 </Text>
                               </Flex>
                             }
-                            value={block.analysisSettings.additionalDenominatorFilters ?? []}
+                            value={
+                              block.analysisSettings
+                                .additionalDenominatorFilters ?? []
+                            }
                             containerClassName="mb-0"
                             labelClassName="mb-0"
                             onChange={(filters) =>
@@ -735,7 +772,9 @@ export default function MetricExplorerSettings({
       const config = firstSeries.config as MetricSeriesConfig;
       if (config.factMetricId) {
         const m = getFactMetricById(config.factMetricId);
-        firstSeriesFactTable = getFactTableById(m?.numerator?.factTableId || "");
+        firstSeriesFactTable = getFactTableById(
+          m?.numerator?.factTableId || "",
+        );
       }
     } else if (firstSeries.type === "factTable") {
       const config = firstSeries.config as FactTableSeriesConfig;
@@ -755,7 +794,9 @@ export default function MetricExplorerSettings({
             s={s}
             index={index}
             isOpen={s.id === selectedSeriesId}
-            onToggle={() => onSelectSeries(s.id === selectedSeriesId ? null : s.id)}
+            onToggle={() =>
+              onSelectSeries(s.id === selectedSeriesId ? null : s.id)
+            }
             onUpdate={(updates) => onUpdateSeries(s.id, updates)}
             onDelete={() => onDeleteSeries(s.id)}
             block={block}

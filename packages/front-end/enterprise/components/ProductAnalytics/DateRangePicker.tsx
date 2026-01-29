@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { Flex, TextField } from "@radix-ui/themes";
+import {
+  DashboardBlockInterfaceOrData,
+  MetricExplorerBlockInterface,
+} from "shared/enterprise";
 import { Select, SelectItem } from "@/ui/Select";
-import { DashboardBlockInterfaceOrData, MetricExplorerBlockInterface } from "shared/enterprise";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
@@ -28,9 +31,7 @@ export default function DateRangePicker({ block, setBlock }: Props) {
       <Select
         size="2"
         value={
-          isCustomLookback
-            ? "-1"
-            : block.analysisSettings.lookbackDays + ""
+          isCustomLookback ? "-1" : block.analysisSettings.lookbackDays + ""
         }
         placeholder="Select value"
         setValue={(v) => {

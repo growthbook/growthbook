@@ -29,10 +29,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
-import {
-  createDummyFactTables,
-  createDummyFactMetrics,
-} from "./mockData";
+import { createDummyFactTables, createDummyFactMetrics } from "./mockData";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -273,9 +270,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   let value: DefinitionContextValue;
   if (error) {
-    value = { 
-      ...defaultValue, 
-      setProject, 
+    value = {
+      ...defaultValue,
+      setProject,
       error: error?.message || "",
       factTables: activeFactTables,
       _factTablesIncludingArchived: allFactTables,

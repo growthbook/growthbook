@@ -1,5 +1,8 @@
 import React from "react";
-import { DashboardBlockInterfaceOrData, MetricExplorerBlockInterface } from "shared/enterprise";
+import {
+  DashboardBlockInterfaceOrData,
+  MetricExplorerBlockInterface,
+} from "shared/enterprise";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 
@@ -11,7 +14,11 @@ interface Props {
   factMetric?: FactMetricInterface;
 }
 
-export default function GraphTypeSelector({ block, setBlock, factMetric }: Props) {
+export default function GraphTypeSelector({
+  block,
+  setBlock,
+  factMetric,
+}: Props) {
   return (
     <Select
       size="2"
@@ -20,10 +27,7 @@ export default function GraphTypeSelector({ block, setBlock, factMetric }: Props
       setValue={(v) =>
         setBlock({
           ...block,
-          visualizationType: v as
-            | "bigNumber"
-            | "timeseries"
-            | "histogram",
+          visualizationType: v as "bigNumber" | "timeseries" | "histogram",
         })
       }
       containerClassName="mb-0"

@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { Box, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import {
   ExploreSeries,
   ExploreQueryResponse,
   ExploreLineChartSeries,
   ExploreBarChartSeries,
 } from "shared/enterprise";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
@@ -46,8 +46,15 @@ export default function ExplorerChart({
     if (seriesItem?.color) return seriesItem.color;
     // Fallback colors
     const COLORS = [
-      "#8b5cf6", "#3b82f6", "#06b6d4", "#22c55e", "#eab308",
-      "#f97316", "#ef4444", "#ec4899", "#6b7280",
+      "#8b5cf6",
+      "#3b82f6",
+      "#06b6d4",
+      "#22c55e",
+      "#eab308",
+      "#f97316",
+      "#ef4444",
+      "#ec4899",
+      "#6b7280",
     ];
     return COLORS[index % COLORS.length];
   };
@@ -106,14 +113,29 @@ export default function ExplorerChart({
           type: "category",
           nameLocation: "middle",
           scale: false,
-          nameTextStyle: { fontSize: 14, fontWeight: "bold", padding: [10, 0], color: textColor },
-          axisLabel: { color: textColor, rotate: -45, hideOverlap: true, interval: 0 },
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [10, 0],
+            color: textColor,
+          },
+          axisLabel: {
+            color: textColor,
+            rotate: -45,
+            hideOverlap: true,
+            interval: 0,
+          },
         },
         yAxis: {
           type: "value",
           scale: false,
           nameLocation: "middle",
-          nameTextStyle: { fontSize: 14, fontWeight: "bold", padding: [40, 0], color: textColor },
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [40, 0],
+            color: textColor,
+          },
           axisLabel: { color: textColor, formatter: formatNumber },
         },
         dataset: datasets,
@@ -184,14 +206,24 @@ export default function ExplorerChart({
           type: "time",
           nameLocation: "middle",
           scale: false,
-          nameTextStyle: { fontSize: 14, fontWeight: "bold", padding: [10, 0], color: textColor },
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [10, 0],
+            color: textColor,
+          },
           axisLabel: { color: textColor, rotate: -45, hideOverlap: true },
         },
         yAxis: {
           type: "value",
           scale: false,
           nameLocation: "middle",
-          nameTextStyle: { fontSize: 14, fontWeight: "bold", padding: [40, 0], color: textColor },
+          nameTextStyle: {
+            fontSize: 14,
+            fontWeight: "bold",
+            padding: [40, 0],
+            color: textColor,
+          },
           axisLabel: { color: textColor, formatter: formatNumber },
         },
         dataset: datasets,
@@ -207,14 +239,21 @@ export default function ExplorerChart({
     if (!data) return true;
     if (data.type === "bigNumber") return false;
     if (data.type === "bar") {
-      return data.series.length === 0 || data.series.every((s) => s.groups.length === 0);
+      return (
+        data.series.length === 0 ||
+        data.series.every((s) => s.groups.length === 0)
+      );
     }
     if (data.type === "linechart") {
       return (
         data.series.length === 0 ||
         data.series.every((s) => {
           if (s.data) return s.data.length === 0;
-          if (s.groups) return s.groups.length === 0 || s.groups.every((g) => g.dates.length === 0);
+          if (s.groups)
+            return (
+              s.groups.length === 0 ||
+              s.groups.every((g) => g.dates.length === 0)
+            );
           return true;
         })
       );

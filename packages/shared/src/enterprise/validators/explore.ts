@@ -17,7 +17,11 @@ export type ExploreMetricType = z.infer<typeof exploreMetricTypeValidator>;
 export const exploreValueTypeValidator = z.enum(["unit_count", "count", "sum"]);
 export type ExploreValueType = z.infer<typeof exploreValueTypeValidator>;
 
-export const exploreSeriesTypeValidator = z.enum(["metric", "factTable", "sql"]);
+export const exploreSeriesTypeValidator = z.enum([
+  "metric",
+  "factTable",
+  "sql",
+]);
 export type ExploreSeriesType = z.infer<typeof exploreSeriesTypeValidator>;
 
 export const exploreVisualizationTypeValidator = z.enum([
@@ -56,7 +60,9 @@ export const factTableSeriesConfigValidator = z.object({
   valueColumn: z.string().optional(),
 });
 
-export type FactTableSeriesConfig = z.infer<typeof factTableSeriesConfigValidator>;
+export type FactTableSeriesConfig = z.infer<
+  typeof factTableSeriesConfigValidator
+>;
 
 export const sqlSeriesConfigValidator = z.object({
   datasourceId: z.string(),

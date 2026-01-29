@@ -2,7 +2,7 @@ import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import Link from "next/link";
 import { PiArrowLeft } from "react-icons/pi";
-import MetricExplorer from "./MetricExplorer";
+import MetricExplorer from "./Explorer";
 
 export default function ExploreWorkspace() {
   return (

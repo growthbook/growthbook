@@ -1,9 +1,9 @@
 import React from "react";
-import { Select, SelectItem } from "@/ui/Select";
 import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
 } from "shared/enterprise";
+import { Select, SelectItem } from "@/ui/Select";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;

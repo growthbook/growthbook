@@ -8,16 +8,21 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import type {
+  FactTableInterface,
+  FactMetricInterface,
+  ColumnInterface,
+} from "shared/types/fact-table";
+import type { ExploreDataPoint } from "shared/enterprise";
 import {
   createDummyFactTables,
   createDummyFactMetrics,
 } from "../services/mockData";
-import type { FactTableInterface, FactMetricInterface } from "shared/types/fact-table";
-import type { ColumnInterface } from "shared/types/fact-table";
-import type { ExploreDataPoint } from "shared/enterprise";
 
 const scriptPath = process.argv[1];
-const scriptDir = path.dirname(path.resolve(scriptPath ? path.join(process.cwd(), scriptPath) : "."));
+const scriptDir = path.dirname(
+  path.resolve(scriptPath ? path.join(process.cwd(), scriptPath) : "."),
+);
 const ROOT = path.resolve(scriptDir, "..");
 const FACT_TABLES_DIR = path.join(ROOT, "services", "mockData", "factTables");
 const METRICS_DIR = path.join(ROOT, "services", "mockData", "metrics");
@@ -202,7 +207,7 @@ function generateFactTableRow(
   table: FactTableInterface,
   dateStr: string,
   rowIndex: number,
-  rng: () => number
+  rng: () => number,
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {};
   const dateCol = getDateColumn(table.columns);
@@ -269,7 +274,8 @@ function generateFactTableFiles(): void {
   }
 
   for (const table of factTables) {
-    const tableSeed = SEED + table.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    const tableSeed =
+      SEED + table.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     const allRows: Record<string, unknown>[] = [];
 
     for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
@@ -298,7 +304,7 @@ function generateFactTableFiles(): void {
 function generateMetricRow(
   metric: FactMetricInterface,
   dateStr: string,
-  rng: () => number
+  rng: () => number,
 ): ExploreDataPoint {
   const baseValue = 100 + rng() * 400;
   const units = Math.floor(baseValue * (0.8 + rng() * 0.4));
@@ -338,7 +344,9 @@ function generateMetricFiles(): void {
 
   for (const metric of metrics) {
     const metricSeed =
-      SEED + 10000 + metric.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+      SEED +
+      10000 +
+      metric.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
     const rows: ExploreDataPoint[] = [];
 
     for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {

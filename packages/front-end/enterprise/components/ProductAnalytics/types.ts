@@ -51,14 +51,12 @@ export interface SeriesAnalysis {
  */
 export function getSeriesChartData(
   analysis: SeriesAnalysis | null,
-  valueType: "sum" | "avg"
+  valueType: "sum" | "avg",
 ): { x: Date; y: number }[] {
   if (!analysis?.result?.dates) return [];
   return analysis.result.dates.map((d) => ({
     x: d.date,
-    y: valueType === "sum"
-      ? (d.numerator ?? d.mean * d.units)
-      : d.mean,
+    y: valueType === "sum" ? (d.numerator ?? d.mean * d.units) : d.mean,
   }));
 }
 
@@ -68,7 +66,7 @@ export function getSeriesChartData(
  */
 export function getSeriesTableData(
   analysis: SeriesAnalysis | null,
-  valueType: "sum" | "avg"
+  valueType: "sum" | "avg",
 ): Array<{
   date: Date;
   mean: number;
@@ -83,9 +81,7 @@ export function getSeriesTableData(
     date: d.date,
     mean: d.mean,
     units: d.units,
-    value: valueType === "sum"
-      ? (d.numerator ?? d.mean * d.units)
-      : d.mean,
+    value: valueType === "sum" ? (d.numerator ?? d.mean * d.units) : d.mean,
     stddev: d.stddev,
     numerator: d.numerator,
     denominator: d.denominator,
@@ -97,7 +93,7 @@ export function getSeriesTableData(
  * TODO: Implement when backend returns real data
  */
 export function getSeriesGroups(
-  analysis: SeriesAnalysis | null
+  analysis: SeriesAnalysis | null,
 ): SeriesAnalysisGroup[] {
   return analysis?.result?.groups ?? [];
 }
@@ -106,8 +102,6 @@ export function getSeriesGroups(
  * Gets histogram data from analysis
  * TODO: Implement when backend returns real data
  */
-export function getSeriesHistogram(
-  analysis: SeriesAnalysis | null
-): any[] {
+export function getSeriesHistogram(analysis: SeriesAnalysis | null): any[] {
   return [];
 }

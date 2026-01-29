@@ -14,13 +14,14 @@ export function exploreStateToBlockFormat(state: ExploreState): any {
 
   // Map visualizationType: ExploreState uses "timeseries", block format uses "timeseries" (same)
   // But block format also supports "histogram" which ExploreState doesn't have
-  const visualizationType = state.visualizationType === "timeseries" 
-    ? "timeseries" 
-    : state.visualizationType === "bar"
-      ? "bar"
-      : state.visualizationType === "bigNumber"
-        ? "bigNumber"
-        : "timeseries";
+  const visualizationType =
+    state.visualizationType === "timeseries"
+      ? "timeseries"
+      : state.visualizationType === "bar"
+        ? "bar"
+        : state.visualizationType === "bigNumber"
+          ? "bigNumber"
+          : "timeseries";
 
   return {
     ...state,
@@ -38,9 +39,12 @@ export function exploreStateToBlockFormat(state: ExploreState): any {
       additionalDenominatorFilters: [],
     },
     // Add other required fields with defaults
-    factMetricId: state.series.find(s => s.type === "metric")?.config && "factMetricId" in state.series.find(s => s.type === "metric")!.config
-      ? (state.series.find(s => s.type === "metric")!.config as any).factMetricId
-      : "",
+    factMetricId:
+      state.series.find((s) => s.type === "metric")?.config &&
+      "factMetricId" in state.series.find((s) => s.type === "metric")!.config
+        ? (state.series.find((s) => s.type === "metric")!.config as any)
+            .factMetricId
+        : "",
     valueType: "avg" as const,
     metricAnalysisId: "",
   };
@@ -49,17 +53,24 @@ export function exploreStateToBlockFormat(state: ExploreState): any {
 /**
  * Converts block format updates back to ExploreState
  */
-export function blockFormatToExploreState(block: any, currentState: ExploreState): ExploreState {
+export function blockFormatToExploreState(
+  block: any,
+  currentState: ExploreState,
+): ExploreState {
   const analysisSettings = block.analysisSettings || {};
-  
+
   // Map visualizationType back: block format uses "timeseries", ExploreState uses "timeseries" (same)
   let visualizationType = currentState.visualizationType;
   if (block.visualizationType) {
-    if (block.visualizationType === "timeseries" || block.visualizationType === "bar" || block.visualizationType === "bigNumber") {
+    if (
+      block.visualizationType === "timeseries" ||
+      block.visualizationType === "bar" ||
+      block.visualizationType === "bigNumber"
+    ) {
       visualizationType = block.visualizationType;
     }
   }
-  
+
   return {
     ...currentState,
     lookbackDays: analysisSettings.lookbackDays ?? currentState.lookbackDays,

@@ -2,13 +2,19 @@ import { MetricExplorerBlockInterface } from "shared/enterprise";
 import { useMemo } from "react";
 import { date } from "shared/dates";
 import { Box, Text, Flex } from "@radix-ui/themes";
-import { FactMetricInterface, FactTableInterface } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import { ChartSeriesData } from "./ExplorerChart";
-import { MetricSeriesConfig, FactTableSeriesConfig } from "./MetricExplorer";
+import {
+  MetricSeriesConfig,
+  FactTableSeriesConfig,
+} from "shared/enterprise";
 import { SeriesAnalysis, getSeriesTableData } from "./types";
 
 // Helper to get series display name
@@ -18,11 +24,12 @@ function getSeriesDisplayName(seriesData: ChartSeriesData): string {
   }
   if (seriesData.factTable) {
     const config = seriesData.series.config as FactTableSeriesConfig;
-    const valueTypeLabel = config.valueType === "count" 
-      ? "Count" 
-      : config.valueType === "unit_count" 
-        ? `${config.unitType || "Units"} Count`
-        : `Sum of ${config.valueColumn || "value"}`;
+    const valueTypeLabel =
+      config.valueType === "count"
+        ? "Count"
+        : config.valueType === "unit_count"
+          ? `${config.unitType || "Units"} Count`
+          : `Sum of ${config.valueColumn || "value"}`;
     return `${seriesData.factTable.name} (${valueTypeLabel})`;
   }
   return seriesData.series.name;
@@ -49,37 +56,43 @@ function SeriesDataTable({
   // Determine value type from the series config
   let valueType: "sum" | "avg" = "avg";
   let valueLabel = "Value";
-  
+
   if (seriesData.series.type === "metric" && seriesData.factMetric) {
     const config = seriesData.series.config as MetricSeriesConfig;
     valueType = config?.valueType || "avg";
-    valueLabel = valueType === "sum"
-      ? seriesData.factMetric.metricType === "proportion" ? "Count" : "Sum"
-      : seriesData.factMetric.metricType === "proportion" ? "Proportion" : "Average";
+    valueLabel =
+      valueType === "sum"
+        ? seriesData.factMetric.metricType === "proportion"
+          ? "Count"
+          : "Sum"
+        : seriesData.factMetric.metricType === "proportion"
+          ? "Proportion"
+          : "Average";
   } else if (seriesData.series.type === "factTable") {
     const config = seriesData.series.config as FactTableSeriesConfig;
     valueType = config.valueType === "sum" ? "sum" : "avg";
-    valueLabel = config.valueType === "count" 
-      ? "Count" 
-      : config.valueType === "unit_count" 
-        ? "Unit Count"
-        : "Sum";
+    valueLabel =
+      config.valueType === "count"
+        ? "Count"
+        : config.valueType === "unit_count"
+          ? "Unit Count"
+          : "Sum";
   }
 
   const formatterOptions = useMemo(
     () => ({ currency: displayCurrency }),
-    [displayCurrency]
+    [displayCurrency],
   );
 
   const { rows, formatter } = useMemo(() => {
     // Use metric formatter if available, otherwise use a basic number formatter
     let formatter: (value: number) => string;
-    
+
     if (seriesData.factMetric) {
       const rawFormatter = getExperimentMetricFormatter(
         seriesData.factMetric,
         getFactTableById,
-        valueType === "sum" ? "number" : "percentage"
+        valueType === "sum" ? "number" : "percentage",
       );
       formatter = (value: number) => rawFormatter(value, formatterOptions);
     } else {
@@ -95,8 +108,11 @@ function SeriesDataTable({
     }
 
     // Get table data from the analysis (from useSeriesAnalysis hook)
-    const tableData = getSeriesTableData(seriesData.analysis || null, valueType);
-    
+    const tableData = getSeriesTableData(
+      seriesData.analysis || null,
+      valueType,
+    );
+
     // Add formatted dates and filter by date range
     const rows = tableData
       .map((d) => ({
@@ -151,10 +167,20 @@ function SeriesDataTable({
           {rows.map((row, i) => (
             <tr key={i}>
               <td>{row.dateFormatted}</td>
-              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+              <td
+                style={{
+                  textAlign: "right",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
                 {formatter(row.value)}
               </td>
-              <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+              <td
+                style={{
+                  textAlign: "right",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
                 {row.units.toLocaleString()}
               </td>
             </tr>
@@ -176,12 +202,14 @@ export default function ExplorerDataTable({
       return allSeriesData;
     }
     if (factMetric) {
-      return [{ 
-        series: { id: "default", color: "#8b5cf6" }, 
-        factMetric, 
-        index: 0, 
-        tag: "A" 
-      }] as ChartSeriesData[];
+      return [
+        {
+          series: { id: "default", color: "#8b5cf6" },
+          factMetric,
+          index: 0,
+          tag: "A",
+        },
+      ] as ChartSeriesData[];
     }
     return [];
   }, [allSeriesData, factMetric]);
@@ -210,31 +238,30 @@ export default function ExplorerDataTable({
           }}
         >
           <TabsList size="1">
+            {seriesDataList.map((seriesData) => (
+              <TabsTrigger key={seriesData.tag} value={seriesData.tag}>
+                <Flex align="center" gap="2">
+                  <Box
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: seriesData.series.color,
+                    }}
+                  />
+                  <span>
+                    {seriesData.tag}: {getSeriesDisplayName(seriesData)}
+                  </span>
+                </Flex>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Flex>
         {seriesDataList.map((seriesData) => (
-          <TabsTrigger key={seriesData.tag} value={seriesData.tag}>
-            <Flex align="center" gap="2">
-              <Box
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  backgroundColor: seriesData.series.color,
-                }}
-              />
-              <span>{seriesData.tag}: {getSeriesDisplayName(seriesData)}</span>
-            </Flex>
-          </TabsTrigger>
+          <TabsContent key={seriesData.tag} value={seriesData.tag}>
+            <SeriesDataTable block={block} seriesData={seriesData} />
+          </TabsContent>
         ))}
-      </TabsList>
-    </Flex>
-    {seriesDataList.map((seriesData) => (
-      <TabsContent key={seriesData.tag} value={seriesData.tag}>
-        <SeriesDataTable
-          block={block}
-          seriesData={seriesData}
-        />
-      </TabsContent>
-    ))}
       </Tabs>
     </Box>
   );
