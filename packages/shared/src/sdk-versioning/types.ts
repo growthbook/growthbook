@@ -12,7 +12,8 @@ export type SDKCapability =
   | "redirects"
   | "prerequisites"
   | "savedGroupReferences"
-  | "caseInsensitiveRegex";
+  | "caseInsensitiveRegex"
+  | "caseInsensitiveMembership";
 
 export type CapabilityStrategy =
   | "min-ver-intersection" // intersection of capabilities using default SDK versions

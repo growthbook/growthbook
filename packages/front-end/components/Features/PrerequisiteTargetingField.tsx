@@ -1,10 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import {
-  FeatureInterface,
-  FeaturePrerequisite,
-  ForceRule,
-} from "shared/types/feature";
+import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import {
   FaExclamationCircle,
   FaExternalLinkAlt,
@@ -17,23 +13,19 @@ import {
   PiArrowSquareOut,
 } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  evaluatePrerequisiteState,
-  getDefaultPrerequisiteCondition,
-  isFeatureCyclic,
-  PrerequisiteStateResult,
-} from "shared/util";
+import { getDefaultPrerequisiteCondition } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
-import cloneDeep from "lodash/cloneDeep";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import RadixTooltip from "@/ui/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import { getFeatureDefaultValue, useFeaturesList } from "@/services/features";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import { getFeatureDefaultValue } from "@/services/features";
+import { useFeaturesNames } from "@/hooks/useFeaturesNames";
+import PrerequisiteInput, {
+  MinimalFeatureInfo,
+} from "@/components/Features/PrerequisiteInput";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -47,18 +39,19 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import HelperText from "@/ui/HelperText";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import {
+  PrerequisiteStateResult,
+  useBatchPrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 
 export interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature?: FeatureInterface;
   project?: string; // only used if feature is not provided
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
 }
@@ -75,14 +68,13 @@ export default function PrerequisiteTargetingField({
   setValue,
   feature,
   project,
-  revisions,
-  version,
   environments,
   setPrerequisiteTargetingSdkIssues,
 }: Props) {
-  const { features } = useFeaturesList(false);
+  const { features: featureNames } = useFeaturesNames({
+    includeDefaultValue: true,
+  });
   const { projects } = useDefinitions();
-  const envsStr = JSON.stringify(environments);
   const valueStr = JSON.stringify(value);
 
   const [conditionKeys, forceConditionRender] = useArrayIncrementer();
@@ -101,11 +93,13 @@ export default function PrerequisiteTargetingField({
   useEffect(() => {
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
-      const parentFeature = features.find((f) => f.id === v.id);
+      const parentFeatureMeta = featureNames.find((f) => f.id === v.id);
       const parentCondition = v.condition;
-      if (parentFeature) {
+      if (parentFeatureMeta && parentFeatureMeta.defaultValue !== undefined) {
         if (parentCondition === "" || parentCondition === "{}") {
-          const condStr = getDefaultPrerequisiteCondition(parentFeature);
+          const condStr = getDefaultPrerequisiteCondition({
+            valueType: parentFeatureMeta.valueType,
+          });
           setValue([
             ...value.slice(0, i),
             {
@@ -118,79 +112,61 @@ export default function PrerequisiteTargetingField({
         }
       }
     }
-  }, [valueStr]);
+  }, [valueStr, featureNames]);
 
+  // Get all feature IDs that we need states for (dropdown options + selected prerequisites)
+  const allFeatureIds = useMemo(() => {
+    const selectedIds = value.map((v) => v.id).filter(Boolean);
+    const dropdownIds = featureNames
+      .filter((f) => f.id !== feature?.id)
+      .map((f) => f.id);
+    return [...new Set([...selectedIds, ...dropdownIds])];
+  }, [value, featureNames, feature?.id]);
+
+  // Fetch prerequisite states and cyclic checks from backend for all relevant features
+  const targetFeatureId = feature?.id || "";
+  const { results: batchStates, loading: batchStatesLoading } =
+    useBatchPrerequisiteStates({
+      targetFeatureId,
+      featureIds: allFeatureIds,
+      environments,
+      enabled:
+        !!targetFeatureId &&
+        allFeatureIds.length > 0 &&
+        environments.length > 0,
+    });
+
+  // Extract prerequisite states from backend response
+  const featuresStates: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = useMemo(() => {
+    if (!batchStates) return {};
+    const states: Record<string, Record<string, PrerequisiteStateResult>> = {};
+    for (const [featureId, result] of Object.entries(batchStates)) {
+      states[featureId] = result.states;
+    }
+    return states;
+  }, [batchStates]);
+
+  // Map selected prerequisites to their states
   const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
     useMemo(() => {
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
       return value.map((v) => {
-        const parentFeature = featuresMap.get(v.id);
-        if (!parentFeature) return null;
-        const states: Record<string, PrerequisiteStateResult> = {};
-        environments.forEach((env) => {
-          states[env] = evaluatePrerequisiteState(
-            parentFeature,
-            featuresMap,
-            env,
-          );
-        });
-        return states;
+        if (!v.id) return null;
+        return featuresStates[v.id] || null;
       });
-    }, [valueStr, features, envsStr]);
+    }, [value, featuresStates]);
 
-  const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
-    const featuresStates: Record<
-      string,
-      Record<string, PrerequisiteStateResult>
-    > = {};
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-    const wouldBeCyclicStates: Record<string, boolean> = {};
-    for (const f of features) {
-      // get current states:
-      const states: Record<string, PrerequisiteStateResult> = {};
-      environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(f, featuresMap, env);
-      });
-      featuresStates[f.id] = states;
-
-      // check if selecting this would be cyclic:
-      let wouldBeCyclic = false;
-      if (feature?.environmentSettings?.[environments?.[0]]?.rules) {
-        const newFeature = cloneDeep(feature);
-        const revision = revisions?.find((r) => r.version === version);
-        const newRevision = cloneDeep(revision);
-        const fakeRule: ForceRule = {
-          type: "force",
-          description: "fake rule",
-          id: "fake-rule",
-          value: "true",
-          prerequisites: [
-            {
-              id: f.id,
-              condition: getDefaultPrerequisiteCondition(),
-            },
-          ],
-          enabled: true,
-        };
-        if (newRevision) {
-          newRevision.rules[environments[0]] =
-            newRevision.rules[environments[0]] || [];
-          newRevision.rules[environments[0]].push(fakeRule);
-        } else {
-          newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
-        }
-
-        wouldBeCyclic = isFeatureCyclic(
-          newFeature,
-          featuresMap,
-          newRevision,
-          environments,
-        )[0];
-      }
-      wouldBeCyclicStates[f.id] = wouldBeCyclic;
+  // Extract wouldBeCyclic flags from backend response
+  const wouldBeCyclicStates: Record<string, boolean> = useMemo(() => {
+    if (!batchStates) return {};
+    const states: Record<string, boolean> = {};
+    for (const [featureId, result] of Object.entries(batchStates)) {
+      states[featureId] = result.wouldBeCyclic;
     }
-    return [featuresStates, wouldBeCyclicStates];
-  }, [features, envsStr]);
+    return states;
+  }, [batchStates]);
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
@@ -204,7 +180,7 @@ export default function PrerequisiteTargetingField({
       }
     }
     return false;
-  }, [prereqStatesArr, features, valueStr, hasSDKWithPrerequisites]);
+  }, [prereqStatesArr, valueStr, hasSDKWithPrerequisites]);
 
   useEffect(() => {
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
@@ -218,16 +194,17 @@ export default function PrerequisiteTargetingField({
     return map;
   }, [projects]);
 
-  const allFeatureOptions = features
+  const allFeatureOptions = featureNames
     .filter((f) => f.id !== feature?.id)
+    .filter((f) => !f.archived)
     .map((f) => {
-      const conditional = Object.values(featuresStates[f.id]).some(
+      const conditional = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "conditional",
       );
-      const cyclic = Object.values(featuresStates[f.id]).some(
+      const cyclic = Object.values(featuresStates[f.id] || {}).some(
         (s) => s.state === "cyclic",
       );
-      const wouldBeCyclic = wouldBeCyclicStates[f.id];
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
@@ -235,15 +212,21 @@ export default function PrerequisiteTargetingField({
       return {
         label: f.id,
         value: f.id,
-        meta: { conditional, cyclic, wouldBeCyclic, disabled },
+        meta: {
+          conditional,
+          cyclic,
+          wouldBeCyclic,
+          disabled,
+        } as FeatureOptionMeta,
         project: projectId,
         projectName,
       };
-    })
-    .sort((a, b) => {
-      if (b.meta?.disabled) return -1;
-      return 0;
     });
+
+  allFeatureOptions.sort((a, b) => {
+    if (b.meta?.disabled) return -1;
+    return 0;
+  });
 
   const featureProject = (feature ? feature?.project : project) || "";
   const featureOptionsInProject = allFeatureOptions.filter(
@@ -286,23 +269,31 @@ export default function PrerequisiteTargetingField({
 
   return (
     <Box my="4">
-      <Flex justify="between" align="center" mb="2">
-        <PremiumTooltip
-          commercialFeature="prerequisite-targeting"
-          premiumText="Prerequisite targeting is available for Enterprise customers"
-        >
-          <label style={{ marginBottom: 0 }}>
-            Target by Prerequisite Features
-          </label>
-        </PremiumTooltip>
-        <DocLink docSection="prerequisites">
-          Learn more <PiArrowSquareOut />
-        </DocLink>
-      </Flex>
+      <PremiumTooltip
+        commercialFeature="prerequisite-targeting"
+        premiumText="Prerequisite targeting is available for Enterprise customers"
+      >
+        <label style={{ marginBottom: 0 }} className="mb-2 d-block">
+          Target by Prerequisite Features (
+          <DocLink docSection="prerequisites">
+            docs <PiArrowSquareOut />
+          </DocLink>
+          )
+        </label>
+      </PremiumTooltip>
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
-            const parentFeature = features.find((f) => f.id === v.id);
+            const parentFeatureMeta = featureNames.find((f) => f.id === v.id);
+            const parentFeature: MinimalFeatureInfo | undefined =
+              parentFeatureMeta && parentFeatureMeta.defaultValue !== undefined
+                ? {
+                    id: parentFeatureMeta.id,
+                    project: parentFeatureMeta.project,
+                    valueType: parentFeatureMeta.valueType,
+                    defaultValue: parentFeatureMeta.defaultValue,
+                  }
+                : undefined;
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
               (s) => s.state === "conditional",
@@ -463,6 +454,7 @@ export default function PrerequisiteTargetingField({
                   prereqStates={prereqStatesArr[i]}
                   environments={environments}
                   featureProject={featureProject}
+                  loading={batchStatesLoading}
                 />
 
                 {parentFeature && hasConditionalState ? (
@@ -568,22 +560,30 @@ function PrereqStatesRows({
   prereqStates,
   environments,
   featureProject,
+  loading = false,
 }: {
-  parentFeature?: FeatureInterface;
+  parentFeature?: MinimalFeatureInfo;
   prereqStates: Record<string, PrerequisiteStateResult> | null;
   environments: string[];
   featureProject: string;
+  loading?: boolean;
 }) {
   const [showDetails, setShowDetails] = useState(true);
 
-  if (!parentFeature) {
+  if (!parentFeature || !parentFeature.id) {
     return null;
   }
 
   return (
     <>
-      <Flex align="center" mt="1" mb="2">
-        <Box flexGrow="1" />
+      <Flex align="center" justify="between" mt="1" mb="2">
+        <Link
+          href={`/features/${parentFeature.id}`}
+          target="_blank"
+          style={{ whiteSpace: "nowrap" }}
+        >
+          {parentFeature.id} <PiArrowSquareOut />
+        </Link>
         <Link onClick={() => setShowDetails(!showDetails)}>
           {showDetails ? (
             <>
@@ -597,27 +597,22 @@ function PrereqStatesRows({
         </Link>
       </Flex>
 
+      {(parentFeature?.project || "") !== featureProject ? (
+        <Callout
+          status="warning"
+          mb="3"
+          size="sm"
+          dismissible={true}
+          id="prerequisite-project-mismatch--field"
+        >
+          The prerequisite&apos;s project does not match this feature&apos;s
+          project. For SDK connections that do not overlap in project scope,
+          prerequisite evaluation will not pass.
+        </Callout>
+      ) : null}
+
       {showDetails && (
         <Box>
-          <Box mb="2">
-            <Link
-              href={`/features/${parentFeature.id}`}
-              target="_blank"
-              style={{ whiteSpace: "nowrap" }}
-            >
-              {parentFeature.id}
-              <FaExternalLinkAlt style={{ marginLeft: 4 }} />
-            </Link>
-          </Box>
-
-          {(parentFeature?.project || "") !== featureProject ? (
-            <HelperText status="warning" mt="3" mb="6">
-              The prerequisite&apos;s project does not match this feature&apos;s
-              project. For SDK connections that do not overlap in project scope,
-              prerequisite evaluation will not pass.
-            </HelperText>
-          ) : null}
-
           <table className="table mb-4 border bg-white">
             <thead className="text-dark">
               <tr>
@@ -652,6 +647,7 @@ function PrereqStatesRows({
                 <PrerequisiteStatesCols
                   prereqStates={prereqStates ?? undefined}
                   envs={environments}
+                  loading={loading}
                 />
               </tr>
             </tbody>
@@ -667,11 +663,15 @@ export const PrerequisiteAlerts = ({
   type = "prerequisite",
   project,
   size,
+  mt = "0",
+  mb = "4",
 }: {
   environments: string[];
   type?: "feature" | "prerequisite";
   project: string;
   size?: "sm" | "md";
+  mt?: string;
+  mb?: string;
 }) => {
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -692,7 +692,8 @@ export const PrerequisiteAlerts = ({
     <Callout
       size={size}
       status={hasSDKWithPrerequisites ? "warning" : "error"}
-      mb="4"
+      mb={mb}
+      mt={mt}
     >
       <Text>
         This {type} is in a{" "}

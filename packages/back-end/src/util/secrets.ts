@@ -172,6 +172,10 @@ export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
   process.env.ALLOW_CREATE_DIMENSIONS,
 );
 
+export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
+  process.env.API_ALLOW_SKIP_PAGINATION,
+);
+
 // Defines the User-Agent header for all requests made by the API
 export const API_USER_AGENT =
   process.env.API_USER_AGENT ||

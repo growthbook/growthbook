@@ -29,6 +29,7 @@ export default defineConfig([
     "docs/docusaurus.config.js",
     "docs/build",
     "packages/sdk-js/scripts",
+    "**/*.tsbuildinfo",
   ]),
   {
     extends: fixupConfigRules(
