@@ -1,4 +1,6 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { useState } from "react";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import {
   DifferenceType,
   PValueCorrection,
@@ -10,6 +12,8 @@ import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import Link from "@/ui/Link";
+import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 
@@ -58,6 +62,7 @@ function MetricDrilldownOverview({
   setLocalDifferenceType,
   sequentialTestingEnabled,
 }: MetricDrilldownOverviewProps) {
+  const [statsExpanded, setStatsExpanded] = useState(false);
   const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
     useSnapshot();
 
@@ -79,6 +84,14 @@ function MetricDrilldownOverview({
       : resultGroup === "secondary"
         ? "Secondary Metric"
         : "Guardrail Metric";
+
+  // Build rows for VariationStatsTable
+  const statsTableRows = variations.map((variation, i) => ({
+    variationIndex: i,
+    variationName: variation.name,
+    stats: row.variations[i],
+    isBaseline: i === localBaselineRow,
+  }));
 
   return (
     <Flex direction="column" gap="6">
@@ -121,6 +134,31 @@ function MetricDrilldownOverview({
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutateSnapshot}
       />
+
+      <Box>
+        <Link color="dark" onClick={() => setStatsExpanded(!statsExpanded)}>
+          <Flex align="center" gap="2">
+            {statsExpanded ? (
+              <FaCaretDown style={{ color: "var(--accent-a10)" }} />
+            ) : (
+              <FaCaretRight style={{ color: "var(--accent-a10)" }} />
+            )}
+            <Text
+              size="3"
+              weight="medium"
+              style={{ color: "var(--color-text-high)" }}
+            >
+              Variation statistics
+            </Text>
+          </Flex>
+        </Link>
+
+        {statsExpanded && (
+          <Box mt="3" maxWidth="500px">
+            <VariationStatsTable metric={metric} rows={statsTableRows} />
+          </Box>
+        )}
+      </Box>
 
       <Flex direction="column" gap="2">
         <Text size="4" weight="medium">

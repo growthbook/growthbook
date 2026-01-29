@@ -58,7 +58,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
-import { DrilldownTooltip } from "./DrilldownTooltip";
+import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -789,17 +789,10 @@ export default function ResultsTable({
                             onClick={
                               onRowClick
                                 ? (e) => {
-                                    // Don't trigger row click if clicking on interactive elements
                                     const target = e.target as HTMLElement;
-                                    if (
-                                      target.closest("a") ||
-                                      target.closest("button") ||
-                                      target.closest("[role='button']")
-                                    ) {
-                                      return;
+                                    if (!isInteractiveElement(target)) {
+                                      onRowClick(row);
                                     }
-
-                                    onRowClick(row);
                                   }
                                 : undefined
                             }
