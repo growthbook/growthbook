@@ -152,7 +152,19 @@ export function useHoverAnchor({
   const isContentHoveredRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || anchorPos === null) {
+    // Clean up state when disabled
+    if (!enabled) {
+      prevAnchorPosRef.current = null;
+      setAnchorPos(null);
+      elementPosRef.current = null;
+      if (isActiveRef.current) {
+        setIsActive(false);
+        setAnchorActive(false);
+      }
+      return;
+    }
+
+    if (anchorPos === null) {
       prevAnchorPosRef.current = null;
       return;
     }

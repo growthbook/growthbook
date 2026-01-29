@@ -76,6 +76,7 @@ export function Popover({
         </RadixPopover.Trigger>
       )}
       <RadixPopover.Portal>
+        {/* Wrapper div required to avoid React warning about invalid DOM nesting when RadixTheme renders a fragment */}
         <div>
           <RadixTheme>
             <RadixPopover.Content

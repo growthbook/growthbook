@@ -66,7 +66,9 @@ export default function ExperimentResultTooltipContent({
 
   const getBadgeText = () => {
     if (significant) {
-      return resultsStatus === "won" ? "WON" : "LOST";
+      if (resultsStatus === "won") return "WON";
+      if (resultsStatus === "lost") return "LOST";
+      if (resultsStatus === "draw") return "DRAW";
     }
     return "INSIGNIFICANT";
   };
