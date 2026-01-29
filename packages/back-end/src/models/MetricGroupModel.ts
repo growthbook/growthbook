@@ -41,7 +41,7 @@ export class MetricGroupModel extends BaseClass {
   }
 
   findByMetric(metricId: string): Promise<MetricGroupInterface[]> {
-    return this.getAll({
+    return this._find({
       metrics: metricId,
     });
   }

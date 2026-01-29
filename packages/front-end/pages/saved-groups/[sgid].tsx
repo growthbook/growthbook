@@ -3,7 +3,8 @@ import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
+import { PiArrowsDownUp } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
@@ -14,8 +15,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { isEmpty } from "lodash";
-import { Box, Card, Container, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
@@ -25,7 +25,6 @@ import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments, useFeaturesList } from "@/services/features";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
@@ -36,6 +35,7 @@ import LargeSavedGroupPerformanceWarning, {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import HistoryTable from "@/components/HistoryTable";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -43,6 +43,15 @@ import Button from "@/ui/Button";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
 import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
+import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
+import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModal";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 
 const NUM_PER_PAGE = 10;
 
@@ -53,17 +62,37 @@ export default function EditSavedGroupPage() {
     `/saved-groups/${sgid}`,
   );
   const savedGroup = data?.savedGroup;
-  const { features } = useFeaturesList(false);
-  const { experiments } = useExperiments();
-  const environments = useEnvironments();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const [showReferencesModal, setShowReferencesModal] =
     useState<boolean>(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const [showOtherProjects, setShowOtherProjects] = useState(false);
   const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
   const { savedGroupSizeLimit } = useOrgSettings();
+
+  // Scope features to saved group's projects
+  const savedGroupProjectIds = useMemo(() => {
+    if (!savedGroup?.projects || savedGroup.projects.length === 0) return [];
+    return savedGroup.projects;
+  }, [savedGroup?.projects]);
+
+  // Scope features based on toggle state and saved group's projects
+  const { features } = useFeaturesList({
+    project:
+      savedGroupProjectIds.length === 1 && !showOtherProjects
+        ? savedGroupProjectIds[0]
+        : undefined,
+    useCurrentProject:
+      savedGroupProjectIds.length === 0 || showOtherProjects ? false : true,
+    skipFetch: !savedGroup, // Skip fetching until saved group is loaded
+  });
+  const { experiments } = useExperiments();
+  const environments = useEnvironments();
 
   const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -115,15 +144,16 @@ export default function EditSavedGroupPage() {
   }, [savedGroup, allSavedGroups]);
 
   const referencingFeatures = useMemo(() => {
-    if (!savedGroup || !savedGroupsReferencingTarget.length)
-      return [] as FeatureInterface[];
+    if (!savedGroup) return [] as FeatureInterface[];
+    // Include the target saved group itself, plus any saved groups that reference it
+    const savedGroupsToCheck = [savedGroup, ...savedGroupsReferencingTarget];
     const referenceMap = featuresReferencingSavedGroups({
-      savedGroups: savedGroupsReferencingTarget,
+      savedGroups: savedGroupsToCheck,
       features,
       environments,
     });
     const allFeatures = new Map<string, FeatureInterface>();
-    savedGroupsReferencingTarget.forEach((sg) => {
+    savedGroupsToCheck.forEach((sg) => {
       (referenceMap[sg.id] || []).forEach((feature) => {
         allFeatures.set(feature.id, feature);
       });
@@ -132,17 +162,18 @@ export default function EditSavedGroupPage() {
   }, [savedGroup, savedGroupsReferencingTarget, features, environments]);
 
   const referencingExperiments = useMemo(() => {
-    if (!savedGroup || !savedGroupsReferencingTarget.length)
-      return [] as ExperimentInterfaceStringDates[];
+    if (!savedGroup) return [] as ExperimentInterfaceStringDates[];
+    // Include the target saved group itself, plus any saved groups that reference it
+    const savedGroupsToCheck = [savedGroup, ...savedGroupsReferencingTarget];
     const referenceMap = experimentsReferencingSavedGroups({
-      savedGroups: savedGroupsReferencingTarget,
+      savedGroups: savedGroupsToCheck,
       experiments,
     });
     const allExperiments = new Map<
       string,
       ExperimentInterface | ExperimentInterfaceStringDates
     >();
-    savedGroupsReferencingTarget.forEach((sg) => {
+    savedGroupsToCheck.forEach((sg) => {
       (referenceMap[sg.id] || []).forEach((experiment) => {
         allExperiments.set(experiment.id, experiment);
       });
@@ -163,14 +194,6 @@ export default function EditSavedGroupPage() {
     referencingFeatures.length +
     referencingExperiments.length +
     referencingSavedGroups.length;
-
-  const getConfirmationContent = useMemo(() => {
-    return getSavedGroupMessage(
-      referencingFeatures,
-      referencingExperiments,
-      referencingSavedGroups,
-    );
-  }, [referencingFeatures, referencingExperiments, referencingSavedGroups]);
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey,
@@ -204,6 +227,30 @@ export default function EditSavedGroupPage() {
           source="large-saved-groups"
           commercialFeature="large-saved-groups"
         />
+      )}
+      {showDeleteModal && savedGroup && (
+        <SavedGroupDeleteModal
+          savedGroup={savedGroup}
+          close={() => setShowDeleteModal(false)}
+          onDelete={async () => {
+            await apiCall(`/saved-groups/${savedGroup.id}`, {
+              method: "DELETE",
+            });
+            router.push("/saved-groups");
+          }}
+        />
+      )}
+      {showAuditModal && savedGroup && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setShowAuditModal(false)}
+          size="max"
+          closeCta="Close"
+        >
+          <HistoryTable type="savedGroup" id={savedGroup.id} />
+        </Modal>
       )}
       {addItems && (
         <Modal
@@ -305,62 +352,100 @@ export default function EditSavedGroupPage() {
           <Heading size="7" as="h1">
             {savedGroup.groupName}
           </Heading>
-          <Flex align="center" gap="5">
-            <DeleteButton
-              className="font-weight-bold"
-              text="Delete"
-              title="Delete this Saved Group"
-              getConfirmationContent={getConfirmationContent}
-              canDelete={
-                isEmpty(referencingFeatures) &&
-                isEmpty(referencingExperiments) &&
-                isEmpty(referencingSavedGroups)
-              }
-              onClick={async () => {
-                await apiCall(`/saved-groups/${savedGroup.id}`, {
-                  method: "DELETE",
-                });
-                router.push("/saved-groups");
-              }}
-              link={true}
-              useIcon={false}
-              displayName={"Saved Group '" + savedGroup.groupName + "'"}
-            />
-            <Button
-              onClick={() => {
-                setSavedGroupForm(savedGroup);
-              }}
-            >
-              Edit
-            </Button>
-          </Flex>
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            open={dropdownOpen}
+            onOpenChange={setDropdownOpen}
+            menuPlacement="end"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setSavedGroupForm(savedGroup);
+                  setDropdownOpen(false);
+                }}
+              >
+                Edit Information
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setShowAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                View Audit Log
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                color="red"
+                onClick={() => {
+                  setShowDeleteModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenu>
         </Flex>
-        <Flex align="center" gap="4" mb="4" wrap="wrap">
-          {savedGroup.type === "list" && (
+        <Flex align="center" gap="4" mb="4" wrap="wrap" justify="between">
+          <Flex align="center" gap="4" wrap="wrap">
+            {savedGroup.type === "list" && (
+              <Text>
+                Attribute Key: <strong>{savedGroup.attributeKey}</strong>
+              </Text>
+            )}
+            {(projects.length > 0 ||
+              (savedGroup.projects?.length ?? 0) > 0) && (
+              <Flex align="center" gap="2">
+                <Text>Projects:</Text>
+                {(savedGroup.projects?.length || 0) > 0 ? (
+                  <ProjectBadges
+                    projectIds={savedGroup.projects}
+                    resourceType="saved group"
+                  />
+                ) : (
+                  <ProjectBadges resourceType="saved group" />
+                )}
+              </Flex>
+            )}
             <Text>
-              Attribute Key: <strong>{savedGroup.attributeKey}</strong>
+              Date Updated: <strong>{ago(savedGroup.dateUpdated)}</strong>
             </Text>
-          )}
-          {(projects.length > 0 || (savedGroup.projects?.length ?? 0) > 0) && (
-            <Flex align="center" gap="2">
-              <Text>Projects:</Text>
-              {(savedGroup.projects?.length || 0) > 0 ? (
-                <ProjectBadges
-                  projectIds={savedGroup.projects}
-                  resourceType="saved group"
-                />
-              ) : (
-                <ProjectBadges resourceType="saved group" />
-              )}
-            </Flex>
-          )}
-          <Text>
-            Date Updated: <strong>{ago(savedGroup.dateUpdated)}</strong>
-          </Text>
-          <Text>
-            Owner:{" "}
-            <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
-          </Text>
+            <Text>
+              Owner:{" "}
+              <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
+            </Text>
+          </Flex>
+          <Flex direction="column" align="end" gap="2">
+            <SavedGroupReferences
+              totalReferences={totalReferences}
+              onShowReferences={() => setShowReferencesModal(true)}
+              isScopedToProject={
+                savedGroupProjectIds.length > 0 && !showOtherProjects
+              }
+            />
+            {savedGroupProjectIds.length > 0 && (
+              <Switch
+                value={showOtherProjects}
+                onChange={setShowOtherProjects}
+                label="Include other projects"
+                size="1"
+              />
+            )}
+          </Flex>
         </Flex>
         {savedGroup.description && (
           <Text as="p" mb="3">
@@ -368,7 +453,7 @@ export default function EditSavedGroupPage() {
           </Text>
         )}
         {savedGroup.type === "list" && !isIdListSupportedAttribute(attr) && (
-          <Callout status="error" icon={<PiWarningFill />} mt="3">
+          <Callout status="error" mt="3">
             The attribute for this saved group has an unsupported datatype. It
             cannot be edited and it may produce unexpected behavior when used in
             SDKs. Try using a{" "}
@@ -386,17 +471,9 @@ export default function EditSavedGroupPage() {
         )}
         {savedGroup.type === "condition" ? (
           <>
-            <Flex gap="4" mb="3" align="center" justify="between">
-              <Heading size="4" mb="0">
-                Condition
-              </Heading>
-              <Box flexShrink="0">
-                <SavedGroupReferences
-                  totalReferences={totalReferences}
-                  onShowReferences={() => setShowReferencesModal(true)}
-                />
-              </Box>
-            </Flex>
+            <Heading size="4" mb="3">
+              Condition
+            </Heading>
             <Text as="p" mb="3">
               Include all users who match the following:
             </Text>
@@ -414,8 +491,8 @@ export default function EditSavedGroupPage() {
           </>
         ) : (
           <>
-            <div className="row m-0 mb-4 align-items-center justify-content-between">
-              <div className="">
+            <Flex align="center" justify="between" mb="3" gap="4">
+              <Box className="relative" width="40%">
                 <Field
                   placeholder="Search..."
                   type="search"
@@ -424,24 +501,44 @@ export default function EditSavedGroupPage() {
                     setFilter(e.target.value);
                   }}
                 />
-              </div>
-              <Flex>
-                <SavedGroupReferences
-                  totalReferences={totalReferences}
-                  onShowReferences={() => setShowReferencesModal(true)}
-                />
-                <Container mr="4">
-                  <Button
-                    variant="ghost"
-                    color="red"
-                    onClick={() => {
-                      setImportOperation("replace");
-                      setAddItems(true);
+              </Box>
+              <Flex gap="4" align="center">
+                {selected.size > 0 && (
+                  <DeleteButton
+                    text={`Delete Selected (${selected.size})`}
+                    title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
+                    getConfirmationContent={async () => ""}
+                    onClick={async () => {
+                      await apiCall(
+                        `/saved-groups/${savedGroup.id}/remove-items`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({ items: [...selected] }),
+                        },
+                      );
+                      const newValues = values.filter(
+                        (value) => !selected.has(value),
+                      );
+                      mutateValues(newValues);
+                      setSelected(new Set());
                     }}
-                  >
-                    Overwrite list
-                  </Button>
-                </Container>
+                    link={true}
+                    useIcon={true}
+                    displayName={`${selected.size} selected item${
+                      selected.size > 1 ? "s" : ""
+                    }`}
+                  />
+                )}
+                <Button
+                  variant="ghost"
+                  color="red"
+                  onClick={() => {
+                    setImportOperation("replace");
+                    setAddItems(true);
+                  }}
+                >
+                  Overwrite list
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -455,84 +552,45 @@ export default function EditSavedGroupPage() {
                   <span className="lh-full">Add items</span>
                 </Button>
               </Flex>
-            </div>
-            <h4>ID List Items</h4>
-            <div className="row m-0 mb-3 align-items-center justify-content-between">
-              <div className="row m-0 align-items-center">
-                {selected.size > 0 && (
-                  <>
-                    <DeleteButton
-                      text={`Delete Selected (${selected.size})`}
-                      title={`Delete selected item${selected.size > 1 ? "s" : ""}`}
-                      getConfirmationContent={async () => ""}
-                      onClick={async () => {
-                        await apiCall(
-                          `/saved-groups/${savedGroup.id}/remove-items`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({ items: [...selected] }),
-                          },
-                        );
-                        const newValues = values.filter(
-                          (value) => !selected.has(value),
-                        );
-                        mutateValues(newValues);
-                        setSelected(new Set());
-                      }}
-                      link={true}
-                      useIcon={true}
-                      displayName={`${selected.size} selected item${
-                        selected.size > 1 ? "s" : ""
-                      }`}
-                    />
-                  </>
-                )}
-              </div>
-              <div className="d-flex align-items-center">
-                {values.length > 0 && (
-                  <div className="mr-3">
-                    {(start + 1).toLocaleString()}-
-                    {(start + valuesPage.length).toLocaleString()} of{" "}
-                    {(values.length || 0).toLocaleString()}
-                  </div>
-                )}
-                <div
-                  className="cursor-pointer text-color-primary"
-                  onClick={() => {
-                    setSortNewestFirst(!sortNewestFirst);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                  <span className="lh-full align-middle">
-                    {sortNewestFirst
-                      ? "Most Recently Added"
-                      : "Least Recently Added"}
-                  </span>
-                </div>
-              </div>
-            </div>
+            </Flex>
 
-            <table className="table gbtable table-hover appbox">
+            <table className="table gbtable table-hover appbox table-valign-top">
               <thead>
                 <tr>
                   <th style={{ width: "48px" }}>
-                    <input
-                      type="checkbox"
-                      checked={
+                    <Checkbox
+                      value={
                         values.length > 0 && selected.size === values.length
                       }
-                      readOnly={true}
-                      onChange={(e) => {
-                        if (e.target.checked) {
+                      setValue={(checked) => {
+                        if (checked) {
                           setSelected(new Set(values));
                         } else {
                           setSelected(new Set());
                         }
                       }}
+                      size="sm"
                     />
                   </th>
-                  <th>{savedGroup.attributeKey}</th>
+                  <th>
+                    <Flex justify="between" align="center">
+                      <span>{savedGroup.attributeKey}</span>
+                      <div
+                        className="cursor-pointer text-color-primary"
+                        onClick={() => {
+                          setSortNewestFirst(!sortNewestFirst);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        <PiArrowsDownUp className="mr-1 lh-full align-middle" />
+                        <span className="lh-full align-middle">
+                          {sortNewestFirst
+                            ? "Most Recently Added"
+                            : "Least Recently Added"}
+                        </span>
+                      </div>
+                    </Flex>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -550,11 +608,19 @@ export default function EditSavedGroupPage() {
                         }
                       }}
                     >
-                      <td>
-                        <input
-                          type="checkbox"
-                          readOnly={true}
-                          checked={selected.has(value)}
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          value={selected.has(value)}
+                          setValue={(checked) => {
+                            if (checked) {
+                              setSelected(new Set(selected).add(value));
+                            } else {
+                              const newSelected = new Set(selected);
+                              newSelected.delete(value);
+                              setSelected(newSelected);
+                            }
+                          }}
+                          size="sm"
                         />
                       </td>
                       <td>{value}</td>

@@ -1,6 +1,5 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
 import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
@@ -18,8 +17,6 @@ export default function RolloutFields({
   feature,
   environments,
   defaultValues,
-  version,
-  revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
@@ -30,8 +27,6 @@ export default function RolloutFields({
   feature: FeatureInterface;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
-  version: number;
-  revisions?: FeatureRevisionInterface[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
@@ -149,8 +144,6 @@ export default function RolloutFields({
             form.setValue("prerequisites", prerequisites)
           }
           feature={feature}
-          revisions={revisions}
-          version={version}
           environments={environments}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />

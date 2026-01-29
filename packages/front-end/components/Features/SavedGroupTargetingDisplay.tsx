@@ -1,5 +1,6 @@
 import { SavedGroupTargeting } from "shared/types/feature";
 import { Flex, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
@@ -57,11 +58,10 @@ export default function SavedGroupTargetingDisplay({
                       <Link
                         href={`/saved-groups/${group.id}`}
                         title="Manage Saved Group"
-                        size="1"
                         target="_blank"
                         color="violet"
                       >
-                        {group.groupName}
+                        {group.groupName} <PiArrowSquareOut />
                       </Link>
                     }
                   />

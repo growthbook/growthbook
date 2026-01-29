@@ -1236,7 +1236,7 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-// Extracts all metric ids from an experiment, excluding ephemeral metrics (slices)
+// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
 // NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
@@ -1263,7 +1263,7 @@ export function getAllExpandedMetricIdsFromExperiment({
 
   // Add all slice metrics that are already in the expandedMetricMap
   // This includes both standard and custom dimension metrics
-  expandedMetricMap.forEach((metric, metricId) => {
+  expandedMetricMap.forEach((_, metricId) => {
     // Check if this is a dimension metric (contains dim: parameter)
     if (/[?&]dim:/.test(metricId)) {
       expandedMetricIds.add(metricId);
@@ -1289,6 +1289,7 @@ export interface SliceDataForMetric {
 }
 
 // Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+// Used for FE: row generation, slice filtering/expansion
 export function createAutoSliceDataForMetric({
   parentMetric,
   factTable,
@@ -1377,15 +1378,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices:
-    | Array<{
-        slices: Array<{
-          column: string;
-          levels: string[];
-        }>;
-      }>
-    | null
-    | undefined;
+  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
   factTable?: FactTableInterface | null;
 }): SliceDataForMetric[] {
   // Sanity checks

@@ -68,8 +68,8 @@ async function run() {
         ]);
         validators.push(
           `export const ${id}Validator = {
-  bodySchema: ${generateZodSchema(requestSchema, false)},
-  querySchema: ${generateZodSchema(querySchema)},
+  bodySchema: ${generateZodSchema(requestSchema, false, false)},
+  querySchema: ${generateZodSchema(querySchema, true, true)},
   paramsSchema: ${generateZodSchema(pathSchema)},
 };`,
         );
@@ -106,7 +106,17 @@ run()
     process.exit(1);
   });
 
-function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
+// Query params are strings; accept "true"/"false"/"0"/"1" and coerce to boolean.
+const QUERY_BOOLEAN_COERCION =
+  'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1")';
+const QUERY_BOOLEAN_COERCION_TRUE =
+  'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(true).transform((v) => v === true || v === "true" || v === "1")';
+
+function generateZodSchema(
+  jsonSchema,
+  coerceStringsToNumbers = true,
+  coerceBooleansFromQuery = false,
+) {
   if (!jsonSchema) {
     return `z.never()`;
   }
@@ -119,6 +129,16 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
 
   if (coerceStringsToNumbers) {
     zod = zod.replace(/z\.number\(\)/g, "z.coerce.number()");
+  }
+
+  if (coerceBooleansFromQuery) {
+    // Single pass: one regex matches .default(true), .default(false), or bare z.boolean().
+    // A second pass would match z.boolean() inside the replacement and create nested unions.
+    zod = zod.replace(
+      /z\.boolean\(\)(\.default\((true|false)\))?/g,
+      (_, _suffix, defaultVal) =>
+        defaultVal === "true" ? QUERY_BOOLEAN_COERCION_TRUE : QUERY_BOOLEAN_COERCION,
+    );
   }
 
   // remove overly strick datetime zod validation
