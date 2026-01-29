@@ -371,6 +371,11 @@ p.rt-TooltipText {
   }
 }
 
+// Separator - heavy weight option
+.rt-Separator.gb-separator-heavy {
+  background-color: var(--gray-8);
+}
+
 // Utility classes
 .truncate {
   overflow: hidden;

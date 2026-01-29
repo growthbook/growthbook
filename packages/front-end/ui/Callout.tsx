@@ -1,4 +1,10 @@
-import { Callout as RadixCallout, Box, IconButton } from "@radix-ui/themes";
+import {
+  Callout as RadixCallout,
+  Box,
+  Flex,
+  IconButton,
+  Tooltip,
+} from "@radix-ui/themes";
 import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
@@ -94,28 +100,25 @@ export default forwardRef<
           <div>{children}</div>
         </Box>
       ) : (
-        <>
-          <RadixCallout.Text size={getRadixSize(size)}>
+        <Flex align="center" gap="1" flexGrow="1">
+          <RadixCallout.Text size={getRadixSize(size)} style={{ flex: 1 }}>
             {children}
           </RadixCallout.Text>
           {dismissible && id ? (
-            <IconButton
-              variant="ghost"
-              color="gray"
-              size="1"
-              onClick={() => setDismissed(true)}
-              aria-label="Dismiss"
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                marginTop: -11,
-              }}
-            >
-              <PiX />
-            </IconButton>
+            <Tooltip content="Dismiss">
+              <IconButton
+                variant="ghost"
+                color="gray"
+                size="1"
+                onClick={() => setDismissed(true)}
+                aria-label="Dismiss"
+                style={{ flexShrink: 0 }}
+              >
+                <PiX />
+              </IconButton>
+            </Tooltip>
           ) : null}
-        </>
+        </Flex>
       )}
     </RadixCallout.Root>
   );

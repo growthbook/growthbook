@@ -300,6 +300,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
@@ -331,6 +332,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />

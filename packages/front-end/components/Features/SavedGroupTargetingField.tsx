@@ -6,7 +6,7 @@ import {
   PiXBold,
 } from "react-icons/pi";
 import React from "react";
-import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Separator, Text, IconButton } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -117,89 +117,89 @@ export default function SavedGroupTargetingField({
         )}
         {value.map((v, i) => {
           return (
-            <Flex key={i} gap="2" align="start" mb="4">
-              <Box style={{ flexShrink: 0 }}>
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <Separator
+                  size="4"
+                  mt="6"
+                  mb="4"
+                  className="gb-separator-heavy"
+                />
+              )}
+              <Flex direction="column" gap="2" mb="4">
                 <ConditionLabel label={i === 0 ? "In" : "AND"} />
-              </Box>
-              <Flex
-                align="start"
-                gap="2"
-                wrap="wrap"
-                style={{ flex: "1 1 0", minWidth: 0 }}
-              >
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                  <SelectField
-                    useMultilineLabels={true}
-                    value={v.match}
-                    onChange={(match) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].match = match as "all" | "any" | "none";
-                      setValue(newValue);
-                    }}
-                    sort={false}
-                    options={[
-                      {
-                        value: "any",
-                        label: "Any of",
-                      },
-                      {
-                        value: "all",
-                        label: "All of",
-                      },
-                      {
-                        value: "none",
-                        label: "None of",
-                      },
-                    ]}
-                  />
-                </Box>
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                  <MultiSelectField
-                    value={v.ids}
-                    onChange={(ids) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].ids = ids;
-                      setValue(newValue);
-                    }}
-                    options={options}
-                    formatOptionLabel={(o, meta) => {
-                      if (meta.context !== "value") return o.label;
-                      const group = getSavedGroupById(o.value);
-                      if (!group) return o.label;
-                      return (
-                        <Link
-                          href={`/saved-groups/${group.id}`}
-                          target="_blank"
-                        >
-                          {o.label} <PiArrowSquareOut />
-                        </Link>
-                      );
-                    }}
-                    required
-                    placeholder="Select groups..."
-                    closeMenuOnSelect={true}
-                  />
-                </Box>
-              </Flex>
-              <Box px="1" pt="3" style={{ width: 16 }}>
-                <Tooltip content="Remove condition">
-                  <IconButton
-                    type="button"
-                    color="red"
-                    variant="ghost"
-                    onClick={() => {
-                      const newValue = [...value];
-                      newValue.splice(i, 1);
-                      setValue(newValue);
-                    }}
+                <Flex gap="2" align="start">
+                  <Flex
+                    direction="column"
+                    gap="2"
+                    style={{ flex: 1, minWidth: 0 }}
                   >
-                    <PiXBold size={16} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Flex>
+                    <Box>
+                      <SelectField
+                        useMultilineLabels={true}
+                        value={v.match}
+                        onChange={(match) => {
+                          const newValue = [...value];
+                          newValue[i] = { ...v };
+                          newValue[i].match = match as "all" | "any" | "none";
+                          setValue(newValue);
+                        }}
+                        sort={false}
+                        options={[
+                          { value: "any", label: "Any of" },
+                          { value: "all", label: "All of" },
+                          { value: "none", label: "None of" },
+                        ]}
+                      />
+                    </Box>
+                    <Box>
+                      <MultiSelectField
+                        value={v.ids}
+                        onChange={(ids) => {
+                          const newValue = [...value];
+                          newValue[i] = { ...v };
+                          newValue[i].ids = ids;
+                          setValue(newValue);
+                        }}
+                        options={options}
+                        formatOptionLabel={(o, meta) => {
+                          if (meta.context !== "value") return o.label;
+                          const group = getSavedGroupById(o.value);
+                          if (!group) return o.label;
+                          return (
+                            <Link
+                              href={`/saved-groups/${group.id}`}
+                              target="_blank"
+                            >
+                              {o.label} <PiArrowSquareOut />
+                            </Link>
+                          );
+                        }}
+                        required
+                        placeholder="Select groups..."
+                        closeMenuOnSelect={true}
+                      />
+                    </Box>
+                  </Flex>
+                  <Box px="1" pt="2" style={{ width: 16, flexShrink: 0 }}>
+                    <Tooltip content="Remove condition">
+                      <IconButton
+                        type="button"
+                        color="red"
+                        variant="ghost"
+                        onClick={() => {
+                          const newValue = [...value];
+                          newValue.splice(i, 1);
+                          setValue(newValue);
+                        }}
+                      >
+                        <PiXBold size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Flex>
+              </Flex>
+            </React.Fragment>
           );
         })}
         <Box mt="2">
@@ -216,7 +216,7 @@ export default function SavedGroupTargetingField({
           >
             <Text weight="bold">
               <PiPlusBold className="mr-1" />
-              Add another condition
+              AND
             </Text>
           </Link>
         </Box>

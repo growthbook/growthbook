@@ -56,13 +56,13 @@ function operatorToText({
     case "$notExists":
       return isPrerequisite ? `is not live` : `is NULL`;
     case "$in":
-      return `is in the list`;
+      return `is any of`;
     case "$nin":
-      return `is not in the list`;
+      return `is none of`;
     case "$ini":
-      return `is in the list (case insensitive)`;
+      return `is any of (case insensitive)`;
     case "$nini":
-      return `is not in the list (case insensitive)`;
+      return `is none of (case insensitive)`;
     case "$inGroup":
       return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":

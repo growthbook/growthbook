@@ -13,7 +13,7 @@ import {
 import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
-import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Separator, Text, IconButton } from "@radix-ui/themes";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Tooltip from "@/ui/Tooltip";
 import {
@@ -38,6 +38,7 @@ import CountrySelector, {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 
@@ -49,11 +50,64 @@ export function ConditionLabel({
   width?: number;
 }) {
   return (
-    // height 38 matches our single row input field height
-    <Flex align="center" flexShrink="0" style={{ width, height: 38 }}>
-      <Text weight="bold">{label}</Text>
+    <Flex align="center" flexShrink="0" style={{ width }} mb="1">
+      <Text weight="bold" size="2">
+        {label}
+      </Text>
     </Flex>
   );
+}
+
+/** Operators that support a case-insensitive variant via checkbox (list + regex) */
+const OPERATORS_WITH_CASE_INSENSITIVE = new Set([
+  "$in",
+  "$nin",
+  "$ini",
+  "$nini",
+  "$regex",
+  "$notRegex",
+  "$regexi",
+  "$notRegexi",
+]);
+
+/** Base operator -> case-insensitive variant */
+const CASE_INSENSITIVE_VARIANT: Record<string, string> = {
+  $in: "$ini",
+  $nin: "$nini",
+  $regex: "$regexi",
+  $notRegex: "$notRegexi",
+};
+
+/** Case-insensitive variant -> base operator */
+const BASE_OPERATOR: Record<string, string> = {
+  $ini: "$in",
+  $nini: "$nin",
+  $regexi: "$regex",
+  $notRegexi: "$notRegex",
+};
+
+export function operatorSupportsCaseInsensitiveCheckbox(
+  operator: string,
+): boolean {
+  return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
+}
+
+export function getDisplayOperator(operator: string): string {
+  return BASE_OPERATOR[operator] ?? operator;
+}
+
+export function isCaseInsensitiveOperator(operator: string): boolean {
+  return operator in BASE_OPERATOR;
+}
+
+export function withOperatorCaseInsensitivity(
+  baseOperator: string,
+  caseInsensitive: boolean,
+): string {
+  if (caseInsensitive && baseOperator in CASE_INSENSITIVE_VARIANT) {
+    return CASE_INSENSITIVE_VARIANT[baseOperator];
+  }
+  return baseOperator;
 }
 
 interface Props {
@@ -366,7 +420,6 @@ function ConditionAndGroupInput({
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
-  const [rawTextMode, setRawTextMode] = useState(false);
 
   const savedGroupOperators = [
     {
@@ -500,91 +553,94 @@ function ConditionAndGroupInput({
             });
 
             return (
-              <Flex key={i} gap="2" align="start" mb="4">
-                <Box style={{ flexShrink: 0 }}>
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <Separator
+                    size="4"
+                    mt="6"
+                    mb="4"
+                    className="gb-separator-heavy"
+                  />
+                )}
+                <Flex direction="column" gap="1" mb="4">
                   <ConditionLabel label={i === 0 ? "IF" : "AND"} />
-                </Box>
-                <Flex
-                  gap="2"
-                  align="start"
-                  wrap="wrap"
-                  style={{ flex: "1 1 0", minWidth: 0 }}
-                >
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {fieldSelector}
-                  </Box>
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <SelectField
-                      useMultilineLabels={true}
-                      value={operator}
-                      name="operator"
-                      options={[
-                        {
-                          label: "in",
-                          value: "$in",
-                        },
-                        {
-                          label: "not in",
-                          value: "$nin",
-                        },
-                      ]}
-                      sort={false}
-                      onChange={(v) => {
-                        handleCondsChange(v, "operator");
-                      }}
-                    />
-                  </Box>
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <MultiSelectField
-                      value={ids}
-                      options={groupOptions}
-                      onChange={handleListChange}
-                      name="value"
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value" || !o.value)
-                          return o.label;
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{ position: "relative", zIndex: 1000 }}
+                  <Flex gap="2" align="start">
+                    <Flex
+                      gap="2"
+                      align="start"
+                      wrap="wrap"
+                      style={{ flex: 1, minWidth: 0 }}
+                    >
+                      <Box style={{ flex: "1 1 0", minWidth: 200 }}>
+                        {fieldSelector}
+                      </Box>
+                      <Box style={{ flex: "1 1 0", minWidth: 200 }}>
+                        <SelectField
+                          useMultilineLabels={true}
+                          value={operator}
+                          name="operator"
+                          options={[
+                            { label: "in", value: "$in" },
+                            { label: "not in", value: "$nin" },
+                          ]}
+                          sort={false}
+                          onChange={(v) => {
+                            handleCondsChange(v, "operator");
+                          }}
+                        />
+                      </Box>
+                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        <MultiSelectField
+                          value={ids}
+                          options={groupOptions}
+                          onChange={handleListChange}
+                          name="value"
+                          formatOptionLabel={(o, meta) => {
+                            if (meta.context !== "value" || !o.value)
+                              return o.label;
+                            const group = getSavedGroupById(o.value);
+                            if (!group) return o.label;
+                            return (
+                              <Link
+                                href={`/saved-groups/${group.id}`}
+                                target="_blank"
+                                style={{ position: "relative", zIndex: 1000 }}
+                              >
+                                {o.label} <PiArrowSquareOut />
+                              </Link>
+                            );
+                          }}
+                          required
+                        />
+                      </Box>
+                    </Flex>
+                    <Box px="1" pt="3" style={{ width: 16, flexShrink: 0 }}>
+                      {(conds.length > 1 ||
+                        (conds.length === 1 && orGroupsCount > 1) ||
+                        !props.require) && (
+                        <Tooltip content="Remove condition">
+                          <IconButton
+                            type="button"
+                            color="red"
+                            variant="ghost"
+                            onClick={() => {
+                              if (conds.length === 1) {
+                                setConds([]);
+                              } else {
+                                const newConds = [...conds];
+                                newConds.splice(i, 1);
+                                setConds(newConds);
+                              }
+                            }}
                           >
-                            {o.label} <PiArrowSquareOut />
-                          </Link>
-                        );
-                      }}
-                      required
-                    />
-                  </Box>
+                            <PiXBold size={16} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Flex>
                 </Flex>
-                <Box px="1" pt="3" style={{ width: 16 }}>
-                  {(conds.length > 1 ||
-                    (conds.length === 1 && orGroupsCount > 1) ||
-                    !props.require) && (
-                    <Tooltip content="Remove condition">
-                      <IconButton
-                        type="button"
-                        color="red"
-                        variant="ghost"
-                        onClick={() => {
-                          // If this is the last condition in the AND group, delete the entire OR group
-                          if (conds.length === 1) {
-                            setConds([]);
-                          } else {
-                            const newConds = [...conds];
-                            newConds.splice(i, 1);
-                            setConds(newConds);
-                          }
-                        }}
-                      >
-                        <PiXBold size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              </Flex>
+              </React.Fragment>
             );
           }
 
@@ -628,16 +684,8 @@ function ConditionAndGroupInput({
                   ? [
                       { label: "is equal to", value: "$eq" },
                       { label: "is not equal to", value: "$ne" },
-                      { label: "is in the list", value: "$in" },
-                      { label: "is not in the list", value: "$nin" },
-                      {
-                        label: "is in the list (case insensitive)",
-                        value: "$ini",
-                      },
-                      {
-                        label: "is not in the list (case insensitive)",
-                        value: "$nini",
-                      },
+                      { label: "is any of", value: "$in" },
+                      { label: "is none of", value: "$nin" },
                       { label: "is not NULL", value: "$exists" },
                       { label: "is NULL", value: "$notExists" },
                     ]
@@ -655,14 +703,6 @@ function ConditionAndGroupInput({
                         },
                         { label: "matches regex", value: "$regex" },
                         { label: "does not match regex", value: "$notRegex" },
-                        {
-                          label: "matches regex (case insensitive)",
-                          value: "$regexi",
-                        },
-                        {
-                          label: "does not match regex (case insensitive)",
-                          value: "$notRegexi",
-                        },
                         {
                           label:
                             attribute.format === "date"
@@ -695,16 +735,8 @@ function ConditionAndGroupInput({
                           value:
                             attribute.format === "version" ? "$vlte" : "$lte",
                         },
-                        { label: "is in the list", value: "$in" },
-                        { label: "is not in the list", value: "$nin" },
-                        {
-                          label: "is in the list (case insensitive)",
-                          value: "$ini",
-                        },
-                        {
-                          label: "is not in the list (case insensitive)",
-                          value: "$nini",
-                        },
+                        { label: "is any of", value: "$in" },
+                        { label: "is none of", value: "$nin" },
                         { label: "is not NULL", value: "$exists" },
                         { label: "is NULL", value: "$notExists" },
                         ...(savedGroupOptions.length > 0
@@ -715,16 +747,8 @@ function ConditionAndGroupInput({
                       ? [
                           { label: "is equal to", value: "$eq" },
                           { label: "is not equal to", value: "$ne" },
-                          { label: "is in the list", value: "$in" },
-                          { label: "is not in the list", value: "$nin" },
-                          {
-                            label: "is in the list (case insensitive)",
-                            value: "$ini",
-                          },
-                          {
-                            label: "is not in the list (case insensitive)",
-                            value: "$nini",
-                          },
+                          { label: "is any of", value: "$in" },
+                          { label: "is none of", value: "$nin" },
                           { label: "is not NULL", value: "$exists" },
                           { label: "is NULL", value: "$notExists" },
                           ...(savedGroupOptions.length > 0
@@ -745,16 +769,8 @@ function ConditionAndGroupInput({
                               label: "is less than or equal to",
                               value: "$lte",
                             },
-                            { label: "is in the list", value: "$in" },
-                            { label: "is not in the list", value: "$nin" },
-                            {
-                              label: "is in the list (case insensitive)",
-                              value: "$ini",
-                            },
-                            {
-                              label: "is not in the list (case insensitive)",
-                              value: "$nini",
-                            },
+                            { label: "is any of", value: "$in" },
+                            { label: "is none of", value: "$nin" },
                             { label: "is not NULL", value: "$exists" },
                             { label: "is NULL", value: "$notExists" },
                             ...(savedGroupOptions.length > 0
@@ -807,242 +823,252 @@ function ConditionAndGroupInput({
             displayType === "string" && value !== value.trim();
 
           return (
-            <Flex key={i} gap="2" align="start" mb="3">
-              <Box style={{ flexShrink: 0 }}>
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <Separator
+                  size="4"
+                  mt="6"
+                  mb="4"
+                  className="gb-separator-heavy"
+                />
+              )}
+              <Flex direction="column" gap="1" mb="3">
                 <ConditionLabel label={i === 0 ? "IF" : "AND"} />
-              </Box>
-              <Flex
-                gap="2"
-                align="start"
-                wrap="wrap"
-                style={{ flex: "1 1 0", minWidth: 0 }}
-              >
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                  {fieldSelector}
-                </Box>
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                  <SelectField
-                    useMultilineLabels={true}
-                    value={operator}
-                    name="operator"
-                    options={operatorOptions}
-                    sort={false}
-                    onChange={(v) => {
-                      handleCondsChange(v, "operator");
-                    }}
-                  />
-                </Box>
-                {displayType === "select-only" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }} />
-                ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                  savedGroupOptions.length > 0 ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <SelectField
-                      useMultilineLabels={true}
-                      options={savedGroupOptions.map((o) => ({
-                        label: o.label,
-                        value: o.value,
-                      }))}
-                      value={value}
-                      onChange={(v) => {
-                        handleCondsChange(v, "value");
-                      }}
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value" || !o.value)
-                          return o.label;
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{ position: "relative", zIndex: 1000 }}
-                          >
-                            {o.label} <PiArrowSquareOut />
-                          </Link>
-                        );
-                      }}
-                      name="value"
-                      initialOption="Choose group..."
-                      required
-                    />
-                  </Box>
-                ) : displayType === "array-field" ? (
+                <Flex gap="2" align="start">
                   <Flex
-                    direction="column"
-                    align="end"
-                    style={{ minWidth: 200, flex: "1 1 0" }}
+                    gap="2"
+                    align="start"
+                    wrap="wrap"
+                    style={{ flex: 1, minWidth: 0 }}
                   >
-                    {rawTextMode ? (
-                      <Field
-                        textarea
-                        value={value}
-                        onChange={handleFieldChange}
-                        name="value"
-                        minRows={1}
-                        containerClassName="w-100"
-                        helpText={
-                          <span
-                            className="position-relative"
-                            style={{ top: -5 }}
-                          >
-                            separate values by comma
-                          </span>
-                        }
-                        required
-                      />
-                    ) : (
-                      <StringArrayField
-                        containerClassName="w-100"
-                        value={value ? value.trim().split(",") : []}
-                        onChange={handleListChange}
-                        placeholder="Enter some values..."
-                        delimiters={["Enter", "Tab"]}
-                        required
-                      />
-                    )}
-                    <Link
-                      onClick={() => {
-                        setRawTextMode(!rawTextMode);
-                      }}
-                      style={{ fontSize: "0.8em" }}
-                    >
-                      Switch to {rawTextMode ? "token" : "raw text"} mode
-                    </Link>
+                    <Box style={{ flex: "1 1 0", minWidth: 200 }}>
+                      {fieldSelector}
+                    </Box>
+                    <Box style={{ flex: "1 1 0", minWidth: 200 }}>
+                      <Flex direction="column" gap="1">
+                        <SelectField
+                          useMultilineLabels={true}
+                          value={getDisplayOperator(operator)}
+                          name="operator"
+                          options={operatorOptions}
+                          sort={false}
+                          onChange={(v) => {
+                            const newOperator = withOperatorCaseInsensitivity(
+                              v,
+                              isCaseInsensitiveOperator(operator),
+                            );
+                            handleCondsChange(newOperator, "operator");
+                          }}
+                        />
+                        {operatorSupportsCaseInsensitiveCheckbox(operator) && (
+                          <Checkbox
+                            value={isCaseInsensitiveOperator(operator)}
+                            setValue={(checked) => {
+                              const newOperator = withOperatorCaseInsensitivity(
+                                getDisplayOperator(operator),
+                                checked,
+                              );
+                              handleCondsChange(newOperator, "operator");
+                            }}
+                            label="Case insensitive"
+                            size="sm"
+                            weight="regular"
+                          />
+                        )}
+                      </Flex>
+                    </Box>
+                    {displayType === "select-only" ? null : [
+                        "$inGroup",
+                        "$notInGroup",
+                      ].includes(operator) && savedGroupOptions.length > 0 ? (
+                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        <SelectField
+                          useMultilineLabels={true}
+                          options={savedGroupOptions.map((o) => ({
+                            label: o.label,
+                            value: o.value,
+                          }))}
+                          value={value}
+                          onChange={(v) => {
+                            handleCondsChange(v, "value");
+                          }}
+                          formatOptionLabel={(o, meta) => {
+                            if (meta.context !== "value" || !o.value)
+                              return o.label;
+                            const group = getSavedGroupById(o.value);
+                            if (!group) return o.label;
+                            return (
+                              <Link
+                                href={`/saved-groups/${group.id}`}
+                                target="_blank"
+                                style={{ position: "relative", zIndex: 1000 }}
+                              >
+                                {o.label} <PiArrowSquareOut />
+                              </Link>
+                            );
+                          }}
+                          name="value"
+                          initialOption="Choose group..."
+                          required
+                        />
+                      </Box>
+                    ) : displayType === "array-field" ? (
+                      <Flex
+                        direction="column"
+                        align="start"
+                        style={{ flexBasis: "100%", minWidth: 0 }}
+                      >
+                        <StringArrayField
+                          containerClassName="w-100"
+                          value={value ? value.trim().split(",") : []}
+                          onChange={handleListChange}
+                          placeholder="Enter some values..."
+                          delimiters={["Enter", "Tab"]}
+                          enableRawTextMode
+                          required
+                        />
+                      </Flex>
+                    ) : displayType === "isoCountryCode" ? (
+                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        {listOperators.includes(operator) ? (
+                          <CountrySelector
+                            selectAmount="multi"
+                            displayFlags={true}
+                            value={
+                              value
+                                ? value.split(",").map((val) => val.trim())
+                                : []
+                            }
+                            onChange={handleListChange}
+                          />
+                        ) : (
+                          <CountrySelector
+                            selectAmount="single"
+                            displayFlags={true}
+                            value={value}
+                            onChange={(v) => {
+                              handleCondsChange(v, "value");
+                            }}
+                          />
+                        )}
+                      </Box>
+                    ) : displayType === "enum" ? (
+                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        {listOperators.includes(operator) ? (
+                          <MultiSelectField
+                            options={attribute.enum.map((v) => ({
+                              label: v,
+                              value: v,
+                            }))}
+                            value={
+                              value
+                                ? value.split(",").map((val) => val.trim())
+                                : []
+                            }
+                            onChange={handleListChange}
+                            name="value"
+                            required
+                          />
+                        ) : (
+                          <SelectField
+                            useMultilineLabels={true}
+                            options={attribute.enum.map((v) => ({
+                              label: v,
+                              value: v,
+                            }))}
+                            value={value}
+                            onChange={(v) => {
+                              handleCondsChange(v, "value");
+                            }}
+                            name="value"
+                            initialOption="Choose One..."
+                            required
+                          />
+                        )}
+                      </Box>
+                    ) : displayType === "number" ? (
+                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        <Field
+                          type="number"
+                          step="any"
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          style={{ minHeight: 38 }}
+                          required
+                        />
+                      </Box>
+                    ) : displayType === "string" ? (
+                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        {attribute.format === "date" &&
+                        ![
+                          "$regex",
+                          "$notRegex",
+                          "$regexi",
+                          "$notRegexi",
+                        ].includes(operator) ? (
+                          <DatePicker
+                            date={value}
+                            setDate={(v) => {
+                              handleCondsChange(
+                                v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
+                                "value",
+                              );
+                            }}
+                            inputWidth={180}
+                          />
+                        ) : (
+                          <Field
+                            value={value}
+                            onChange={handleFieldChange}
+                            name="value"
+                            style={{ minHeight: 38 }}
+                            containerClassName={clsx({
+                              error: hasExtraWhitespace,
+                            })}
+                            helpText={
+                              hasExtraWhitespace ? (
+                                <small className="text-danger">
+                                  Extra whitespace detected
+                                </small>
+                              ) : undefined
+                            }
+                            required
+                          />
+                        )}
+                      </Box>
+                    ) : null}
                   </Flex>
-                ) : displayType === "isoCountryCode" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {listOperators.includes(operator) ? (
-                      <CountrySelector
-                        selectAmount="multi"
-                        displayFlags={true}
-                        value={
-                          value ? value.split(",").map((val) => val.trim()) : []
-                        }
-                        onChange={handleListChange}
-                      />
-                    ) : (
-                      <CountrySelector
-                        selectAmount="single"
-                        displayFlags={true}
-                        value={value}
-                        onChange={(v) => {
-                          handleCondsChange(v, "value");
-                        }}
-                      />
+                  <Box px="1" pt="3" style={{ width: 16, flexShrink: 0 }}>
+                    {(conds.length > 1 ||
+                      (conds.length === 1 && orGroupsCount > 1) ||
+                      !props.require) && (
+                      <Tooltip content="Remove condition">
+                        <IconButton
+                          type="button"
+                          color="red"
+                          variant="ghost"
+                          onClick={() => {
+                            if (conds.length === 1) {
+                              setConds([]);
+                            } else {
+                              const newConds = [...conds];
+                              newConds.splice(i, 1);
+                              setConds(newConds);
+                            }
+                          }}
+                        >
+                          <PiXBold size={16} />
+                        </IconButton>
+                      </Tooltip>
                     )}
                   </Box>
-                ) : displayType === "enum" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {listOperators.includes(operator) ? (
-                      <MultiSelectField
-                        options={attribute.enum.map((v) => ({
-                          label: v,
-                          value: v,
-                        }))}
-                        value={
-                          value ? value.split(",").map((val) => val.trim()) : []
-                        }
-                        onChange={handleListChange}
-                        name="value"
-                        required
-                      />
-                    ) : (
-                      <SelectField
-                        useMultilineLabels={true}
-                        options={attribute.enum.map((v) => ({
-                          label: v,
-                          value: v,
-                        }))}
-                        value={value}
-                        onChange={(v) => {
-                          handleCondsChange(v, "value");
-                        }}
-                        name="value"
-                        initialOption="Choose One..."
-                        required
-                      />
-                    )}
-                  </Box>
-                ) : displayType === "number" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <Field
-                      type="number"
-                      step="any"
-                      value={value}
-                      onChange={handleFieldChange}
-                      name="value"
-                      style={{ minHeight: 38 }}
-                      required
-                    />
-                  </Box>
-                ) : displayType === "string" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {attribute.format === "date" &&
-                    !["$regex", "$notRegex", "$regexi", "$notRegexi"].includes(
-                      operator,
-                    ) ? (
-                      <DatePicker
-                        date={value}
-                        setDate={(v) => {
-                          handleCondsChange(
-                            v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
-                            "value",
-                          );
-                        }}
-                        inputWidth={180}
-                      />
-                    ) : (
-                      <Field
-                        value={value}
-                        onChange={handleFieldChange}
-                        name="value"
-                        style={{ minHeight: 38 }}
-                        containerClassName={clsx({
-                          error: hasExtraWhitespace,
-                        })}
-                        helpText={
-                          hasExtraWhitespace ? (
-                            <small className="text-danger">
-                              Extra whitespace detected
-                            </small>
-                          ) : undefined
-                        }
-                        required
-                      />
-                    )}
-                  </Box>
-                ) : null}
+                </Flex>
               </Flex>
-              <Box px="1" pt="3" style={{ width: 16 }}>
-                {(conds.length > 1 ||
-                  (conds.length === 1 && orGroupsCount > 1) ||
-                  !props.require) && (
-                  <Tooltip content="Remove condition">
-                    <IconButton
-                      type="button"
-                      color="red"
-                      variant="ghost"
-                      onClick={() => {
-                        // If this is the last condition in the AND group, delete the entire OR group
-                        if (conds.length === 1) {
-                          setConds([]);
-                        } else {
-                          const newConds = [...conds];
-                          newConds.splice(i, 1);
-                          setConds(newConds);
-                        }
-                      }}
-                    >
-                      <PiXBold size={16} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-            </Flex>
+            </React.Fragment>
           );
         })}
-        <Flex align="center" mt="2">
+        <Flex align="center" mt="3">
           {attributeSchema.length > 0 && (
             <Link
               onClick={() => {

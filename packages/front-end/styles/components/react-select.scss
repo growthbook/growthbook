@@ -60,6 +60,119 @@
   font-weight: 600;
 }
 
+// Hide clear (X) and raw-text-mode buttons until the field is hovered
+.gb-multi-select__control,
+.gb-select__control {
+  .gb-multi-select__indicators,
+  .gb-select__indicators {
+    margin-right: -5px;
+  }
+  .gb-multi-select__clear-indicator,
+  .gb-select__clear-indicator,
+  .gb-multi-select__raw-text-mode-indicator,
+  .gb-select__raw-text-mode-indicator {
+    opacity: 0 !important;
+    transition: opacity 0.1s ease-in-out;
+  }
+  .gb-multi-select__clear-indicator {
+    margin-right: -15px;
+  }
+}
+.gb-multi-select__control:hover,
+.gb-select__control:hover {
+  .gb-multi-select__clear-indicator,
+  .gb-select__clear-indicator,
+  .gb-multi-select__raw-text-mode-indicator,
+  .gb-select__raw-text-mode-indicator {
+    opacity: 1 !important;
+  }
+}
+
+// Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
+// Match react-select's hardcoded indicator colors (clear/dropdown use hsl, not theme vars)
+.gb-select__raw-text-mode-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  color: hsl(0, 0%, 80%);
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: hsl(0, 0%, 60%);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+}
+
+// When control is focused, match clear (X) button focused color
+.gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
+.gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator {
+  color: hsl(0, 0%, 40%);
+  &:hover {
+    color: hsl(0, 0%, 20%);
+  }
+}
+
+// Raw text mode: value-container (textarea) + indicators (button) in one row
+// Match Field/form-control border and focus styles (border-color, border-radius, focus ring)
+.gb-select__raw-text-control {
+  display: flex;
+  align-items: stretch;
+  min-height: 38px;
+  border: 1px solid var(--border-color-200) !important;
+  border-radius: 0.25rem;
+
+  &:focus-within {
+    border-color: var(--border-color-200);
+    box-shadow: 0px 0px 0px 1px var(--violet-8);
+  }
+
+  .gb-select__raw-text-value-container {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .gb-select__raw-text-input {
+    width: 100%;
+    min-height: 38px;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    &:focus {
+      outline: none;
+      box-shadow: none !important;
+    }
+  }
+
+  .gb-select__indicators {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding-left: 2px;
+    padding-right: 10px;
+  }
+
+  .gb-select__indicators .gb-select__raw-text-mode-indicator {
+    opacity: 0 !important;
+    transition: opacity 0.1s ease-in-out;
+  }
+
+  &:hover .gb-select__indicators .gb-select__raw-text-mode-indicator {
+    opacity: 1 !important;
+  }
+}
+
 .gb-multi-select__menu-portal,
 .gb-select__menu-portal {
   z-index: 9999 !important;
