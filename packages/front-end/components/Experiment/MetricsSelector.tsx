@@ -65,7 +65,9 @@ export const MetricsSelectorTooltip = ({
               Experiment Assignment Table or can be joined to it by a Join Table
             </li>
             {onlyBinomial ? (
-              <li>{isSingular ? "is" : "are"} a binomial metric</li>
+              <li>
+                {isSingular ? "is" : "are"} a proportion (or binomial) metric
+              </li>
             ) : null}
             {noQuantileGoalMetrics ? (
               <li>

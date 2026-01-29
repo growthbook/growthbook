@@ -600,7 +600,10 @@ export default function ConfigureReport({
               label={
                 <>
                   Activation Metric{" "}
-                  <MetricsSelectorTooltip onlyBinomial={true} />
+                  <MetricsSelectorTooltip
+                    onlyBinomial={true}
+                    isSingular={true}
+                  />
                 </>
               }
               initialOption="None"

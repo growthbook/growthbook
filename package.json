@@ -89,6 +89,11 @@
       "@octokit/request-error@5": "^5.1.1",
       "prismjs@1": "^1.30.0"
     },
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "react-native"
+      ]
+    },
     "patchedDependencies": {
       "@types/presto-client@1.0.2": "patches/@types__presto-client@1.0.2.patch",
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",

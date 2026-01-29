@@ -54,11 +54,9 @@ export async function getAllDashboards(
 ) {
   const context = getContextFromReq(req);
 
-  const dashboards = await context.models.dashboards.getAll(
-    stringToBoolean(req.query.includeExperimentDashboards)
-      ? {}
-      : { experimentId: null },
-  );
+  const dashboards = stringToBoolean(req.query.includeExperimentDashboards)
+    ? await context.models.dashboards.getAll()
+    : await context.models.dashboards.getAllNonExperimentDashboards();
   return res.status(200).json({ status: 200, dashboards });
 }
 
