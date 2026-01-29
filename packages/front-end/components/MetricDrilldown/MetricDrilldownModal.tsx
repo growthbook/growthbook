@@ -131,7 +131,8 @@ interface MetricDrilldownContentProps {
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
-  dimensionInfo?: { name: string; value: string };
+  // When true, use initialResults directly (for dimension-specific data from BreakDownResults)
+  useInitialResults?: boolean;
 }
 
 const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
@@ -166,13 +167,13 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localSortDirection,
   initialSliceSearchTerm,
   initialTab,
-  dimensionInfo,
+  useInitialResults,
 }) => {
   const { analysis } = useSnapshot();
 
-  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
+  // When useInitialResults is true (from BreakDownResults), use the passed initialResults
   // which contains the correct dimension-specific data. Otherwise, use snapshot results.
-  const results = dimensionInfo
+  const results = useInitialResults
     ? initialResults
     : (analysis?.results?.[0] ?? initialResults);
 
@@ -285,7 +286,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           localDifferenceType={localDifferenceType}
           setLocalDifferenceType={setLocalDifferenceType}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -316,7 +316,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setSearchTerm={setSliceSearchTerm}
           visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
-          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="debug">
@@ -439,7 +438,7 @@ const MetricDrilldownModal = ({
     localSortDirection,
     initialSliceSearchTerm,
     initialTab,
-    dimensionInfo,
+    useInitialResults: !!dimensionInfo,
   };
 
   return (
@@ -466,9 +465,26 @@ const MetricDrilldownModal = ({
           </Flex>
         }
         subHeader={
-          <Box mt="3">
+          <Box mt="-1">
+            {dimensionInfo ? (
+              <Text
+                mb="-1"
+                size="4"
+                weight="medium"
+                style={{
+                  color: "var(--color-text-high)",
+                  display: "block",
+                }}
+              >
+                Unit dimension:{" "}
+                <span style={{ color: "var(--color-text-mid)" }}>
+                  {dimensionInfo.name}={dimensionInfo.value}
+                </span>
+              </Text>
+            ) : null}
             {metric.description ? (
               <Text
+                mt="3"
                 size="2"
                 style={{
                   color: "var(--color-text-mid)",

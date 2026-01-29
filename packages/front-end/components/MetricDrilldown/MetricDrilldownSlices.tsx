@@ -55,8 +55,6 @@ interface MetricDrilldownSlicesProps {
   // Timeseries state (managed by parent to persist across tab switches)
   visibleTimeSeriesRowIds: string[];
   setVisibleTimeSeriesRowIds: (ids: string[]) => void;
-  // Dimension info (for main row display when opened from BreakDownResults)
-  dimensionInfo?: { name: string; value: string };
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -85,7 +83,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setSearchTerm,
   visibleTimeSeriesRowIds,
   setVisibleTimeSeriesRowIds,
-  dimensionInfo,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -217,10 +214,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
             {row.isSliceRow ? (
               <Text size="1" style={{ color: "var(--color-text-low)" }}>
                 {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
-              </Text>
-            ) : dimensionInfo ? (
-              <Text size="1" style={{ color: "var(--color-text-low)" }}>
-                {dimensionInfo.name}: {dimensionInfo.value}
               </Text>
             ) : null}
           </Flex>
