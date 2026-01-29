@@ -243,7 +243,17 @@ const metricExplorerBlockInterface = baseBlockInterface
       metricAnalysisSettingsValidator,
       metricAnalysisSettingsStringDatesValidator,
     ]),
-    visualizationType: z.enum(["histogram", "bigNumber", "timeseries"]),
+    globalRowFilters: z
+      .array(
+        z.object({
+          id: z.string(),
+          key: z.string(),
+          value: z.string(),
+          type: z.string(),
+        })
+      )
+      .optional(),
+    visualizationType: z.enum(["histogram", "bigNumber", "timeseries", "bar"]),
     valueType: z.enum(["avg", "sum"]),
     metricAnalysisId: z.string(),
   })

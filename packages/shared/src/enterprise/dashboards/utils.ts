@@ -244,6 +244,7 @@ export const CREATE_BLOCK_TYPE: {
     factMetricId: "",
     analysisSettings: {
       lookbackDays: 30,
+      granularity: "day",
       startDate: new Date(Date.now() - 30 * 24 * 3600 * 1000),
       endDate: new Date(),
       populationId: "",

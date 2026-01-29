@@ -90,10 +90,27 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Product Analytics",
-    href: "/product-analytics/dashboards",
-    path: /^(product-analytics\/dashboards)/,
+    href: "/product-analytics/explore",
+    path: /^(product-analytics)/,
     Icon: GBProductAnalytics,
     filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+    subLinks: [
+      {
+        name: "Explore",
+        href: "/product-analytics/explore",
+        path: /^product-analytics\/explore/,
+      },
+      {
+        name: "Dashboards",
+        href: "/product-analytics/dashboards",
+        path: /^product-analytics\/dashboards/,
+      },
+      {
+        name: "Beta",
+        href: "/product-analytics/beta",
+        path: /^product-analytics\/beta/,
+      },
+    ],
   },
   {
     name: "Metrics and Data",

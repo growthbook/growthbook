@@ -29,6 +29,10 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
+import {
+  createDummyFactTables,
+  createDummyFactMetrics,
+} from "./mockData";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -211,48 +215,23 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.decisionCriteria;
   }, [data?.decisionCriteria]);
 
-  const activeFactMetrics = useMemo(() => {
-    if (!data || !data.factMetrics) {
-      return [];
-    }
-    return data.factMetrics.filter((m) => {
-      const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId,
-      );
-      const denominatorFactTable = m.denominator?.factTableId
-        ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
-        : null;
-
-      return (
-        !m.archived &&
-        !numeratorFactTable?.archived &&
-        !denominatorFactTable?.archived
-      );
-    });
-  }, [data?.factMetrics]);
-
-  const allFactMetrics = useMemo(() => {
-    if (!data || !data.factMetrics) {
-      return [];
-    }
-    return data.factMetrics;
-  }, [data?.factMetrics]);
-
+  // Use dummy fact tables and fact metrics instead of real database
   const activeFactTables = useMemo(() => {
-    if (!data || !data.factTables) {
-      return [];
-    }
-
-    return data.factTables.filter((t) => !t.archived);
-  }, [data?.factTables]);
+    return createDummyFactTables();
+  }, []);
 
   const allFactTables = useMemo(() => {
-    if (!data || !data.factTables) {
-      return [];
-    }
+    return createDummyFactTables();
+  }, []);
 
-    return data.factTables;
-  }, [data?.factTables]);
+  const activeFactMetrics = useMemo(() => {
+    const dummyMetrics = createDummyFactMetrics();
+    return dummyMetrics.filter((m) => !m.archived);
+  }, []);
+
+  const allFactMetrics = useMemo(() => {
+    return createDummyFactMetrics();
+  }, []);
 
   const allTags = useMemo(() => {
     if (!data || !data.tags) {
@@ -275,8 +254,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(allTags);
-  const getFactTableById = useGetById(data?.factTables);
-  const getFactMetricById = useGetById(data?.factMetrics);
+  // Use dummy fact tables and fact metrics instead of data from API
+  const getFactTableById = useGetById(allFactTables);
+  const getFactMetricById = useGetById(allFactMetrics);
 
   const getMetricGroupById = useGetById(data?.metricGroups);
   const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
@@ -293,9 +273,27 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   let value: DefinitionContextValue;
   if (error) {
-    value = { ...defaultValue, setProject, error: error?.message || "" };
+    value = { 
+      ...defaultValue, 
+      setProject, 
+      error: error?.message || "",
+      factTables: activeFactTables,
+      _factTablesIncludingArchived: allFactTables,
+      factMetrics: activeFactMetrics,
+      _factMetricsIncludingArchived: allFactMetrics,
+      getFactTableById,
+      getFactMetricById,
+    };
   } else if (!data) {
-    value = defaultValue;
+    value = {
+      ...defaultValue,
+      factTables: activeFactTables,
+      _factTablesIncludingArchived: allFactTables,
+      factMetrics: activeFactMetrics,
+      _factMetricsIncludingArchived: allFactMetrics,
+      getFactTableById,
+      getFactMetricById,
+    };
   } else {
     const filteredProject =
       data.projects && data.projects.map((p) => p.id).includes(project)
