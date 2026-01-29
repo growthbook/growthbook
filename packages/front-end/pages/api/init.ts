@@ -163,10 +163,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 
-  // Cache for 1 hour in production, disable caching in development
-  // so env var changes are picked up immediately
   const cacheControl =
-    NODE_ENV === "production"
+    body.environment === "production"
       ? "max-age=3600"
       : "no-cache, no-store, must-revalidate";
 
