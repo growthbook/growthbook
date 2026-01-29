@@ -1186,7 +1186,7 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
-    namespaces: context.org.settings?.namespaces || [],
+    namespaces: namespacesToMap(context.org.settings?.namespaces),
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1210,7 +1210,7 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
-    namespaces: context.org.settings?.namespaces || [],
+    namespaces: namespacesToMap(context.org.settings?.namespaces),
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -1653,7 +1653,7 @@ export function getApiFeatureObj({
       environment: env,
       safeRolloutMap,
       holdoutsMap: new Map(),
-      namespaces: [],
+      namespaces: new Map(),
     });
 
     featureEnvironments[env] = {
