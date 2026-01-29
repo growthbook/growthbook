@@ -36,6 +36,7 @@ export function useResultPopover({
     handleMouseEnter,
     handleMouseMove,
     handleMouseLeave,
+    contentProps,
     renderAtAnchor,
     isVisible,
   } = useHoverAnchor({ enabled, positioning });
@@ -70,15 +71,17 @@ export function useResultPopover({
         showArrow={false}
         contentClassName={styles.popoverContent}
         content={
-          <ExperimentResultTooltipContent
-            stats={data.stats}
-            metric={data.metric}
-            significant={data.significant}
-            resultsStatus={data.resultsStatus}
-            differenceType={data.differenceType}
-            statsEngine={data.statsEngine}
-            ssrPolyfills={data.ssrPolyfills}
-          />
+          <div {...contentProps}>
+            <ExperimentResultTooltipContent
+              stats={data.stats}
+              metric={data.metric}
+              significant={data.significant}
+              resultsStatus={data.resultsStatus}
+              differenceType={data.differenceType}
+              statsEngine={data.statsEngine}
+              ssrPolyfills={data.ssrPolyfills}
+            />
+          </div>
         }
       />
     ));

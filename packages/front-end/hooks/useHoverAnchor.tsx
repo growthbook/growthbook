@@ -102,6 +102,16 @@ interface UseHoverAnchorReturn {
   /** Handler to attach to onMouseLeave on the trigger element */
   handleMouseLeave: () => void;
   /**
+   * Props to spread on the anchored content to keep it visible while hovering
+   * and prevent click events from bubbling to elements underneath.
+   * Spread these on a wrapper element around the content.
+   */
+  contentProps: {
+    onMouseEnter: () => void;
+    onMouseLeave: () => void;
+    onClick: (e: React.MouseEvent) => void;
+  };
+  /**
    * Renders content at the anchor position using a portal.
    * The render function receives the position and should return the content to render.
    */
@@ -113,6 +123,8 @@ interface UseHoverAnchorReturn {
    */
   renderTooltip: (content: React.ReactNode) => React.ReactNode;
 }
+
+const HIDE_DELAY_MS = 150;
 
 export function useHoverAnchor({
   delayMs = 0,
@@ -134,6 +146,10 @@ export function useHoverAnchor({
 
   // Track the previous anchorPos to detect actual position changes vs context-triggered re-runs
   const prevAnchorPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Track hide timeout and whether content is being hovered
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isContentHoveredRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || anchorPos === null) {
@@ -201,10 +217,31 @@ export function useHoverAnchor({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
       if (isActiveRef.current) {
         setAnchorActive(false);
       }
     };
+  }, [setAnchorActive]);
+
+  // Clear any pending hide timeout
+  const clearHideTimeout = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Actually perform the hide
+  const doHide = useCallback(() => {
+    setAnchorPos(null);
+    elementPosRef.current = null;
+    if (isActiveRef.current) {
+      setIsActive(false);
+      setAnchorActive(false);
+    }
   }, [setAnchorActive]);
 
   const handleMouseMove = useCallback(
@@ -234,6 +271,9 @@ export function useHoverAnchor({
       if (!enabled) return;
       e.stopPropagation();
 
+      // Cancel any pending hide when re-entering the trigger
+      clearHideTimeout();
+
       if (positioning === "element") {
         // Get the bounding rect of the current target (the element with the handler)
         const target = e.currentTarget as HTMLElement | SVGElement;
@@ -249,17 +289,34 @@ export function useHoverAnchor({
         setAnchorPos({ x: e.clientX, y: e.clientY });
       }
     },
-    [enabled, positioning],
+    [enabled, positioning, clearHideTimeout],
   );
 
   const handleMouseLeave = useCallback(() => {
-    setAnchorPos(null);
-    elementPosRef.current = null;
-    if (isActive) {
-      setIsActive(false);
-      setAnchorActive(false);
-    }
-  }, [isActive, setAnchorActive]);
+    // Delay hiding to allow mouse to move to content
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => {
+      // Only hide if content is not being hovered
+      if (!isContentHoveredRef.current) {
+        doHide();
+      }
+    }, HIDE_DELAY_MS);
+  }, [clearHideTimeout, doHide]);
+
+  // Handlers for content hover tracking
+  const handleContentMouseEnter = useCallback(() => {
+    isContentHoveredRef.current = true;
+    clearHideTimeout();
+  }, [clearHideTimeout]);
+
+  const handleContentMouseLeave = useCallback(() => {
+    isContentHoveredRef.current = false;
+    // Start hide timer when leaving content
+    clearHideTimeout();
+    hideTimeoutRef.current = setTimeout(() => {
+      doHide();
+    }, HIDE_DELAY_MS);
+  }, [clearHideTimeout, doHide]);
 
   const isVisible = enabled && anchorPos !== null && isActive;
 
@@ -302,12 +359,27 @@ export function useHoverAnchor({
     [renderAtAnchor],
   );
 
+  const handleContentClick = useCallback((e: React.MouseEvent) => {
+    // Prevent clicks on the popover content from bubbling to elements underneath
+    e.stopPropagation();
+  }, []);
+
+  const contentProps = useMemo(
+    () => ({
+      onMouseEnter: handleContentMouseEnter,
+      onMouseLeave: handleContentMouseLeave,
+      onClick: handleContentClick,
+    }),
+    [handleContentMouseEnter, handleContentMouseLeave, handleContentClick],
+  );
+
   return {
     anchorPos: effectivePos,
     isVisible,
     handleMouseMove,
     handleMouseEnter,
     handleMouseLeave,
+    contentProps,
     renderAtAnchor,
     renderTooltip,
   };
