@@ -50,12 +50,38 @@ export default function TargetingInfo({
 
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
+
+  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
   const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
+    ? (() => {
+        const ns = phase.namespace!;
+        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+          return ns.ranges.reduce(
+            (sum, [start, end]) => sum + (end - start),
+            0,
+          );
+        } else if ("range" in ns && ns.range) {
+          return ns.range[1] - ns.range[0];
+        }
+        return 1;
+      })()
     : 1;
+
   const namespaceRanges: [number, number] = hasNamespace
-    ? [phase.namespace!.range[1] || 0, phase.namespace!.range[0] || 0]
+    ? (() => {
+        const ns = phase.namespace!;
+        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+          // For display purposes, show the min and max across all ranges
+          const allStarts = ns.ranges.map((r) => r[0]);
+          const allEnds = ns.ranges.map((r) => r[1]);
+          return [Math.max(...allEnds) || 0, Math.min(...allStarts) || 0];
+        } else if ("range" in ns && ns.range) {
+          return [ns.range[1] || 0, ns.range[0] || 0];
+        }
+        return [0, 1];
+      })()
     : [0, 1];
+
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
       phase.namespace!.name
@@ -91,11 +117,34 @@ export default function TargetingInfo({
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
   const changesNamespaceRange = changes?.namespace
-    ? changes.namespace.range[1] - changes.namespace.range[0]
+    ? (() => {
+        const ns = changes.namespace;
+        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+          return ns.ranges.reduce(
+            (sum, [start, end]) => sum + (end - start),
+            0,
+          );
+        } else if ("range" in ns && ns.range) {
+          return ns.range[1] - ns.range[0];
+        }
+        return 1;
+      })()
     : 1;
+
   const changesNamespaceRanges: [number, number] = changes?.namespace
-    ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
+    ? (() => {
+        const ns = changes.namespace;
+        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+          const allStarts = ns.ranges.map((r) => r[0]);
+          const allEnds = ns.ranges.map((r) => r[1]);
+          return [Math.max(...allEnds) || 0, Math.min(...allStarts) || 0];
+        } else if ("range" in ns && ns.range) {
+          return [ns.range[1] || 0, ns.range[0] || 0];
+        }
+        return [0, 1];
+      })()
     : [0, 1];
+
   const changesNamespaceName = changesHasNamespace
     ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
       changes.namespace!.name
@@ -294,7 +343,7 @@ export default function TargetingInfo({
               <div className={clsx("mb-3", horizontalView && "mr-4")}>
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
                     <GBInfo />
                   </Tooltip>
                 </div>
