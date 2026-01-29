@@ -29,7 +29,7 @@ import Pagination from "@/components/Pagination";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { experimentDate } from "@/services/experiments";
+import { experimentDate, RowResults } from "@/services/experiments";
 import { useSearch } from "@/services/search";
 import { formatNumber } from "@/services/metrics";
 import track from "@/services/track";
@@ -238,7 +238,7 @@ function MetricExperimentResultTab({
                 hasScaledImpact: true,
                 significant: e.significant ?? false,
                 resultsStatus:
-                  (e.resultsStatus as "won" | "lost" | "draw") ?? "",
+                  (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
               }}
               showPlusMinus={false}
               statsEngine={e.statsEngine}

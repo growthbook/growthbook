@@ -10,18 +10,17 @@ import React, {
 import { createPortal } from "react-dom";
 import Tooltip from "@/ui/Tooltip";
 
-// Tracking tooltip visibility across all usages of useCursorTooltip
-// to prevent multiple tooltips from showing at the same time
-const tooltipVisibleRef = { current: false };
-
 interface CursorTooltipContextValue {
   isTooltipVisible: boolean;
   setTooltipVisible: (visible: boolean) => void;
+  /** Synchronous check for tooltip visibility (avoids React async state delays) */
+  isTooltipVisibleSync: () => boolean;
 }
 
 const CursorTooltipContext = createContext<CursorTooltipContextValue>({
   isTooltipVisible: false,
   setTooltipVisible: () => {},
+  isTooltipVisibleSync: () => false,
 });
 
 export function CursorTooltipProvider({
@@ -30,6 +29,8 @@ export function CursorTooltipProvider({
   children: React.ReactNode;
 }) {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+  // Ref for synchronous visibility checks to prevent race conditions between tooltips
+  const tooltipVisibleRef = useRef(false);
 
   const setTooltipVisible = useCallback(
     (visible: boolean) => {
@@ -39,12 +40,17 @@ export function CursorTooltipProvider({
     [setIsTooltipVisible],
   );
 
+  const isTooltipVisibleSync = useCallback(() => {
+    return tooltipVisibleRef.current;
+  }, []);
+
   const value = useMemo(
     () => ({
       isTooltipVisible,
       setTooltipVisible,
+      isTooltipVisibleSync,
     }),
-    [isTooltipVisible, setTooltipVisible],
+    [isTooltipVisible, setTooltipVisible, isTooltipVisibleSync],
   );
 
   return (
@@ -58,14 +64,9 @@ export function useCursorTooltipContext() {
   return useContext(CursorTooltipContext);
 }
 
-// Check tooltip visibility synchronously, outside of React async rendering
-function isTooltipCurrentlyVisible(): boolean {
-  return tooltipVisibleRef.current;
-}
-
 type PositioningMode = "cursor" | "element";
 
-interface UseHoverTooltipOptions {
+export interface UseHoverTooltipOptions {
   /**
    * Delay in milliseconds before showing the tooltip.
    * When set to 0 (default), tooltip shows immediately.
@@ -123,7 +124,8 @@ export function useHoverTooltip({
     null,
   );
   const [isActive, setIsActive] = useState(false);
-  const { isTooltipVisible, setTooltipVisible } = useCursorTooltipContext();
+  const { isTooltipVisible, setTooltipVisible, isTooltipVisibleSync } =
+    useCursorTooltipContext();
 
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
@@ -131,8 +133,12 @@ export function useHoverTooltip({
   // For element positioning, we store the element center once on enter
   const elementPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Track the previous anchorPos to detect actual position changes vs context-triggered re-runs
+  const prevAnchorPosRef = useRef<{ x: number; y: number } | null>(null);
+
   useEffect(() => {
     if (!enabled || anchorPos === null) {
+      prevAnchorPosRef.current = null;
       return;
     }
 
@@ -142,23 +148,41 @@ export function useHoverTooltip({
         setIsActive(true);
         setTooltipVisible(true);
       }
+      prevAnchorPosRef.current = anchorPos;
       return;
     }
 
     // For delayed tooltips: don't start timer if another tooltip is visible
-    if (isTooltipVisible && !isActiveRef.current) {
+    // Use sync check to avoid race conditions with React's async state updates
+    if (isTooltipVisibleSync() && !isActiveRef.current) {
+      prevAnchorPosRef.current = anchorPos;
       return;
     }
 
+    // Check if anchorPos actually changed (vs effect triggered by isTooltipVisible change)
+    const anchorPosChanged =
+      prevAnchorPosRef.current === null ||
+      prevAnchorPosRef.current.x !== anchorPos.x ||
+      prevAnchorPosRef.current.y !== anchorPos.y;
+
     // Delayed tooltip - hide on movement and start timer
     // Only reset on movement for cursor positioning
-    if (positioning === "cursor" && isActiveRef.current) {
+    // IMPORTANT: Only do this if anchorPos actually changed (mouse moved),
+    // not if the effect was triggered by isTooltipVisible context change
+    if (positioning === "cursor" && isActiveRef.current && anchorPosChanged) {
       setIsActive(false);
       setTooltipVisible(false);
     }
 
+    prevAnchorPosRef.current = anchorPos;
+
+    // If tooltip is already active and showing, don't restart the timer
+    if (isActiveRef.current) {
+      return;
+    }
+
     const timer = setTimeout(() => {
-      if (!isTooltipCurrentlyVisible()) {
+      if (!isTooltipVisibleSync()) {
         setIsActive(true);
         setTooltipVisible(true);
       }
@@ -172,6 +196,7 @@ export function useHoverTooltip({
     positioning,
     isTooltipVisible,
     setTooltipVisible,
+    isTooltipVisibleSync,
   ]);
 
   // Cleanup on unmount
@@ -190,12 +215,19 @@ export function useHoverTooltip({
       e.stopPropagation();
 
       if (positioning === "cursor") {
-        setAnchorPos({ x: e.clientX, y: e.clientY });
+        // For delayed tooltips, only update position if:
+        // 1. Tooltip is already showing (isActive), OR
+        // 2. This is an immediate tooltip (delayMs === 0)
+        // This prevents the timer from resetting on every mouse movement
+        // during the delay period.
+        if (delayMs === 0 || isActiveRef.current) {
+          setAnchorPos({ x: e.clientX, y: e.clientY });
+        }
       }
       // For element positioning, we use the stored element center
       // and only need to set it once on enter
     },
-    [enabled, positioning],
+    [enabled, positioning, delayMs],
   );
 
   const handleMouseEnter = useCallback(
@@ -307,18 +339,35 @@ export function useCursorTooltip({
   delayMs = 0,
   enabled = true,
 }: UseCursorTooltipOptions = {}): UseCursorTooltipReturn {
-  const result = useHoverTooltip({ delayMs, enabled, positioning: "cursor" });
+  const {
+    anchorPos,
+    isVisible,
+    handleMouseEnter,
+    handleMouseMove: hoverHandleMouseMove,
+    handleMouseLeave,
+    renderAtAnchor,
+    renderTooltip,
+  } = useHoverTooltip({ delayMs, enabled, positioning: "cursor" });
+
+  // The legacy API only exposed handleMouseMove (not a separate onMouseEnter).
+  // We combine both handlers here to maintain backwards compatibility:
+  // - handleMouseEnter sets the initial anchor position
+  // - handleMouseMove updates the position as the cursor moves
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      handleMouseEnter(e);
+      hoverHandleMouseMove(e);
+    },
+    [handleMouseEnter, hoverHandleMouseMove],
+  );
 
   return {
-    cursorPos: result.anchorPos,
-    isVisible: result.isVisible,
-    handleMouseMove: (e: React.MouseEvent) => {
-      result.handleMouseEnter(e);
-      result.handleMouseMove(e);
-    },
-    handleMouseLeave: result.handleMouseLeave,
-    renderAtCursor: result.renderAtAnchor,
-    renderTooltip: result.renderTooltip,
+    cursorPos: anchorPos,
+    isVisible,
+    handleMouseMove,
+    handleMouseLeave,
+    renderAtCursor: renderAtAnchor,
+    renderTooltip,
   };
 }
 

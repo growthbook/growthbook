@@ -13,10 +13,7 @@ import {
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useHoverTooltip } from "@/hooks/useCursorTooltip";
-import { Popover } from "@/ui/Popover";
-import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
-import styles from "./PercentGraph.module.scss";
+import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<
@@ -80,12 +77,20 @@ export default function ChangeColumn({
   };
   const showPopover = !!stats?.ci;
 
-  const {
-    handleMouseEnter,
-    handleMouseMove,
-    handleMouseLeave,
-    renderAtAnchor,
-  } = useHoverTooltip({ enabled: showPopover, positioning: "cursor" });
+  const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderPopover } =
+    useResultPopover({
+      enabled: showPopover,
+      positioning: "cursor",
+      data: {
+        stats,
+        metric,
+        significant: rowResults.significant,
+        resultsStatus: rowResults.resultsStatus,
+        differenceType,
+        statsEngine,
+        ssrPolyfills,
+      },
+    });
 
   if (!rowResults.hasScaledImpact && differenceType === "scaled") {
     return null;
@@ -151,44 +156,7 @@ export default function ChangeColumn({
       ) : (
         <td />
       )}
-      {showPopover &&
-        renderAtAnchor((pos) => (
-          <Popover
-            open={true}
-            onOpenChange={() => {}}
-            trigger={
-              <span
-                style={{
-                  position: "fixed",
-                  left: pos.x,
-                  top: pos.y - 10,
-                  width: 1,
-                  height: 1,
-                  pointerEvents: "none",
-                }}
-              />
-            }
-            contentStyle={{
-              padding: 0,
-            }}
-            anchorOnly
-            side="top"
-            align="center"
-            showArrow={false}
-            contentClassName={styles.popoverContent}
-            content={
-              <ExperimentResultTooltipContent
-                stats={stats}
-                metric={metric}
-                significant={rowResults.significant}
-                resultsStatus={rowResults.resultsStatus}
-                differenceType={differenceType}
-                statsEngine={statsEngine}
-                ssrPolyfills={ssrPolyfills}
-              />
-            }
-          />
-        ))}
+      {renderPopover()}
     </>
   );
 }

@@ -8,19 +8,18 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import { RowResults } from "@/services/experiments";
 import {
   formatPercent,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
-export type ResultStatus = "won" | "lost" | "draw" | "";
-
 interface ExperimentResultTooltipContentProps {
   stats: SnapshotMetric;
   metric: ExperimentMetricInterface;
   significant: boolean;
-  resultsStatus: ResultStatus;
+  resultsStatus: RowResults["resultsStatus"];
   differenceType: DifferenceType;
   statsEngine: StatsEngine;
   ssrPolyfills?: SSRPolyfills;

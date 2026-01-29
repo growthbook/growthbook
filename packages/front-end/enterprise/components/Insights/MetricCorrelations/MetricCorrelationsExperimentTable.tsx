@@ -22,7 +22,7 @@ import {
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { experimentDate } from "@/services/experiments";
+import { experimentDate, RowResults } from "@/services/experiments";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { formatNumber } from "@/services/metrics";
@@ -303,9 +303,9 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                     enoughData: true,
                     directionalStatus: mr.directionalStatus ?? "losing",
                     hasScaledImpact: true,
-                    significant: mr.significant ?? false,
+                    significant: mr.significant,
                     resultsStatus:
-                      (mr.resultsStatus as "won" | "lost" | "draw") ?? "",
+                      (mr.resultsStatus as RowResults["resultsStatus"]) ?? "",
                   }}
                   showPlusMinus={false}
                   statsEngine={e.statsEngine}

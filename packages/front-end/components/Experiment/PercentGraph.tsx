@@ -1,5 +1,5 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import React, { DetailedHTMLProps, HTMLAttributes } from "react";
+import React, { DetailedHTMLProps, HTMLAttributes, useCallback } from "react";
 import {
   ExperimentMetricInterface,
   hasEnoughData,
@@ -10,13 +10,9 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useHoverTooltip } from "@/hooks/useCursorTooltip";
-import { Popover } from "@/ui/Popover";
+import { RowResults } from "@/services/experiments";
 import AlignedGraph from "./AlignedGraph";
-import ExperimentResultTooltipContent, {
-  ResultStatus,
-} from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
-import styles from "./PercentGraph.module.scss";
+import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -40,7 +36,7 @@ interface Props
   rowStatus?: string;
   ssrPolyfills?: SSRPolyfills;
   differenceType?: DifferenceType;
-  resultsStatus?: ResultStatus;
+  resultsStatus?: RowResults["resultsStatus"];
   statsEngine?: StatsEngine;
 }
 
@@ -105,17 +101,35 @@ export default function PercentGraph({
   const {
     handleMouseEnter: popoverMouseEnter,
     handleMouseLeave: popoverMouseLeave,
-    renderAtAnchor,
-  } = useHoverTooltip({ enabled: !!showPopover, positioning: "element" });
+    renderPopover,
+  } = useResultPopover({
+    enabled: !!showPopover,
+    positioning: "element",
+    data: {
+      stats,
+      metric,
+      significant: significant ?? false,
+      resultsStatus,
+      differenceType,
+      statsEngine,
+      ssrPolyfills,
+    },
+  });
 
-  const handleMouseEnter = (e: React.MouseEvent<SVGPathElement>) => {
-    popoverMouseEnter(e);
-  };
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent<SVGPathElement>) => {
+      popoverMouseEnter(e);
+    },
+    [popoverMouseEnter],
+  );
 
-  const handleMouseLeave = (e: React.MouseEvent<SVGPathElement>) => {
-    popoverMouseLeave();
-    onMouseLeave?.(e);
-  };
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent<SVGPathElement>) => {
+      popoverMouseLeave();
+      onMouseLeave?.(e);
+    },
+    [popoverMouseLeave, onMouseLeave],
+  );
 
   return (
     <>
@@ -142,44 +156,7 @@ export default function PercentGraph({
         onClick={onClick}
         rowStatus={rowStatus}
       />
-      {showPopover &&
-        renderAtAnchor((pos) => (
-          <Popover
-            open={true}
-            onOpenChange={() => {}}
-            trigger={
-              <span
-                style={{
-                  position: "fixed",
-                  left: pos.x,
-                  top: pos.y - 10,
-                  width: 1,
-                  height: 1,
-                  pointerEvents: "none",
-                }}
-              />
-            }
-            contentStyle={{
-              padding: 0,
-            }}
-            anchorOnly
-            side="top"
-            align="center"
-            showArrow={false}
-            contentClassName={styles.popoverContent}
-            content={
-              <ExperimentResultTooltipContent
-                stats={stats}
-                metric={metric}
-                significant={significant ?? false}
-                resultsStatus={resultsStatus}
-                differenceType={differenceType}
-                statsEngine={statsEngine}
-                ssrPolyfills={ssrPolyfills}
-              />
-            }
-          />
-        ))}
+      {renderPopover()}
     </>
   );
 }
