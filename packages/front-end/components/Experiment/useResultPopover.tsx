@@ -4,10 +4,7 @@ import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import {
-  useHoverTooltip,
-  UseHoverTooltipOptions,
-} from "@/hooks/useCursorTooltip";
+import { useHoverAnchor, UseHoverAnchorOptions } from "@/hooks/useHoverAnchor";
 import { Popover } from "@/ui/Popover";
 import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
 import styles from "./PercentGraph.module.scss";
@@ -25,7 +22,7 @@ interface ResultPopoverData {
 }
 
 interface UseResultPopoverOptions
-  extends Pick<UseHoverTooltipOptions, "positioning"> {
+  extends Pick<UseHoverAnchorOptions, "positioning"> {
   enabled: boolean;
   data: ResultPopoverData;
 }
@@ -41,7 +38,7 @@ export function useResultPopover({
     handleMouseLeave,
     renderAtAnchor,
     isVisible,
-  } = useHoverTooltip({ enabled, positioning });
+  } = useHoverAnchor({ enabled, positioning });
 
   const renderPopover = () => {
     if (!enabled || !isVisible) {

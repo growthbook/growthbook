@@ -80,7 +80,7 @@ export default function ChangeColumn({
   const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderPopover } =
     useResultPopover({
       enabled: showPopover,
-      positioning: "cursor",
+      positioning: "element",
       data: {
         stats,
         metric,
@@ -146,7 +146,6 @@ export default function ChangeColumn({
               onMouseEnter={handleMouseEnter}
               onMouseMove={handleMouseMove}
               onMouseLeave={handleMouseLeave}
-              style={{ display: "contents" }}
             >
               {changeContent}
             </span>

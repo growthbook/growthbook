@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { useHoverTooltip } from "@/hooks/useCursorTooltip";
+import { useHoverAnchor } from "@/hooks/useHoverAnchor";
 
 interface DrilldownTooltipHandlers {
   onMouseMove: (e: React.MouseEvent) => void;
@@ -13,13 +13,11 @@ interface DrilldownTooltipProps {
 
 /**
  * A wrapper component that provides drilldown tooltip functionality.
- * Must be rendered inside a CursorTooltipProvider to coordinate with other tooltips.
- *
  * Uses render props pattern to pass mouse handlers to children.
  */
 export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
   const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderTooltip } =
-    useHoverTooltip({
+    useHoverAnchor({
       delayMs: 1500,
       enabled,
       positioning: "cursor",
