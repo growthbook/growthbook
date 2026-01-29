@@ -145,7 +145,6 @@ export default function PercentGraph({
       {showPopover &&
         renderAtAnchor((pos) => (
           <Popover
-            disableDismiss={true}
             open={true}
             onOpenChange={() => {}}
             trigger={

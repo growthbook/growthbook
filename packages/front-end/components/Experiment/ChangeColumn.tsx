@@ -154,7 +154,6 @@ export default function ChangeColumn({
       {showPopover &&
         renderAtAnchor((pos) => (
           <Popover
-            disableDismiss={true}
             open={true}
             onOpenChange={() => {}}
             trigger={
