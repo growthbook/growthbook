@@ -84,6 +84,9 @@ interface MetricDrilldownModalProps {
 
   // Slice-specific props
   initialSliceSearchTerm?: string;
+
+  // Dimension info
+  dimensionInfo?: { name: string; value: string; index: number };
 }
 
 /**
@@ -128,6 +131,7 @@ interface MetricDrilldownContentProps {
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
+  dimensionInfo?: { name: string; value: string; index: number };
 }
 
 const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
@@ -162,11 +166,15 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   localSortDirection,
   initialSliceSearchTerm,
   initialTab,
+  dimensionInfo,
 }) => {
   const { analysis } = useSnapshot();
 
-  // TODO: Check if it is safe to use first results
-  const results = analysis?.results?.[0] ?? initialResults;
+  // When dimensionInfo is provided (from BreakDownResults), use the passed initialResults
+  // which contains the correct dimension-specific data. Otherwise, use snapshot results.
+  const results = dimensionInfo
+    ? initialResults
+    : (analysis?.results?.[0] ?? initialResults);
 
   // TODO: Check what we need here
   const [expandedMetrics] = useState<Record<string, boolean>>(() => {
@@ -371,6 +379,8 @@ const MetricDrilldownModal = ({
   initialSortDirection,
   // Slice-specific
   initialSliceSearchTerm,
+  // Dimension info
+  dimensionInfo,
 }: MetricDrilldownModalProps) => {
   useKeydown("Escape", close);
   useBodyScrollLock(true);
@@ -427,6 +437,7 @@ const MetricDrilldownModal = ({
     localSortDirection,
     initialSliceSearchTerm,
     initialTab,
+    dimensionInfo,
   };
 
   return (
@@ -453,9 +464,26 @@ const MetricDrilldownModal = ({
           </Flex>
         }
         subHeader={
-          <Box mt="3">
+          <Box mt="-1">
+            {dimensionInfo ? (
+              <Text
+                mb="-1"
+                size="4"
+                weight="medium"
+                style={{
+                  color: "var(--color-text-high)",
+                  display: "block",
+                }}
+              >
+                Unit dimension:{" "}
+                <span style={{ color: "var(--color-text-mid)" }}>
+                  {dimensionInfo.name}={dimensionInfo.value}
+                </span>
+              </Text>
+            ) : null}
             {metric.description ? (
               <Text
+                mt="3"
                 size="2"
                 style={{
                   color: "var(--color-text-mid)",
