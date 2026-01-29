@@ -376,8 +376,8 @@ export abstract class BaseModel<
 
     return this._find({ id: { $in: ids } });
   }
-  public getAll(filter?: ScopedFilterQuery<T>) {
-    return this._find(filter);
+  public getAll() {
+    return this._find();
   }
   public create(
     props: CreateProps<z.infer<T>>,

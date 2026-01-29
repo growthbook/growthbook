@@ -453,11 +453,10 @@ export type GrowthBookPayload = FeatureApiResponse;
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
-  // eslint-disable-next-line
   fetch: any;
-  // eslint-disable-next-line
+
   SubtleCrypto: any;
-  // eslint-disable-next-line
+
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };
@@ -480,7 +479,7 @@ export type Helpers = {
   }: {
     host: string;
     clientKey: string;
-    // eslint-disable-next-line
+
     payload: any;
     headers?: Record<string, string>;
   }) => Promise<Response>;

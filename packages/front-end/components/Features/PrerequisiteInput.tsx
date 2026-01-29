@@ -2,8 +2,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from "react";
-import { FeatureInterface } from "shared/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
+
+export interface MinimalFeatureInfo {
+  id?: string;
+  valueType: "boolean" | "string" | "number" | "json";
+  project?: string;
+  defaultValue?: string;
+}
 import { FaMagic } from "react-icons/fa";
 import { PrerequisiteStateResult } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -20,7 +26,7 @@ import { ConditionLabel, CaseInsensitiveRegexWarning } from "./ConditionInput";
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
-  parentFeature?: FeatureInterface;
+  parentFeature?: MinimalFeatureInfo;
   prereqStates?: Record<string, PrerequisiteStateResult> | null;
 }
 
@@ -221,6 +227,14 @@ export default function PrerequisiteInput(props: Props) {
                   { label: "is less than or equal to", value: "$lte" },
                   { label: "is in the list", value: "$in" },
                   { label: "is not in the list", value: "$nin" },
+                  {
+                    label: "is in the list (case insensitive)",
+                    value: "$ini",
+                  },
+                  {
+                    label: "is not in the list (case insensitive)",
+                    value: "$nini",
+                  },
                 ]
               : attribute.datatype === "number"
                 ? [
@@ -291,9 +305,12 @@ export default function PrerequisiteInput(props: Props) {
                 "$false",
                 "$empty",
                 "$notEmpty",
-              ].includes(operator) ? null : ["$in", "$nin"].includes(
-                  operator,
-                ) ? (
+              ].includes(operator) ? null : [
+                  "$in",
+                  "$nin",
+                  "$ini",
+                  "$nini",
+                ].includes(operator) ? (
                 <Flex
                   direction="column"
                   align="end"

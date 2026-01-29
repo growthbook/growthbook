@@ -403,7 +403,6 @@ export class ReqContextClass {
   }
 }
 
-// eslint-disable-next-line
 export type ForeignRefsCache = {
   [key in keyof ForeignRefTypes]: Map<string, ForeignRefTypes[key]>;
 };

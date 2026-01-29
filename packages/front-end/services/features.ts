@@ -317,7 +317,10 @@ export function useFeatureSearch({
 export function getRules(feature: FeatureInterface, environment: string) {
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
-export function getFeatureDefaultValue(feature: FeatureInterface) {
+export function getFeatureDefaultValue(feature: {
+  defaultValue?: string;
+  valueType?: "boolean" | "string" | "number" | "json";
+}) {
   return feature.defaultValue ?? "";
 }
 export function getPrerequisites(feature: FeatureInterface) {
@@ -464,12 +467,24 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true, includeArchived = false) {
-  const { project } = useDefinitions();
+export function useFeaturesList({
+  project, // provided project takes precedence over useCurrentProject: true
+  useCurrentProject = true, // use the project selected in the project selector
+  includeArchived = false,
+  skipFetch = false, // skip fetching entirely (useful when waiting for data to load)
+}: {
+  project?: string;
+  useCurrentProject?: boolean;
+  includeArchived?: boolean;
+  skipFetch?: boolean;
+} = {}) {
+  const { project: currentProject } = useDefinitions();
 
   const qs = new URLSearchParams();
-  if (withProject) {
-    qs.set("project", project);
+  const projectToUse =
+    project ?? (useCurrentProject ? currentProject : undefined);
+  if (projectToUse) {
+    qs.set("project", projectToUse);
   }
   if (includeArchived) {
     qs.set("includeArchived", "true");
@@ -480,7 +495,7 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
     hasArchived: boolean;
-  }>(url);
+  }>(url, { shouldRun: () => !skipFetch });
 
   const { features, hasArchived } = useMemo(() => {
     if (data) {
@@ -497,7 +512,7 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
 
   return {
     features,
-    loading: !data,
+    loading: !data && !skipFetch,
     error,
     mutate,
     hasArchived,
@@ -1081,7 +1096,12 @@ export function jsonToConds(
       Object.keys(value).forEach((operator) => {
         const v = value[operator];
 
-        if (operator === "$in" || operator === "$nin") {
+        if (
+          operator === "$in" ||
+          operator === "$nin" ||
+          operator === "$ini" ||
+          operator === "$nini"
+        ) {
           if (v.some((str) => typeof str === "string" && str.includes(","))) {
             valid = false;
             return;
@@ -1295,7 +1315,12 @@ export function condToJson(
         obj[field]["$size"] = 0;
       } else if (operator === "$notEmpty") {
         obj[field]["$size"] = { $gt: 0 };
-      } else if (operator === "$in" || operator === "$nin") {
+      } else if (
+        operator === "$in" ||
+        operator === "$nin" ||
+        operator === "$ini" ||
+        operator === "$nini"
+      ) {
         // Allow for the empty list
         if (value === "") {
           obj[field][operator] = [];
