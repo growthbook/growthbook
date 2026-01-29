@@ -51,7 +51,7 @@ export function ConditionLabel({
 }) {
   return (
     <Flex align="center" flexShrink="0" style={{ width }} mb="1">
-      <Text weight="bold" size="2">
+      <Text weight="medium" size="2">
         {label}
       </Text>
     </Flex>
@@ -86,10 +86,13 @@ const BASE_OPERATOR: Record<string, string> = {
   $notRegexi: "$notRegex",
 };
 
-export function operatorSupportsCaseInsensitiveCheckbox(
-  operator: string,
-): boolean {
+export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
+}
+
+/** True when the attribute datatype supports case-insensitive operators (false for secureString / secureString[]). */
+export function datatypeSupportsCaseInsensitive(datatype?: string): boolean {
+  return !["secureString", "secureString[]"].includes(datatype ?? "");
 }
 
 export function getDisplayOperator(operator: string): string {
@@ -421,6 +424,24 @@ function ConditionAndGroupInput({
 
   const attributes = useAttributeMap(props.project);
 
+  // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
+  useEffect(() => {
+    let changed = false;
+    const next = conds.map((c) => {
+      const attr = attributes.get(c.field);
+      if (
+        attr &&
+        ["secureString", "secureString[]"].includes(attr.datatype) &&
+        isCaseInsensitiveOperator(c.operator)
+      ) {
+        changed = true;
+        return { ...c, operator: getDisplayOperator(c.operator) };
+      }
+      return c;
+    });
+    if (changed) setConds(next);
+  }, [conds, attributes, setConds]);
+
   const savedGroupOperators = [
     {
       label: "is in the saved group",
@@ -554,14 +575,7 @@ function ConditionAndGroupInput({
 
             return (
               <React.Fragment key={i}>
-                {i > 0 && (
-                  <Separator
-                    size="4"
-                    mt="6"
-                    mb="4"
-                    className="gb-separator-heavy"
-                  />
-                )}
+                {i > 0 && <Separator size="4" mt="6" mb="4" />}
                 <Flex direction="column" gap="1" mb="4">
                   <ConditionLabel label={i === 0 ? "IF" : "AND"} />
                   <Flex gap="2" align="start">
@@ -701,6 +715,8 @@ function ConditionAndGroupInput({
                           value:
                             attribute.format === "version" ? "$vne" : "$ne",
                         },
+                        { label: "is any of", value: "$in" },
+                        { label: "is none of", value: "$nin" },
                         { label: "matches regex", value: "$regex" },
                         { label: "does not match regex", value: "$notRegex" },
                         {
@@ -735,8 +751,6 @@ function ConditionAndGroupInput({
                           value:
                             attribute.format === "version" ? "$vlte" : "$lte",
                         },
-                        { label: "is any of", value: "$in" },
-                        { label: "is none of", value: "$nin" },
                         { label: "is not NULL", value: "$exists" },
                         { label: "is NULL", value: "$notExists" },
                         ...(savedGroupOptions.length > 0
@@ -824,14 +838,7 @@ function ConditionAndGroupInput({
 
           return (
             <React.Fragment key={i}>
-              {i > 0 && (
-                <Separator
-                  size="4"
-                  mt="6"
-                  mb="4"
-                  className="gb-separator-heavy"
-                />
-              )}
+              {i > 0 && <Separator size="4" mt="6" mb="4" />}
               <Flex direction="column" gap="1" mb="3">
                 <ConditionLabel label={i === 0 ? "IF" : "AND"} />
                 <Flex gap="2" align="start">
@@ -845,7 +852,11 @@ function ConditionAndGroupInput({
                       {fieldSelector}
                     </Box>
                     <Box style={{ flex: "1 1 0", minWidth: 200 }}>
-                      <Flex direction="column" gap="1">
+                      <Flex
+                        direction="column"
+                        gap="1"
+                        style={{ position: "relative" }}
+                      >
                         <SelectField
                           useMultilineLabels={true}
                           value={getDisplayOperator(operator)}
@@ -860,21 +871,37 @@ function ConditionAndGroupInput({
                             handleCondsChange(newOperator, "operator");
                           }}
                         />
-                        {operatorSupportsCaseInsensitiveCheckbox(operator) && (
-                          <Checkbox
-                            value={isCaseInsensitiveOperator(operator)}
-                            setValue={(checked) => {
-                              const newOperator = withOperatorCaseInsensitivity(
-                                getDisplayOperator(operator),
-                                checked,
-                              );
-                              handleCondsChange(newOperator, "operator");
-                            }}
-                            label="Case insensitive"
-                            size="sm"
-                            weight="regular"
-                          />
-                        )}
+                        {operatorSupportsCaseInsensitive(operator) &&
+                          datatypeSupportsCaseInsensitive(
+                            attribute?.datatype,
+                          ) && (
+                            <Flex
+                              style={{
+                                position: "absolute",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                opacity: isCaseInsensitiveOperator(operator)
+                                  ? 1
+                                  : 0.5,
+                                right: 35,
+                              }}
+                            >
+                              <Checkbox
+                                value={isCaseInsensitiveOperator(operator)}
+                                setValue={(checked) => {
+                                  const newOperator =
+                                    withOperatorCaseInsensitivity(
+                                      getDisplayOperator(operator),
+                                      checked,
+                                    );
+                                  handleCondsChange(newOperator, "operator");
+                                }}
+                                label="Case insensitive"
+                                size="sm"
+                                weight="regular"
+                              />
+                            </Flex>
+                          )}
                       </Flex>
                     </Box>
                     {displayType === "select-only" ? null : [

@@ -118,14 +118,7 @@ export default function SavedGroupTargetingField({
         {value.map((v, i) => {
           return (
             <React.Fragment key={i}>
-              {i > 0 && (
-                <Separator
-                  size="4"
-                  mt="6"
-                  mb="4"
-                  className="gb-separator-heavy"
-                />
-              )}
+              {i > 0 && <Separator size="4" mt="6" mb="4" />}
               <Flex direction="column" gap="2" mb="4">
                 <ConditionLabel label={i === 0 ? "In" : "AND"} />
                 <Flex gap="2" align="start">

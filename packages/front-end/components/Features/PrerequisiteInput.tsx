@@ -6,7 +6,13 @@ import { RxInfoCircled, RxLoop } from "react-icons/rx";
 
 export interface MinimalFeatureInfo {
   id?: string;
-  valueType: "boolean" | "string" | "number" | "json";
+  valueType:
+    | "boolean"
+    | "string"
+    | "number"
+    | "json"
+    | "secureString"
+    | "secureString[]";
   project?: string;
   defaultValue?: string;
 }
@@ -25,7 +31,8 @@ import Checkbox from "@/ui/Checkbox";
 import {
   ConditionLabel,
   CaseInsensitiveRegexWarning,
-  operatorSupportsCaseInsensitiveCheckbox,
+  operatorSupportsCaseInsensitive,
+  datatypeSupportsCaseInsensitive,
   getDisplayOperator,
   isCaseInsensitiveOperator,
   withOperatorCaseInsensitivity,
@@ -75,6 +82,26 @@ export default function PrerequisiteInput(props: Props) {
     const conds = jsonToConds(value, parentValueMap);
     setSimpleAllowed(conds !== null && conds.length <= 1);
   }, [value, parentValueMap]);
+
+  // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
+  useEffect(() => {
+    let changed = false;
+    const next = conds.map((group) =>
+      group.map((c) => {
+        const attr = parentValueMap.get(c.field);
+        if (
+          attr &&
+          ["secureString", "secureString[]"].includes(attr.datatype) &&
+          isCaseInsensitiveOperator(c.operator)
+        ) {
+          changed = true;
+          return { ...c, operator: getDisplayOperator(c.operator) };
+        }
+        return c;
+      }),
+    );
+    if (changed) setConds(next);
+  }, [conds, parentValueMap]);
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
     const formatted = formatJSON(value);
@@ -211,7 +238,9 @@ export default function PrerequisiteInput(props: Props) {
                 { label: "is live", value: "$exists" },
                 { label: "is not live", value: "$notExists" },
               ]
-            : attribute.datatype === "string"
+            : attribute.datatype === "string" ||
+                attribute.datatype === "secureString" ||
+                attribute.datatype === "secureString[]"
               ? [
                   { label: "is live", value: "$exists" },
                   { label: "is not live", value: "$notExists" },
@@ -248,14 +277,7 @@ export default function PrerequisiteInput(props: Props) {
 
         return (
           <React.Fragment key={i}>
-            {i > 0 && (
-              <Separator
-                size="4"
-                mt="6"
-                mb="4"
-                className="gb-separator-heavy"
-              />
-            )}
+            {i > 0 && <Separator size="4" mt="6" mb="4" />}
             <Box mb="3">
               <Flex direction="column" gap="2">
                 <ConditionLabel label="PASS IF" width={60} />
@@ -304,21 +326,37 @@ export default function PrerequisiteInput(props: Props) {
                           );
                         }}
                       />
-                      {operatorSupportsCaseInsensitiveCheckbox(operator) && (
-                        <Checkbox
-                          value={isCaseInsensitiveOperator(operator)}
-                          setValue={(checked) => {
-                            const newOperator = withOperatorCaseInsensitivity(
-                              getDisplayOperator(operator),
-                              checked,
-                            );
-                            handleCondsChange(newOperator, "operator");
-                          }}
-                          label="Case insensitive"
-                          size="sm"
-                          weight="regular"
-                        />
-                      )}
+                      {operatorSupportsCaseInsensitive(operator) &&
+                        datatypeSupportsCaseInsensitive(
+                          attribute?.datatype,
+                        ) && (
+                          <Flex
+                            style={{
+                              position: "absolute",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              opacity: isCaseInsensitiveOperator(operator)
+                                ? 1
+                                : 0.5,
+                              right: 35,
+                            }}
+                          >
+                            <Checkbox
+                              value={isCaseInsensitiveOperator(operator)}
+                              setValue={(checked) => {
+                                const newOperator =
+                                  withOperatorCaseInsensitivity(
+                                    getDisplayOperator(operator),
+                                    checked,
+                                  );
+                                handleCondsChange(newOperator, "operator");
+                              }}
+                              label="Case insensitive"
+                              size="sm"
+                              weight="regular"
+                            />
+                          </Flex>
+                        )}
                     </Flex>
                   </Box>
                 </Flex>
@@ -375,7 +413,9 @@ export default function PrerequisiteInput(props: Props) {
                       required
                     />
                   </Box>
-                ) : ["string", "secureString"].includes(attribute.datatype) ? (
+                ) : ["string", "secureString", "secureString[]"].includes(
+                    attribute.datatype,
+                  ) ? (
                   <Box>
                     <Field
                       value={value}
