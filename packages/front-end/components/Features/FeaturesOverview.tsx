@@ -8,10 +8,10 @@ import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
-  evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
+  getDependentExperiments,
+  getDependentFeatures,
   mergeResultHasChanges,
-  PrerequisiteStateResult,
 } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -77,6 +77,10 @@ import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
+import {
+  PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -99,9 +103,6 @@ export default function FeaturesOverview({
   setEditProjectModal,
   version,
   setVersion,
-  dependents,
-  dependentFeatures,
-  dependentExperiments,
   safeRollouts,
   holdout,
 }: {
@@ -119,9 +120,6 @@ export default function FeaturesOverview({
   setEditProjectModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
-  dependents: number;
-  dependentFeatures: string[];
-  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const { fid } = router.query;
@@ -141,6 +139,8 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
+  const [showOtherProjectDependents, setShowOtherProjectDependents] =
+    useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -150,10 +150,28 @@ export default function FeaturesOverview({
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
 
-  const { features } = useFeaturesList(false);
+  const featureProject = feature.project;
+  const { features } = useFeaturesList(
+    showOtherProjectDependents || !featureProject
+      ? { useCurrentProject: false }
+      : { project: featureProject },
+  );
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+
+  // Calculate dependents based on project scoping
+  const dependentFeatures = useMemo(() => {
+    if (!feature || !features) return [];
+    return getDependentFeatures(feature, features, envs);
+  }, [feature, features, envs]);
+
+  const dependentExperiments = useMemo(() => {
+    if (!feature || !experiments) return [];
+    return getDependentExperiments(feature, experiments);
+  }, [feature, experiments]);
+
+  const dependents = dependentFeatures.length + dependentExperiments.length;
 
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
@@ -176,26 +194,47 @@ export default function FeaturesOverview({
   }, [revisions, revision, feature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
-  const envsStr = JSON.stringify(envs);
 
-  const prereqStates = useMemo(
-    () => {
-      if (!feature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
-      envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          feature,
-          featuresMap,
-          env,
-          true,
-        );
-      });
-      return states;
-    },
+  // Fetch prerequisite states from backend (handles cross-project prereqs correctly)
+  // skipRootConditions: true means we skip the feature's own rules and only evaluate prerequisites
+  const { states: prereqStatesRaw, loading: prereqStatesLoading } =
+    usePrerequisiteStates({
+      featureId: feature?.id || "",
+      environments: envs,
+      enabled: !!feature,
+      skipRootConditions: true,
+    });
+
+  // Create a stable serialized key for kill switch states to ensure useMemo recomputes
+  const killSwitchKey = envs
+    .map(
+      (env) =>
+        `${env}:${feature?.environmentSettings?.[env]?.enabled ?? false}`,
+    )
+    .join(",");
+
+  // Compute final summary states by combining prerequisite states with kill switch state
+  // This allows the summary to update immediately when toggling kill switches without refetching
+  const prereqStates = useMemo(() => {
+    if (!prereqStatesRaw || !feature) return prereqStatesRaw;
+
+    const finalStates: Record<string, PrerequisiteStateResult> = {};
+    for (const env of envs) {
+      // Check kill switch first (same logic as backend)
+      if (!feature.environmentSettings?.[env]?.enabled) {
+        // Kill switch is OFF - feature is not live regardless of prerequisites
+        finalStates[env] = { state: "deterministic", value: null };
+      } else {
+        // Kill switch is ON - use prerequisite state
+        finalStates[env] = prereqStatesRaw[env] || {
+          state: "deterministic",
+          value: null,
+        };
+      }
+    }
+    return finalStates;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, features, envsStr],
-  );
+  }, [prereqStatesRaw, feature, envs, killSwitchKey]);
 
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
@@ -646,114 +685,124 @@ export default function FeaturesOverview({
               The default value and rules will be ignored.
             </div>
             {prerequisites.length > 0 ? (
-              <table className="table border mb-2 w-100">
-                <thead>
-                  <tr className="bg-light">
-                    <th
-                      className="pl-3 align-bottom font-weight-bold border-right"
-                      style={{ minWidth: 350 }}
-                    />
-                    {envs.map((env) => (
+              <div style={{ overflowX: "auto" }}>
+                <table className="table border mb-2 w-100">
+                  <thead>
+                    <tr className="bg-light">
                       <th
-                        key={env}
-                        className="text-center align-bottom font-weight-bolder"
-                        style={{ minWidth: 120 }}
-                      >
-                        {env}
-                      </th>
-                    ))}
-                    {envs.length === 0 ? (
-                      <th className="text-center align-bottom">
-                        <span className="font-italic">No environments</span>
-                        <Tooltip
-                          className="ml-1"
-                          popperClassName="text-left font-weight-normal"
-                          body={
-                            <>
-                              <div className="text-warning-orange mb-2">
-                                <FaExclamationTriangle /> This feature has no
-                                associated environments
-                              </div>
-                              <div>
-                                Ensure that this feature&apos;s project is
-                                included in at least one environment to use it.
-                              </div>
-                            </>
-                          }
-                        />
-                        <div
-                          className="float-right small position-relative"
-                          style={{ top: 5 }}
+                        className="pl-3 align-bottom font-weight-bold border-right"
+                        style={{ minWidth: 350 }}
+                      />
+                      {envs.map((env) => (
+                        <th
+                          key={env}
+                          className="text-center align-bottom font-weight-bolder"
+                          style={{ minWidth: 120 }}
                         >
-                          <Link href="/environments">Manage Environments</Link>
-                        </div>
-                      </th>
-                    ) : (
-                      <th className="w-100" />
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td
-                      className="pl-3 align-bottom font-weight-bold border-right"
-                      style={{ minWidth: 350 }}
-                    >
-                      Kill Switch
-                    </td>
-                    {envs.map((env) => (
-                      <td key={env} style={{ minWidth: 120 }}>
-                        <Flex align="center" justify="center">
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={env}
-                            mutate={() => {
-                              mutate();
-                            }}
-                            id={`${env}_toggle`}
+                          {env}
+                        </th>
+                      ))}
+                      {envs.length === 0 ? (
+                        <th className="text-center align-bottom">
+                          <span className="font-italic">No environments</span>
+                          <Tooltip
+                            className="ml-1"
+                            popperClassName="text-left font-weight-normal"
+                            body={
+                              <>
+                                <div className="text-warning-orange mb-2">
+                                  <FaExclamationTriangle /> This feature has no
+                                  associated environments
+                                </div>
+                                <div>
+                                  Ensure that this feature&apos;s project is
+                                  included in at least one environment to use
+                                  it.
+                                </div>
+                              </>
+                            }
                           />
-                        </Flex>
+                          <div
+                            className="float-right small position-relative"
+                            style={{ top: 5 }}
+                          >
+                            <Link href="/environments">
+                              Manage Environments
+                            </Link>
+                          </div>
+                        </th>
+                      ) : (
+                        <th className="w-100" />
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td
+                        className="pl-3 align-bottom font-weight-bold border-right"
+                        style={{ minWidth: 350 }}
+                      >
+                        Kill Switch
                       </td>
-                    ))}
-                    <td className="w-100" />
-                  </tr>
-                  {prerequisites.map(({ ...item }, i) => {
-                    const parentFeature = features.find(
-                      (f) => f.id === item.id,
-                    );
-                    return (
-                      <PrerequisiteStatusRow
-                        key={i}
-                        i={i}
-                        feature={feature}
-                        features={features}
-                        parentFeature={parentFeature}
-                        prerequisite={item}
-                        environments={environments}
-                        mutate={mutate}
-                        setPrerequisiteModal={setPrerequisiteModal}
-                      />
-                    );
-                  })}
-                </tbody>
-                <tbody>
-                  <tr className="bg-light">
-                    <td className="pl-3 font-weight-bold border-right">
-                      Summary
-                    </td>
-                    {envs.length > 0 && (
-                      <PrerequisiteStatesCols
-                        prereqStates={prereqStates ?? undefined}
-                        envs={envs}
-                        isSummaryRow={true}
-                      />
-                    )}
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
+                      {envs.map((env) => (
+                        <td key={env} style={{ minWidth: 120 }}>
+                          <Flex align="center" justify="center">
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={env}
+                              mutate={mutate}
+                              id={`${env}_toggle`}
+                            />
+                          </Flex>
+                        </td>
+                      ))}
+                      <td className="w-100" />
+                    </tr>
+                    {prerequisites.map(({ ...item }, i) => {
+                      const parentFeature = features.find(
+                        (f) => f.id === item.id,
+                      );
+                      return (
+                        <PrerequisiteStatusRow
+                          key={i}
+                          i={i}
+                          feature={feature}
+                          parentFeature={parentFeature}
+                          prerequisite={item}
+                          environments={environments}
+                          mutate={mutate}
+                          setPrerequisiteModal={setPrerequisiteModal}
+                        />
+                      );
+                    })}
+                  </tbody>
+                  <tbody>
+                    <tr className="bg-light">
+                      <td className="pl-3 font-weight-bold border-right">
+                        Summary
+                      </td>
+                      {envs.length > 0 && (
+                        <PrerequisiteStatesCols
+                          prereqStates={prereqStates ?? undefined}
+                          envs={envs}
+                          isSummaryRow={true}
+                          loading={prereqStatesLoading}
+                        />
+                      )}
+                      <td />
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <Flex mt="4" justify="start" align="center" gap="4">
+              <Flex
+                mt="4"
+                justify="start"
+                align="center"
+                gapX="4"
+                gapY="3"
+                wrap="wrap"
+              >
                 {environments.length > 0 ? (
                   environments.map((en) => (
                     <Flex
@@ -800,6 +849,8 @@ export default function FeaturesOverview({
                 environments={envs}
                 type="feature"
                 project={projectId ?? ""}
+                mt="4"
+                mb="0"
               />
             )}
 
@@ -829,7 +880,7 @@ export default function FeaturesOverview({
             )}
           </Box>
         </Frame>
-        {dependents > 0 && (
+        {(dependents > 0 || featureProject) && (
           <Frame mb="4">
             <Box>
               <Flex mb="3" gap="3" align="center">
@@ -838,76 +889,105 @@ export default function FeaturesOverview({
                 </Heading>
                 <Badge label={dependents + ""} color="gray" radius="medium" />
               </Flex>
-              <Box mb="2">
-                {dependents === 1
-                  ? `Another ${
-                      dependentFeatures.length ? "feature" : "experiment"
-                    } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                  : `Other ${
-                      dependentFeatures.length
-                        ? dependentExperiments.length
-                          ? "features and experiments"
-                          : "features"
-                        : "experiments"
-                    } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
-              </Box>
-              <hr className="mb-2" />
-              {showDependents ? (
-                <div className="mt-3">
-                  {dependentFeatures.length > 0 && (
-                    <>
-                      <label>Dependent Features</label>
-                      <ul className="pl-4">
-                        {dependentFeatures.map((fid, i) => (
-                          <li className="my-1" key={i}>
-                            <a
-                              href={`/features/${fid}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {fid}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  {dependentExperiments.length > 0 && (
-                    <>
-                      <label>Dependent Experiments</label>
-                      <ul className="pl-4">
-                        {dependentExperiments.map((exp, i) => (
-                          <li className="my-1" key={i}>
-                            <a
-                              href={`/experiment/${exp.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {exp.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  <a
-                    role="button"
-                    className="d-inline-block a link-purple mt-1"
-                    onClick={() => setShowDependents(false)}
-                  >
-                    <BiHide /> Hide details
-                  </a>
-                </div>
-              ) : (
+              <Flex align="center" gap="4" mb="4">
+                <Text size="2" as="div" style={{ width: "240px" }}>
+                  {featureProject && !showOtherProjectDependents
+                    ? "Showing dependents in this project."
+                    : "Showing dependents in all projects."}
+                </Text>
+                {featureProject && (
+                  <Switch
+                    value={showOtherProjectDependents}
+                    onChange={setShowOtherProjectDependents}
+                    label="Include all projects"
+                    size="1"
+                  />
+                )}
+              </Flex>
+              {dependents > 0 ? (
                 <>
-                  <a
-                    role="button"
-                    className="d-inline-block a link-purple"
-                    onClick={() => setShowDependents(true)}
-                  >
-                    <BiShow /> Show details
-                  </a>
+                  <Box mb="2">
+                    {dependents === 1
+                      ? `Another ${
+                          dependentFeatures.length ? "feature" : "experiment"
+                        } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                      : `Other ${
+                          dependentFeatures.length
+                            ? dependentExperiments.length
+                              ? "features and experiments"
+                              : "features"
+                            : "experiments"
+                        } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+                  </Box>
+                  <hr className="mb-2" />
+                  {showDependents ? (
+                    <div className="mt-3">
+                      {dependentFeatures.length > 0 && (
+                        <>
+                          <label>Dependent Features</label>
+                          <ul className="pl-4">
+                            {dependentFeatures.map((fid, i) => (
+                              <li className="my-1" key={i}>
+                                <a
+                                  href={`/features/${fid}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {fid}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {dependentExperiments.length > 0 && (
+                        <>
+                          <label>Dependent Experiments</label>
+                          <ul className="pl-4">
+                            {dependentExperiments.map((exp, i) => (
+                              <li className="my-1" key={i}>
+                                <a
+                                  href={`/experiment/${exp.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {exp.name}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      <a
+                        role="button"
+                        className="d-inline-block a link-purple mt-1"
+                        onClick={() => setShowDependents(false)}
+                      >
+                        <BiHide /> Hide details
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <a
+                        role="button"
+                        className="d-inline-block a link-purple"
+                        onClick={() => setShowDependents(true)}
+                      >
+                        <BiShow /> Show details
+                      </a>
+                    </>
+                  )}
                 </>
+              ) : (
+                <Box mb="2">
+                  <Text size="2">
+                    No dependents found
+                    {featureProject && !showOtherProjectDependents
+                      ? " in this project"
+                      : ""}
+                    .
+                  </Text>
+                </Box>
               )}
             </Box>
           </Frame>
@@ -1082,7 +1162,6 @@ export default function FeaturesOverview({
                       feature={feature}
                       isLocked={isLocked}
                       canEditDrafts={canEditDrafts}
-                      revisions={revisions}
                       experimentsMap={experimentsMap}
                       mutate={mutate}
                       currentVersion={currentVersion}
@@ -1253,8 +1332,6 @@ export default function FeaturesOverview({
             close={() => setPrerequisiteModal(null)}
             i={prerequisiteModal.i}
             mutate={mutate}
-            revisions={revisions}
-            version={currentVersion}
           />
         )}
       </Box>

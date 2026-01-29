@@ -1,11 +1,7 @@
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
-import { FaExclamationCircle } from "react-icons/fa";
-import {
-  evaluatePrerequisiteState,
-  PrerequisiteStateResult,
-} from "shared/util";
+import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
 import { Environment } from "shared/types/organization";
-import React, { useMemo } from "react";
+import React from "react";
 import {
   FaRegCircleCheck,
   FaRegCircleQuestion,
@@ -18,12 +14,16 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+  PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
 
 interface Props {
   i: number;
   prerequisite: FeaturePrerequisite;
   feature: FeatureInterface;
-  features: FeatureInterface[];
   parentFeature?: FeatureInterface;
   environments: Environment[];
   mutate: () => void;
@@ -34,7 +34,6 @@ export default function PrerequisiteStatusRow({
   i,
   prerequisite,
   feature,
-  features,
   parentFeature,
   environments,
   mutate,
@@ -45,55 +44,40 @@ export default function PrerequisiteStatusRow({
   const { apiCall } = useAuth();
 
   const envs = environments.map((e) => e.id);
-  const envsStr = JSON.stringify(envs);
 
-  const prereqStatesAndDefaults = useMemo(
-    () => {
-      if (!parentFeature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      const defaultValues: Record<string, string> = {};
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
-      envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          parentFeature,
-          featuresMap,
-          env,
-        );
-        defaultValues[env] = parentFeature.defaultValue;
-      });
-      return { states, defaultValues };
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentFeature, features, envsStr],
-  );
+  // Fetch prerequisite states from backend with JIT feature loading
+  // Note: We don't check !!parentFeature because the backend will JIT load cross-project prerequisites
+  const { states: prereqStates, loading: prereqStatesLoading } =
+    usePrerequisiteStates({
+      featureId: prerequisite.id,
+      environments: envs,
+      enabled: !!prerequisite.id,
+    });
+
+  // Build defaultValues map from the parent feature
+  const defaultValues: Record<string, string> | undefined = parentFeature
+    ? Object.fromEntries(envs.map((env) => [env, parentFeature.defaultValue]))
+    : undefined;
 
   return (
     <tr>
       <td className="align-middle pl-3 border-right">
         <div className="d-flex">
           <div className="d-flex flex-1 align-items-center mr-2">
-            {parentFeature?.id ? (
-              <>
-                <span className="uppercase-title text-muted mr-2">Prereq</span>
-                <a
-                  className="d-flex align-items-center"
-                  href={`/features/${parentFeature.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span
-                    className="d-inline-block text-ellipsis"
-                    style={{ maxWidth: 240 }}
-                  >
-                    {parentFeature.id}
-                  </span>
-                </a>
-              </>
-            ) : (
-              <>
-                Invalid parent feature (<code>{prerequisite.id}</code>)
-              </>
-            )}
+            <span className="uppercase-title text-muted mt-1 mr-2">Prereq</span>
+            <a
+              className="d-flex align-items-center"
+              href={`/features/${prerequisite.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span
+                className="d-inline-block text-ellipsis"
+                style={{ maxWidth: 240 }}
+              >
+                {prerequisite.id}
+              </span>
+            </a>
           </div>
           <div>
             {canEdit && (
@@ -134,9 +118,10 @@ export default function PrerequisiteStatusRow({
       </td>
       {envs.length > 0 && (
         <PrerequisiteStatesCols
-          prereqStates={prereqStatesAndDefaults?.states}
-          defaultValues={prereqStatesAndDefaults?.defaultValues}
+          prereqStates={prereqStates ?? undefined}
+          defaultValues={defaultValues}
           envs={envs}
+          loading={prereqStatesLoading}
         />
       )}
       <td />
@@ -149,11 +134,13 @@ export function PrerequisiteStatesCols({
   defaultValues, // "true" | "false" defaultValues will override the UI for the "live" state
   envs,
   isSummaryRow = false,
+  loading = false,
 }: {
   prereqStates?: Record<string, PrerequisiteStateResult>;
   defaultValues?: Record<string, string>;
   envs: string[];
   isSummaryRow?: boolean;
+  loading?: boolean;
 }) {
   const featureLabel = isSummaryRow
     ? "The current feature"
@@ -162,7 +149,16 @@ export function PrerequisiteStatesCols({
     <>
       {envs.map((env) => (
         <td key={env} className="text-center">
-          {prereqStates?.[env]?.state === "deterministic" &&
+          {loading && (
+            <Tooltip
+              className="cursor-pointer"
+              body="Loading prerequisite state..."
+            >
+              <LoadingSpinner />
+            </Tooltip>
+          )}
+          {!loading &&
+            prereqStates?.[env]?.state === "deterministic" &&
             prereqStates?.[env]?.value !== null && (
               <Tooltip
                 className="cursor-pointer"
@@ -212,7 +208,8 @@ export function PrerequisiteStatesCols({
                 )}
               </Tooltip>
             )}
-          {prereqStates?.[env]?.state === "deterministic" &&
+          {!loading &&
+            prereqStates?.[env]?.state === "deterministic" &&
             prereqStates?.[env]?.value === null && (
               <Tooltip
                 className="cursor-pointer"
@@ -238,7 +235,7 @@ export function PrerequisiteStatesCols({
                 <FaRegCircleXmark className="text-muted" size={20} />
               </Tooltip>
             )}
-          {prereqStates?.[env]?.state === "conditional" && (
+          {!loading && prereqStates?.[env]?.state === "conditional" && (
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"
@@ -268,13 +265,23 @@ export function PrerequisiteStatesCols({
               <FaRegCircleQuestion className="text-warning-orange" size={20} />
             </Tooltip>
           )}
-          {prereqStates?.[env]?.state === "cyclic" && (
+          {!loading && prereqStates?.[env]?.state === "cyclic" && (
             <Tooltip
               className="cursor-pointer"
               popperClassName="text-left"
               body={<div>Circular dependency detected. Please fix.</div>}
             >
               <FaExclamationCircle className="text-danger" size={20} />
+            </Tooltip>
+          )}
+          {/* No state data is available */}
+          {!loading && !prereqStates?.[env] && (
+            <Tooltip
+              className="cursor-pointer"
+              popperClassName="text-left"
+              body={<div>Unable to determine prerequisite state.</div>}
+            >
+              <FaQuestion className="text-muted" size={20} />
             </Tooltip>
           )}
         </td>

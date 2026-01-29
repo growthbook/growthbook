@@ -100,3 +100,13 @@ export function getValidDateOffsetByUTC(
   const date = getValidDate(...params);
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 }
+
+// returns an abbreviated version of the "ago" string.
+// ex: "about 5 minutes ago" -> "5 min ago"
+export function abbreviateAgo(date: string | Date | null | undefined): string {
+  return ago(date ?? "")
+    .replace("about ", "")
+    .replace("less than a", "<1")
+    .replace(/second(s)?/g, "sec$1")
+    .replace(/minute(s)?/g, "min$1");
+}

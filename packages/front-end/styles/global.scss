@@ -328,45 +328,16 @@ pre {
 .experiment-row-tooltip {
   position: absolute;
   display: inline-block;
-  background-color: var(--surface-background-color-alt);
+  background-color: var(--color-panel-solid);
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   padding: 3px 8px;
-  border: 1px solid var(--border-color-300);
   box-sizing: border-box;
   border-radius: 2px;
   font-size: 12px;
   color: var(--text-color-table);
   pointer-events: all;
   transition: 150ms all;
-
-  .arrow {
-    position: absolute;
-    width: 60px;
-    margin-left: -30px;
-    height: 30px;
-    overflow: hidden;
-    transform: scaleX(0.75);
-    pointer-events: none;
-    &::after {
-      left: 20px;
-      content: "";
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      border-radius: 2px;
-      background-color: var(--surface-background-color-alt);
-      border: 1px solid var(--border-color-300);
-      box-sizing: border-box;
-      transform: rotate(45deg);
-      box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
-    }
-    &.top::after {
-      top: 27px;
-    }
-    &.bottom::after {
-      bottom: 27px;
-    }
-  }
+  box-shadow: var(--shadow-5);
 
   .results-overview {
     background-color: #66666610;
@@ -1038,6 +1009,12 @@ main.main {
   td {
     vertical-align: middle;
   }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
+  }
 
   .dark-theme &.decision-criteria-table {
     tbody {
@@ -1061,6 +1038,12 @@ main.main {
   }
   td {
     vertical-align: middle;
+  }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
   }
 }
 

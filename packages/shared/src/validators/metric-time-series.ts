@@ -82,7 +82,7 @@ const createMetricTimeSeries = metricTimeSeriesSchema.omit({
 });
 export type CreateMetricTimeSeries = z.infer<typeof createMetricTimeSeries>;
 
-const createMetricTimeSeriesSingleDataPoint = createMetricTimeSeries
+const _createMetricTimeSeriesSingleDataPoint = createMetricTimeSeries
   .omit({
     dataPoints: true,
   })
@@ -90,5 +90,5 @@ const createMetricTimeSeriesSingleDataPoint = createMetricTimeSeries
     singleDataPoint: metricTimeSeriesDataPoint,
   });
 export type CreateMetricTimeSeriesSingleDataPoint = z.infer<
-  typeof createMetricTimeSeriesSingleDataPoint
+  typeof _createMetricTimeSeriesSingleDataPoint
 >;

@@ -14,6 +14,7 @@ import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Tooltip from "@/ui/Tooltip";
 import {
   Condition,
@@ -38,6 +39,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export function ConditionLabel({
   label,
@@ -156,6 +158,7 @@ export default function ConditionInput(props: Props) {
             rules
           </Callout>
         )}
+        <CaseInsensitiveRegexWarning value={value} project={props.project} />
       </>
     );
 
@@ -337,6 +340,8 @@ export default function ConditionInput(props: Props) {
           your targeting conditions.
         </Callout>
       )}
+
+      <CaseInsensitiveRegexWarning value={value} project={props.project} />
     </Box>
   );
 }
@@ -374,7 +379,7 @@ function ConditionAndGroupInput({
     },
   ];
 
-  const listOperators = ["$in", "$nin"];
+  const listOperators = ["$in", "$nin", "$ini", "$nini"];
 
   const attributeSchema = useAttributeSchema(false, props.project);
 
@@ -625,6 +630,14 @@ function ConditionAndGroupInput({
                       { label: "is not equal to", value: "$ne" },
                       { label: "is in the list", value: "$in" },
                       { label: "is not in the list", value: "$nin" },
+                      {
+                        label: "is in the list (case insensitive)",
+                        value: "$ini",
+                      },
+                      {
+                        label: "is not in the list (case insensitive)",
+                        value: "$nini",
+                      },
                       { label: "is not NULL", value: "$exists" },
                       { label: "is NULL", value: "$notExists" },
                     ]
@@ -642,6 +655,14 @@ function ConditionAndGroupInput({
                         },
                         { label: "matches regex", value: "$regex" },
                         { label: "does not match regex", value: "$notRegex" },
+                        {
+                          label: "matches regex (case insensitive)",
+                          value: "$regexi",
+                        },
+                        {
+                          label: "does not match regex (case insensitive)",
+                          value: "$notRegexi",
+                        },
                         {
                           label:
                             attribute.format === "date"
@@ -676,6 +697,14 @@ function ConditionAndGroupInput({
                         },
                         { label: "is in the list", value: "$in" },
                         { label: "is not in the list", value: "$nin" },
+                        {
+                          label: "is in the list (case insensitive)",
+                          value: "$ini",
+                        },
+                        {
+                          label: "is not in the list (case insensitive)",
+                          value: "$nini",
+                        },
                         { label: "is not NULL", value: "$exists" },
                         { label: "is NULL", value: "$notExists" },
                         ...(savedGroupOptions.length > 0
@@ -688,6 +717,14 @@ function ConditionAndGroupInput({
                           { label: "is not equal to", value: "$ne" },
                           { label: "is in the list", value: "$in" },
                           { label: "is not in the list", value: "$nin" },
+                          {
+                            label: "is in the list (case insensitive)",
+                            value: "$ini",
+                          },
+                          {
+                            label: "is not in the list (case insensitive)",
+                            value: "$nini",
+                          },
                           { label: "is not NULL", value: "$exists" },
                           { label: "is NULL", value: "$notExists" },
                           ...(savedGroupOptions.length > 0
@@ -710,6 +747,14 @@ function ConditionAndGroupInput({
                             },
                             { label: "is in the list", value: "$in" },
                             { label: "is not in the list", value: "$nin" },
+                            {
+                              label: "is in the list (case insensitive)",
+                              value: "$ini",
+                            },
+                            {
+                              label: "is not in the list (case insensitive)",
+                              value: "$nini",
+                            },
                             { label: "is not NULL", value: "$exists" },
                             { label: "is NULL", value: "$notExists" },
                             ...(savedGroupOptions.length > 0
@@ -721,7 +766,10 @@ function ConditionAndGroupInput({
           if (attribute.disableEqualityConditions) {
             // Remove equality operators if the attribute has them disabled
             operatorOptions = operatorOptions.filter(
-              (o) => !["$eq", "$ne", "$in", "$nin"].includes(o.value),
+              (o) =>
+                !["$eq", "$ne", "$in", "$nin", "$ini", "$nini"].includes(
+                  o.value,
+                ),
             );
           }
 
@@ -931,7 +979,9 @@ function ConditionAndGroupInput({
                 ) : displayType === "string" ? (
                   <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                     {attribute.format === "date" &&
-                    !["$regex", "$notRegex"].includes(operator) ? (
+                    !["$regex", "$notRegex", "$regexi", "$notRegexi"].includes(
+                      operator,
+                    ) ? (
                       <DatePicker
                         date={value}
                         setDate={(v) => {
@@ -1021,5 +1071,54 @@ function ConditionAndGroupInput({
         </Flex>
       </Box>
     </Box>
+  );
+}
+
+export function CaseInsensitiveRegexWarning({
+  value,
+  project,
+}: {
+  value: string;
+  project?: string;
+}) {
+  const { data: sdkConnectionsData } = useSDKConnections();
+  // Check if conditions use case-insensitive operators
+  // In valid JSON, operators are always quoted, so we only check for quoted versions
+  const hasCaseInsensitiveOperator =
+    value.includes('"$regexi"') ||
+    value.includes('"$notRegexi"') ||
+    value.includes('"$ini"') ||
+    value.includes('"$nini"') ||
+    value.includes('"$alli"');
+  const hasSDKWithCaseInsensitive = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project,
+  }).includes("caseInsensitiveMembership");
+  const hasSDKWithNoCaseInsensitive = !getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    mustMatchAllConnections: true,
+    project,
+  }).includes("caseInsensitiveMembership");
+
+  if (!hasCaseInsensitiveOperator || !hasSDKWithNoCaseInsensitive) {
+    return null;
+  }
+
+  return (
+    <Callout status={hasSDKWithCaseInsensitive ? "warning" : "error"} mt="2">
+      {hasSDKWithCaseInsensitive
+        ? "Some of your SDK Connections in this project may not support case-insensitive operators."
+        : "None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."}
+      <Link
+        href={"/sdks"}
+        weight="bold"
+        className="pl-2"
+        rel="noreferrer"
+        target="_blank"
+      >
+        View SDKs
+        <PiArrowSquareOut className="ml-1" />
+      </Link>
+    </Callout>
   );
 }

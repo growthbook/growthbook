@@ -23,8 +23,8 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { ApiFeature } from "shared/types/openapi";
+import { GroupMap } from "shared/types/saved-group";
 import { getValidDate } from "../dates";
-import { GroupMap } from "../../types/groups";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
@@ -666,9 +666,9 @@ export function validateAndFixCondition(
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
-export function getDefaultPrerequisiteCondition(
-  parentFeature?: FeatureInterface,
-) {
+export function getDefaultPrerequisiteCondition(parentFeature?: {
+  valueType?: "boolean" | "string" | "number" | "json";
+}) {
   const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {
     return `{"value": true}`;
