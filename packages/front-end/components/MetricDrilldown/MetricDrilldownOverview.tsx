@@ -85,7 +85,6 @@ function MetricDrilldownOverview({
         ? "Secondary Metric"
         : "Guardrail Metric";
 
-  // Build rows for VariationStatsTable
   const statsTableRows = variations.map((variation, i) => ({
     variationIndex: i,
     variationName: variation.name,

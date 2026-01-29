@@ -26,9 +26,6 @@ interface DrilldownTooltipProps {
 /**
  * A wrapper component that provides drilldown tooltip functionality.
  * Uses render props pattern to pass mouse handlers to children.
- *
- * The tooltip only shows when hovering over non-interactive elements,
- * matching the behavior of the row click handler.
  */
 export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
   const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderTooltip } =
@@ -38,10 +35,8 @@ export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
       positioning: "cursor",
     });
 
-  // Combine enter and move handlers since tbody only has onMouseMove
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      // Don't show tooltip when hovering over interactive elements
       const target = e.target as HTMLElement;
       if (isInteractiveElement(target)) {
         handleMouseLeave();
