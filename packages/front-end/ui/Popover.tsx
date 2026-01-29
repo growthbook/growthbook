@@ -76,40 +76,47 @@ export function Popover({
         </RadixPopover.Trigger>
       )}
       <RadixPopover.Portal>
-        <RadixTheme>
-          <RadixPopover.Content
-            side={side}
-            align={align}
-            className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
-            style={appliedContentStyle}
-            onEscapeKeyDown={
-              disableDismiss ? (e) => e.preventDefault() : undefined
-            }
-            onPointerDownOutside={
-              disableDismiss ? (e) => e.preventDefault() : undefined
-            }
-            onInteractOutside={
-              disableDismiss ? (e) => e.preventDefault() : undefined
-            }
-          >
-            {showCloseButton && (
-              <RadixPopover.Close
-                asChild
-                style={{
-                  position: "absolute",
-                  top: 8,
-                  right: 8,
-                }}
-              >
-                <IconButton variant="ghost" color="gray" size="1" radius="full">
-                  <PiX />
-                </IconButton>
-              </RadixPopover.Close>
-            )}
-            {content}
-            {showArrow && <RadixPopover.Arrow className={styles.Arrow} />}
-          </RadixPopover.Content>
-        </RadixTheme>
+        <div>
+          <RadixTheme>
+            <RadixPopover.Content
+              side={side}
+              align={align}
+              className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
+              style={appliedContentStyle}
+              onEscapeKeyDown={
+                disableDismiss ? (e) => e.preventDefault() : undefined
+              }
+              onPointerDownOutside={
+                disableDismiss ? (e) => e.preventDefault() : undefined
+              }
+              onInteractOutside={
+                disableDismiss ? (e) => e.preventDefault() : undefined
+              }
+            >
+              {showCloseButton && (
+                <RadixPopover.Close
+                  asChild
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                  }}
+                >
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="1"
+                    radius="full"
+                  >
+                    <PiX />
+                  </IconButton>
+                </RadixPopover.Close>
+              )}
+              {content}
+              {showArrow && <RadixPopover.Arrow className={styles.Arrow} />}
+            </RadixPopover.Content>
+          </RadixTheme>
+        </div>
       </RadixPopover.Portal>
     </RadixPopover.Root>
   );
