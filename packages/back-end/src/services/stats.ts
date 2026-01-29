@@ -10,6 +10,7 @@ import {
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
+  eligibleForUncappedMetric,
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
@@ -270,6 +271,7 @@ export function getMetricSettingsForStatsEngine(
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+
   let denominator: undefined | ExperimentMetricInterface = undefined;
   if (denominatorDoc) {
     denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
@@ -330,6 +332,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
+    compute_uncapped_metric: eligibleForUncappedMetric(metric),
   };
 }
 
@@ -445,6 +448,13 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
+const getFormattedCI = (
+  ci?: [number | null, number | null],
+): [number, number] | undefined => {
+  if (!ci) return undefined;
+  return [ci[0] ?? -Infinity, ci[1] ?? Infinity];
+};
+
 function parseStatsEngineResult({
   analysisSettings,
   snapshotSettings,
@@ -498,15 +508,44 @@ function parseStatsEngineResult({
           data.users = Math.max(data.users, v.users);
 
           // translate null in CI to infinity
-          const ci: [number, number] | undefined = v.ci
-            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
-            : undefined;
-          const parsedVariation = {
-            ...v,
-            ci,
-          };
+          if ("ci" in v) {
+            v.ci = getFormattedCI(v.ci);
+          }
+          if (
+            v.supplementalResults?.cupedUnadjusted &&
+            "ci" in v.supplementalResults.cupedUnadjusted
+          ) {
+            v.supplementalResults.cupedUnadjusted.ci = getFormattedCI(
+              v.supplementalResults.cupedUnadjusted.ci,
+            );
+          }
+          if (
+            v.supplementalResults?.uncapped &&
+            "ci" in v.supplementalResults.uncapped
+          ) {
+            v.supplementalResults.uncapped.ci = getFormattedCI(
+              v.supplementalResults.uncapped.ci,
+            );
+          }
+          if (
+            v.supplementalResults?.unstratified &&
+            "ci" in v.supplementalResults.unstratified
+          ) {
+            v.supplementalResults.unstratified.ci = getFormattedCI(
+              v.supplementalResults.unstratified.ci,
+            );
+          }
+          if (
+            v.supplementalResults?.noVarianceReduction &&
+            "ci" in v.supplementalResults.noVarianceReduction
+          ) {
+            v.supplementalResults.noVarianceReduction.ci = getFormattedCI(
+              v.supplementalResults.noVarianceReduction.ci,
+            );
+          }
+
           data.metrics[metric] = {
-            ...parsedVariation,
+            ...v,
             buckets: [],
           };
           dim.variations[i] = data;

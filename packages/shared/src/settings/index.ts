@@ -137,7 +137,6 @@ const scopeSettings = (
   // iterate over resolvers and apply them to the base settings
   const settings = Object.entries(resolvers).reduce(
     (acc, [fieldName, resolver]) => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error - todo: we need to figure out how to resolve the type
       acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;

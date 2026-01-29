@@ -8,6 +8,8 @@ import {
   RiskType,
   StatsEngine,
   MetricPowerResponseFromStatsEngine,
+  RealizedSettings,
+  SupplementalResults,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
@@ -50,6 +52,8 @@ export interface SnapshotMetric {
   chanceToWin?: number;
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
+  realizedSettings?: RealizedSettings;
+  supplementalResults?: SupplementalResults;
 }
 
 export interface SnapshotVariation {

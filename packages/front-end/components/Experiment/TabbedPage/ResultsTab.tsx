@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
@@ -10,7 +10,6 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
-import { DifferenceType } from "shared/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -59,7 +58,11 @@ export interface Props {
   sliceTagsFilter: string[];
   setSliceTagsFilter: (tags: string[]) => void;
   analysisBarSettings: AnalysisBarSettings;
-  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  setAnalysisBarSettings: (
+    s:
+      | AnalysisBarSettings
+      | ((prev: AnalysisBarSettings) => AnalysisBarSettings),
+  ) => void;
   sortBy: "significance" | "change" | null;
   setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
@@ -104,7 +107,8 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis, setSnapshotType } = useSnapshot();
+  const { snapshot, analysis, setSnapshotType, setAnalysisSettings } =
+    useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
   const { organization } = useUser();
@@ -150,6 +154,20 @@ export default function ResultsTab({
     differenceType: analysisBarSettings.differenceType,
     dimension: analysisBarSettings.dimension,
   };
+
+  const onSnapshotSuccessfulUpdate = useCallback(() => {
+    // Reset analysis settings to default
+    setAnalysisSettings(null);
+    setAnalysisBarSettings((prev) => ({
+      ...prev,
+      dimension: prev.dimension.startsWith("precomputed:")
+        ? ""
+        : prev.dimension,
+      baselineRow: 0,
+      variationFilter: [],
+      differenceType: "relative",
+    }));
+  }, [setAnalysisBarSettings, setAnalysisSettings]);
 
   return (
     <div>
@@ -298,23 +316,8 @@ export default function ResultsTab({
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
             variationFilter={analysisBarSettings.variationFilter}
-            setVariationFilter={(v: number[]) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                variationFilter: v,
-              })
-            }
             baselineRow={analysisBarSettings.baselineRow}
-            setBaselineRow={(b: number) =>
-              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
-            }
             differenceType={analysisBarSettings.differenceType}
-            setDifferenceType={(d: DifferenceType) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                differenceType: d,
-              })
-            }
             dimension={analysisBarSettings.dimension}
             setDimension={(d: string, resetOtherSettings?: boolean) =>
               setAnalysisBarSettings({
@@ -340,6 +343,7 @@ export default function ResultsTab({
             setSliceTagsFilter={setSliceTagsFilter}
             sortBy={sortBy}
             sortDirection={sortDirection}
+            onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">

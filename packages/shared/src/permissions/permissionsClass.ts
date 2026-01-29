@@ -27,7 +27,7 @@ import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
@@ -1238,6 +1238,20 @@ export class Permissions {
     project: string | undefined,
   ): boolean => {
     return this.hasPermission("readData", project || "");
+  };
+
+  // Project IDs where the user has the given permission
+  // Return value:
+  //   string[] = specific projects
+  //   [] = no projects
+  //   null = global (all projects)
+  public getProjectsWithPermission = (
+    permission: Permission,
+  ): string[] | null => {
+    if (this.hasPermission(permission, "")) return null;
+    return Object.keys(this.userPermissions.projects).filter((p) =>
+      this.hasPermission(permission, p),
+    );
   };
 
   public canReadMultiProjectResource = (

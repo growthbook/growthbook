@@ -17,5 +17,9 @@ export async function savedGroupUpdated(
     context,
     payloadKeys: getPayloadKeysForAllEnvs(context, [""]),
     treatEmptyProjectAsGlobal: true,
+    auditContext: {
+      event: "updated",
+      model: "savedgroup",
+    },
   });
 }

@@ -411,7 +411,8 @@ export default function ConfigureLegacyReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            Activation Metric{" "}
+            <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
           </>
         }
         labelClassName="font-weight-bold"

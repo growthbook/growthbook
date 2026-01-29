@@ -60,7 +60,8 @@ RUN \
   && find node_modules -name "*.map" -delete \
   && find node_modules -name "CHANGELOG*" -delete \
   && find node_modules -name "LICENSE*" -delete \
-  && find node_modules -name "README*" -delete
+  && find node_modules -name "README*" -delete \
+  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
 RUN pnpm postinstall
 
 
@@ -80,9 +81,18 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
+
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+
+# Remove TypeScript files from front-end so Next.js doesn't try to install TypeScript
+RUN rm -f packages/front-end/tsconfig.json && \
+    find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
+    find packages/front-end -maxdepth 1 -name "*.tsx" -delete
+
+# Copy PM2 config file
+COPY ecosystem.config.js ./ecosystem.config.js
 
 # Copy yarn compatibility shim for users with custom entry points
 COPY bin/yarn ./bin/yarn
@@ -105,4 +115,5 @@ EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
 # Start both front-end and back-end at once
-CMD ["pnpm","start"]
+# Use TRACING_PROVIDER env var to enable tracing (datadog or opentelemetry)
+CMD ["node_modules/.bin/pm2-runtime", "start", "ecosystem.config.js"]

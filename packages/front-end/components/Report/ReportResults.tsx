@@ -220,7 +220,6 @@ export default function ReportResults({
                 // metricFilter={metricFilter}
                 // setMetricFilter={setMetricFilter}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={!showDetails}
               />
             ) : showCompactResults ? (
               <CompactResults
@@ -257,8 +256,6 @@ export default function ReportResults({
                 isTabActive={true}
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={!showDetails}
-                disableTimeSeriesButton={true}
                 customMetricSlices={
                   report.experimentAnalysisSettings.customMetricSlices
                 }

@@ -31,8 +31,12 @@ export interface EnvironmentInitValue {
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
+  autoSliceUpdateFrequencyHours: number;
   hasOpenAIKey?: boolean;
   hasAnthropicKey?: boolean;
+  hasXaiKey?: boolean;
+  hasMistralKey?: boolean;
+  hasGoogleAIKey?: boolean;
   uploadMethod: "local" | "s3" | "google-cloud";
 }
 
@@ -62,8 +66,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
+    AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
     OPENAI_API_KEY,
     ANTHROPIC_API_KEY,
+    XAI_API_KEY,
+    MISTRAL_API_KEY,
+    GOOGLE_AI_API_KEY,
     UPLOAD_METHOD,
   } = process.env;
 
@@ -144,8 +152,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
       ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
       : 6,
+    autoSliceUpdateFrequencyHours: AUTO_SLICE_UPDATE_FREQUENCY_HOURS
+      ? parseInt(AUTO_SLICE_UPDATE_FREQUENCY_HOURS)
+      : 168, // Default: 7 days
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
+    hasXaiKey: !!XAI_API_KEY || false,
+    hasMistralKey: !!MISTRAL_API_KEY || false,
+    hasGoogleAIKey: !!GOOGLE_AI_API_KEY || false,
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 

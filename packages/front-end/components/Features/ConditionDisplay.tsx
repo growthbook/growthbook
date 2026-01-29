@@ -2,7 +2,7 @@ import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
-import { SavedGroupWithoutValues } from "shared/types/groups";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,7 +12,6 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -60,6 +59,10 @@ function operatorToText({
       return `is in the list`;
     case "$nin":
       return `is not in the list`;
+    case "$ini":
+      return `is in the list (case insensitive)`;
+    case "$nini":
+      return `is not in the list (case insensitive)`;
     case "$inGroup":
       return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
@@ -72,6 +75,10 @@ function operatorToText({
       return `matches the pattern`;
     case "$notRegex":
       return `does not match the pattern`;
+    case "$regexi":
+      return `matches the pattern (case insensitive)`;
+    case "$notRegexi":
+      return `does not match the pattern (case insensitive)`;
   }
   return operator;
 }
@@ -80,7 +87,7 @@ function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function hasMultiValues(operator: string) {
-  return ["$in", "$nin"].includes(operator);
+  return ["$in", "$nin", "$ini", "$nini"].includes(operator);
 }
 function getValue(
   operator: string,
@@ -122,16 +129,20 @@ export function MultiValuesDisplay({
             ? displayMap?.[v] || group.groupName
             : displayMap?.[v] || v;
         return isSavedGroup && group ? (
-          <Link
+          <Badge
             key={i}
-            href={`/saved-groups/${group.id}`}
-            target="_blank"
-            size="1"
-            color="violet"
-            title="Manage Saved Group"
-          >
-            <Badge color="gray" label={displayValue} /> <PiArrowSquareOut />
-          </Link>
+            color="gray"
+            label={
+              <Link
+                href={`/saved-groups/${group.id}`}
+                target="_blank"
+                color="violet"
+                title="Manage Saved Group"
+              >
+                {displayValue} <PiArrowSquareOut />
+              </Link>
+            }
+          />
         ) : (
           <Badge
             key={i}
@@ -152,11 +163,13 @@ export function MultiValuesDisplay({
               {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
                 const isSavedGroup = savedGroupIds?.has(v);
                 const group = isSavedGroup ? getSavedGroupById(v) : null;
+                const isLast = i === values.slice(MULTI_VALUE_LIMIT).length - 1;
                 return (
-                  <span key={i} className={`${styles.Tooltip} ml-1`}>
+                  <span key={i}>
                     {isSavedGroup && group
                       ? group.groupName
                       : displayMap?.[v] || v}
+                    {!isLast && ", "}
                   </span>
                 );
               })}
@@ -394,16 +407,19 @@ function getConditionParts({
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
             group ? (
-              <Link
-                href={`/saved-groups/${group.id}`}
-                target="_blank"
-                size="1"
-                color="violet"
-                title="Manage Saved Group"
-              >
-                <Badge color="gray" label={group.groupName} />{" "}
-                <PiArrowSquareOut />
-              </Link>
+              <Badge
+                color="gray"
+                label={
+                  <Link
+                    href={`/saved-groups/${group.id}`}
+                    target="_blank"
+                    color="violet"
+                    title="Manage Saved Group"
+                  >
+                    {group.groupName} <PiArrowSquareOut />
+                  </Link>
+                }
+              />
             ) : (
               <Badge
                 color="gray"
@@ -449,11 +465,10 @@ function ParentIdLink({ parentId }: { parentId: string }) {
         <Link
           href={`/features/${parentId}`}
           title="Manage Feature"
-          size="1"
           target="_blank"
           color="violet"
         >
-          {parentId}
+          {parentId} <PiArrowSquareOut />
         </Link>
       }
     />

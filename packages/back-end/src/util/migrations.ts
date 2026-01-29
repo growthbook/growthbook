@@ -6,7 +6,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { SavedGroupInterface } from "shared/types/groups";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -36,7 +35,6 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -928,35 +926,6 @@ export function migrateSnapshot(
   }
 
   return snapshot;
-}
-
-export function migrateSavedGroup(
-  legacy: LegacySavedGroupInterface,
-): SavedGroupInterface {
-  // Add `type` field to legacy groups
-  const { source, type, ...otherFields } = legacy;
-  const group: SavedGroupInterface = {
-    ...otherFields,
-    type: type || (source === "runtime" ? "condition" : "list"),
-  };
-
-  // Migrate legacy runtime groups to use a condition
-  if (
-    group.type === "condition" &&
-    !group.condition &&
-    source === "runtime" &&
-    group.attributeKey
-  ) {
-    group.condition = JSON.stringify({
-      $groups: {
-        $elemMatch: {
-          $eq: group.attributeKey,
-        },
-      },
-    });
-  }
-
-  return group;
 }
 
 export function migrateSdkWebhookLogModel(
