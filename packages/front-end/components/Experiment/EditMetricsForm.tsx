@@ -256,7 +256,7 @@ const EditMetricsForm: FC<{
               <span className="font-italic">
                 Users must convert on this metric before being included.{" "}
               </span>
-              <MetricsSelectorTooltip onlyBinomial={true} />
+              <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
             </div>
             <MetricSelector
               initialOption="None"

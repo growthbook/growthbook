@@ -96,3 +96,14 @@ clientKey:
   description: Filter by a SDK connection's client key
   schema:
     type: string
+skipPagination:
+  name: skipPagination
+  in: query
+  description: |
+    If true, return all matching features and ignore limit/offset.
+    Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+  schema:
+    type: boolean
+    default: false
+  x-selfHostedOnly: true
+  x-requiresEnv: API_ALLOW_SKIP_PAGINATION

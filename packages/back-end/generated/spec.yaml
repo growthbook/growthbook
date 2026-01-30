@@ -253,6 +253,9 @@ paths:
   /features:
     get:
       summary: Get all features
+      description: |
+        Returns features with pagination. The skipPagination query parameter is
+        honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
       tags:
         - features
       parameters:
@@ -260,6 +263,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/skipPagination'
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -11102,6 +11106,17 @@ components:
       description: Filter by a SDK connection's client key
       schema:
         type: string
+    skipPagination:
+      name: skipPagination
+      in: query
+      description: |
+        If true, return all matching features and ignore limit/offset.
+        Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+      schema:
+        type: boolean
+        default: false
+      x-selfHostedOnly: true
+      x-requiresEnv: API_ALLOW_SKIP_PAGINATION
   schemas:
     Dashboard:
       $schema: 'https://json-schema.org/draft/2020-12/schema'

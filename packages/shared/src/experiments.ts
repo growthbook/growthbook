@@ -6,6 +6,9 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  PRECOMPUTED_DIMENSION_PREFIX,
+  NULL_DIMENSION_VALUE,
+  NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -55,6 +58,17 @@ export type ExperimentSortBy =
   | "metricTags"
   | null;
 export type SetExperimentSortBy = (value: ExperimentSortBy) => void;
+
+export function formatDimensionValueForDisplay(
+  value: string | undefined,
+): string {
+  if (!value) return "";
+  if (value === NULL_DIMENSION_VALUE) {
+    return NULL_DIMENSION_DISPLAY;
+  }
+
+  return value;
+}
 
 export function isFactMetricId(id: string): boolean {
   return !!id.match(/^fact__/);
@@ -1236,7 +1250,7 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-// Extracts all metric ids from an experiment, excluding ephemeral metrics (slices)
+// Extracts all metric ids from an experiment, including ephemeral metrics (slices)
 // NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
@@ -1263,7 +1277,7 @@ export function getAllExpandedMetricIdsFromExperiment({
 
   // Add all slice metrics that are already in the expandedMetricMap
   // This includes both standard and custom dimension metrics
-  expandedMetricMap.forEach((metric, metricId) => {
+  expandedMetricMap.forEach((_, metricId) => {
     // Check if this is a dimension metric (contains dim: parameter)
     if (/[?&]dim:/.test(metricId)) {
       expandedMetricIds.add(metricId);
@@ -1289,6 +1303,7 @@ export interface SliceDataForMetric {
 }
 
 // Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+// Used for FE: row generation, slice filtering/expansion
 export function createAutoSliceDataForMetric({
   parentMetric,
   factTable,
@@ -1377,15 +1392,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices:
-    | Array<{
-        slices: Array<{
-          column: string;
-          levels: string[];
-        }>;
-      }>
-    | null
-    | undefined;
+  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
   factTable?: FactTableInterface | null;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -1899,4 +1906,8 @@ export function expandAllSliceMetricsInMap({
       });
     }
   }
+}
+
+export function isPrecomputedDimension(dimension: string | undefined): boolean {
+  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
 }

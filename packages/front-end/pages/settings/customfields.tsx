@@ -23,15 +23,9 @@ const CustomFieldsPage = (): React.ReactElement => {
   }
 
   return (
-    <>
-      <div className="contents container-fluid pagecontents">
-        <CustomFields section={"feature"} title={"Custom Feature Fields"} />
-        <CustomFields
-          section={"experiment"}
-          title={"Custom Experiment Fields"}
-        />
-      </div>
-    </>
+    <div className="contents container-fluid pagecontents">
+      <CustomFields />
+    </div>
   );
 };
 

@@ -1,6 +1,5 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
@@ -30,8 +29,6 @@ import { AppFeatures } from "@/types/app-features";
 export default function SafeRolloutFields({
   feature,
   environment,
-  version,
-  revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
@@ -45,8 +42,6 @@ export default function SafeRolloutFields({
   feature: FeatureInterface;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
-  version: number;
-  revisions?: FeatureRevisionInterface[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
@@ -117,8 +112,6 @@ export default function SafeRolloutFields({
             form.setValue("prerequisites", prerequisites)
           }
           feature={feature}
-          revisions={revisions}
-          version={version}
           environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
