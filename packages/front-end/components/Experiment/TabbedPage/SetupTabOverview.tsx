@@ -28,6 +28,8 @@ import { useUser } from "@/services/UserContext";
 import EditDescriptionModal from "@/components/Experiment/EditDescriptionModal";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
+import { ProgressBar } from "@/ui/ProgressBar";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -137,6 +139,39 @@ export default function SetupTabOverview({
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
+        {experiment.type === "holdout" && (
+          <Frame>
+            <Flex align="center" justify="between" className="text-dark">
+              <Heading mb="0" as="h4" size="3">
+                Holdout Schedule
+              </Heading>
+              <Flex align="center" gap="2">
+                {canEditExperiment ? (
+                  <>
+                    <DeleteButton
+                      onClick={() => {}}
+                      displayName="Holdout Schedule"
+                    />
+                    <Button
+                      variant="ghost"
+                      stopPropagation={true}
+                      mr={experiment.description ? "3" : "0"}
+                      onClick={() => {
+                        setShowDescriptionModal(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </>
+                ) : null}
+                {experiment.description ? (
+                  <FaAngleRight className="chevron" />
+                ) : null}
+              </Flex>
+            </Flex>
+            <ProgressBar />
+          </Frame>
+        )}
         <Frame>
           <Collapsible
             open={!experiment.description ? true : expandDescription}
