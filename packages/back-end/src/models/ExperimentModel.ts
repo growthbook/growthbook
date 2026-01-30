@@ -329,6 +329,11 @@ const experimentSchema = new mongoose.Schema({
   ],
 });
 
+// Compound indexes for API list filtering
+experimentSchema.index({ organization: 1, datasource: 1 });
+experimentSchema.index({ organization: 1, project: 1 });
+experimentSchema.index({ organization: 1, trackingKey: 1 });
+
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
 export const ExperimentModel = mongoose.model<ExperimentInterface>(
@@ -402,10 +407,16 @@ export async function getAllExperiments(
     project,
     includeArchived = false,
     type,
+    datasourceId,
+    trackingKey,
+    sortBy,
   }: {
     project?: string;
     includeArchived?: boolean;
     type?: ExperimentType;
+    datasourceId?: string;
+    trackingKey?: string;
+    sortBy?: SortFilter;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -414,6 +425,14 @@ export async function getAllExperiments(
 
   if (project) {
     query.project = project;
+  }
+
+  if (datasourceId) {
+    query.datasource = datasourceId;
+  }
+
+  if (trackingKey) {
+    query.trackingKey = trackingKey;
   }
 
   if (!includeArchived) {
@@ -430,7 +449,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query);
+  return await findExperiments(context, query, undefined, sortBy);
 }
 
 export async function hasArchivedExperiments(

@@ -39,6 +39,8 @@ const BaseClass = MakeModelClass({
     owner: "",
     tags: [],
   },
+  // Compound indexes for API list filtering
+  additionalIndexes: [{ fields: { organization: 1, datasource: 1 } }],
 });
 
 // extra checks on user filter
@@ -122,6 +124,13 @@ export class FactMetricModel extends BaseClass {
   }
   protected canDelete(doc: FactMetricInterface): boolean {
     return this.context.permissions.canDeleteFactMetric(doc);
+  }
+
+  /**
+   * Get all fact metrics with optional filter and DB-level sorting by id
+   */
+  public getAllSorted(filter?: Record<string, unknown>) {
+    return this._find(filter, { sort: { id: 1 } });
   }
 
   public static upgradeFactMetricDoc(
