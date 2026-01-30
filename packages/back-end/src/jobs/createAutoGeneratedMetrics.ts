@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import Agenda, { Job } from "agenda";
 import uniqid from "uniqid";
 import { AutoMetricToCreate } from "shared/types/integrations";

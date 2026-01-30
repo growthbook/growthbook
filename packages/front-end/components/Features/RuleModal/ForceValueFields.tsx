@@ -1,6 +1,5 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -14,8 +13,6 @@ export default function ForceValueFields({
   feature,
   environments,
   defaultValues,
-  version,
-  revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
@@ -26,8 +23,6 @@ export default function ForceValueFields({
   feature: FeatureInterface;
   environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
-  version: number;
-  revisions?: FeatureRevisionInterface[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
@@ -88,8 +83,6 @@ export default function ForceValueFields({
           form.setValue("prerequisites", prerequisites)
         }
         feature={feature}
-        revisions={revisions}
-        version={version}
         environments={environments}
         setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
       />

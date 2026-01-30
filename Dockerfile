@@ -28,6 +28,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
+COPY .npmrc ./.npmrc
 COPY package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -53,7 +54,7 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && pnpm install --frozen-lockfile --prod \
+  && pnpm install --frozen-lockfile --prod --no-optional \
   && pnpm store prune \
   && find node_modules -name "*.md" -delete \
   && find node_modules -name "*.ts" ! -name "*.d.ts" -delete \
@@ -81,9 +82,18 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
+
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+
+# Remove TypeScript files from front-end so Next.js doesn't try to install TypeScript
+RUN rm -f packages/front-end/tsconfig.json && \
+    find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
+    find packages/front-end -maxdepth 1 -name "*.tsx" -delete
+
+# Copy PM2 config file
+COPY ecosystem.config.js ./ecosystem.config.js
 
 # Copy yarn compatibility shim for users with custom entry points
 COPY bin/yarn ./bin/yarn
@@ -106,4 +116,5 @@ EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
 # Start both front-end and back-end at once
-CMD ["pnpm","start"]
+# Use TRACING_PROVIDER env var to enable tracing (datadog or opentelemetry)
+CMD ["node_modules/.bin/pm2-runtime", "start", "ecosystem.config.js"]

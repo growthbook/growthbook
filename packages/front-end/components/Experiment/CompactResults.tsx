@@ -1,5 +1,5 @@
 import { FC, ReactElement, useMemo, useState, useEffect, useRef } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -21,25 +21,31 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { FactTableInterface } from "shared/types/fact-table";
-import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiCaretCircleRight,
+  PiCaretCircleDown,
+} from "react-icons/pi";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
+import Link from "@/ui/Link";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import DataQualityWarning from "./DataQualityWarning";
-import ResultsTable from "./ResultsTable";
-import MultipleExposureWarning from "./MultipleExposureWarning";
+import ResultsTable from "@/components/Experiment/ResultsTable";
+import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
+import MultipleExposureWarning from "./MultipleExposureWarning";
+import DataQualityWarning from "./DataQualityWarning";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -77,8 +83,6 @@ const CompactResults: FC<{
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
-  disableTimeSeriesButton?: boolean;
   customMetricSlices?: Array<{
     slices: Array<{
       column: string;
@@ -98,8 +102,12 @@ const CompactResults: FC<{
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  onRowClick?: (
+    row: ExperimentTableRow,
+    dimensionInfo?: { name: string; value: string },
+  ) => void;
 }> = ({
   experimentId,
   editMetrics,
@@ -136,8 +144,6 @@ const CompactResults: FC<{
   noTooltip,
   experimentType,
   ssrPolyfills,
-  hideDetails,
-  disableTimeSeriesButton,
   customMetricSlices,
   sortBy,
   setSortBy,
@@ -150,6 +156,7 @@ const CompactResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
+  onRowClick,
 }) => {
   const {
     getExperimentMetricById: _getExperimentMetricById,
@@ -362,6 +369,7 @@ const CompactResults: FC<{
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={filteredRows.filter((r) => r.resultGroup === "goal")}
+          onRowClick={onRowClick}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -380,8 +388,6 @@ const CompactResults: FC<{
           setDifferenceType={setDifferenceType}
           totalMetricsCount={totalMetricsCount}
           renderLabelColumn={getRenderLabelColumn({
-            statsEngine,
-            hideDetails,
             expandedMetrics,
             toggleExpandedMetric,
             getExperimentMetricById,
@@ -396,7 +402,6 @@ const CompactResults: FC<{
           isBandit={isBandit}
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
-          disableTimeSeriesButton={disableTimeSeriesButton}
           isHoldout={experimentType === "holdout"}
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -426,6 +431,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -438,8 +444,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -453,7 +457,6 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
@@ -484,6 +487,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"
@@ -496,8 +500,6 @@ const CompactResults: FC<{
             setDifferenceType={setDifferenceType}
             totalMetricsCount={totalMetricsCount}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -511,7 +513,6 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
@@ -533,16 +534,12 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  statsEngine,
-  hideDetails,
   expandedMetrics,
   toggleExpandedMetric,
   shouldShowMetricSlices,
   getChildRowCounts,
   sliceTagsFilter,
 }: {
-  statsEngine?: StatsEngine;
-  hideDetails?: boolean;
   expandedMetrics?: Record<string, boolean>;
   toggleExpandedMetric?: (
     metricId: string,
@@ -716,31 +713,61 @@ export function getRenderLabelColumn({
                 color: "var(--color-text-high)",
               }}
             >
-              <Tooltip
-                body={
-                  <MetricTooltipBody
-                    metric={metric}
-                    row={row}
-                    statsEngine={statsEngine}
-                    hideDetails={hideDetails}
-                  />
-                }
-                tipPosition="right"
-                className="d-inline-block font-weight-bold metric-label"
-                flipTheme={false}
-                usePortal={true}
-              >
-                {label}
-                {metric.managedBy ? (
-                  <HiBadgeCheck
-                    style={{
-                      marginTop: "-2px",
-                      marginLeft: "2px",
-                      color: "var(--blue-11)",
-                    }}
-                  />
-                ) : null}
-              </Tooltip>
+              <Text weight="bold" className={styles.metricLabel}>
+                {/* Ensure the external icon is never shown alone in a single line */}
+                {typeof label === "string" ? (
+                  <Link
+                    color="dark"
+                    weight="bold"
+                    href={getMetricLink(metric.id)}
+                    target="_blank"
+                  >
+                    {label.includes(" ")
+                      ? label.slice(0, label.lastIndexOf(" ") + 1)
+                      : ""}
+                    <span className={styles.metricLabelLastWord}>
+                      {label.includes(" ")
+                        ? label.slice(label.lastIndexOf(" ") + 1)
+                        : label}
+                      {metric.managedBy ? (
+                        <HiBadgeCheck
+                          style={{
+                            marginTop: "-2px",
+                            marginLeft: "2px",
+                            color: "var(--blue-11)",
+                          }}
+                        />
+                      ) : null}
+                      <PiArrowSquareOut
+                        className={styles.metricExternalLinkIcon}
+                        size={14}
+                      />
+                    </span>
+                  </Link>
+                ) : (
+                  <Link
+                    color="dark"
+                    weight="bold"
+                    href={getMetricLink(metric.id)}
+                    target="_blank"
+                  >
+                    {label}
+                    {metric.managedBy ? (
+                      <HiBadgeCheck
+                        style={{
+                          marginTop: "-2px",
+                          marginLeft: "2px",
+                          color: "var(--blue-11)",
+                        }}
+                      />
+                    ) : null}
+                    <PiArrowSquareOut
+                      className={styles.metricExternalLinkIcon}
+                      size={14}
+                    />
+                  </Link>
+                )}
+              </Text>
             </span>
           </span>
         </div>

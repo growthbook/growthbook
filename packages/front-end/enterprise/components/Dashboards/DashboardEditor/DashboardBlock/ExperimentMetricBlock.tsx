@@ -170,8 +170,6 @@ export default function ExperimentMetricBlock({
             resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
             labelHeader={`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             renderLabelColumn={getRenderLabelColumn({
-              statsEngine,
-              hideDetails: false,
               expandedMetrics,
               toggleExpandedMetric,
               getExperimentMetricById,
@@ -190,7 +188,6 @@ export default function ExperimentMetricBlock({
             isTabActive={isTabActive}
             isGoalMetrics={resultGroup === "goal"}
             ssrPolyfills={ssrPolyfills}
-            disableTimeSeriesButton={true}
             sortBy={blockSortBy}
             setSortBy={isEditing ? setSortBy : undefined}
             sortDirection={blockSortDirection ?? null}
