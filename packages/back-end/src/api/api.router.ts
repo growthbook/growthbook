@@ -57,8 +57,8 @@ router.get("/openapi.yaml", (req, res) => {
   res.send(openapiSpec);
 });
 
-router.use(bodyParser.json({ limit: "1mb" }));
-router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
+router.use(bodyParser.json({ limit: "2mb" }));
+router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
 
