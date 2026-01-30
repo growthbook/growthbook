@@ -442,7 +442,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.0.3",
+    version: "0.1.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
