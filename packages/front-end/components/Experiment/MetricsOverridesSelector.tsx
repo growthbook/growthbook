@@ -229,10 +229,15 @@ export default function MetricsOverridesSelector({
                               label: "Conversion",
                               value: "conversion",
                             },
-                            {
-                              label: "Lookback",
-                              value: "lookback",
-                            },
+                            ...(metricDefinition &&
+                            !isRetentionMetric(metricDefinition)
+                              ? [
+                                  {
+                                    label: "Lookback",
+                                    value: "lookback",
+                                  },
+                                ]
+                              : []),
                           ].map((v) => {
                             if (
                               v.value === metricDefinition?.windowSettings?.type
@@ -245,166 +250,162 @@ export default function MetricsOverridesSelector({
                             return v;
                           })}
                         />
-                      </div>
-                      {(form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.windowType`,
-                      ) ?? metricDefinition?.windowSettings?.type) ===
-                        "conversion" ||
-                      (metricDefinition &&
-                        isRetentionMetric(metricDefinition)) ? (
-                        <div className="row m-1 mr-1 px-1">
-                          <div className="col">
-                            <Field
-                              label={
-                                metricDefinition &&
-                                isRetentionMetric(metricDefinition)
-                                  ? "Retention Window (hours)"
-                                  : "Metric Delay (hours)"
-                              }
-                              placeholder="default"
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {metricDefinition?.windowSettings
-                                    ? getDelayWindowHours(
-                                        metricDefinition.windowSettings,
-                                      )
-                                    : 0}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.delayHours`,
-                                { valueAsNumber: true },
-                              )}
-                            />
-                          </div>
-                          <div className="col">
-                            <Field
-                              label="Conversion Window (hours)"
-                              placeholder="default"
-                              disabled={
-                                (form.watch(
-                                  `${fieldMap["metricOverrides"]}.${i}.windowType`,
-                                ) ?? metricDefinition?.windowSettings?.type) !==
-                                "conversion"
-                              }
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {metricDefinition?.windowSettings?.type !==
-                                  "conversion"
-                                    ? "No conversion window "
-                                    : metricDefinition?.windowSettings
-                                      ? getMetricWindowHours(
-                                          metricDefinition.windowSettings,
-                                        )
-                                      : null}{" "}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              required={
-                                metricDefinition?.windowSettings?.type !==
-                                "conversion"
-                              }
-                              min={
-                                metricDefinition &&
-                                isFactMetric(metricDefinition)
-                                  ? 0
-                                  : 0.125
-                              }
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.windowHours`,
-                                { valueAsNumber: true },
-                              )}
-                            />
-                          </div>
-                        </div>
-                      ) : null}
-                      {(form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.windowType`,
-                      ) ?? metricDefinition?.windowSettings?.type) ===
-                      "lookback" ? (
-                        <div className="row m-1 mr-1 px-1">
-                          <div className="col">
-                            <Field
-                              label={
-                                metricDefinition &&
-                                isRetentionMetric(metricDefinition)
-                                  ? "Retention Window (hours)"
-                                  : "Metric Delay (hours)"
-                              }
-                              placeholder="default"
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {["conversion", "lookback"].includes(
-                                    metricDefinition?.windowSettings?.type ??
-                                      "",
-                                  )
-                                    ? "No delay"
-                                    : metricDefinition
-                                      ? getMetricWindowHours(
+                        {(form.watch(
+                          `${fieldMap["metricOverrides"]}.${i}.windowType`,
+                        ) ?? metricDefinition?.windowSettings?.type) ===
+                          "conversion" ||
+                        (metricDefinition &&
+                          isRetentionMetric(metricDefinition)) ? (
+                          <div className="row mt-2">
+                            <div className="col">
+                              <Field
+                                label={
+                                  metricDefinition &&
+                                  isRetentionMetric(metricDefinition)
+                                    ? "Retention Starts After (hours)"
+                                    : "Metric Delay (hours)"
+                                }
+                                placeholder="default"
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings
+                                      ? getDelayWindowHours(
                                           metricDefinition.windowSettings,
                                         )
                                       : 0}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.delayHours`,
-                                { valueAsNumber: true },
-                              )}
-                            />
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.delayHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
+                            <div className="col">
+                              <Field
+                                label="Conversion Window (hours)"
+                                placeholder="default"
+                                disabled={
+                                  (form.watch(
+                                    `${fieldMap["metricOverrides"]}.${i}.windowType`,
+                                  ) ??
+                                    metricDefinition?.windowSettings?.type) !==
+                                  "conversion"
+                                }
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings?.type !==
+                                    "conversion"
+                                      ? "No conversion window "
+                                      : metricDefinition?.windowSettings
+                                        ? getMetricWindowHours(
+                                            metricDefinition.windowSettings,
+                                          )
+                                        : null}{" "}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                required={
+                                  metricDefinition?.windowSettings?.type !==
+                                  "conversion"
+                                }
+                                min={
+                                  metricDefinition &&
+                                  isFactMetric(metricDefinition)
+                                    ? 0
+                                    : 0.125
+                                }
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.windowHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
                           </div>
-                          <div className="col">
-                            <Field
-                              label="Lookback Window (hours)"
-                              placeholder="default"
-                              helpText={
-                                <div className="text-right">
-                                  default:{" "}
-                                  {metricDefinition?.windowSettings?.type !==
-                                  "lookback"
-                                    ? "No lookback window "
-                                    : metricDefinition?.windowSettings
-                                      ? getMetricWindowHours(
+                        ) : null}
+                        {(form.watch(
+                          `${fieldMap["metricOverrides"]}.${i}.windowType`,
+                        ) ?? metricDefinition?.windowSettings?.type) ===
+                        "lookback" ? (
+                          <div className="row mt-2">
+                            <div className="col">
+                              <Field
+                                label={
+                                  metricDefinition &&
+                                  isRetentionMetric(metricDefinition)
+                                    ? "Retention Window (hours)"
+                                    : "Metric Delay (hours)"
+                                }
+                                placeholder="default"
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings
+                                      ? getDelayWindowHours(
                                           metricDefinition.windowSettings,
                                         )
-                                      : null}{" "}
-                                </div>
-                              }
-                              labelClassName="small mb-1"
-                              type="number"
-                              containerClassName="mb-0 metric-override"
-                              min={
-                                metricDefinition &&
-                                isFactMetric(metricDefinition)
-                                  ? 0
-                                  : 0.125
-                              }
-                              required={
-                                metricDefinition?.windowSettings?.type !==
-                                "lookback"
-                              }
-                              step="any"
-                              {...form.register(
-                                `${fieldMap["metricOverrides"]}.${i}.windowHours`,
-                                { valueAsNumber: true },
-                              )}
-                            />
+                                      : 0}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.delayHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
+                            <div className="col">
+                              <Field
+                                label="Lookback Window (hours)"
+                                placeholder="default"
+                                helpText={
+                                  <>
+                                    default:{" "}
+                                    {metricDefinition?.windowSettings?.type !==
+                                    "lookback"
+                                      ? "No lookback window "
+                                      : metricDefinition?.windowSettings
+                                        ? getMetricWindowHours(
+                                            metricDefinition.windowSettings,
+                                          )
+                                        : null}{" "}
+                                  </>
+                                }
+                                labelClassName="small mb-1"
+                                type="number"
+                                containerClassName="mb-0 metric-override"
+                                min={
+                                  metricDefinition &&
+                                  isFactMetric(metricDefinition)
+                                    ? 0
+                                    : 0.125
+                                }
+                                required={
+                                  metricDefinition?.windowSettings?.type !==
+                                  "lookback"
+                                }
+                                step="any"
+                                {...form.register(
+                                  `${fieldMap["metricOverrides"]}.${i}.windowHours`,
+                                  { valueAsNumber: true },
+                                )}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
