@@ -33,7 +33,7 @@
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
   "dependencies": {
-    "dd-trace": "^5.46.0"
+    "dd-trace": "^5.83.0"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^12.2.3",
