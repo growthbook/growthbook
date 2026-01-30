@@ -14,11 +14,11 @@ export function MetricDrilldownOwnerTags({ row }: { row: ExperimentTableRow }) {
         label="Owner"
         value={
           <Flex align="center" gap="1">
-            {metric.owner !== "" && (
+            {metric.owner && (
               <UserAvatar name={metric.owner} size="sm" variant="soft" />
             )}
             <Text weight="regular" className={metaDataStyles.valueColor}>
-              {metric.owner === "" ? "None" : metric.owner}
+              {metric.owner || "None"}
             </Text>
           </Flex>
         }
