@@ -35,8 +35,8 @@ import {
   getSeriesLabel,
   getSeriesTag,
   SERIES_COLORS,
-} from "./util";
-import { getSeriesIcon } from "./Explorer";
+} from "../util";
+import { getSeriesIcon } from "../Explorer";
 
 type SeriesType = ExploreSeriesType;
 type FactTableValueType = ExploreValueType;

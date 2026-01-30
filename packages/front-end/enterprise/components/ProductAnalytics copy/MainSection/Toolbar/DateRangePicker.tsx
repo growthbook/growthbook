@@ -5,24 +5,20 @@ import {
   MetricExplorerBlockInterface,
 } from "shared/enterprise";
 import { Select, SelectItem } from "@/ui/Select";
+import { useExplorerContext } from "../../ExplorerContext";
 
-interface Props {
-  block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
-  setBlock: React.Dispatch<
-    DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>
-  >;
-}
 
-export default function DateRangePicker({ block, setBlock }: Props) {
+export default function DateRangePicker() {
+  const { draftExploreState, submittedExploreState, exploreData, loading, hasPendingChanges, setDraftExploreState } = useExplorerContext();
   const presetDays = [7, 14, 30, 90, 180, 365];
 
   const [isCustomLookback, setIsCustomLookback] = useState(() => {
-    return !presetDays.includes(block.analysisSettings.lookbackDays);
+    return !presetDays.includes(draftExploreState.lookbackDays);
   });
 
   const [customDaysInput, setCustomDaysInput] = useState(() => {
-    return !presetDays.includes(block.analysisSettings.lookbackDays)
-      ? block.analysisSettings.lookbackDays.toString()
+    return !presetDays.includes(draftExploreState.lookbackDays)
+      ? draftExploreState.lookbackDays.toString()
       : "";
   });
 
@@ -31,7 +27,7 @@ export default function DateRangePicker({ block, setBlock }: Props) {
       <Select
         size="2"
         value={
-          isCustomLookback ? "-1" : block.analysisSettings.lookbackDays + ""
+          isCustomLookback ? "-1" : draftExploreState.lookbackDays + ""
         }
         placeholder="Select value"
         setValue={(v) => {
@@ -44,30 +40,24 @@ export default function DateRangePicker({ block, setBlock }: Props) {
             const end = new Date();
             start.setDate(end.getDate() - 60);
 
-            setBlock({
-              ...block,
-              analysisSettings: {
-                ...block.analysisSettings,
-                lookbackDays: 60,
-                startDate: start,
-                endDate: end,
-              },
-            });
+            setDraftExploreState((prev) => ({
+              ...prev,
+              lookbackDays: 60,
+              startDate: start,
+              endDate: end,
+            }));
           } else {
             setIsCustomLookback(false);
             const start = new Date();
             const end = new Date();
             start.setDate(end.getDate() - days);
 
-            setBlock({
-              ...block,
-              analysisSettings: {
-                ...block.analysisSettings,
-                lookbackDays: days,
-                startDate: start,
-                endDate: end,
-              },
-            });
+            setDraftExploreState((prev) => ({
+              ...prev,
+              lookbackDays: days,
+              startDate: start,
+              endDate: end,
+            }));
           }
         }}
         containerClassName="mb-0"
@@ -96,15 +86,12 @@ export default function DateRangePicker({ block, setBlock }: Props) {
               const end = new Date();
               start.setDate(end.getDate() - days);
 
-              setBlock({
-                ...block,
-                analysisSettings: {
-                  ...block.analysisSettings,
-                  lookbackDays: days,
-                  startDate: start,
-                  endDate: end,
-                },
-              });
+              setDraftExploreState((prev) => ({
+                ...prev,
+                lookbackDays: days,
+                startDate: start,
+                endDate: end,
+              }));
             }
           }}
         />

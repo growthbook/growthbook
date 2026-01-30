@@ -15,7 +15,7 @@ import {
   MetricSeriesConfig,
   FactTableSeriesConfig,
 } from "shared/enterprise";
-import { SeriesAnalysis, getSeriesTableData } from "./types";
+import { SeriesAnalysis, getSeriesTableData } from "../types";
 
 // Helper to get series display name
 function getSeriesDisplayName(seriesData: ChartSeriesData): string {

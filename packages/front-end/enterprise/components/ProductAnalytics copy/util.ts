@@ -6,7 +6,6 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import type { MetricValue, FactTableValue, SqlValue, ProductAnalyticsValue, DatasetType, ProductAnalyticsDataset } from "shared/validators";
 
 // Available colors for series
 export const SERIES_COLORS = [
@@ -92,54 +91,4 @@ export function getSeriesDisplayName(
     }
   }
   return series.name;
-}
-
-/** Re-assign color and tag to each series by index so order is consistent and there are no gaps. */
-export function assignSeriesColorsAndTags<T extends ProductAnalyticsValue>(
-  values: T[],
-): T[] {
-  return values.map((v, index) => ({
-    ...v,
-    color: SERIES_COLORS[index % SERIES_COLORS.length],
-    tag: getSeriesTag(index),
-  }));
-}
-
-export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
-  switch (type) {
-    case "metric":
-      return {
-        type: "metric",
-        metricId: "",
-        unit: null,
-        denominatorUnit: null,
-      } as MetricValue;
-    case "fact_table":
-      return {
-        type: "fact_table",
-        valueType: "count",
-        valueColumn: null,
-      } as FactTableValue;
-    case "sql":
-      return {
-        type: "sql",
-        valueType: "count",
-        valueColumn: null,
-      } as SqlValue;
-    default:
-      throw new Error(`Invalid dataset type: ${type}`);
-  }
-}
-
-export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
-  if (type === "metric") {
-    return { type, values: [] };
-  } else if (type === "fact_table") {
-    return { type, values: [] }
-  }
-  else if (type === "sql") {
-    return { type, values: [], datasource: "", sql: "", timestampColumn: "", columnTypes: {} };
-  } else {
-    throw new Error(`Invalid dataset type: ${type}`);
-  }
 }

@@ -77,6 +77,7 @@ export const exploreSeriesValidator = z.object({
   type: exploreSeriesTypeValidator,
   name: z.string(),
   color: z.string().optional(),
+  tag: z.string().optional(),
   config: z.union([
     metricSeriesConfigValidator,
     factTableSeriesConfigValidator,

@@ -38,8 +38,20 @@ export const getSeriesIcon = (type: ExploreSeriesType, size = 16) => {
 
 function MetricExplorerContent() {
   const { getFactTableById, getFactMetricById } = useDefinitions();
-
-  const { draftExploreState, submittedExploreState, exploreData, loading, handleUpdateGraph } = useExplorerContext();
+  const {
+    draftExploreState,
+    submittedExploreState,
+    selectedSeriesId,
+    hasPendingChanges,
+    exploreData,
+    loading,
+    setDraftExploreState,
+    setSelectedSeriesId,
+    handleUpdateGraph,
+    handleAddSeries,
+    handleUpdateSeries,
+    handleDeleteSeries,
+  } = useExplorerContext();
 
   // const firstDraftSeries = draftExploreState.series.find(
   //   (s) => s.type === "metric",
@@ -73,7 +85,20 @@ function MetricExplorerContent() {
           padding: "var(--space-3)",
         }}
       >
-        <MetricExplorerSettings />
+        <MetricExplorerSettings
+          block={exploreStateToBlockFormat(draftExploreState)}
+          setBlock={(block) => {
+            setDraftExploreState(
+              blockFormatToExploreState(block, draftExploreState),
+            );
+          }}
+          series={draftExploreState.series}
+          selectedSeriesId={selectedSeriesId}
+          onSelectSeries={setSelectedSeriesId}
+          onAddSeries={handleAddSeries}
+          onUpdateSeries={handleUpdateSeries}
+          onDeleteSeries={handleDeleteSeries}
+        />
       </Box>
     </Flex>
   );
