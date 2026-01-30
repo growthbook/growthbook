@@ -44,6 +44,7 @@ export const DEFAULT_USE_STICKY_BUCKETING = false;
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
+export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";

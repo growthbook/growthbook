@@ -6,6 +6,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
 import { MetricInterface } from "shared/types/metric";
 import {
@@ -1893,8 +1894,6 @@ export function expandAllSliceMetricsInMap({
     }
   }
 }
-
-export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 
 export function isPrecomputedDimension(dimension: string | undefined): boolean {
   return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
