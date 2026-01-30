@@ -1893,3 +1893,9 @@ export function expandAllSliceMetricsInMap({
     }
   }
 }
+
+export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
+
+export function isPrecomputedDimension(dimension: string | undefined): boolean {
+  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
+}

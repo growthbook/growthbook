@@ -71,7 +71,7 @@ export default function BaselineChooserColumnLabel({
   }, [baselineRow]);
 
   const handleBaselineChange = useCallback(
-    (variationIndex: number) => {
+    async (variationIndex: number) => {
       if (!setBaselineRow) return;
 
       setDesiredBaselineRow(variationIndex);
@@ -85,27 +85,26 @@ export default function BaselineChooserColumnLabel({
         ...analysis.settings,
         baselineVariationIndex: variationIndex,
       };
-      triggerAnalysisUpdate(
+      const status = await triggerAnalysisUpdate(
         newSettings,
         analysis,
         snapshot,
         apiCall,
         setPostLoading,
-      ).then(async (status) => {
-        if (status === "success") {
-          setBaselineRow(variationIndex);
-          track("Experiment Analysis: switch baseline", {
-            baseline: variationIndex,
-          });
-          // NB: await to ensure new analysis is available before we attempt to get it
-          await mutate();
-          setAnalysisSettings(newSettings);
-        } else if (status === "fail") {
-          setDesiredBaselineRow(baselineRow);
-          mutate();
-        }
-        setPostLoading(false);
-      });
+      );
+      if (status === "success") {
+        track("Experiment Analysis: switch baseline", {
+          baseline: variationIndex,
+        });
+        // NB: await to ensure new analysis is available before we attempt to get it
+        await mutate();
+        setAnalysisSettings(newSettings);
+        setBaselineRow(variationIndex);
+      } else if (status === "fail") {
+        setDesiredBaselineRow(baselineRow);
+        mutate();
+      }
+      setPostLoading(false);
     },
     [
       snapshot,

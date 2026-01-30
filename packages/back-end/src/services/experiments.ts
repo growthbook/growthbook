@@ -39,9 +39,11 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  isPrecomputedDimension,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -646,10 +648,10 @@ export async function parseDimension(
         id: dimension.substr(4),
         specifiedSlices: slices,
       };
-    } else if (dimension.match(/^precomputed:/)) {
+    } else if (isPrecomputedDimension(dimension)) {
       return {
         type: "experiment",
-        id: dimension.substr(12),
+        id: dimension.substr(PRECOMPUTED_DIMENSION_PREFIX.length),
         specifiedSlices: slices,
       };
     } else if (dimension.substr(0, 4) === "pre:") {
@@ -1424,7 +1426,7 @@ export async function createSnapshotAnalysis(
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis({
+  await addOrUpdateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,
@@ -1445,7 +1447,7 @@ export async function createSnapshotAnalysis(
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis({
+  await updateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,

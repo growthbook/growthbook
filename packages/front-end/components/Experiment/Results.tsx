@@ -7,6 +7,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { isPrecomputedDimension } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -179,8 +180,8 @@ const Results: FC<{
   }
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
-  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
-    d.startsWith("precomputed:"),
+  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some(
+    isPrecomputedDimension,
   );
 
   const datasource = experiment.datasource

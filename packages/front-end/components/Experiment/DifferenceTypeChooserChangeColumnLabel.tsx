@@ -11,6 +11,7 @@ import {
 } from "shared/types/stats";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill, PiCheck } from "react-icons/pi";
+import { getSnapshotAnalysis } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenu,
@@ -178,6 +179,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
       differenceType: newDifferenceType,
     };
 
+    const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
     const status = await triggerAnalysisUpdate(
       newSettings,
       analysis,
@@ -189,11 +191,11 @@ export default function DifferenceTypeChooserChangeColumnLabel({
 
     if (status === "success") {
       setDifferenceType?.(newDifferenceType);
-      setAnalysisSettings(newSettings);
       track("Experiment Analysis: switch difference type", {
         differenceType: newDifferenceType,
       });
-      mutate();
+      if (!analysisExists) await mutate();
+      setAnalysisSettings(newSettings);
     } else if (status === "fail") {
       setDesiredDifferenceType(differenceType);
       mutate();
