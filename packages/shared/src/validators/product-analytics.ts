@@ -81,7 +81,7 @@ const valueValidator = z.discriminatedUnion("type", [
 ]);
 export type ProductAnalyticsValue = z.infer<typeof valueValidator>;
 
-const dateGranularity = [
+export const dateGranularity = [
   "auto",
   "hour",
   "day",
@@ -125,9 +125,9 @@ const dimensionValidator = z.discriminatedUnion("dimensionType", [
   sliceDimensionValidator,
 ]);
 
-const chartTypes = ["bar", "line", "area", "table"] as const;
+export const chartTypes = ["line", "bar", "bigNumber"] as const;
 
-const dateRangePredefined = [
+export const dateRangePredefined = [
   "today",
   "last7Days",
   "last30Days",
@@ -136,7 +136,7 @@ const dateRangePredefined = [
   "customDateRange",
 ] as const;
 
-const lookbackUnit = ["hour", "day", "week", "month"] as const;
+export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
 // The config defined in the UI
 export const productAnalyticsConfigValidator = z

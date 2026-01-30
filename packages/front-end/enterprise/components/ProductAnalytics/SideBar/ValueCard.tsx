@@ -83,7 +83,6 @@ export default function ValueCard({
       onFiltersChange(newFilters);
     };
   
-    console.log("filters", filters);
     return (
       <Box
         style={{
@@ -155,7 +154,7 @@ export default function ValueCard({
             Filters
           </Text>
           <Flex direction="column" gap="2" width="100%">
-            <Separator style={{ width: "100%" }} />
+            <Separator style={{ width: "100%", display: filters.length ? "block" : "none" }}/>
             {filters.map((filter, i) => (
               <Flex key={i} direction="column" gap="2">
                 <Flex justify="between" align="center" width="100%">

@@ -16,7 +16,13 @@ const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
     type: "metric", // default to metric
     values: []
   },
-  dimensions: [],
+  dimensions: [
+    {
+      dimensionType: "date",
+      column: "date",
+      dateGranularity: "day",
+    },
+  ],
   chartType: "line",
   dateRange: {
     predefined: "last30Days",
@@ -82,6 +88,15 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           return prev;
         }
         const value = createEmptyValue(valueType);
+
+        // Generate unique name
+        const existingNames = new Set(prev.dataset.values.map((v) => v.name));
+        let i = 1;
+        while (existingNames.has(`Series ${i}`)) {
+          i++;
+        }
+        value.name = `Series ${i}`;
+
         return {
           ...prev,
           dataset: {
@@ -90,7 +105,9 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           },
         } as ProductAnalyticsConfig;
       });
-  },[]);
+    },
+    [],
+  );
 
   const updateValueInDataset = useCallback((index: number, value: ProductAnalyticsValue) => {
     setDraftExploreState((prev) => {

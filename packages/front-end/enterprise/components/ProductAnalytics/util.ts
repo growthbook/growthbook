@@ -106,9 +106,16 @@ export function assignSeriesColorsAndTags<T extends ProductAnalyticsValue>(
 }
 
 export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
+  const base = {
+    name: "",
+    color: null,
+    tag: null,
+    rowFilters: [],
+  };
   switch (type) {
     case "metric":
       return {
+        ...base,
         type: "metric",
         metricId: "",
         unit: null,
@@ -116,12 +123,14 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
       } as MetricValue;
     case "fact_table":
       return {
+        ...base,
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
       } as FactTableValue;
     case "sql":
       return {
+        ...base,
         type: "sql",
         valueType: "count",
         valueColumn: null,

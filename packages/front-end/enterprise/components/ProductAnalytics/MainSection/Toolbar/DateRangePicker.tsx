@@ -1,99 +1,114 @@
-import React, { useState } from "react";
+import React from "react";
 import { Flex, TextField } from "@radix-ui/themes";
-import {
-  DashboardBlockInterfaceOrData,
-  MetricExplorerBlockInterface,
-} from "shared/enterprise";
+import { dateRangePredefined, lookbackUnit } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
+import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "../../ExplorerContext";
 
+const PREDEFINED_LABELS: Record<
+  (typeof dateRangePredefined)[number],
+  string
+> = {
+  today: "Today",
+  last7Days: "7d",
+  last30Days: "30d",
+  last90Days: "90d",
+  customLookback: "Custom Lookback",
+  customDateRange: "Custom Date Range",
+};
 
 export default function DateRangePicker() {
-  const { draftExploreState, submittedExploreState, exploreData, loading, hasPendingChanges, setDraftExploreState } = useExplorerContext();
-  const presetDays = [7, 14, 30, 90, 180, 365];
-
-  const [isCustomLookback, setIsCustomLookback] = useState(() => {
-    return !presetDays.includes(draftExploreState.lookbackDays);
-  });
-
-  const [customDaysInput, setCustomDaysInput] = useState(() => {
-    return !presetDays.includes(draftExploreState.lookbackDays)
-      ? draftExploreState.lookbackDays.toString()
-      : "";
-  });
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+  const { dateRange } = draftExploreState;
 
   return (
     <Flex align="center" gap="2">
       <Select
         size="2"
-        value={
-          isCustomLookback ? "-1" : draftExploreState.lookbackDays + ""
-        }
-        placeholder="Select value"
+        value={dateRange.predefined}
+        placeholder="Select range"
         setValue={(v) => {
-          const days = parseInt(v);
-
-          if (days === -1) {
-            setIsCustomLookback(true);
-            setCustomDaysInput("60");
-            const start = new Date();
-            const end = new Date();
-            start.setDate(end.getDate() - 60);
-
-            setDraftExploreState((prev) => ({
-              ...prev,
-              lookbackDays: 60,
-              startDate: start,
-              endDate: end,
-            }));
-          } else {
-            setIsCustomLookback(false);
-            const start = new Date();
-            const end = new Date();
-            start.setDate(end.getDate() - days);
-
-            setDraftExploreState((prev) => ({
-              ...prev,
-              lookbackDays: days,
-              startDate: start,
-              endDate: end,
-            }));
-          }
+          setDraftExploreState((prev) => ({
+            ...prev,
+            dateRange: {
+              ...prev.dateRange,
+              predefined: v as (typeof dateRangePredefined)[number],
+            },
+          }));
         }}
         containerClassName="mb-0"
       >
-        {presetDays.map((days) => (
-          <SelectItem key={days} value={days.toString()}>
-            {days}d
+        {dateRangePredefined.map((option) => (
+          <SelectItem key={option} value={option}>
+            {PREDEFINED_LABELS[option] || option}
           </SelectItem>
         ))}
-        <SelectItem value="-1">Custom Lookback</SelectItem>
       </Select>
 
-      {isCustomLookback && (
-        <TextField.Root
-          size="2"
-          type="number"
-          min="1"
-          placeholder="Enter number of days"
-          value={customDaysInput}
-          onChange={(e) => {
-            const value = e.target.value;
-            setCustomDaysInput(value);
-            const days = parseInt(value);
-            if (days > 0 && !isNaN(days)) {
-              const start = new Date();
-              const end = new Date();
-              start.setDate(end.getDate() - days);
-
+      {dateRange.predefined === "customLookback" && (
+        <>
+          <TextField.Root
+            size="2"
+            type="number"
+            min="1"
+            placeholder="Value"
+            value={dateRange.lookbackValue?.toString() || ""}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
               setDraftExploreState((prev) => ({
                 ...prev,
-                lookbackDays: days,
-                startDate: start,
-                endDate: end,
+                dateRange: {
+                  ...prev.dateRange,
+                  lookbackValue: isNaN(val) ? null : val,
+                },
               }));
-            }
+            }}
+          />
+          <Select
+            size="2"
+            value={dateRange.lookbackUnit || "day"}
+            setValue={(v) => {
+              setDraftExploreState((prev) => ({
+                ...prev,
+                dateRange: {
+                  ...prev.dateRange,
+                  lookbackUnit: v as (typeof lookbackUnit)[number],
+                },
+              }));
+            }}
+          >
+            {lookbackUnit.map((u) => (
+              <SelectItem key={u} value={u}>
+                {u}
+              </SelectItem>
+            ))}
+          </Select>
+        </>
+      )}
+
+      {dateRange.predefined === "customDateRange" && (
+        <DatePicker
+          date={dateRange.startDate || undefined}
+          date2={dateRange.endDate || undefined}
+          setDate={(d) => {
+            setDraftExploreState((prev) => ({
+              ...prev,
+              dateRange: {
+                ...prev.dateRange,
+                startDate: d || null,
+              },
+            }));
           }}
+          setDate2={(d) => {
+            setDraftExploreState((prev) => ({
+              ...prev,
+              dateRange: {
+                ...prev.dateRange,
+                endDate: d || null,
+              },
+            }));
+          }}
+          precision="date"
         />
       )}
     </Flex>

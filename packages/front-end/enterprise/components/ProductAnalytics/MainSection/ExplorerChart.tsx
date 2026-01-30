@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import type { ProductAnalyticsConfig } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -142,7 +142,7 @@ export default function ExplorerChart() {
     }
 
     // Line / area: x = dimensions[0] (date), one series per metricId
-    if (chartType === "line" || chartType === "area") {
+    if (chartType === "line") {
       const source: (string | number)[][] = [
         ["date", ...metricIds],
         ...rows.map((r) => [
@@ -152,8 +152,7 @@ export default function ExplorerChart() {
       ];
       const seriesConfigs = metricIds.map((metricId, idx) => ({
         name: getSeriesTitle(submittedExploreState, metricId),
-        type: chartType === "area" ? "line" : "line",
-        areaStyle: chartType === "area" ? {} : undefined,
+        type: "line",
         encode: { x: "date", y: metricId },
         color: getSeriesColor(submittedExploreState, metricId, idx),
         smooth: true,
@@ -218,7 +217,9 @@ export default function ExplorerChart() {
       }}
     >
       {loading ? (
-        <LoadingOverlay />
+        <Flex justify="center" align="center" height="500px">
+          <LoadingOverlay text="Loading data..." />
+        </Flex>
       ) : !exploreData ? (
         <Box p="4" style={{ textAlign: "center" }}>
           <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
