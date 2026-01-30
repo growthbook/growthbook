@@ -32,7 +32,9 @@ import DashboardEditor, {
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 import DashboardModal from "./DashboardModal";
-
+import { useSeriesDisplaySettings } from "./DashboardSeriesDisplayProvider";
+import EditGlobalColorDropdown from "./DashboardEditor/EditGlobalColorDropdown";
+import { filterSeriesDisplaySettings } from "./seriesDisplaySettingsUtils";
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
 export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
 
@@ -47,6 +49,9 @@ interface Props {
   // for quick editing a block from the display view
   initialEditBlockIndex?: number | null;
   onConsumeInitialEditBlockIndex?: () => void;
+  updateTemporaryDashboard?: (update: {
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  }) => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -58,6 +63,7 @@ export default function DashboardWorkspace({
   close,
   initialEditBlockIndex,
   onConsumeInitialEditBlockIndex,
+  updateTemporaryDashboard,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
@@ -80,20 +86,37 @@ export default function DashboardWorkspace({
     }
   }, [dashboard]);
   const { metricGroups } = useDefinitions();
+  const { getActiveSeriesKeys, getSeriesDisplaySettings } =
+    useSeriesDisplaySettings();
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
+
   const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
     () => async (args) => {
       setSaving(true);
       setSaveError(undefined);
       try {
+        const filteredSettings = filterSeriesDisplaySettings(
+          // Use args if available - the only time that happens is via the Undo Changes button, otherwise use the get the current settings
+          args.data.seriesDisplaySettings || getSeriesDisplaySettings(),
+          // Only filter by active keys when blocks are being updated (for cleanup on removal)
+          // Otherwise, just clean entries without colors
+          args.data.blocks !== undefined ? getActiveSeriesKeys() : undefined,
+        );
+
         await submitDashboard({
           ...args,
-          data: { ...dashboard, ...args.data },
+          data: {
+            ...dashboard,
+            ...args.data,
+            ...(filteredSettings !== undefined
+              ? { seriesDisplaySettings: filteredSettings }
+              : {}),
+          },
         });
       } catch (e) {
         setSaveError(e.message);
@@ -101,7 +124,7 @@ export default function DashboardWorkspace({
         setSaving(false);
       }
     },
-    [submitDashboard, dashboard],
+    [submitDashboard, dashboard, getActiveSeriesKeys, getSeriesDisplaySettings],
   );
 
   const [blocks, setBlocks] = useState<
@@ -111,17 +134,32 @@ export default function DashboardWorkspace({
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
-      setBlocks(blocks);
       setHasMadeChanges(true);
-      await submit({
-        method: "PUT",
-        dashboardId: dashboard.id,
-        data: {
+
+      // For new dashboards, update temporary state instead of making API call
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({
           blocks,
-        },
-      });
+        });
+      } else {
+        setBlocks(blocks);
+        // For existing dashboards, make API call via submit
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            blocks,
+          },
+        });
+      }
     };
-  }, [setBlocks, submit, dashboard.id]);
+  }, [
+    setBlocks,
+    submit,
+    dashboard.id,
+    dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -294,7 +332,7 @@ export default function DashboardWorkspace({
             )}
           </Flex>
           <Flex align="center" gap="4">
-            {dashboardCopy && hasMadeChanges && (
+            {dashboardCopy && hasMadeChanges && !dashboardFirstSave && (
               <Tooltip
                 body="Undo all changes made during this current edit session"
                 tipPosition="top"
@@ -312,6 +350,7 @@ export default function DashboardWorkspace({
                         "title",
                         "editLevel",
                         "enableAutoUpdates",
+                        "seriesDisplaySettings",
                       ]),
                     });
                     close();
@@ -324,7 +363,7 @@ export default function DashboardWorkspace({
               </Tooltip>
             )}
             <Flex align="center" gap="2">
-              {dashboard.id === "new" && blocks.length === 0 && (
+              {dashboardFirstSave && (
                 <Link onClick={close} color="red" type="button" weight="bold">
                   Exit without saving
                 </Link>
@@ -432,11 +471,13 @@ export default function DashboardWorkspace({
           >
             <Flex
               align="end"
+              gap="2"
               style={{
                 minHeight: DASHBOARD_TOPBAR_HEIGHT,
                 maxHeight: DASHBOARD_TOPBAR_HEIGHT,
               }}
             >
+              {editSidebarExpanded && <EditGlobalColorDropdown />}
               {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
                 <IconButton
                   mb="1"

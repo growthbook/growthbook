@@ -7,6 +7,7 @@ import {
   dashboardEditLevel,
   dashboardShareLevel,
   dashboardUpdateSchedule,
+  seriesDisplaySettings,
 } from "shared/enterprise";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -27,6 +28,7 @@ export const createDashboardBody = z
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
+    seriesDisplaySettings: seriesDisplaySettings.optional(),
   })
   .strict();
 
@@ -39,6 +41,7 @@ export const updateDashboardBody = z
     enableAutoUpdates: z.boolean().optional(),
     updateSchedule: dashboardUpdateSchedule.optional(),
     projects: z.array(z.string()).optional(),
+    seriesDisplaySettings: seriesDisplaySettings.optional(),
     blocks: z
       .array(
         z.union([

@@ -6,6 +6,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import DashboardSeriesDisplayProvider from "@/enterprise/components/Dashboards/DashboardSeriesDisplayProvider";
 import {
   SubmitDashboard,
   UpdateDashboardArgs,
@@ -70,6 +71,7 @@ export default function NewDashboardPage() {
               updateSchedule:
                 args.data.updateSchedule || dashboard.updateSchedule,
               userId: args.data.userId,
+              seriesDisplaySettings: args.data.seriesDisplaySettings,
             }),
           });
           setDashboard(res.dashboard);
@@ -90,6 +92,7 @@ export default function NewDashboardPage() {
               updateSchedule:
                 args.data.updateSchedule ?? dashboard.updateSchedule,
               userId: args.data.userId,
+              seriesDisplaySettings: args.data.seriesDisplaySettings,
             }),
           });
           setDashboard(res.dashboard);
@@ -128,15 +131,31 @@ export default function NewDashboardPage() {
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      <DashboardWorkspace
-        isTabActive={true}
-        experiment={null}
+      <DashboardSeriesDisplayProvider
         dashboard={dashboard}
-        mutate={mutateDashboards}
-        submitDashboard={handleSubmitDashboard}
-        close={handleClose}
-        dashboardFirstSave={true}
-      />
+        onSave={async (updatedSettings) => {
+          // Only save if dashboard has been created (not "new")
+          if (dashboard?.id && dashboard.id !== "new") {
+            await handleSubmitDashboard({
+              method: "PUT",
+              dashboardId: dashboard.id,
+              data: {
+                seriesDisplaySettings: updatedSettings,
+              },
+            });
+          }
+        }}
+      >
+        <DashboardWorkspace
+          isTabActive={true}
+          experiment={null}
+          dashboard={dashboard}
+          mutate={mutateDashboards}
+          submitDashboard={handleSubmitDashboard}
+          close={handleClose}
+          dashboardFirstSave={true}
+        />
+      </DashboardSeriesDisplayProvider>
     </DashboardSnapshotProvider>
   );
 }

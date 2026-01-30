@@ -432,6 +432,15 @@ export interface components {
         cron: string;
       };
       title: string;
+      seriesDisplaySettings?: {
+        [key: string]: ({
+          [key: string]: {
+            color: string;
+            displayName?: string;
+            hidden?: boolean;
+          } | undefined;
+        }) | undefined;
+      };
       projects?: (string)[];
       /** Format: date-time */
       nextUpdate?: string;
@@ -14362,6 +14371,15 @@ export interface operations {
                 cron: string;
               };
               title: string;
+              seriesDisplaySettings?: {
+                [key: string]: ({
+                  [key: string]: {
+                    color: string;
+                    displayName?: string;
+                    hidden?: boolean;
+                  } | undefined;
+                }) | undefined;
+              };
               projects?: (string)[];
               /** Format: date-time */
               nextUpdate?: string;
@@ -14823,6 +14841,15 @@ export interface operations {
                 cron: string;
               };
               title: string;
+              seriesDisplaySettings?: {
+                [key: string]: ({
+                  [key: string]: {
+                    color: string;
+                    displayName?: string;
+                    hidden?: boolean;
+                  } | undefined;
+                }) | undefined;
+              };
               projects?: (string)[];
               /** Format: date-time */
               nextUpdate?: string;
@@ -15019,6 +15046,15 @@ export interface operations {
                   cron: string;
                 };
                 title: string;
+                seriesDisplaySettings?: {
+                  [key: string]: ({
+                    [key: string]: {
+                      color: string;
+                      displayName?: string;
+                      hidden?: boolean;
+                    } | undefined;
+                  }) | undefined;
+                };
                 projects?: (string)[];
                 /** Format: date-time */
                 nextUpdate?: string;
@@ -15343,6 +15379,15 @@ export interface operations {
                 cron: string;
               };
               title: string;
+              seriesDisplaySettings?: {
+                [key: string]: ({
+                  [key: string]: {
+                    color: string;
+                    displayName?: string;
+                    hidden?: boolean;
+                  } | undefined;
+                }) | undefined;
+              };
               projects?: (string)[];
               /** Format: date-time */
               nextUpdate?: string;
@@ -15527,6 +15572,15 @@ export interface operations {
                   cron: string;
                 };
                 title: string;
+                seriesDisplaySettings?: {
+                  [key: string]: ({
+                    [key: string]: {
+                      color: string;
+                      displayName?: string;
+                      hidden?: boolean;
+                    } | undefined;
+                  }) | undefined;
+                };
                 projects?: (string)[];
                 /** Format: date-time */
                 nextUpdate?: string;
