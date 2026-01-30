@@ -247,6 +247,10 @@ export default function DimensionChooser({
           dimensions: [v],
         };
 
+        // check if the analysis exists in the current snapshot
+        const analysisExistsInMainSnapshot = snapshot
+          ? getSnapshotAnalysis(snapshot, newSettings)
+          : false;
         const status = await triggerAnalysisUpdate(
           newSettings,
           defaultAnalysis,
@@ -266,7 +270,7 @@ export default function DimensionChooser({
           // use the dimensionless snapshot) and set the analysis settings
           setSnapshotDimension?.("");
           // NB: await to ensure new analysis is available before we attempt to get it
-          await mutate?.();
+          if (!analysisExistsInMainSnapshot) await mutate?.();
           setAnalysisSettings?.(newSettings);
         } else {
           // if the analysis fails, reset dropdown to the current value
