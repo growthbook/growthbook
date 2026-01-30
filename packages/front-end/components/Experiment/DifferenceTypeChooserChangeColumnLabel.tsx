@@ -174,33 +174,36 @@ export default function DifferenceTypeChooserChangeColumnLabel({
       return;
     }
 
-    const newSettings: ExperimentSnapshotAnalysisSettings = {
-      ...analysis.settings,
-      differenceType: newDifferenceType,
-    };
-
-    const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
-    const status = await triggerAnalysisUpdate(
-      newSettings,
-      analysis,
-      snapshot,
-      apiCall,
-      setPostLoading,
-      phase,
-    );
-
-    if (status === "success") {
-      setDifferenceType?.(newDifferenceType);
-      track("Experiment Analysis: switch difference type", {
+    try {
+      const newSettings: ExperimentSnapshotAnalysisSettings = {
+        ...analysis.settings,
         differenceType: newDifferenceType,
-      });
-      if (!analysisExists) await mutate();
-      setAnalysisSettings(newSettings);
-    } else if (status === "fail") {
-      setDesiredDifferenceType(differenceType);
-      mutate();
+      };
+
+      const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
+      const status = await triggerAnalysisUpdate(
+        newSettings,
+        analysis,
+        snapshot,
+        apiCall,
+        setPostLoading,
+        phase,
+      );
+
+      if (status === "success") {
+        setDifferenceType?.(newDifferenceType);
+        track("Experiment Analysis: switch difference type", {
+          differenceType: newDifferenceType,
+        });
+        if (!analysisExists) await mutate();
+        setAnalysisSettings(newSettings);
+      } else if (status === "fail") {
+        setDesiredDifferenceType(differenceType);
+        mutate();
+      }
+    } finally {
+      setPostLoading(false);
     }
-    setPostLoading(false);
   };
 
   const tooltipBody = (

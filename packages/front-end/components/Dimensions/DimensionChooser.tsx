@@ -227,65 +227,68 @@ export default function DimensionChooser({
     async (v: string) => {
       if (v === value) return;
       setPostLoading(true);
-      setValue?.(v);
-      if (precomputedDimensions?.includes(v)) {
-        const defaultAnalysis = standardSnapshot
-          ? getSnapshotAnalysis(standardSnapshot)
-          : null;
+      try {
+        setValue?.(v);
+        if (precomputedDimensions?.includes(v)) {
+          const defaultAnalysis = standardSnapshot
+            ? getSnapshotAnalysis(standardSnapshot)
+            : null;
 
-        if (!defaultAnalysis || !standardSnapshot) {
-          // reset if fails
-          setValue?.(value);
-          return;
-        }
+          if (!defaultAnalysis || !standardSnapshot) {
+            // reset if fails
+            setValue?.(value);
+            return;
+          }
 
-        const newSettings: ExperimentSnapshotAnalysisSettings = {
-          ...defaultAnalysis.settings,
-          differenceType: analysis?.settings?.differenceType ?? "relative",
-          baselineVariationIndex:
-            analysis?.settings?.baselineVariationIndex ?? 0,
-          dimensions: [v],
-        };
+          const newSettings: ExperimentSnapshotAnalysisSettings = {
+            ...defaultAnalysis.settings,
+            differenceType: analysis?.settings?.differenceType ?? "relative",
+            baselineVariationIndex:
+              analysis?.settings?.baselineVariationIndex ?? 0,
+            dimensions: [v],
+          };
 
-        // check if the analysis exists in the current snapshot
-        const analysisExistsInMainSnapshot = snapshot
-          ? getSnapshotAnalysis(snapshot, newSettings)
-          : false;
-        const status = await triggerAnalysisUpdate(
-          newSettings,
-          defaultAnalysis,
-          standardSnapshot,
-          apiCall,
-          setPostLoading,
-        );
+          // check if the analysis exists in the current snapshot
+          const analysisExistsInMainSnapshot = snapshot
+            ? getSnapshotAnalysis(snapshot, newSettings) !== null
+            : false;
+          const status = await triggerAnalysisUpdate(
+            newSettings,
+            defaultAnalysis,
+            standardSnapshot,
+            apiCall,
+            setPostLoading,
+          );
 
-        if (status === "success") {
-          // On success, set the dimension in the dropdown to
-          // the requested value
-          setValue?.(v);
-          track("Experiment Analysis: switch precomputed-dimension", {
-            dimension: v,
-          });
-          // Reset the snapshot dimension to empty (precomputed dimensions
-          // use the dimensionless snapshot) and set the analysis settings
-          setSnapshotDimension?.("");
-          // NB: await to ensure new analysis is available before we attempt to get it
-          if (!analysisExistsInMainSnapshot) await mutate?.();
-          setAnalysisSettings?.(newSettings);
+          if (status === "success") {
+            // On success, set the dimension in the dropdown to
+            // the requested value
+            setValue?.(v);
+            track("Experiment Analysis: switch precomputed-dimension", {
+              dimension: v,
+            });
+            // Reset the snapshot dimension to empty (precomputed dimensions
+            // use the dimensionless snapshot) and set the analysis settings
+            setSnapshotDimension?.("");
+            // NB: await to ensure new analysis is available before we attempt to get it
+            if (!analysisExistsInMainSnapshot) await mutate?.();
+            setAnalysisSettings?.(newSettings);
+          } else {
+            // if the analysis fails, reset dropdown to the current value
+            setValue?.(value);
+          }
         } else {
-          // if the analysis fails, reset dropdown to the current value
-          setValue?.(value);
+          // if the dimension is not precomputed, set the dropdown to the
+          // desired value and reset other selectors
+          setValue?.(v, true);
+          // and set the snapshot for the snapshot provider and get the
+          // default analysis from that snapshot
+          setSnapshotDimension?.(v);
+          setAnalysisSettings?.(null);
         }
-      } else {
-        // if the dimension is not precomputed, set the dropdown to the
-        // desired value and reset other selectors
-        setValue?.(v, true);
-        // and set the snapshot for the snapshot provider and get the
-        // default analysis from that snapshot
-        setSnapshotDimension?.(v);
-        setAnalysisSettings?.(null);
+      } finally {
+        setPostLoading(false);
       }
-      setPostLoading(false);
     },
     [
       value,

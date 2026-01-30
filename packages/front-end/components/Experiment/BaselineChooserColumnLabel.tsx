@@ -82,31 +82,34 @@ export default function BaselineChooserColumnLabel({
       }
       if (!analysis || !setAnalysisSettings || !mutate) return;
 
-      const newSettings: ExperimentSnapshotAnalysisSettings = {
-        ...analysis.settings,
-        baselineVariationIndex: variationIndex,
-      };
-      const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
-      const status = await triggerAnalysisUpdate(
-        newSettings,
-        analysis,
-        snapshot,
-        apiCall,
-        setPostLoading,
-      );
-      if (status === "success") {
-        track("Experiment Analysis: switch baseline", {
-          baseline: variationIndex,
-        });
-        // NB: await to ensure new analysis is available before we attempt to get it
-        if (!analysisExists) await mutate();
-        setAnalysisSettings(newSettings);
-        setBaselineRow(variationIndex);
-      } else if (status === "fail") {
-        setDesiredBaselineRow(baselineRow);
-        mutate();
+      try {
+        const newSettings: ExperimentSnapshotAnalysisSettings = {
+          ...analysis.settings,
+          baselineVariationIndex: variationIndex,
+        };
+        const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
+        const status = await triggerAnalysisUpdate(
+          newSettings,
+          analysis,
+          snapshot,
+          apiCall,
+          setPostLoading,
+        );
+        if (status === "success") {
+          track("Experiment Analysis: switch baseline", {
+            baseline: variationIndex,
+          });
+          // NB: await to ensure new analysis is available before we attempt to get it
+          if (!analysisExists) await mutate();
+          setAnalysisSettings(newSettings);
+          setBaselineRow(variationIndex);
+        } else if (status === "fail") {
+          setDesiredBaselineRow(baselineRow);
+          mutate();
+        }
+      } finally {
+        setPostLoading(false);
       }
-      setPostLoading(false);
     },
     [
       snapshot,

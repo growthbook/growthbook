@@ -645,19 +645,19 @@ export async function parseDimension(
     if (dimension.match(/^exp:/)) {
       return {
         type: "experiment",
-        id: dimension.substr(4),
+        id: dimension.substring(4),
         specifiedSlices: slices,
       };
     } else if (isPrecomputedDimension(dimension)) {
       return {
         type: "experiment",
-        id: dimension.substr(PRECOMPUTED_DIMENSION_PREFIX.length),
+        id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
         specifiedSlices: slices,
       };
-    } else if (dimension.substr(0, 4) === "pre:") {
+    } else if (dimension.substring(0, 4) === "pre:") {
       return {
         // eslint-disable-next-line
-        type: dimension.substr(4) as any,
+        type: dimension.substring(4) as any,
       };
     } else {
       const obj = await findDimensionById(dimension, organization);
