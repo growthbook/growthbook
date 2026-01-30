@@ -236,8 +236,8 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "1mb" }));
+// increase max payload json size to 2mb
+app.use(bodyParser.json({ limit: "2mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
