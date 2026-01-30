@@ -270,7 +270,6 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      ctaEnabled={true}
       submit={form.handleSubmit(async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 

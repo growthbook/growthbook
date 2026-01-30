@@ -171,7 +171,6 @@ export default function ConfigureReport({
       header={`Edit Analysis`}
       useRadixButton={true}
       cta="Save and refresh"
-      ctaEnabled={true}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"

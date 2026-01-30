@@ -194,7 +194,6 @@ const EditMetricsForm: FC<{
       size="lg"
       open={true}
       close={cancel}
-      ctaEnabled={true}
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
