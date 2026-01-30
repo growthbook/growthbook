@@ -25,7 +25,7 @@
         "prerequisites",
         "semverTargeting",
         "bucketingV2"
-      ]
+      ] 
     }
   ]
 }
