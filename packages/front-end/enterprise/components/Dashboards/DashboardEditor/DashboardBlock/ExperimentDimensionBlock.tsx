@@ -9,6 +9,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { isPrecomputedDimension } from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
@@ -132,8 +133,8 @@ export default function ExperimentDimensionBlock({
       differenceType={differenceType}
       setDifferenceType={isEditing ? setDifferenceType : undefined}
       renderMetricName={(metric) => metric.name}
-      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
-        d.startsWith("precomputed:"),
+      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some(
+        isPrecomputedDimension,
       )}
       sortBy={blockSortBy ?? null}
       setSortBy={isEditing ? setSortBy : undefined}
