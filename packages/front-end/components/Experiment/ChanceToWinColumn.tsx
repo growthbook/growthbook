@@ -20,7 +20,6 @@ interface Props
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;
-  showRisk?: boolean;
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
@@ -32,7 +31,6 @@ export default function ChanceToWinColumn({
   stats,
   baseline,
   rowResults,
-  showRisk = true,
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
@@ -41,11 +39,6 @@ export default function ChanceToWinColumn({
   hideScaledImpact = false,
   ...otherProps
 }: Props) {
-  const shouldRenderRisk =
-    showRisk &&
-    rowResults.riskMeta.showRisk &&
-    ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
-    rowResults.resultsStatus !== "lost";
   return (
     <td className={clsx("chance align-middle", className)} {...otherProps}>
       {!baseline?.value || !stats?.value ? (
@@ -63,17 +56,8 @@ export default function ChanceToWinColumn({
           <div className="result-number d-inline-block">
             {percentFormatter.format(stats.chanceToWin ?? 0)}
           </div>
-          {shouldRenderRisk ? (
-            <span
-              className={rowResults.riskMeta.riskStatus}
-              style={{ marginLeft: 1, marginBottom: 4 }}
-            >
-              <HiOutlineExclamationCircle />
-            </span>
-          ) : null}
           {showGuardrailWarning &&
-          rowResults.guardrailWarning &&
-          !shouldRenderRisk ? (
+          rowResults.guardrailWarning ? (
             <span className="warning" style={{ marginLeft: 1 }}>
               <HiOutlineExclamationCircle />
             </span>

@@ -35,7 +35,6 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
-import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -535,8 +534,6 @@ const MetricForm: FC<MetricFormProps> = ({
       targetMDE: targetMDE / 100,
     };
 
-    if (value.loseRisk < value.winRisk) return;
-
     const body = JSON.stringify(sendValue);
 
     if (edit) {
@@ -561,11 +558,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
     onSuccess && onSuccess();
   });
-
-  const riskError =
-    value.loseRisk < value.winRisk
-      ? "The acceptable risk percentage cannot be higher than the too risky percentage"
-      : "";
 
   const regressionAdjustmentDaysHighlightColor =
     value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
@@ -605,10 +597,7 @@ const MetricForm: FC<MetricFormProps> = ({
   let ctaEnabled = true;
   let disabledMessage: string | null = null;
 
-  if (riskError) {
-    ctaEnabled = false;
-    disabledMessage = riskError;
-  } else if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
+  if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
     ctaEnabled = false;
     disabledMessage = "You don't have permission to create metrics.";
   }
@@ -1284,14 +1273,6 @@ const MetricForm: FC<MetricFormProps> = ({
                   </small>
                 </div>
               )}
-
-              <RiskThresholds
-                winRisk={value.winRisk}
-                loseRisk={value.loseRisk}
-                winRiskRegisterField={form.register("winRisk")}
-                loseRiskRegisterField={form.register("loseRisk")}
-                riskError={riskError}
-              />
 
               <div className="form-group">
                 <label>Minimum Metric Total</label>

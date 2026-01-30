@@ -119,8 +119,6 @@ export default function ConfigureReport({
     !form.watch("experimentAnalysisSettings.dateEnded"),
   );
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
-    useState(false);
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -173,7 +171,7 @@ export default function ConfigureReport({
       header={`Edit Analysis`}
       useRadixButton={true}
       cta="Save and refresh"
-      ctaEnabled={!hasMetricOverrideRiskError}
+      ctaEnabled={true}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"
@@ -528,9 +526,6 @@ export default function ConfigureReport({
                       "experimentAnalysisSettings.metricOverrides",
                   }}
                   disabled={!hasOverrideMetricsFeature}
-                  setHasMetricOverrideRiskError={(v: boolean) =>
-                    setHasMetricOverrideRiskError(v)
-                  }
                 />
                 {!hasOverrideMetricsFeature && (
                   <UpgradeMessage

@@ -40,7 +40,6 @@ import {
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { useCurrency } from "@/hooks/useCurrency";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SafeRolloutTimeSeriesGraph from "@/components/Experiment/SafeRolloutTimeSeriesGraph";
@@ -114,7 +113,7 @@ export default function ResultsTable({
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const { getExperimentMetricById } = useDefinitions();
 
   const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
   const { metricDefaults, getMinSampleSizeForMetric } =
@@ -123,13 +122,11 @@ export default function ResultsTable({
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
-  const _displayCurrency = useCurrency();
 
   const { ciUpper, ciLower } =
     ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const showTimeSeries = useFeatureIsOn("safe-rollout-timeseries");
 
@@ -233,8 +230,6 @@ export default function ResultsTable({
           phaseStartDate: getValidDate(startDate),
           isLatestPhase,
           experimentStatus: status,
-          displayCurrency,
-          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -256,10 +251,8 @@ export default function ResultsTable({
     startDate,
     isLatestPhase,
     status,
-    displayCurrency,
     queryStatusData,
     ssrPolyfills,
-    getFactTableById,
     getExperimentMetricById,
   ]);
 

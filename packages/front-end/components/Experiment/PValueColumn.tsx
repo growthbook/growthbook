@@ -17,7 +17,6 @@ interface Props
   baseline: SnapshotMetric;
   rowResults: RowResults;
   pValueCorrection?: PValueCorrection;
-  showRisk?: boolean;
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
@@ -32,7 +31,6 @@ export default function PValueColumn({
   baseline,
   rowResults,
   pValueCorrection,
-  showRisk = true,
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
@@ -55,13 +53,6 @@ export default function PValueColumn({
       <>{pValueFormatter(stats.pValueAdjusted)}</>
     );
   }
-
-  const shouldRenderRisk =
-    showRisk &&
-    rowResults.riskMeta.showRisk &&
-    ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
-    rowResults.resultsStatus !== "lost";
-
   return (
     <td
       className={clsx("variation chance align-middle", className)}
@@ -82,17 +73,8 @@ export default function PValueColumn({
           <div className="result-number d-inline-block">
             {pValText || "P-value missing"}
           </div>
-          {shouldRenderRisk ? (
-            <span
-              className={rowResults.riskMeta.riskStatus}
-              style={{ marginLeft: 1 }}
-            >
-              <HiOutlineExclamationCircle />
-            </span>
-          ) : null}
           {showGuardrailWarning &&
-          rowResults.guardrailWarning &&
-          !shouldRenderRisk ? (
+          rowResults.guardrailWarning ? (
             <span className="warning" style={{ marginLeft: 1 }}>
               <HiOutlineExclamationCircle />
             </span>

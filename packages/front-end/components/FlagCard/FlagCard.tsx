@@ -172,31 +172,7 @@ export default function FlagCard({
           }
         />
 
-        {data.rowResults.riskMeta.showRisk &&
-        ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-        data.rowResults.resultsStatus !== "lost" ? (
-          <CardItem
-            label="Risk"
-            tooltip={data.rowResults.riskMeta.riskReason}
-            value={
-              <span
-                style={{
-                  color:
-                    data.rowResults.riskMeta.riskStatus === "danger"
-                      ? "var(--red-a11)"
-                      : data.rowResults.riskMeta.riskStatus === "warning"
-                        ? "var(--amber-a11)"
-                        : undefined,
-                }}
-              >
-                {data.rowResults.riskMeta.relativeRiskFormatted}
-                {data.rowResults.riskMeta.riskFormatted ? (
-                  <>, {data.rowResults.riskMeta.riskFormatted}</>
-                ) : null}
-              </span>
-            }
-          />
-        ) : null}
+        
 
         {!data.isGuardrail && data.rowResults.suspiciousChange ? (
           <CardItem

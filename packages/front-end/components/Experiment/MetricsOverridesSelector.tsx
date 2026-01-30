@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
@@ -41,14 +41,12 @@ export default function MetricsOverridesSelector({
   experiment,
   form,
   disabled,
-  setHasMetricOverrideRiskError,
   fieldMap = defaultFieldMap,
 }: {
   experiment: ExperimentInterfaceStringDates;
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   disabled: boolean;
-  setHasMetricOverrideRiskError: (boolean) => void;
   fieldMap?: typeof defaultFieldMap;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
@@ -95,41 +93,6 @@ export default function MetricsOverridesSelector({
   const unusedMetrics: string[] = [...expandedMetrics].filter(
     (m) => !usedMetrics.has(m),
   );
-
-  useEffect(() => {
-    let hasRiskError = false;
-    !disabled &&
-      metricOverrides.fields.map((v, i) => {
-        const mo = form.watch(`${fieldMap["metricOverrides"]}.${i}`);
-        const metricDefinition = allMetricDefinitions.find(
-          (md) => md.id === mo.id,
-        );
-
-        const loseRisk =
-          isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
-            ? metricDefinition?.loseRisk
-            : mo.loseRisk / 100;
-        const winRisk =
-          isUndefined(mo.winRisk) || isNaN(mo.winRisk)
-            ? metricDefinition?.winRisk
-            : mo.winRisk / 100;
-        if (
-          !isUndefined(loseRisk) &&
-          !isUndefined(winRisk) &&
-          loseRisk < winRisk
-        ) {
-          hasRiskError = true;
-        }
-      });
-    setHasMetricOverrideRiskError(hasRiskError);
-  }, [
-    disabled,
-    allMetricDefinitions,
-    metricOverrides,
-    form,
-    setHasMetricOverrideRiskError,
-    fieldMap,
-  ]);
 
   return (
     <div className="mb-3">
@@ -186,24 +149,6 @@ export default function MetricsOverridesSelector({
             );
           }
 
-          const loseRisk =
-            isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
-              ? metricDefinition?.loseRisk
-              : mo.loseRisk / 100;
-          const winRisk =
-            isUndefined(mo.winRisk) || isNaN(mo.winRisk)
-              ? metricDefinition?.winRisk
-              : mo.winRisk / 100;
-          let riskError = "";
-          if (
-            !isUndefined(loseRisk) &&
-            !isUndefined(winRisk) &&
-            loseRisk < winRisk
-          ) {
-            riskError =
-              "The acceptable risk percentage cannot be higher than the too risky percentage";
-          }
-
           const regressionAdjustmentDaysHighlightColor =
             !isUndefined(mo.regressionAdjustmentDays) &&
             (mo.regressionAdjustmentDays > 28 ||
@@ -246,10 +191,6 @@ export default function MetricsOverridesSelector({
                     <span className="uppercase-title">
                       Conversion/Lookback Window
                     </span>
-                  </div>
-                  <div className="col ml-1">
-                    <span className="uppercase-title">Risk Thresholds</span>{" "}
-                    <span className="small text-muted">(Bayesian only)</span>
                   </div>
                 </div>
                 <div className="row">
@@ -465,62 +406,6 @@ export default function MetricsOverridesSelector({
                         </div>
                       ) : null}
                     </div>
-                  </div>
-                  <div className="col border m-1 ml-2 px-2 py-1 rounded">
-                    <div className="row">
-                      <div className="col">
-                        <Field
-                          label="Acceptable risk under..."
-                          placeholder="default"
-                          helpText={
-                            <div className="text-right">
-                              default: {(metricDefinition?.winRisk ?? 0) * 100}%
-                            </div>
-                          }
-                          append="%"
-                          labelClassName="small mb-1"
-                          type="number"
-                          containerClassName="mb-0 metric-override"
-                          min={0}
-                          step="any"
-                          {...form.register(
-                            `${fieldMap["metricOverrides"]}.${i}.winRisk`,
-                            {
-                              valueAsNumber: true,
-                            },
-                          )}
-                        />
-                      </div>
-                      <div className="col">
-                        <Field
-                          label="Too much risk over..."
-                          placeholder="default"
-                          helpText={
-                            <div className="text-right">
-                              default: {(metricDefinition?.loseRisk ?? 0) * 100}
-                              %
-                            </div>
-                          }
-                          append="%"
-                          labelClassName="small mb-1"
-                          type="number"
-                          containerClassName="mb-0 metric-override"
-                          min={0}
-                          step="any"
-                          {...form.register(
-                            `${fieldMap["metricOverrides"]}.${i}.loseRisk`,
-                            {
-                              valueAsNumber: true,
-                            },
-                          )}
-                        />
-                      </div>
-                    </div>
-                    {riskError && (
-                      <div className="row">
-                        <div className="col text-danger small">{riskError}</div>
-                      </div>
-                    )}
                   </div>
                 </div>
 
