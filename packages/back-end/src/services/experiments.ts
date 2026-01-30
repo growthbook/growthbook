@@ -14,6 +14,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -39,6 +40,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  isPrecomputedDimension,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -643,19 +645,19 @@ export async function parseDimension(
     if (dimension.match(/^exp:/)) {
       return {
         type: "experiment",
-        id: dimension.substr(4),
+        id: dimension.substring(4),
         specifiedSlices: slices,
       };
-    } else if (dimension.match(/^precomputed:/)) {
+    } else if (isPrecomputedDimension(dimension)) {
       return {
         type: "experiment",
-        id: dimension.substr(12),
+        id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
         specifiedSlices: slices,
       };
-    } else if (dimension.substr(0, 4) === "pre:") {
+    } else if (dimension.substring(0, 4) === "pre:") {
       return {
         // eslint-disable-next-line
-        type: dimension.substr(4) as any,
+        type: dimension.substring(4) as any,
       };
     } else {
       const obj = await findDimensionById(dimension, organization);
@@ -1424,7 +1426,7 @@ export async function createSnapshotAnalysis(
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis({
+  await addOrUpdateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,
@@ -1445,7 +1447,7 @@ export async function createSnapshotAnalysis(
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis({
+  await updateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,
