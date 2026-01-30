@@ -5,11 +5,13 @@ import {
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
 import { HoldoutInterface } from "shared/validators";
+import { Box, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -73,7 +75,10 @@ export default function EditStatusModal({
     <Modal
       trackingEventModalType="edit-status-modal"
       trackingEventModalSource={source}
-      header={isHoldout ? "Change Holdout Status" : "Change Experiment Status"}
+      header={
+        isHoldout ? "Force Holdout Status Change" : "Change Experiment Status"
+      }
+      bodyClassName="px-5"
       close={close}
       open={true}
       submit={form.handleSubmit(
@@ -106,12 +111,22 @@ export default function EditStatusModal({
           }
         },
       )}
+      cta={isHoldout ? "Update" : "Save"}
     >
+      {isHoldout && (
+        <Box mb="5">
+          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+            Changing the status of a Holdout will delete the existing schedule
+            and could change the behavior of associated Feature Flags and
+            Metrics.
+          </Text>
+        </Box>
+      )}
       {hasLinkedChanges && (
-        <div className="alert alert-danger">
-          <strong>Warning:</strong> Changes you make here will immediately
-          affect any linked Feature Flags or Visual Changes.
-        </div>
+        <Callout status="warning">
+          Changes you make here will immediately affect any linked Feature Flags
+          or Visual Changes.
+        </Callout>
       )}
       <SelectField
         label="Status"

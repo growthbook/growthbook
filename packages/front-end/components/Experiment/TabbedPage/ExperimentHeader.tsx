@@ -795,18 +795,6 @@ export default function ExperimentHeader({
               menuPlacement="end"
             >
               <DropdownMenuGroup>
-                {canRunExperiment &&
-                  !isBandit &&
-                  (experiment.status !== "draft" || hasResults) && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setStatusModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit status
-                    </DropdownMenuItem>
-                  )}
                 {canEditExperiment ? (
                   <DropdownMenuItem
                     onClick={() => {
@@ -817,16 +805,27 @@ export default function ExperimentHeader({
                     Edit info
                   </DropdownMenuItem>
                 ) : null}
-                {editPhases && !isBandit && (
+                {canRunExperiment &&
+                  !isBandit &&
+                  !isHoldout &&
+                  (experiment.status !== "draft" || hasResults) && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setStatusModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit status
+                    </DropdownMenuItem>
+                  )}
+                {editPhases && !isBandit && !isHoldout && (
                   <DropdownMenuItem
                     onClick={() => {
                       editPhases();
                       setDropdownOpen(false);
                     }}
                   >
-                    {`Edit ${
-                      experiment.type === "holdout" ? "holdout period" : "phase"
-                    }`}
+                    Edit phase
                   </DropdownMenuItem>
                 )}
                 {editSchedule && isHoldout && (
@@ -862,23 +861,35 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {isHoldout &&
-                experiment.status === "running" &&
-                experiment.phases.length < 2 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          stop?.();
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Stop Holdout
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
-                )}
+              {isHoldout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    {experiment.status === "running" &&
+                      experiment.phases.length < 2 && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            stop?.();
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Stop Holdout
+                        </DropdownMenuItem>
+                      )}
+                    {canRunExperiment &&
+                      (experiment.status !== "draft" || hasResults) && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setStatusModal(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Force Status Change
+                        </DropdownMenuItem>
+                      )}
+                  </DropdownMenuGroup>
+                </>
+              )}
               {!isHoldout && (
                 <>
                   <DropdownMenuSeparator />
