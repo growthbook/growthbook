@@ -8,6 +8,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
+import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -85,6 +86,7 @@ export default function BaselineChooserColumnLabel({
         ...analysis.settings,
         baselineVariationIndex: variationIndex,
       };
+      const analysisExists = getSnapshotAnalysis(snapshot, newSettings);
       const status = await triggerAnalysisUpdate(
         newSettings,
         analysis,
@@ -97,7 +99,7 @@ export default function BaselineChooserColumnLabel({
           baseline: variationIndex,
         });
         // NB: await to ensure new analysis is available before we attempt to get it
-        await mutate();
+        if (!analysisExists) await mutate();
         setAnalysisSettings(newSettings);
         setBaselineRow(variationIndex);
       } else if (status === "fail") {
