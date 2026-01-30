@@ -16,6 +16,7 @@ router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
 router.put("/organization", organizationsController.putOrganization);
+router.delete("/organization", organizationsController.deleteOrganization);
 router.post(
   "/organization/config/import",
   organizationsController.postImportConfig,

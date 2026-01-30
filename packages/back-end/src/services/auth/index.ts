@@ -184,6 +184,15 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
+        // Check if organization is disabled
+        if (req.organization.disabled === true && !req.superAdmin) {
+          res.status(403).json({
+            status: 403,
+            message: "This organization has been deleted",
+          });
+          return;
+        }
+
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
