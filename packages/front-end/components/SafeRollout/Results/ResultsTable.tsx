@@ -219,7 +219,6 @@ export default function ResultsTable({
           metric: row.metric,
           denominator,
           metricDefaults,
-          isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
           differenceType,

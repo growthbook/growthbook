@@ -467,7 +467,6 @@ export default function ResultsTable({
             metric: row.metric,
             denominator,
             metricDefaults,
-            isGuardrail: row.resultGroup === "guardrail",
             minSampleSize: getMinSampleSizeForMetric(row.metric),
             statsEngine,
             differenceType,
@@ -1086,9 +1085,6 @@ export default function ResultsTable({
                                               showSuspicious={true}
                                               showPercentComplete={false}
                                               showTimeRemaining={true}
-                                              showGuardrailWarning={
-                                                row.resultGroup === "guardrail"
-                                              }
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
@@ -1111,9 +1107,6 @@ export default function ResultsTable({
                                               showPercentComplete={false}
                                               showTimeRemaining={true}
                                               showUnadjustedPValue={false}
-                                              showGuardrailWarning={
-                                                row.resultGroup === "guardrail"
-                                              }
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }

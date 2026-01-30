@@ -480,7 +480,6 @@ export type RowResults = {
   suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
-  guardrailWarning: string;
 };
 export type EnoughDataMetaZeroValues = {
   reason: "baselineZero" | "variationZero";
@@ -504,7 +503,6 @@ export function getRowResults({
   metric,
   denominator,
   metricDefaults,
-  isGuardrail,
   minSampleSize,
   statsEngine,
   differenceType,
@@ -523,7 +521,6 @@ export function getRowResults({
   metric: ExperimentMetricInterface;
   denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
-  isGuardrail: boolean;
   minSampleSize: number;
   ciUpper: number;
   ciLower: number;
@@ -697,16 +694,6 @@ export function getRowResults({
     }
   }
 
-  let guardrailWarning = "";
-  if (
-    isGuardrail &&
-    directionalStatus === "losing" &&
-    resultsStatus !== "lost"
-  ) {
-    guardrailWarning =
-      "Uplift for this guardrail metric may be in the undesired direction.";
-  }
-
   return {
     directionalStatus,
     resultsStatus,
@@ -722,7 +709,6 @@ export function getRowResults({
     suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
-    guardrailWarning,
   };
 }
 

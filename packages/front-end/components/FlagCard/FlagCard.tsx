@@ -172,8 +172,6 @@ export default function FlagCard({
           }
         />
 
-        
-
         {!data.isGuardrail && data.rowResults.suspiciousChange ? (
           <CardItem
             label="Suspicious"
@@ -182,18 +180,6 @@ export default function FlagCard({
               <span style={{ color: "var(--pink-a11)" }}>
                 % change &gt;{" "}
                 {percentFormatter.format(data.rowResults.suspiciousThreshold)}
-              </span>
-            }
-          />
-        ) : null}
-
-        {data.rowResults.guardrailWarning ? (
-          <CardItem
-            label="Guardrail trend"
-            tooltip={data.rowResults.guardrailWarning}
-            value={
-              <span style={{ color: "var(--red-a12)" }}>
-                Bad guardrail trend
               </span>
             }
           />

@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
@@ -23,7 +22,6 @@ interface Props
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
-  showGuardrailWarning?: boolean;
   className?: string;
   hideScaledImpact?: boolean;
 }
@@ -34,7 +32,6 @@ export default function ChanceToWinColumn({
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
-  showGuardrailWarning = false,
   className,
   hideScaledImpact = false,
   ...otherProps
@@ -56,12 +53,6 @@ export default function ChanceToWinColumn({
           <div className="result-number d-inline-block">
             {percentFormatter.format(stats.chanceToWin ?? 0)}
           </div>
-          {showGuardrailWarning &&
-          rowResults.guardrailWarning ? (
-            <span className="warning" style={{ marginLeft: 1 }}>
-              <HiOutlineExclamationCircle />
-            </span>
-          ) : null}
           {showSuspicious && rowResults.suspiciousChange ? (
             <span className="suspicious" style={{ marginLeft: 1 }}>
               <GBSuspicious />
