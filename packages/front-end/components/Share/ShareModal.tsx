@@ -488,14 +488,14 @@ const ShareModal = ({
       submit={submitForm}
       cta="Save"
       closeCta="Cancel"
-      navStyle="underlined"
-      navFill={true}
+      navStyle="default"
       size="max"
       step={step}
       setStep={setStep}
+      backButton={true}
     >
       <Page display="Select Experiments">
-        <div className="row new-share">
+        <div className="row new-share mt-4">
           <div className="col-sm-12 col-md-4 mb-5">
             <h4>Selected experiments to share</h4>
             <div className="selected-area h-100">
@@ -681,7 +681,7 @@ const ShareModal = ({
           </div>
         </Page> */}
       <Page display="Presentation Options">
-        <div className="row new-share">
+        <div className="row new-share mt-4">
           <div className="col-sm-12 col-md-6">
             <div className="form-group row">
               <label
