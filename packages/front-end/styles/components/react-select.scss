@@ -63,9 +63,10 @@
 // Hide clear (X) and raw-text-mode buttons until the field is hovered
 .gb-multi-select__control,
 .gb-select__control {
-  .gb-multi-select__indicators,
-  .gb-select__indicators {
-    margin-right: -5px;
+  .gb-select__indicators,
+  .gb-multi-select__indicators {
+    margin-left: -18px;
+    position: relative;
   }
   .gb-multi-select__clear-indicator,
   .gb-select__clear-indicator,
@@ -74,8 +75,9 @@
     opacity: 0 !important;
     transition: opacity 0.1s ease-in-out;
   }
-  .gb-multi-select__clear-indicator {
-    margin-right: -15px;
+  .gb-multi-select__clear-indicator,
+  .gb-select__clear-indicator {
+    padding: 8px 2px;
   }
 }
 .gb-multi-select__control:hover,
@@ -89,12 +91,11 @@
 }
 
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
-// Match react-select's hardcoded indicator colors (clear/dropdown use hsl, not theme vars)
 .gb-select__raw-text-mode-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 4px;
+  padding: 8px;
   background: none;
   border: none;
   color: hsl(0, 0%, 80%);
@@ -112,7 +113,6 @@
   }
 }
 
-// When control is focused, match clear (X) button focused color
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator {
   color: hsl(0, 0%, 40%);
@@ -122,7 +122,6 @@
 }
 
 // Raw text mode: value-container (textarea) + indicators (button) in one row
-// Match Field/form-control border and focus styles (border-color, border-radius, focus ring)
 .gb-select__raw-text-control {
   display: flex;
   align-items: stretch;

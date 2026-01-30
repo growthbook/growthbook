@@ -205,7 +205,7 @@ export default function PrerequisiteInput(props: Props) {
 
         if (!attribute) {
           console.error("Attribute not found in attribute Map.");
-          return;
+          return null;
         }
 
         const handleCondsChange = (value: string, name: string) => {
@@ -220,14 +220,11 @@ export default function PrerequisiteInput(props: Props) {
         ) => {
           const name = e.target.name;
           const value: string | number = e.target.value;
-
           handleCondsChange(value, name);
         };
 
         const handleListChange = (values: string[]) => {
-          const name = "value";
-          const value: string | number = values.join(",");
-          handleCondsChange(value, name);
+          handleCondsChange(values.join(","), "value");
         };
 
         const operatorOptions =
@@ -300,7 +297,7 @@ export default function PrerequisiteInput(props: Props) {
                           );
                           handleCondsChange(newOperator, "operator");
                         }}
-                        formatOptionLabel={({ value, label }) => {
+                        formatOptionLabel={({ value: v, label }) => {
                           const def =
                             attribute.datatype === "boolean"
                               ? "$true"
@@ -308,7 +305,7 @@ export default function PrerequisiteInput(props: Props) {
                           return (
                             <span>
                               {label}
-                              {value === def && (
+                              {v === def && (
                                 <Text
                                   color="gray"
                                   size="1"
@@ -330,32 +327,19 @@ export default function PrerequisiteInput(props: Props) {
                         datatypeSupportsCaseInsensitive(
                           attribute?.datatype,
                         ) && (
-                          <Flex
-                            style={{
-                              position: "absolute",
-                              top: "50%",
-                              transform: "translateY(-50%)",
-                              opacity: isCaseInsensitiveOperator(operator)
-                                ? 1
-                                : 0.5,
-                              right: 35,
+                          <Checkbox
+                            value={isCaseInsensitiveOperator(operator)}
+                            setValue={(checked) => {
+                              const newOperator = withOperatorCaseInsensitivity(
+                                getDisplayOperator(operator),
+                                checked,
+                              );
+                              handleCondsChange(newOperator, "operator");
                             }}
-                          >
-                            <Checkbox
-                              value={isCaseInsensitiveOperator(operator)}
-                              setValue={(checked) => {
-                                const newOperator =
-                                  withOperatorCaseInsensitivity(
-                                    getDisplayOperator(operator),
-                                    checked,
-                                  );
-                                handleCondsChange(newOperator, "operator");
-                              }}
-                              label="Case insensitive"
-                              size="sm"
-                              weight="regular"
-                            />
-                          </Flex>
+                            label="Case insensitive"
+                            size="sm"
+                            weight="regular"
+                          />
                         )}
                     </Flex>
                   </Box>
@@ -378,7 +362,7 @@ export default function PrerequisiteInput(props: Props) {
                       containerClassName="w-100"
                       value={value ? value.trim().split(",") : []}
                       onChange={handleListChange}
-                      placeholder="Enter some values..."
+                      placeholder="value 1, value 2, value 3..."
                       delimiters={["Enter", "Tab"]}
                       enableRawTextMode
                       required

@@ -1,13 +1,7 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import {
-  PiArrowSquareOut,
-  PiPlusBold,
-  PiPlusCircleBold,
-  PiXBold,
-} from "react-icons/pi";
+import { PiArrowSquareOut, PiPlusCircleBold } from "react-icons/pi";
 import React from "react";
-import { Box, Flex, Separator, Text, IconButton } from "@radix-ui/themes";
-import Tooltip from "@/ui/Tooltip";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -17,7 +11,14 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import { ConditionLabel } from "./ConditionInput";
+import {
+  ConditionGroupCard,
+  ConditionGroupHeader,
+  ConditionGroupContent,
+  AndSeparator,
+  AddConditionButton,
+  AddConditionButtonWrap,
+} from "./ConditionGroup";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -100,120 +101,96 @@ export default function SavedGroupTargetingField({
           unsupportedConnections={unsupportedConnections}
         />
       </Box>
-      <Box className="appbox bg-light px-3 py-3">
-        {conflicts.length > 0 && (
-          <Callout status="error" mb="3">
-            <Text weight="bold">Error:</Text> You have a conflict in your rules
-            with the following groups:{" "}
-            {conflicts.map((c) => (
-              <Badge
-                key={c}
-                label={getSavedGroupById(c)?.groupName || c}
-                color="red"
-                mr="1"
-              />
-            ))}
-          </Callout>
-        )}
-        {value.map((v, i) => {
-          return (
-            <React.Fragment key={i}>
-              {i > 0 && <Separator size="4" mt="6" mb="4" />}
-              <Flex direction="column" gap="2" mb="4">
-                <ConditionLabel label={i === 0 ? "In" : "AND"} />
-                <Flex gap="2" align="start">
-                  <Flex
-                    direction="column"
-                    gap="2"
-                    style={{ flex: 1, minWidth: 0 }}
-                  >
-                    <Box>
-                      <SelectField
-                        useMultilineLabels={true}
-                        value={v.match}
-                        onChange={(match) => {
-                          const newValue = [...value];
-                          newValue[i] = { ...v };
-                          newValue[i].match = match as "all" | "any" | "none";
-                          setValue(newValue);
-                        }}
-                        sort={false}
-                        options={[
-                          { value: "any", label: "Any of" },
-                          { value: "all", label: "All of" },
-                          { value: "none", label: "None of" },
-                        ]}
-                      />
-                    </Box>
-                    <Box>
-                      <MultiSelectField
-                        value={v.ids}
-                        onChange={(ids) => {
-                          const newValue = [...value];
-                          newValue[i] = { ...v };
-                          newValue[i].ids = ids;
-                          setValue(newValue);
-                        }}
-                        options={options}
-                        formatOptionLabel={(o, meta) => {
-                          if (meta.context !== "value") return o.label;
-                          const group = getSavedGroupById(o.value);
-                          if (!group) return o.label;
-                          return (
-                            <Link
-                              href={`/saved-groups/${group.id}`}
-                              target="_blank"
-                            >
-                              {o.label} <PiArrowSquareOut />
-                            </Link>
-                          );
-                        }}
-                        required
-                        placeholder="Select groups..."
-                        closeMenuOnSelect={true}
-                      />
-                    </Box>
-                  </Flex>
-                  <Box px="1" pt="2" style={{ width: 16, flexShrink: 0 }}>
-                    <Tooltip content="Remove condition">
-                      <IconButton
-                        type="button"
-                        color="red"
-                        variant="ghost"
-                        onClick={() => {
-                          const newValue = [...value];
-                          newValue.splice(i, 1);
-                          setValue(newValue);
-                        }}
-                      >
-                        <PiXBold size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Flex>
+      {conflicts.length > 0 && (
+        <Callout status="error" mb="3">
+          <Text weight="bold">Error:</Text> You have a conflict in your rules
+          with the following groups:{" "}
+          {conflicts.map((c) => (
+            <Badge
+              key={c}
+              label={getSavedGroupById(c)?.groupName || c}
+              color="red"
+              mr="1"
+            />
+          ))}
+        </Callout>
+      )}
+      <ConditionGroupCard>
+        <ConditionGroupHeader
+          targetingType="group"
+          total={value.length}
+        />
+        <ConditionGroupContent>
+          {value.map((v, i) => (
+            <Box key={i}>
+              {i > 0 && <AndSeparator />}
+              <Flex gap="2" align="start" px="0" py="2" style={{ minWidth: 0 }}>
+                <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: 200 }}>
+                  <SelectField
+                    useMultilineLabels={true}
+                    value={v.match}
+                    onChange={(match) => {
+                      const newValue = [...value];
+                      newValue[i] = { ...v };
+                      newValue[i].match = match as "all" | "any" | "none";
+                      setValue(newValue);
+                    }}
+                    sort={false}
+                    options={[
+                      { value: "any", label: "Any of" },
+                      { value: "all", label: "All of" },
+                      { value: "none", label: "None of" },
+                    ]}
+                  />
+                </Box>
+                <Box style={{ flex: 1, minWidth: 0 }}>
+                  <MultiSelectField
+                    value={v.ids}
+                    onChange={(ids) => {
+                    const newValue = [...value];
+                    newValue[i] = { ...v };
+                    newValue[i].ids = ids;
+                    setValue(newValue);
+                    }}
+                    options={options}
+                    formatOptionLabel={(o, meta) => {
+                      if (meta.context !== "value") return o.label;
+                      const group = getSavedGroupById(o.value);
+                      if (!group) return o.label;
+                      return (
+                        <Link
+                          href={`/saved-groups/${group.id}`}
+                          target="_blank"
+                        >
+                          {o.label} <PiArrowSquareOut />
+                        </Link>
+                      );
+                    }}
+                    required
+                    placeholder="Select groups..."
+                    closeMenuOnSelect={true}
+                  />
+                </Box>
               </Flex>
-            </React.Fragment>
-          );
-        })}
-        <Box mt="2">
-          <Link
-            onClick={() => {
-              setValue([
-                ...value,
-                {
-                  match: "any",
-                  ids: [],
-                },
-              ]);
-            }}
-          >
-            <Text weight="bold">
-              <PiPlusBold className="mr-1" />
-              AND
-            </Text>
-          </Link>
-        </Box>
-      </Box>
+            </Box>
+          ))}
+          <AddConditionButtonWrap>
+            <AddConditionButton
+              onClick={() => {
+                setValue([
+                  ...value,
+                  {
+                    match: "any",
+                    ids: [],
+                  },
+                ]);
+              }}
+            >
+              Add group
+            </AddConditionButton>
+          </AddConditionButtonWrap>
+        </ConditionGroupContent>
+      </ConditionGroupCard>
     </Box>
   );
 }

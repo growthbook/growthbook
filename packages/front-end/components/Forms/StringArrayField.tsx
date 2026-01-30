@@ -151,7 +151,7 @@ export default function StringArrayField({
                   className="form-control gb-select__raw-text-input"
                   value={rawTextValue}
                   onChange={handleRawTextChange}
-                  placeholder={placeholder ?? "Value1, Value2, Value3..."}
+                  placeholder={placeholder ?? "value 1, value 2, value 3..."}
                   minRows={1}
                   disabled={disabled}
                   required={fieldProps.required}
