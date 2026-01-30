@@ -17,6 +17,7 @@ export const listExperiments = createApiRequestHandler(
 )(async (req): Promise<ListExperimentsResponse> => {
   const experiments = await getAllExperiments(req.context, {
     includeArchived: true,
+    onlyUpdatedSince: req.query.onlyUpdatedSince,
   });
 
   // TODO: Move sorting/limiting to the database query for better performance
