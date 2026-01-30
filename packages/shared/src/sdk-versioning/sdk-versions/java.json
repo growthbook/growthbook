@@ -1,7 +1,8 @@
 {
   "versions": [
     {
-      "version": "0.10.5"
+      "version": "0.10.6",
+      "capabilities": ["caseInsensitiveRegex"]
     },
     {
       "version": "0.10.2"

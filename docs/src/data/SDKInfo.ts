@@ -464,6 +464,12 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.1.1",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.1.1",
+      },
+      {
         stickyBucketing: "≥ v0.1.0",
       },
       {
@@ -485,7 +491,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.5",
+    version: "0.10.6",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -517,6 +523,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.10.6",
       },
       {
         remoteEvaluation: "≥ v0.9.92",
@@ -677,7 +686,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.93",
+    version: "1.0.95",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
