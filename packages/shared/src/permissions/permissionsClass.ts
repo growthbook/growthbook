@@ -793,7 +793,7 @@ export class Permissions {
   public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects",
+      "createProjects",
     );
   };
 
@@ -823,7 +823,7 @@ export class Permissions {
   public canDeleteProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects",
+      "deleteProjects",
     );
   };
 
