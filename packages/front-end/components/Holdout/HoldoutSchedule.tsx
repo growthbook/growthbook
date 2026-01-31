@@ -64,7 +64,6 @@ export const HoldoutSchedule = ({
   holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
 }) => {
-  const now = new Date();
   const startDate =
     experiment.status !== "draft"
       ? pickEarlierDate(
@@ -85,21 +84,6 @@ export const HoldoutSchedule = ({
 
   const [firstSegmentWeight, secondSegmentWeight, thirdSegmentWeight] =
     getSegmentWeights(startDate, startAnalysisPeriodDate, stopDate);
-
-  console.log("firstSegmentWeight", firstSegmentWeight);
-  console.log("secondSegmentWeight", secondSegmentWeight);
-  console.log("thirdSegmentWeight", thirdSegmentWeight);
-
-  console.log(
-    "completion",
-    startDate && startAnalysisPeriodDate
-      ? now > startAnalysisPeriodDate
-        ? 100
-        : (differenceInDays(now, startDate) /
-            differenceInDays(startAnalysisPeriodDate, startDate)) *
-          100
-      : 0,
-  );
 
   const segments = [
     {
