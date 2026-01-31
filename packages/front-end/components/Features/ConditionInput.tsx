@@ -41,13 +41,10 @@ import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
   ConditionGroupCard,
-  ConditionGroupHeader,
-  ConditionGroupContent,
   ConditionRow,
   AndSeparator,
   OrSeparator,
   AddConditionButton,
-  AddConditionButtonWrap,
   AddOrGroupButton,
 } from "./ConditionGroup";
 
@@ -334,33 +331,55 @@ export default function ConditionInput(props: Props) {
       {conds.map((andGroup, i) => (
         <Box key={i}>
           {i > 0 && <OrSeparator />}
-          <ConditionGroupCard>
-            <ConditionGroupHeader
-              targetingType="attribute"
-              total={conds.length}
+          <ConditionGroupCard
+            targetingType="attribute"
+            total={conds.length}
+            extendToCardEdges
+            addButton={
+              attributeSchema.length > 0 ? (
+                <AddConditionButton
+                  onClick={() => {
+                    const prop = attributeSchema[0];
+                    const newAndGroups = [...conds];
+                    newAndGroups[i] = [
+                      ...andGroup,
+                      {
+                        field: prop?.property || "",
+                        operator:
+                          prop?.datatype === "boolean"
+                            ? "$true"
+                            : prop?.disableEqualityConditions
+                              ? "$regex"
+                              : "$eq",
+                        value: "",
+                      },
+                    ];
+                    setConds(newAndGroups);
+                  }}
+                />
+              ) : undefined
+            }
+          >
+            <ConditionAndGroupInput
+              conds={andGroup}
+              setConds={(newConds) => {
+                const newAndGroups = [...conds];
+                if (newConds.length === 0) {
+                  newAndGroups.splice(i, 1);
+                } else {
+                  newAndGroups[i] = newConds;
+                }
+                setConds(newAndGroups);
+              }}
+              orGroupsCount={conds.length}
+              project={props.project}
+              labelClassName={props.labelClassName}
+              emptyText={props.emptyText}
+              title={props.title}
+              require={props.require}
+              allowNestedSavedGroups={props.allowNestedSavedGroups}
+              excludeSavedGroupId={props.excludeSavedGroupId}
             />
-            <ConditionGroupContent>
-              <ConditionAndGroupInput
-                conds={andGroup}
-                setConds={(newConds) => {
-                  const newAndGroups = [...conds];
-                  if (newConds.length === 0) {
-                    newAndGroups.splice(i, 1);
-                  } else {
-                    newAndGroups[i] = newConds;
-                  }
-                  setConds(newAndGroups);
-                }}
-                orGroupsCount={conds.length}
-                project={props.project}
-                labelClassName={props.labelClassName}
-                emptyText={props.emptyText}
-                title={props.title}
-                require={props.require}
-                allowNestedSavedGroups={props.allowNestedSavedGroups}
-                excludeSavedGroupId={props.excludeSavedGroupId}
-              />
-            </ConditionGroupContent>
           </ConditionGroupCard>
         </Box>
       ))}
@@ -456,7 +475,7 @@ function ConditionAndGroupInput({
 
   return (
     <>
-      {conds.map(({ field, operator, value }, i) => {
+      {conds.flatMap(({ field, operator, value }, i) => {
         const attribute = attributes.get(field);
 
         const handleCondsChange = (value: string, name: string) => {
@@ -567,83 +586,82 @@ function ConditionAndGroupInput({
             }
           });
 
-          return (
-            <React.Fragment key={i}>
-              {i > 0 && <AndSeparator />}
-              <ConditionRow
-                attributeSlot={fieldSelector}
-                operatorSlot={
-                  <SelectField
-                    useMultilineLabels={true}
-                    value={operator}
-                    name="operator"
-                    options={[
-                      { label: "in", value: "$in" },
-                      { label: "not in", value: "$nin" },
-                    ]}
-                    sort={false}
-                    onChange={(v) => {
-                      handleCondsChange(v, "operator");
-                    }}
-                  />
-                }
-                valueSlot={
-                  <MultiSelectField
-                    value={ids}
-                    options={groupOptions}
-                    onChange={handleListChange}
-                    name="value"
-                    formatOptionLabel={(o, meta) => {
-                      if (meta.context !== "value" || !o.value) return o.label;
-                      const group = getSavedGroupById(o.value);
-                      if (!group) return o.label;
-                      return (
-                        <Link
-                          href={`/saved-groups/${group.id}`}
-                          target="_blank"
-                          style={{ position: "relative", zIndex: 1000 }}
-                        >
-                          {o.label} <PiArrowSquareOut />
-                        </Link>
-                      );
-                    }}
-                    required
-                  />
-                }
-                removeSlot={
-                  (conds.length > 1 ||
-                    (conds.length === 1 && orGroupsCount > 1) ||
-                    !props.require) && (
-                    <Tooltip content="Remove condition">
-                      <IconButton
-                        type="button"
-                        color="gray"
-                        variant="ghost"
-                        radius="full"
-                        size="1"
-                        onClick={() => {
-                          if (conds.length === 1) {
-                            setConds([]);
-                          } else {
-                            const newConds = [...conds];
-                            newConds.splice(i, 1);
-                            setConds(newConds);
-                          }
-                        }}
+          return [
+            ...(i > 0 ? [<AndSeparator key={`and-${i}`} />] : []),
+            <ConditionRow
+              key={i}
+              attributeSlot={fieldSelector}
+              operatorSlot={
+                <SelectField
+                  useMultilineLabels={true}
+                  value={operator}
+                  name="operator"
+                  options={[
+                    { label: "in", value: "$in" },
+                    { label: "not in", value: "$nin" },
+                  ]}
+                  sort={false}
+                  onChange={(v) => {
+                    handleCondsChange(v, "operator");
+                  }}
+                />
+              }
+              valueSlot={
+                <MultiSelectField
+                  value={ids}
+                  options={groupOptions}
+                  onChange={handleListChange}
+                  name="value"
+                  formatOptionLabel={(o, meta) => {
+                    if (meta.context !== "value" || !o.value) return o.label;
+                    const group = getSavedGroupById(o.value);
+                    if (!group) return o.label;
+                    return (
+                      <Link
+                        href={`/saved-groups/${group.id}`}
+                        target="_blank"
+                        style={{ position: "relative", zIndex: 1000 }}
                       >
-                        <PiXBold size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  )
-                }
-              />
-            </React.Fragment>
-          );
+                        {o.label} <PiArrowSquareOut />
+                      </Link>
+                    );
+                  }}
+                  required
+                />
+              }
+              removeSlot={
+                (conds.length > 1 ||
+                  (conds.length === 1 && orGroupsCount > 1) ||
+                  !props.require) && (
+                  <Tooltip content="Remove condition">
+                    <IconButton
+                      type="button"
+                      color="gray"
+                      variant="ghost"
+                      radius="full"
+                      size="1"
+                      onClick={() => {
+                        if (conds.length === 1) {
+                          setConds([]);
+                        } else {
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }
+                      }}
+                    >
+                      <PiXBold size={16} />
+                    </IconButton>
+                  </Tooltip>
+                )
+              }
+            />,
+          ];
         }
 
         if (!attribute) {
           console.error("Attribute not found in attribute Map.");
-          return;
+          return [];
         }
 
         const savedGroupOptions = savedGroups
@@ -813,282 +831,259 @@ function ConditionAndGroupInput({
         const hasExtraWhitespace =
           displayType === "string" && value !== value.trim();
 
-        return (
-          <React.Fragment key={i}>
-            {i > 0 && <AndSeparator />}
-            <ConditionRow
-              attributeSlot={fieldSelector}
-              operatorSlot={
-                <Flex gap="1" align="start">
-                  <Box style={{ flexGrow: 1 }}>
-                    <SelectField
-                      useMultilineLabels={true}
-                      value={getDisplayOperator(operator)}
-                      name="operator"
-                      options={operatorOptions}
-                      sort={false}
-                      onChange={(v) => {
-                        const newOperator = withOperatorCaseInsensitivity(
-                          v,
-                          isCaseInsensitiveOperator(operator),
-                        );
-                        handleCondsChange(newOperator, "operator");
-                      }}
-                    />
-                  </Box>
-                  {operatorSupportsCaseInsensitive(operator) &&
-                    datatypeSupportsCaseInsensitive(attribute?.datatype) && (
-                      <Tooltip
-                        content={`Case insensitive: ${isCaseInsensitiveOperator(operator) ? "ON" : "OFF"}`}
+        return [
+          ...(i > 0 ? [<AndSeparator key={`and-${i}`} />] : []),
+          <ConditionRow
+            key={i}
+            attributeSlot={fieldSelector}
+            operatorSlot={
+              <Flex gap="1" align="start">
+                <Box style={{ flexGrow: 1 }}>
+                  <SelectField
+                    useMultilineLabels={true}
+                    value={getDisplayOperator(operator)}
+                    name="operator"
+                    options={operatorOptions}
+                    sort={false}
+                    onChange={(v) => {
+                      const newOperator = withOperatorCaseInsensitivity(
+                        v,
+                        isCaseInsensitiveOperator(operator),
+                      );
+                      handleCondsChange(newOperator, "operator");
+                    }}
+                  />
+                </Box>
+                {operatorSupportsCaseInsensitive(operator) &&
+                  datatypeSupportsCaseInsensitive(attribute?.datatype) && (
+                    <Tooltip
+                      content={`Case insensitive: ${isCaseInsensitiveOperator(operator) ? "ON" : "OFF"}`}
+                    >
+                      <IconButton
+                        type="button"
+                        variant="outline"
+                        size="1"
+                        radius="medium"
+                        onClick={() => {
+                          const newOperator = withOperatorCaseInsensitivity(
+                            getDisplayOperator(operator),
+                            !isCaseInsensitiveOperator(operator),
+                          );
+                          handleCondsChange(newOperator, "operator");
+                        }}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          margin: "14px 0 0 2px",
+                          padding: 0,
+                          backgroundColor: isCaseInsensitiveOperator(operator)
+                            ? "var(--violet-4)"
+                            : undefined,
+                          boxShadow: isCaseInsensitiveOperator(operator)
+                            ? undefined
+                            : "inset 0 0 0 1px var(--accent-a4)",
+                        }}
                       >
-                        <IconButton
-                          type="button"
-                          variant="outline"
-                          size="1"
-                          radius="medium"
-                          onClick={() => {
-                            const newOperator = withOperatorCaseInsensitivity(
-                              getDisplayOperator(operator),
-                              !isCaseInsensitiveOperator(operator),
-                            );
-                            handleCondsChange(newOperator, "operator");
+                        Aa
+                      </IconButton>
+                    </Tooltip>
+                  )}
+              </Flex>
+            }
+            valueSlot={
+              displayType === "select-only" ? undefined : (
+                <>
+                  {["$inGroup", "$notInGroup"].includes(operator) &&
+                  savedGroupOptions.length > 0 ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      <SelectField
+                        useMultilineLabels={true}
+                        options={savedGroupOptions.map((o) => ({
+                          label: o.label,
+                          value: o.value,
+                        }))}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                        formatOptionLabel={(o, meta) => {
+                          if (meta.context !== "value" || !o.value)
+                            return o.label;
+                          const group = getSavedGroupById(o.value);
+                          if (!group) return o.label;
+                          return (
+                            <Link
+                              href={`/saved-groups/${group.id}`}
+                              target="_blank"
+                              style={{ position: "relative", zIndex: 1000 }}
+                            >
+                              {o.label} <PiArrowSquareOut />
+                            </Link>
+                          );
+                        }}
+                        name="value"
+                        initialOption="Choose group..."
+                        required
+                      />
+                    </Box>
+                  ) : displayType === "array-field" ? (
+                    <Flex
+                      direction="column"
+                      align="start"
+                      style={{ flexBasis: "100%", minWidth: 0 }}
+                    >
+                      <StringArrayField
+                        containerClassName="w-100"
+                        value={value ? value.trim().split(",") : []}
+                        onChange={handleListChange}
+                        placeholder="value 1, value 2, value 3..."
+                        delimiters={["Enter", "Tab"]}
+                        enableRawTextMode
+                        required
+                      />
+                    </Flex>
+                  ) : displayType === "isoCountryCode" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      {listOperators.includes(operator) ? (
+                        <CountrySelector
+                          selectAmount="multi"
+                          displayFlags={true}
+                          value={
+                            value
+                              ? value.split(",").map((val) => val.trim())
+                              : []
+                          }
+                          onChange={handleListChange}
+                        />
+                      ) : (
+                        <CountrySelector
+                          selectAmount="single"
+                          displayFlags={true}
+                          value={value}
+                          onChange={(v) => {
+                            handleCondsChange(v, "value");
                           }}
-                          style={{
-                            width: 26,
-                            height: 26,
-                            margin: "6px 0",
-                            padding: 0,
-                            backgroundColor: isCaseInsensitiveOperator(operator)
-                              ? "var(--violet-4)"
-                              : undefined,
-                            boxShadow: isCaseInsensitiveOperator(operator)
-                              ? undefined
-                              : "inset 0 0 0 1px var(--accent-a4)",
-                          }}
-                        >
-                          Aa
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                </Flex>
-              }
-              valueSlot={
-                displayType === "select-only" ? null : (
-                  <>
-                    {["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroupOptions.length > 0 ? (
-                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                        />
+                      )}
+                    </Box>
+                  ) : displayType === "enum" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      {listOperators.includes(operator) ? (
+                        <MultiSelectField
+                          options={attribute.enum.map((v) => ({
+                            label: v,
+                            value: v,
+                          }))}
+                          value={
+                            value
+                              ? value.split(",").map((val) => val.trim())
+                              : []
+                          }
+                          onChange={handleListChange}
+                          name="value"
+                          required
+                        />
+                      ) : (
                         <SelectField
                           useMultilineLabels={true}
-                          options={savedGroupOptions.map((o) => ({
-                            label: o.label,
-                            value: o.value,
+                          options={attribute.enum.map((v) => ({
+                            label: v,
+                            value: v,
                           }))}
                           value={value}
                           onChange={(v) => {
                             handleCondsChange(v, "value");
                           }}
-                          formatOptionLabel={(o, meta) => {
-                            if (meta.context !== "value" || !o.value)
-                              return o.label;
-                            const group = getSavedGroupById(o.value);
-                            if (!group) return o.label;
-                            return (
-                              <Link
-                                href={`/saved-groups/${group.id}`}
-                                target="_blank"
-                                style={{ position: "relative", zIndex: 1000 }}
-                              >
-                                {o.label} <PiArrowSquareOut />
-                              </Link>
+                          name="value"
+                          initialOption="Choose One..."
+                          required
+                        />
+                      )}
+                    </Box>
+                  ) : displayType === "number" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      <Field
+                        type="number"
+                        step="any"
+                        value={value}
+                        onChange={handleFieldChange}
+                        name="value"
+                        style={{ minHeight: 38 }}
+                        required
+                      />
+                    </Box>
+                  ) : displayType === "string" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      {attribute.format === "date" &&
+                      ![
+                        "$regex",
+                        "$notRegex",
+                        "$regexi",
+                        "$notRegexi",
+                      ].includes(operator) ? (
+                        <DatePicker
+                          date={value}
+                          setDate={(v) => {
+                            handleCondsChange(
+                              v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
+                              "value",
                             );
                           }}
-                          name="value"
-                          initialOption="Choose group..."
-                          required
+                          inputWidth={180}
                         />
-                      </Box>
-                    ) : displayType === "array-field" ? (
-                      <Flex
-                        direction="column"
-                        align="start"
-                        style={{ flexBasis: "100%", minWidth: 0 }}
-                      >
-                        <StringArrayField
-                          containerClassName="w-100"
-                          value={value ? value.trim().split(",") : []}
-                          onChange={handleListChange}
-                          placeholder="value 1, value 2, value 3..."
-                          delimiters={["Enter", "Tab"]}
-                          enableRawTextMode
-                          required
-                        />
-                      </Flex>
-                    ) : displayType === "isoCountryCode" ? (
-                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
-                        {listOperators.includes(operator) ? (
-                          <CountrySelector
-                            selectAmount="multi"
-                            displayFlags={true}
-                            value={
-                              value
-                                ? value.split(",").map((val) => val.trim())
-                                : []
-                            }
-                            onChange={handleListChange}
-                          />
-                        ) : (
-                          <CountrySelector
-                            selectAmount="single"
-                            displayFlags={true}
-                            value={value}
-                            onChange={(v) => {
-                              handleCondsChange(v, "value");
-                            }}
-                          />
-                        )}
-                      </Box>
-                    ) : displayType === "enum" ? (
-                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
-                        {listOperators.includes(operator) ? (
-                          <MultiSelectField
-                            options={attribute.enum.map((v) => ({
-                              label: v,
-                              value: v,
-                            }))}
-                            value={
-                              value
-                                ? value.split(",").map((val) => val.trim())
-                                : []
-                            }
-                            onChange={handleListChange}
-                            name="value"
-                            required
-                          />
-                        ) : (
-                          <SelectField
-                            useMultilineLabels={true}
-                            options={attribute.enum.map((v) => ({
-                              label: v,
-                              value: v,
-                            }))}
-                            value={value}
-                            onChange={(v) => {
-                              handleCondsChange(v, "value");
-                            }}
-                            name="value"
-                            initialOption="Choose One..."
-                            required
-                          />
-                        )}
-                      </Box>
-                    ) : displayType === "number" ? (
-                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      ) : (
                         <Field
-                          type="number"
-                          step="any"
                           value={value}
                           onChange={handleFieldChange}
                           name="value"
                           style={{ minHeight: 38 }}
+                          containerClassName={clsx({
+                            error: hasExtraWhitespace,
+                          })}
+                          helpText={
+                            hasExtraWhitespace ? (
+                              <small className="text-danger">
+                                Extra whitespace detected
+                              </small>
+                            ) : undefined
+                          }
                           required
                         />
-                      </Box>
-                    ) : displayType === "string" ? (
-                      <Box style={{ flexBasis: "100%", minWidth: 0 }}>
-                        {attribute.format === "date" &&
-                        ![
-                          "$regex",
-                          "$notRegex",
-                          "$regexi",
-                          "$notRegexi",
-                        ].includes(operator) ? (
-                          <DatePicker
-                            date={value}
-                            setDate={(v) => {
-                              handleCondsChange(
-                                v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
-                                "value",
-                              );
-                            }}
-                            inputWidth={180}
-                          />
-                        ) : (
-                          <Field
-                            value={value}
-                            onChange={handleFieldChange}
-                            name="value"
-                            style={{ minHeight: 38 }}
-                            containerClassName={clsx({
-                              error: hasExtraWhitespace,
-                            })}
-                            helpText={
-                              hasExtraWhitespace ? (
-                                <small className="text-danger">
-                                  Extra whitespace detected
-                                </small>
-                              ) : undefined
-                            }
-                            required
-                          />
-                        )}
-                      </Box>
-                    ) : null}
-                  </>
-                )
-              }
-              removeSlot={
-                (conds.length > 1 ||
-                  (conds.length === 1 && orGroupsCount > 1) ||
-                  !props.require) && (
-                  <Tooltip content="Remove condition">
-                    <IconButton
-                      type="button"
-                      color="gray"
-                      variant="ghost"
-                      radius="full"
-                      size="1"
-                      onClick={() => {
-                        if (conds.length === 1) {
-                          setConds([]);
-                        } else {
-                          const newConds = [...conds];
-                          newConds.splice(i, 1);
-                          setConds(newConds);
-                        }
-                      }}
-                    >
-                      <PiXBold size={16} />
-                    </IconButton>
-                  </Tooltip>
-                )
-              }
-            />
-          </React.Fragment>
-        );
+                      )}
+                    </Box>
+                  ) : null}
+                </>
+              )
+            }
+            removeSlot={
+              (conds.length > 1 ||
+                (conds.length === 1 && orGroupsCount > 1) ||
+                !props.require) && (
+                <Tooltip content="Remove condition">
+                  <IconButton
+                    type="button"
+                    color="gray"
+                    variant="ghost"
+                    radius="full"
+                    size="1"
+                    onClick={() => {
+                      if (conds.length === 1) {
+                        setConds([]);
+                      } else {
+                        const newConds = [...conds];
+                        newConds.splice(i, 1);
+                        setConds(newConds);
+                      }
+                    }}
+                  >
+                    <PiXBold size={16} />
+                  </IconButton>
+                </Tooltip>
+              )
+            }
+          />,
+        ];
       })}
-      {attributeSchema.length > 0 && (
-        <AddConditionButtonWrap>
-          <AddConditionButton
-            onClick={() => {
-              const prop = attributeSchema[0];
-              setConds([
-                ...conds,
-                {
-                  field: prop?.property || "",
-                  operator:
-                    prop?.datatype === "boolean"
-                      ? "$true"
-                      : prop?.disableEqualityConditions
-                        ? "$regex"
-                        : "$eq",
-                  value: "",
-                },
-              ]);
-            }}
-          />
-        </AddConditionButtonWrap>
-      )}
     </>
   );
 }

@@ -1,7 +1,8 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import { PiArrowSquareOut, PiPlusCircleBold } from "react-icons/pi";
+import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Text, IconButton } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -13,11 +14,9 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import {
   ConditionGroupCard,
-  ConditionGroupHeader,
-  ConditionGroupContent,
-  AndSeparator,
+  ConditionRow,
   AddConditionButton,
-  AddConditionButtonWrap,
+  LogicLabelBox,
 } from "./ConditionGroup";
 
 export interface Props {
@@ -115,81 +114,100 @@ export default function SavedGroupTargetingField({
           ))}
         </Callout>
       )}
-      <ConditionGroupCard>
-        <ConditionGroupHeader
-          targetingType="group"
-          total={value.length}
-        />
-        <ConditionGroupContent>
-          {value.map((v, i) => (
-            <Box key={i}>
-              {i > 0 && <AndSeparator />}
-              <Flex gap="2" align="start" px="0" py="2" style={{ minWidth: 0 }}>
-                <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: 200 }}>
-                  <SelectField
-                    useMultilineLabels={true}
-                    value={v.match}
-                    onChange={(match) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].match = match as "all" | "any" | "none";
+      <ConditionGroupCard
+        targetingType="group"
+        total={value.length}
+        extendToCardEdges
+        addButton={
+          <AddConditionButton
+            onClick={() => {
+              setValue([
+                ...value,
+                {
+                  match: "any",
+                  ids: [],
+                },
+              ]);
+            }}
+          >
+            Add condition
+          </AddConditionButton>
+        }
+      >
+        {value.map((v, i) => (
+          <ConditionRow
+            key={i}
+            prefixSlot={
+              i > 0 ? (
+                <LogicLabelBox label="AND" />
+              ) : (
+                <LogicLabelBox label="IN" />
+              )
+            }
+            attributeSlot={
+              <SelectField
+                useMultilineLabels={true}
+                value={v.match}
+                onChange={(match) => {
+                  const newValue = [...value];
+                  newValue[i] = { ...v };
+                  newValue[i].match = match as "all" | "any" | "none";
+                  setValue(newValue);
+                }}
+                sort={false}
+                options={[
+                  { value: "any", label: "Any of" },
+                  { value: "all", label: "All of" },
+                  { value: "none", label: "None of" },
+                ]}
+              />
+            }
+            valueSlot={
+              <MultiSelectField
+                value={v.ids}
+                onChange={(ids) => {
+                  const newValue = [...value];
+                  newValue[i] = { ...v };
+                  newValue[i].ids = ids;
+                  setValue(newValue);
+                }}
+                options={options}
+                formatOptionLabel={(o, meta) => {
+                  if (meta.context !== "value") return o.label;
+                  const group = getSavedGroupById(o.value);
+                  if (!group) return o.label;
+                  return (
+                    <Link href={`/saved-groups/${group.id}`} target="_blank">
+                      {o.label} <PiArrowSquareOut />
+                    </Link>
+                  );
+                }}
+                required
+                placeholder="Select groups..."
+                closeMenuOnSelect={true}
+              />
+            }
+            removeSlot={
+              value.length > 1 && (
+                <Tooltip content="Remove group">
+                  <IconButton
+                    type="button"
+                    color="gray"
+                    variant="ghost"
+                    radius="full"
+                    size="1"
+                    onClick={() => {
+                      const newValue = value.filter((_, idx) => idx !== i);
                       setValue(newValue);
                     }}
-                    sort={false}
-                    options={[
-                      { value: "any", label: "Any of" },
-                      { value: "all", label: "All of" },
-                      { value: "none", label: "None of" },
-                    ]}
-                  />
-                </Box>
-                <Box style={{ flex: 1, minWidth: 0 }}>
-                  <MultiSelectField
-                    value={v.ids}
-                    onChange={(ids) => {
-                    const newValue = [...value];
-                    newValue[i] = { ...v };
-                    newValue[i].ids = ids;
-                    setValue(newValue);
-                    }}
-                    options={options}
-                    formatOptionLabel={(o, meta) => {
-                      if (meta.context !== "value") return o.label;
-                      const group = getSavedGroupById(o.value);
-                      if (!group) return o.label;
-                      return (
-                        <Link
-                          href={`/saved-groups/${group.id}`}
-                          target="_blank"
-                        >
-                          {o.label} <PiArrowSquareOut />
-                        </Link>
-                      );
-                    }}
-                    required
-                    placeholder="Select groups..."
-                    closeMenuOnSelect={true}
-                  />
-                </Box>
-              </Flex>
-            </Box>
-          ))}
-          <AddConditionButtonWrap>
-            <AddConditionButton
-              onClick={() => {
-                setValue([
-                  ...value,
-                  {
-                    match: "any",
-                    ids: [],
-                  },
-                ]);
-              }}
-            >
-              Add group
-            </AddConditionButton>
-          </AddConditionButtonWrap>
-        </ConditionGroupContent>
+                  >
+                    <PiXBold size={16} />
+                  </IconButton>
+                </Tooltip>
+              )
+            }
+          />
+        ))}
       </ConditionGroupCard>
     </Box>
   );

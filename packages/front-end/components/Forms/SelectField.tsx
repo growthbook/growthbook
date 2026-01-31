@@ -162,7 +162,7 @@ const multilineStyles = {
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
-    lineHeight: "1.1",
+    lineHeight: "1.2",
   }),
 };
 

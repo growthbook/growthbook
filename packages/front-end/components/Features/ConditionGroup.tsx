@@ -3,32 +3,58 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
 import Button from "@/ui/Button";
 
-const cardStyle: React.CSSProperties = {
-  backgroundColor: "var(--slate-2)",
-  borderRadius: "var(--radius-3)",
-  boxShadow: "var(--shadow-1)",
-  overflow: "hidden",
-};
-
-/** White card container for a condition group (rounded, shadow). */
+/** Card container for a condition group: renders header, wraps children in a Flex, optionally renders addButton below. */
 export function ConditionGroupCard({
+  targetingType,
+  total,
+  extendToCardEdges,
   children,
+  addButton,
   style,
   className,
 }: {
+  targetingType: ConditionGroupTargetingType;
+  total: number;
+  /** When true, header extends to card left/right edges. */
+  extendToCardEdges?: boolean;
   children: React.ReactNode;
+  /** Rendered below the content Flex with anti-stretch wrapper. */
+  addButton?: React.ReactNode;
   style?: React.CSSProperties;
   className?: string;
 }) {
   return (
-    <Box
+    <Flex
       className={["gb-condition-group-card", className]
         .filter(Boolean)
         .join(" ")}
-      style={{ ...cardStyle, ...style }}
+      direction="column"
+      gap="4"
+      pt="0"
+      px="4"
+      pb="4"
+      style={{
+        backgroundColor: "var(--slate-2)",
+        border: "1px solid var(--slate-a3)",
+        borderRadius: "var(--radius-3)",
+        overflow: "hidden",
+        ...style,
+      }}
     >
-      {children}
-    </Box>
+      <ConditionGroupHeader
+        targetingType={targetingType}
+        total={total}
+        extendToCardEdges={extendToCardEdges}
+      />
+      <Flex direction="column" gap="4">
+        {children}
+      </Flex>
+      {addButton != null && (
+        <Box style={{ alignSelf: "flex-start" }} pt="2">
+          {addButton}
+        </Box>
+      )}
+    </Flex>
   );
 }
 
@@ -41,15 +67,18 @@ export type ConditionGroupTargetingType =
 export function ConditionGroupHeader({
   targetingType,
   total,
+  extendToCardEdges,
 }: {
   targetingType: ConditionGroupTargetingType;
   total: number;
+  /** When true, header extends to card left/right edges (use when Card has horizontal padding). */
+  extendToCardEdges?: boolean;
 }) {
   let label: React.ReactNode;
   if (targetingType === "attribute") {
     label = `PASS IF`;
   } else if (targetingType === "group") {
-    label = `PASS IF IN`;
+    label = `PASS IF`;
   } else {
     label = `PASS IF PREREQUISITE${total > 1 ? "S" : ""} MET`;
   }
@@ -60,13 +89,15 @@ export function ConditionGroupHeader({
       justify="between"
       align="center"
       px="4"
-      pt="2"
-      pb="1"
+      py="2"
       style={{
-        borderBottom: "1px solid var(--iris-a5)",
+        backgroundColor: "var(--slate-3)",
+        borderBottom: "1px solid var(--slate-a3)",
         borderRadius: "var(--radius-3) var(--radius-3) 0 0",
-        backgroundColor: "var(--iris-a1)",
-        margin: "1px 1px 0 1px",
+        ...(extendToCardEdges && {
+          marginLeft: "calc(-1 * var(--space-4))",
+          marginRight: "calc(-1 * var(--space-4))",
+        }),
       }}
     >
       <Text size="2" style={logicLabelTextStyle}>
@@ -76,43 +107,19 @@ export function ConditionGroupHeader({
   );
 }
 
-/** Content area inside a condition group card (padding, vertical spacing). */
-export function ConditionGroupContent({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <Box
-      className="gb-condition-group-content"
-      p="4"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "var(--space-4)",
-        ...style,
-      }}
-    >
-      {children}
-    </Box>
-  );
-}
-
-/** Single condition row: 3-column grid (Attribute, Operator, Value). Optional labels and remove slot. */
+/** Single condition row: 3-column grid (Attribute, Operator, Value). Optional prefix and remove slots. */
 export function ConditionRow({
+  prefixSlot,
   attributeSlot,
   operatorSlot,
   valueSlot,
   removeSlot,
 }: {
-  showLabels?: boolean;
-  attributeLabel?: string;
-  operatorLabel?: string;
-  valueLabel?: string;
+  /** Rendered before attribute; when null, prefix column is skipped. */
+  prefixSlot?: React.ReactNode | null;
   attributeSlot: React.ReactNode;
-  operatorSlot: React.ReactNode;
+  /** When null, operator column is skipped. */
+  operatorSlot?: React.ReactNode | null;
   valueSlot?: React.ReactNode;
   removeSlot?: React.ReactNode;
 }) {
@@ -120,22 +127,29 @@ export function ConditionRow({
     <Flex
       gap="3"
       align="start"
+      className="gb-condition-row"
       style={{
         borderRadius: "var(--radius-2)",
         border: "1px solid transparent",
         minHeight: 40,
       }}
-      className="gb-condition-row"
     >
+      {prefixSlot !== undefined && (
+        <Box flexShrink="0" pt="1" style={{ width: 45, textAlign: "center" }}>
+          {prefixSlot}
+        </Box>
+      )}
       <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: "25%" }}>
         {attributeSlot}
       </Box>
-      <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: "25%" }}>
-        {operatorSlot}
-      </Box>
+      {operatorSlot != undefined && (
+        <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: "25%" }}>
+          {operatorSlot}
+        </Box>
+      )}
       <Box style={{ flex: "1 1 50%", minWidth: 0 }}>{valueSlot}</Box>
-      {removeSlot != null && (
-        <Box style={{ flexShrink: 0, marginLeft: -2, marginRight: -6 }} pt="3">
+      {removeSlot != undefined && (
+        <Box flexShrink="0" style={{ marginLeft: -2, marginRight: -6 }} pt="3">
           {removeSlot}
         </Box>
       )}
@@ -145,23 +159,33 @@ export function ConditionRow({
 
 const separatorLineStyle = {
   width: "100%" as const,
-  borderTop: "1px dashed var(--iris-5)",
+  borderTop: "1px dashed var(--slate-5)",
 };
 
-const separatorLabelBoxStyle = {
-  background: "var(--iris-3)",
-  paddingLeft: "var(--space-3)",
-  paddingRight: "var(--space-3)",
-  paddingTop: "var(--space-1)",
-  paddingBottom: "var(--space-1)",
-  border: "1px solid var(--iris-5)",
+const logicLabelBoxStyle: React.CSSProperties = {
+  background: "var(--surface-background-color)",
+  width: 50,
+  textAlign: "center",
+  border: "1px solid var(--slate-5)",
   borderRadius: "var(--radius-5)",
 };
 
-const logicLabelTextStyle = {
-  color: "var(--slate-12)",
+export const logicLabelTextStyle: React.CSSProperties = {
+  color: "var(--slate-11)",
   fontFamily: "var(--font-mono)",
+  fontWeight: 500,
 };
+
+/** Reusable AND/OR label box (background, border, centered text). */
+export function LogicLabelBox({ label }: { label: "AND" | "OR" | "IN" }) {
+  return (
+    <Box py="1" style={logicLabelBoxStyle}>
+      <Text size="2" style={logicLabelTextStyle}>
+        {label}
+      </Text>
+    </Box>
+  );
+}
 
 /** Horizontal line with "AND" centered. */
 export function AndSeparator() {
@@ -178,11 +202,7 @@ export function AndSeparator() {
         <Box style={separatorLineStyle} />
       </Box>
       <Flex justify="start" align="start" style={{ position: "relative" }}>
-        <Box style={separatorLabelBoxStyle}>
-          <Text size="2" style={logicLabelTextStyle}>
-            AND
-          </Text>
-        </Box>
+        <LogicLabelBox label="AND" />
       </Flex>
     </Box>
   );
@@ -191,12 +211,7 @@ export function AndSeparator() {
 /** Horizontal line with "OR" centered (same style as AND). */
 export function OrSeparator() {
   return (
-    <Box
-      className="gb-or-separator"
-      my="4"
-      py="2"
-      style={{ position: "relative" }}
-    >
+    <Box className="gb-or-separator" my="5" style={{ position: "relative" }}>
       <Box
         style={{
           position: "absolute",
@@ -208,34 +223,8 @@ export function OrSeparator() {
         <Box style={separatorLineStyle} />
       </Box>
       <Flex justify="start" style={{ position: "relative" }}>
-        <Box style={separatorLabelBoxStyle}>
-          <Text size="2" style={logicLabelTextStyle}>
-            OR
-          </Text>
-        </Box>
+        <LogicLabelBox label="OR" />
       </Flex>
-    </Box>
-  );
-}
-
-/** Wrapper for add buttons so they don't stretch (flex) and align with condition rows. */
-export function AddConditionButtonWrap({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <Box
-      className="gb-add-condition-button-wrap"
-      style={{
-        alignSelf: "flex-start",
-        paddingTop: "var(--space-2)",
-        paddingBottom: "var(--space-2)",
-        paddingLeft: 0,
-        paddingRight: 0,
-      }}
-    >
-      {children}
     </Box>
   );
 }

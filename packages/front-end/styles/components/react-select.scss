@@ -75,10 +75,6 @@
     opacity: 0 !important;
     transition: opacity 0.1s ease-in-out;
   }
-  .gb-multi-select__clear-indicator,
-  .gb-select__clear-indicator {
-    padding: 8px 2px;
-  }
 }
 .gb-multi-select__control:hover,
 .gb-select__control:hover {
@@ -90,12 +86,19 @@
   }
 }
 
+.gb-multi-select__clear-indicator,
+.gb-select__clear-indicator,
+.gb-select__dropdown-indicator,
+.gb-multi-select__dropdown-indicator,
+.gb-select__raw-text-mode-indicator {
+  padding: 8px 2px !important;
+}
+
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
 .gb-select__raw-text-mode-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
   background: none;
   border: none;
   color: hsl(0, 0%, 80%);
@@ -158,8 +161,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    padding-left: 2px;
-    padding-right: 10px;
+    padding-right: 4px;
   }
 
   .gb-select__indicators .gb-select__raw-text-mode-indicator {
