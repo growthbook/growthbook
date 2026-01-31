@@ -8,7 +8,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
@@ -28,12 +28,13 @@ import { useUser } from "@/services/UserContext";
 import EditDescriptionModal from "@/components/Experiment/EditDescriptionModal";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
-import { ProgressBar } from "@/ui/ProgressBar";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
+import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
@@ -44,6 +45,7 @@ export interface Props {
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
   envs: string[];
+  editHoldoutSchedule?: (() => void) | null;
 }
 
 export default function SetupTabOverview({
@@ -59,6 +61,7 @@ export default function SetupTabOverview({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   envs,
+  editHoldoutSchedule,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [showOptInModal, setShowOptInModal] = useState(false);
@@ -73,7 +76,7 @@ export default function SetupTabOverview({
   const customFields = useCustomFields();
 
   const permissionsUtil = usePermissionsUtil();
-
+  const { apiCall } = useAuth();
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -92,6 +95,11 @@ export default function SetupTabOverview({
     holdoutExperiments.some((e) => e.status !== "draft");
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const holdoutHasSchedule =
+    isHoldout &&
+    Object.values(holdout?.scheduledStatusUpdates ?? {}).some(
+      (value) => value !== null,
+    );
 
   return (
     <>
@@ -125,7 +133,19 @@ export default function SetupTabOverview({
         />
       ) : null}
       <div>
-        <h2>Overview</h2>
+        <Flex justify="between" align="baseline" mb="3">
+          <h2>Overview</h2>
+          {canEditExperiment &&
+          isHoldout &&
+          editHoldoutSchedule &&
+          !holdoutHasSchedule &&
+          experiment.status !== "stopped" &&
+          !experiment.archived ? (
+            <Button variant="ghost" onClick={() => editHoldoutSchedule()}>
+              + Add Schedule
+            </Button>
+          ) : null}
+        </Flex>
         {experiment.status === "draft" && experiment.type !== "holdout" ? (
           <PreLaunchChecklist
             experiment={experiment}
@@ -139,7 +159,7 @@ export default function SetupTabOverview({
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
-        {experiment.type === "holdout" && (
+        {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
           <Frame>
             <Flex align="center" justify="between" className="text-dark">
               <Heading mb="0" as="h4" size="3">
@@ -149,29 +169,34 @@ export default function SetupTabOverview({
                 {canEditExperiment ? (
                   <>
                     <DeleteButton
-                      onClick={() => {}}
-                      displayName="Holdout Schedule"
+                      text="Delete"
+                      displayName="Schedule"
+                      deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
+                      onClick={async () => {
+                        await apiCall(`/holdout/${holdout.id}/schedule`, {
+                          method: "DELETE",
+                        });
+                        mutate();
+                      }}
+                      useRadix={true}
                     />
                     <Button
                       variant="ghost"
                       stopPropagation={true}
                       mr={experiment.description ? "3" : "0"}
                       onClick={() => {
-                        setShowDescriptionModal(true);
+                        editHoldoutSchedule();
                       }}
                     >
                       Edit
                     </Button>
                   </>
                 ) : null}
-                {experiment.description ? (
-                  <FaAngleRight className="chevron" />
-                ) : null}
               </Flex>
             </Flex>
-            <ProgressBar />
+            <HoldoutSchedule holdout={holdout} experiment={experiment} />
           </Frame>
-        )}
+        ) : null}
         <Frame>
           <Collapsible
             open={!experiment.description ? true : expandDescription}

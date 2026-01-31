@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
 import { includeHoldoutInPayload } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -39,13 +39,14 @@ const HoldoutPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
-  const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
+  const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
+    useState(false);
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
 
   const { data, error, mutate } = useApi<{
-    holdout: HoldoutInterface;
+    holdout: HoldoutInterfaceStringDates;
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
@@ -120,8 +121,8 @@ const HoldoutPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
-  const editSchedule = canRunExperiment
-    ? () => setEditScheduleModalOpen(true)
+  const editHoldoutSchedule = canRunExperiment
+    ? () => setEditHoldoutScheduleModalOpen(true)
     : null;
 
   const safeToEdit =
@@ -219,9 +220,9 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
-      {editScheduleModalOpen && (
+      {editHoldoutScheduleModalOpen && (
         <EditScheduleModal
-          close={() => setEditScheduleModalOpen(false)}
+          close={() => setEditHoldoutScheduleModalOpen(false)}
           holdout={holdout}
           experiment={experiment}
           mutate={mutate}
@@ -261,7 +262,7 @@ const HoldoutPage = (): ReactElement => {
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           stop={stop}
-          editSchedule={editSchedule}
+          editHoldoutSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>

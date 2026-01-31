@@ -1,47 +1,19 @@
 import * as React from "react";
-import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
-import styles from "@/components/Features/ExperimentSplitVisual.module.scss";
 
-type Segment = {
+export type Segment = {
   id: string;
-  name: string;
-  weight: number; // 0-1, segment weights should sum to 1
-  completion: number; // 0-1, completion of the segment
+  weight: number; // 0-100, segment weights should sum to 100
+  completion: number; // 0-100, completion of the segment
   color: string;
 };
 
 type ProgressBarProps = {
   segments?: Segment[];
-  height?: number;
-  radius?: number;
-  className?: string;
 };
 
-export function ProgressBar({
-  segments = [],
-  height = 8,
-  radius = 4,
-  className,
-}: ProgressBarProps) {
-  const testSegments = [
-    {
-      id: "1",
-      name: "Segment 1",
-      weight: 60,
-      completion: 100,
-      color: "indigo",
-    },
-    {
-      id: "2",
-      name: "Segment 2",
-      weight: 40,
-      completion: 10,
-      color: "amber",
-    },
-  ];
-
-  const firstSegment = testSegments[0];
+export function ProgressBar({ segments = [] }: ProgressBarProps) {
+  const firstSegment = segments[0];
   const firstCompletionPct =
     firstSegment &&
     (firstSegment.completion <= 1
@@ -78,26 +50,26 @@ export function ProgressBar({
                 height: "24px",
                 flex: `0 0 ${firstSegment.weight * (1 - firstCompletionPct)}%`,
                 minWidth: 0,
-                borderRadius: testSegments.length === 1 ? "0 4px 4px 0" : "0",
+                borderRadius: segments.length === 1 ? "0 4px 4px 0" : "0",
                 backgroundColor: `var(--${firstSegment.color}-a4)`,
               }}
             />
           )}
-          {testSegments.length > 1 && (
+          {segments.length > 1 && (
             <Box
               className="h-full min-w-0 flex-1 progress-bar-striped transition-all"
               style={{
                 height: "24px",
                 borderRadius: "0 4px 4px 0",
-                backgroundColor: "var(--slate-a2)",
+                backgroundColor: "var(--slate-a3)",
               }}
             />
           )}
         </>
       ) : (
-        testSegments.map((segment, i) => {
+        segments.map((segment, i) => {
           const isFirst = i === 0;
-          const isLast = i === testSegments.length - 1;
+          const isLast = i === segments.length - 1;
           const completionPct =
             segment.completion <= 1
               ? segment.completion

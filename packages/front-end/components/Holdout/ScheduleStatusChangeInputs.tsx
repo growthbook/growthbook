@@ -1,20 +1,24 @@
-import { format as formatTimeZone } from "date-fns-tz";
 import React from "react";
-import { HoldoutInterface } from "shared/validators";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import { Box, Text } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { format } from "date-fns";
-import { getValidDate } from "shared/dates";
+import { datetime } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
+import Tooltip from "@/ui/Tooltip";
 
 interface Props {
-  form: UseFormReturn<Pick<HoldoutInterface, "scheduledStatusUpdates">>;
-  holdout: HoldoutInterface;
+  form: UseFormReturn<
+    Pick<HoldoutInterfaceStringDates, "scheduledStatusUpdates">
+  >;
+  holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
 }
+
+const DATE_FORMAT = "yyyy-MM-dd'T'HH:mm";
 
 export default function ScheduleStatusChangeInputs({
   form,
@@ -23,6 +27,7 @@ export default function ScheduleStatusChangeInputs({
 }: Props) {
   const isRunning = experiment.status === "running";
   const isStopped = experiment.status === "stopped";
+  const isArchived = experiment.archived;
 
   const holdoutStatus =
     experiment.status === "draft"
@@ -39,8 +44,6 @@ export default function ScheduleStatusChangeInputs({
   );
   const stopDate = form.watch("scheduledStatusUpdates.stopAt");
 
-  const dateFormat = "MM/dd/yyyy, hh:mm a";
-
   const dateError =
     (startDate &&
       startAnalysisPeriodDate &&
@@ -50,103 +53,124 @@ export default function ScheduleStatusChangeInputs({
 
   return (
     <Box my="4">
-      <div className="box mb-3 bg-light pt-2 px-3">
-        <Flex direction="row" align="baseline" gap="4">
-          <Text size="2" weight="medium">
-            Start at
-          </Text>
+      <Box mb="2">
+        <Text size="2" weight="medium">
+          Start Holdout
+        </Text>
+      </Box>
 
-          <Flex direction="row" align="center">
-            {!isRunning && !isStopped ? (
-              <DatePicker
-                date={form.watch("scheduledStatusUpdates.startAt")}
-                setDate={(d) => {
-                  form.setValue("scheduledStatusUpdates.startAt", d);
-                }}
-                disableBefore={new Date()}
-                scheduleEndDate={form.watch(
-                  "scheduledStatusUpdates.startAnalysisPeriodAt",
-                )}
-              />
-            ) : (
-              <Box mb="4">
-                <Field
-                  value={
-                    holdout.scheduledStatusUpdates?.startAt
-                      ? format(
-                          getValidDate(holdout.scheduledStatusUpdates?.startAt),
-                          dateFormat,
-                        )
-                      : ""
-                  }
-                  disabled
-                />
-              </Box>
-            )}
-            <span className="pl-2">({formatTimeZone(new Date(), "z")})</span>
-          </Flex>
-        </Flex>
-        <Flex direction="row" align="baseline" gap="4">
-          <Text size="2" weight="medium">
-            Start analysis period at
-          </Text>
-
-          <Flex direction="row" align="center">
-            {!isStopped && holdoutStatus !== "analysis-period" ? (
-              <DatePicker
-                date={form.watch(
-                  "scheduledStatusUpdates.startAnalysisPeriodAt",
-                )}
-                setDate={(d) => {
-                  form.setValue(
-                    "scheduledStatusUpdates.startAnalysisPeriodAt",
-                    d,
-                  );
-                }}
-                disableBefore={new Date()}
-                scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
-              />
-            ) : (
-              <Box mb="4">
-                <Field
-                  value={format(
-                    getValidDate(
-                      holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
-                    ),
-                    dateFormat,
-                  )}
-                  disabled
-                />
-              </Box>
-            )}
-            <span className="pl-2">({formatTimeZone(new Date(), "z")})</span>
-          </Flex>
-        </Flex>
-        <Flex direction="row" align="baseline" gap="4">
-          <Text size="2" weight="medium">
-            Stop at
-          </Text>
-
-          <Flex direction="row" align="center">
-            <DatePicker
-              date={form.watch("scheduledStatusUpdates.stopAt")}
-              setDate={(d) => {
-                form.setValue("scheduledStatusUpdates.stopAt", d);
-              }}
-              disableBefore={new Date()}
-              scheduleStartDate={form.watch(
-                "scheduledStatusUpdates.startAnalysisPeriodAt",
-              )}
+      {!isRunning && !isStopped && !isArchived ? (
+        <DatePicker
+          date={form.watch("scheduledStatusUpdates.startAt")}
+          setDate={(d) => {
+            form.setValue(
+              "scheduledStatusUpdates.startAt",
+              d ? datetime(d) : "",
+            );
+          }}
+          disableBefore={new Date()}
+          scheduleEndDate={form.watch(
+            "scheduledStatusUpdates.startAnalysisPeriodAt",
+          )}
+        />
+      ) : (
+        <Box mb="4">
+          <Tooltip content="The Holdout has already started—this date cannot be edited">
+            <Field
+              value={
+                experiment.phases[0].dateStarted
+                  ? format(
+                      new Date(experiment.phases[0].dateStarted),
+                      DATE_FORMAT,
+                    )
+                  : startDate
+                    ? format(new Date(startDate), DATE_FORMAT)
+                    : ""
+              }
+              disabled
             />
-            <span className="pl-2">({formatTimeZone(new Date(), "z")})</span>
-          </Flex>
-        </Flex>
-        {dateError && (
-          <Callout status="error" mb="4">
-            Dates must be consecutive.
-          </Callout>
-        )}
-      </div>
+          </Tooltip>
+        </Box>
+      )}
+
+      <Box my="2">
+        <Text size="2" weight="medium">
+          Stop Holdout & Start Analysis
+        </Text>
+      </Box>
+
+      {!isStopped && holdoutStatus !== "analysis-period" && !isArchived ? (
+        <DatePicker
+          date={form.watch("scheduledStatusUpdates.startAnalysisPeriodAt")}
+          setDate={(d) => {
+            form.setValue(
+              "scheduledStatusUpdates.startAnalysisPeriodAt",
+              d ? datetime(d) : "",
+            );
+          }}
+          disableBefore={new Date()}
+          scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
+        />
+      ) : (
+        <Box mb="4">
+          <Tooltip content="The Analysis Phase has already started—this date cannot be edited">
+            <Field
+              value={
+                holdout.analysisStartDate
+                  ? format(new Date(holdout.analysisStartDate), DATE_FORMAT)
+                  : startAnalysisPeriodDate
+                    ? format(new Date(startAnalysisPeriodDate), DATE_FORMAT)
+                    : ""
+              }
+              disabled
+            />
+          </Tooltip>
+        </Box>
+      )}
+
+      <Box my="2">
+        <Text size="2" weight="medium">
+          Stop Analysis
+        </Text>
+      </Box>
+      {!isStopped && !isArchived ? (
+        <DatePicker
+          date={form.watch("scheduledStatusUpdates.stopAt")}
+          setDate={(d) => {
+            form.setValue(
+              "scheduledStatusUpdates.stopAt",
+              d ? datetime(d) : "",
+            );
+          }}
+          disableBefore={new Date()}
+          scheduleStartDate={form.watch(
+            "scheduledStatusUpdates.startAnalysisPeriodAt",
+          )}
+        />
+      ) : (
+        <Box mb="4">
+          <Tooltip content="The Analysis Phase has already ended—this date cannot be edited">
+            <Field
+              value={
+                experiment.phases[1].dateEnded
+                  ? format(
+                      new Date(experiment.phases[1].dateEnded),
+                      DATE_FORMAT,
+                    )
+                  : stopDate
+                    ? format(new Date(stopDate), DATE_FORMAT)
+                    : ""
+              }
+              disabled
+            />
+          </Tooltip>
+        </Box>
+      )}
+      {dateError && (
+        <Callout status="error" mb="4">
+          Dates must be consecutive.
+        </Callout>
+      )}
     </Box>
   );
 }

@@ -75,7 +75,11 @@ export default function PhaseSelector({
           <>
             {newUi ? (
               <span className="font-weight-bold">
-                {!isHoldout ? "Phase " : "Holdout"}
+                {!isHoldout
+                  ? "Phase "
+                  : phaseIndex === 0
+                    ? "Holdout: "
+                    : "Analysis: "}
               </span>
             ) : null}
             {!isHoldout && (

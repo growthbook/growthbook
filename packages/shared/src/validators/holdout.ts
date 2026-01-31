@@ -36,4 +36,44 @@ export const holdoutValidator = z
   })
   .strict();
 
+const _holdoutStringDatesValidator = holdoutValidator
+  .omit({
+    dateCreated: true,
+    dateUpdated: true,
+    analysisStartDate: true,
+    scheduledStatusUpdates: true,
+    nextScheduledUpdate: true,
+    linkedExperiments: true,
+    linkedFeatures: true,
+  })
+  .extend({
+    dateCreated: z.string(),
+    dateUpdated: z.string(),
+    analysisStartDate: z.string().optional(),
+    scheduledStatusUpdates: z
+      .object({
+        startAt: z.string().optional(),
+        startAnalysisPeriodAt: z.string().optional(),
+        stopAt: z.string().optional(),
+      })
+      .optional(),
+    nextScheduledUpdate: z.string().optional().nullable(),
+    linkedExperiments: z.record(
+      z.string(),
+      holdoutLinkedItemValidator
+        .omit({ dateAdded: true })
+        .extend({ dateAdded: z.string() }),
+    ),
+    linkedFeatures: z.record(
+      z.string(),
+      holdoutLinkedItemValidator
+        .omit({ dateAdded: true })
+        .extend({ dateAdded: z.string() }),
+    ),
+  })
+  .strict();
+
 export type HoldoutInterface = z.infer<typeof holdoutValidator>;
+export type HoldoutInterfaceStringDates = z.infer<
+  typeof _holdoutStringDatesValidator
+>;

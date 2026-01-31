@@ -1,12 +1,28 @@
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getValidDate } from "shared/dates";
+import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import Callout from "@/ui/Callout";
 import ScheduleStatusChangeInputs from "./ScheduleStatusChangeInputs";
+
+const validateSchedule = (
+  startDate: string | undefined,
+  startAnalysisPeriodDate: string | undefined,
+  stopDate: string | undefined,
+) => {
+  // Check dependencies
+  if (stopDate && (!startDate || !startAnalysisPeriodDate)) {
+    return "To set a stop date, you must also set a start date and an analysis start date";
+  }
+
+  if (startAnalysisPeriodDate && !startDate) {
+    return "To set an analysis start date, you must first set a start date";
+  }
+
+  return "";
+};
 
 const EditScheduleModal = ({
   holdout,
@@ -14,31 +30,41 @@ const EditScheduleModal = ({
   close,
   mutate,
 }: {
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   mutate: () => void;
 }) => {
   const { apiCall } = useAuth();
+  const [errors, setErrors] = useState<string>("");
 
-  const form = useForm<Pick<HoldoutInterface, "scheduledStatusUpdates">>({
+  const form = useForm<
+    Pick<HoldoutInterfaceStringDates, "scheduledStatusUpdates">
+  >({
     defaultValues: {
       scheduledStatusUpdates: {
-        startAt: holdout.scheduledStatusUpdates?.startAt
-          ? getValidDate(holdout.scheduledStatusUpdates.startAt)
-          : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        startAnalysisPeriodAt: holdout.scheduledStatusUpdates
-          ?.startAnalysisPeriodAt
-          ? getValidDate(holdout.scheduledStatusUpdates.startAnalysisPeriodAt)
-          : new Date(Date.now() + 65 * 24 * 60 * 60 * 1000),
-        stopAt: holdout.scheduledStatusUpdates?.stopAt
-          ? getValidDate(holdout.scheduledStatusUpdates.stopAt)
-          : new Date(Date.now() + 95 * 24 * 60 * 60 * 1000),
+        startAt: holdout.scheduledStatusUpdates?.startAt,
+        startAnalysisPeriodAt:
+          holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
+        stopAt: holdout.scheduledStatusUpdates?.stopAt,
       },
     },
   });
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
+    setErrors("");
+    const validationError = validateSchedule(
+      rawValue.scheduledStatusUpdates?.startAt || experiment.status !== "draft"
+        ? experiment.phases[0].dateStarted
+        : undefined,
+      rawValue.scheduledStatusUpdates?.startAnalysisPeriodAt ||
+        holdout.analysisStartDate,
+      rawValue.scheduledStatusUpdates?.stopAt,
+    );
+    if (validationError) {
+      setErrors(validationError);
+      return;
+    }
     // Convert Date objects to ISO strings for API
     const scheduledStatusUpdates = rawValue.scheduledStatusUpdates
       ? {
@@ -58,7 +84,7 @@ const EditScheduleModal = ({
       : undefined;
 
     await apiCall<{
-      holdout: HoldoutInterface;
+      holdout: HoldoutInterfaceStringDates;
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -66,29 +92,27 @@ const EditScheduleModal = ({
       }),
     });
     mutate();
+    close();
   });
 
   return (
     <Modal
       open={true}
       trackingEventModalType=""
-      header="Edit Schedule"
+      header="Edit Holdout Schedule"
       close={close}
       submit={onSubmit}
       size="lg"
+      error={errors}
+      autoCloseOnSubmit={false}
     >
       <div className="px-2">
         <Box mb="4">
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Schedule the start, analysis period start, and stop of the holdout.
+            Schedule the Holdout to start, transition to analysis, and end
+            analysis.
           </Text>
         </Box>
-        {!holdout.scheduledStatusUpdates && (
-          <Callout status="info" mb="4">
-            This holdout currently has no schedule set. Fields have been
-            pre-filled with some default values.
-          </Callout>
-        )}
         <ScheduleStatusChangeInputs
           form={form}
           holdout={holdout}

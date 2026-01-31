@@ -717,3 +717,30 @@ export const deleteHoldoutFeature = async (
 };
 
 // endregion DELETE /holdout/:id/feature/:featureId
+
+// region DELETE /holdout/:id/schedule
+
+export const deleteHoldoutSchedule = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 | 404; message?: string }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
+  }
+
+  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await context.models.holdout.update(holdout, {
+    scheduledStatusUpdates: undefined,
+    nextScheduledUpdate: null,
+    nextScheduledUpdateType: null,
+  });
+};
+
+// endregion DELETE /holdout/:id/schedule
