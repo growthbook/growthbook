@@ -19,6 +19,10 @@ interface ResultPopoverData {
   differenceType: DifferenceType;
   statsEngine: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
+  suspiciousChange: boolean;
+  notEnoughData: boolean;
+  minSampleSize: number;
+  minPercentChange: number;
 }
 
 interface UseResultPopoverOptions
@@ -80,6 +84,10 @@ export function useResultPopover({
               differenceType={data.differenceType}
               statsEngine={data.statsEngine}
               ssrPolyfills={data.ssrPolyfills}
+              suspiciousChange={data.suspiciousChange}
+              notEnoughData={data.notEnoughData}
+              minSampleSize={data.minSampleSize}
+              minPercentChange={data.minPercentChange}
             />
           </div>
         }

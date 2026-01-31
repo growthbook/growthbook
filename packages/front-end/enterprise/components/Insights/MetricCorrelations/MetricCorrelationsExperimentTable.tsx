@@ -306,6 +306,8 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                     significant: mr.significant,
                     resultsStatus:
                       (mr.resultsStatus as RowResults["resultsStatus"]) ?? "",
+                    suspiciousChange: false,
+                    minPercentChange: 0,
                   }}
                   showPlusMinus={false}
                   statsEngine={e.statsEngine}

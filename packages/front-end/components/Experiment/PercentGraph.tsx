@@ -38,6 +38,10 @@ interface Props
   differenceType?: DifferenceType;
   resultsStatus?: RowResults["resultsStatus"];
   statsEngine?: StatsEngine;
+  suspiciousChange?: boolean;
+  notEnoughData?: boolean;
+  minSampleSize?: number;
+  minPercentChange?: number;
 }
 
 export default function PercentGraph({
@@ -63,6 +67,10 @@ export default function PercentGraph({
   differenceType = "relative",
   resultsStatus = "",
   statsEngine = "frequentist",
+  suspiciousChange = false,
+  notEnoughData = false,
+  minSampleSize = 0,
+  minPercentChange = 0,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
   const _confidenceLevels = useConfidenceLevels();
@@ -113,6 +121,10 @@ export default function PercentGraph({
       differenceType,
       statsEngine,
       ssrPolyfills,
+      suspiciousChange,
+      notEnoughData,
+      minSampleSize,
+      minPercentChange,
     },
   });
 

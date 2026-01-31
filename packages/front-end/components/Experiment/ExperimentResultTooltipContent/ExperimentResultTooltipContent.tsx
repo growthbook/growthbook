@@ -23,6 +23,10 @@ interface ExperimentResultTooltipContentProps {
   differenceType: DifferenceType;
   statsEngine: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
+  suspiciousChange: boolean;
+  notEnoughData: boolean;
+  minSampleSize: number;
+  minPercentChange: number;
 }
 
 export default function ExperimentResultTooltipContent({
@@ -33,6 +37,10 @@ export default function ExperimentResultTooltipContent({
   differenceType,
   statsEngine,
   ssrPolyfills,
+  suspiciousChange,
+  notEnoughData,
+  minSampleSize,
+  minPercentChange,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -61,10 +69,16 @@ export default function ExperimentResultTooltipContent({
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
 
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumFractionDigits: 0,
+  });
+
   const ciLabel =
     statsEngine === "bayesian" ? "95% CI" : `${ciUpperDisplay} CI`;
 
   const getBadgeText = () => {
+    if (notEnoughData) return "NOT ENOUGH DATA";
     if (significant) {
       if (resultsStatus === "won") return "WON";
       if (resultsStatus === "lost") return "LOST";
@@ -76,8 +90,11 @@ export default function ExperimentResultTooltipContent({
   const isWon = significant && resultsStatus === "won";
   const isLost = significant && resultsStatus === "lost";
 
+  console.log("minPercentChange", minPercentChange);
+  console.log("suspiciousChange", suspiciousChange);
+
   return (
-    <Flex direction="column" minWidth="200px">
+    <Flex direction="column" width="200px">
       <Box
         className={clsx(styles.badge, {
           [styles.badgeWon]: isWon,
@@ -90,30 +107,59 @@ export default function ExperimentResultTooltipContent({
         </Text>
       </Box>
 
-      <Box px="4">
-        <Flex align="center" justify="between" gap="1" my="2">
-          <Text
-            size="1"
-            weight="medium"
-            style={{ color: "var(--color-text-high)" }}
-          >
-            {ciLabel}
-          </Text>
-          <Text
-            size="1"
-            weight="medium"
-            style={{ color: "var(--color-text-high)" }}
-          >
-            {ci ? (
-              <>
-                [{formatter(ci[0], formatterOptions)},{" "}
-                {formatter(ci[1], formatterOptions)}]
-              </>
-            ) : (
-              "Unknown"
+      <Box px="4" py="2">
+        {notEnoughData ? (
+          <Flex direction="column" gap="1">
+            <Text size="1" style={{ color: "var(--color-text-high)" }}>
+              {/* TODO: Format minSampleSize properly */}
+              Minimum {minSampleSize} not met
+            </Text>
+            <Text size="1" style={{ color: "var(--color-text-mid)" }}>
+              {/* TODO: Get the value from the proper place */}
+              Current metric total is ...
+              <br />
+              {/* TODO: Get this from the proper place */}
+              Estimated 3 days remaining
+            </Text>
+          </Flex>
+        ) : (
+          <>
+            <Flex align="center" justify="between" gap="1">
+              <Text
+                size="1"
+                weight="medium"
+                style={{ color: "var(--color-text-high)" }}
+              >
+                {ciLabel}
+              </Text>
+              <Text
+                size="1"
+                weight="medium"
+                style={{ color: "var(--color-text-high)" }}
+              >
+                {ci ? (
+                  <>
+                    [{formatter(ci[0], formatterOptions)},{" "}
+                    {formatter(ci[1], formatterOptions)}]
+                  </>
+                ) : (
+                  "Unknown"
+                )}
+              </Text>
+            </Flex>
+            {resultsStatus === "draw" && minPercentChange !== undefined && (
+              <Text size="1" style={{ color: "var(--color-text-mid)" }}>
+                The % change is below the min. change threshold for a meaningful
+                impact ({percentFormatter.format(minPercentChange)})
+              </Text>
             )}
-          </Text>
-        </Flex>
+            {suspiciousChange && (
+              <Text size="1" style={{ color: "var(--pink-a11)" }}>
+                This is suspicious
+              </Text>
+            )}
+          </>
+        )}
       </Box>
     </Flex>
   );

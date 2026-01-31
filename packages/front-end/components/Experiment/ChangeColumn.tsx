@@ -29,6 +29,8 @@ interface Props
     | "hasScaledImpact"
     | "resultsStatus"
     | "significant"
+    | "suspiciousChange"
+    | "minPercentChange"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -37,6 +39,7 @@ interface Props
   className?: string;
   ssrPolyfills?: SSRPolyfills;
   additionalButton?: React.ReactNode;
+  minSampleSize?: number;
 }
 
 export default function ChangeColumn({
@@ -50,6 +53,7 @@ export default function ChangeColumn({
   className,
   ssrPolyfills,
   additionalButton,
+  minSampleSize = 0,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
@@ -89,6 +93,10 @@ export default function ChangeColumn({
         differenceType,
         statsEngine,
         ssrPolyfills,
+        suspiciousChange: rowResults.suspiciousChange,
+        notEnoughData: !rowResults.enoughData,
+        minSampleSize,
+        minPercentChange: rowResults.minPercentChange,
       },
     });
 

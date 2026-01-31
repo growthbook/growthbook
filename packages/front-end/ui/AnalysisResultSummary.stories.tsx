@@ -79,6 +79,7 @@ const baseRowResults: RowResults = {
   suspiciousThreshold: 0.25,
   suspiciousChangeReason: "",
   belowMinChange: false,
+  minPercentChange: 0.05,
   directionalStatus: "winning",
   resultsStatus: "won",
   resultsReason: "",

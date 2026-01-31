@@ -239,6 +239,8 @@ function MetricExperimentResultTab({
                 significant: e.significant ?? false,
                 resultsStatus:
                   (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
+                suspiciousChange: false,
+                minPercentChange: 0,
               }}
               showPlusMinus={false}
               statsEngine={e.statsEngine}
