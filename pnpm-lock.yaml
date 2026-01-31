@@ -273,6 +273,9 @@ importers:
       errorhandler:
         specifier: ^1.5.1
         version: 1.5.1
+      eventsource:
+        specifier: ^4.1.0
+        version: 4.1.0
       express:
         specifier: ^4.21.2
         version: 4.21.2
@@ -9087,6 +9090,10 @@ packages:
   eventsource-parser@3.0.6:
     resolution: {integrity: sha512-Vo1ab+QXPzZ4tCa8SwIHJFaSzy4R6SHf7BY79rFBDf0idraZWAkYrDjDj8uWaSm3S2TK+hJ7/t1CEmZ7jXw+pg==}
     engines: {node: '>=18.0.0'}
+
+  eventsource@4.1.0:
+    resolution: {integrity: sha512-2GuF51iuHX6A9xdTccMTsNb7VO0lHZihApxhvQzJB5A03DvHDd2FQepodbMaztPBmBcE/ox7o2gqaxGhYB9LhQ==}
+    engines: {node: '>=20.0.0'}
 
   execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
@@ -25505,6 +25512,10 @@ snapshots:
   events@3.3.0: {}
 
   eventsource-parser@3.0.6: {}
+
+  eventsource@4.1.0:
+    dependencies:
+      eventsource-parser: 3.0.6
 
   execa@5.1.1:
     dependencies:
