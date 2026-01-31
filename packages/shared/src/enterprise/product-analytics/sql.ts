@@ -6,6 +6,7 @@ import {
   FactMetricInterface,
   ColumnInterface,
   FactTableColumnType,
+  MetricCappingSettings,
   NumberFormat,
   ColumnRef,
 } from "shared/types/fact-table";
@@ -56,10 +57,11 @@ interface FactTableGroup {
   units: string[];
 }
 interface MetricData {
-  unit: null | string;
+  unit: string | null;
   alias: string;
+  percentileCapValueExpr: string | null;
   eventValueExpr: string;
-  unitAggregationExpr: null | string;
+  unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
   rollupCountExpr: string;
 }
@@ -334,6 +336,21 @@ function generateRowFilterSQL(
     .filter((sql): sql is string => sql !== null);
 }
 
+function getCappingSettings(
+  metric: MinimalMetric,
+): MetricCappingSettings | null {
+  if (metric.metricType === "proportion") return null;
+
+  if (
+    metric.cappingSettings?.type === "percentile" ||
+    metric.cappingSettings?.type === "absolute"
+  ) {
+    return metric.cappingSettings;
+  }
+
+  return null;
+}
+
 // Generate dimension expression
 function generateDimensionExpression(
   dimension: ProductAnalyticsDimension,
@@ -447,6 +464,8 @@ function getEventValueExpr(
   columnRef: ColumnRef,
   factTable: MinimalFactTable,
   helpers: SqlHelpers,
+  alias: string,
+  cap: MetricCappingSettings | null,
 ): string {
   let rawValue: string;
   if (columnRef.column === "$$distinctUsers") {
@@ -464,6 +483,14 @@ function getEventValueExpr(
     );
   } else {
     rawValue = columnRef.column;
+  }
+
+  if (cap) {
+    if (cap.type === "percentile") {
+      rawValue = `LEAST(${rawValue}, COALESCE(${alias}_cap, ${rawValue}))`;
+    } else if (cap.type === "absolute") {
+      rawValue = `LEAST(${rawValue}, ${cap.value})`;
+    }
   }
 
   const filters = generateRowFilterSQL(
@@ -506,12 +533,12 @@ function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
 
 function getRollupAggregationExpr(
   metric: MinimalMetric,
-  columnRef: ColumnRef,
   alias: string,
+  helpers: SqlHelpers,
 ): string {
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
-    return `PERCENTILE_APPROX(${alias}, ${metric.quantileSettings.quantile})`;
+    return helpers.percentileApprox(alias, metric.quantileSettings.quantile);
   } else {
     return `SUM(${alias})`;
   }
@@ -549,21 +576,54 @@ function getMetricData(
     metric.metricType === "quantile" &&
     metric.quantileSettings?.type === "event";
 
+  const requiresUnitAggregation =
+    columnRef.aggregation === "max" ||
+    columnRef.aggregation === "count distinct" ||
+    metric.metricType === "dailyParticipation" ||
+    metric.metricType === "proportion" ||
+    columnRef.column === "$$distinctUsers" ||
+    columnRef.column === "$$distinctDates";
+
+  let selectedUnit = skipUnitAggregation
+    ? null
+    : unit || factTable.userIdTypes[0] || "user_id";
+
+  // Make sure selected unit is in the fact table user id types
+  // Some metrics (like sum), we can fall back to event level aggregation instead
+  if (selectedUnit && !factTable.userIdTypes.includes(selectedUnit)) {
+    if (!requiresUnitAggregation) {
+      selectedUnit = null;
+    } else {
+      throw new Error(
+        `Selected unit ${selectedUnit} is not in the fact table user id types`,
+      );
+    }
+  }
+
+  const cappingSettings = getCappingSettings(metric);
+
   return {
-    unit: skipUnitAggregation
-      ? null
-      : unit || factTable.userIdTypes[0] || "user_id",
+    unit: selectedUnit,
     alias,
-    eventValueExpr: getEventValueExpr(columnRef, factTable, helpers),
-    unitAggregationExpr: skipUnitAggregation
-      ? ""
-      : getUnitAggregationExpr(columnRef, alias),
-    rollupAggregationExpr: getRollupAggregationExpr(metric, columnRef, alias),
+    percentileCapValueExpr:
+      cappingSettings && cappingSettings.type === "percentile"
+        ? getEventValueExpr(columnRef, factTable, helpers, alias, null)
+        : null,
+    eventValueExpr: getEventValueExpr(
+      columnRef,
+      factTable,
+      helpers,
+      alias,
+      cappingSettings,
+    ),
+    unitAggregationExpr: selectedUnit
+      ? getUnitAggregationExpr(columnRef, alias)
+      : null,
+    rollupAggregationExpr: getRollupAggregationExpr(metric, alias, helpers),
     rollupCountExpr: getRollupCountExpr(metric, alias),
   };
 }
 
-// Main SQL generator function
 // Create a stub fact table from SQL dataset column types
 function createStubFactTable(
   sql: string,
@@ -641,6 +701,36 @@ function generateDynamicDimensionCTE(
   };
 }
 
+function generatePercentileCapsCTE(
+  factTableGroup: FactTableGroup,
+  sourceCTE: CTE,
+  helpers: SqlHelpers,
+): CTE | null {
+  const selects: string[] = [];
+  factTableGroup.metrics.forEach((m) => {
+    const cappingSettings = getCappingSettings(m.metric);
+    if (!cappingSettings || cappingSettings.type !== "percentile") return;
+
+    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+
+    selects.push(
+      `${helpers.percentileApprox(
+        metricData.percentileCapValueExpr || "NULL",
+        cappingSettings.value,
+      )} AS ${metricData.alias}_cap`,
+    );
+  });
+
+  if (!selects.length) return null;
+
+  return {
+    name: `_factTable${factTableGroup.index}_percentile_caps`,
+    sql: `SELECT 
+      ${selects.join(",\n  ")}
+    FROM ${sourceCTE.name}`,
+  };
+}
+
 // Generate fact table group CTE
 function generateFactTableCTE(
   factTableGroup: FactTableGroup,
@@ -700,6 +790,7 @@ function generateFactTableCTE(
 function generateFactTableRowsCTE(
   factTableGroup: FactTableGroup,
   sourceCTE: CTE,
+  percentileCapsCTE: CTE | null,
   dimensions: DimensionData[],
   helpers: SqlHelpers,
 ): CTE {
@@ -727,6 +818,7 @@ function generateFactTableRowsCTE(
     SELECT
       ${selectCols.join(",\n  ")}
     FROM ${sourceCTE.name}
+    ${percentileCapsCTE ? `CROSS JOIN ${percentileCapsCTE.name}` : ""}
   `,
   };
 }
@@ -958,10 +1050,19 @@ export function generateProductAnalyticsSQL(
       });
     }
 
+    // If there are percentile caps, add the percentile caps CTE
+    const percentileCapsCTE = generatePercentileCapsCTE(
+      factTableGroup,
+      factTableCTE,
+      sqlHelpers,
+    );
+    if (percentileCapsCTE) ctes.push(percentileCapsCTE);
+
     // Add the fact table rows CTE
     const factTableRowsCTE = generateFactTableRowsCTE(
       factTableGroup,
       factTableCTE,
+      percentileCapsCTE,
       allDimensions,
       sqlHelpers,
     );
