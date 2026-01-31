@@ -1092,6 +1092,13 @@ export default function ResultsTable({
                                                 "results-ctw",
                                                 resultsHighlightClassname,
                                               )}
+                                              metric={row.metric}
+                                              differenceType={differenceType}
+                                              statsEngine={statsEngine}
+                                              ssrPolyfills={ssrPolyfills}
+                                              minSampleSize={getMinSampleSizeForMetric(
+                                                row.metric,
+                                              )}
                                             />
                                           ) : (
                                             <PValueColumn
@@ -1113,6 +1120,13 @@ export default function ResultsTable({
                                               className={clsx(
                                                 "results-pval",
                                                 resultsHighlightClassname,
+                                              )}
+                                              metric={row.metric}
+                                              differenceType={differenceType}
+                                              statsEngine={statsEngine}
+                                              ssrPolyfills={ssrPolyfills}
+                                              minSampleSize={getMinSampleSizeForMetric(
+                                                row.metric,
                                               )}
                                             />
                                           )
@@ -1168,6 +1182,18 @@ export default function ResultsTable({
                                             }
                                             statsEngine={statsEngine}
                                             ssrPolyfills={ssrPolyfills}
+                                            suspiciousChange={
+                                              rowResults.suspiciousChange
+                                            }
+                                            notEnoughData={
+                                              !rowResults.enoughData
+                                            }
+                                            minSampleSize={getMinSampleSizeForMetric(
+                                              row.metric,
+                                            )}
+                                            minPercentChange={
+                                              rowResults.minPercentChange
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph
@@ -1205,6 +1231,9 @@ export default function ResultsTable({
                                                 ? timeSeriesButton
                                                 : undefined
                                             }
+                                            minSampleSize={getMinSampleSizeForMetric(
+                                              row.metric,
+                                            )}
                                           />
                                         ) : (
                                           <td></td>
