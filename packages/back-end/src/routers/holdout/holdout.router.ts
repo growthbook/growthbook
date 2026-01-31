@@ -15,5 +15,6 @@ router.delete(
   "/:id/feature/:featureId",
   holdoutController.deleteHoldoutFeature,
 );
+router.delete("/:id/schedule", holdoutController.deleteHoldoutSchedule);
 
 export { router as holdoutRouter };

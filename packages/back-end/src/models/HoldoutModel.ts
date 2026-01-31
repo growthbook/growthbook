@@ -1,11 +1,14 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
+const COLLECTION_NAME = "holdouts";
+
 const BaseClass = MakeModelClass({
   schema: holdoutValidator,
-  collectionName: "holdouts",
+  collectionName: COLLECTION_NAME,
   idPrefix: "hld_",
   auditLog: {
     entity: "holdout",
@@ -36,6 +39,26 @@ export class HoldoutModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("holdouts");
+  }
+
+  public static async getAllHoldoutsToUpdate(): Promise<
+    { id: string; organization: string }[]
+  > {
+    const now = new Date();
+
+    const holdouts = await getCollection<HoldoutInterface>(COLLECTION_NAME)
+      .find({
+        nextScheduledUpdate: { $lte: now, $exists: true },
+      })
+      .project({
+        id: true,
+        organization: true,
+      })
+      .limit(100)
+      .sort({ nextScheduledUpdate: 1 })
+      .toArray();
+
+    return holdouts.map((h) => ({ id: h.id, organization: h.organization }));
   }
 
   public async getAllPayloadHoldouts(

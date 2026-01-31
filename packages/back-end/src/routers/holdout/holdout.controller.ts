@@ -372,7 +372,72 @@ export const updateHoldout = async (
     });
   }
 
-  const updatedHoldout = await context.models.holdout.update(holdout, req.body);
+  // Convert string dates to Date objects for scheduledStatusUpdates
+  const updates = { ...req.body };
+  if (updates.scheduledStatusUpdates) {
+    const scheduledUpdates = updates.scheduledStatusUpdates as {
+      startAt?: string | Date;
+      startAnalysisPeriodAt?: string | Date;
+      stopAt?: string | Date;
+    };
+    updates.scheduledStatusUpdates = {
+      startAt: scheduledUpdates.startAt
+        ? getValidDate(scheduledUpdates.startAt)
+        : undefined,
+      startAnalysisPeriodAt: scheduledUpdates.startAnalysisPeriodAt
+        ? getValidDate(scheduledUpdates.startAnalysisPeriodAt)
+        : undefined,
+      stopAt: scheduledUpdates.stopAt
+        ? getValidDate(scheduledUpdates.stopAt)
+        : undefined,
+    };
+
+    // Compute next scheduled update and next scheduled update type
+    // Next scheduled update should be the earliest date among startAt, startAnalysisPeriodAt, and stopAt that is in the future
+    const now = new Date();
+    const potentialUpdates: Array<{
+      date: Date;
+      type: "start" | "startAnalysisPeriod" | "stop";
+    }> = [];
+
+    if (updates.scheduledStatusUpdates.startAt) {
+      potentialUpdates.push({
+        date: updates.scheduledStatusUpdates.startAt,
+        type: "start",
+      });
+    }
+    if (updates.scheduledStatusUpdates.startAnalysisPeriodAt) {
+      potentialUpdates.push({
+        date: updates.scheduledStatusUpdates.startAnalysisPeriodAt,
+        type: "startAnalysisPeriod",
+      });
+    }
+    if (updates.scheduledStatusUpdates.stopAt) {
+      potentialUpdates.push({
+        date: updates.scheduledStatusUpdates.stopAt,
+        type: "stop",
+      });
+    }
+
+    // Filter to only future dates and find the earliest one
+    const futureUpdates = potentialUpdates.filter(
+      (update) => update.date > now,
+    );
+
+    if (futureUpdates.length > 0) {
+      const nextUpdate = futureUpdates.reduce((earliest, current) =>
+        current.date < earliest.date ? current : earliest,
+      );
+      updates.nextScheduledUpdate = nextUpdate.date;
+      updates.nextScheduledUpdateType = nextUpdate.type;
+    } else {
+      // No future dates, set to null
+      updates.nextScheduledUpdate = null;
+      updates.nextScheduledUpdateType = null;
+    }
+  }
+
+  const updatedHoldout = await context.models.holdout.update(holdout, updates);
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 
@@ -652,3 +717,32 @@ export const deleteHoldoutFeature = async (
 };
 
 // endregion DELETE /holdout/:id/feature/:featureId
+
+// region DELETE /holdout/:id/schedule
+
+export const deleteHoldoutSchedule = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 | 404; message?: string }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
+  }
+
+  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await context.models.holdout.update(holdout, {
+    scheduledStatusUpdates: undefined,
+    nextScheduledUpdate: null,
+    nextScheduledUpdateType: null,
+  });
+
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion DELETE /holdout/:id/schedule

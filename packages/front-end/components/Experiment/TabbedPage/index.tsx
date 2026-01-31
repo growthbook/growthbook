@@ -11,7 +11,7 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
@@ -68,7 +68,7 @@ export type ExperimentTab =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -87,6 +87,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
+  editHoldoutSchedule?: (() => void) | null;
   stop?: (() => void) | null;
 }
 
@@ -111,6 +112,7 @@ export default function TabbedPage({
   checklistItemsRemaining,
   setChecklistItemsRemaining,
   stop,
+  editHoldoutSchedule,
 }: Props) {
   const growthbook = useGrowthBook();
   const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
@@ -498,6 +500,7 @@ export default function TabbedPage({
         stop={stop}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
+        editHoldoutSchedule={editHoldoutSchedule}
       />
 
       <div
@@ -587,6 +590,7 @@ export default function TabbedPage({
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             envs={envs}
+            editHoldoutSchedule={editHoldoutSchedule}
           />
           <Implementation
             experiment={experiment}

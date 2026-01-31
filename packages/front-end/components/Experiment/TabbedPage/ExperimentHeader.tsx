@@ -18,7 +18,8 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
+import { format } from "date-fns";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -57,6 +58,7 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
+import Linkbutton from "@/ui/LinkButton";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -87,12 +89,19 @@ export interface Props {
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   stop?: (() => void) | null;
   showDashboardView: boolean;
+  editHoldoutSchedule?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
+  start: "Holdout starts ",
+  startAnalysisPeriod: "Analysis starts ",
+  stop: "Analysis ends ",
+};
 
 const DisabledHealthTabTooltip = ({
   reason,
@@ -144,6 +153,7 @@ export default function ExperimentHeader({
   holdout,
   stop,
   showDashboardView,
+  editHoldoutSchedule,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -701,7 +711,21 @@ export default function ExperimentHeader({
           </Box>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
-            {canRunExperiment ? (
+            {isHoldout &&
+            holdout?.nextScheduledUpdate &&
+            holdout.nextScheduledUpdateType ? (
+              <Linkbutton variant="ghost" href={`/holdouts/${holdout?.id}`}>
+                {
+                  HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
+                    holdout.nextScheduledUpdateType
+                  ]
+                }
+                {format(
+                  new Date(holdout.nextScheduledUpdate),
+                  "MMM d, yyyy 'at' h:mm a",
+                )}
+              </Linkbutton>
+            ) : canRunExperiment ? (
               <div>
                 {experiment.status === "running" ? (
                   <ExperimentActionButtons
@@ -774,18 +798,6 @@ export default function ExperimentHeader({
               menuPlacement="end"
             >
               <DropdownMenuGroup>
-                {canRunExperiment &&
-                  !isBandit &&
-                  (experiment.status !== "draft" || hasResults) && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setStatusModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit status
-                    </DropdownMenuItem>
-                  )}
                 {canEditExperiment ? (
                   <DropdownMenuItem
                     onClick={() => {
@@ -796,16 +808,37 @@ export default function ExperimentHeader({
                     Edit info
                   </DropdownMenuItem>
                 ) : null}
-                {editPhases && !isBandit && (
+                {canRunExperiment &&
+                  !isBandit &&
+                  !isHoldout &&
+                  (experiment.status !== "draft" || hasResults) && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setStatusModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit status
+                    </DropdownMenuItem>
+                  )}
+                {editPhases && !isBandit && !isHoldout && (
                   <DropdownMenuItem
                     onClick={() => {
                       editPhases();
                       setDropdownOpen(false);
                     }}
                   >
-                    {`Edit ${
-                      experiment.type === "holdout" ? "holdout period" : "phase"
-                    }`}
+                    Edit phase
+                  </DropdownMenuItem>
+                )}
+                {editHoldoutSchedule && isHoldout && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      editHoldoutSchedule();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Edit schedule
                   </DropdownMenuItem>
                 )}
                 {canEditExperiment &&
@@ -831,23 +864,35 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {isHoldout &&
-                experiment.status === "running" &&
-                experiment.phases.length < 2 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          stop?.();
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Stop Holdout
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
-                )}
+              {isHoldout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    {experiment.status === "running" &&
+                      experiment.phases.length < 2 && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            stop?.();
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Stop Holdout
+                        </DropdownMenuItem>
+                      )}
+                    {canRunExperiment &&
+                      (experiment.status !== "draft" || hasResults) && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setStatusModal(true);
+                            setDropdownOpen(false);
+                          }}
+                        >
+                          Force Status Change
+                        </DropdownMenuItem>
+                      )}
+                  </DropdownMenuGroup>
+                </>
+              )}
               {!isHoldout && (
                 <>
                   <DropdownMenuSeparator />
