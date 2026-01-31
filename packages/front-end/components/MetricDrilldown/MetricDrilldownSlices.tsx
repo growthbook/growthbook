@@ -211,11 +211,11 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         renderLabelColumn={({ label, row }) => (
           <Flex direction="column" gap="1" ml={row.isSliceRow ? "4" : "3"}>
             <Text weight="medium">{label}</Text>
-            {row.isSliceRow && (
+            {row.isSliceRow ? (
               <Text size="1" style={{ color: "var(--color-text-low)" }}>
                 {row.sliceLevels?.map((dl) => dl.column).join(" + ")}
               </Text>
-            )}
+            ) : null}
           </Flex>
         )}
         statsEngine={statsEngine}
