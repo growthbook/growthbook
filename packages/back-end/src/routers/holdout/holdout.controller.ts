@@ -741,6 +741,8 @@ export const deleteHoldoutSchedule = async (
     nextScheduledUpdate: null,
     nextScheduledUpdateType: null,
   });
+
+  return res.status(200).json({ status: 200 });
 };
 
 // endregion DELETE /holdout/:id/schedule

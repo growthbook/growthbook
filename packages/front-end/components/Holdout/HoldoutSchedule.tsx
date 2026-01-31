@@ -44,6 +44,19 @@ function getSegmentWeights(
   return [0, 0, 0]; // This should never happen
 }
 
+function getCompletion(startDate: Date | null, endDate: Date | null): number {
+  const now = new Date();
+
+  if (!startDate || !endDate) return 0;
+  if (now < startDate) return 0;
+  if (now > endDate) return 100;
+
+  return (
+    (differenceInDays(now, startDate) / differenceInDays(endDate, startDate)) *
+    100
+  );
+}
+
 export const HoldoutSchedule = ({
   holdout,
   experiment,
@@ -73,31 +86,32 @@ export const HoldoutSchedule = ({
   const [firstSegmentWeight, secondSegmentWeight, thirdSegmentWeight] =
     getSegmentWeights(startDate, startAnalysisPeriodDate, stopDate);
 
+  console.log("firstSegmentWeight", firstSegmentWeight);
+  console.log("secondSegmentWeight", secondSegmentWeight);
+  console.log("thirdSegmentWeight", thirdSegmentWeight);
+
+  console.log(
+    "completion",
+    startDate && startAnalysisPeriodDate
+      ? now > startAnalysisPeriodDate
+        ? 100
+        : (differenceInDays(now, startDate) /
+            differenceInDays(startAnalysisPeriodDate, startDate)) *
+          100
+      : 0,
+  );
+
   const segments = [
     {
       id: "1",
       weight: firstSegmentWeight,
-      completion:
-        startDate && startAnalysisPeriodDate
-          ? now > startAnalysisPeriodDate
-            ? 100
-            : (differenceInDays(now, startDate) /
-                differenceInDays(startAnalysisPeriodDate, startDate)) *
-              100
-          : 0,
+      completion: getCompletion(startDate, startAnalysisPeriodDate),
       color: "indigo",
     },
     {
       id: "2",
       weight: secondSegmentWeight,
-      completion:
-        startAnalysisPeriodDate && stopDate
-          ? now > stopDate
-            ? 100
-            : (differenceInDays(now, stopDate) /
-                differenceInDays(stopDate, startAnalysisPeriodDate)) *
-              100
-          : 0,
+      completion: getCompletion(startAnalysisPeriodDate, stopDate),
       color: "amber",
     },
     {
