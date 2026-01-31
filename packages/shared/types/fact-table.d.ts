@@ -78,6 +78,7 @@ export interface FactTableInterface {
   columnsError?: string | null;
   filters: FactFilterInterface[];
   archived?: boolean;
+  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
 }
 
