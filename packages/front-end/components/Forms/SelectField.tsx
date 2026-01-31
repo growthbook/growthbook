@@ -162,7 +162,7 @@ const multilineStyles = {
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
-    lineHeight: "1.1",
+    lineHeight: "1.2",
   }),
 };
 
@@ -300,6 +300,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
@@ -331,6 +332,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />

@@ -6,7 +6,6 @@ import { RxLoop } from "react-icons/rx";
 import {
   PiArrowSquareOut,
   PiBracketsCurly,
-  PiPlusBold,
   PiPlusCircleBold,
   PiXBold,
 } from "react-icons/pi";
@@ -40,6 +39,14 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import {
+  ConditionGroupCard,
+  ConditionRow,
+  AndSeparator,
+  OrSeparator,
+  AddConditionButton,
+  AddOrGroupButton,
+} from "./ConditionGroup";
 
 export function ConditionLabel({
   label,
@@ -49,11 +56,67 @@ export function ConditionLabel({
   width?: number;
 }) {
   return (
-    // height 38 matches our single row input field height
-    <Flex align="center" flexShrink="0" style={{ width, height: 38 }}>
-      <Text weight="bold">{label}</Text>
+    <Flex align="center" flexShrink="0" style={{ width }} mb="1">
+      <Text weight="medium" size="2">
+        {label}
+      </Text>
     </Flex>
   );
+}
+
+/** Operators that support a case-insensitive variant via checkbox (list + regex) */
+const OPERATORS_WITH_CASE_INSENSITIVE = new Set([
+  "$in",
+  "$nin",
+  "$ini",
+  "$nini",
+  "$regex",
+  "$notRegex",
+  "$regexi",
+  "$notRegexi",
+]);
+
+/** Base operator -> case-insensitive variant */
+const CASE_INSENSITIVE_VARIANT: Record<string, string> = {
+  $in: "$ini",
+  $nin: "$nini",
+  $regex: "$regexi",
+  $notRegex: "$notRegexi",
+};
+
+/** Case-insensitive variant -> base operator */
+const BASE_OPERATOR: Record<string, string> = {
+  $ini: "$in",
+  $nini: "$nin",
+  $regexi: "$regex",
+  $notRegexi: "$notRegex",
+};
+
+export function operatorSupportsCaseInsensitive(operator: string): boolean {
+  return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
+}
+
+/** True when the attribute datatype supports case-insensitive operators (false for secureString / secureString[]). */
+export function datatypeSupportsCaseInsensitive(datatype?: string): boolean {
+  return !["secureString", "secureString[]"].includes(datatype ?? "");
+}
+
+export function getDisplayOperator(operator: string): string {
+  return BASE_OPERATOR[operator] ?? operator;
+}
+
+export function isCaseInsensitiveOperator(operator: string): boolean {
+  return operator in BASE_OPERATOR;
+}
+
+export function withOperatorCaseInsensitivity(
+  baseOperator: string,
+  caseInsensitive: boolean,
+): string {
+  if (caseInsensitive && baseOperator in CASE_INSENSITIVE_VARIANT) {
+    return CASE_INSENSITIVE_VARIANT[baseOperator];
+  }
+  return baseOperator;
 }
 
 interface Props {
@@ -164,7 +227,7 @@ export default function ConditionInput(props: Props) {
 
     return (
       <Box my="4">
-        <Flex gap="2" mb="2">
+        <Flex gap="2">
           <Box flexGrow={"1"}>
             <label className={props.labelClassName || ""}>{title}</label>
           </Box>
@@ -255,84 +318,94 @@ export default function ConditionInput(props: Props) {
   }
   return (
     <Box my="4">
-      <Flex gap="2" mb="2">
-        <Box flexGrow={"1"}>
-          <label
-            className={props.labelClassName || ""}
-            style={{ marginBottom: 0 }}
-          >
-            {title}
-          </label>
-        </Box>
-        <Box>
-          <Link onClick={() => setAdvanced(true)}>
-            <RxLoop /> Advanced mode
-          </Link>
-        </Box>
+      <Flex justify="between" align="center" mb="3">
+        <label className={props.labelClassName || ""}>{title}</label>
+        <Link
+          onClick={() => setAdvanced(true)}
+          style={{ fontSize: "var(--font-size-2)", fontWeight: 500 }}
+        >
+          <RxLoop /> Advanced mode
+        </Link>
       </Flex>
 
       {conds.map((andGroup, i) => (
         <Box key={i}>
-          {i > 0 && (
-            <Box mb="2">
-              <Text weight="bold">OR</Text>
-            </Box>
-          )}
-          <ConditionAndGroupInput
-            conds={andGroup}
-            setConds={(newConds) => {
-              const newAndGroups = [...conds];
-
-              // Empty array means delete the AND group
-              if (newConds.length === 0) {
-                newAndGroups.splice(i, 1);
-              } else {
-                newAndGroups[i] = newConds;
-              }
-              setConds(newAndGroups);
-            }}
-            orGroupsCount={conds.length}
-            project={props.project}
-            labelClassName={props.labelClassName}
-            emptyText={props.emptyText}
-            title={props.title}
-            require={props.require}
-            allowNestedSavedGroups={props.allowNestedSavedGroups}
-            excludeSavedGroupId={props.excludeSavedGroupId}
-          />
+          {i > 0 && <OrSeparator />}
+          <ConditionGroupCard
+            targetingType="attribute"
+            total={conds.length}
+            extendToCardEdges
+            addButton={
+              attributeSchema.length > 0 ? (
+                <AddConditionButton
+                  onClick={() => {
+                    const prop = attributeSchema[0];
+                    const newAndGroups = [...conds];
+                    newAndGroups[i] = [
+                      ...andGroup,
+                      {
+                        field: prop?.property || "",
+                        operator:
+                          prop?.datatype === "boolean"
+                            ? "$true"
+                            : prop?.disableEqualityConditions
+                              ? "$regex"
+                              : "$eq",
+                        value: "",
+                      },
+                    ];
+                    setConds(newAndGroups);
+                  }}
+                />
+              ) : undefined
+            }
+          >
+            <ConditionAndGroupInput
+              conds={andGroup}
+              setConds={(newConds) => {
+                const newAndGroups = [...conds];
+                if (newConds.length === 0) {
+                  newAndGroups.splice(i, 1);
+                } else {
+                  newAndGroups[i] = newConds;
+                }
+                setConds(newAndGroups);
+              }}
+              orGroupsCount={conds.length}
+              project={props.project}
+              labelClassName={props.labelClassName}
+              emptyText={props.emptyText}
+              title={props.title}
+              require={props.require}
+              allowNestedSavedGroups={props.allowNestedSavedGroups}
+              excludeSavedGroupId={props.excludeSavedGroupId}
+            />
+          </ConditionGroupCard>
         </Box>
       ))}
 
-      <Flex align="center" mt="2">
-        {attributeSchema.length > 0 && (
-          <Link
-            className="or-button"
-            onClick={() => {
-              const prop = attributeSchema[0];
-              setConds([
-                ...conds,
-                [
-                  {
-                    field: prop?.property || "",
-                    operator:
-                      prop?.datatype === "boolean"
-                        ? "$true"
-                        : prop?.disableEqualityConditions
-                          ? "$regex"
-                          : "$eq",
-                    value: "",
-                  },
-                ],
-              ]);
-            }}
-          >
-            <Text weight="bold">
-              <PiPlusBold className="mr-1" />
-              OR
-            </Text>
-          </Link>
-        )}
-      </Flex>
+      {attributeSchema.length > 0 && (
+        <AddOrGroupButton
+          onClick={() => {
+            const prop = attributeSchema[0];
+            setConds([
+              ...conds,
+              [
+                {
+                  field: prop?.property || "",
+                  operator:
+                    prop?.datatype === "boolean"
+                      ? "$true"
+                      : prop?.disableEqualityConditions
+                        ? "$regex"
+                        : "$eq",
+                  value: "",
+                },
+              ],
+            ]);
+          }}
+        />
+      )}
 
       {usingDisabledEqualityAttributes && (
         <Callout status="warning" mt="4">
@@ -366,7 +439,24 @@ function ConditionAndGroupInput({
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
-  const [rawTextMode, setRawTextMode] = useState(false);
+
+  // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
+  useEffect(() => {
+    let changed = false;
+    const next = conds.map((c) => {
+      const attr = attributes.get(c.field);
+      if (
+        attr &&
+        ["secureString", "secureString[]"].includes(attr.datatype) &&
+        isCaseInsensitiveOperator(c.operator)
+      ) {
+        changed = true;
+        return { ...c, operator: getDisplayOperator(c.operator) };
+      }
+      return c;
+    });
+    if (changed) setConds(next);
+  }, [conds, attributes, setConds]);
 
   const savedGroupOperators = [
     {
@@ -384,647 +474,173 @@ function ConditionAndGroupInput({
   const attributeSchema = useAttributeSchema(false, props.project);
 
   return (
-    <Box>
-      <Box className="appbox bg-light px-3 py-3">
-        {conds.map(({ field, operator, value }, i) => {
-          const attribute = attributes.get(field);
+    <>
+      {conds.flatMap(({ field, operator, value }, i) => {
+        const attribute = attributes.get(field);
 
-          const handleCondsChange = (value: string, name: string) => {
-            const newConds = [...conds];
-            newConds[i] = { ...newConds[i] };
-            newConds[i][name] = value;
-            setConds(newConds);
-          };
+        const handleCondsChange = (value: string, name: string) => {
+          const newConds = [...conds];
+          newConds[i] = { ...newConds[i] };
+          newConds[i][name] = value;
+          setConds(newConds);
+        };
 
-          const handleFieldChange = (
-            e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>,
-          ) => {
-            const name = e.target.name;
-            const value: string | number = e.target.value;
+        const handleFieldChange = (
+          e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>,
+        ) => {
+          const name = e.target.name;
+          const value: string | number = e.target.value;
 
-            handleCondsChange(value, name);
-          };
+          handleCondsChange(value, name);
+        };
 
-          const handleListChange = (values: string[]) => {
-            const name = "value";
-            const value: string | number = values.join(",");
-            handleCondsChange(value, name);
-          };
+        const handleListChange = (values: string[]) => {
+          const name = "value";
+          const value: string | number = values.join(",");
+          handleCondsChange(value, name);
+        };
 
-          const fieldSelector = (
-            <SelectField
-              useMultilineLabels={true}
-              value={field}
-              options={[
-                ...attributeSchema.map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  tooltip: s.description || "",
-                })),
-                ...(props.allowNestedSavedGroups || field === "$savedGroups"
-                  ? [
-                      {
-                        label: "Saved Group",
-                        value: "$savedGroups",
-                      },
-                    ]
-                  : []),
-              ]}
-              formatOptionLabel={(o) => (
-                <span title={o.tooltip}>{o.label}</span>
-              )}
-              name="field"
-              onChange={(value) => {
-                const newConds = [...conds];
-                newConds[i] = { ...newConds[i] };
-                newConds[i]["field"] = value;
+        const fieldSelector = (
+          <SelectField
+            useMultilineLabels={true}
+            value={field}
+            options={[
+              ...attributeSchema.map((s) => ({
+                label: s.property,
+                value: s.property,
+                tooltip: s.description || "",
+              })),
+              ...(props.allowNestedSavedGroups || field === "$savedGroups"
+                ? [
+                    {
+                      label: "Saved Group",
+                      value: "$savedGroups",
+                    },
+                  ]
+                : []),
+            ]}
+            formatOptionLabel={(o) => <span title={o.tooltip}>{o.label}</span>}
+            name="field"
+            onChange={(value) => {
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i]["field"] = value;
 
-                if (value === "$savedGroups") {
-                  newConds[i]["operator"] = "$in";
-                  newConds[i]["value"] = "";
-                  setConds(newConds);
-                  return;
-                }
+              if (value === "$savedGroups") {
+                newConds[i]["operator"] = "$in";
+                newConds[i]["value"] = "";
+                setConds(newConds);
+                return;
+              }
 
-                const newAttribute = attributes.get(value);
-                const hasAttrChanged =
-                  newAttribute?.datatype !== attribute?.datatype ||
-                  newAttribute?.array !== attribute?.array ||
-                  !!newAttribute?.disableEqualityConditions !==
-                    !!attribute?.disableEqualityConditions;
+              const newAttribute = attributes.get(value);
+              const hasAttrChanged =
+                newAttribute?.datatype !== attribute?.datatype ||
+                newAttribute?.array !== attribute?.array ||
+                !!newAttribute?.disableEqualityConditions !==
+                  !!attribute?.disableEqualityConditions;
 
-                if (hasAttrChanged && newAttribute) {
+              if (hasAttrChanged && newAttribute) {
+                newConds[i]["operator"] = getDefaultOperator(newAttribute);
+                newConds[i]["value"] = newConds[i]["value"] || "";
+              } else if (
+                newAttribute &&
+                newAttribute.format !== attribute?.format
+              ) {
+                const desiredOperator = getFormatEquivalentOperator(
+                  conds[i].operator,
+                  newAttribute?.format,
+                );
+                if (desiredOperator) {
+                  newConds[i]["operator"] = desiredOperator;
+                } else {
                   newConds[i]["operator"] = getDefaultOperator(newAttribute);
                   newConds[i]["value"] = newConds[i]["value"] || "";
-                } else if (
-                  newAttribute &&
-                  newAttribute.format !== attribute?.format
-                ) {
-                  const desiredOperator = getFormatEquivalentOperator(
-                    conds[i].operator,
-                    newAttribute?.format,
-                  );
-                  if (desiredOperator) {
-                    newConds[i]["operator"] = desiredOperator;
-                  } else {
-                    newConds[i]["operator"] = getDefaultOperator(newAttribute);
-                    newConds[i]["value"] = newConds[i]["value"] || "";
-                  }
                 }
-                setConds(newConds);
-              }}
-              sort={false}
-            />
-          );
-
-          if (field === "$savedGroups") {
-            const groupOptions = savedGroups
-              .filter((g) => g.id !== props.excludeSavedGroupId)
-              .map((g) => ({
-                label: g.groupName,
-                value: g.id,
-              }));
-
-            // Add any missing ids to options
-            const ids = value
-              ? value
-                  .split(",")
-                  .map((val) => val.trim())
-                  .filter((v) => !!v)
-              : [];
-
-            ids.forEach((id) => {
-              if (!groupOptions.find((option) => option.value === id)) {
-                groupOptions.push({ label: id, value: id });
               }
-            });
+              setConds(newConds);
+            }}
+            sort={false}
+          />
+        );
 
-            return (
-              <Flex key={i} gap="2" align="start" mb="4">
-                <Box style={{ flexShrink: 0 }}>
-                  <ConditionLabel label={i === 0 ? "IF" : "AND"} />
-                </Box>
-                <Flex
-                  gap="2"
-                  align="start"
-                  wrap="wrap"
-                  style={{ flex: "1 1 0", minWidth: 0 }}
-                >
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {fieldSelector}
-                  </Box>
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <SelectField
-                      useMultilineLabels={true}
-                      value={operator}
-                      name="operator"
-                      options={[
-                        {
-                          label: "in",
-                          value: "$in",
-                        },
-                        {
-                          label: "not in",
-                          value: "$nin",
-                        },
-                      ]}
-                      sort={false}
-                      onChange={(v) => {
-                        handleCondsChange(v, "operator");
-                      }}
-                    />
-                  </Box>
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <MultiSelectField
-                      value={ids}
-                      options={groupOptions}
-                      onChange={handleListChange}
-                      name="value"
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value" || !o.value)
-                          return o.label;
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{ position: "relative", zIndex: 1000 }}
-                          >
-                            {o.label} <PiArrowSquareOut />
-                          </Link>
-                        );
-                      }}
-                      required
-                    />
-                  </Box>
-                </Flex>
-                <Box px="1" pt="3" style={{ width: 16 }}>
-                  {(conds.length > 1 ||
-                    (conds.length === 1 && orGroupsCount > 1) ||
-                    !props.require) && (
-                    <Tooltip content="Remove condition">
-                      <IconButton
-                        type="button"
-                        color="red"
-                        variant="ghost"
-                        onClick={() => {
-                          // If this is the last condition in the AND group, delete the entire OR group
-                          if (conds.length === 1) {
-                            setConds([]);
-                          } else {
-                            const newConds = [...conds];
-                            newConds.splice(i, 1);
-                            setConds(newConds);
-                          }
-                        }}
+        if (field === "$savedGroups") {
+          const groupOptions = savedGroups
+            .filter((g) => g.id !== props.excludeSavedGroupId)
+            .map((g) => ({
+              label: g.groupName,
+              value: g.id,
+            }));
+
+          // Add any missing ids to options
+          const ids = value
+            ? value
+                .split(",")
+                .map((val) => val.trim())
+                .filter((v) => !!v)
+            : [];
+
+          ids.forEach((id) => {
+            if (!groupOptions.find((option) => option.value === id)) {
+              groupOptions.push({ label: id, value: id });
+            }
+          });
+
+          return [
+            ...(i > 0 ? [<AndSeparator key={`and-${i}`} />] : []),
+            <ConditionRow
+              key={i}
+              attributeSlot={fieldSelector}
+              operatorSlot={
+                <SelectField
+                  useMultilineLabels={true}
+                  value={operator}
+                  name="operator"
+                  options={[
+                    { label: "in", value: "$in" },
+                    { label: "not in", value: "$nin" },
+                  ]}
+                  sort={false}
+                  onChange={(v) => {
+                    handleCondsChange(v, "operator");
+                  }}
+                />
+              }
+              valueSlot={
+                <MultiSelectField
+                  value={ids}
+                  options={groupOptions}
+                  onChange={handleListChange}
+                  name="value"
+                  formatOptionLabel={(o, meta) => {
+                    if (meta.context !== "value" || !o.value) return o.label;
+                    const group = getSavedGroupById(o.value);
+                    if (!group) return o.label;
+                    return (
+                      <Link
+                        href={`/saved-groups/${group.id}`}
+                        target="_blank"
+                        style={{ position: "relative", zIndex: 1000 }}
                       >
-                        <PiXBold size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              </Flex>
-            );
-          }
-
-          if (!attribute) {
-            console.error("Attribute not found in attribute Map.");
-            return;
-          }
-
-          const savedGroupOptions = savedGroups
-            // First, limit to groups with the correct attribute
-            .filter((g) => g.type === "list" && g.attributeKey === field)
-            // Filter by project
-            .filter((group) => {
-              return (
-                !props.project ||
-                !group.projects?.length ||
-                group.projects.includes(props.project)
-              );
-            })
-            // Then, transform into the select option format
-            .map((g) => ({ label: g.groupName, value: g.id }));
-
-          let operatorOptions =
-            attribute.datatype === "boolean"
-              ? [
-                  { label: "is true", value: "$true" },
-                  { label: "is false", value: "$false" },
-                  { label: "is not NULL", value: "$exists" },
-                  { label: "is NULL", value: "$notExists" },
-                ]
-              : attribute.array
-                ? [
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
-                    { label: "is empty", value: "$empty" },
-                    { label: "is not empty", value: "$notEmpty" },
-                    { label: "is not NULL", value: "$exists" },
-                    { label: "is NULL", value: "$notExists" },
-                  ]
-                : attribute.enum?.length || 0 > 0
-                  ? [
-                      { label: "is equal to", value: "$eq" },
-                      { label: "is not equal to", value: "$ne" },
-                      { label: "is in the list", value: "$in" },
-                      { label: "is not in the list", value: "$nin" },
-                      {
-                        label: "is in the list (case insensitive)",
-                        value: "$ini",
-                      },
-                      {
-                        label: "is not in the list (case insensitive)",
-                        value: "$nini",
-                      },
-                      { label: "is not NULL", value: "$exists" },
-                      { label: "is NULL", value: "$notExists" },
-                    ]
-                  : attribute.datatype === "string"
-                    ? [
-                        {
-                          label: "is equal to",
-                          value:
-                            attribute.format === "version" ? "$veq" : "$eq",
-                        },
-                        {
-                          label: "is not equal to",
-                          value:
-                            attribute.format === "version" ? "$vne" : "$ne",
-                        },
-                        { label: "matches regex", value: "$regex" },
-                        { label: "does not match regex", value: "$notRegex" },
-                        {
-                          label: "matches regex (case insensitive)",
-                          value: "$regexi",
-                        },
-                        {
-                          label: "does not match regex (case insensitive)",
-                          value: "$notRegexi",
-                        },
-                        {
-                          label:
-                            attribute.format === "date"
-                              ? "is after"
-                              : "is greater than",
-                          value:
-                            attribute.format === "version" ? "$vgt" : "$gt",
-                        },
-                        {
-                          label:
-                            attribute.format === "date"
-                              ? "is after or on"
-                              : "is greater than or equal to",
-                          value:
-                            attribute.format === "version" ? "$vgte" : "$gte",
-                        },
-                        {
-                          label:
-                            attribute.format === "date"
-                              ? "is before"
-                              : "is less than",
-                          value:
-                            attribute.format === "version" ? "$vlt" : "$lt",
-                        },
-                        {
-                          label:
-                            attribute.format === "date"
-                              ? "is before or on"
-                              : "is less than or equal to",
-                          value:
-                            attribute.format === "version" ? "$vlte" : "$lte",
-                        },
-                        { label: "is in the list", value: "$in" },
-                        { label: "is not in the list", value: "$nin" },
-                        {
-                          label: "is in the list (case insensitive)",
-                          value: "$ini",
-                        },
-                        {
-                          label: "is not in the list (case insensitive)",
-                          value: "$nini",
-                        },
-                        { label: "is not NULL", value: "$exists" },
-                        { label: "is NULL", value: "$notExists" },
-                        ...(savedGroupOptions.length > 0
-                          ? savedGroupOperators
-                          : []),
-                      ]
-                    : attribute.datatype === "secureString"
-                      ? [
-                          { label: "is equal to", value: "$eq" },
-                          { label: "is not equal to", value: "$ne" },
-                          { label: "is in the list", value: "$in" },
-                          { label: "is not in the list", value: "$nin" },
-                          {
-                            label: "is in the list (case insensitive)",
-                            value: "$ini",
-                          },
-                          {
-                            label: "is not in the list (case insensitive)",
-                            value: "$nini",
-                          },
-                          { label: "is not NULL", value: "$exists" },
-                          { label: "is NULL", value: "$notExists" },
-                          ...(savedGroupOptions.length > 0
-                            ? savedGroupOperators
-                            : []),
-                        ]
-                      : attribute.datatype === "number"
-                        ? [
-                            { label: "is equal to", value: "$eq" },
-                            { label: "is not equal to", value: "$ne" },
-                            { label: "is greater than", value: "$gt" },
-                            {
-                              label: "is greater than or equal to",
-                              value: "$gte",
-                            },
-                            { label: "is less than", value: "$lt" },
-                            {
-                              label: "is less than or equal to",
-                              value: "$lte",
-                            },
-                            { label: "is in the list", value: "$in" },
-                            { label: "is not in the list", value: "$nin" },
-                            {
-                              label: "is in the list (case insensitive)",
-                              value: "$ini",
-                            },
-                            {
-                              label: "is not in the list (case insensitive)",
-                              value: "$nini",
-                            },
-                            { label: "is not NULL", value: "$exists" },
-                            { label: "is NULL", value: "$notExists" },
-                            ...(savedGroupOptions.length > 0
-                              ? savedGroupOperators
-                              : []),
-                          ]
-                        : [];
-
-          if (attribute.disableEqualityConditions) {
-            // Remove equality operators if the attribute has them disabled
-            operatorOptions = operatorOptions.filter(
-              (o) =>
-                !["$eq", "$ne", "$in", "$nin", "$ini", "$nini"].includes(
-                  o.value,
-                ),
-            );
-          }
-
-          let displayType:
-            | "select-only"
-            | "array-field"
-            | "enum"
-            | "number"
-            | "string"
-            | "isoCountryCode"
-            | null = null;
-          if (
-            [
-              "$exists",
-              "$notExists",
-              "$true",
-              "$false",
-              "$empty",
-              "$notEmpty",
-            ].includes(operator)
-          ) {
-            displayType = "select-only";
-          } else if (attribute.enum === ALL_COUNTRY_CODES) {
-            displayType = "isoCountryCode";
-          } else if (attribute.enum.length) {
-            displayType = "enum";
-          } else if (listOperators.includes(operator)) {
-            displayType = "array-field";
-          } else if (attribute.datatype === "number") {
-            displayType = "number";
-          } else if (["string", "secureString"].includes(attribute.datatype)) {
-            displayType = "string";
-          }
-          const hasExtraWhitespace =
-            displayType === "string" && value !== value.trim();
-
-          return (
-            <Flex key={i} gap="2" align="start" mb="3">
-              <Box style={{ flexShrink: 0 }}>
-                <ConditionLabel label={i === 0 ? "IF" : "AND"} />
-              </Box>
-              <Flex
-                gap="2"
-                align="start"
-                wrap="wrap"
-                style={{ flex: "1 1 0", minWidth: 0 }}
-              >
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                  {fieldSelector}
-                </Box>
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                  <SelectField
-                    useMultilineLabels={true}
-                    value={operator}
-                    name="operator"
-                    options={operatorOptions}
-                    sort={false}
-                    onChange={(v) => {
-                      handleCondsChange(v, "operator");
-                    }}
-                  />
-                </Box>
-                {displayType === "select-only" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }} />
-                ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                  savedGroupOptions.length > 0 ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <SelectField
-                      useMultilineLabels={true}
-                      options={savedGroupOptions.map((o) => ({
-                        label: o.label,
-                        value: o.value,
-                      }))}
-                      value={value}
-                      onChange={(v) => {
-                        handleCondsChange(v, "value");
-                      }}
-                      formatOptionLabel={(o, meta) => {
-                        if (meta.context !== "value" || !o.value)
-                          return o.label;
-                        const group = getSavedGroupById(o.value);
-                        if (!group) return o.label;
-                        return (
-                          <Link
-                            href={`/saved-groups/${group.id}`}
-                            target="_blank"
-                            style={{ position: "relative", zIndex: 1000 }}
-                          >
-                            {o.label} <PiArrowSquareOut />
-                          </Link>
-                        );
-                      }}
-                      name="value"
-                      initialOption="Choose group..."
-                      required
-                    />
-                  </Box>
-                ) : displayType === "array-field" ? (
-                  <Flex
-                    direction="column"
-                    align="end"
-                    style={{ minWidth: 200, flex: "1 1 0" }}
-                  >
-                    {rawTextMode ? (
-                      <Field
-                        textarea
-                        value={value}
-                        onChange={handleFieldChange}
-                        name="value"
-                        minRows={1}
-                        containerClassName="w-100"
-                        helpText={
-                          <span
-                            className="position-relative"
-                            style={{ top: -5 }}
-                          >
-                            separate values by comma
-                          </span>
-                        }
-                        required
-                      />
-                    ) : (
-                      <StringArrayField
-                        containerClassName="w-100"
-                        value={value ? value.trim().split(",") : []}
-                        onChange={handleListChange}
-                        placeholder="Enter some values..."
-                        delimiters={["Enter", "Tab"]}
-                        required
-                      />
-                    )}
-                    <Link
-                      onClick={() => {
-                        setRawTextMode(!rawTextMode);
-                      }}
-                      style={{ fontSize: "0.8em" }}
-                    >
-                      Switch to {rawTextMode ? "token" : "raw text"} mode
-                    </Link>
-                  </Flex>
-                ) : displayType === "isoCountryCode" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {listOperators.includes(operator) ? (
-                      <CountrySelector
-                        selectAmount="multi"
-                        displayFlags={true}
-                        value={
-                          value ? value.split(",").map((val) => val.trim()) : []
-                        }
-                        onChange={handleListChange}
-                      />
-                    ) : (
-                      <CountrySelector
-                        selectAmount="single"
-                        displayFlags={true}
-                        value={value}
-                        onChange={(v) => {
-                          handleCondsChange(v, "value");
-                        }}
-                      />
-                    )}
-                  </Box>
-                ) : displayType === "enum" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {listOperators.includes(operator) ? (
-                      <MultiSelectField
-                        options={attribute.enum.map((v) => ({
-                          label: v,
-                          value: v,
-                        }))}
-                        value={
-                          value ? value.split(",").map((val) => val.trim()) : []
-                        }
-                        onChange={handleListChange}
-                        name="value"
-                        required
-                      />
-                    ) : (
-                      <SelectField
-                        useMultilineLabels={true}
-                        options={attribute.enum.map((v) => ({
-                          label: v,
-                          value: v,
-                        }))}
-                        value={value}
-                        onChange={(v) => {
-                          handleCondsChange(v, "value");
-                        }}
-                        name="value"
-                        initialOption="Choose One..."
-                        required
-                      />
-                    )}
-                  </Box>
-                ) : displayType === "number" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    <Field
-                      type="number"
-                      step="any"
-                      value={value}
-                      onChange={handleFieldChange}
-                      name="value"
-                      style={{ minHeight: 38 }}
-                      required
-                    />
-                  </Box>
-                ) : displayType === "string" ? (
-                  <Box style={{ minWidth: 200, flex: "1 1 0" }}>
-                    {attribute.format === "date" &&
-                    !["$regex", "$notRegex", "$regexi", "$notRegexi"].includes(
-                      operator,
-                    ) ? (
-                      <DatePicker
-                        date={value}
-                        setDate={(v) => {
-                          handleCondsChange(
-                            v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
-                            "value",
-                          );
-                        }}
-                        inputWidth={180}
-                      />
-                    ) : (
-                      <Field
-                        value={value}
-                        onChange={handleFieldChange}
-                        name="value"
-                        style={{ minHeight: 38 }}
-                        containerClassName={clsx({
-                          error: hasExtraWhitespace,
-                        })}
-                        helpText={
-                          hasExtraWhitespace ? (
-                            <small className="text-danger">
-                              Extra whitespace detected
-                            </small>
-                          ) : undefined
-                        }
-                        required
-                      />
-                    )}
-                  </Box>
-                ) : null}
-              </Flex>
-              <Box px="1" pt="3" style={{ width: 16 }}>
-                {(conds.length > 1 ||
+                        {o.label} <PiArrowSquareOut />
+                      </Link>
+                    );
+                  }}
+                  required
+                />
+              }
+              removeSlot={
+                (conds.length > 1 ||
                   (conds.length === 1 && orGroupsCount > 1) ||
                   !props.require) && (
                   <Tooltip content="Remove condition">
                     <IconButton
                       type="button"
-                      color="red"
+                      color="gray"
                       variant="ghost"
+                      radius="full"
+                      size="1"
                       onClick={() => {
-                        // If this is the last condition in the AND group, delete the entire OR group
                         if (conds.length === 1) {
                           setConds([]);
                         } else {
@@ -1037,40 +653,438 @@ function ConditionAndGroupInput({
                       <PiXBold size={16} />
                     </IconButton>
                   </Tooltip>
-                )}
-              </Box>
-            </Flex>
+                )
+              }
+            />,
+          ];
+        }
+
+        if (!attribute) {
+          console.error("Attribute not found in attribute Map.");
+          return [];
+        }
+
+        const savedGroupOptions = savedGroups
+          // First, limit to groups with the correct attribute
+          .filter((g) => g.type === "list" && g.attributeKey === field)
+          // Filter by project
+          .filter((group) => {
+            return (
+              !props.project ||
+              !group.projects?.length ||
+              group.projects.includes(props.project)
+            );
+          })
+          // Then, transform into the select option format
+          .map((g) => ({ label: g.groupName, value: g.id }));
+
+        let operatorOptions =
+          attribute.datatype === "boolean"
+            ? [
+                { label: "is true", value: "$true" },
+                { label: "is false", value: "$false" },
+                { label: "is not NULL", value: "$exists" },
+                { label: "is NULL", value: "$notExists" },
+              ]
+            : attribute.array
+              ? [
+                  { label: "includes", value: "$includes" },
+                  { label: "does not include", value: "$notIncludes" },
+                  { label: "is empty", value: "$empty" },
+                  { label: "is not empty", value: "$notEmpty" },
+                  { label: "is not NULL", value: "$exists" },
+                  { label: "is NULL", value: "$notExists" },
+                ]
+              : attribute.enum?.length || 0 > 0
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "is any of", value: "$in" },
+                    { label: "is none of", value: "$nin" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
+                  ]
+                : attribute.datatype === "string"
+                  ? [
+                      {
+                        label: "is equal to",
+                        value: attribute.format === "version" ? "$veq" : "$eq",
+                      },
+                      {
+                        label: "is not equal to",
+                        value: attribute.format === "version" ? "$vne" : "$ne",
+                      },
+                      { label: "is any of", value: "$in" },
+                      { label: "is none of", value: "$nin" },
+                      { label: "matches regex", value: "$regex" },
+                      { label: "does not match regex", value: "$notRegex" },
+                      {
+                        label:
+                          attribute.format === "date"
+                            ? "is after"
+                            : "is greater than",
+                        value: attribute.format === "version" ? "$vgt" : "$gt",
+                      },
+                      {
+                        label:
+                          attribute.format === "date"
+                            ? "is after or on"
+                            : "is greater than or equal to",
+                        value:
+                          attribute.format === "version" ? "$vgte" : "$gte",
+                      },
+                      {
+                        label:
+                          attribute.format === "date"
+                            ? "is before"
+                            : "is less than",
+                        value: attribute.format === "version" ? "$vlt" : "$lt",
+                      },
+                      {
+                        label:
+                          attribute.format === "date"
+                            ? "is before or on"
+                            : "is less than or equal to",
+                        value:
+                          attribute.format === "version" ? "$vlte" : "$lte",
+                      },
+                      { label: "is not NULL", value: "$exists" },
+                      { label: "is NULL", value: "$notExists" },
+                      ...(savedGroupOptions.length > 0
+                        ? savedGroupOperators
+                        : []),
+                    ]
+                  : attribute.datatype === "secureString"
+                    ? [
+                        { label: "is equal to", value: "$eq" },
+                        { label: "is not equal to", value: "$ne" },
+                        { label: "is any of", value: "$in" },
+                        { label: "is none of", value: "$nin" },
+                        { label: "is not NULL", value: "$exists" },
+                        { label: "is NULL", value: "$notExists" },
+                        ...(savedGroupOptions.length > 0
+                          ? savedGroupOperators
+                          : []),
+                      ]
+                    : attribute.datatype === "number"
+                      ? [
+                          { label: "is equal to", value: "$eq" },
+                          { label: "is not equal to", value: "$ne" },
+                          { label: "is greater than", value: "$gt" },
+                          {
+                            label: "is greater than or equal to",
+                            value: "$gte",
+                          },
+                          { label: "is less than", value: "$lt" },
+                          {
+                            label: "is less than or equal to",
+                            value: "$lte",
+                          },
+                          { label: "is any of", value: "$in" },
+                          { label: "is none of", value: "$nin" },
+                          { label: "is not NULL", value: "$exists" },
+                          { label: "is NULL", value: "$notExists" },
+                          ...(savedGroupOptions.length > 0
+                            ? savedGroupOperators
+                            : []),
+                        ]
+                      : [];
+
+        if (attribute.disableEqualityConditions) {
+          // Remove equality operators if the attribute has them disabled
+          operatorOptions = operatorOptions.filter(
+            (o) =>
+              !["$eq", "$ne", "$in", "$nin", "$ini", "$nini"].includes(o.value),
           );
-        })}
-        <Flex align="center" mt="2">
-          {attributeSchema.length > 0 && (
-            <Link
-              onClick={() => {
-                const prop = attributeSchema[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator:
-                      prop?.datatype === "boolean"
-                        ? "$true"
-                        : prop?.disableEqualityConditions
-                          ? "$regex"
-                          : "$eq",
-                    value: "",
-                  },
-                ]);
-              }}
-            >
-              <Text weight="bold">
-                <PiPlusBold className="mr-1" />
-                AND
-              </Text>
-            </Link>
-          )}
-        </Flex>
-      </Box>
-    </Box>
+        }
+
+        let displayType:
+          | "select-only"
+          | "array-field"
+          | "enum"
+          | "number"
+          | "string"
+          | "isoCountryCode"
+          | null = null;
+        if (
+          [
+            "$exists",
+            "$notExists",
+            "$true",
+            "$false",
+            "$empty",
+            "$notEmpty",
+          ].includes(operator)
+        ) {
+          displayType = "select-only";
+        } else if (attribute.enum === ALL_COUNTRY_CODES) {
+          displayType = "isoCountryCode";
+        } else if (attribute.enum.length) {
+          displayType = "enum";
+        } else if (listOperators.includes(operator)) {
+          displayType = "array-field";
+        } else if (attribute.datatype === "number") {
+          displayType = "number";
+        } else if (["string", "secureString"].includes(attribute.datatype)) {
+          displayType = "string";
+        }
+        const hasExtraWhitespace =
+          displayType === "string" && value !== value.trim();
+
+        return [
+          ...(i > 0 ? [<AndSeparator key={`and-${i}`} />] : []),
+          <ConditionRow
+            key={i}
+            attributeSlot={fieldSelector}
+            operatorSlot={
+              <Flex gap="1" align="start">
+                <Box style={{ flexGrow: 1 }}>
+                  <SelectField
+                    useMultilineLabels={true}
+                    value={getDisplayOperator(operator)}
+                    name="operator"
+                    options={operatorOptions}
+                    sort={false}
+                    onChange={(v) => {
+                      const newOperator = withOperatorCaseInsensitivity(
+                        v,
+                        isCaseInsensitiveOperator(operator),
+                      );
+                      handleCondsChange(newOperator, "operator");
+                    }}
+                  />
+                </Box>
+                {operatorSupportsCaseInsensitive(operator) &&
+                  datatypeSupportsCaseInsensitive(attribute?.datatype) && (
+                    <Tooltip
+                      content={`Case insensitive: ${isCaseInsensitiveOperator(operator) ? "ON" : "OFF"}`}
+                    >
+                      <IconButton
+                        type="button"
+                        variant="outline"
+                        size="1"
+                        radius="medium"
+                        onClick={() => {
+                          const newOperator = withOperatorCaseInsensitivity(
+                            getDisplayOperator(operator),
+                            !isCaseInsensitiveOperator(operator),
+                          );
+                          handleCondsChange(newOperator, "operator");
+                        }}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          margin: "14px 0 0 2px",
+                          padding: 0,
+                          backgroundColor: isCaseInsensitiveOperator(operator)
+                            ? "var(--violet-4)"
+                            : undefined,
+                          boxShadow: isCaseInsensitiveOperator(operator)
+                            ? undefined
+                            : "inset 0 0 0 1px var(--accent-a4)",
+                        }}
+                      >
+                        Aa
+                      </IconButton>
+                    </Tooltip>
+                  )}
+              </Flex>
+            }
+            valueSlot={
+              displayType === "select-only" ? undefined : (
+                <>
+                  {["$inGroup", "$notInGroup"].includes(operator) &&
+                  savedGroupOptions.length > 0 ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      <SelectField
+                        useMultilineLabels={true}
+                        options={savedGroupOptions.map((o) => ({
+                          label: o.label,
+                          value: o.value,
+                        }))}
+                        value={value}
+                        onChange={(v) => {
+                          handleCondsChange(v, "value");
+                        }}
+                        formatOptionLabel={(o, meta) => {
+                          if (meta.context !== "value" || !o.value)
+                            return o.label;
+                          const group = getSavedGroupById(o.value);
+                          if (!group) return o.label;
+                          return (
+                            <Link
+                              href={`/saved-groups/${group.id}`}
+                              target="_blank"
+                              style={{ position: "relative", zIndex: 1000 }}
+                            >
+                              {o.label} <PiArrowSquareOut />
+                            </Link>
+                          );
+                        }}
+                        name="value"
+                        initialOption="Choose group..."
+                        required
+                      />
+                    </Box>
+                  ) : displayType === "array-field" ? (
+                    <Flex
+                      direction="column"
+                      align="start"
+                      style={{ flexBasis: "100%", minWidth: 0 }}
+                    >
+                      <StringArrayField
+                        containerClassName="w-100"
+                        value={value ? value.trim().split(",") : []}
+                        onChange={handleListChange}
+                        placeholder="value 1, value 2, value 3..."
+                        delimiters={["Enter", "Tab"]}
+                        enableRawTextMode
+                        required
+                      />
+                    </Flex>
+                  ) : displayType === "isoCountryCode" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      {listOperators.includes(operator) ? (
+                        <CountrySelector
+                          selectAmount="multi"
+                          displayFlags={true}
+                          value={
+                            value
+                              ? value.split(",").map((val) => val.trim())
+                              : []
+                          }
+                          onChange={handleListChange}
+                        />
+                      ) : (
+                        <CountrySelector
+                          selectAmount="single"
+                          displayFlags={true}
+                          value={value}
+                          onChange={(v) => {
+                            handleCondsChange(v, "value");
+                          }}
+                        />
+                      )}
+                    </Box>
+                  ) : displayType === "enum" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      {listOperators.includes(operator) ? (
+                        <MultiSelectField
+                          options={attribute.enum.map((v) => ({
+                            label: v,
+                            value: v,
+                          }))}
+                          value={
+                            value
+                              ? value.split(",").map((val) => val.trim())
+                              : []
+                          }
+                          onChange={handleListChange}
+                          name="value"
+                          required
+                        />
+                      ) : (
+                        <SelectField
+                          useMultilineLabels={true}
+                          options={attribute.enum.map((v) => ({
+                            label: v,
+                            value: v,
+                          }))}
+                          value={value}
+                          onChange={(v) => {
+                            handleCondsChange(v, "value");
+                          }}
+                          name="value"
+                          initialOption="Choose One..."
+                          required
+                        />
+                      )}
+                    </Box>
+                  ) : displayType === "number" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      <Field
+                        type="number"
+                        step="any"
+                        value={value}
+                        onChange={handleFieldChange}
+                        name="value"
+                        style={{ minHeight: 38 }}
+                        required
+                      />
+                    </Box>
+                  ) : displayType === "string" ? (
+                    <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                      {attribute.format === "date" &&
+                      ![
+                        "$regex",
+                        "$notRegex",
+                        "$regexi",
+                        "$notRegexi",
+                      ].includes(operator) ? (
+                        <DatePicker
+                          date={value}
+                          setDate={(v) => {
+                            handleCondsChange(
+                              v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
+                              "value",
+                            );
+                          }}
+                          inputWidth={180}
+                        />
+                      ) : (
+                        <Field
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          style={{ minHeight: 38 }}
+                          containerClassName={clsx({
+                            error: hasExtraWhitespace,
+                          })}
+                          helpText={
+                            hasExtraWhitespace ? (
+                              <small className="text-danger">
+                                Extra whitespace detected
+                              </small>
+                            ) : undefined
+                          }
+                          required
+                        />
+                      )}
+                    </Box>
+                  ) : null}
+                </>
+              )
+            }
+            removeSlot={
+              (conds.length > 1 ||
+                (conds.length === 1 && orGroupsCount > 1) ||
+                !props.require) && (
+                <Tooltip content="Remove condition">
+                  <IconButton
+                    type="button"
+                    color="gray"
+                    variant="ghost"
+                    radius="full"
+                    size="1"
+                    onClick={() => {
+                      if (conds.length === 1) {
+                        setConds([]);
+                      } else {
+                        const newConds = [...conds];
+                        newConds.splice(i, 1);
+                        setConds(newConds);
+                      }
+                    }}
+                  >
+                    <PiXBold size={16} />
+                  </IconButton>
+                </Tooltip>
+              )
+            }
+          />,
+        ];
+      })}
+    </>
   );
 }
 

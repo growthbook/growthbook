@@ -720,7 +720,7 @@ export default function RuleModal({
         trackingEventModalType="feature-rule-overview"
         open={true}
         close={close}
-        size="lg"
+        size="max"
         cta={
           <>
             Next{" "}

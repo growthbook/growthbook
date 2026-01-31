@@ -42,7 +42,9 @@ pre {
 }
 
 .form-control {
-  border-color: var(--border-color-300);
+  border-color: var(--border-color-200);
+  padding-left: 8px;
+  padding-right: 8px;
 
   &[readonly],
   &:disabled {
