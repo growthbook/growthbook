@@ -467,7 +467,6 @@ export default function ResultsTable({
             metric: row.metric,
             denominator,
             metricDefaults,
-            isGuardrail: row.resultGroup === "guardrail",
             minSampleSize: getMinSampleSizeForMetric(row.metric),
             statsEngine,
             differenceType,
@@ -478,9 +477,6 @@ export default function ResultsTable({
             phaseStartDate: getValidDate(startDate),
             isLatestPhase,
             experimentStatus: status,
-            displayCurrency,
-            getFactTableById:
-              ssrPolyfills?.getFactTableById || getFactTableById,
           });
           rr[i].push(rowResults);
         });
@@ -502,10 +498,8 @@ export default function ResultsTable({
       startDate,
       isLatestPhase,
       status,
-      displayCurrency,
       queryStatusData,
       ssrPolyfills,
-      getFactTableById,
       getExperimentMetricById,
     ]);
 
@@ -1088,13 +1082,9 @@ export default function ResultsTable({
                                               stats={stats}
                                               baseline={baseline}
                                               rowResults={rowResults}
-                                              showRisk={true}
                                               showSuspicious={true}
                                               showPercentComplete={false}
                                               showTimeRemaining={true}
-                                              showGuardrailWarning={
-                                                row.resultGroup === "guardrail"
-                                              }
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
@@ -1113,14 +1103,10 @@ export default function ResultsTable({
                                                   ? pValueCorrection
                                                   : undefined
                                               }
-                                              showRisk={true}
                                               showSuspicious={true}
                                               showPercentComplete={false}
                                               showTimeRemaining={true}
                                               showUnadjustedPValue={false}
-                                              showGuardrailWarning={
-                                                row.resultGroup === "guardrail"
-                                              }
                                               hideScaledImpact={
                                                 hideScaledImpact
                                               }
