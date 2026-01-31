@@ -279,6 +279,13 @@ export default function AISettings({
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
+  // Subscribe to formState.isDirty by reading it during render.
+  // This is required for react-hook-form to properly track dirty state
+  // when this component modifies form values via register() or setValue().
+  // See: https://react-hook-form.com/docs/useform/formstate (extracting formState)
+  const { isDirty: _isDirty } = promptForm.formState;
+  void _isDirty; // Ensure the variable is used to prevent tree-shaking
+
   const handleRegenerate = async () => {
     setLoading(true);
     setError(null);
@@ -729,6 +736,7 @@ export default function AISettings({
                                     promptForm.setValue(
                                       prompt.promptType,
                                       prompt.promptDefaultValue,
+                                      { shouldDirty: true },
                                     );
                                   }}
                                 >

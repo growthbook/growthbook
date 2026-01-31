@@ -52,7 +52,6 @@ import SelectField, {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
@@ -1352,11 +1351,6 @@ export default function FactMetricModal({
 
   const type = form.watch("metricType");
 
-  const riskError =
-    form.watch("loseRisk") < form.watch("winRisk")
-      ? "The acceptable risk percentage cannot be higher than the too risky percentage"
-      : "";
-
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
@@ -2485,14 +2479,6 @@ export default function FactMetricModal({
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
             }%)`}
-                        />
-
-                        <RiskThresholds
-                          winRisk={form.watch("winRisk")}
-                          loseRisk={form.watch("loseRisk")}
-                          winRiskRegisterField={form.register("winRisk")}
-                          loseRiskRegisterField={form.register("loseRisk")}
-                          riskError={riskError}
                         />
                         {type === "ratio" || type === "dailyParticipation" ? (
                           <Box mb="1">
