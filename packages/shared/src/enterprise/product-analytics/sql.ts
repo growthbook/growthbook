@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { getValidDate } from "shared/dates";
 import {
   RowFilter,
   FactTableInterface,
@@ -11,190 +11,312 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceSettings } from "shared/types/datasource";
 import {
-  productAnalyticsConfigValidator,
-  sqlDatasetColumnResponseValidator,
+  ProductAnalyticsDimension,
+  ProductAnalyticsDynamicDimension,
+  FactTableDataset,
+  ProductAnalyticsConfig,
+  SqlDataset,
+  SqlHelpers,
 } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
   getColumnExpression,
   getAggregateFilters,
 } from "../../experiments";
-import {
-  DEFAULT_WIN_RISK_THRESHOLD,
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_MIN_PERCENT_CHANGE,
-  DEFAULT_MAX_PERCENT_CHANGE,
-  DEFAULT_MIN_SAMPLE_SIZE,
-} from "../../constants";
 
-// Type definitions
-export type ProductAnalyticsConfig = z.infer<
-  typeof productAnalyticsConfigValidator
+// Internal Type definitions
+type MinimalFactTable = Pick<
+  FactTableInterface,
+  "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
 >;
-export type SqlDatasetColumnResponse = z.infer<
-  typeof sqlDatasetColumnResponseValidator
+type MinimalMetric = Pick<
+  FactMetricInterface,
+  | "id"
+  | "name"
+  | "metricType"
+  | "numerator"
+  | "denominator"
+  | "cappingSettings"
+  | "windowSettings"
+  | "quantileSettings"
 >;
-
-// Metric with metadata (prefix and fact table index)
-export interface MetricWithMetadata {
-  metric: FactMetricInterface;
-  prefix: string; // e.g. 'm0' or 'm0_denominator'
-  factTableIndex: number;
-  isDenominator?: boolean;
-  unit?: string | null; // Unit column for unit-level aggregations
+interface MinimalDatasourceInterface {
+  settings?: DataSourceSettings | null;
 }
-
-// SQL helper functions interface
-export interface SqlHelpers {
-  escapeStringLiteral: (s: string) => string;
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
-  evalBoolean: (col: string, value: boolean) => string;
-  dateTrunc: (column: string, granularity: string) => string;
-  percentileApprox: (column: string, percentile: number) => string;
-  least: (a: string, b: string) => string;
-  coalesce: (...args: string[]) => string;
-  toTimestamp: (date: Date) => string;
+interface MetricWithMetadata {
+  metric: MinimalMetric;
+  unit?: string;
+  index: number;
+  useDenominator?: boolean;
 }
-
-// Default SQL helpers (generic SQL)
-const defaultSqlHelpers: SqlHelpers = {
-  escapeStringLiteral: (s: string) => s.replace(/'/g, "''"),
-  jsonExtract: (jsonCol: string, path: string, _isNumeric: boolean) => {
-    // Generic JSON extraction - may need to be overridden for specific databases
-    return `${jsonCol}->>'${path}'`;
-  },
-  evalBoolean: (col: string, value: boolean) => {
-    return `${col} IS ${value ? "TRUE" : "FALSE"}`;
-  },
-  dateTrunc: (column: string, granularity: string) => {
-    return `date_trunc(${column}, '${granularity}')`;
-  },
-  percentileApprox: (column: string, percentile: number) => {
-    return `PERCENTILE_APPROX(${column}, ${percentile})`;
-  },
-  least: (a: string, b: string) => {
-    return `LEAST(${a}, ${b})`;
-  },
-  coalesce: (...args: string[]) => {
-    return `COALESCE(${args.join(", ")})`;
-  },
-  toTimestamp: (date: Date) => {
-    return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
-  },
-};
-
-// Calculate date range from config
-function calculateDateRange(dateRange: ProductAnalyticsConfig["dateRange"]): {
+interface FactTableGroup {
+  index: number;
+  factTable: MinimalFactTable;
+  metrics: MetricWithMetadata[];
+  units: string[];
+}
+interface MetricData {
+  unit: null | string;
+  alias: string;
+  eventValueExpr: string;
+  unitAggregationExpr: null | string;
+  rollupAggregationExpr: string;
+  rollupCountExpr: string;
+}
+interface DimensionData {
+  alias: string;
+  valueExpr: string;
+}
+interface CTE {
+  name: string;
+  sql: string;
+}
+interface DateRange {
   startDate: Date;
   endDate: Date;
-} {
-  const now = new Date();
-  let startDate: Date;
-  let endDate: Date = now;
+}
+
+// Helpers to convert to internal types
+function getMetricsAndUnitsFromValues(
+  values: FactTableDataset["values"] | SqlDataset["values"],
+): { metrics: MetricWithMetadata[]; units: string[] } {
+  const units = new Set<string>();
+
+  const metrics: MetricWithMetadata[] = [];
+  let index = 0;
+  for (const value of values) {
+    const metric = createSimpleMetric(
+      value.valueType,
+      value.valueColumn,
+      value.rowFilters,
+      value.name,
+    );
+    metrics.push({
+      metric,
+      index: index++,
+      unit: value.unit || undefined,
+    });
+
+    if (value.unit) {
+      units.add(value.unit);
+    }
+  }
+
+  return { metrics, units: Array.from(units) };
+}
+function getFactTableGroups({
+  config,
+  factTableMap,
+  metricMap,
+  datasourceSettings,
+}: {
+  config: ProductAnalyticsConfig;
+  factTableMap: FactTableMap;
+  metricMap: Map<string, FactMetricInterface>;
+  datasourceSettings: DataSourceSettings | null;
+}): FactTableGroup[] {
+  if (!config.dataset) {
+    throw new Error("Dataset is required");
+  }
+
+  switch (config.dataset.type) {
+    case "sql":
+      return [
+        {
+          index: 0,
+          factTable: createStubFactTable(
+            config.dataset.sql,
+            config.dataset.timestampColumn,
+            config.dataset.columnTypes,
+            datasourceSettings,
+          ),
+          ...getMetricsAndUnitsFromValues(config.dataset.values),
+        },
+      ];
+    case "fact_table":
+      return (() => {
+        const factTable = factTableMap.get(config.dataset.factTableId);
+        if (!factTable) {
+          throw new Error(`Fact table ${config.dataset.factTableId} not found`);
+        }
+        return [
+          {
+            index: 0,
+            factTable,
+            ...getMetricsAndUnitsFromValues(config.dataset.values),
+          },
+        ];
+      })();
+    case "metric":
+      return (() => {
+        const groups: Record<string, FactTableGroup> = {};
+        let metricIndex = 0;
+        for (const value of config.dataset.values) {
+          const originalMetric = metricMap.get(value.metricId);
+          if (!originalMetric) {
+            throw new Error(`Metric ${value.metricId} not found`);
+          }
+
+          const metric: MinimalMetric = {
+            id: originalMetric.id,
+            name: originalMetric.name,
+            metricType: originalMetric.metricType,
+            cappingSettings: originalMetric.cappingSettings,
+            windowSettings: originalMetric.windowSettings,
+            quantileSettings: originalMetric.quantileSettings,
+            numerator: {
+              ...originalMetric.numerator,
+              rowFilters: [
+                ...(originalMetric.numerator.rowFilters || []),
+                ...(value.rowFilters || []),
+              ],
+            },
+            denominator: originalMetric.denominator
+              ? {
+                  ...originalMetric.denominator,
+                  rowFilters: [
+                    ...(originalMetric.denominator.rowFilters || []),
+                    ...(value.rowFilters || []),
+                  ],
+                }
+              : null,
+          };
+
+          const factTable = factTableMap.get(metric.numerator.factTableId);
+          if (!factTable) {
+            throw new Error(
+              `Fact table ${metric.numerator.factTableId} not found`,
+            );
+          }
+          if (!groups[factTable.id]) {
+            groups[factTable.id] = {
+              index: Object.keys(groups).length,
+              factTable,
+              metrics: [],
+              units: [],
+            };
+          }
+          const group = groups[factTable.id];
+          group.metrics.push({
+            index: metricIndex,
+            metric,
+            unit: value.unit || undefined,
+          });
+          if (value.unit && !group.units.includes(value.unit)) {
+            group.units.push(value.unit);
+          }
+
+          if (metric.metricType === "ratio" && metric.denominator) {
+            const denominatorFactTable = factTableMap.get(
+              metric.denominator.factTableId,
+            );
+            if (!denominatorFactTable) {
+              throw new Error(
+                `Fact table ${metric.denominator.factTableId} not found`,
+              );
+            }
+            if (!groups[denominatorFactTable.id]) {
+              groups[denominatorFactTable.id] = {
+                index: Object.keys(groups).length,
+                factTable: denominatorFactTable,
+                metrics: [],
+                units: [],
+              };
+            }
+            const denominatorGroup = groups[denominatorFactTable.id];
+            denominatorGroup.metrics.push({
+              index: metricIndex,
+              metric,
+              unit: value.denominatorUnit || undefined,
+              useDenominator: true,
+            });
+            if (
+              value.denominatorUnit &&
+              !denominatorGroup.units.includes(value.denominatorUnit)
+            ) {
+              denominatorGroup.units.push(value.denominatorUnit);
+            }
+          }
+          metricIndex++;
+        }
+        return Object.values(groups);
+      })();
+  }
+}
+function calculateDateRange(
+  dateRange: ProductAnalyticsConfig["dateRange"],
+): DateRange {
+  const startDate = new Date();
+  const endDate = new Date();
 
   switch (dateRange.predefined) {
     case "today":
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(now);
-      endDate.setHours(23, 59, 59, 999);
-      break;
+      startDate.setUTCHours(0, 0, 0, 0);
+      return { startDate, endDate };
     case "last7Days":
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 7);
-      break;
+      startDate.setUTCDate(startDate.getUTCDate() - 7);
+      return { startDate, endDate };
     case "last30Days":
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 30);
-      break;
+      startDate.setUTCDate(startDate.getUTCDate() - 30);
+      return { startDate, endDate };
     case "last90Days":
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 90);
-      break;
+      startDate.setUTCDate(startDate.getUTCDate() - 90);
+      return { startDate, endDate };
     case "customLookback":
       if (dateRange.lookbackValue && dateRange.lookbackUnit) {
-        startDate = new Date(now);
         const unit = dateRange.lookbackUnit;
         const value = dateRange.lookbackValue;
         if (unit === "hour") {
-          startDate.setHours(startDate.getHours() - value);
+          startDate.setUTCHours(startDate.getUTCHours() - value);
         } else if (unit === "day") {
-          startDate.setDate(startDate.getDate() - value);
+          startDate.setUTCDate(startDate.getUTCDate() - value);
         } else if (unit === "week") {
-          startDate.setDate(startDate.getDate() - value * 7);
+          startDate.setUTCDate(startDate.getUTCDate() - value * 7);
         } else if (unit === "month") {
-          startDate.setMonth(startDate.getMonth() - value);
+          startDate.setUTCMonth(startDate.getUTCMonth() - value);
         }
       } else {
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 30);
+        startDate.setUTCDate(startDate.getUTCDate() - 30);
       }
-      break;
+      return { startDate, endDate };
     case "customDateRange":
-      startDate = dateRange.startDate || new Date(now);
-      endDate = dateRange.endDate || now;
-      break;
-    default:
-      startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 30);
+      return {
+        startDate: getValidDate(dateRange.startDate),
+        endDate: getValidDate(dateRange.endDate),
+      };
   }
-
-  return { startDate, endDate };
 }
 
-// Calculate number of days between two dates
-function calculateDaysBetween(startDate: Date, endDate: Date): number {
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const diffTime = endDate.getTime() - startDate.getTime();
-  return Math.ceil(diffTime / msPerDay);
-}
-
-// Get date granularity SQL
+// Get date granularity
 function getDateGranularity(
-  granularity: string,
-  column: string,
-  helpers: SqlHelpers,
-  dateRange?: { startDate: Date; endDate: Date },
-): string {
-  if (granularity === "auto") {
-    if (!dateRange) {
-      // Default to daily if no date range provided
-      return helpers.dateTrunc(column, "day");
-    }
-    const days = calculateDaysBetween(dateRange.startDate, dateRange.endDate);
-    let autoGranularity: string;
-    if (days < 7) {
-      autoGranularity = "hour";
-    } else if (days <= 90) {
-      autoGranularity = "day";
-    } else if (days <= 365) {
-      autoGranularity = "week";
-    } else {
-      autoGranularity = "month";
-    }
-    return helpers.dateTrunc(column, autoGranularity);
-  }
-  // Map granularity values
-  const granularityMap: Record<string, string> = {
-    hour: "hour",
-    day: "day",
-    week: "week",
-    month: "month",
-    year: "year",
-  };
-  return helpers.dateTrunc(column, granularityMap[granularity] || "day");
+  granularity: "auto" | "hour" | "day" | "week" | "month" | "year",
+  dateRange: DateRange,
+): "hour" | "day" | "week" | "month" | "year" {
+  // Calculate number of days between start and end date
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diffTime = dateRange.endDate.getTime() - dateRange.startDate.getTime();
+  const days = diffTime / msPerDay;
+
+  // If explicit granularity is valid for the date range, return it
+  if (granularity === "hour" && days <= 8) return "hour";
+  if (granularity === "day" && days <= 94) return "day";
+  if (granularity === "week" && days <= 365) return "week";
+  if (granularity === "month") return "month";
+  if (granularity === "year") return "year";
+
+  // Fall back to auto granularity
+  if (days < 3) return "hour";
+  if (days < 63) return "day";
+  return "month";
 }
 
 // Generate row filter SQL
 function generateRowFilterSQL(
   rowFilters: RowFilter[],
-  factTable: Pick<
-    FactTableInterface,
-    "columns" | "filters" | "userIdTypes"
-  > | null,
+  factTable: MinimalFactTable,
   helpers: SqlHelpers,
 ): string[] {
-  if (!factTable || !rowFilters.length) {
+  if (!rowFilters.length) {
     return [];
   }
 
@@ -212,185 +334,72 @@ function generateRowFilterSQL(
     .filter((sql): sql is string => sql !== null);
 }
 
-// Generate fact table CTE
-function generateFactTableCTE(
-  config: ProductAnalyticsConfig,
-  factTable: Pick<
-    FactTableInterface,
-    "sql" | "columns" | "filters" | "userIdTypes"
-  > | null,
-  factTableIndex: number,
-  helpers: SqlHelpers,
-  dateRange: { startDate: Date; endDate: Date },
-): string {
-  const cteName = `_factTable${factTableIndex}`;
-
-  if (!factTable) {
-    throw new Error("Fact table is required");
-  }
-
-  const timestampColumn = factTable.timestampColumn || "timestamp";
-
-  const baseSql = factTable.sql;
-
-  // Collect all metric filters (ORed together)
-  const metricFilters: string[] = [];
-  if (config.dataset?.values) {
-    for (const value of config.dataset.values) {
-      const filters = generateRowFilterSQL(
-        value.rowFilters,
-        factTable,
-        helpers,
-      );
-      if (filters.length > 0) {
-        metricFilters.push(`(${filters.join(" AND ")})`);
-      }
-    }
-  }
-
-  const whereClauses: string[] = [];
-
-  // Date range filter
-  whereClauses.push(
-    `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
-  );
-
-  // Metric filters (ORed together)
-  if (metricFilters.length > 0) {
-    whereClauses.push(`(${metricFilters.join(" OR ")})`);
-  }
-
-  const whereClause =
-    whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
-
-  return `  ${cteName} AS (
-    SELECT * FROM (
-      -- Raw fact table SQL
-      ${baseSql}
-    ) t
-    ${whereClause}
-  )`;
-}
-
-// Generate dynamic dimension CTE
-function generateDynamicDimensionCTE(
-  dimension: Extract<
-    ProductAnalyticsConfig["dimensions"][number],
-    { dimensionType: "dynamic" }
-  >,
-  factTableIndex: number,
-  dimensionIndex: number,
-): string {
-  const cteName = `_dimension${dimensionIndex}_top`;
-  const factTableName = `_factTable${factTableIndex}`;
-
-  return `  ${cteName} AS (
-    SELECT ${dimension.column}
-    FROM ${factTableName}
-    GROUP BY ${dimension.column}
-    ORDER BY COUNT(*) DESC
-    LIMIT ${dimension.maxValues}
-  )`;
-}
-
 // Generate dimension expression
 function generateDimensionExpression(
-  dimension: ProductAnalyticsConfig["dimensions"][number],
+  dimension: ProductAnalyticsDimension,
   dimensionIndex: number,
-  factTableIndex: number,
+  factTableGroup: FactTableGroup,
   helpers: SqlHelpers,
-  factTable: Pick<
-    FactTableInterface,
-    "columns" | "filters" | "userIdTypes"
-  > | null,
-  dateRange?: { startDate: Date; endDate: Date },
+  dateRange: DateRange,
 ): string {
+  const factTable = factTableGroup.factTable;
   switch (dimension.dimensionType) {
     case "date": {
-      const column = dimension.column || "timestamp";
       const granularity = getDateGranularity(
         dimension.dateGranularity,
-        column,
-        helpers,
         dateRange,
       );
-      return `${granularity} as dimension${dimensionIndex}`;
+      return `${helpers.dateTrunc(
+        factTable.timestampColumn || "timestamp",
+        granularity,
+      )} as dimension${dimensionIndex}`;
     }
     case "dynamic": {
       const topCTE = `_dimension${dimensionIndex}_top`;
-      const columnExpr = factTable
-        ? getColumnExpression(dimension.column, factTable, helpers.jsonExtract)
-        : dimension.column;
+      const columnExpr = getColumnExpression(
+        dimension.column,
+        factTable,
+        helpers.jsonExtract,
+      );
       return `CASE 
-        WHEN ${columnExpr} IN (SELECT ${dimension.column} FROM ${topCTE}) THEN ${columnExpr}
+        WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
         ELSE 'other'
       END AS dimension${dimensionIndex}`;
     }
     case "static": {
-      const columnExpr = factTable
-        ? getColumnExpression(dimension.column, factTable, helpers.jsonExtract)
-        : dimension.column;
-      const conditions = dimension.values
-        .map((v) => `${columnExpr} = '${helpers.escapeStringLiteral(v)}'`)
-        .join(" OR ");
+      const columnExpr = getColumnExpression(
+        dimension.column,
+        factTable,
+        helpers.jsonExtract,
+      );
+      const valueList = dimension.values
+        .map((v) => `'${helpers.escapeStringLiteral(v)}'`)
+        .join(", ");
       return `CASE 
-        WHEN (${conditions}) THEN ${columnExpr}
+        WHEN ${columnExpr} IN (${valueList}) THEN ${columnExpr}
         ELSE 'other'
       END AS dimension${dimensionIndex}`;
     }
     case "slice": {
-      const cases = dimension.slices
-        .map(
-          (slice) =>
-            `WHEN (${generateRowFilterSQL(slice.filters, factTable, helpers).join(" AND ")}) THEN '${helpers.escapeStringLiteral(slice.name)}'`,
-        )
-        .join("\n        ");
+      const cases = dimension.slices.map(
+        (slice) =>
+          `WHEN (${generateRowFilterSQL(slice.filters, factTable, helpers).join(" AND ")}) THEN '${helpers.escapeStringLiteral(slice.name)}'`,
+      );
       return `CASE
-        ${cases}
+        ${cases.join("\n  ")}
         ELSE 'other'
       END AS dimension${dimensionIndex}`;
     }
   }
 }
-// Determine value type from a ColumnRef
-function getValueTypeFromColumnRef(columnRef: {
-  column: string;
-  aggregation?: "sum" | "max" | "count distinct" | null;
-}): "count" | "sum" | "max" | "unit_count" | "count_distinct" | "quantile" {
-  const { column, aggregation } = columnRef;
-
-  // Special column values
-  if (column === "$$distinctUsers") {
-    return "unit_count";
-  }
-  if (column === "$$count") {
-    return "count";
-  }
-
-  // Otherwise, determine from aggregation
-  if (aggregation === "sum") {
-    return "sum";
-  }
-  if (aggregation === "max") {
-    return "max";
-  }
-  if (aggregation === "count distinct") {
-    return "count_distinct";
-  }
-
-  // Default to sum if no aggregation specified and column is not special
-  return "sum";
-}
 
 // Helper to create minimal FactMetricInterface for simple values
 function createSimpleMetric(
-  factTableId: string,
   valueType: "count" | "sum" | "unit_count",
   valueColumn: string | null,
   rowFilters: RowFilter[],
-  datasource: string,
   name: string,
-): FactMetricInterface {
+): MinimalMetric {
   // Determine metric type and column based on valueType
   let metricType: "mean" | "proportion" = "mean";
   let column: string = valueColumn || "$$count";
@@ -406,7 +415,7 @@ function createSimpleMetric(
   }
 
   const numerator: ColumnRef = {
-    factTableId,
+    factTableId: "factTable",
     column,
     aggregation,
     rowFilters,
@@ -414,17 +423,7 @@ function createSimpleMetric(
 
   return {
     id: `simple_${name}_${Date.now()}`,
-    organization: "",
-    datasource,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
     name,
-    description: "",
-    owner: "",
-    projects: [],
-    tags: [],
-    inverse: false,
-    archived: false,
     metricType,
     numerator,
     denominator: null,
@@ -440,379 +439,127 @@ function createSimpleMetric(
       windowUnit: "days",
       windowValue: 0,
     },
-    priorSettings: {
-      override: false,
-      proper: false,
-      mean: 0,
-      stddev: 0.3,
-    },
-    maxPercentChange: DEFAULT_MAX_PERCENT_CHANGE,
-    minPercentChange: DEFAULT_MIN_PERCENT_CHANGE,
-    minSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
-    targetMDE: 0.1,
-    displayAsPercentage: false,
-    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
-    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
-    regressionAdjustmentOverride: false,
-    regressionAdjustmentEnabled: false,
-    regressionAdjustmentDays: 0,
     quantileSettings: null,
   };
 }
 
-// Convert dataset into fact tables and metrics
-function convertDatasetToFactTablesAndMetrics(
-  config: ProductAnalyticsConfig,
-  factTableMap: FactTableMap,
-  metricMap: Map<string, FactMetricInterface>,
-  datasourceSettings: DataSourceSettings | null,
-): {
-  factTables: Array<
-    Pick<
-      FactTableInterface,
-      "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
-    >
-  >;
-  metrics: MetricWithMetadata[];
-  factTableIndexMap: Map<string, number>; // factTableId or "sql" -> index
-} {
-  const factTables: Array<
-    Pick<
-      FactTableInterface,
-      "sql" | "columns" | "filters" | "userIdTypes" | "timestampColumn"
-    >
-  > = [];
-  const metrics: MetricWithMetadata[] = [];
-  const factTableIndexMap = new Map<string, number>(); // factTableId or "sql" -> index
-
-  if (!config.dataset) {
-    throw new Error("Dataset is required");
-  }
-
-  // Convert based on dataset type
-  if (config.dataset.type === "sql") {
-    // SQL dataset - create stub fact table
-    const stubFactTable = createStubFactTable(
-      config.dataset.sql,
-      config.dataset.timestampColumn,
-      config.dataset.columnTypes,
-      datasourceSettings,
-    );
-    const factTableWithTimestamp = {
-      ...stubFactTable,
-      timestampColumn: config.dataset.timestampColumn,
-    };
-    const factTableIndex = 0;
-    factTables.push(factTableWithTimestamp);
-    factTableIndexMap.set("sql", factTableIndex);
-
-    // Convert values to metrics - create minimal FactMetricInterface objects
-    const datasource = config.dataset.datasource;
-    config.dataset.values.forEach((value, idx) => {
-      const simpleMetric = createSimpleMetric(
-        "sql", // Use "sql" as the fact table ID for stub fact tables
-        value.valueType,
-        value.valueColumn,
-        value.rowFilters,
-        datasource,
-        value.name,
-      );
-      metrics.push({
-        metric: simpleMetric,
-        prefix: `m${idx}`,
-        factTableIndex,
-        unit: value.unit || null,
-      });
-    });
-  } else if (config.dataset.type === "fact_table") {
-    // Fact table dataset
-    const factTable = factTableMap.get(config.dataset.factTableId);
-    if (!factTable) {
-      throw new Error(`Fact table ${config.dataset.factTableId} not found`);
+function getEventValueExpr(
+  columnRef: ColumnRef,
+  factTable: MinimalFactTable,
+  helpers: SqlHelpers,
+): string {
+  let rawValue: string;
+  if (columnRef.column === "$$distinctUsers") {
+    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
+      rawValue = columnRef.aggregateFilterColumn;
+    } else {
+      rawValue = "1";
     }
-    const factTableWithTimestamp = {
-      sql: factTable.sql,
-      columns: factTable.columns,
-      filters: factTable.filters,
-      userIdTypes: factTable.userIdTypes,
-      timestampColumn: factTable.timestampColumn || "timestamp",
-    };
-    const factTableIndex = 0;
-    factTables.push(factTableWithTimestamp);
-    factTableIndexMap.set(config.dataset.factTableId, factTableIndex);
-
-    // Convert values to metrics - create minimal FactMetricInterface objects
-    config.dataset.values.forEach((value, idx) => {
-      const simpleMetric = createSimpleMetric(
-        config.dataset.factTableId,
-        value.valueType,
-        value.valueColumn,
-        value.rowFilters,
-        factTable.datasource,
-        value.name,
-      );
-      metrics.push({
-        metric: simpleMetric,
-        prefix: `m${idx}`,
-        factTableIndex,
-        unit: value.unit || null,
-      });
-    });
-  } else if (config.dataset.type === "metric") {
-    // Metric dataset - may have multiple sources (one per fact table)
-    // First, collect all unique fact tables
-    const factTableIds = new Set<string>();
-    config.dataset.values.forEach((value) => {
-      const metric = metricMap.get(value.metricId);
-      if (metric) {
-        factTableIds.add(metric.numerator.factTableId);
-        if (metric.denominator) {
-          factTableIds.add(metric.denominator.factTableId);
-        }
-      }
-    });
-
-    // Create fact tables for each unique fact table
-    let factTableIndex = 0;
-    factTableIds.forEach((factTableId) => {
-      const factTable = factTableMap.get(factTableId);
-      if (!factTable) {
-        throw new Error(`Fact table ${factTableId} not found`);
-      }
-      const factTableWithTimestamp = {
-        sql: factTable.sql,
-        columns: factTable.columns,
-        filters: factTable.filters,
-        userIdTypes: factTable.userIdTypes,
-        timestampColumn: factTable.timestampColumn || "timestamp",
-      };
-      factTables.push(factTableWithTimestamp);
-      factTableIndexMap.set(factTableId, factTableIndex);
-      factTableIndex++;
-    });
-
-    // Convert metrics - split ratio metrics into numerator and denominator
-    let valueIndex = 0;
-    config.dataset.values.forEach((value) => {
-      const metric = metricMap.get(value.metricId);
-      if (!metric) {
-        return; // Skip if metric not found
-      }
-
-      // Merge additional row filters from the dataset value
-      const numeratorRowFilters = [
-        ...(metric.numerator.rowFilters || []),
-        ...value.rowFilters,
-      ];
-      const denominatorRowFilters = metric.denominator
-        ? [...(metric.denominator.rowFilters || []), ...value.rowFilters]
-        : [];
-
-      // Create numerator metric (with denominator set to null for ratio metrics)
-      const numeratorMetric: FactMetricInterface = {
-        ...metric,
-        numerator: {
-          ...metric.numerator,
-          rowFilters: numeratorRowFilters,
-        },
-        denominator: null, // Remove denominator for numerator calculation
-      };
-
-      const numeratorFactTableIndex =
-        factTableIndexMap.get(metric.numerator.factTableId) ?? 0;
-      metrics.push({
-        metric: numeratorMetric,
-        prefix: `m${valueIndex}`,
-        factTableIndex: numeratorFactTableIndex,
-        isDenominator: false,
-        unit: value.unit || null,
-      });
-
-      // Add denominator if it exists
-      if (metric.denominator) {
-        // Create denominator metric (standalone metric for denominator calculation)
-        const denominatorMetric: FactMetricInterface = {
-          ...metric,
-          numerator: {
-            ...metric.denominator,
-            rowFilters: denominatorRowFilters,
-          },
-          denominator: null,
-        };
-
-        const denominatorFactTableIndex =
-          factTableIndexMap.get(metric.denominator.factTableId) ?? 0;
-        metrics.push({
-          metric: denominatorMetric,
-          prefix: `m${valueIndex}_denominator`,
-          factTableIndex: denominatorFactTableIndex,
-          isDenominator: true,
-          unit: value.denominatorUnit || null,
-        });
-      }
-
-      valueIndex++;
-    });
+  } else if (columnRef.column === "$$count") {
+    rawValue = "1";
+  } else if (columnRef.column === "$$distinctDates") {
+    rawValue = helpers.dateTrunc(
+      factTable.timestampColumn || "timestamp",
+      "day",
+    );
+  } else {
+    rawValue = columnRef.column;
   }
 
-  return { factTables, metrics, factTableIndexMap };
+  const filters = generateRowFilterSQL(
+    columnRef.rowFilters || [],
+    factTable,
+    helpers,
+  );
+  if (!filters.length) {
+    return rawValue;
+  }
+
+  return `CASE WHEN (${filters.join(" AND ")}) THEN ${rawValue} ELSE NULL END`;
+}
+
+function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
+  if (columnRef.column === "$$distintDates") {
+    return `COUNT(DISTINCT ${alias})`;
+  } else if (columnRef.column === "$$distinctUsers") {
+    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
+      const filters = getAggregateFilters({
+        columnRef: columnRef,
+        column: `SUM(${alias})`,
+        ignoreInvalid: true,
+      });
+      if (filters.length > 0) {
+        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END as ${alias}`;
+      }
+    }
+    return `MAX(${alias})`;
+  } else if (columnRef.column === "$$count") {
+    return `SUM(${alias})`;
+  } else if (columnRef.aggregation === "count distinct") {
+    return `COUNT(DISTINCT ${alias})`;
+  } else if (columnRef.aggregation === "max") {
+    return `MAX(${alias})`;
+  } else {
+    return `SUM(${alias})`;
+  }
+}
+
+function getRollupAggregationExpr(
+  metric: MinimalMetric,
+  columnRef: ColumnRef,
+  alias: string,
+): string {
+  // Quantiles
+  if (metric.metricType === "quantile" && metric.quantileSettings) {
+    return `PERCENTILE_APPROX(${alias}, ${metric.quantileSettings.quantile})`;
+  } else {
+    return `SUM(${alias})`;
+  }
+}
+
+function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
+  // Skip count for ratio metrics
+  if (metric.metricType === "ratio") return "";
+  return `COUNT(${alias})`;
 }
 
 // Generate metric value expression from metric with metadata
-function generateMetricValueExpression(
+function getMetricData(
   metricWithMetadata: MetricWithMetadata,
-  factTable: Pick<
-    FactTableInterface,
-    "columns" | "filters" | "userIdTypes"
-  > | null,
+  factTable: MinimalFactTable,
   helpers: SqlHelpers,
-): {
-  valueExpr: string;
-  isUnitCount: boolean;
-  isDistinctCount: boolean;
-  isQuantile: boolean;
-  unitColumn: string | null;
-  hasPercentileCap: boolean;
-  hasAbsoluteCap: boolean;
-  absoluteCapValue: number | null;
-  percentileCapValue: number | null;
-  ignoreZeros: boolean;
-} {
-  const { prefix, metric, unit } = metricWithMetadata;
-  const numerator = metric.numerator;
+): MetricData {
+  const {
+    index: metricIndex,
+    metric,
+    unit,
+    useDenominator,
+  } = metricWithMetadata;
+  const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
-  // Extract value type from numerator
-  const valueType = getValueTypeFromColumnRef({
-    column: numerator.column || "",
-    aggregation: numerator.aggregation || null,
-  });
+  if (!columnRef) {
+    throw new Error(`Column ref not found for metric ${metric.id}`);
+  }
 
-  // For quantile metrics, check if it's unit-level
-  const isUnitQuantile =
+  const alias = useDenominator
+    ? `m${metricIndex}_denominator`
+    : `m${metricIndex}`;
+
+  const skipUnitAggregation =
     metric.metricType === "quantile" &&
-    metric.quantileSettings?.type === "unit";
-
-  // Override for quantile metrics (but keep underlying type for unit quantiles)
-  const finalValueType =
-    metric.metricType === "quantile" && !isUnitQuantile
-      ? "quantile"
-      : valueType;
-
-  const valueColumn = numerator.column || null;
-  const rowFilters = numerator.rowFilters || [];
-  const cappingSettings = metric.cappingSettings;
-  const quantileSettings = metric.quantileSettings;
-
-  // Extract capping info
-  const hasPercentileCap = cappingSettings?.type === "percentile";
-  const hasAbsoluteCap = cappingSettings?.type === "absolute";
-  const absoluteCapValue = hasAbsoluteCap ? cappingSettings.value : null;
-  const percentileCapValue = hasPercentileCap ? cappingSettings.value : null;
-  const ignoreZeros = cappingSettings?.ignoreZeros || false;
-
-  // Build row filters
-  const filterSQL = generateRowFilterSQL(rowFilters, factTable, helpers);
-  const filterCondition =
-    filterSQL.length > 0 ? `(${filterSQL.join(" AND ")})` : "TRUE";
-
-  // Build value column expression
-  // For unit_count with aggregate filters, use aggregateFilterColumn instead of valueColumn
-  let valueColumnExpr = "1";
-  if (
-    valueType === "unit_count" &&
-    metricValue.aggregateFilterSettings?.aggregateFilterColumn
-  ) {
-    // Use aggregateFilterColumn for unit_count metrics with aggregate filters
-    const aggFilterCol =
-      metricValue.aggregateFilterSettings.aggregateFilterColumn;
-    valueColumnExpr = factTable
-      ? getColumnExpression(aggFilterCol, factTable, helpers.jsonExtract)
-      : aggFilterCol;
-  } else if (valueColumn) {
-    valueColumnExpr = factTable
-      ? getColumnExpression(valueColumn, factTable, helpers.jsonExtract)
-      : valueColumn;
-  }
-
-  // Apply absolute capping inline if present
-  let cappedValueColumn = valueColumnExpr;
-  if (hasAbsoluteCap && absoluteCapValue !== null) {
-    cappedValueColumn = helpers.least(
-      valueColumnExpr,
-      String(absoluteCapValue),
-    );
-  }
-
-  // For percentile capping, reference the cap from the percentile caps CTE
-  const percentileCapRef = hasPercentileCap ? `caps.${prefix}_cap` : null;
-  const finalValueColumn =
-    hasPercentileCap && percentileCapRef
-      ? helpers.least(
-          cappedValueColumn,
-          helpers.coalesce(percentileCapRef, cappedValueColumn),
-        )
-      : cappedValueColumn;
-
-  // Generate value expression based on type
-  let valueExpr: string;
-  const isUnitCount = finalValueType === "unit_count";
-  // max and count_distinct are also unit-level aggregations
-  // Unit quantiles are also unit-level (aggregate per unit, then take quantile)
-  const isUnitLevel =
-    isUnitCount ||
-    finalValueType === "max" ||
-    finalValueType === "count_distinct" ||
-    isUnitQuantile;
-
-  // Determine unit column for unit-level aggregations
-  let unitColumn: string | null = null;
-  if (isUnitLevel) {
-    if (unit) {
-      // Use provided unit from config
-      unitColumn = unit;
-    } else if (factTable?.userIdTypes && factTable.userIdTypes.length > 0) {
-      // Use first userIdType from fact table
-      unitColumn = factTable.userIdTypes[0];
-    } else {
-      // Fallback to user_id
-      unitColumn = "user_id";
-    }
-  }
-
-  switch (finalValueType) {
-    case "count":
-      valueExpr = `CASE WHEN ${filterCondition} THEN 1 ELSE NULL END as ${prefix}_value`;
-      break;
-    case "count_distinct":
-      valueExpr = `CASE WHEN ${filterCondition} THEN ${valueColumnExpr} ELSE NULL END as ${prefix}_value`;
-      break;
-    case "sum":
-      valueExpr = `CASE WHEN ${filterCondition} THEN ${finalValueColumn} ELSE NULL END as ${prefix}_value`;
-      break;
-    case "max":
-      valueExpr = `CASE WHEN ${filterCondition} THEN ${finalValueColumn} ELSE NULL END as ${prefix}_value`;
-      break;
-    case "unit_count":
-      valueExpr = `CASE WHEN ${filterCondition} THEN 1 ELSE NULL END as ${prefix}_value`;
-      break;
-    case "quantile":
-      valueExpr = `CASE WHEN ${filterCondition} THEN ${finalValueColumn} ELSE NULL END as ${prefix}_value`;
-      break;
-    default:
-      valueExpr = `CASE WHEN ${filterCondition} THEN 1 ELSE NULL END as ${prefix}_value`;
-  }
+    metric.quantileSettings?.type === "event";
 
   return {
-    valueExpr,
-    isUnitCount: isUnitLevel, // Treat max and count_distinct as unit-level
-    isDistinctCount: finalValueType === "count_distinct",
-    isQuantile: metric.metricType === "quantile" || !!quantileSettings,
-    unitColumn,
-    hasPercentileCap,
-    hasAbsoluteCap,
-    absoluteCapValue,
-    percentileCapValue,
-    ignoreZeros,
+    unit: skipUnitAggregation
+      ? null
+      : unit || factTable.userIdTypes[0] || "user_id",
+    alias,
+    eventValueExpr: getEventValueExpr(columnRef, factTable, helpers),
+    unitAggregationExpr: skipUnitAggregation
+      ? ""
+      : getUnitAggregationExpr(columnRef, alias),
+    rollupAggregationExpr: getRollupAggregationExpr(metric, columnRef, alias),
+    rollupCountExpr: getRollupCountExpr(metric, alias),
   };
 }
 
@@ -826,11 +573,7 @@ function createStubFactTable(
     "string" | "number" | "date" | "boolean" | "other"
   >,
   datasourceSettings: DataSourceSettings | null,
-): Pick<
-  FactTableInterface,
-  "sql" | "columns" | "filters" | "userIdTypes",
-  "timestampColumn"
-> {
+): MinimalFactTable {
   const columns: ColumnInterface[] = Object.entries(columnTypes).map(
     ([column, datatype]) => ({
       dateCreated: new Date(),
@@ -864,485 +607,431 @@ function createStubFactTable(
   return {
     sql,
     columns,
-    filters: [],
     userIdTypes,
     timestampColumn,
+    filters: [],
   };
 }
 
-// Minimal datasource interface for SQL datasets
-export interface MinimalDatasourceInterface {
-  settings?: DataSourceSettings | null;
+// Generate dynamic dimension CTE
+function generateDynamicDimensionCTE(
+  factTableGroup: FactTableGroup,
+  dimension: ProductAnalyticsDynamicDimension,
+  dimensionIndex: number,
+  sourceCTE: CTE,
+  helpers: SqlHelpers,
+): CTE {
+  const cteName = `_dimension${dimensionIndex}_top`;
+
+  const columnExpr = getColumnExpression(
+    dimension.column,
+    factTableGroup.factTable,
+    helpers.jsonExtract,
+  );
+
+  return {
+    name: cteName,
+    sql: `
+    SELECT ${columnExpr} as value
+    FROM ${sourceCTE.name}
+    GROUP BY ${columnExpr}
+    ORDER BY COUNT(*) DESC
+    LIMIT ${dimension.maxValues}
+  `,
+  };
+}
+
+// Generate fact table group CTE
+function generateFactTableCTE(
+  factTableGroup: FactTableGroup,
+  helpers: SqlHelpers,
+  dateRange: DateRange,
+): CTE {
+  const factTable = factTableGroup.factTable;
+
+  const timestampColumn = factTable.timestampColumn || "timestamp";
+
+  const baseSql = factTable.sql;
+
+  // Get a de-duped list of all filters across all metrics
+  const filters = new Set<string>();
+  factTableGroup.metrics.forEach((m) => {
+    const columnRef = m.useDenominator
+      ? m.metric.denominator
+      : m.metric.numerator;
+
+    if (!columnRef) return;
+
+    const filterParts = generateRowFilterSQL(
+      columnRef.rowFilters || [],
+      factTable,
+      helpers,
+    );
+    if (!filterParts.length) return;
+
+    filterParts.sort();
+    filters.add(`(${filterParts.join(" AND ")})`);
+  });
+
+  const whereClauses: string[] = [];
+
+  // Date range filter
+  whereClauses.push(
+    `${timestampColumn} >= ${helpers.toTimestamp(dateRange.startDate)} AND ${timestampColumn} <= ${helpers.toTimestamp(dateRange.endDate)}`,
+  );
+
+  if (filters.size) {
+    whereClauses.push(`(${Array.from(filters).join(" OR ")})`);
+  }
+
+  return {
+    name: `_factTable${factTableGroup.index}`,
+    sql: `
+    SELECT * FROM (
+      -- Raw fact table SQL
+      ${baseSql}
+    ) t
+    WHERE 
+      ${whereClauses.join("\n  AND ")}
+  `,
+  };
+}
+
+function generateFactTableRowsCTE(
+  factTableGroup: FactTableGroup,
+  sourceCTE: CTE,
+  dimensions: DimensionData[],
+  helpers: SqlHelpers,
+): CTE {
+  const selectCols: string[] = [];
+
+  // Select all dimension columns
+  dimensions.forEach((d) => {
+    selectCols.push(`${d.valueExpr} AS ${d.alias}`);
+  });
+
+  // Select all units
+  factTableGroup.units.forEach((unit, i) => {
+    selectCols.push(`${unit} AS unit${i}`);
+  });
+
+  // Select all metric event values
+  factTableGroup.metrics.forEach((m) => {
+    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
+  });
+
+  return {
+    name: `_factTable${factTableGroup.index}_rows`,
+    sql: `
+    SELECT
+      ${selectCols.join(",\n  ")}
+    FROM ${sourceCTE.name}
+  `,
+  };
+}
+
+function generateUnitAggregationCTE(
+  factTableGroup: FactTableGroup,
+  sourceCTE: CTE,
+  dimensions: DimensionData[],
+  unitIndex: number,
+  includedMetrics: MetricData[],
+): CTE {
+  const selects: string[] = [];
+  const groupBys: string[] = [];
+
+  selects.push(`unit${unitIndex}`);
+  groupBys.push(`unit${unitIndex}`);
+
+  // Add dimensions
+  dimensions.forEach((d) => {
+    selects.push(`${d.alias}`);
+    groupBys.push(`${d.alias}`);
+  });
+
+  // Add metrics
+  includedMetrics.forEach((metricData) => {
+    selects.push(
+      `${metricData.unitAggregationExpr || "NULL"} AS ${metricData.alias}`,
+    );
+  });
+
+  return {
+    name: `_factTable${factTableGroup.index}_unit${unitIndex}`,
+    sql: `
+    SELECT 
+      ${selects.join(",\n  ")}
+    FROM ${sourceCTE.name}
+    GROUP BY ${groupBys.join(", ")}
+  `,
+  };
+}
+
+function generateUnitAggregationRollupCTE(
+  factTableGroup: FactTableGroup,
+  sourceCTE: CTE,
+  dimensions: DimensionData[],
+  unitIndex: number,
+  includedMetrics: MetricData[],
+  allMetrics: string[],
+): CTE {
+  const selects: string[] = [];
+  const groupBys: string[] = [];
+
+  // Add dimensions
+  dimensions.forEach((d) => {
+    selects.push(`${d.alias}`);
+    groupBys.push(`${d.alias}`);
+  });
+
+  // Add metrics
+  allMetrics.forEach((alias) => {
+    const metricData = includedMetrics.find((m) => m.alias === alias);
+
+    if (metricData && metricData.rollupAggregationExpr) {
+      selects.push(
+        `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}`,
+      );
+      selects.push(
+        `${metricData.rollupCountExpr || "NULL"} AS ${metricData.alias}_count`,
+      );
+    } else {
+      selects.push(`NULL as ${alias}`);
+      selects.push(`NULL as ${alias}_count`);
+    }
+  });
+
+  return {
+    name: `_factTable${factTableGroup.index}_unit${unitIndex}_rollup`,
+    sql: `
+    SELECT
+      ${selects.join(",\n  ")}
+    FROM ${sourceCTE.name}
+    GROUP BY ${groupBys.join(", ")}
+  `,
+  };
+}
+
+function generateEventRollupCTE(
+  factTableGroup: FactTableGroup,
+  sourceCTE: CTE,
+  dimensions: DimensionData[],
+  includedMetrics: MetricData[],
+  allMetrics: string[],
+): CTE {
+  const selects: string[] = [];
+  const groupBys: string[] = [];
+
+  // Add dimensions
+  dimensions.forEach((d) => {
+    selects.push(`${d.alias}`);
+    groupBys.push(`${d.alias}`);
+  });
+
+  // Add metrics
+  allMetrics.forEach((alias) => {
+    const metricData = includedMetrics.find((m) => m.alias === alias);
+    if (metricData && metricData.rollupAggregationExpr) {
+      selects.push(
+        `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}`,
+      );
+      selects.push(
+        `${metricData.rollupCountExpr || "NULL"} AS ${metricData.alias}_count`,
+      );
+    } else {
+      selects.push(`NULL as ${alias}`);
+      selects.push(`NULL as ${alias}_count`);
+    }
+  });
+
+  return {
+    name: `_factTable${factTableGroup.index}_event_rollup`,
+    sql: `
+    SELECT
+      ${selects.join(",\n  ")}
+    FROM ${sourceCTE.name}
+    GROUP BY ${groupBys.join(", ")}
+  `,
+  };
+}
+
+function generateCombinedRollupCTE(rollupCTEs: CTE[]): CTE {
+  return {
+    name: `_combined_rollup`,
+    sql: rollupCTEs.map((r) => `SELECT * FROM ${r.name}`).join("\nUNION ALL\n"),
+  };
+}
+
+function generateFinalSelect(
+  combinedRollupCTE: CTE,
+  dimensions: DimensionData[],
+  allMetrics: MetricData[],
+): string {
+  const selects: string[] = [];
+  const groupBys: string[] = [];
+  dimensions.forEach((d) => {
+    selects.push(`${d.alias}`);
+    groupBys.push(`${d.alias}`);
+  });
+  allMetrics.forEach((m) => {
+    selects.push(`MAX(${m.alias}) AS ${m.alias}`);
+    selects.push(`MAX(${m.alias}_count) AS ${m.alias}_count`);
+  });
+  return `
+  SELECT ${selects.join(", ")} 
+  FROM ${combinedRollupCTE.name}
+  GROUP BY ${groupBys.join(", ")}`;
 }
 
 export function generateProductAnalyticsSQL(
   config: ProductAnalyticsConfig,
-  options: {
-    factTableMap?: FactTableMap;
-    metricMap?: Map<string, FactMetricInterface>;
-    sqlHelpers?: Partial<SqlHelpers>;
-    datasource?: MinimalDatasourceInterface; // For SQL datasets, provide datasource with settings
-  },
+  factTableMap: FactTableMap,
+  metricMap: Map<string, FactMetricInterface>,
+  sqlHelpers: SqlHelpers,
+  datasource: MinimalDatasourceInterface,
 ): string {
   if (!config.dataset) {
     throw new Error("Dataset is required");
   }
 
-  const helpers = { ...defaultSqlHelpers, ...options.sqlHelpers };
-  const factTableMap =
-    options.factTableMap || new Map<string, FactTableInterface>();
-  const metricMap = options.metricMap || new Map<string, FactMetricInterface>();
   const dateRange = calculateDateRange(config.dateRange);
 
-  // Convert dataset into fact tables and metrics
-  const { factTables, metrics } = convertDatasetToFactTablesAndMetrics(
+  const factTableGroups = getFactTableGroups({
     config,
     factTableMap,
     metricMap,
-    options.datasource?.settings || null,
-  );
-
-  // Use the first fact table for dimensions (if any)
-  const primaryFactTable = factTables[0] || null;
-  const primaryFactTableIndex = 0;
-
-  const ctes: string[] = [];
-
-  // Generate fact table CTEs for each fact table
-  factTables.forEach((factTable, index) => {
-    ctes.push(
-      generateFactTableCTE(config, factTable, index, helpers, dateRange),
-    );
+    datasourceSettings: datasource.settings || null,
   });
 
-  // Generate dynamic dimension CTEs
-  // Use the primary fact table for dynamic dimensions
-  config.dimensions.forEach((dimension, idx) => {
-    if (dimension.dimensionType === "dynamic") {
-      ctes.push(
-        generateDynamicDimensionCTE(dimension, primaryFactTableIndex, idx),
-      );
-    }
-  });
-
-  // Collect metric capping information from metrics
-  const metricCappingInfo = new Map<
-    number,
-    {
-      hasPercentileCap: boolean;
-      hasAbsoluteCap: boolean;
-      percentileCapValue: number | null;
-      factTableIndex: number;
-      prefix: string;
-      ignoreZeros: boolean;
-    }
-  >();
-
-  metrics.forEach((metricValue, idx) => {
-    const factTable = factTables[metricValue.factTableIndex] || null;
-
-    const metric = generateMetricValueExpression(
-      metricValue,
-      factTable,
-      helpers,
-    );
-
-    if (metric.hasPercentileCap || metric.hasAbsoluteCap) {
-      metricCappingInfo.set(idx, {
-        hasPercentileCap: metric.hasPercentileCap,
-        hasAbsoluteCap: metric.hasAbsoluteCap,
-        percentileCapValue: metric.percentileCapValue,
-        factTableIndex: metricValue.factTableIndex,
-        prefix: metricValue.prefix,
-        ignoreZeros: metric.ignoreZeros,
-      });
-    }
-  });
-
-  // Generate percentile caps CTEs for each fact table that has percentile-capped metrics
-  const percentileCapsByFactTable = new Map<
-    number,
-    Array<{
-      metricIndex: number;
-      prefix: string;
-      percentile: number;
-      ignoreZeros: boolean;
-      metricValue: MetricWithMetadata;
-    }>
-  >();
-
-  metricCappingInfo.forEach((info, metricIndex) => {
-    if (info.hasPercentileCap && info.percentileCapValue !== null) {
-      const factTableIdx = info.factTableIndex;
-      if (!percentileCapsByFactTable.has(factTableIdx)) {
-        percentileCapsByFactTable.set(factTableIdx, []);
-      }
-      percentileCapsByFactTable.get(factTableIdx)?.push({
-        metricIndex,
-        prefix: info.prefix,
-        percentile: info.percentileCapValue,
-        ignoreZeros: info.ignoreZeros,
-        metricValue: metrics[metricIndex],
-      });
-    }
-  });
-
-  // Generate percentile caps CTEs
-  percentileCapsByFactTable.forEach((caps, factTableIdx) => {
-    const factTable = factTables[factTableIdx] || null;
-
-    const capSelects: string[] = [];
-    caps.forEach((cap) => {
-      const { metricValue, percentile, ignoreZeros, prefix } = cap;
-
-      // Build the value expression for the percentile calculation
-      let percentileValueExpr = "1";
-      if (metricValue.valueColumn) {
-        percentileValueExpr = factTable
-          ? getColumnExpression(
-              metricValue.valueColumn,
-              factTable,
-              helpers.jsonExtract,
-            )
-          : metricValue.valueColumn;
-      }
-
-      // Build filter condition
-      const filterSQL = generateRowFilterSQL(
-        metricValue.rowFilters,
-        factTable,
-        helpers,
-      );
-      const filterCondition =
-        filterSQL.length > 0 ? `(${filterSQL.join(" AND ")})` : "TRUE";
-
-      // Build the CASE expression
-      // If ignoreZeros is true, exclude zeros from the percentile calculation
-      const caseExpr = ignoreZeros
-        ? `CASE WHEN ${filterCondition} AND ${percentileValueExpr} != 0 THEN ${percentileValueExpr} ELSE NULL END`
-        : `CASE WHEN ${filterCondition} THEN ${percentileValueExpr} ELSE NULL END`;
-
-      capSelects.push(
-        `-- ${percentile * 100}th percentile of ${prefix}\n      ${helpers.percentileApprox(caseExpr, percentile)} as ${prefix}_cap`,
-      );
+  // Get all metric aliases
+  const allMetrics: MetricData[] = [];
+  factTableGroups.forEach((f) => {
+    f.metrics.forEach((m) => {
+      const data = getMetricData(m, f.factTable, sqlHelpers);
+      allMetrics.push(data);
     });
+  });
+  const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
 
-    const percentileCapsCTE = `  _factTable${factTableIdx}_percentile_caps AS (
-    SELECT
-      ${capSelects.join(",\n      ")}
-    FROM _factTable${sourceIdx}
-  )`;
-
-    ctes.push(percentileCapsCTE);
+  // Get all dimensions
+  const allDimensions: DimensionData[] = [];
+  config.dimensions.forEach((d, i) => {
+    allDimensions.push({
+      alias: `dimension${i}`,
+      valueExpr: generateDimensionExpression(
+        d,
+        i,
+        factTableGroups[0],
+        sqlHelpers,
+        dateRange,
+      ),
+    });
   });
 
-  const hasPercentileCaps = percentileCapsByFactTable.size > 0;
+  const ctes: CTE[] = [];
 
-  // Generate rows CTE
-  // For now, we'll use the primary source for dimensions
-  // In a more complex implementation, we might need separate row CTEs per source
-  const dimensionExpressions = config.dimensions.map((dim, idx) =>
-    generateDimensionExpression(
-      dim,
-      idx,
-      primaryFactTableIndex,
-      helpers,
-      primaryFactTable,
+  const ctesToRollup: CTE[] = [];
+
+  factTableGroups.forEach((factTableGroup, i) => {
+    // Add the raw fact table CTE
+    const factTableCTE = generateFactTableCTE(
+      factTableGroup,
+      sqlHelpers,
       dateRange,
-    ),
-  );
-
-  const metricExpressions: string[] = [];
-  const unitColumns = new Set<string>();
-  metrics.forEach((metricValue) => {
-    const factTable = factTables[metricValue.factTableIndex] || null;
-    const metric = generateMetricValueExpression(
-      metricValue,
-      factTable,
-      helpers,
     );
-    metricExpressions.push(metric.valueExpr);
-    if (metric.unitColumn) {
-      unitColumns.add(metric.unitColumn);
-    }
-  });
+    ctes.push(factTableCTE);
 
-  const unitSelects = Array.from(unitColumns).map(
-    (unit, idx) => `${unit} as unit${idx}`,
-  );
-
-  // Use primary fact table for rows CTE
-  // TODO: In a more complex implementation, we might need to join multiple fact tables
-  const percentileCapsJoin =
-    hasPercentileCaps && percentileCapsByFactTable.has(primaryFactTableIndex)
-      ? `CROSS JOIN _factTable${primaryFactTableIndex}_percentile_caps caps`
-      : "";
-
-  const rowsCTE = `  _factTable${primaryFactTableIndex}_rows AS (
-    SELECT
-      ${dimensionExpressions.join(",\n      ")},
-      ${unitSelects.length > 0 ? unitSelects.join(",\n      ") + "," : ""}
-      ${metricExpressions.join(",\n      ")}
-    FROM _factTable${primaryFactTableIndex}
-    ${percentileCapsJoin}
-  )`;
-
-  ctes.push(rowsCTE);
-
-  // Generate unit aggregation CTEs
-  if (unitColumns.size > 0) {
-    const unitAggregations: string[] = [];
-    metrics.forEach((metricValue) => {
-      const factTable =
-        factTables[metricValue.factTableIndex]?.factTable || null;
-      const metric = generateMetricValueExpression(
-        metricValue,
-        factTable,
-        helpers,
-      );
-      if (metric.isUnitCount && metric.unitColumn) {
-        // Handle unit-level aggregations: unit_count, max, count_distinct, unit quantiles
-        if (metricValue.quantileSettings?.type === "unit") {
-          // For unit quantiles, aggregate per unit using the underlying aggregation
-          const aggType = metricValue.unitQuantileAggregation || "sum";
-          if (aggType === "max") {
-            unitAggregations.push(
-              `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-            );
-          } else if (aggType === "count_distinct") {
-            unitAggregations.push(
-              `COUNT(DISTINCT ${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-            );
-          } else {
-            // sum (default)
-            unitAggregations.push(
-              `SUM(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-            );
-          }
-        } else if (metricValue.valueType === "max") {
-          // For max, calculate MAX per unit
-          unitAggregations.push(
-            `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
+    // If this is the first fact table and there are dynamic dimensions, add CTEs
+    if (i === 0) {
+      config.dimensions.forEach((dimension) => {
+        if (dimension.dimensionType === "dynamic") {
+          const dynamicDimensionCTE = generateDynamicDimensionCTE(
+            factTableGroup,
+            dimension,
+            i,
+            factTableCTE,
+            sqlHelpers,
           );
-        } else if (metricValue.valueType === "count_distinct") {
-          // For count distinct, calculate COUNT(DISTINCT) per unit
-          unitAggregations.push(
-            `COUNT(DISTINCT ${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-          );
-        } else if (metricValue.valueType === "unit_count") {
-          // Check if this has aggregate filter settings
-          if (metricValue.aggregateFilterSettings) {
-            // Use getAggregateFilters to convert aggregateFilter to SQL conditions
-            // We need to create a mock ColumnRef for getAggregateFilters
-            const mockColumnRef = {
-              aggregateFilter:
-                metricValue.aggregateFilterSettings.aggregateFilter,
-              aggregateFilterColumn:
-                metricValue.aggregateFilterSettings.aggregateFilterColumn,
-              column: metricValue.valueColumn || "$$distinctUsers",
-            };
-            const aggregateFilters = getAggregateFilters({
-              columnRef: mockColumnRef,
-              column: metricValue.aggregateFilterSettings.aggregateFilterColumn,
-              ignoreInvalid: true,
-            });
-
-            if (aggregateFilters.length > 0) {
-              // Apply aggregate filter: SUM the column and check the condition
-              // Replace the column name in the filter with SUM(prefix_value)
-              const sumExpr = `SUM(${metricValue.prefix}_value)`;
-              const colName =
-                metricValue.aggregateFilterSettings.aggregateFilterColumn;
-              const filterConditions = aggregateFilters
-                .map((filter) => {
-                  // Replace the column name with the SUM expression
-                  return filter.replace(
-                    new RegExp(`\\b${colName}\\b`),
-                    sumExpr,
-                  );
-                })
-                .join(" AND ");
-
-              unitAggregations.push(
-                `CASE WHEN ${filterConditions} THEN 1 ELSE NULL END as ${metricValue.prefix}_value`,
-              );
-            } else {
-              // Fallback if filters couldn't be parsed
-              unitAggregations.push(
-                `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-              );
-            }
-          } else {
-            // Standard unit count without aggregate filter
-            unitAggregations.push(
-              `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-            );
-          }
+          ctes.push(dynamicDimensionCTE);
         }
+      });
+    }
+
+    // Add the fact table rows CTE
+    const factTableRowsCTE = generateFactTableRowsCTE(
+      factTableGroup,
+      factTableCTE,
+      allDimensions,
+      sqlHelpers,
+    );
+    ctes.push(factTableRowsCTE);
+
+    // Split metrics into unit/event groups
+    const unitMetrics: Record<string, MetricData[]> = {};
+    const eventMetrics: MetricData[] = [];
+    factTableGroup.metrics.forEach((m) => {
+      const metricData = getMetricData(m, factTableGroup.factTable, sqlHelpers);
+      if (metricData.unit) {
+        if (!unitMetrics[metricData.unit]) {
+          unitMetrics[metricData.unit] = [];
+        }
+        unitMetrics[metricData.unit].push(metricData);
+      } else {
+        eventMetrics.push(metricData);
       }
     });
 
-    if (unitAggregations.length > 0) {
-      const unitGroupBy = [
-        ...Array.from(unitColumns).map((_, idx) => `unit${idx}`),
-        ...config.dimensions.map((_, idx) => `dimension${idx}`),
-      ].join(", ");
+    // Add the unit aggregation CTEs
+    Object.entries(unitMetrics).forEach(([unit, metrics]) => {
+      const unitIndex = factTableGroup.units.indexOf(unit);
+      if (unitIndex === -1) {
+        throw new Error(`Unit ${unit} not found in fact table group`);
+      }
+      const unitAggregationCTE = generateUnitAggregationCTE(
+        factTableGroup,
+        factTableRowsCTE,
+        allDimensions,
+        unitIndex,
+        metrics,
+      );
+      ctes.push(unitAggregationCTE);
 
-      const unitCTE = `  _factTable${primaryFactTableIndex}_unit0 AS (
-    SELECT
-      ${unitGroupBy.split(", ").join(",\n      ")},
-      ${unitAggregations.join(",\n      ")}
-    FROM _factTable${primaryFactTableIndex}_rows
-    GROUP BY ${unitGroupBy}
-  )`;
-
-      ctes.push(unitCTE);
-
-      // Generate unit rollup CTE
-      const unitRollupSelects: string[] = [];
-      config.dimensions.forEach((_, idx) => {
-        unitRollupSelects.push(`dimension${idx}`);
-      });
-      metrics.forEach((metricValue) => {
-        const factTable =
-          factTables[metricValue.factTableIndex]?.factTable || null;
-        const metric = generateMetricValueExpression(
-          metricValue,
-          factTable,
-          helpers,
-        );
-        // Unit-level aggregations
-        if (metric.isUnitCount && metric.unitColumn) {
-          if (metricValue.quantileSettings?.type === "unit") {
-            // For unit quantiles, calculate the quantile of unit values
-            const quantile = metricValue.quantileSettings.quantile;
-            unitRollupSelects.push(
-              `${helpers.percentileApprox(`${metricValue.prefix}_value`, quantile)} as ${metricValue.prefix}_value`,
-            );
-          } else {
-            // Other unit-level aggregations (unit_count, max, count_distinct) are summed in rollup
-            unitRollupSelects.push(
-              `SUM(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-            );
-          }
-        } else {
-          unitRollupSelects.push(`NULL as ${metricValue.prefix}_value`);
-        }
-        // Check if this is a denominator (ratio metrics have separate entries)
-        if (metricValue.isDenominator) {
-          // Denominator is handled separately, skip
-        }
-      });
-
-      const unitRollupCTE = `  _factTable${primaryFactTableIndex}_unit0_rollup AS (
-    SELECT
-      ${unitRollupSelects.join(",\n      ")}
-    FROM _factTable${primaryFactTableIndex}_unit0
-    GROUP BY ${config.dimensions.map((_, idx) => `dimension${idx}`).join(", ")}
-  )`;
-
+      // Unit rollup
+      const unitRollupCTE = generateUnitAggregationRollupCTE(
+        factTableGroup,
+        unitAggregationCTE,
+        allDimensions,
+        unitIndex,
+        metrics,
+        allMetricsAliases,
+      );
       ctes.push(unitRollupCTE);
-    }
-  }
+      ctesToRollup.push(unitRollupCTE);
+    });
 
-  // Generate event rollup CTE
-  const eventRollupSelects: string[] = [];
-  config.dimensions.forEach((_, idx) => {
-    eventRollupSelects.push(`dimension${idx}`);
-  });
-  metrics.forEach((metricValue) => {
-    const factTable = factTables[metricValue.factTableIndex] || null;
-    const metric = generateMetricValueExpression(
-      metricValue,
-      factTable,
-      helpers,
-    );
-    if (metric.isUnitCount) {
-      eventRollupSelects.push(`NULL as ${metricValue.prefix}_value`);
-    } else if (metric.isDistinctCount) {
-      eventRollupSelects.push(
-        `COUNT(DISTINCT ${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
+    // Event rollup
+    if (eventMetrics.length) {
+      const eventRollupCTE = generateEventRollupCTE(
+        factTableGroup,
+        factTableRowsCTE,
+        allDimensions,
+        eventMetrics,
+        allMetricsAliases,
       );
-    } else if (metric.isQuantile) {
-      const quantile = metricValue.quantileSettings?.quantile || 0.9;
-      eventRollupSelects.push(
-        `${helpers.percentileApprox(`${metricValue.prefix}_value`, quantile)} as ${metricValue.prefix}_value`,
-      );
-    } else if (metricValue.valueType === "max") {
-      eventRollupSelects.push(
-        `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-      );
-    } else {
-      eventRollupSelects.push(
-        `SUM(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-      );
+      ctes.push(eventRollupCTE);
+      ctesToRollup.push(eventRollupCTE);
     }
   });
 
-  const eventRollupCTE = `  _factTable${primaryFactTableIndex}_event_rollup AS (
-    SELECT
-      ${eventRollupSelects.join(",\n      ")}
-    FROM _factTable${primaryFactTableIndex}_rows
-    GROUP BY ${config.dimensions.map((_, idx) => `dimension${idx}`).join(", ")}
-  )`;
-
-  ctes.push(eventRollupCTE);
-
-  // Generate combined rollup CTE
-  const rollupCTEs: string[] = [];
-  if (unitColumns.size > 0) {
-    rollupCTEs.push(`_factTable${primaryFactTableIndex}_unit0_rollup`);
-  }
-  rollupCTEs.push(`_factTable${primaryFactTableIndex}_event_rollup`);
-
-  const combinedRollupCTE = `  _combined_rollup AS (
-    SELECT * FROM ${rollupCTEs[0]}
-    ${rollupCTEs.length > 1 ? `UNION ALL\n    SELECT * FROM ${rollupCTEs[1]}` : ""}
-  )`;
-
+  // Combine all rollup CTEs
+  const combinedRollupCTE = generateCombinedRollupCTE(ctesToRollup);
   ctes.push(combinedRollupCTE);
 
-  // Generate final SELECT
-  const finalSelects: string[] = [];
-  config.dimensions.forEach((_, idx) => {
-    finalSelects.push(`dimension${idx}`);
-  });
-  metrics.forEach((metricValue) => {
-    const factTable = factTables[metricValue.factTableIndex] || null;
-    const metric = generateMetricValueExpression(
-      metricValue,
-      factTable,
-      helpers,
-    );
-    if (metric.isQuantile) {
-      finalSelects.push(
-        `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-      );
-    } else if (metricValue.valueType === "max") {
-      finalSelects.push(
-        `MAX(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-      );
-    } else {
-      finalSelects.push(
-        `SUM(${metricValue.prefix}_value) as ${metricValue.prefix}_value`,
-      );
-    }
-  });
-
-  const finalGroupBy = config.dimensions
-    .map((_, idx) => `dimension${idx}`)
-    .join(", ");
-
-  const finalSelect = `SELECT
-  ${finalSelects.join(",\n  ")}
-FROM _combined_rollup
-${finalGroupBy ? `GROUP BY ${finalGroupBy}` : ""}
--- Sanity check limit
-LIMIT 1000;`;
-
-  return `WITH 
-${ctes.join(",\n\n")}
-
--- Aggregate to return a single row${finalGroupBy ? " per dimension" : ""}
-${finalSelect}`;
+  // Final select
+  return `
+  WITH 
+    ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
+  ${generateFinalSelect(combinedRollupCTE, allDimensions, allMetrics)}
+  `;
 }

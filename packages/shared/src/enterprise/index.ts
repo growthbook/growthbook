@@ -4,6 +4,7 @@ export * from "./pipeline";
 export * from "./power";
 export * from "./decision-criteria";
 export * from "./dashboards";
+export * from "./product-analytics/sql";
 export * from "./validators/decision-criteria";
 export * from "./validators/dashboard";
 export * from "./validators/dashboard-block";

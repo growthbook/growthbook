@@ -17,7 +17,7 @@ const metricDatasetValidator = z
 
 const valueType = ["unit_count", "count", "sum"] as const;
 
-const factTableDatasetValidator = z
+export const factTableDatasetValidator = z
   .object({
     type: z.literal("fact_table"),
     factTableId: z.string(),
@@ -33,7 +33,7 @@ const factTableDatasetValidator = z
   })
   .strict();
 
-const sqlDatasetValidator = z
+export const sqlDatasetValidator = z
   .object({
     type: z.literal("sql"),
     datasource: z.string(),
@@ -70,25 +70,25 @@ const dateGranularity = [
   "year",
 ] as const;
 
-const dateDimensionValidator = z.object({
+export const dateDimensionValidator = z.object({
   dimensionType: z.literal("date"),
   column: z.string().nullable(),
   dateGranularity: z.enum(dateGranularity),
 });
 
-const dynamicDimensionValidator = z.object({
+export const dynamicDimensionValidator = z.object({
   dimensionType: z.literal("dynamic"),
   column: z.string(),
   maxValues: z.number(),
 });
 
-const staticDimensionValidator = z.object({
+export const staticDimensionValidator = z.object({
   dimensionType: z.literal("static"),
   column: z.string(),
   values: z.array(z.string()),
 });
 
-const sliceDimensionValidator = z.object({
+export const sliceDimensionValidator = z.object({
   dimensionType: z.literal("slice"),
   slices: z.array(
     z.object({
@@ -98,7 +98,7 @@ const sliceDimensionValidator = z.object({
   ),
 });
 
-const dimensionValidator = z.discriminatedUnion("dimensionType", [
+export const dimensionValidator = z.discriminatedUnion("dimensionType", [
   dateDimensionValidator,
   dynamicDimensionValidator,
   staticDimensionValidator,
@@ -159,3 +159,26 @@ export const productAnalyticsResultRowValidator = z.object({
 export const productAnalyticsResultValidator = z.object({
   rows: z.array(productAnalyticsResultRowValidator),
 });
+
+export type ProductAnalyticsConfig = z.infer<
+  typeof productAnalyticsConfigValidator
+>;
+export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
+export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
+export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
+export type ProductAnalyticsDynamicDimension = z.infer<
+  typeof dynamicDimensionValidator
+>;
+
+// SQL helper functions interface
+export interface SqlHelpers {
+  escapeStringLiteral: (s: string) => string;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  dateTrunc: (
+    column: string,
+    granularity: "hour" | "day" | "week" | "month" | "year",
+  ) => string;
+  percentileApprox: (column: string, percentile: number) => string;
+  toTimestamp: (date: Date) => string;
+}
