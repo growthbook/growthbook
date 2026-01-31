@@ -1,4 +1,5 @@
 import { getValidDate } from "shared/dates";
+import { format } from "shared/sql";
 import {
   RowFilter,
   FactTableInterface,
@@ -369,7 +370,7 @@ function generateDimensionExpression(
       return `${helpers.dateTrunc(
         factTable.timestampColumn || "timestamp",
         granularity,
-      )} as dimension${dimensionIndex}`;
+      )}`;
     }
     case "dynamic": {
       const topCTE = `_dimension${dimensionIndex}_top`;
@@ -381,7 +382,7 @@ function generateDimensionExpression(
       return `CASE 
         WHEN ${columnExpr} IN (SELECT value FROM ${topCTE}) THEN ${columnExpr}
         ELSE 'other'
-      END AS dimension${dimensionIndex}`;
+      END`;
     }
     case "static": {
       const columnExpr = getColumnExpression(
@@ -395,7 +396,7 @@ function generateDimensionExpression(
       return `CASE 
         WHEN ${columnExpr} IN (${valueList}) THEN ${columnExpr}
         ELSE 'other'
-      END AS dimension${dimensionIndex}`;
+      END`;
     }
     case "slice": {
       const cases = dimension.slices.map(
@@ -405,7 +406,7 @@ function generateDimensionExpression(
       return `CASE
         ${cases.join("\n  ")}
         ELSE 'other'
-      END AS dimension${dimensionIndex}`;
+      END`;
     }
   }
 }
@@ -1125,14 +1126,22 @@ export function generateProductAnalyticsSQL(
     }
   });
 
-  // Combine all rollup CTEs
-  const combinedRollupCTE = generateCombinedRollupCTE(ctesToRollup);
-  ctes.push(combinedRollupCTE);
+  // Combine all rollup CTEs if there are multiple
+  let finalSelectSource: CTE;
+  if (ctesToRollup.length > 1) {
+    finalSelectSource = generateCombinedRollupCTE(ctesToRollup);
+    ctes.push(finalSelectSource);
+  } else {
+    finalSelectSource = ctesToRollup[0];
+  }
 
   // Final select
-  return `
+  return format(
+    `
   WITH 
     ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
-  ${generateFinalSelect(combinedRollupCTE, allDimensions, allMetrics)}
-  `;
+  ${generateFinalSelect(finalSelectSource, allDimensions, allMetrics)}
+  `,
+    sqlHelpers.formatDialect,
+  );
 }

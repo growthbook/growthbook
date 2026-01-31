@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FormatDialect } from "shared/types/sql";
 import { rowFilterValidator } from "./fact-table";
 
 const metricDatasetValidator = z
@@ -181,4 +182,5 @@ export interface SqlHelpers {
   ) => string;
   percentileApprox: (column: string, percentile: number) => string;
   toTimestamp: (date: Date) => string;
+  formatDialect: FormatDialect;
 }
