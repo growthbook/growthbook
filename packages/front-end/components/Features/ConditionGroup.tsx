@@ -107,7 +107,7 @@ export function ConditionGroupHeader({
   );
 }
 
-/** Single condition row: 3-column grid (Attribute, Operator, Value). Optional prefix and remove slots. */
+/** Single condition row: responsive flex layout maintaining 25%/25%/50% proportions. Optional prefix and remove slots. */
 export function ConditionRow({
   prefixSlot,
   attributeSlot,
@@ -139,17 +139,20 @@ export function ConditionRow({
           {prefixSlot}
         </Box>
       )}
-      <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: "25%" }}>
-        {attributeSlot}
-      </Box>
-      {operatorSlot != undefined && (
-        <Box style={{ flex: "0 0 25%", minWidth: 0, maxWidth: "25%" }}>
-          {operatorSlot}
-        </Box>
-      )}
-      <Box style={{ flex: "1 1 50%", minWidth: 0 }}>{valueSlot}</Box>
+      <Flex
+        gap="3"
+        align="start"
+        wrap="wrap"
+        style={{ flex: "1 1 0", minWidth: 0 }}
+      >
+        <Box style={{ minWidth: 160, flex: "1 1 0" }}>{attributeSlot}</Box>
+        {operatorSlot != undefined && (
+          <Box style={{ minWidth: 160, flex: "1 1 0" }}>{operatorSlot}</Box>
+        )}
+        <Box style={{ minWidth: 320, flex: "2 1 0" }}>{valueSlot}</Box>
+      </Flex>
       {removeSlot != undefined && (
-        <Box flexShrink="0" style={{ marginLeft: -2, marginRight: -6 }} pt="3">
+        <Box flexShrink="0" pt="3">
           {removeSlot}
         </Box>
       )}
@@ -157,14 +160,15 @@ export function ConditionRow({
   );
 }
 
-const separatorLineStyle = {
-  width: "100%" as const,
+const separatorLineStyle: React.CSSProperties = {
+  flexGrow: 1,
   borderTop: "1px dashed var(--slate-5)",
+  alignSelf: "center",
 };
 
 const logicLabelBoxStyle: React.CSSProperties = {
-  background: "var(--surface-background-color)",
-  width: 50,
+  background: "var(--slate-a2)",
+  width: 45,
   textAlign: "center",
   border: "1px solid var(--slate-5)",
   borderRadius: "var(--radius-5)",
@@ -177,7 +181,7 @@ export const logicLabelTextStyle: React.CSSProperties = {
 };
 
 /** Reusable AND/OR label box (background, border, centered text). */
-export function LogicLabelBox({ label }: { label: "AND" | "OR" | "IN" }) {
+export function LogicLabelBox({ label }: { label: string }) {
   return (
     <Box py="1" style={logicLabelBoxStyle}>
       <Text size="2" style={logicLabelTextStyle}>
@@ -187,46 +191,33 @@ export function LogicLabelBox({ label }: { label: "AND" | "OR" | "IN" }) {
   );
 }
 
-/** Horizontal line with "AND" centered. */
-export function AndSeparator() {
+/** Logical separator: label box (shrink 0) + growing dashed line. */
+export function LogicalSeparator({
+  label,
+  className,
+  ...flexProps
+}: {
+  label: string;
+  className?: string;
+} & React.ComponentProps<typeof Flex>) {
   return (
-    <Box className="gb-and-separator" py="1" style={{ position: "relative" }}>
-      <Box
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <Box style={separatorLineStyle} />
+    <Flex className={className} align="center" {...flexProps}>
+      <Box flexShrink="0">
+        <LogicLabelBox label={label} />
       </Box>
-      <Flex justify="start" align="start" style={{ position: "relative" }}>
-        <LogicLabelBox label="AND" />
-      </Flex>
-    </Box>
+      <Box style={separatorLineStyle} />
+    </Flex>
   );
 }
 
-/** Horizontal line with "OR" centered (same style as AND). */
+/** AND separator (uses LogicalSeparator). */
+export function AndSeparator() {
+  return <LogicalSeparator label="AND" className="gb-and-separator" />;
+}
+
+/** OR separator (uses LogicalSeparator). */
 export function OrSeparator() {
-  return (
-    <Box className="gb-or-separator" my="5" style={{ position: "relative" }}>
-      <Box
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <Box style={separatorLineStyle} />
-      </Box>
-      <Flex justify="start" style={{ position: "relative" }}>
-        <LogicLabelBox label="OR" />
-      </Flex>
-    </Box>
-  );
+  return <LogicalSeparator label="OR" className="gb-or-separator" my="5" />;
 }
 
 /** Button with plus icon; default label "+ Add condition". */

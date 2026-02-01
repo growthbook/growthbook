@@ -63,9 +63,12 @@
 // Hide clear (X) and raw-text-mode buttons until the field is hovered
 .gb-multi-select__control,
 .gb-select__control {
-  .gb-select__indicators,
+  .gb-select__indicators {
+    margin-left: -6px;
+    position: relative;
+  }
   .gb-multi-select__indicators {
-    margin-left: -18px;
+    margin-left: -12px;
     position: relative;
   }
   .gb-multi-select__clear-indicator,

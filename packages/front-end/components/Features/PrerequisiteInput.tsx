@@ -1,5 +1,4 @@
 /* eslint-disable react/no-unescaped-entities */
-/* eslint-disable react-hooks/exhaustive-deps */
 
 import React, { useState, useEffect, useMemo } from "react";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
@@ -18,7 +17,7 @@ export interface MinimalFeatureInfo {
 }
 import { FaMagic } from "react-icons/fa";
 import { PrerequisiteStateResult } from "shared/util";
-import { Box, Flex, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import { condToJson, jsonToConds, formatJSON } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -29,7 +28,6 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
 import {
-  ConditionLabel,
   CaseInsensitiveRegexWarning,
   operatorSupportsCaseInsensitive,
   datatypeSupportsCaseInsensitive,
@@ -46,7 +44,7 @@ interface Props {
 }
 
 export default function PrerequisiteInput(props: Props) {
-  const parentFeature = props.parentFeature;
+  const { onChange, parentFeature } = props;
   const parentFeatureValueType = parentFeature?.valueType;
 
   const parentValueMap = useMemo(() => {
@@ -75,13 +73,13 @@ export default function PrerequisiteInput(props: Props) {
   useEffect(() => {
     if (advanced) return;
     setValue(condToJson(conds, parentValueMap));
-  }, [advanced, conds]);
+  }, [advanced, conds, parentValueMap]);
 
   useEffect(() => {
-    props.onChange(value);
+    onChange(value);
     const conds = jsonToConds(value, parentValueMap);
     setSimpleAllowed(conds !== null && conds.length <= 1);
-  }, [value, parentValueMap]);
+  }, [value, parentValueMap, onChange]);
 
   // Normalize: secureString/secureString[] only support exact operators (in/nin), not case-insensitive (ini/nini)
   useEffect(() => {
@@ -272,92 +270,87 @@ export default function PrerequisiteInput(props: Props) {
                     ]
                   : [];
 
+        const needsValueInput = ![
+          "$exists",
+          "$notExists",
+          "$true",
+          "$false",
+          "$empty",
+          "$notEmpty",
+        ].includes(operator);
+
+        const needsCaseInsensitive =
+          operatorSupportsCaseInsensitive(operator) &&
+          datatypeSupportsCaseInsensitive(attribute?.datatype);
+
         return (
           <React.Fragment key={i}>
-            {i > 0 && <Separator size="4" mt="6" mb="4" />}
-            <Box mb="3">
-              <Flex direction="column" gap="2">
-                <ConditionLabel label="PASS IF" width={60} />
-                <Flex align="center" gap="2">
-                  {!advanced && (
-                    <Badge label={field} color="gray" radius="full" mr="1" />
+            {/* Operator and optional case insensitive checkbox */}
+            <Flex gap="2" align="start" wrap="wrap">
+              <Box style={{ flexShrink: 0 }} mt="2">
+                <Badge label="VALUE" color="gray" radius="full" />
+              </Box>
+              <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                <Flex direction="column" gap="1">
+                  <SelectField
+                    useMultilineLabels={true}
+                    value={getDisplayOperator(operator)}
+                    name="operator"
+                    options={operatorOptions}
+                    sort={false}
+                    onChange={(v) => {
+                      const newOperator = withOperatorCaseInsensitivity(
+                        v,
+                        isCaseInsensitiveOperator(operator),
+                      );
+                      handleCondsChange(newOperator, "operator");
+                    }}
+                    formatOptionLabel={({ value: v, label }) => {
+                      const def =
+                        attribute.datatype === "boolean" ? "$true" : "$exists";
+                      return (
+                        <span>
+                          {label}
+                          {v === def && (
+                            <Text
+                              color="gray"
+                              size="1"
+                              style={{
+                                float: "right",
+                                position: "relative",
+                                top: 3,
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              default
+                            </Text>
+                          )}
+                        </span>
+                      );
+                    }}
+                  />
+                  {needsCaseInsensitive && (
+                    <Checkbox
+                      value={isCaseInsensitiveOperator(operator)}
+                      setValue={(checked) => {
+                        const newOperator = withOperatorCaseInsensitivity(
+                          getDisplayOperator(operator),
+                          checked,
+                        );
+                        handleCondsChange(newOperator, "operator");
+                      }}
+                      label="Case insensitive"
+                      size="sm"
+                      weight="regular"
+                    />
                   )}
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Flex direction="column" gap="1">
-                      <SelectField
-                        useMultilineLabels={true}
-                        value={getDisplayOperator(operator)}
-                        name="operator"
-                        options={operatorOptions}
-                        sort={false}
-                        onChange={(v) => {
-                          const newOperator = withOperatorCaseInsensitivity(
-                            v,
-                            isCaseInsensitiveOperator(operator),
-                          );
-                          handleCondsChange(newOperator, "operator");
-                        }}
-                        formatOptionLabel={({ value: v, label }) => {
-                          const def =
-                            attribute.datatype === "boolean"
-                              ? "$true"
-                              : "$exists";
-                          return (
-                            <span>
-                              {label}
-                              {v === def && (
-                                <Text
-                                  color="gray"
-                                  size="1"
-                                  style={{
-                                    float: "right",
-                                    position: "relative",
-                                    top: 3,
-                                    textTransform: "uppercase",
-                                  }}
-                                >
-                                  default
-                                </Text>
-                              )}
-                            </span>
-                          );
-                        }}
-                      />
-                      {operatorSupportsCaseInsensitive(operator) &&
-                        datatypeSupportsCaseInsensitive(
-                          attribute?.datatype,
-                        ) && (
-                          <Checkbox
-                            value={isCaseInsensitiveOperator(operator)}
-                            setValue={(checked) => {
-                              const newOperator = withOperatorCaseInsensitivity(
-                                getDisplayOperator(operator),
-                                checked,
-                              );
-                              handleCondsChange(newOperator, "operator");
-                            }}
-                            label="Case insensitive"
-                            size="sm"
-                            weight="regular"
-                          />
-                        )}
-                    </Flex>
-                  </Box>
                 </Flex>
-                {[
-                  "$exists",
-                  "$notExists",
-                  "$true",
-                  "$false",
-                  "$empty",
-                  "$notEmpty",
-                ].includes(operator) ? null : [
-                    "$in",
-                    "$nin",
-                    "$ini",
-                    "$nini",
-                  ].includes(operator) ? (
-                  <Flex direction="column" align="start">
+              </Box>
+
+              {/* Value input if needed */}
+              {needsValueInput &&
+                (["$in", "$nin", "$ini", "$nini"].includes(operator) ? (
+                  <Box style={{ minWidth: 400, flex: "2 1 0" }}>
                     <StringArrayField
                       containerClassName="w-100"
                       value={value ? value.trim().split(",") : []}
@@ -367,9 +360,9 @@ export default function PrerequisiteInput(props: Props) {
                       enableRawTextMode
                       required
                     />
-                  </Flex>
+                  </Box>
                 ) : attribute.enum.length ? (
-                  <Box>
+                  <Box style={{ minWidth: 400, flex: "2 1 0" }}>
                     <SelectField
                       useMultilineLabels={true}
                       options={attribute.enum.map((v) => ({
@@ -386,7 +379,7 @@ export default function PrerequisiteInput(props: Props) {
                     />
                   </Box>
                 ) : attribute.datatype === "number" ? (
-                  <Box>
+                  <Box style={{ minWidth: 400, flex: "2 1 0" }}>
                     <Field
                       type="number"
                       step="any"
@@ -400,7 +393,7 @@ export default function PrerequisiteInput(props: Props) {
                 ) : ["string", "secureString", "secureString[]"].includes(
                     attribute.datatype,
                   ) ? (
-                  <Box>
+                  <Box style={{ minWidth: 400, flex: "2 1 0" }}>
                     <Field
                       value={value}
                       onChange={handleFieldChange}
@@ -409,9 +402,10 @@ export default function PrerequisiteInput(props: Props) {
                       required
                     />
                   </Box>
-                ) : null}
-              </Flex>
-            </Box>
+                ) : null)}
+            </Flex>
+
+            {/* Advanced mode link */}
             {!advanced && (
               <Flex justify="end" mt="2">
                 <Link onClick={() => setAdvanced(true)}>
