@@ -31,6 +31,7 @@ import {
   updateDashboardMetricAnalyses,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
+  shouldRecalculateNextUpdate,
 } from "back-end/src/enterprise/services/dashboards";
 import {
   determineNextDate,
@@ -165,18 +166,15 @@ export async function updateDashboard(
     ...updates,
   } as Partial<DashboardInterface>;
 
-  const enableAutoUpdates =
-    updates.enableAutoUpdates ?? dashboard.enableAutoUpdates;
-  if (enableAutoUpdates) {
-    // if updateSchedule is undefined, use the existing updateSchedule, if available.
-    const nextUpdateSchedule =
-      updates.updateSchedule || dashboard.updateSchedule;
-    dashboardUpdates.nextUpdate = nextUpdateSchedule
-      ? (determineNextDate(nextUpdateSchedule) ?? undefined)
-      : undefined;
-  } else if (updates.enableAutoUpdates === false) {
-    // If auto-updates are being disabled, clear the nextUpdate
+  if (updates.enableAutoUpdates === false) {
+    // Auto-updates being disabled - clear the nextUpdate
     dashboardUpdates.nextUpdate = undefined;
+  } else if (shouldRecalculateNextUpdate(updates, dashboard)) {
+    // Recalculate nextUpdate based on the schedule
+    const schedule = updates.updateSchedule ?? dashboard.updateSchedule;
+    dashboardUpdates.nextUpdate = schedule
+      ? (determineNextDate(schedule) ?? undefined)
+      : undefined;
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
