@@ -33,7 +33,7 @@
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
   "dependencies": {
-    "dd-trace": "^5.83.0",
+    "dd-trace": "^5.46.0",
     "pm2": "^6.0.14"
   },
   "devDependencies": {
