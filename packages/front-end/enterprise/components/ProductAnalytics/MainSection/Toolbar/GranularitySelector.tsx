@@ -41,7 +41,6 @@ export default function GranularitySelector() {
           dimensions: prev.dimensions.map((d) => d.dimensionType === "date" ? { ...d, dateGranularity: v as "day" | "week" | "month" | "year" } : d),
         }));
       }}
-      containerClassName="mb-0"
     >
       {dateGranularity.map((g) => (
         <SelectItem key={g} value={g}>

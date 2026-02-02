@@ -117,15 +117,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
-  const selected = value
-    .map((v) => {
-      const option = map.get(v);
-      if (option) return option;
-      if (creatable) return { label: v, value: v };
-      return undefined;
-    })
-    .filter(isDefined);
-
+  const selected = value.map((v) => map.get(v)).filter(isDefined);
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 

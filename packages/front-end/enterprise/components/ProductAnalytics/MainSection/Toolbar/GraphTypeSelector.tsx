@@ -1,5 +1,4 @@
 import React from "react";
-import { FactMetricInterface } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import { useExplorerContext } from "../../ExplorerContext";
 import { chartTypes } from "shared/validators";
@@ -23,7 +22,6 @@ export default function GraphTypeSelector() {
           chartType: v as "line" | "bar" | "bigNumber",
         }))
       }
-      containerClassName="mb-0"
     >
       {chartTypes.map((type) => (
         <SelectItem key={type} value={type}>

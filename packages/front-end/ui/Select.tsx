@@ -18,8 +18,6 @@ type SelectProps = {
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
   triggerClassName?: string;
-  containerClassName?: string;
-  className?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -36,19 +34,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     placeholder,
     variant = "surface",
     triggerClassName,
-    containerClassName,
-    className,
     ...containerProps
   }: SelectProps,
   ref,
 ) {
   return (
-    <Flex
-      direction="column"
-      {...containerProps}
-      ref={ref}
-      className={clsx(className, containerClassName)}
-    >
+    <Flex direction="column" {...containerProps} ref={ref}>
       {typeof label === "string" ? (
         <Text as="label" size="3" weight="medium">
           {label}

@@ -192,7 +192,7 @@ export default function ValueCard({
                   onChange={(vals) =>
                     handleUpdateFilter(i, { ...filter, values: vals })
                   }
-                  options={[]}
+                  options={(filter.values ?? []).map(v => ({ label: v, value: v }))}
                   placeholder="Select value..."
                 />
                 <Separator style={{ width: "100%" }} />

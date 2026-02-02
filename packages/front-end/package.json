@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "generate-mock-data-json": "tsx ./scripts/generate-mock-data-json.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -136,7 +135,6 @@
     "sass": "^1.71.0",
     "typescript": "5.7.3",
     "vite": "6.4.1",
-    "tsx": "^4.7.0",
     "vitest": "^3.2.4"
   },
   "optionalDependencies": {

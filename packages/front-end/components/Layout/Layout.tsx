@@ -105,11 +105,6 @@ const navlinks: SidebarLinkProps[] = [
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
       },
-      {
-        name: "Beta",
-        href: "/product-analytics/beta",
-        path: /^product-analytics\/beta/,
-      },
     ],
   },
   {

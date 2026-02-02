@@ -18,8 +18,6 @@ export const metricAnalysisSettingsValidator = z
     startDate: z.date(),
     endDate: z.date(),
     lookbackDays: z.number(),
-    granularity: z.enum(["day", "week", "month", "year"]).default("day"),
-    groupBy: z.array(z.string()).optional(),
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
@@ -79,30 +77,6 @@ export const metricAnalysisResultValidator = z
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),
-    groups: z
-      .array(
-        z.object({
-          group: z.string(),
-          units: z.number(),
-          mean: z.number(),
-          stddev: z.number().optional(),
-          numerator: z.number().optional(),
-          denominator: z.number().optional(),
-          dates: z
-            .array(
-              z.object({
-                date: z.date(),
-                units: z.number(),
-                mean: z.number(),
-                stddev: z.number().optional(),
-                numerator: z.number().optional(),
-                denominator: z.number().optional(),
-              }),
-            )
-            .optional(),
-        }),
-      )
-      .optional(),
   })
   .strict();
 

@@ -36,7 +36,6 @@ export default function DateRangePicker() {
             },
           }));
         }}
-        containerClassName="mb-0"
       >
         {dateRangePredefined.map((option) => (
           <SelectItem key={option} value={option}>
