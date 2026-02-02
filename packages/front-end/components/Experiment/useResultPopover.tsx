@@ -20,9 +20,12 @@ interface ResultPopoverData {
   statsEngine: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
   suspiciousChange: boolean;
+  suspiciousThreshold: number;
   notEnoughData: boolean;
   minSampleSize: number;
   minPercentChange: number;
+  currentMetricTotal: number;
+  timeRemainingMs?: number;
 }
 
 interface UseResultPopoverOptions
@@ -85,9 +88,12 @@ export function useResultPopover({
               statsEngine={data.statsEngine}
               ssrPolyfills={data.ssrPolyfills}
               suspiciousChange={data.suspiciousChange}
+              suspiciousThreshold={data.suspiciousThreshold}
               notEnoughData={data.notEnoughData}
               minSampleSize={data.minSampleSize}
               minPercentChange={data.minPercentChange}
+              currentMetricTotal={data.currentMetricTotal}
+              timeRemainingMs={data.timeRemainingMs}
             />
           </div>
         }

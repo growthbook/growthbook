@@ -1,9 +1,11 @@
 import React from "react";
 import clsx from "clsx";
+import { formatDistance } from "date-fns";
+import { PiWarningCircle } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,7 +13,9 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { RowResults } from "@/services/experiments";
 import {
   formatPercent,
+  getColumnRefFormatter,
   getExperimentMetricFormatter,
+  getMetricFormatter,
 } from "@/services/metrics";
 import styles from "./ExperimentResultTooltipContent.module.scss";
 
@@ -24,9 +28,12 @@ interface ExperimentResultTooltipContentProps {
   statsEngine: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
   suspiciousChange: boolean;
+  suspiciousThreshold: number;
   notEnoughData: boolean;
   minSampleSize: number;
   minPercentChange: number;
+  currentMetricTotal: number;
+  timeRemainingMs?: number;
 }
 
 export default function ExperimentResultTooltipContent({
@@ -38,9 +45,12 @@ export default function ExperimentResultTooltipContent({
   statsEngine,
   ssrPolyfills,
   suspiciousChange,
+  suspiciousThreshold,
   notEnoughData,
   minSampleSize,
   minPercentChange,
+  currentMetricTotal,
+  timeRemainingMs,
 }: ExperimentResultTooltipContentProps) {
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
@@ -74,56 +84,81 @@ export default function ExperimentResultTooltipContent({
     maximumFractionDigits: 0,
   });
 
+  // Formatter for numerator values (minSampleSize, currentMetricTotal)
+  // Uses metric-specific formatting (e.g., currency for revenue metrics)
+  const numeratorFormatter = isFactMetric(metric)
+    ? getColumnRefFormatter(metric.numerator, getFactTableById)
+    : getMetricFormatter(metric.type === "binomial" ? "count" : metric.type);
+
   const ciLabel =
     statsEngine === "bayesian" ? "95% CI" : `${ciUpperDisplay} CI`;
 
   const getBadgeText = () => {
-    if (notEnoughData) return "NOT ENOUGH DATA";
+    if (notEnoughData) return "Not enough data";
     if (significant) {
-      if (resultsStatus === "won") return "WON";
-      if (resultsStatus === "lost") return "LOST";
-      if (resultsStatus === "draw") return "DRAW";
+      if (resultsStatus === "won") return "Won";
+      if (resultsStatus === "lost") return "Lost";
+      if (resultsStatus === "draw") return "Draw";
     }
-    return "INSIGNIFICANT";
+    return "Insignificant";
   };
 
   const isWon = significant && resultsStatus === "won";
   const isLost = significant && resultsStatus === "lost";
 
-  console.log("minPercentChange", minPercentChange);
-  console.log("suspiciousChange", suspiciousChange);
-
   return (
-    <Flex direction="column" width="200px">
-      <Box
+    <Flex direction="column" width="220px">
+      <Flex
         className={clsx(styles.badge, {
           [styles.badgeWon]: isWon,
           [styles.badgeLost]: isLost,
         })}
-        pl="4"
+        px="4"
+        py="2px"
+        align="center"
+        justify="between"
+        gap="1"
       >
         <Text size="1" weight="bold">
           {getBadgeText()}
         </Text>
-      </Box>
+        {notEnoughData || suspiciousChange || resultsStatus === "draw" ? (
+          <PiWarningCircle
+            size={15}
+            style={{ color: "var(--gray-contrast)" }}
+          />
+        ) : null}
+      </Flex>
 
       <Box px="4" py="2">
         {notEnoughData ? (
           <Flex direction="column" gap="1">
             <Text size="1" style={{ color: "var(--color-text-high)" }}>
-              {/* TODO: Format minSampleSize properly */}
-              Minimum {minSampleSize} not met
+              Minimum{" "}
+              {numeratorFormatter(minSampleSize, { currency: displayCurrency })}{" "}
+              not met
             </Text>
             <Text size="1" style={{ color: "var(--color-text-mid)" }}>
-              {/* TODO: Get the value from the proper place */}
-              Current metric total is ...
-              <br />
-              {/* TODO: Get this from the proper place */}
-              Estimated 3 days remaining
+              Current metric total is{" "}
+              {numeratorFormatter(currentMetricTotal, {
+                currency: displayCurrency,
+              })}
+              {timeRemainingMs !== undefined && (
+                <>
+                  <br />
+                  {timeRemainingMs > 0 ? (
+                    <>
+                      Estimated {formatDistance(0, timeRemainingMs)} remaining
+                    </>
+                  ) : (
+                    "Try updating now"
+                  )}
+                </>
+              )}
             </Text>
           </Flex>
         ) : (
-          <>
+          <Flex direction="column" gap="1">
             <Flex align="center" justify="between" gap="1">
               <Text
                 size="1"
@@ -148,17 +183,27 @@ export default function ExperimentResultTooltipContent({
               </Text>
             </Flex>
             {resultsStatus === "draw" && minPercentChange !== undefined && (
-              <Text size="1" style={{ color: "var(--color-text-mid)" }}>
-                The % change is below the min. change threshold for a meaningful
-                impact ({percentFormatter.format(minPercentChange)})
+              <Text
+                as="div"
+                size="1"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                The % Change is below the minimum change threshold (
+                {percentFormatter.format(minPercentChange)})
               </Text>
             )}
             {suspiciousChange && (
-              <Text size="1" style={{ color: "var(--pink-a11)" }}>
-                This is suspicious
+              <Text
+                as="div"
+                size="1"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                <b>Suspicious</b> result occurs when the % Change is above the
+                maximum threshold (
+                {percentFormatter.format(suspiciousThreshold)})
               </Text>
             )}
-          </>
+          </Flex>
         )}
       </Box>
     </Flex>

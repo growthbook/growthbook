@@ -72,6 +72,17 @@ export default function PValueColumn({
 
   const popoverEnabled = !!(metric && differenceType && statsEngine);
 
+  // Get the max numerator value across baseline and variation
+  const currentMetricTotal = Math.max(baseline?.value ?? 0, stats?.value ?? 0);
+
+  // Get time remaining for "not enough data" tooltip
+  const enoughDataMeta = rowResults.enoughDataMeta;
+  const timeRemainingMs =
+    enoughDataMeta?.reason === "notEnoughData" &&
+    enoughDataMeta?.showTimeRemaining
+      ? (enoughDataMeta.timeRemainingMs ?? undefined)
+      : undefined;
+
   const suspiciousPopover = useResultPopover({
     enabled: popoverEnabled && showSuspicious && rowResults.suspiciousChange,
     data: {
@@ -83,9 +94,11 @@ export default function PValueColumn({
       statsEngine: statsEngine!,
       ssrPolyfills,
       suspiciousChange: true,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
       notEnoughData: false,
       minSampleSize,
       minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal,
     },
   });
 
@@ -103,7 +116,10 @@ export default function PValueColumn({
       notEnoughData: true,
       minSampleSize,
       suspiciousChange: rowResults.suspiciousChange,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
       minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal,
+      timeRemainingMs,
     },
   });
 
@@ -118,9 +134,11 @@ export default function PValueColumn({
       statsEngine: statsEngine!,
       ssrPolyfills,
       suspiciousChange: rowResults.suspiciousChange,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
       notEnoughData: false,
       minSampleSize,
       minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal,
     },
   });
 

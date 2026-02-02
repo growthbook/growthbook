@@ -39,6 +39,7 @@ interface Props
   resultsStatus?: RowResults["resultsStatus"];
   statsEngine?: StatsEngine;
   suspiciousChange?: boolean;
+  suspiciousThreshold?: number;
   notEnoughData?: boolean;
   minSampleSize?: number;
   minPercentChange?: number;
@@ -68,6 +69,7 @@ export default function PercentGraph({
   resultsStatus = "",
   statsEngine = "frequentist",
   suspiciousChange = false,
+  suspiciousThreshold = 0,
   notEnoughData = false,
   minSampleSize = 0,
   minPercentChange = 0,
@@ -106,6 +108,9 @@ export default function PercentGraph({
 
   const showPopover = showGraph && stats?.ci;
 
+  // Get the max numerator value across baseline and variation
+  const currentMetricTotal = Math.max(baseline?.value ?? 0, stats?.value ?? 0);
+
   const {
     handleMouseEnter: popoverMouseEnter,
     handleMouseLeave: popoverMouseLeave,
@@ -122,9 +127,11 @@ export default function PercentGraph({
       statsEngine,
       ssrPolyfills,
       suspiciousChange,
+      suspiciousThreshold,
       notEnoughData,
       minSampleSize,
       minPercentChange,
+      currentMetricTotal,
     },
   });
 

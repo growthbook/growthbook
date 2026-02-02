@@ -1,4 +1,5 @@
 import { formatDistance } from "date-fns";
+import { PiWarningCircle } from "react-icons/pi";
 import { RowResults } from "@/services/experiments";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
@@ -28,7 +29,11 @@ export default function NotEnoughData({
           className="text-muted font-weight-normal"
           style={{ fontSize: "10.5px", lineHeight: "14px" }}
         >
-          Not enough data
+          Not enough data{" "}
+          <PiWarningCircle
+            size={15}
+            style={{ color: "var(--color-text-high)" }}
+          />
         </em>
       </div>
       {showTimeRemaining &&

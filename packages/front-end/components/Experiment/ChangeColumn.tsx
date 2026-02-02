@@ -30,6 +30,7 @@ interface Props
     | "resultsStatus"
     | "significant"
     | "suspiciousChange"
+    | "suspiciousThreshold"
     | "minPercentChange"
   >;
   statsEngine: StatsEngine;
@@ -94,9 +95,11 @@ export default function ChangeColumn({
         statsEngine,
         ssrPolyfills,
         suspiciousChange: rowResults.suspiciousChange,
+        suspiciousThreshold: rowResults.suspiciousThreshold,
         notEnoughData: !rowResults.enoughData,
         minSampleSize,
         minPercentChange: rowResults.minPercentChange,
+        currentMetricTotal: stats?.value ?? 0,
       },
     });
 
