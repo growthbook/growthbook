@@ -49,7 +49,7 @@ const PremiumEmptyState: FC<Props> = ({
           <div className="appbox p-5 text-center">
             <div className="py-2">
               <h2>{title}</h2>
-              <p>{description}</p>
+              <p style={{ color: "var(--color-text-mid)" }}>{description}</p>
               <div className="mt-4">
                 {learnMoreLink && (
                   <div className="mr-4 d-inline-block">

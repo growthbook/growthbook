@@ -121,6 +121,19 @@ export interface ModelConfig<
 // We only need to update indexes once at server start-up
 const indexesUpdated: Set<string> = new Set();
 
+// Global map to track pending index operations
+const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
+
+// Helper function to wait for all pending index operations to complete
+export async function waitForIndexes(): Promise<void> {
+  const allPromises: Promise<string | void>[] = [];
+  for (const promises of pendingIndexOperations.values()) {
+    allPromises.push(...promises);
+  }
+  await Promise.allSettled(allPromises);
+  pendingIndexOperations.clear();
+}
+
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
 export abstract class BaseModel<
@@ -363,8 +376,8 @@ export abstract class BaseModel<
 
     return this._find({ id: { $in: ids } });
   }
-  public getAll(filter?: ScopedFilterQuery<T>) {
-    return this._find(filter);
+  public getAll() {
+    return this._find();
   }
   public create(
     props: CreateProps<z.infer<T>>,
@@ -913,73 +926,92 @@ export abstract class BaseModel<
     if (indexesUpdated.has(this.config.collectionName)) return;
     indexesUpdated.add(this.config.collectionName);
 
-    // Always create a unique index for organization and id
-    this._dangerousGetCollection()
-      .createIndex({ id: 1, organization: 1 }, { unique: true })
-      .catch((err) => {
-        logger.error(
-          err,
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-        );
-      });
+    const promises = [];
 
-    // If id is globally unique, create an index for that
-    if (this.config.globallyUniqueIds) {
+    // Always create a unique index for organization and id
+    promises.push(
       this._dangerousGetCollection()
-        .createIndex({ id: 1 }, { unique: true })
+        .createIndex({ id: 1, organization: 1 }, { unique: true })
         .catch((err) => {
           logger.error(
             err,
-            `Error creating id unique index for ${this.config.collectionName}`,
+            `Error creating org/id unique index for ${this.config.collectionName}`,
           );
-        });
+        }),
+    );
+
+    // If id is globally unique, create an index for that
+    if (this.config.globallyUniqueIds) {
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex({ id: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating id unique index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     }
 
     // If schema uses uid, create a globally unique index
     if ("uid" in this.config.schema.shape) {
-      this._dangerousGetCollection()
-        .createIndex({ uid: 1 }, { unique: true })
-        .catch((err) => {
-          logger.error(
-            err,
-            `Error creating uid unique index for ${this.config.collectionName}`,
-          );
-        });
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex({ uid: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating uid unique index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     }
 
     // Remove any explicitly defined indexes that are no longer needed
     const indexesToRemove = this.config.indexesToRemove;
-    if (indexesToRemove) {
-      const existingIndexes = this._dangerousGetCollection().listIndexes();
-      existingIndexes.forEach((index) => {
-        if (!indexesToRemove.includes(index.name)) return;
-
-        this._dangerousGetCollection()
-          .dropIndex(index.name)
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error dropping index ${index.name} for ${this.config.collectionName}`,
-            );
-          });
+    if (indexesToRemove && indexesToRemove.length > 0) {
+      // Drop each index that needs to be removed
+      indexesToRemove.forEach((indexName) => {
+        promises.push(
+          this._dangerousGetCollection()
+            .dropIndex(indexName)
+            .catch((err) => {
+              // Ignore errors if the index or namespace doesn't exist
+              if (
+                err.codeName !== "IndexNotFound" &&
+                err.codeName !== "NamespaceNotFound"
+              ) {
+                logger.error(
+                  err,
+                  `Error dropping index ${indexName} for ${this.config.collectionName}`,
+                );
+              }
+            }),
+        );
       });
     }
 
     // Create any additional indexes
     this.config.additionalIndexes?.forEach((index) => {
-      this._dangerousGetCollection()
-        .createIndex(index.fields as { [key: string]: number }, {
-          unique: !!index.unique,
-        })
-        .catch((err) => {
-          logger.error(
-            err,
-            `Error creating ${Object.keys(index.fields).join("/")} ${
-              index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-          );
-        });
+      promises.push(
+        this._dangerousGetCollection()
+          .createIndex(index.fields as { [key: string]: number }, {
+            unique: !!index.unique,
+          })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating ${Object.keys(index.fields).join("/")} ${
+                index.unique ? "unique " : ""
+              }index for ${this.config.collectionName}`,
+            );
+          }),
+      );
     });
+
+    // Store the promises so they can be awaited externally
+    pendingIndexOperations.set(this.config.collectionName, promises);
   }
 
   /***************

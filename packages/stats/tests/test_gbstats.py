@@ -25,13 +25,13 @@ from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    BanditPeriodDataSampleMean,
 )
 from gbstats.models.results import (
     BaselineResponse,
-    BayesianVariationResponse,
-    FrequentistVariationResponse,
+    BayesianVariationResponseIndividual,
+    FrequentistVariationResponseIndividual,
     MetricStats,
+    FrequentistVariationResponse,
 )
 
 DECIMALS = 9
@@ -573,7 +573,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 2.7)
         self.assertEqual(round_(result[0].variations[1].cr), 2.5)
-        if isinstance(result[0].variations[1], BayesianVariationResponse):
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].risk[1]), 0.075691131)
             self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
             self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.071834168)
@@ -593,7 +593,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 0.529411765)
         self.assertEqual(round_(result[0].variations[1].cr), 0.6)
-        if isinstance(result[0].variations[1], BayesianVariationResponse):
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].risk[1]), 0.050934045)
             self.assertEqual(round_(result[0].variations[1].expected), 0.133333333)
             self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.694926359)
@@ -616,7 +616,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 2.7)
         self.assertEqual(round_(result[0].variations[1].cr), 2.5)
-        if isinstance(result[0].variations[1], BayesianVariationResponse):
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].risk[1]), 0.001617057)
             self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
             self.assertEqual(
@@ -641,7 +641,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 6.666666667)
         self.assertEqual(round_(result[0].variations[1].cr), 1)
-        if isinstance(result[0].variations[1], BayesianVariationResponse):
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].risk[1]), 0)
             self.assertEqual(round_(result[0].variations[1].expected), 0)
             self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.5)
@@ -660,7 +660,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 0)
         self.assertEqual(round_(result[0].variations[1].cr), 0.6)
-        if isinstance(result[0].variations[1], BayesianVariationResponse):
+        if isinstance(result[0].variations[1], BayesianVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].risk[1]), 0)
             self.assertEqual(round_(result[0].variations[1].expected), 0)
             self.assertEqual(round_(result[0].variations[1].chanceToWin), 0.5)
@@ -689,7 +689,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 2.7)
         self.assertEqual(round_(result[0].variations[1].cr), 2.5)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 0.145219005)
@@ -716,7 +716,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 0.529411765)
         self.assertEqual(round_(result[0].variations[1].cr), 0.6)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), 0.133333333)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 0.610663339)
@@ -743,7 +743,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 6.666666667)
         self.assertEqual(round_(result[0].variations[1].cr), 1)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), 0)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 1)
@@ -770,7 +770,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 0)
         self.assertEqual(round_(result[0].variations[1].cr), 0.6)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), 0)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 1)
@@ -803,7 +803,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result[0].variations[0].stats.mean), 0.099966678)
         self.assertEqual(round_(result[0].variations[1].cr), 0.074)
         self.assertEqual(round_(result[0].variations[1].stats.mean), 0.074)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), -0.281707154)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 0.003732549)
@@ -844,7 +844,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result[0].variations[0].stats.mean), 0.099966678)
         self.assertEqual(round_(result[0].variations[1].cr), 0.074)
         self.assertEqual(round_(result[0].variations[1].stats.mean), 0.074)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), -0.31620216)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 0.000000353)
@@ -873,7 +873,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result[0].variations[0].stats.mean), 0.713495487)
         self.assertEqual(round_(result[0].variations[1].cr), 0.729754963)
         self.assertEqual(round_(result[0].variations[1].stats.mean), 0.729754963)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), -0.000701483)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 0.857710405)
@@ -911,7 +911,7 @@ class TestAnalyzeMetricDfSequential(TestCase):
         self.assertEqual(result[0].dimension, "one")
         self.assertEqual(round_(result[0].variations[0].cr), 2.7)
         self.assertEqual(round_(result[0].variations[1].cr), 2.5)
-        if isinstance(result[0].variations[1], FrequentistVariationResponse):
+        if isinstance(result[0].variations[1], FrequentistVariationResponseIndividual):
             self.assertEqual(round_(result[0].variations[1].expected), -0.074074074)
             if result[0].variations[1].pValue is not None:
                 self.assertEqual(round_(result[0].variations[1].pValue), 0.892332229)
@@ -946,9 +946,17 @@ class TestAnalyzeMetricDfSequential(TestCase):
         if (
             isinstance(result[0].variations[1].ci[0], float)
             and isinstance(
-                result_bad_tuning[0].variations[1], FrequentistVariationResponse
+                result[0].variations[1], FrequentistVariationResponseIndividual
+            )
+            and isinstance(
+                result_bad_tuning[0].variations[1],
+                FrequentistVariationResponseIndividual,
             )
             and isinstance(result_bad_tuning[0].variations[1].ci[0], float)
+            and isinstance(
+                result_bad_tuning[0].variations[1],
+                FrequentistVariationResponseIndividual,
+            )
         ):
             self.assertTrue(
                 result[0].variations[1].ci[0] > result_bad_tuning[0].variations[1].ci[0]
@@ -1060,7 +1068,9 @@ class TestThreeArmedCuped(TestCase):
 
         # Get variation 1 stats
         variation1_response = result[0].variations[1]
-        self.assertIsInstance(variation1_response, FrequentistVariationResponse)
+        self.assertIsInstance(
+            variation1_response, FrequentistVariationResponseIndividual
+        )
 
         # Hard-coded expected values for variation 1 stats
         expected_stats_v1 = MetricStats(
@@ -1082,7 +1092,9 @@ class TestThreeArmedCuped(TestCase):
 
         # Get variation 2 stats
         variation2_response = result[0].variations[2]
-        self.assertIsInstance(variation2_response, FrequentistVariationResponse)
+        self.assertIsInstance(
+            variation2_response, FrequentistVariationResponseIndividual
+        )
 
         # Hard-coded expected values for variation 2 stats
         expected_stats_v2 = MetricStats(

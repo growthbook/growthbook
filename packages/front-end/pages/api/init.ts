@@ -31,6 +31,7 @@ export interface EnvironmentInitValue {
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
+  autoSliceUpdateFrequencyHours: number;
   hasOpenAIKey?: boolean;
   hasAnthropicKey?: boolean;
   hasXaiKey?: boolean;
@@ -65,6 +66,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
+    AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
     OPENAI_API_KEY,
     ANTHROPIC_API_KEY,
     XAI_API_KEY,
@@ -150,6 +152,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
       ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
       : 6,
+    autoSliceUpdateFrequencyHours: AUTO_SLICE_UPDATE_FREQUENCY_HOURS
+      ? parseInt(AUTO_SLICE_UPDATE_FREQUENCY_HOURS)
+      : 168, // Default: 7 days
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
     hasXaiKey: !!XAI_API_KEY || false,
@@ -158,5 +163,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 
-  res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
+  const cacheControl =
+    body.environment === "production"
+      ? "max-age=3600"
+      : "no-cache, no-store, must-revalidate";
+
+  res.setHeader("Cache-Control", cacheControl).status(200).json(body);
 }

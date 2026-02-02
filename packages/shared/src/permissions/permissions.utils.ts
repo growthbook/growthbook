@@ -50,6 +50,14 @@ export function getRoleById(
   return roles.find((role) => role.id === roleId) || null;
 }
 
+export function getRoleDisplayName(
+  roleId: string,
+  organization: Partial<OrganizationInterface>,
+): string {
+  const role = getRoleById(roleId, organization);
+  return role?.displayName || roleId;
+}
+
 export function getRoles(org: Partial<OrganizationInterface>) {
   // Always start with default roles
   const roles = Object.values(DEFAULT_ROLES);
@@ -167,7 +175,7 @@ export function roleSupportsEnvLimit(
   roleId: string,
   org: Partial<OrganizationInterface>,
 ): boolean {
-  if (roleId === "admin") return false;
+  if (["admin", "gbDefault_projectAdmin"].includes(roleId)) return false;
 
   const role = getRoleById(roleId, org);
 

@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.3",
+    version: "1.6.4",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -24,6 +24,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
@@ -71,7 +74,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.3",
+    version: "1.6.4",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -100,6 +103,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
@@ -238,7 +244,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.3",
+    version: "1.6.4",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -259,6 +265,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
@@ -337,7 +346,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "2.1.0",
+    version: "2.1.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -352,6 +361,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v2.1.1",
       },
       {
         caseInsensitiveRegex: "≥ v2.1.0",
@@ -381,7 +393,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.4",
+    version: "0.2.6",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -430,7 +442,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.0.3",
+    version: "0.1.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -452,6 +464,15 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.1.1",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.1.1",
+      },
+      {
+        stickyBucketing: "≥ v0.1.0",
+      },
+      {
         encryption: "≥ v0.0.1",
       },
       {
@@ -470,7 +491,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.2",
+    version: "0.10.6",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -502,6 +523,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.10.6",
       },
       {
         remoteEvaluation: "≥ v0.9.92",
@@ -662,7 +686,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.82",
+    version: "1.0.95",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -706,7 +730,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.3",
+    version: "1.6.4",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -727,6 +751,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
@@ -1012,7 +1039,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.1.0",
+    version: "4.2.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [

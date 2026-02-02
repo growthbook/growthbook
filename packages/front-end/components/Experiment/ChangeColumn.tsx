@@ -13,6 +13,7 @@ import {
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useResultPopover } from "./useResultPopover";
 
 interface Props
   extends DetailedHTMLProps<
@@ -23,7 +24,11 @@ interface Props
   stats: SnapshotMetric;
   rowResults: Pick<
     RowResults,
-    "directionalStatus" | "enoughData" | "hasScaledImpact"
+    | "directionalStatus"
+    | "enoughData"
+    | "hasScaledImpact"
+    | "resultsStatus"
+    | "significant"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -70,63 +75,87 @@ export default function ChangeColumn({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
+  const showPopover = !!stats?.ci;
+
+  const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderPopover } =
+    useResultPopover({
+      enabled: showPopover,
+      positioning: "element",
+      data: {
+        stats,
+        metric,
+        significant: rowResults.significant,
+        resultsStatus: rowResults.resultsStatus,
+        differenceType,
+        statsEngine,
+        ssrPolyfills,
+      },
+    });
+
   if (!rowResults.hasScaledImpact && differenceType === "scaled") {
     return null;
   }
+
+  const changeContent = (
+    <div
+      className={clsx("nowrap change", {
+        "text-left": showCI,
+        "text-right": !showCI,
+      })}
+    >
+      <span className="expectedArrows">
+        {(rowResults.directionalStatus === "winning" && !metric.inverse) ||
+        (rowResults.directionalStatus === "losing" && metric.inverse) ? (
+          <FaArrowUp />
+        ) : expected !== 0 ? (
+          <FaArrowDown />
+        ) : null}
+      </span>{" "}
+      {expected === 0 && stats.errorMessage ? (
+        <span className="expected">n/a</span>
+      ) : (
+        <span className="expected">
+          {formatter(expected, formatterOptions)}{" "}
+        </span>
+      )}
+      {statsEngine === "frequentist" && showPlusMinus ? (
+        <span className="plusminus font-weight-normal text-gray ml-1">
+          ±
+          {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
+            <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>∞</span>
+          ) : (
+            formatter(expected - ci0, formatterOptions)
+          )}
+        </span>
+      ) : null}
+      {showCI ? (
+        <span className="ml-2 ci font-weight-normal text-gray">
+          [{formatter(ci0, formatterOptions)},{" "}
+          {formatter(ci1, formatterOptions)}]
+        </span>
+      ) : null}
+    </div>
+  );
+
   return (
     <>
       {metric && rowResults.enoughData ? (
         <td className={clsx("results-change", className)} {...otherProps}>
           <Flex align="center" justify="end" gap="2">
-            <div
-              className={clsx("nowrap change", {
-                "text-left": showCI,
-                "text-right": !showCI,
-              })}
+            <span
+              onMouseEnter={handleMouseEnter}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
             >
-              <span className="expectedArrows">
-                {(rowResults.directionalStatus === "winning" &&
-                  !metric.inverse) ||
-                (rowResults.directionalStatus === "losing" &&
-                  metric.inverse) ? (
-                  <FaArrowUp />
-                ) : expected !== 0 ? (
-                  <FaArrowDown />
-                ) : null}
-              </span>{" "}
-              {expected === 0 && stats.errorMessage ? (
-                <span className="expected">n/a</span>
-              ) : (
-                <span className="expected">
-                  {formatter(expected, formatterOptions)}{" "}
-                </span>
-              )}
-              {statsEngine === "frequentist" && showPlusMinus ? (
-                <span className="plusminus font-weight-normal text-gray ml-1">
-                  ±
-                  {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
-                    <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>
-                      ∞
-                    </span>
-                  ) : (
-                    formatter(expected - ci0, formatterOptions)
-                  )}
-                </span>
-              ) : null}
-              {showCI ? (
-                <span className="ml-2 ci font-weight-normal text-gray">
-                  [{formatter(ci0, formatterOptions)},{" "}
-                  {formatter(ci1, formatterOptions)}]
-                </span>
-              ) : null}
-            </div>
-
+              {changeContent}
+            </span>
             {additionalButton}
           </Flex>
         </td>
       ) : (
         <td />
       )}
+      {renderPopover()}
     </>
   );
 }
