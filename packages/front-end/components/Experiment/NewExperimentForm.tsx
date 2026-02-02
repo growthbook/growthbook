@@ -1225,7 +1225,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!(isNewExperiment || duplicate) ? (
           <Page display="Targeting">
-            <div className="px-2">
+            <div>
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
@@ -1362,7 +1362,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!(isNewExperiment || duplicate) ? (
           <Page display="Metrics">
-            <div className="px-2" style={{ minHeight: 350 }}>
+            <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
                   label="Data Source"

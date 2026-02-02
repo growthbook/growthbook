@@ -260,7 +260,6 @@ export default function PrerequisiteModal({
       size="lg"
       cta="Save"
       ctaEnabled={canSubmit}
-      bodyClassName="mx-2"
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
         if (!values.condition) {

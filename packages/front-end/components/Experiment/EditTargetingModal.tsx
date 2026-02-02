@@ -281,7 +281,7 @@ export default function EditTargetingModal({
       }
     >
       <Page display="Type of Changes">
-        <div className="px-3 py-2">
+        <div className="py-2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
@@ -306,7 +306,7 @@ export default function EditTargetingModal({
 
       {changeType !== "phase" && (
         <Page display="Make Changes">
-          <div className="px-2">
+          <div>
             <TargetingForm
               experiment={experiment}
               form={form}
@@ -322,7 +322,7 @@ export default function EditTargetingModal({
       )}
 
       <Page display="Review & Deploy">
-        <div className="px-3 mt-2">
+        <div className="mt-2">
           <ReleaseChangesForm
             experiment={experiment}
             form={form}
@@ -444,7 +444,7 @@ function TargetingForm({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <div className="px-2 pt-2">
+    <div className="pt-2">
       {safeToEdit && (
         <>
           <Field

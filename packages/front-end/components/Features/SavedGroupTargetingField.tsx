@@ -188,23 +188,21 @@ export default function SavedGroupTargetingField({
               />
             }
             removeSlot={
-              value.length > 1 && (
-                <Tooltip content="Remove group">
-                  <IconButton
-                    type="button"
-                    color="gray"
-                    variant="ghost"
-                    radius="full"
-                    size="1"
-                    onClick={() => {
-                      const newValue = value.filter((_, idx) => idx !== i);
-                      setValue(newValue);
-                    }}
-                  >
-                    <PiXBold size={16} />
-                  </IconButton>
-                </Tooltip>
-              )
+              <Tooltip content="Remove group">
+                <IconButton
+                  type="button"
+                  color="gray"
+                  variant="ghost"
+                  radius="full"
+                  size="1"
+                  onClick={() => {
+                    const newValue = value.filter((_, idx) => idx !== i);
+                    setValue(newValue);
+                  }}
+                >
+                  <PiXBold size={16} />
+                </IconButton>
+              </Tooltip>
             }
           />
         ))}
