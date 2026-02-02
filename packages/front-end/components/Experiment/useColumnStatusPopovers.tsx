@@ -89,9 +89,14 @@ export function useColumnStatusPopovers({
 
   return {
     popoverEnabled,
+    isDraw: rowResults.resultsStatus === "draw",
+    // Trigger components for cleaner usage
+    SuspiciousTrigger: suspiciousPopover.Trigger,
+    NotEnoughDataTrigger: notEnoughDataPopover.Trigger,
+    DrawTrigger: drawPopover.Trigger,
+    // Legacy API (kept for backward compatibility with other components)
     suspiciousPopover,
     notEnoughDataPopover,
     drawPopover,
-    isDraw: rowResults.resultsStatus === "draw",
   };
 }

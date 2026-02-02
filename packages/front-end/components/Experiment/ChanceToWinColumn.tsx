@@ -51,23 +51,18 @@ export default function ChanceToWinColumn({
   minSampleSize = 0,
   ...otherProps
 }: Props) {
-  const {
-    popoverEnabled,
-    suspiciousPopover,
-    notEnoughDataPopover,
-    drawPopover,
-    isDraw,
-  } = useColumnStatusPopovers({
-    stats,
-    baseline,
-    rowResults,
-    metric,
-    differenceType,
-    statsEngine,
-    ssrPolyfills,
-    minSampleSize,
-    showSuspicious,
-  });
+  const { isDraw, SuspiciousTrigger, NotEnoughDataTrigger, DrawTrigger } =
+    useColumnStatusPopovers({
+      stats,
+      baseline,
+      rowResults,
+      metric,
+      differenceType,
+      statsEngine,
+      ssrPolyfills,
+      minSampleSize,
+      showSuspicious,
+    });
 
   return (
     <td className={clsx("chance align-middle", className)} {...otherProps}>
@@ -76,52 +71,26 @@ export default function ChanceToWinColumn({
       ) : hideScaledImpact ? (
         <NoScaledImpact />
       ) : !rowResults.enoughData ? (
-        <div
-          onMouseEnter={notEnoughDataPopover.handleMouseEnter}
-          onMouseMove={notEnoughDataPopover.handleMouseMove}
-          onMouseLeave={notEnoughDataPopover.handleMouseLeave}
-          style={{ cursor: popoverEnabled ? "pointer" : undefined }}
-        >
+        <NotEnoughDataTrigger>
           <NotEnoughData
             rowResults={rowResults}
             showTimeRemaining={showTimeRemaining}
             showPercentComplete={showPercentComplete}
           />
-          {notEnoughDataPopover.renderPopover()}
-        </div>
+        </NotEnoughDataTrigger>
       ) : (
         <>
           <div className="result-number d-inline-block">
             {percentFormatter.format(stats.chanceToWin ?? 0)}
           </div>
           {isDraw ? (
-            <span
-              style={{
-                marginLeft: 4,
-                cursor: popoverEnabled ? "pointer" : undefined,
-                color: "var(--amber-a11)",
-              }}
-              onMouseEnter={drawPopover.handleMouseEnter}
-              onMouseMove={drawPopover.handleMouseMove}
-              onMouseLeave={drawPopover.handleMouseLeave}
-            >
+            <DrawTrigger style={{ marginLeft: 4, color: "var(--amber-a11)" }}>
               <PiWarningCircle size={15} />
-              {drawPopover.renderPopover()}
-            </span>
+            </DrawTrigger>
           ) : showSuspicious && rowResults.suspiciousChange ? (
-            <span
-              className="suspicious"
-              style={{
-                marginLeft: 1,
-                cursor: popoverEnabled ? "pointer" : undefined,
-              }}
-              onMouseEnter={suspiciousPopover.handleMouseEnter}
-              onMouseMove={suspiciousPopover.handleMouseMove}
-              onMouseLeave={suspiciousPopover.handleMouseLeave}
-            >
+            <SuspiciousTrigger className="suspicious" style={{ marginLeft: 1 }}>
               <PiWarningCircle size={15} />
-              {suspiciousPopover.renderPopover()}
-            </span>
+            </SuspiciousTrigger>
           ) : null}
         </>
       )}

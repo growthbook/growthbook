@@ -93,6 +93,11 @@ export default function ExperimentResultTooltipContent({
   const ciLabel =
     statsEngine === "bayesian" ? "95% CI" : `${ciUpperDisplay} CI`;
 
+  const isWon = significant && resultsStatus === "won";
+  const isLost = significant && resultsStatus === "lost";
+  const showWarningIcon =
+    notEnoughData || suspiciousChange || resultsStatus === "draw";
+
   const getBadgeText = () => {
     if (notEnoughData) return "Not enough data";
     if (significant) {
@@ -103,107 +108,109 @@ export default function ExperimentResultTooltipContent({
     return "Insignificant";
   };
 
-  const isWon = significant && resultsStatus === "won";
-  const isLost = significant && resultsStatus === "lost";
+  const renderBadge = () => (
+    <Flex
+      className={clsx(styles.badge, {
+        [styles.badgeWon]: isWon,
+        [styles.badgeLost]: isLost,
+      })}
+      px="4"
+      py="2px"
+      align="center"
+      justify="between"
+      gap="1"
+    >
+      <Text size="1" weight="bold">
+        {getBadgeText()}
+      </Text>
+      {showWarningIcon && (
+        <PiWarningCircle size={15} style={{ color: "var(--gray-contrast)" }} />
+      )}
+    </Flex>
+  );
+
+  const renderNotEnoughDataContent = () => (
+    <Flex direction="column" gap="1">
+      <Text size="1" style={{ color: "var(--color-text-high)" }}>
+        Minimum{" "}
+        {numeratorFormatter(minSampleSize, { currency: displayCurrency })} not
+        met
+      </Text>
+      <Text size="1" style={{ color: "var(--color-text-mid)" }}>
+        Current metric total is{" "}
+        {numeratorFormatter(currentMetricTotal, {
+          currency: displayCurrency,
+        })}
+        {timeRemainingMs !== undefined && (
+          <>
+            <br />
+            {timeRemainingMs > 0 ? (
+              <>About {formatDistance(0, timeRemainingMs)} remaining</>
+            ) : (
+              "Try updating now"
+            )}
+          </>
+        )}
+      </Text>
+    </Flex>
+  );
+
+  const maybeRenderDrawDescription = () => {
+    if (resultsStatus !== "draw" || minPercentChange === undefined) return null;
+    return (
+      <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
+        <b>Draw:</b> this occurs when the % Change is smaller than the
+        metric&apos;s min change ({percentFormatter.format(minPercentChange)})
+      </Text>
+    );
+  };
+
+  const maybeRenderSuspiciousDescription = () => {
+    if (!suspiciousChange) return null;
+    return (
+      <Text as="div" size="1" style={{ color: "var(--color-text-mid)" }}>
+        <b>Suspicious:</b> this occurs when the % Change is above the
+        metric&apos;s max change ({percentFormatter.format(suspiciousThreshold)}
+        )
+      </Text>
+    );
+  };
+
+  const renderResultContent = () => (
+    <Flex direction="column" gap="1">
+      <Flex align="center" justify="between" gap="1">
+        <Text
+          size="1"
+          weight="medium"
+          style={{ color: "var(--color-text-high)" }}
+        >
+          {ciLabel}
+        </Text>
+        <Text
+          size="1"
+          weight="medium"
+          style={{ color: "var(--color-text-high)" }}
+        >
+          {ci ? (
+            <>
+              [{formatter(ci[0], formatterOptions)},{" "}
+              {formatter(ci[1], formatterOptions)}]
+            </>
+          ) : (
+            "Unknown"
+          )}
+        </Text>
+      </Flex>
+      {maybeRenderDrawDescription()}
+      {maybeRenderSuspiciousDescription()}
+    </Flex>
+  );
 
   return (
     <Flex direction="column" width="220px">
-      <Flex
-        className={clsx(styles.badge, {
-          [styles.badgeWon]: isWon,
-          [styles.badgeLost]: isLost,
-        })}
-        px="4"
-        py="2px"
-        align="center"
-        justify="between"
-        gap="1"
-      >
-        <Text size="1" weight="bold">
-          {getBadgeText()}
-        </Text>
-        {notEnoughData || suspiciousChange || resultsStatus === "draw" ? (
-          <PiWarningCircle
-            size={15}
-            style={{ color: "var(--gray-contrast)" }}
-          />
-        ) : null}
-      </Flex>
-
+      {renderBadge()}
       <Box px="4" py="2">
-        {notEnoughData ? (
-          <Flex direction="column" gap="1">
-            <Text size="1" style={{ color: "var(--color-text-high)" }}>
-              Minimum{" "}
-              {numeratorFormatter(minSampleSize, { currency: displayCurrency })}{" "}
-              not met
-            </Text>
-            <Text size="1" style={{ color: "var(--color-text-mid)" }}>
-              Current metric total is{" "}
-              {numeratorFormatter(currentMetricTotal, {
-                currency: displayCurrency,
-              })}
-              {timeRemainingMs !== undefined && (
-                <>
-                  <br />
-                  {timeRemainingMs > 0 ? (
-                    <>About {formatDistance(0, timeRemainingMs)} remaining</>
-                  ) : (
-                    "Try updating now"
-                  )}
-                </>
-              )}
-            </Text>
-          </Flex>
-        ) : (
-          <Flex direction="column" gap="1">
-            <Flex align="center" justify="between" gap="1">
-              <Text
-                size="1"
-                weight="medium"
-                style={{ color: "var(--color-text-high)" }}
-              >
-                {ciLabel}
-              </Text>
-              <Text
-                size="1"
-                weight="medium"
-                style={{ color: "var(--color-text-high)" }}
-              >
-                {ci ? (
-                  <>
-                    [{formatter(ci[0], formatterOptions)},{" "}
-                    {formatter(ci[1], formatterOptions)}]
-                  </>
-                ) : (
-                  "Unknown"
-                )}
-              </Text>
-            </Flex>
-            {resultsStatus === "draw" && minPercentChange !== undefined && (
-              <Text
-                as="div"
-                size="1"
-                style={{ color: "var(--color-text-mid)" }}
-              >
-                <b>Draw:</b> this occurs when the % Change is smaller than the
-                metric&apos;s min change (
-                {percentFormatter.format(minPercentChange)})
-              </Text>
-            )}
-            {suspiciousChange && (
-              <Text
-                as="div"
-                size="1"
-                style={{ color: "var(--color-text-mid)" }}
-              >
-                <b>Suspicious:</b> this occurs when the % Change is above the
-                metric&apos;s max change (
-                {percentFormatter.format(suspiciousThreshold)})
-              </Text>
-            )}
-          </Flex>
-        )}
+        {notEnoughData ? renderNotEnoughDataContent() : renderResultContent()}
       </Box>
     </Flex>
   );

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { CSSProperties, ReactNode } from "react";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -32,6 +32,12 @@ interface UseResultPopoverOptions
   extends Pick<UseHoverAnchorOptions, "positioning"> {
   enabled: boolean;
   data: ResultPopoverData;
+}
+
+interface TriggerProps {
+  children: ReactNode;
+  style?: CSSProperties;
+  className?: string;
 }
 
 export function useResultPopover({
@@ -101,7 +107,27 @@ export function useResultPopover({
     ));
   };
 
+  // Trigger component that wraps children with popover functionality
+  const Trigger = ({ children, style, className }: TriggerProps) => (
+    <span
+      className={className}
+      style={{
+        ...style,
+        cursor: enabled ? "pointer" : undefined,
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+      {renderPopover()}
+    </span>
+  );
+
   return {
+    // New cleaner API
+    Trigger,
+    // Legacy API for backward compatibility
     handleMouseEnter,
     handleMouseMove,
     handleMouseLeave,

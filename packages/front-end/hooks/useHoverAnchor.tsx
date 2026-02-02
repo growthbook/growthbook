@@ -332,7 +332,7 @@ export function useHoverAnchor({
 
   const isVisible = enabled && anchorPos !== null && isActive;
 
-  // Hide popover on scroll
+  // Close any/all popovers on scroll
   useEffect(() => {
     if (!isVisible) return;
 
@@ -340,7 +340,6 @@ export function useHoverAnchor({
       doHide();
     };
 
-    // Use capture phase to catch scroll events from any element
     window.addEventListener("scroll", handleScroll, { capture: true });
 
     return () => {
