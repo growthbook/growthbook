@@ -66,7 +66,7 @@ interface MetricData {
   eventValueExpr: string;
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
-  rollupCountExpr: string;
+  rollupCountExpr: string | null;
 }
 interface DimensionData {
   alias: string;
@@ -80,13 +80,13 @@ interface DateRange {
   startDate: Date;
   endDate: Date;
 }
-type MetricAliasIdMap = Record<
-  string,
-  {
-    alias: string;
-    denominator_alias?: string;
-  }
->;
+
+function getMetricAliases(index: number) {
+  return {
+    numerator: `m${index}`,
+    denominator: `m${index}_denominator`,
+  };
+}
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
@@ -578,9 +578,8 @@ function getMetricData(
     throw new Error(`Column ref not found for metric ${metric.id}`);
   }
 
-  const alias = useDenominator
-    ? `m${metricIndex}_denominator`
-    : `m${metricIndex}`;
+  const aliases = getMetricAliases(metricIndex);
+  const alias = useDenominator ? aliases.denominator : aliases.numerator;
 
   const skipUnitAggregation =
     metric.metricType === "quantile" &&
@@ -610,6 +609,13 @@ function getMetricData(
     }
   }
 
+  // Counts are used as the denominator when the numerator is a sum to calculate averages
+  // Ratios have their own denominator and quantiles are not averages
+  let rollupCountExpr: string | null = null;
+  if (metric.metricType !== "quantile" && metric.metricType !== "ratio") {
+    rollupCountExpr = getRollupCountExpr(metric, alias);
+  }
+
   const cappingSettings = getCappingSettings(metric);
 
   return {
@@ -630,7 +636,7 @@ function getMetricData(
       ? getUnitAggregationExpr(columnRef, alias)
       : null,
     rollupAggregationExpr: getRollupAggregationExpr(metric, alias, helpers),
-    rollupCountExpr: getRollupCountExpr(metric, alias),
+    rollupCountExpr,
   };
 }
 
@@ -892,15 +898,15 @@ function generateUnitAggregationRollupCTE(
     const metricData = includedMetrics.find((m) => m.alias === alias);
 
     if (metricData && metricData.rollupAggregationExpr) {
-      selects.push(
-        `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}`,
-      );
-      selects.push(
-        `${metricData.rollupCountExpr || "NULL"} AS ${metricData.alias}_count`,
-      );
+      selects.push(`${metricData.rollupAggregationExpr || "NULL"} AS ${alias}`);
+      if (metricData.rollupCountExpr) {
+        selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
+      }
     } else {
       selects.push(`NULL as ${alias}`);
-      selects.push(`NULL as ${alias}_count`);
+      if (metricData?.rollupCountExpr) {
+        selects.push(`NULL as ${alias}_denominator`);
+      }
     }
   });
 
@@ -938,12 +944,14 @@ function generateEventRollupCTE(
       selects.push(
         `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}`,
       );
-      selects.push(
-        `${metricData.rollupCountExpr || "NULL"} AS ${metricData.alias}_count`,
-      );
+      if (metricData.rollupCountExpr) {
+        selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
+      }
     } else {
       selects.push(`NULL as ${alias}`);
-      selects.push(`NULL as ${alias}_count`);
+      if (metricData?.rollupCountExpr) {
+        selects.push(`NULL as ${alias}_denominator`);
+      }
     }
   });
 
@@ -978,7 +986,9 @@ function generateFinalSelect(
   });
   allMetrics.forEach((m) => {
     selects.push(`MAX(${m.alias}) AS ${m.alias}`);
-    selects.push(`MAX(${m.alias}_count) AS ${m.alias}_count`);
+    if (m.rollupCountExpr) {
+      selects.push(`MAX(${m.alias}_denominator) AS ${m.alias}_denominator`);
+    }
   });
   return `
   SELECT ${selects.join(", ")} 
@@ -994,7 +1004,7 @@ export function generateProductAnalyticsSQL(
   datasource: MinimalDatasourceInterface,
 ): {
   sql: string;
-  metricAliases: MetricAliasIdMap;
+  orderedMetricIds: string[];
 } {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -1011,21 +1021,13 @@ export function generateProductAnalyticsSQL(
 
   // Get all metric aliases
   const allMetrics: MetricData[] = [];
-  const metricAliasIdMap: MetricAliasIdMap = {};
+  const orderedMetricIds: string[] = [];
   factTableGroups.forEach((f) => {
     f.metrics.forEach((m) => {
       const data = getMetricData(m, f.factTable, sqlHelpers);
       allMetrics.push(data);
-
-      metricAliasIdMap[m.metric.id] = metricAliasIdMap[m.metric.id] || {
-        alias: "",
-      };
-
-      if (m.useDenominator) {
-        metricAliasIdMap[m.metric.id].denominator_alias = data.alias;
-      } else {
-        metricAliasIdMap[m.metric.id].alias = data.alias;
-      }
+      // For ratio metrics, we only need to add the numerator since it's the same metric id
+      if (!m.useDenominator) orderedMetricIds.push(m.metric.id);
     });
   });
   const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
@@ -1170,7 +1172,7 @@ export function generateProductAnalyticsSQL(
 
   return {
     sql,
-    metricAliases: metricAliasIdMap,
+    orderedMetricIds,
   };
 }
 
@@ -1193,10 +1195,10 @@ function parseNumberValue(value: unknown): number | null {
 export function transformProductAnalyticsRowsToResult(
   config: ProductAnalyticsConfig,
   rows: Record<string, unknown>[],
-  metricAliases: MetricAliasIdMap,
+  orderedMetricIds: string[],
 ): ProductAnalyticsResult {
   // Raw rows should look like this:
-  // { dimension0: "value0", m0: 1, m0_count: 1 }
+  // { dimension0: "value0", m0: 1, m0_denominator: 1 }
 
   const result: ProductAnalyticsResult = {
     rows: [],
@@ -1213,18 +1215,14 @@ export function transformProductAnalyticsRowsToResult(
       const alias = `dimension${i}`;
       resultRow.dimensions.push(parseStringValue(row[alias]));
     });
-    Object.entries(metricAliases).forEach(
-      ([metricId, { alias, denominator_alias }]) => {
-        resultRow.values.push({
-          metricId,
-          value: parseNumberValue(row[alias]),
-          count: parseNumberValue(row[`${alias}_count`]),
-          denominator: denominator_alias
-            ? parseNumberValue(row[denominator_alias])
-            : null,
-        });
-      },
-    );
+    orderedMetricIds.forEach((metricId, index) => {
+      const aliases = getMetricAliases(index);
+      resultRow.values.push({
+        metricId,
+        numerator: parseNumberValue(row[aliases.numerator]),
+        denominator: parseNumberValue(row[aliases.denominator]),
+      });
+    });
   }
 
   return result;

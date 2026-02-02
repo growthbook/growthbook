@@ -152,9 +152,8 @@ export const productAnalyticsResultRowValidator = z.object({
   values: z.array(
     z.object({
       metricId: z.string(),
-      value: z.number().nullable(),
-      count: z.number().nullable(),
-      denominator: z.number().nullable().optional(),
+      numerator: z.number().nullable(),
+      denominator: z.number().nullable(),
     }),
   ),
 });
