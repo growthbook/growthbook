@@ -87,7 +87,8 @@
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",
       "@octokit/request-error@5": "^5.1.1",
-      "prismjs@1": "^1.30.0"
+      "prismjs@1": "^1.30.0",
+      "qs@6": "^6.14.1"
     },
     "peerDependencyRules": {
       "ignoreMissing": [
