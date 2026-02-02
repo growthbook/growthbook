@@ -609,10 +609,9 @@ function getMetricData(
     }
   }
 
-  // Counts are used as the denominator when the numerator is a sum to calculate averages
-  // Ratios have their own denominator and quantiles are not averages
+  // For mean metrics, we need to count the units to calculate the average
   let rollupCountExpr: string | null = null;
-  if (metric.metricType !== "quantile" && metric.metricType !== "ratio") {
+  if (metric.metricType === "mean") {
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
 

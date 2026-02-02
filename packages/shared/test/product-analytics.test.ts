@@ -138,7 +138,6 @@ describe("productAnalytics", () => {
           SELECT
             dimension0,
             SUM(m0) AS m0,
-            COUNT(m0) AS m0_denominator,
             SUM(m1) AS m1,
             COUNT(m1) AS m1_denominator
           FROM _factTable0_unit0
@@ -148,7 +147,6 @@ describe("productAnalytics", () => {
       SELECT
         dimension0,
         MAX(m0) AS m0,
-        MAX(m0_denominator) AS m0_denominator,
         MAX(m1) AS m1,
         MAX(m1_denominator) AS m1_denominator
       FROM _factTable0_unit0_rollup
