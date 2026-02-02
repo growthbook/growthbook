@@ -43,10 +43,13 @@ interface Props {
   dashboardFirstSave?: boolean;
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
-  close: () => void;
+  close: (savedDashboardId?: string) => void;
   // for quick editing a block from the display view
   initialEditBlockIndex?: number | null;
   onConsumeInitialEditBlockIndex?: () => void;
+  updateTemporaryDashboard?: (update: {
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  }) => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -58,6 +61,7 @@ export default function DashboardWorkspace({
   close,
   initialEditBlockIndex,
   onConsumeInitialEditBlockIndex,
+  updateTemporaryDashboard,
 }: Props) {
   // Determine if this is a general dashboard (no experiment linked)
   const isGeneralDashboard = !experiment || dashboard.experimentId === "";
@@ -91,12 +95,14 @@ export default function DashboardWorkspace({
       setSaving(true);
       setSaveError(undefined);
       try {
-        await submitDashboard({
+        const result = await submitDashboard({
           ...args,
           data: { ...dashboard, ...args.data },
         });
+        return result;
       } catch (e) {
         setSaveError(e.message);
+        throw e;
       } finally {
         setSaving(false);
       }
@@ -111,17 +117,33 @@ export default function DashboardWorkspace({
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
-      setBlocks(blocks);
       setHasMadeChanges(true);
-      await submit({
-        method: "PUT",
-        dashboardId: dashboard.id,
-        data: {
+
+      // For new dashboards, update temporary state instead of making API call
+      if (dashboardFirstSave) {
+        setBlocks(blocks);
+        updateTemporaryDashboard?.({
           blocks,
-        },
-      });
+        });
+      } else {
+        setBlocks(blocks);
+        // For existing dashboards, make API call via submit
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            blocks,
+          },
+        });
+      }
     };
-  }, [setBlocks, submit, dashboard.id]);
+  }, [
+    setBlocks,
+    submit,
+    dashboard.id,
+    dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -241,12 +263,12 @@ export default function DashboardWorkspace({
           initial={dashboard}
           close={() => setShowSaveModal(false)}
           submit={async (data) => {
-            await submitDashboard({
+            const result = await submit({
               method: "PUT",
               dashboardId: dashboard.id,
               data,
             });
-            close();
+            close(result.dashboardId);
           }}
           type={isGeneralDashboard ? "general" : "experiment"}
           dashboardFirstSave={dashboardFirstSave}
@@ -294,7 +316,7 @@ export default function DashboardWorkspace({
             )}
           </Flex>
           <Flex align="center" gap="4">
-            {dashboardCopy && hasMadeChanges && (
+            {dashboardCopy && hasMadeChanges && !dashboardFirstSave && (
               <Tooltip
                 body="Undo all changes made during this current edit session"
                 tipPosition="top"
@@ -324,8 +346,13 @@ export default function DashboardWorkspace({
               </Tooltip>
             )}
             <Flex align="center" gap="2">
-              {dashboard.id === "new" && blocks.length === 0 && (
-                <Link onClick={close} color="red" type="button" weight="bold">
+              {dashboardFirstSave && (
+                <Link
+                  onClick={() => close()}
+                  color="red"
+                  type="button"
+                  weight="bold"
+                >
                   Exit without saving
                 </Link>
               )}

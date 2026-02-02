@@ -59,7 +59,7 @@ export type UpdateDashboardArgs = {
 };
 export type SubmitDashboard<
   T extends CreateDashboardArgs | UpdateDashboardArgs,
-> = (args: T) => Promise<void>;
+> = (args: T) => Promise<{ dashboardId: string }>;
 
 export const autoUpdateDisabledMessage =
   "Your organization settings have disabled automatic refreshing of experiment results";
@@ -142,6 +142,22 @@ function DashboardsTab({
       ? temporaryDashboard
       : dashboards.find((d) => d.id === dashboardId);
 
+  // Update temporary dashboard without making API call
+  const updateTemporaryDashboard = useCallback(
+    (update: {
+      blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+    }) => {
+      setTemporaryDashboard((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+        } as DashboardInterface;
+      });
+    },
+    [],
+  );
+
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
@@ -209,11 +225,13 @@ function DashboardsTab({
         if (dashboardId === "new") {
           setTemporaryDashboard(res.dashboard);
         }
-        if (method === "POST" && dashboardId !== "new") {
+        if (method === "POST") {
           setDashboardId(res.dashboard.id);
         }
+        return { dashboardId: res.dashboard.id };
       } else {
         console.error(res);
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, experiment.id, mutateDashboards],
@@ -279,13 +297,15 @@ function DashboardsTab({
           dashboard={dashboard}
           submitDashboard={submitDashboard}
           mutate={mutateDashboards}
-          close={() => {
+          close={(savedDashboardId?: string) => {
             setIsEditing(false);
             setDashboardFirstSave(false);
             if (dashboardId === "new") {
-              setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
+              // If we have a saved dashboard ID, use it; otherwise reset to empty
+              setDashboardId(savedDashboardId || "");
             }
           }}
+          updateTemporaryDashboard={updateTemporaryDashboard}
           isTabActive={isTabActive}
           dashboardFirstSave={dashboardFirstSave}
           initialEditBlockIndex={initialEditBlockIndex}
