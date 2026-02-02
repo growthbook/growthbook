@@ -88,7 +88,6 @@ export interface Props {
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editHoldoutSchedule?: (() => void) | null;
-  stop?: (() => void) | null;
 }
 
 export default function TabbedPage({
@@ -111,7 +110,6 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
-  stop,
   editHoldoutSchedule,
 }: Props) {
   const growthbook = useGrowthBook();
@@ -497,7 +495,6 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
-        stop={stop}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
         editHoldoutSchedule={editHoldoutSchedule}

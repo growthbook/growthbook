@@ -20,12 +20,12 @@ import {
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
@@ -90,7 +90,6 @@ export interface Props {
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
   holdout?: HoldoutInterfaceStringDates;
-  stop?: (() => void) | null;
   showDashboardView: boolean;
   editHoldoutSchedule?: (() => void) | null;
 }
@@ -151,7 +150,6 @@ export default function ExperimentHeader({
   healthNotificationCount,
   linkedFeatures,
   holdout,
-  stop,
   showDashboardView,
   editHoldoutSchedule,
 }: Props) {
@@ -299,12 +297,22 @@ export default function ExperimentHeader({
       }
     }
 
-    await apiCall(`/experiment/${experiment.id}/status`, {
-      method: "POST",
-      body: JSON.stringify({
-        status: "running",
-      }),
-    });
+    if (isHoldout) {
+      await apiCall(`/holdout/${holdout?.id}/edit-status`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "running",
+          holdoutRunningStatus: "running",
+        }),
+      });
+    } else {
+      await apiCall(`/experiment/${experiment.id}/status`, {
+        method: "POST",
+        body: JSON.stringify({
+          status: "running",
+        }),
+      });
+    }
     await mutate();
     startCelebration();
 
@@ -864,32 +872,44 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {isHoldout && (
+              {isHoldout && canRunExperiment && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    {experiment.status === "running" &&
-                      experiment.phases.length < 2 && (
+                    {holdout?.nextScheduledUpdate &&
+                      (experiment.status === "running" && editResult ? (
                         <DropdownMenuItem
                           onClick={() => {
-                            stop?.();
+                            editResult();
                             setDropdownOpen(false);
                           }}
+                          tooltip={`Override Holdout schedule and manually ${!holdout?.analysisStartDate ? "start next phase" : "stop Holdout"} now`}
                         >
-                          Stop Holdout
+                          {!holdout?.analysisStartDate
+                            ? "Start Analysis Phase"
+                            : "Stop Holdout"}
                         </DropdownMenuItem>
-                      )}
-                    {canRunExperiment &&
-                      (experiment.status !== "draft" || hasResults) && (
+                      ) : experiment.status === "draft" ? (
                         <DropdownMenuItem
                           onClick={() => {
-                            setStatusModal(true);
+                            setShowStartExperiment(true);
                             setDropdownOpen(false);
                           }}
+                          tooltip="Override Holdout schedule and manually start Holdout now"
                         >
-                          Force Status Change
+                          Start Holdout
                         </DropdownMenuItem>
-                      )}
+                      ) : null)}
+                    {(experiment.status !== "draft" || hasResults) && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setStatusModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Force Status Change
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuGroup>
                 </>
               )}

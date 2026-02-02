@@ -96,7 +96,6 @@ const HoldoutPage = (): ReactElement => {
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)
     : null;
-  const stop = canRunExperiment ? () => setStopModalOpen(true) : null;
   const editResult = canRunExperiment
     ? () => {
         if (holdout?.analysisStartDate) {
@@ -261,7 +260,6 @@ const HoldoutPage = (): ReactElement => {
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
-          stop={stop}
           editHoldoutSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>

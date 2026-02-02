@@ -6,6 +6,7 @@ import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
 import { HoldoutInterface } from "shared/validators";
 import {
+  Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
@@ -38,7 +39,10 @@ import {
   SNAPSHOT_TIMEOUT,
   validateVariationIds,
 } from "back-end/src/controllers/experiments";
-import { validateExperimentData } from "back-end/src/services/experiments";
+import {
+  getChangesToStartExperiment,
+  validateExperimentData,
+} from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
@@ -477,6 +481,7 @@ export const editStatus = async (
   }
 
   let phases = [...experiment.phases] as ExperimentPhase[];
+  const changes: Changeset = {};
 
   if (req.body.status === "stopped" && experiment.status !== "stopped") {
     // put end date on both phases
@@ -495,6 +500,11 @@ export const editStatus = async (
         status: "stopped",
       },
     });
+    // Clear next scheduled update
+    await context.models.holdout.update(holdout, {
+      nextScheduledUpdateType: null,
+      nextScheduledUpdate: null,
+    });
 
     queueSDKPayloadRefresh({
       context,
@@ -504,6 +514,41 @@ export const editStatus = async (
       ),
       auditContext: {
         event: "status changed to stopped",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
+  }
+  // Starting a holdout from draft
+  else if (req.body.status === "running" && experiment.status === "draft") {
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment,
+    );
+    Object.assign(changes, additionalChanges);
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+    await context.models.holdout.update(holdout, {
+      analysisStartDate: undefined,
+      nextScheduledUpdateType: holdout.scheduledStatusUpdates
+        ?.startAnalysisPeriodAt
+        ? "startAnalysisPeriod"
+        : null,
+      nextScheduledUpdate:
+        holdout.scheduledStatusUpdates?.startAnalysisPeriodAt ?? null,
+    });
+
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event: "status changed to running",
         model: "holdout",
         id: holdout.id,
       },
@@ -527,6 +572,10 @@ export const editStatus = async (
       };
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),
+        nextScheduledUpdateType: holdout.scheduledStatusUpdates?.stopAt
+          ? "stop"
+          : null,
+        nextScheduledUpdate: holdout.scheduledStatusUpdates?.stopAt ?? null,
       });
       // check to see if we already are in the running phase
     } else if (
