@@ -55,12 +55,12 @@ RUN \
   && rm -rf packages/sdk-react/node_modules \
   && pnpm install --frozen-lockfile --prod --no-optional \
   && pnpm store prune \
-  && find node_modules -name "*.md" -delete \
-  && find node_modules -name "*.ts" ! -name "*.d.ts" -delete \
-  && find node_modules -name "*.map" -delete \
-  && find node_modules -name "CHANGELOG*" -delete \
-  && find node_modules -name "LICENSE*" -delete \
-  && find node_modules -name "README*" -delete \
+  && find node_modules -type f -name "*.md" -delete \
+  && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
+  && find node_modules -type f -name "*.map" -delete \
+  && find node_modules -type f -name "CHANGELOG*" -delete \
+  && find node_modules -type f -name "LICENSE*" -delete \
+  && find node_modules -type f -name "README*" -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
 RUN pnpm postinstall
 
