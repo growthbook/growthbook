@@ -148,12 +148,13 @@ export const sqlDatasetColumnResponseValidator = z.object({
 
 // The shape of the final result data from the warehouse / API
 export const productAnalyticsResultRowValidator = z.object({
-  dimensions: z.array(z.string()),
+  dimensions: z.array(z.string().nullable()),
   values: z.array(
     z.object({
       metricId: z.string(),
-      value: z.number(),
-      denominator: z.number().nullable(),
+      value: z.number().nullable(),
+      count: z.number().nullable(),
+      denominator: z.number().nullable().optional(),
     }),
   ),
 });
@@ -169,6 +170,12 @@ export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
 export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator
+>;
+export type ProductAnalyticsResult = z.infer<
+  typeof productAnalyticsResultValidator
+>;
+export type ProductAnalyticsResultRow = z.infer<
+  typeof productAnalyticsResultRowValidator
 >;
 
 // SQL helper functions interface

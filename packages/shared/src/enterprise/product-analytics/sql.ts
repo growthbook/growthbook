@@ -19,6 +19,8 @@ import {
   ProductAnalyticsConfig,
   SqlDataset,
   SqlHelpers,
+  ProductAnalyticsResult,
+  ProductAnalyticsResultRow,
 } from "../../validators/product-analytics";
 import {
   getRowFilterSQL,
@@ -78,6 +80,13 @@ interface DateRange {
   startDate: Date;
   endDate: Date;
 }
+type MetricAliasIdMap = Record<
+  string,
+  {
+    alias: string;
+    denominator_alias?: string;
+  }
+>;
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
@@ -983,7 +992,10 @@ export function generateProductAnalyticsSQL(
   metricMap: Map<string, FactMetricInterface>,
   sqlHelpers: SqlHelpers,
   datasource: MinimalDatasourceInterface,
-): string {
+): {
+  sql: string;
+  metricAliases: MetricAliasIdMap;
+} {
   if (!config.dataset) {
     throw new Error("Dataset is required");
   }
@@ -999,10 +1011,21 @@ export function generateProductAnalyticsSQL(
 
   // Get all metric aliases
   const allMetrics: MetricData[] = [];
+  const metricAliasIdMap: MetricAliasIdMap = {};
   factTableGroups.forEach((f) => {
     f.metrics.forEach((m) => {
       const data = getMetricData(m, f.factTable, sqlHelpers);
       allMetrics.push(data);
+
+      metricAliasIdMap[m.metric.id] = metricAliasIdMap[m.metric.id] || {
+        alias: "",
+      };
+
+      if (m.useDenominator) {
+        metricAliasIdMap[m.metric.id].denominator_alias = data.alias;
+      } else {
+        metricAliasIdMap[m.metric.id].alias = data.alias;
+      }
     });
   });
   const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
@@ -1136,7 +1159,7 @@ export function generateProductAnalyticsSQL(
   }
 
   // Final select
-  return format(
+  const sql = format(
     `
   WITH 
     ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
@@ -1144,4 +1167,65 @@ export function generateProductAnalyticsSQL(
   `,
     sqlHelpers.formatDialect,
   );
+
+  return {
+    sql,
+    metricAliases: metricAliasIdMap,
+  };
+}
+
+function parseStringValue(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return value.toString();
+  return null;
+}
+function parseNumberValue(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+}
+
+export function transformProductAnalyticsRowsToResult(
+  config: ProductAnalyticsConfig,
+  rows: Record<string, unknown>[],
+  metricAliases: MetricAliasIdMap,
+): ProductAnalyticsResult {
+  // Raw rows should look like this:
+  // { dimension0: "value0", m0: 1, m0_count: 1 }
+
+  const result: ProductAnalyticsResult = {
+    rows: [],
+  };
+
+  for (const row of rows) {
+    const resultRow: ProductAnalyticsResultRow = {
+      dimensions: [],
+      values: [],
+    };
+    result.rows.push(resultRow);
+
+    config.dimensions.forEach((d, i) => {
+      const alias = `dimension${i}`;
+      resultRow.dimensions.push(parseStringValue(row[alias]));
+    });
+    Object.entries(metricAliases).forEach(
+      ([metricId, { alias, denominator_alias }]) => {
+        resultRow.values.push({
+          metricId,
+          value: parseNumberValue(row[alias]),
+          count: parseNumberValue(row[`${alias}_count`]),
+          denominator: denominator_alias
+            ? parseNumberValue(row[denominator_alias])
+            : null,
+        });
+      },
+    );
+  }
+
+  return result;
 }

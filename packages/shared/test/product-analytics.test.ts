@@ -11,6 +11,49 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 
 describe("productAnalytics", () => {
+  const datasource: Partial<Pick<DataSourceInterface, "settings">> = {
+    settings: {},
+  };
+
+  const helpers: SqlHelpers = {
+    escapeStringLiteral: (value) => value,
+    jsonExtract: (jsonCol, path, isNumeric) =>
+      `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
+    evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+    dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
+    percentileApprox: (col, quantile) =>
+      `APPROX_PERCENTILE(${col}, ${quantile})`,
+    toTimestamp: (d: Date) =>
+      // Do not include the timestamp component to make the test deterministic
+      `'${d.toISOString().substring(0, 10)} 00:00:00'`,
+    formatDialect: "bigquery",
+  };
+
+  const factTableMap = new Map<string, FactTableInterface>([
+    [
+      "orders",
+      {
+        columns: [],
+        datasource: "ds_1",
+        filters: [],
+        id: "orders",
+        name: "Purchases",
+        organization: "org_1",
+        sql: "SELECT user_id, anonymous_id, timestamp, revenue FROM orders",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description: "",
+        eventName: "",
+        owner: "",
+        projects: [],
+        tags: [],
+      },
+    ],
+  ]);
+
+  const metricMap = new Map<string, FactMetricInterface>();
+
   it("generates SQL for fact tables", () => {
     const config: ProductAnalyticsConfig = {
       chartType: "line",
@@ -50,50 +93,7 @@ describe("productAnalytics", () => {
       },
     };
 
-    const factTableMap = new Map<string, FactTableInterface>([
-      [
-        "orders",
-        {
-          columns: [],
-          datasource: "ds_1",
-          filters: [],
-          id: "orders",
-          name: "Purchases",
-          organization: "org_1",
-          sql: "SELECT user_id, anonymous_id, timestamp, revenue FROM orders",
-          userIdTypes: ["user_id", "anonymous_id"],
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-          description: "",
-          eventName: "",
-          owner: "",
-          projects: [],
-          tags: [],
-        },
-      ],
-    ]);
-
-    const metricMap = new Map<string, FactMetricInterface>();
-
-    const datasource: Partial<Pick<DataSourceInterface, "settings">> = {
-      settings: {},
-    };
-
-    const helpers: SqlHelpers = {
-      escapeStringLiteral: (value) => value,
-      jsonExtract: (jsonCol, path, isNumeric) =>
-        `${jsonCol}:'${path}'::${isNumeric ? "float" : "text"}`,
-      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
-      dateTrunc: (col, granularity) => `date_trunc('${granularity}', ${col})`,
-      percentileApprox: (col, quantile) =>
-        `APPROX_PERCENTILE(${col}, ${quantile})`,
-      toTimestamp: (d: Date) =>
-        // Do not include the timestamp component to make the test deterministic
-        `'${d.toISOString().substring(0, 10)} 00:00:00'`,
-      formatDialect: "bigquery",
-    };
-
-    const sql = generateProductAnalyticsSQL(
+    const { sql } = generateProductAnalyticsSQL(
       config,
       factTableMap,
       metricMap,
