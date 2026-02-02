@@ -71,6 +71,7 @@ FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
+  apt-get upgrade -y && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
