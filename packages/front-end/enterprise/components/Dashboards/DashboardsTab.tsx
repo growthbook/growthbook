@@ -62,7 +62,7 @@ export type UpdateDashboardArgs = {
 };
 export type SubmitDashboard<
   T extends CreateDashboardArgs | UpdateDashboardArgs,
-> = (args: T) => Promise<void>;
+> = (args: T) => Promise<{ dashboardId: string }>;
 
 export const autoUpdateDisabledMessage =
   "Your organization settings have disabled automatic refreshing of experiment results";
@@ -230,11 +230,13 @@ function DashboardsTab({
         if (dashboardId === "new") {
           setTemporaryDashboard(res.dashboard);
         }
-        if (method === "POST" && dashboardId !== "new") {
+        if (method === "POST") {
           setDashboardId(res.dashboard.id);
         }
+        return { dashboardId: res.dashboard.id };
       } else {
         console.error(res);
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, experiment.id, mutateDashboards],
@@ -296,6 +298,7 @@ function DashboardsTab({
     >
       <DashboardSeriesDisplayProvider
         dashboard={dashboard}
+        //MKTODO: Do I need to handle onSave differently or take in the updateTemporaryDashboard function here?
         onSave={async (updatedSettings) => {
           if (dashboard?.id && dashboardId) {
             await submitDashboard({
@@ -315,11 +318,12 @@ function DashboardsTab({
               dashboard={dashboard}
               submitDashboard={submitDashboard}
               mutate={mutateDashboards}
-              close={() => {
+              close={(savedDashboardId?: string) => {
                 setIsEditing(false);
                 setDashboardFirstSave(false);
                 if (dashboardId === "new") {
-                  setDashboardId(dashboard.id === "new" ? "" : dashboard.id);
+                  // If we have a saved dashboard ID, use it; otherwise reset to empty
+                  setDashboardId(savedDashboardId || "");
                 }
               }}
               updateTemporaryDashboard={updateTemporaryDashboard}

@@ -128,11 +128,7 @@ export function transformStatsigConditionsToGB(
   // Convert targeting conditions to GrowthBook format
   const conditionString =
     targetingConditions.length > 0
-      ? transformTargetingConditions(
-          targetingConditions,
-          savedGroupIdMap,
-          skipAttributeMapping,
-        )
+      ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
       : "{}";
 
   // Create schedule rules tuple if we have at least one time
@@ -163,20 +159,19 @@ export function transformStatsigConditionsToGB(
  */
 function transformTargetingConditions(
   conditions: StatsigCondition[],
-  savedGroupIdMap?: Map<string, string>,
   skipAttributeMapping: boolean = false,
 ): string {
   // Map Statsig operators to GrowthBook operators
   const operatorMap: Record<string, string> = {
-    any: "$in",
-    none: "$nin",
+    any: "$ini",
+    none: "$nini",
     str_contains_any: "$regex",
     str_contains_none: "$regex",
     str_matches: "$regex",
     any_case_sensitive: "$in",
-    any_case_insensitive: "$in",
+    any_case_insensitive: "$ini",
     none_case_sensitive: "$nin",
-    none_case_insensitive: "$nin",
+    none_case_insensitive: "$nini",
     lt: "$lt",
     gt: "$gt",
     lte: "$lte",
@@ -240,32 +235,23 @@ function transformTargetingConditions(
       conditionObj[gbAttributeName] = { $exists: false };
     } else if (operator === "is_not_null") {
       conditionObj[gbAttributeName] = { $exists: true };
-    } else if (gbOperator === "$in" || gbOperator === "$nin") {
+    } else if (
+      gbOperator === "$in" ||
+      gbOperator === "$nin" ||
+      gbOperator === "$ini" ||
+      gbOperator === "$nini"
+    ) {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
-
-      // Check if we already have a conflicting operator on this attribute
       const existingCondition = conditionObj[gbAttributeName];
-      if (existingCondition && typeof existingCondition === "object") {
-        if (gbOperator === "$nin" && "$in" in existingCondition) {
-          // We have both $in and $nin - need to use $and
-          conditionObj[gbAttributeName] = {
-            $and: [
-              { [gbAttributeName]: { $in: existingCondition.$in } },
-              { [gbAttributeName]: { $nin: values } },
-            ],
-          };
-        } else if (gbOperator === "$in" && "$nin" in existingCondition) {
-          // Reverse case: existing $nin, new $nin
-          conditionObj[gbAttributeName] = {
-            $and: [
-              { [gbAttributeName]: { $nin: existingCondition.$nin } },
-              { [gbAttributeName]: { $in: values } },
-            ],
-          };
-        } else {
-          // No conflict, merge normally
-          conditionObj[gbAttributeName][gbOperator] = values;
-        }
+      const existingObj =
+        existingCondition && typeof existingCondition === "object"
+          ? (existingCondition as Record<string, unknown>)
+          : null;
+
+      // GrowthBook allows multiple operators on the same attribute (e.g. os: { $in: [...], $nini: [...] })
+      if (existingObj && !("$and" in existingObj)) {
+        (conditionObj[gbAttributeName] as Record<string, unknown>)[gbOperator] =
+          values;
       } else {
         conditionObj[gbAttributeName] = { [gbOperator]: values };
       }

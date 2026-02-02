@@ -774,9 +774,7 @@ export async function postGoogleOauthRedirect(
   const oauth2Client = getOauth2Client();
 
   const url = oauth2Client.generateAuthUrl({
-    // eslint-disable-next-line
     access_type: "offline",
-    // eslint-disable-next-line
     include_granted_scopes: true,
     prompt: "consent",
     scope: "https://www.googleapis.com/auth/analytics.readonly",
@@ -1067,7 +1065,7 @@ export async function postDimensionSlices(
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
-    lookbackDays: Number(lookbackDays) ?? 30,
+    lookbackDays: Number(lookbackDays) || 30,
   });
   res.status(200).json({
     status: 200,

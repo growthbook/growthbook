@@ -275,6 +275,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         minWidth: 0,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        // prevent overflow-hidden from cutting off CTA button edges
+                        marginTop: -10,
+                        marginBottom: -10,
+                        paddingTop: 10,
+                        paddingBottom: 10,
                       }}
                     >
                       {linkedExperiment ? (

@@ -156,7 +156,6 @@ export default function PublicExperimentResults({
                 differenceType={analysis.settings?.differenceType}
                 experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={true}
               />
             ) : showCompactResults ? (
               <CompactResults
@@ -184,7 +183,6 @@ export default function PublicExperimentResults({
                 isTabActive={isTabActive}
                 experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={true}
               />
             ) : null}
           </>

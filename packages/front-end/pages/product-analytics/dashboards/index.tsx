@@ -142,8 +142,10 @@ export default function DashboardsPage() {
         mutateDashboards();
         setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
+        return { dashboardId: res.dashboard.id };
       } else {
         console.error(res);
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, mutateDashboards],

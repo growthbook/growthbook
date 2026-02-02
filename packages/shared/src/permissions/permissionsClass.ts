@@ -793,7 +793,7 @@ export class Permissions {
   public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects",
+      "createProjects",
     );
   };
 
@@ -823,7 +823,7 @@ export class Permissions {
   public canDeleteProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects",
+      "deleteProjects",
     );
   };
 
@@ -1238,6 +1238,20 @@ export class Permissions {
     project: string | undefined,
   ): boolean => {
     return this.hasPermission("readData", project || "");
+  };
+
+  // Project IDs where the user has the given permission
+  // Return value:
+  //   string[] = specific projects
+  //   [] = no projects
+  //   null = global (all projects)
+  public getProjectsWithPermission = (
+    permission: Permission,
+  ): string[] | null => {
+    if (this.hasPermission(permission, "")) return null;
+    return Object.keys(this.userPermissions.projects).filter((p) =>
+      this.hasPermission(permission, p),
+    );
   };
 
   public canReadMultiProjectResource = (

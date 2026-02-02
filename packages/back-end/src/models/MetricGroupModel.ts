@@ -41,8 +41,19 @@ export class MetricGroupModel extends BaseClass {
   }
 
   findByMetric(metricId: string): Promise<MetricGroupInterface[]> {
-    return this.getAll({
+    return this._find({
       metrics: metricId,
     });
+  }
+
+  async removeMetricFromAllGroups(metricId: string): Promise<void> {
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, metrics: metricId },
+      {
+        // @ts-expect-error - not sure why $pull is complaining, but it works
+        $pull: { metrics: metricId },
+        $set: { dateUpdated: new Date() },
+      },
+    );
   }
 }

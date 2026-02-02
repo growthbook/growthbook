@@ -45,7 +45,7 @@ interface Props {
   dashboardFirstSave?: boolean;
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
-  close: () => void;
+  close: (savedDashboardId?: string) => void;
   // for quick editing a block from the display view
   initialEditBlockIndex?: number | null;
   onConsumeInitialEditBlockIndex?: () => void;
@@ -107,8 +107,7 @@ export default function DashboardWorkspace({
           // Otherwise, just clean entries without colors
           args.data.blocks !== undefined ? getActiveSeriesKeys() : undefined,
         );
-
-        await submitDashboard({
+        const result = await submitDashboard({
           ...args,
           data: {
             ...dashboard,
@@ -118,8 +117,10 @@ export default function DashboardWorkspace({
               : {}),
           },
         });
+        return result;
       } catch (e) {
         setSaveError(e.message);
+        throw e;
       } finally {
         setSaving(false);
       }
@@ -138,6 +139,7 @@ export default function DashboardWorkspace({
 
       // For new dashboards, update temporary state instead of making API call
       if (dashboardFirstSave) {
+        setBlocks(blocks);
         updateTemporaryDashboard?.({
           blocks,
         });
@@ -279,12 +281,12 @@ export default function DashboardWorkspace({
           initial={dashboard}
           close={() => setShowSaveModal(false)}
           submit={async (data) => {
-            await submitDashboard({
+            const result = await submit({
               method: "PUT",
               dashboardId: dashboard.id,
               data,
             });
-            close();
+            close(result.dashboardId);
           }}
           type={isGeneralDashboard ? "general" : "experiment"}
           dashboardFirstSave={dashboardFirstSave}
@@ -364,7 +366,12 @@ export default function DashboardWorkspace({
             )}
             <Flex align="center" gap="2">
               {dashboardFirstSave && (
-                <Link onClick={close} color="red" type="button" weight="bold">
+                <Link
+                  onClick={() => close()}
+                  color="red"
+                  type="button"
+                  weight="bold"
+                >
                   Exit without saving
                 </Link>
               )}

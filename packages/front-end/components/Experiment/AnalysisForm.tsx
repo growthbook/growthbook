@@ -87,8 +87,6 @@ const AnalysisForm: FC<{
   const orgSettings = useOrgSettings();
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
-    useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const pid = experiment?.project;
@@ -272,7 +270,6 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
@@ -563,7 +560,10 @@ const AnalysisForm: FC<{
                     {!isExperimentIncludedInIncrementalRefresh ? (
                       <>
                         {" "}
-                        <MetricsSelectorTooltip onlyBinomial={true} />
+                        <MetricsSelectorTooltip
+                          onlyBinomial={true}
+                          isSingular={true}
+                        />
                       </>
                     ) : null}
                   </>
@@ -990,9 +990,6 @@ const AnalysisForm: FC<{
                           disabled={
                             !hasOverrideMetricsFeature ||
                             isExperimentIncludedInIncrementalRefresh
-                          }
-                          setHasMetricOverrideRiskError={(v: boolean) =>
-                            setHasMetricOverrideRiskError(v)
                           }
                         />
                         {!hasOverrideMetricsFeature && (

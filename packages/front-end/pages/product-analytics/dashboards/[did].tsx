@@ -98,6 +98,9 @@ function SingleDashboardPage() {
       )) as { status: number; dashboard: DashboardInterface };
       if (res.status === 200) {
         await mutate();
+        return { dashboardId: res.dashboard.id };
+      } else {
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, mutate],

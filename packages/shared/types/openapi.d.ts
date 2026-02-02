@@ -12,7 +12,11 @@ type OneOf<T extends any[]> = T extends [infer Only] ? Only : T extends [infer A
 
 export interface paths {
   "/features": {
-    /** Get all features */
+    /**
+     * Get all features 
+     * @description Returns features with pagination. The skipPagination query parameter is
+     * honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
+     */
     get: operations["listFeatures"];
     /** Create a single feature */
     post: operations["postFeature"];
@@ -4054,6 +4058,11 @@ export interface components {
     globalRole: string;
     /** @description Filter by a SDK connection's client key */
     clientKey: string;
+    /**
+     * @description If true, return all matching features and ignore limit/offset.
+     * Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+     */
+    skipPagination: boolean;
   };
   requestBodies: never;
   headers: never;
@@ -4065,17 +4074,26 @@ export type external = Record<string, never>;
 export interface operations {
 
   listFeatures: {
-    /** Get all features */
+    /**
+     * Get all features 
+     * @description Returns features with pagination. The skipPagination query parameter is
+     * honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
+     */
     parameters: {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
         /** @description Filter by a SDK connection's client key */
+        /**
+         * @description If true, return all matching features and ignore limit/offset.
+         * Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+         */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
         clientKey?: string;
+        skipPagination?: boolean;
       };
     };
     responses: {
@@ -10623,9 +10641,15 @@ export interface operations {
               /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
               stddev: number;
             };
-            /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+            /**
+             * @deprecated 
+             * @description No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+             */
             riskThresholdSuccess?: number;
-            /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+            /**
+             * @deprecated 
+             * @description No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+             */
             riskThresholdDanger?: number;
             /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
             minPercentChange?: number;
@@ -11008,9 +11032,15 @@ export interface operations {
               /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
               stddev: number;
             };
-            /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+            /**
+             * @deprecated 
+             * @description No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+             */
             riskThresholdSuccess?: number;
-            /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+            /**
+             * @deprecated 
+             * @description No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+             */
             riskThresholdDanger?: number;
             /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
             minPercentChange?: number;
@@ -13158,9 +13188,15 @@ export interface operations {
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
           };
-          /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+          /**
+           * @deprecated 
+           * @description No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+           */
           riskThresholdSuccess?: number;
-          /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+          /**
+           * @deprecated 
+           * @description No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+           */
           riskThresholdDanger?: number;
           /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
           displayAsPercentage?: boolean;
@@ -13609,9 +13645,15 @@ export interface operations {
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
           };
-          /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+          /**
+           * @deprecated 
+           * @description No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+           */
           riskThresholdSuccess?: number;
-          /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+          /**
+           * @deprecated 
+           * @description No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+           */
           riskThresholdDanger?: number;
           /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
           displayAsPercentage?: boolean;
@@ -14029,9 +14071,15 @@ export interface operations {
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
                 };
-                /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+                /**
+                 * @deprecated 
+                 * @description No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+                 */
                 riskThresholdSuccess?: number;
-                /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+                /**
+                 * @deprecated 
+                 * @description No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+                 */
                 riskThresholdDanger?: number;
                 /** @description If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics. */
                 displayAsPercentage?: boolean;

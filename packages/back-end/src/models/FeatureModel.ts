@@ -210,6 +210,69 @@ export async function getAllFeatures(
   );
 }
 
+function featureListQuery(
+  orgId: string,
+  opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+): FilterQuery<FeatureDocument> {
+  const { project, projectIds, includeArchived = false } = opts;
+  return {
+    organization: orgId,
+    ...(project != null
+      ? { project }
+      : projectIds != null
+        ? { project: { $in: projectIds } }
+        : {}),
+    ...(includeArchived ? {} : { archived: { $ne: true } }),
+  };
+}
+
+export async function getFeaturesPage(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+    limit = 10,
+    offset = 0,
+  }: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<FeatureInterface[]> {
+  if (projectIds?.length === 0) return [];
+  const q = featureListQuery(context.org.id, {
+    project,
+    projectIds,
+    includeArchived,
+  });
+  const docs = await FeatureModel.find(q)
+    .sort({ _id: 1 })
+    .skip(offset)
+    .limit(limit);
+  return docs
+    .map((m) => upgradeFeatureInterface(toInterface(m, context)))
+    .filter((feature) =>
+      context.permissions.canReadSingleProjectResource(feature.project),
+    );
+}
+
+export async function countFeatures(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+  }: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+): Promise<number> {
+  if (projectIds?.length === 0) return 0;
+  return FeatureModel.countDocuments(
+    featureListQuery(context.org.id, { project, projectIds, includeArchived }),
+  );
+}
+
 export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string,
@@ -1172,6 +1235,40 @@ export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
     { _id: 1 },
   );
   return !!feature;
+}
+
+export async function getFeatureMetaInfoById(
+  context: ReqContext | ApiReqContext,
+  includeDefaultValue = false,
+): Promise<FeatureMetaInfo[]> {
+  const projection: Record<string, number> = {
+    id: 1,
+    project: 1,
+    archived: 1,
+    dateCreated: 1,
+    tags: 1,
+    owner: 1,
+    valueType: 1,
+  };
+  if (includeDefaultValue) {
+    projection.defaultValue = 1;
+  }
+
+  const features = await FeatureModel.find(
+    { organization: context.org.id },
+    projection,
+  );
+
+  return features.map((f) => ({
+    id: f.id,
+    project: f.project,
+    archived: f.archived,
+    dateCreated: f.dateCreated,
+    tags: f.tags,
+    owner: f.owner,
+    valueType: f.valueType,
+    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+  }));
 }
 
 export async function getFeatureMetaInfoByIds(

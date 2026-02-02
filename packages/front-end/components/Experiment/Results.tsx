@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { FC, useState, useEffect } from "react";
+import React, { FC, useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -7,6 +7,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import {
+  isPrecomputedDimension,
+  formatDimensionValueForDisplay,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -23,6 +27,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import MetricDrilldownModal, {
+  MetricDrilldownTab,
+} from "@/components/MetricDrilldown/MetricDrilldownModal";
+import { ExperimentTableRow } from "@/services/experiments";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -81,6 +89,13 @@ const Results: FC<{
   const { apiCall } = useAuth();
 
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [openMetricDrilldownModalInfo, setOpenMetricDrilldownModalInfo] =
+    useState<{
+      metricRow: ExperimentTableRow;
+      initialTab?: MetricDrilldownTab;
+      initialSliceSearchTerm?: string;
+      dimensionInfo?: { name: string; value: string; index: number };
+    } | null>(null);
 
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
@@ -147,6 +162,44 @@ const Results: FC<{
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
+  const handleRowClick = useCallback(
+    (
+      row: ExperimentTableRow,
+      dimensionInfo?: { name: string; value: string },
+    ) => {
+      // Find the dimension index if dimensionInfo is provided
+      let resolvedDimensionInfo:
+        | { name: string; value: string; index: number }
+        | undefined;
+
+      if (dimensionInfo && analysis?.results) {
+        const index = analysis.results.findIndex(
+          (r) => formatDimensionValueForDisplay(r.name) === dimensionInfo.value,
+        );
+        if (index !== -1) {
+          resolvedDimensionInfo = { ...dimensionInfo, index };
+        }
+      }
+
+      if (row.isSliceRow) {
+        setOpenMetricDrilldownModalInfo({
+          metricRow: row,
+          initialTab: "slices",
+          initialSliceSearchTerm:
+            typeof row.label === "string" ? row.label : "",
+          dimensionInfo: resolvedDimensionInfo,
+        });
+      } else {
+        setOpenMetricDrilldownModalInfo({
+          metricRow: row,
+          initialTab: "overview",
+          dimensionInfo: resolvedDimensionInfo,
+        });
+      }
+    },
+    [analysis?.results],
+  );
+
   const showCompactResults =
     !draftMode &&
     hasData &&
@@ -179,8 +232,8 @@ const Results: FC<{
   }
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
-  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
-    d.startsWith("precomputed:"),
+  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some(
+    isPrecomputedDimension,
   );
 
   const datasource = experiment.datasource
@@ -388,6 +441,7 @@ const Results: FC<{
           sortDirection={sortDirection}
           setSortDirection={setSortDirection}
           analysisBarSettings={analysisBarSettings}
+          onRowClick={handleRowClick}
         />
       ) : showCompactResults ? (
         <>
@@ -456,6 +510,7 @@ const Results: FC<{
             sortDirection={sortDirection}
             setSortDirection={setSortDirection}
             analysisBarSettings={analysisBarSettings}
+            onRowClick={handleRowClick}
           />
         </>
       ) : null}
@@ -465,6 +520,51 @@ const Results: FC<{
           queries={queryStrings}
           savedQueries={[]}
           error={latest?.error}
+        />
+      )}
+
+      {openMetricDrilldownModalInfo !== null && analysis && (
+        <MetricDrilldownModal
+          row={openMetricDrilldownModalInfo.metricRow}
+          close={() => setOpenMetricDrilldownModalInfo(null)}
+          initialTab={openMetricDrilldownModalInfo.initialTab}
+          // useExperimentTableRows parameters
+          results={
+            analysis.results[
+              openMetricDrilldownModalInfo.dimensionInfo?.index ?? 0
+            ]
+          }
+          goalMetrics={experiment.goalMetrics}
+          secondaryMetrics={experiment.secondaryMetrics}
+          guardrailMetrics={experiment.guardrailMetrics}
+          metricOverrides={experiment.metricOverrides ?? []}
+          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+          customMetricSlices={experiment.customMetricSlices}
+          statsEngine={analysis.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+          pValueCorrection={pValueCorrection}
+          // Initial filter values
+          differenceType={analysis.settings?.differenceType || "relative"}
+          baselineRow={analysisBarSettings.baselineRow}
+          variationFilter={analysisBarSettings.variationFilter}
+          // Experiment context
+          experimentId={experiment.id}
+          phase={phase}
+          experimentStatus={experiment.status}
+          variations={variations}
+          startDate={phaseObj?.dateStarted ?? ""}
+          endDate={phaseObj?.dateEnded ?? ""}
+          reportDate={snapshot?.dateCreated ?? new Date()}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+          // Initial sorting state
+          initialSortBy={sortBy ?? null}
+          initialSortDirection={sortDirection ?? null}
+          // Slice-specific
+          initialSliceSearchTerm={
+            openMetricDrilldownModalInfo.initialSliceSearchTerm
+          }
+          // Dimension info (for BreakDownResults)
+          dimensionInfo={openMetricDrilldownModalInfo.dimensionInfo}
         />
       )}
     </>

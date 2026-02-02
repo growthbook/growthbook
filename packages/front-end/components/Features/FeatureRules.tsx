@@ -2,7 +2,6 @@ import { FeatureInterface } from "shared/types/feature";
 import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  FeatureRevisionInterface,
   FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
@@ -33,7 +32,6 @@ export default function FeatureRules({
   feature,
   isLocked,
   canEditDrafts,
-  revisions,
   experimentsMap,
   mutate,
   currentVersion,
@@ -47,7 +45,6 @@ export default function FeatureRules({
   feature: FeatureInterface;
   isLocked: boolean;
   canEditDrafts: boolean;
-  revisions: FeatureRevisionInterface[];
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
   currentVersion: number;
@@ -306,7 +303,6 @@ export default function FeatureRules({
           defaultType={ruleModal.defaultType || ""}
           version={currentVersion}
           setVersion={setVersion}
-          revisions={revisions}
           mode={ruleModal.mode}
         />
       )}

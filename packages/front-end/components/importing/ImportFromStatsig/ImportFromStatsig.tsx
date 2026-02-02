@@ -995,7 +995,9 @@ export default function ImportFromStatsig() {
   const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
   const {
     mutateDefinitions,
     savedGroups,
@@ -1099,6 +1101,12 @@ export default function ImportFromStatsig() {
         }
         .diff-viewer-wrapper * {
           line-height: 1.1 !important;
+        }
+        /* Tighter row padding in Statsig import tables to fit more rows */
+        .statsig-import-table-scroll .table td,
+        .statsig-import-table-scroll .table th {
+          padding-top: 0.25rem !important;
+          padding-bottom: 0.25rem !important;
         }
       `}</style>
       <h1>Statsig Importer</h1>
@@ -1448,7 +1456,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -1471,8 +1482,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -1487,13 +1504,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={environment}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {environment.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -1542,7 +1565,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -1565,8 +1591,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -1576,13 +1608,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={tag}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {tag.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -1630,7 +1668,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -1655,8 +1696,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -1671,13 +1718,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={segment}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {segment.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -1737,7 +1790,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -1761,8 +1817,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -1777,13 +1839,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={gate}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {gate.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -1838,7 +1906,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -1861,8 +1932,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -1877,13 +1954,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={config}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {config.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -1935,7 +2018,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -1958,8 +2044,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -1974,13 +2066,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={exp}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {exp.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -2033,7 +2131,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -2056,8 +2157,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -2072,13 +2179,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={metricSource}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {metricSource.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
@@ -2129,7 +2242,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div
+                    className="statsig-import-table-scroll"
+                    style={{ maxHeight: 1200, overflowY: "auto" }}
+                  >
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
@@ -2153,8 +2269,14 @@ export default function ImportFromStatsig() {
                           );
                           return (
                             <React.Fragment key={i}>
-                              <tr>
-                                <td>
+                              <tr
+                                onClick={() => toggleAccordion(entityId)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <Checkbox
                                     value={effectiveEnabled}
                                     setValue={(enabled) =>
@@ -2169,13 +2291,19 @@ export default function ImportFromStatsig() {
                                     mt="2"
                                   />
                                 </td>
-                                <td>
+                                <td
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ cursor: "default" }}
+                                >
                                   <ImportStatusDisplay
                                     data={metric}
                                     enabled={effectiveEnabled}
                                   />
                                 </td>
-                                <td style={{ width: 100 }}>
+                                <td
+                                  style={{ width: 100, cursor: "default" }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   {metric.exists ? (
                                     <span className="text-muted">exists</span>
                                   ) : null}
