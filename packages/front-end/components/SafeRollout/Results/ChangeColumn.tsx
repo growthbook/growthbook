@@ -32,6 +32,7 @@ interface Props
   className?: string;
   ssrPolyfills?: SSRPolyfills;
   additionalButton?: React.ReactNode;
+  minSampleSize?: number;
 }
 
 export default function ChangeColumn({
@@ -45,6 +46,7 @@ export default function ChangeColumn({
   className,
   ssrPolyfills,
   additionalButton,
+  minSampleSize: _minSampleSize,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
