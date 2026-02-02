@@ -1,30 +1,9 @@
 import React from "react";
-import { Flex, Box, Text, Button } from "@radix-ui/themes";
-import {
-  PiChartBar,
-  PiTable,
-  PiCode,
-  PiPlus,
-  PiArrowsClockwise,
-} from "react-icons/pi";
+import { Flex, Box } from "@radix-ui/themes";
+import { PiChartBar, PiTable, PiCode } from "react-icons/pi";
 import { ExploreSeriesType } from "shared/enterprise";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricExplorerSettings from "./SideBar/MetricExplorerSettings";
-import ExplorerChart from "./MainSection/ExplorerChart";
-import DateRangePicker from "./MainSection/Toolbar/DateRangePicker";
-import GranularitySelector from "./MainSection/Toolbar/GranularitySelector";
-import GraphTypeSelector from "./MainSection/Toolbar/GraphTypeSelector";
-import {
-  exploreStateToBlockFormat,
-  blockFormatToExploreState,
-} from "./exploreStateAdapter";
-import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
-import {
-  SERIES_COLORS,
-  getSeriesTag,
-  getSeriesDisplayName,
-} from "./util";
+import { ExplorerProvider } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
 
 export const getSeriesIcon = (type: ExploreSeriesType, size = 16) => {
@@ -37,23 +16,8 @@ export const getSeriesIcon = (type: ExploreSeriesType, size = 16) => {
 };
 
 function MetricExplorerContent() {
-  const { getFactTableById, getFactMetricById } = useDefinitions();
-
-  const { draftExploreState, submittedExploreState, exploreData, loading, handleUpdateGraph } = useExplorerContext();
-
-  // const firstDraftSeries = draftExploreState.series.find(
-  //   (s) => s.type === "metric",
-  // );
-  // const draftFactMetric =
-  //   firstDraftSeries && "factMetricId" in firstDraftSeries.config
-  //     ? getFactMetricById(firstDraftSeries.config.factMetricId)
-  //     : null;
-
-  // const hasConfiguredSeries = submittedExploreState.series.length > 0;
-
   return (
     <Flex width="100%">
-
       {/* Main Section */}
       <Box
         style={{
