@@ -58,6 +58,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -84,6 +85,7 @@ export type ResultsTableProps = {
   endDate: string;
   rows: ExperimentTableRow[];
   onRowClick?: (row: ExperimentTableRow) => void;
+  warnIfNoDrilldown?: boolean;
   dimension?: string;
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
@@ -172,6 +174,7 @@ export default function ResultsTable({
   endDate,
   renderLabelColumn,
   onRowClick,
+  warnIfNoDrilldown,
   resultGroup,
   dateCreated,
   statsEngine,
@@ -202,6 +205,22 @@ export default function ResultsTable({
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
+  }
+
+  // Detect drilldown context for automatic row click handling
+  const drilldownContext = useMetricDrilldownContext();
+  const effectiveOnRowClick = onRowClick ?? drilldownContext?.openDrilldown;
+
+  // Dev warning for missing drilldown handler
+  if (
+    process.env.NODE_ENV === "development" &&
+    warnIfNoDrilldown &&
+    !effectiveOnRowClick
+  ) {
+    console.warn(
+      "ResultsTable: warnIfNoDrilldown is true but no drilldown handler available. " +
+        "Wrap with MetricDrilldownProvider or pass onRowClick prop.",
+    );
   }
 
   const SortButton = ({ column }: { column: "significance" | "change" }) => {
@@ -519,7 +538,7 @@ export default function ResultsTable({
     ? (pValueCorrection ?? null)
     : null;
 
-  const drilldownEnabled = !!onRowClick && !noTooltip;
+  const drilldownEnabled = !!effectiveOnRowClick && !noTooltip;
 
   return (
     <DrilldownTooltip enabled={drilldownEnabled}>
@@ -783,15 +802,15 @@ export default function ResultsTable({
                           <tbody
                             className={clsx("results-group-row", {
                               "slice-row": row.isSliceRow,
-                              [styles.clickableRow]: !!onRowClick,
+                              [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
                             onClick={
-                              onRowClick
+                              effectiveOnRowClick
                                 ? (e) => {
                                     const target = e.target as HTMLElement;
                                     if (!isInteractiveElement(target)) {
-                                      onRowClick(row);
+                                      effectiveOnRowClick(row);
                                     }
                                   }
                                 : undefined

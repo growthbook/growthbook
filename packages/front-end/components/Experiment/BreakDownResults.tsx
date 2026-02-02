@@ -38,6 +38,7 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import Link from "@/ui/Link";
 import UsersTable from "./UsersTable";
 
@@ -163,6 +164,10 @@ const BreakDownResults: FC<{
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
 
+  // Detect drilldown context for automatic row click handling
+  const drilldownContext = useMetricDrilldownContext();
+  const effectiveOnRowClick = onRowClick ?? drilldownContext?.openDrilldown;
+
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
     getDimensionById(dimensionId)?.name ||
@@ -198,13 +203,13 @@ const BreakDownResults: FC<{
   const isHoldout = experimentType === "holdout";
 
   // Wrap onRowClick to include dimension info
-  const handleRowClick = onRowClick
+  const handleRowClick = effectiveOnRowClick
     ? (row: ExperimentTableRow) => {
         const value =
           typeof row.label === "string"
             ? formatDimensionValueForDisplay(row.label)
             : "";
-        onRowClick(row, { name: dimension, value });
+        effectiveOnRowClick(row, { name: dimension, value });
       }
     : undefined;
 
