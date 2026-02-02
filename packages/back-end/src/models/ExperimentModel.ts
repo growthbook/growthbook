@@ -17,6 +17,7 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -785,6 +786,91 @@ export async function getExperimentsUsingMetric({
     },
     // hard cap at 1000 to prevent too many results
     limit !== undefined ? limit : 1000,
+    { _id: -1 },
+  );
+
+  return experiments;
+}
+
+/**
+ * Batch version of getExperimentsUsingMetric that efficiently fetches experiments
+ * for multiple metrics in a single query.
+ *
+ * Returns a flat array of experiments that use any of the given metrics
+ * (directly or via a metric group). The caller is responsible for filtering
+ * the results to determine which experiments use which specific metrics.
+ */
+export async function getExperimentsUsingMetrics({
+  context,
+  metricIds,
+  // Optional, skips second DB call if already fetched
+  allMetricGroups,
+  excludeMetricGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricIds: string[];
+  allMetricGroups?: MetricGroupInterface[];
+  excludeMetricGroupIds?: boolean;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  if (metricIds.length === 0) {
+    return [];
+  }
+
+  // Fetch all metric groups once and build a map from metric ID to group IDs
+  const metricToGroupIds = new Map<string, string[]>();
+  for (const metricId of metricIds) {
+    metricToGroupIds.set(metricId, []);
+  }
+
+  if (!excludeMetricGroupIds) {
+    if (!allMetricGroups) {
+      allMetricGroups = await context.models.metricGroups.getAll();
+    }
+    for (const group of allMetricGroups) {
+      for (const metricId of group.metrics || []) {
+        const groupIds = metricToGroupIds.get(metricId);
+        if (groupIds) {
+          groupIds.push(group.id);
+        }
+      }
+    }
+  }
+
+  // Build the search criteria: for each metric, include the metric itself
+  // and any metric groups that contain it
+  const allSearchIds: string[] = [];
+  for (const metricId of metricIds) {
+    const groupIds = metricToGroupIds.get(metricId) || [];
+    allSearchIds.push(metricId, ...groupIds);
+  }
+
+  // Deduplicate search IDs
+  const uniqueSearchIds = [...new Set(allSearchIds)];
+
+  // Build the query
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    $or: [
+      { metrics: { $in: uniqueSearchIds } },
+      { goalMetrics: { $in: uniqueSearchIds } },
+      { guardrails: { $in: uniqueSearchIds } },
+      { guardrailMetrics: { $in: uniqueSearchIds } },
+      { secondaryMetrics: { $in: uniqueSearchIds } },
+      { activationMetric: { $in: uniqueSearchIds } },
+    ],
+    archived: {
+      $ne: true,
+    },
+  };
+
+  // Query all experiments that use any of these metrics/groups in a single query
+  const experiments = await findExperiments(
+    context,
+    query,
+    // hard cap at 10000 to prevent too many results
+    limit !== undefined ? limit : 10000,
     { _id: -1 },
   );
 

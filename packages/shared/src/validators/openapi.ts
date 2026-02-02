@@ -367,7 +367,7 @@ export const deleteMetricValidator = {
 };
 
 export const postMetricUsageValidator = {
-  bodySchema: z.object({ "metricIds": z.array(z.string()).describe("Array of metric IDs to get usage for") }).strict(),
+  bodySchema: z.object({ "metricIds": z.array(z.string()).describe("Array of metric IDs (both fact and legacy) to get usage for") }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };

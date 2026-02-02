@@ -194,8 +194,10 @@ export interface paths {
   "/metric-usage": {
     /**
      * Get metric usage across experiments 
-     * @description Returns usage information for one or more metrics, showing which experiments use each metric 
-     * and summary statistics. Metric groups are automatically expanded to include their member metrics.
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
+     * and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+     * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+     * all experiments.
      */
     post: operations["postMetricUsage"];
   };
@@ -11116,13 +11118,15 @@ export interface operations {
   postMetricUsage: {
     /**
      * Get metric usage across experiments 
-     * @description Returns usage information for one or more metrics, showing which experiments use each metric 
-     * and summary statistics. Metric groups are automatically expanded to include their member metrics.
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
+     * and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+     * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+     * all experiments.
      */
     requestBody: {
       content: {
         "application/json": {
-          /** @description Array of metric IDs to get usage for */
+          /** @description Array of metric IDs (both fact and legacy) to get usage for */
           metricIds: (string)[];
         };
       };
