@@ -651,9 +651,6 @@ export default function ResultsTable({
                                     className={resultsHighlightClassname}
                                     ssrPolyfills={ssrPolyfills}
                                     showPlusMinus={false}
-                                    minSampleSize={getMinSampleSizeForMetric(
-                                      row.metric,
-                                    )}
                                   />
                                 </Box>
                               </Popover.Trigger>

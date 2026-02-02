@@ -81,7 +81,7 @@ export default function ExperimentResultTooltipContent({
 
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
 
   // Formatter for numerator values (minSampleSize, currentMetricTotal)
@@ -186,7 +186,7 @@ export default function ExperimentResultTooltipContent({
                 size="1"
                 style={{ color: "var(--color-text-mid)" }}
               >
-                <b>Draw:</b> this occurs when the % Change is below the
+                <b>Draw:</b> this occurs when the % Change is smaller than the
                 metric&apos;s min change (
                 {percentFormatter.format(minPercentChange)})
               </Text>

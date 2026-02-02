@@ -8,7 +8,7 @@ import { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useResultPopover } from "./useResultPopover";
+import { useColumnStatusPopovers } from "./useColumnStatusPopovers";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -51,78 +51,23 @@ export default function ChanceToWinColumn({
   minSampleSize = 0,
   ...otherProps
 }: Props) {
-  const popoverEnabled = !!(metric && differenceType && statsEngine);
-
-  // Get the max numerator value across baseline and variation
-  const currentMetricTotal = Math.max(baseline?.value ?? 0, stats?.value ?? 0);
-
-  // Get time remaining for "not enough data" tooltip
-  const enoughDataMeta = rowResults.enoughDataMeta;
-  const timeRemainingMs =
-    enoughDataMeta?.reason === "notEnoughData" &&
-    enoughDataMeta?.showTimeRemaining
-      ? (enoughDataMeta.timeRemainingMs ?? undefined)
-      : undefined;
-
-  const suspiciousPopover = useResultPopover({
-    enabled: popoverEnabled && showSuspicious && rowResults.suspiciousChange,
-    data: {
-      stats,
-      metric: metric!,
-      significant: rowResults.significant,
-      resultsStatus: rowResults.resultsStatus,
-      differenceType: differenceType!,
-      statsEngine: statsEngine!,
-      ssrPolyfills,
-      suspiciousChange: true,
-      suspiciousThreshold: rowResults.suspiciousThreshold,
-      notEnoughData: false,
-      minSampleSize,
-      minPercentChange: rowResults.minPercentChange,
-      currentMetricTotal,
-    },
+  const {
+    popoverEnabled,
+    suspiciousPopover,
+    notEnoughDataPopover,
+    drawPopover,
+    isDraw,
+  } = useColumnStatusPopovers({
+    stats,
+    baseline,
+    rowResults,
+    metric,
+    differenceType,
+    statsEngine,
+    ssrPolyfills,
+    minSampleSize,
+    showSuspicious,
   });
-
-  const notEnoughDataPopover = useResultPopover({
-    enabled: popoverEnabled && !rowResults.enoughData,
-    data: {
-      stats,
-      metric: metric!,
-      significant: false,
-      resultsStatus: "",
-      differenceType: differenceType!,
-      statsEngine: statsEngine!,
-      ssrPolyfills,
-      notEnoughData: true,
-      minSampleSize,
-      suspiciousChange: rowResults.suspiciousChange,
-      suspiciousThreshold: rowResults.suspiciousThreshold,
-      minPercentChange: rowResults.minPercentChange,
-      currentMetricTotal,
-      timeRemainingMs,
-    },
-  });
-
-  const drawPopover = useResultPopover({
-    enabled: popoverEnabled && rowResults.resultsStatus === "draw",
-    data: {
-      stats,
-      metric: metric!,
-      significant: rowResults.significant,
-      resultsStatus: rowResults.resultsStatus,
-      differenceType: differenceType!,
-      statsEngine: statsEngine!,
-      ssrPolyfills,
-      suspiciousChange: rowResults.suspiciousChange,
-      suspiciousThreshold: rowResults.suspiciousThreshold,
-      notEnoughData: false,
-      minSampleSize,
-      minPercentChange: rowResults.minPercentChange,
-      currentMetricTotal,
-    },
-  });
-
-  const isDraw = rowResults.resultsStatus === "draw";
 
   return (
     <td className={clsx("chance align-middle", className)} {...otherProps}>
@@ -154,6 +99,7 @@ export default function ChanceToWinColumn({
               style={{
                 marginLeft: 4,
                 cursor: popoverEnabled ? "pointer" : undefined,
+                color: "var(--amber-a11)",
               }}
               onMouseEnter={drawPopover.handleMouseEnter}
               onMouseMove={drawPopover.handleMouseMove}
@@ -164,6 +110,7 @@ export default function ChanceToWinColumn({
             </span>
           ) : showSuspicious && rowResults.suspiciousChange ? (
             <span
+              className="suspicious"
               style={{
                 marginLeft: 1,
                 cursor: popoverEnabled ? "pointer" : undefined,
