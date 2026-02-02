@@ -72,7 +72,6 @@ export default function PValueColumn({
   const { isDraw, SuspiciousTrigger, NotEnoughDataTrigger, DrawTrigger } =
     useColumnStatusPopovers({
       stats,
-      baseline,
       rowResults,
       metric,
       differenceType,
@@ -105,13 +104,25 @@ export default function PValueColumn({
             {pValText || "P-value missing"}
           </div>
           {isDraw ? (
-            <DrawTrigger style={{ marginLeft: 4, color: "var(--amber-a11)" }}>
-              <PiWarningCircle size={15} />
-            </DrawTrigger>
+            <>
+              {" "}
+              <DrawTrigger>
+                <PiWarningCircle
+                  size={15}
+                  style={{ color: "var(--color-text-high)" }}
+                />
+              </DrawTrigger>
+            </>
           ) : showSuspicious && rowResults.suspiciousChange ? (
-            <SuspiciousTrigger className="suspicious" style={{ marginLeft: 1 }}>
-              <PiWarningCircle size={15} />
-            </SuspiciousTrigger>
+            <>
+              {" "}
+              <SuspiciousTrigger>
+                <PiWarningCircle
+                  size={15}
+                  style={{ color: "var(--color-text-high)" }}
+                />
+              </SuspiciousTrigger>
+            </>
           ) : null}
         </div>
       )}

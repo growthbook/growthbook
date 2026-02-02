@@ -80,6 +80,7 @@ const baseRowResults: RowResults = {
   suspiciousChangeReason: "",
   belowMinChange: false,
   minPercentChange: 0.05,
+  currentMetricTotal: 1000,
   directionalStatus: "winning",
   resultsStatus: "won",
   resultsReason: "",

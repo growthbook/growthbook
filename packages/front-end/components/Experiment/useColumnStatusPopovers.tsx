@@ -7,7 +7,6 @@ import { useResultPopover } from "./useResultPopover";
 
 interface UseColumnStatusPopoversOptions {
   stats: SnapshotMetric;
-  baseline: SnapshotMetric;
   rowResults: RowResults;
   metric?: ExperimentMetricInterface;
   differenceType?: DifferenceType;
@@ -19,7 +18,6 @@ interface UseColumnStatusPopoversOptions {
 
 export function useColumnStatusPopovers({
   stats,
-  baseline,
   rowResults,
   metric,
   differenceType,
@@ -29,9 +27,6 @@ export function useColumnStatusPopovers({
   showSuspicious = true,
 }: UseColumnStatusPopoversOptions) {
   const popoverEnabled = !!(metric && differenceType && statsEngine);
-
-  // Get the max numerator value across baseline and variation
-  const currentMetricTotal = Math.max(baseline?.value ?? 0, stats?.value ?? 0);
 
   // Get time remaining for "not enough data" tooltip
   const enoughDataMeta = rowResults.enoughDataMeta;
@@ -49,7 +44,7 @@ export function useColumnStatusPopovers({
     ssrPolyfills,
     minSampleSize,
     minPercentChange: rowResults.minPercentChange,
-    currentMetricTotal,
+    currentMetricTotal: rowResults.currentMetricTotal,
     suspiciousThreshold: rowResults.suspiciousThreshold,
   };
 
@@ -90,13 +85,8 @@ export function useColumnStatusPopovers({
   return {
     popoverEnabled,
     isDraw: rowResults.resultsStatus === "draw",
-    // Trigger components for cleaner usage
     SuspiciousTrigger: suspiciousPopover.Trigger,
     NotEnoughDataTrigger: notEnoughDataPopover.Trigger,
     DrawTrigger: drawPopover.Trigger,
-    // Legacy API (kept for backward compatibility with other components)
-    suspiciousPopover,
-    notEnoughDataPopover,
-    drawPopover,
   };
 }

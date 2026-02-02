@@ -481,6 +481,7 @@ export type RowResults = {
   suspiciousChangeReason: string;
   belowMinChange: boolean;
   minPercentChange: number;
+  currentMetricTotal: number;
 };
 export type EnoughDataMetaZeroValues = {
   reason: "baselineZero" | "variationZero";
@@ -697,6 +698,9 @@ export function getRowResults({
     }
   }
 
+  // Max numerator value across baseline and variation
+  const currentMetricTotal = Math.max(baseline.value ?? 0, stats.value ?? 0);
+
   return {
     directionalStatus,
     resultsStatus,
@@ -713,6 +717,7 @@ export function getRowResults({
     suspiciousChangeReason,
     belowMinChange,
     minPercentChange,
+    currentMetricTotal,
   };
 }
 

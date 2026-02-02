@@ -1194,6 +1194,9 @@ export default function ResultsTable({
                                             minPercentChange={
                                               rowResults.minPercentChange
                                             }
+                                            currentMetricTotal={
+                                              rowResults.currentMetricTotal
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph

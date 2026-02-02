@@ -242,6 +242,7 @@ function MetricExperimentResultTab({
                 suspiciousChange: false,
                 suspiciousThreshold: 0,
                 minPercentChange: 0,
+                currentMetricTotal: e.variationResults?.value ?? 0,
               }}
               showPlusMinus={false}
               statsEngine={e.statsEngine}

@@ -32,6 +32,7 @@ interface Props
     | "suspiciousChange"
     | "suspiciousThreshold"
     | "minPercentChange"
+    | "currentMetricTotal"
   >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
@@ -99,7 +100,7 @@ export default function ChangeColumn({
         notEnoughData: !rowResults.enoughData,
         minSampleSize,
         minPercentChange: rowResults.minPercentChange,
-        currentMetricTotal: stats?.value ?? 0,
+        currentMetricTotal: rowResults.currentMetricTotal,
       },
     });
 

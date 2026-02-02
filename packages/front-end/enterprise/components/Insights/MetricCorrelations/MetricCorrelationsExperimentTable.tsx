@@ -327,6 +327,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                     suspiciousChange: mr.suspiciousChange,
                     suspiciousThreshold: mr.suspiciousThreshold,
                     minPercentChange: mr.minPercentChange,
+                    currentMetricTotal: mr.results?.value ?? 0,
                   }}
                   showPlusMinus={false}
                   statsEngine={e.statsEngine}

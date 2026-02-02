@@ -43,6 +43,7 @@ interface Props
   notEnoughData?: boolean;
   minSampleSize?: number;
   minPercentChange?: number;
+  currentMetricTotal?: number;
 }
 
 export default function PercentGraph({
@@ -73,6 +74,7 @@ export default function PercentGraph({
   notEnoughData = false,
   minSampleSize = 0,
   minPercentChange = 0,
+  currentMetricTotal = 0,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
   const _confidenceLevels = useConfidenceLevels();
@@ -107,9 +109,6 @@ export default function PercentGraph({
   }
 
   const showPopover = showGraph && stats?.ci;
-
-  // Get the max numerator value across baseline and variation
-  const currentMetricTotal = Math.max(baseline?.value ?? 0, stats?.value ?? 0);
 
   const {
     handleMouseEnter: popoverMouseEnter,
