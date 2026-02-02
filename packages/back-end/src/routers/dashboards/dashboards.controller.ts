@@ -32,7 +32,10 @@ import {
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import {
+  determineNextDate,
+  getAdditionalQueryMetadataForExperiment,
+} from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -157,9 +160,24 @@ export async function updateDashboard(
     updates.blocks = createdBlocks;
   }
 
+  // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
+  const dashboardUpdates = {
+    ...updates,
+  } as Partial<DashboardInterface>;
+
+  const enableAutoUpdates =
+    updates.enableAutoUpdates ?? dashboard.enableAutoUpdates;
+  if (enableAutoUpdates && updates.updateSchedule !== undefined) {
+    const nextUpdate = determineNextDate(updates.updateSchedule);
+    dashboardUpdates.nextUpdate = nextUpdate ?? undefined;
+  } else if (updates.enableAutoUpdates === false) {
+    // If auto-updates are being disabled, clear the nextUpdate
+    dashboardUpdates.nextUpdate = undefined;
+  }
+
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    updates as Partial<DashboardInterface>,
+    dashboardUpdates,
   );
 
   res.status(200).json({
