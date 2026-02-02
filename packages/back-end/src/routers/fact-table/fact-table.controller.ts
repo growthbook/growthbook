@@ -12,6 +12,7 @@ import {
   UpdateFactTableProps,
   TestFactFilterProps,
   FactFilterTestResults,
+  ColumnInterface,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { CreateProps } from "shared/types/base-model";
@@ -264,7 +265,11 @@ export const deleteFactTable = async (
 };
 
 export const postColumnTopValues = async (
-  req: AuthRequest<unknown, { id: string; column: string }>,
+  req: AuthRequest<
+    unknown,
+    { id: string; column: string },
+    { forceAutoSlice?: string }
+  >,
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
@@ -283,17 +288,30 @@ export const postColumnTopValues = async (
     throw new Error("Could not find datasource");
   }
 
-  const column = factTable.columns.find(
+  const databaseColumn = factTable.columns.find(
     (col) => col.column === req.params.column,
   );
-  if (!column) {
+  if (!databaseColumn) {
     throw new Error("Could not find column");
   }
 
+  // forceAutoSlice allows fetching when the front end demands top values
+  // even if the column is not yet set as a auto slice column in the database.
+  const forceAutoSlice = req.query?.forceAutoSlice === "true";
+
+  const column: ColumnInterface = forceAutoSlice
+    ? {
+        ...databaseColumn,
+        isAutoSliceColumn: true,
+        datatype: "string",
+      }
+    : databaseColumn;
+
   if (
-    (column.alwaysInlineFilter || column.isAutoSliceColumn) &&
-    canInlineFilterColumn(factTable, column.column) &&
-    column.datatype === "string"
+    forceAutoSlice ||
+    ((column.alwaysInlineFilter || column.isAutoSliceColumn) &&
+      canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string")
   ) {
     try {
       const topValuesByColumn = await runColumnsTopValuesQuery(
