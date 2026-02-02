@@ -874,9 +874,7 @@ export default function ExperimentHeader({
               </DropdownMenuGroup>
               {isHoldout && canRunExperiment && (
                 <>
-                  {/* Only show the separator if one of the following cases is true to avoid double separators */}
-                  {holdout?.nextScheduledUpdate &&
-                    experiment.status === "draft" && <DropdownMenuSeparator />}
+                  {holdout?.nextScheduledUpdate && <DropdownMenuSeparator />}
                   <DropdownMenuGroup>
                     {holdout?.nextScheduledUpdate &&
                       (experiment.status === "running" && editResult ? (
