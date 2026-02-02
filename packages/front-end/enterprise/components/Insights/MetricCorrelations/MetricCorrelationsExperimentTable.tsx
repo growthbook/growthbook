@@ -307,6 +307,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
                     resultsStatus:
                       (mr.resultsStatus as RowResults["resultsStatus"]) ?? "",
                     suspiciousChange: false,
+                    suspiciousThreshold: 0,
                     minPercentChange: 0,
                   }}
                   showPlusMinus={false}

@@ -240,6 +240,7 @@ function MetricExperimentResultTab({
                 resultsStatus:
                   (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
                 suspiciousChange: false,
+                suspiciousThreshold: 0,
                 minPercentChange: 0,
               }}
               showPlusMinus={false}
