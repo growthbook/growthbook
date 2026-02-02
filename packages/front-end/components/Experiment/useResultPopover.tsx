@@ -36,7 +36,7 @@ interface UseResultPopoverOptions
 
 export function useResultPopover({
   enabled,
-  positioning = "cursor",
+  positioning = "element",
   data,
 }: UseResultPopoverOptions) {
   const {

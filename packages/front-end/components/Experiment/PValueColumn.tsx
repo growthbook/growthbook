@@ -7,10 +7,9 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { PiWarningFill } from "react-icons/pi";
+import { PiWarningCircle } from "react-icons/pi";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import { GBSuspicious } from "@/components/Icons";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useResultPopover } from "./useResultPopover";
@@ -104,7 +103,6 @@ export default function PValueColumn({
 
   const notEnoughDataPopover = useResultPopover({
     enabled: popoverEnabled && !rowResults.enoughData,
-    positioning: "element",
     data: {
       stats,
       metric: metric!,
@@ -183,7 +181,7 @@ export default function PValueColumn({
               onMouseMove={drawPopover.handleMouseMove}
               onMouseLeave={drawPopover.handleMouseLeave}
             >
-              <PiWarningFill size={14} />
+              <PiWarningCircle size={15} />
               {drawPopover.renderPopover()}
             </span>
           ) : showSuspicious && rowResults.suspiciousChange ? (
@@ -197,7 +195,7 @@ export default function PValueColumn({
               onMouseMove={suspiciousPopover.handleMouseMove}
               onMouseLeave={suspiciousPopover.handleMouseLeave}
             >
-              <GBSuspicious />
+              <PiWarningCircle size={15} />
               {suspiciousPopover.renderPopover()}
             </span>
           ) : null}

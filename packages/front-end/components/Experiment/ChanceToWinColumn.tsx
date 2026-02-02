@@ -66,7 +66,6 @@ export default function ChanceToWinColumn({
 
   const suspiciousPopover = useResultPopover({
     enabled: popoverEnabled && showSuspicious && rowResults.suspiciousChange,
-    positioning: "element",
     data: {
       stats,
       metric: metric!,
@@ -86,7 +85,6 @@ export default function ChanceToWinColumn({
 
   const notEnoughDataPopover = useResultPopover({
     enabled: popoverEnabled && !rowResults.enoughData,
-    positioning: "element",
     data: {
       stats,
       metric: metric!,
@@ -107,7 +105,6 @@ export default function ChanceToWinColumn({
 
   const drawPopover = useResultPopover({
     enabled: popoverEnabled && rowResults.resultsStatus === "draw",
-    positioning: "element",
     data: {
       stats,
       metric: metric!,
@@ -156,6 +153,7 @@ export default function ChanceToWinColumn({
             <span
               style={{
                 marginLeft: 4,
+                cursor: popoverEnabled ? "pointer" : undefined,
               }}
               onMouseEnter={drawPopover.handleMouseEnter}
               onMouseMove={drawPopover.handleMouseMove}

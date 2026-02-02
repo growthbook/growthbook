@@ -127,7 +127,7 @@ interface UseHoverAnchorReturn {
 const HIDE_DELAY_MS = 150;
 
 export function useHoverAnchor({
-  delayMs = 0,
+  delayMs = 100,
   enabled = true,
   positioning = "cursor",
 }: UseHoverAnchorOptions = {}): UseHoverAnchorReturn {
@@ -331,6 +331,22 @@ export function useHoverAnchor({
   }, [clearHideTimeout, doHide]);
 
   const isVisible = enabled && anchorPos !== null && isActive;
+
+  // Hide popover on scroll
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const handleScroll = () => {
+      doHide();
+    };
+
+    // Use capture phase to catch scroll events from any element
+    window.addEventListener("scroll", handleScroll, { capture: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true });
+    };
+  }, [isVisible, doHide]);
 
   // Use element position if available (for element positioning mode)
   const effectivePos =

@@ -147,9 +147,7 @@ export default function ExperimentResultTooltipContent({
                 <>
                   <br />
                   {timeRemainingMs > 0 ? (
-                    <>
-                      Estimated {formatDistance(0, timeRemainingMs)} remaining
-                    </>
+                    <>About {formatDistance(0, timeRemainingMs)} remaining</>
                   ) : (
                     "Try updating now"
                   )}
@@ -188,7 +186,8 @@ export default function ExperimentResultTooltipContent({
                 size="1"
                 style={{ color: "var(--color-text-mid)" }}
               >
-                The % Change is below the minimum change threshold (
+                <b>Draw:</b> this occurs when the % Change is below the
+                metric&apos;s min change (
                 {percentFormatter.format(minPercentChange)})
               </Text>
             )}
@@ -198,8 +197,8 @@ export default function ExperimentResultTooltipContent({
                 size="1"
                 style={{ color: "var(--color-text-mid)" }}
               >
-                <b>Suspicious</b> result occurs when the % Change is above the
-                maximum threshold (
+                <b>Suspicious:</b> this occurs when the % Change is above the
+                metric&apos;s max change (
                 {percentFormatter.format(suspiciousThreshold)})
               </Text>
             )}
