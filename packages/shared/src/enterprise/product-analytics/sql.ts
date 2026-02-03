@@ -1,5 +1,6 @@
 import { getValidDate } from "shared/dates";
 import { format } from "shared/sql";
+import { SqlHelpers } from "shared/types/sql";
 import {
   RowFilter,
   FactTableInterface,
@@ -18,7 +19,6 @@ import {
   FactTableDataset,
   ProductAnalyticsConfig,
   SqlDataset,
-  SqlHelpers,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
 } from "../../validators/product-analytics";

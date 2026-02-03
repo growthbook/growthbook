@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { FormatDialect } from "shared/types/sql";
 import { rowFilterValidator } from "./fact-table";
 
 const metricDatasetValidator = z
@@ -176,17 +175,3 @@ export type ProductAnalyticsResult = z.infer<
 export type ProductAnalyticsResultRow = z.infer<
   typeof productAnalyticsResultRowValidator
 >;
-
-// SQL helper functions interface
-export interface SqlHelpers {
-  escapeStringLiteral: (s: string) => string;
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
-  evalBoolean: (col: string, value: boolean) => string;
-  dateTrunc: (
-    column: string,
-    granularity: "hour" | "day" | "week" | "month" | "year",
-  ) => string;
-  percentileApprox: (column: string, percentile: number) => string;
-  toTimestamp: (date: Date) => string;
-  formatDialect: FormatDialect;
-}

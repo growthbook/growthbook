@@ -5,6 +5,7 @@ import {
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import { DateTruncGranularity } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
@@ -77,8 +78,8 @@ export default class ClickHouse extends SqlIntegration {
   ): string {
     return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
-  dateTrunc(col: string) {
-    return `dateTrunc('day', ${col})`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    return `dateTrunc('${granularity}', ${col})`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `dateDiff('day', ${startCol}, ${endCol})`;
