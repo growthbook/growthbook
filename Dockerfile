@@ -43,6 +43,8 @@ COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 # Apply patches
 RUN pnpm postinstall
+# Skip sentry-cli binary download during prod install (not needed at runtime)
+ENV SENTRYCLI_SKIP_DOWNLOAD=1
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
