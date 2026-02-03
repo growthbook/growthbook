@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { ExperimentPhase } from "shared/validators";
+import { Changeset } from "shared/types/experiment";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
@@ -12,6 +13,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 
 type UpdateSingleHoldoutJob = Job<{
   holdoutId: string;
@@ -79,7 +81,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
   if (holdoutExperiment.status === "stopped") return;
 
   const now = new Date();
-  let phases = [...holdoutExperiment.phases] as ExperimentPhase[];
+  const phases = [...holdoutExperiment.phases] as ExperimentPhase[];
 
   let newNextScheduledUpdateType:
     | "start"
@@ -92,14 +94,11 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
     logger.info("Start Updating Status for holdout " + holdout.id);
 
     switch (holdout.nextScheduledUpdateType) {
-      case "start":
-        phases[0] = {
-          ...phases[0],
-          dateEnded: undefined,
-        };
-        if (phases[1]) {
-          phases = [phases[0]];
-        }
+      case "start": {
+        const changes: Changeset = await getChangesToStartExperiment(
+          context,
+          holdoutExperiment,
+        );
 
         if (holdout.scheduledStatusUpdates?.startAnalysisPeriodAt) {
           newNextScheduledUpdateType = "startAnalysisPeriod";
@@ -118,7 +117,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
         await updateExperiment({
           context,
           experiment: holdoutExperiment,
-          changes: { phases, status: "running" },
+          changes,
         });
         queueSDKPayloadRefresh({
           context,
@@ -128,7 +127,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
           ),
         });
         break;
-
+      }
       case "startAnalysisPeriod":
         phases[1] = {
           ...phases[0],
