@@ -12,6 +12,7 @@ import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
@@ -38,6 +39,8 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  hideTimeSeries?: boolean;
+  isReportContext?: boolean;
 }
 
 function MetricDrilldownOverview({
@@ -61,8 +64,11 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  hideTimeSeries,
+  isReportContext,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
+  const { isAuthenticated } = useAuth();
   const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
     useSnapshot();
 
@@ -127,12 +133,22 @@ function MetricDrilldownOverview({
         noTooltip={false}
         isBandit={false}
         isHoldout={false}
-        visibleTimeSeriesRowIds={[`${tableId}-${metric.id}-0`]}
+        visibleTimeSeriesRowIds={
+          !hideTimeSeries && isAuthenticated
+            ? [`${tableId}-${metric.id}-0`]
+            : []
+        }
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutateSnapshot}
       />
+
+      {isReportContext && (
+        <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+          Time series data is not available for custom reports.
+        </Text>
+      )}
 
       <Box>
         <Link color="dark" onClick={() => setStatsExpanded(!statsExpanded)}>
@@ -164,12 +180,14 @@ function MetricDrilldownOverview({
           Metric definition
         </Text>
         <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
-        <Flex direction="row" gap="5">
-          <MetricDrilldownMetricCard metric={metric} type="numerator" />
-          {isRatioMetric(metric) && (
-            <MetricDrilldownMetricCard metric={metric} type="denominator" />
-          )}
-        </Flex>
+        {isAuthenticated && (
+          <Flex direction="row" gap="5">
+            <MetricDrilldownMetricCard metric={metric} type="numerator" />
+            {isRatioMetric(metric) && (
+              <MetricDrilldownMetricCard metric={metric} type="denominator" />
+            )}
+          </Flex>
+        )}
       </Flex>
     </Flex>
   );

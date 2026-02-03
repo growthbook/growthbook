@@ -58,6 +58,7 @@ interface MetricDrilldownSlicesProps {
   setVisibleTimeSeriesRowIds: (ids: string[]) => void;
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
+  hideTimeSeries?: boolean;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -87,6 +88,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   visibleTimeSeriesRowIds,
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
+  hideTimeSeries,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -234,7 +236,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         noStickyHeader={true}
         noTooltip={false}
         isBandit={false}
-        showTimeSeriesButton={true}
+        showTimeSeriesButton={!hideTimeSeries}
         isHoldout={false}
         sortBy={sortBy}
         setSortBy={setSortBy}

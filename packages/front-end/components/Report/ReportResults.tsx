@@ -192,6 +192,7 @@ export default function ReportResults({
               report.experimentAnalysisSettings.differenceType || "relative"
             }
             ssrPolyfills={ssrPolyfills}
+            isReportContext={true}
           >
             {showDateResults ? (
               <DateResults

@@ -66,6 +66,9 @@ export interface MetricDrilldownProviderProps {
 
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
+
+  // When true, timeseries is unavailable and a message is shown instead
+  isReportContext?: boolean;
 }
 
 interface OpenModalInfo {
@@ -101,6 +104,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   sortBy,
   sortDirection,
   ssrPolyfills,
+  isReportContext,
 }) => {
   const [openModalInfo, setOpenModalInfo] = useState<OpenModalInfo | null>(
     null,
@@ -188,6 +192,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           initialSliceSearchTerm={openModalInfo.initialSliceSearchTerm}
           dimensionInfo={openModalInfo.dimensionInfo}
           ssrPolyfills={ssrPolyfills}
+          isReportContext={isReportContext}
         />
       )}
     </MetricDrilldownContext.Provider>
