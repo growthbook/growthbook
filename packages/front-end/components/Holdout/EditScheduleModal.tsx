@@ -24,6 +24,23 @@ const validateSchedule = (
   return "";
 };
 
+const checkConsecutiveDates = (
+  startDate: Date | undefined,
+  startAnalysisPeriodDate: Date | undefined,
+  stopDate: Date | undefined,
+) => {
+  const dateError =
+    (startDate &&
+      startAnalysisPeriodDate &&
+      startDate > startAnalysisPeriodDate) ||
+    (startDate && stopDate && startDate > stopDate) ||
+    (startAnalysisPeriodDate && stopDate && startAnalysisPeriodDate > stopDate);
+  if (dateError) {
+    return "Dates must be consecutive";
+  }
+  return "";
+};
+
 const EditScheduleModal = ({
   holdout,
   experiment,
@@ -82,6 +99,16 @@ const EditScheduleModal = ({
             : undefined,
         }
       : undefined;
+
+    const consecutiveDatesError = checkConsecutiveDates(
+      scheduledStatusUpdates?.startAt,
+      scheduledStatusUpdates?.startAnalysisPeriodAt,
+      scheduledStatusUpdates?.stopAt,
+    );
+    if (consecutiveDatesError) {
+      setErrors(consecutiveDatesError);
+      return;
+    }
 
     await apiCall<{
       holdout: HoldoutInterfaceStringDates;

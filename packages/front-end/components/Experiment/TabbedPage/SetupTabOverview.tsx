@@ -160,7 +160,7 @@ export default function SetupTabOverview({
           />
         ) : null}
         {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
-          <Frame>
+          <Frame id="holdout-schedule">
             <Flex align="center" justify="between" className="text-dark">
               <Heading mb="0" as="h4" size="3">
                 Holdout Schedule

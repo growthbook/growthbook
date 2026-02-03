@@ -1,3 +1,4 @@
+import { Box, Text } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 
 export interface Props {
@@ -13,20 +14,26 @@ export default function StartAnalysisModal({ close, startAnalysis }: Props) {
       open={true}
       size="md"
       submit={startAnalysis}
-      cta="Start Now"
+      submitColor="danger"
+      cta="Confirm"
       ctaEnabled={true}
       close={close}
       useRadixButton={true}
-      header="Start Holdout Analysis Period"
+      header="Start Analysis Phase"
     >
-      <div className="p-2">
-        <div>
-          Once you start the Analysis Period you will not be able to add any
-          features or experiments to the holdout. Units will continue to be held
-          out from existing features and experiments and data will continue
-          collecting until you stop the holdout.
-        </div>
-      </div>
+      <Box p="2">
+        <Text style={{ color: "var(--color-text-mid)" }}>
+          Once you start the Analysis Phase:
+          <ul className="pl-4">
+            <li>No new features or experiments can be added to the holdout</li>
+            <li>
+              Units will continue to be held out from existing features and
+              experiments
+            </li>
+            <li>Data will continue collecting until you stop the holdout</li>
+          </ul>
+        </Text>
+      </Box>
     </Modal>
   );
 }

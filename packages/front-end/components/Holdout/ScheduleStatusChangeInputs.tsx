@@ -3,10 +3,8 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { Box, Text } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { format } from "date-fns";
 import { datetime } from "shared/dates";
 import DatePicker from "@/components/DatePicker";
-import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
 
@@ -17,8 +15,6 @@ interface Props {
   holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
 }
-
-const DATE_FORMAT = "yyyy-MM-dd'T'HH:mm";
 
 export default function ScheduleStatusChangeInputs({
   form,
@@ -43,13 +39,6 @@ export default function ScheduleStatusChangeInputs({
     "scheduledStatusUpdates.startAnalysisPeriodAt",
   );
   const stopDate = form.watch("scheduledStatusUpdates.stopAt");
-
-  const dateError =
-    (startDate &&
-      startAnalysisPeriodDate &&
-      startDate > startAnalysisPeriodDate) ||
-    (startDate && stopDate && startDate > stopDate) ||
-    (startAnalysisPeriodDate && stopDate && startAnalysisPeriodDate > stopDate);
 
   return (
     <Box my="4">
@@ -79,12 +68,9 @@ export default function ScheduleStatusChangeInputs({
             <Field
               value={
                 experiment.phases[0].dateStarted
-                  ? format(
-                      new Date(experiment.phases[0].dateStarted),
-                      DATE_FORMAT,
-                    )
+                  ? datetime(experiment.phases[0].dateStarted)
                   : startDate
-                    ? format(new Date(startDate), DATE_FORMAT)
+                    ? datetime(startDate)
                     : ""
               }
               disabled
@@ -117,9 +103,9 @@ export default function ScheduleStatusChangeInputs({
             <Field
               value={
                 holdout.analysisStartDate
-                  ? format(new Date(holdout.analysisStartDate), DATE_FORMAT)
+                  ? datetime(holdout.analysisStartDate)
                   : startAnalysisPeriodDate
-                    ? format(new Date(startAnalysisPeriodDate), DATE_FORMAT)
+                    ? datetime(startAnalysisPeriodDate)
                     : ""
               }
               disabled
@@ -153,23 +139,15 @@ export default function ScheduleStatusChangeInputs({
             <Field
               value={
                 experiment.phases[1].dateEnded
-                  ? format(
-                      new Date(experiment.phases[1].dateEnded),
-                      DATE_FORMAT,
-                    )
+                  ? datetime(experiment.phases[1].dateEnded)
                   : stopDate
-                    ? format(new Date(stopDate), DATE_FORMAT)
+                    ? datetime(stopDate)
                     : ""
               }
               disabled
             />
           </Tooltip>
         </Box>
-      )}
-      {dateError && (
-        <Callout status="error" mb="4">
-          Dates must be consecutive.
-        </Callout>
       )}
     </Box>
   );

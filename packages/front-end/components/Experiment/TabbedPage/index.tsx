@@ -174,8 +174,21 @@ export default function TabbedPage({
   };
 
   useEffect(() => {
+    const getHash = () => {
+      // Prefer window.location.hash; on client-side nav it can be empty at first,
+      // so fall back to router.asPath (Next.js includes hash in asPath on client).
+      const fromWindow =
+        typeof window !== "undefined"
+          ? window.location.hash.replace(/^#/, "")
+          : "";
+      const fromAsPath = router.asPath.includes("#")
+        ? (router.asPath.split("#")[1] ?? "")
+        : "";
+      return fromWindow || fromAsPath;
+    };
+
     const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
+      const hash = getHash() as ExperimentTab;
       let [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
         ...string[],
@@ -193,7 +206,7 @@ export default function TabbedPage({
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab, dashboardsEnabled]);
+  }, [setTab, dashboardsEnabled, router.asPath]);
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 

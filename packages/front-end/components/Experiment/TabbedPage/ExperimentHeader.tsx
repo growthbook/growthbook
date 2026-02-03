@@ -398,6 +398,16 @@ export default function ExperimentHeader({
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
+  const showEditHoldoutScheduleButton =
+    isHoldout &&
+    canEditExperiment &&
+    editHoldoutSchedule &&
+    experiment.status !== "stopped" &&
+    !experiment.archived &&
+    Object.values(holdout?.scheduledStatusUpdates ?? {}).some(
+      (value) => value !== null,
+    );
+
   const runningExperimentDecisionBanner =
     experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
       <RunningExperimentDecisionBanner
@@ -722,7 +732,10 @@ export default function ExperimentHeader({
             {isHoldout &&
             holdout?.nextScheduledUpdate &&
             holdout.nextScheduledUpdateType ? (
-              <Linkbutton variant="ghost" href={`/holdouts/${holdout?.id}`}>
+              <Linkbutton
+                variant="ghost"
+                href={`/holdout/${holdout?.id}#overview`}
+              >
                 {
                   HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
                     holdout.nextScheduledUpdateType
@@ -839,7 +852,7 @@ export default function ExperimentHeader({
                     Edit phase
                   </DropdownMenuItem>
                 )}
-                {editHoldoutSchedule && isHoldout && (
+                {showEditHoldoutScheduleButton && (
                   <DropdownMenuItem
                     onClick={() => {
                       editHoldoutSchedule();
@@ -863,18 +876,12 @@ export default function ExperimentHeader({
                       Add to holdout
                     </DropdownMenuItem>
                   )}
-                <DropdownMenuItem
-                  onClick={() => {
-                    setAuditModal(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Audit log
-                </DropdownMenuItem>
               </DropdownMenuGroup>
               {isHoldout && canRunExperiment && (
                 <>
-                  {holdout?.nextScheduledUpdate && <DropdownMenuSeparator />}
+                  {(holdout?.nextScheduledUpdate ||
+                    experiment.status !== "draft" ||
+                    hasResults) && <DropdownMenuSeparator />}
                   <DropdownMenuGroup>
                     {holdout?.nextScheduledUpdate &&
                       (experiment.status === "running" && editResult ? (
@@ -967,6 +974,14 @@ export default function ExperimentHeader({
                   </DropdownMenuGroup>
                 </>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit log
+              </DropdownMenuItem>
               {/* Only show the separator if one of the following cases is true to avoid double separators */}
               {(showConvertButton ||
                 showShareableReportButton ||

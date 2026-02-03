@@ -114,14 +114,16 @@ export default function EditStatusModal({
           }
         },
       )}
-      cta={isHoldout ? "Update" : "Save"}
+      cta="Update"
+      submitColor="danger"
+      useRadixButton={true}
     >
       {isHoldout && (
         <Box mb="5">
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Changing the status of a Holdout will delete the existing schedule
-            and could change the behavior of associated Feature Flags and
-            Metrics.
+            <strong>Warning: </strong>Changing the status of a Holdout will
+            delete the existing schedule and could change the behavior of
+            associated Feature Flags and Metrics.
           </Text>
         </Box>
       )}

@@ -36,8 +36,7 @@ function getSegmentWeights(
       (differenceInDays(stopDate, startAnalysisPeriodDate) /
         differenceInDays(stopDate, startDate)) *
       100;
-    console.log("firstSegmentWeight", firstSegmentWeight);
-    console.log("secondSegmentWeight", secondSegmentWeight);
+
     return [firstSegmentWeight, secondSegmentWeight, 0];
   }
 
