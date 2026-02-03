@@ -21,10 +21,10 @@ function getSegmentWeights(
   startDate: Date | null,
   startAnalysisPeriodDate: Date | null,
   stopDate: Date | null,
-): [number, number, number] {
-  if (!startDate) return [0, 0, 100]; // Empty Schedule - 100% of the way through
-  if (startDate && !startAnalysisPeriodDate) return [50, 0, 50]; // Only Start Date - 50% of the way through since we don't know the end date
-  if (startDate && startAnalysisPeriodDate && !stopDate) return [40, 40, 20]; // Start Date and Start Analysis Period Date - 40% of the way through for the first segment and 40% of the way through for the second segment since we don't know the end date
+): [number, number] {
+  if (!startDate) return [0, 0]; // Empty Schedule - 100% of the way through
+  if (startDate && !startAnalysisPeriodDate) return [50, 0]; // Only Start Date - 50% of the way through since we don't know the end date
+  if (startDate && startAnalysisPeriodDate && !stopDate) return [40, 40]; // Start Date and Start Analysis Period Date - 40% of the way through for the first segment and 40% of the way through for the second segment since we don't know the end date
 
   // By this point we should have all three dates, so we can calculate the weights
   if (startDate && startAnalysisPeriodDate && stopDate) {
@@ -37,10 +37,10 @@ function getSegmentWeights(
         differenceInDays(stopDate, startDate)) *
       100;
 
-    return [firstSegmentWeight, secondSegmentWeight, 0];
+    return [firstSegmentWeight, secondSegmentWeight];
   }
 
-  return [0, 0, 0]; // This should never happen
+  return [0, 0]; // This should never happen
 }
 
 function getCompletion(startDate: Date | null, endDate: Date | null): number {
@@ -81,8 +81,11 @@ export const HoldoutSchedule = ({
     experiment.phases[1]?.dateEnded,
   );
 
-  const [firstSegmentWeight, secondSegmentWeight, thirdSegmentWeight] =
-    getSegmentWeights(startDate, startAnalysisPeriodDate, stopDate);
+  const [firstSegmentWeight, secondSegmentWeight] = getSegmentWeights(
+    startDate,
+    startAnalysisPeriodDate,
+    stopDate,
+  );
 
   const segments = [
     {
@@ -96,12 +99,6 @@ export const HoldoutSchedule = ({
       weight: secondSegmentWeight,
       completion: getCompletion(startAnalysisPeriodDate, stopDate),
       color: "amber",
-    },
-    {
-      id: "3",
-      weight: thirdSegmentWeight,
-      completion: 0,
-      color: "slate",
     },
   ];
 

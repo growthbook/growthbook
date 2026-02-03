@@ -22,6 +22,16 @@ export function ProgressBar({ segments }: ProgressBarProps) {
   const isFirstSegmentComplete =
     firstSegment != null && firstCompletionPct >= 1;
 
+  const remainingWeight =
+    100 - segments.reduce((acc, segment) => acc + segment.weight, 0);
+  if (remainingWeight > 0) {
+    segments.push({
+      id: "3",
+      weight: remainingWeight,
+      completion: 0,
+      color: "slate",
+    });
+  }
   return (
     <Flex
       wrap="nowrap"
@@ -128,7 +138,10 @@ export function ProgressBar({ segments }: ProgressBarProps) {
                         : isLast
                           ? "0 4px 4px 0"
                           : "0",
-                    backgroundColor: `var(--${segment.color}-a4)`,
+                    backgroundColor:
+                      isLast && remainingWeight > 0
+                        ? "var(--slate-a2)"
+                        : `var(--${segment.color}-a4)`,
                   }}
                 />
               )}
