@@ -33,6 +33,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   firstDateToRender: Date;
   sliceId?: string;
   baselineRow?: number;
+  unavailableMessage?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -65,6 +66,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   firstDateToRender,
   sliceId,
   baselineRow = 0,
+  unavailableMessage,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -85,6 +87,10 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const filteredMetricTimeSeries = useMemo(() => {
     return filterInvalidMetricTimeSeries(data?.timeSeries || []);
   }, [data]);
+
+  if (unavailableMessage) {
+    return <Message height="70px">{unavailableMessage}</Message>;
+  }
 
   if (baselineRow !== 0) {
     return (
@@ -229,13 +235,19 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 }
 
-function Message({ children }: { children: React.ReactNode }) {
+function Message({
+  children,
+  height = "220px",
+}: {
+  children: React.ReactNode;
+  height?: string;
+}) {
   return (
     <Flex
       align="center"
-      height="220px"
+      height={height}
       justify="center"
-      pb="1rem"
+      mb="-1rem"
       position="relative"
       width="100%"
     >

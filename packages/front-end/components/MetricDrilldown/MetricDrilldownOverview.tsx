@@ -39,8 +39,7 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
-  hideTimeSeries?: boolean;
-  isReportContext?: boolean;
+  timeSeriesMessage?: string;
 }
 
 function MetricDrilldownOverview({
@@ -64,8 +63,7 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
-  hideTimeSeries,
-  isReportContext,
+  timeSeriesMessage,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -134,21 +132,14 @@ function MetricDrilldownOverview({
         isBandit={false}
         isHoldout={false}
         visibleTimeSeriesRowIds={
-          !hideTimeSeries && isAuthenticated
-            ? [`${tableId}-${metric.id}-0`]
-            : []
+          isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
         }
+        timeSeriesMessage={timeSeriesMessage}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutateSnapshot}
       />
-
-      {isReportContext && (
-        <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-          Time series data is not available for custom reports.
-        </Text>
-      )}
 
       <Box>
         <Link color="dark" onClick={() => setStatsExpanded(!statsExpanded)}>

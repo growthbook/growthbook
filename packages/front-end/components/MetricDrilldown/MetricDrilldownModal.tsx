@@ -223,9 +223,11 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
+  const hideTimeSeries = isReportContext || !!dimensionInfo;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
+        !hideTimeSeries &&
         isAuthenticated &&
         initialTab === "slices" &&
         initialSliceSearchTerm
@@ -239,6 +241,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   // TODO: Check if this is needed
   useEffect(() => {
     if (
+      !hideTimeSeries &&
       isAuthenticated &&
       initialTab === "slices" &&
       initialSliceSearchTerm &&
@@ -263,6 +266,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
       }
     }
   }, [
+    hideTimeSeries,
     isAuthenticated,
     allRows,
     experimentId,
@@ -303,8 +307,13 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           localDifferenceType={localDifferenceType}
           setLocalDifferenceType={setLocalDifferenceType}
           sequentialTestingEnabled={sequentialTestingEnabled}
-          hideTimeSeries={isReportContext || !!dimensionInfo}
-          isReportContext={isReportContext}
+          timeSeriesMessage={
+            isReportContext
+              ? "Time series data is not available for custom reports."
+              : dimensionInfo
+                ? "Time series is not available for unit dimension breakdowns."
+                : undefined
+          }
         />
       </TabsContent>
       <TabsContent value="slices">
