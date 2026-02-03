@@ -35,6 +35,8 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { determineNextDate } from "back-end/src/services/experiments";
+import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
@@ -380,6 +382,34 @@ export class DashboardModel extends BaseClass {
         savedQueryId: newIdMapping[block.savedQueryId] ?? block.savedQueryId,
       };
     });
+  }
+
+  public async updateById(
+    id: string,
+    updates: UpdateProps<DashboardInterface>,
+  ): Promise<DashboardInterface> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error("Could not find dashboard to update");
+    }
+
+    // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
+    const dashboardUpdates = {
+      ...updates,
+    } as Partial<DashboardInterface>;
+
+    if (updates.enableAutoUpdates === false) {
+      // Auto-updates being disabled - clear the nextUpdate
+      dashboardUpdates.nextUpdate = undefined;
+    } else if (shouldRecalculateNextUpdate(updates, existing)) {
+      // Recalculate nextUpdate based on the schedule
+      const schedule = updates.updateSchedule ?? existing.updateSchedule;
+      dashboardUpdates.nextUpdate = schedule
+        ? (determineNextDate(schedule) ?? undefined)
+        : undefined;
+    }
+
+    return super.updateById(id, { ...updates, ...dashboardUpdates });
   }
 
   public toApiInterface(dashboard: DashboardInterface): ApiDashboardInterface {

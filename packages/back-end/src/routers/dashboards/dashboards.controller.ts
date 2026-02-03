@@ -31,12 +31,8 @@ import {
   updateDashboardMetricAnalyses,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
-  shouldRecalculateNextUpdate,
 } from "back-end/src/enterprise/services/dashboards";
-import {
-  determineNextDate,
-  getAdditionalQueryMetadataForExperiment,
-} from "back-end/src/services/experiments";
+import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -161,25 +157,9 @@ export async function updateDashboard(
     updates.blocks = createdBlocks;
   }
 
-  // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
-  const dashboardUpdates = {
-    ...updates,
-  } as Partial<DashboardInterface>;
-
-  if (updates.enableAutoUpdates === false) {
-    // Auto-updates being disabled - clear the nextUpdate
-    dashboardUpdates.nextUpdate = undefined;
-  } else if (shouldRecalculateNextUpdate(updates, dashboard)) {
-    // Recalculate nextUpdate based on the schedule
-    const schedule = updates.updateSchedule ?? dashboard.updateSchedule;
-    dashboardUpdates.nextUpdate = schedule
-      ? (determineNextDate(schedule) ?? undefined)
-      : undefined;
-  }
-
   const updatedDashboard = await context.models.dashboards.updateById(
     id,
-    dashboardUpdates,
+    updates as Partial<DashboardInterface>,
   );
 
   res.status(200).json({
