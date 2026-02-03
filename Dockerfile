@@ -28,6 +28,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
+COPY .npmrc ./.npmrc
 COPY package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -55,12 +56,12 @@ RUN \
   && rm -rf packages/sdk-react/node_modules \
   && pnpm install --frozen-lockfile --prod --no-optional \
   && pnpm store prune \
-  && find node_modules -name "*.md" -delete \
-  && find node_modules -name "*.ts" ! -name "*.d.ts" -delete \
-  && find node_modules -name "*.map" -delete \
-  && find node_modules -name "CHANGELOG*" -delete \
-  && find node_modules -name "LICENSE*" -delete \
-  && find node_modules -name "README*" -delete \
+  && find node_modules -type f -name "*.md" -delete \
+  && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
+  && find node_modules -type f -name "*.map" -delete \
+  && find node_modules -type f -name "CHANGELOG*" -delete \
+  && find node_modules -type f -name "LICENSE*" -delete \
+  && find node_modules -type f -name "README*" -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
 RUN pnpm postinstall
 
@@ -69,7 +70,10 @@ RUN pnpm postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+# TODO: Remove openssl upgrade once base image has version >3.5.4-1~deb13u2
+# Check with: `docker run --rm python:3.11-slim dpkg -l | grep openssl`
 RUN apt-get update && \
+  apt-get install --only-upgrade -y openssl && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
