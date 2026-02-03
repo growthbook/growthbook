@@ -42,7 +42,7 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/MetricDrilldownContext";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";

@@ -55,6 +55,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
+import { accountFeatures } from "shared/enterprise";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -77,6 +78,7 @@ import {
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -921,6 +923,12 @@ export async function generateExperimentReportSSRData({
     }
   }
 
+  // Include commercial features so public pages can check feature access
+  // based on the owning org rather than the (potentially unauthenticated) viewer
+  const commercialFeatures = [
+    ...accountFeatures[getEffectiveAccountPlan(context.org)],
+  ];
+
   return {
     metrics: metricMap,
     metricGroups,
@@ -929,5 +937,6 @@ export async function generateExperimentReportSSRData({
     settings: orgSettings,
     projects: projectMap,
     dimensions,
+    commercialFeatures,
   };
 }

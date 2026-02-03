@@ -16,6 +16,7 @@ import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import PublicExperimentAnalysisSettingsBar from "@/components/Experiment/Public/PublicExperimentAnalysisSettingsBar";
 
 export default function PublicExperimentResults({
@@ -117,7 +118,28 @@ export default function PublicExperimentResults({
             <LoadingSpinner />
           </div>
         ) : (
-          <>
+          <MetricDrilldownProvider
+            experimentId={experiment.id}
+            phase={phase}
+            experimentStatus={experiment.status}
+            analysis={analysis ?? null}
+            variations={variations}
+            goalMetrics={experiment.goalMetrics}
+            secondaryMetrics={experiment.secondaryMetrics}
+            guardrailMetrics={experiment.guardrailMetrics}
+            metricOverrides={experiment.metricOverrides ?? []}
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+            customMetricSlices={experiment.customMetricSlices}
+            statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+            pValueCorrection={pValueCorrection}
+            startDate={phaseObj?.dateStarted ?? ""}
+            endDate={phaseObj?.dateEnded ?? ""}
+            reportDate={snapshot.dateCreated}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            differenceType={analysis?.settings?.differenceType || "relative"}
+            ssrPolyfills={ssrPolyfills}
+          >
             {showDateResults ? (
               <DateResults
                 goalMetrics={experiment.goalMetrics}
@@ -185,7 +207,7 @@ export default function PublicExperimentResults({
                 ssrPolyfills={ssrPolyfills}
               />
             ) : null}
-          </>
+          </MetricDrilldownProvider>
         )}
       </div>
     </>

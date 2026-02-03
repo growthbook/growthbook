@@ -58,7 +58,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/MetricDrilldownContext";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";

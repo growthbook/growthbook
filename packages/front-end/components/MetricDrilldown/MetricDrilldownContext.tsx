@@ -1,11 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  FC,
-  ReactNode,
-} from "react";
+import React, { useState, useCallback, FC, ReactNode } from "react";
 import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
 import {
   ExperimentReportVariation,
@@ -19,26 +12,17 @@ import {
 } from "shared/types/stats";
 import { formatDimensionValueForDisplay } from "shared/experiments";
 import { ExperimentTableRow } from "@/services/experiments";
-import MetricDrilldownModal, {
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import MetricDrilldownModal from "./MetricDrilldownModal";
+import {
+  MetricDrilldownContext,
+  MetricDrilldownContextValue,
+  DrilldownOptions,
   MetricDrilldownTab,
-} from "./MetricDrilldownModal";
+} from "./useMetricDrilldownContext";
 
-interface DrilldownOptions {
-  initialTab?: MetricDrilldownTab;
-  initialSliceSearchTerm?: string;
-  dimensionInfo?: { name: string; value: string };
-}
-
-interface MetricDrilldownContextValue {
-  openDrilldown: (row: ExperimentTableRow, options?: DrilldownOptions) => void;
-}
-
-const MetricDrilldownContext =
-  createContext<MetricDrilldownContextValue | null>(null);
-
-export function useMetricDrilldownContext(): MetricDrilldownContextValue | null {
-  return useContext(MetricDrilldownContext);
-}
+// Re-export for consumers
+export { useMetricDrilldownContext } from "./useMetricDrilldownContext";
 
 export interface MetricDrilldownProviderProps {
   children: ReactNode;
@@ -79,6 +63,9 @@ export interface MetricDrilldownProviderProps {
   // Optional sorting state
   sortBy?: "significance" | "change" | null;
   sortDirection?: "asc" | "desc" | null;
+
+  // SSR polyfills for public pages
+  ssrPolyfills?: SSRPolyfills;
 }
 
 interface OpenModalInfo {
@@ -113,6 +100,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   variationFilter,
   sortBy,
   sortDirection,
+  ssrPolyfills,
 }) => {
   const [openModalInfo, setOpenModalInfo] = useState<OpenModalInfo | null>(
     null,
@@ -199,6 +187,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           initialSortDirection={sortDirection}
           initialSliceSearchTerm={openModalInfo.initialSliceSearchTerm}
           dimensionInfo={openModalInfo.dimensionInfo}
+          ssrPolyfills={ssrPolyfills}
         />
       )}
     </MetricDrilldownContext.Provider>

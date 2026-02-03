@@ -25,6 +25,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import { useKeydown } from "@/hooks/useKeydown";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { useUser } from "@/services/UserContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
@@ -36,8 +37,12 @@ import styles from "./MetricDrilldownModal.module.scss";
 import MetricDrilldownOverview from "./MetricDrilldownOverview";
 import MetricDrilldownSlices from "./MetricDrilldownSlices";
 import MetricDrilldownDebug from "./MetricDrilldownDebug";
+import {
+  MetricDrilldownContext,
+  type MetricDrilldownTab,
+} from "./useMetricDrilldownContext";
 
-export type MetricDrilldownTab = "overview" | "slices" | "debug";
+export type { MetricDrilldownTab };
 
 interface MetricDrilldownModalProps {
   // The clicked metric row - used to identify which metric to display
@@ -315,6 +320,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setSearchTerm={setSliceSearchTerm}
           visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+          ssrPolyfills={ssrPolyfills}
         />
       </TabsContent>
       <TabsContent value="debug">
@@ -385,6 +391,12 @@ const MetricDrilldownModal = ({
   useKeydown("Escape", close);
   useBodyScrollLock(true);
   const { metric } = row;
+  const { hasCommercialFeature } = useUser();
+
+  // Check if the owning org has the feature (via SSR data), falling back to the current user's org
+  const ownerHasMetricSlices =
+    ssrPolyfills?.hasCommercialFeature("metric-slices") ||
+    hasCommercialFeature("metric-slices");
 
   // Get snapshot from global snapshot context, to initialize LocalSnapshotProvider
   const {
@@ -506,10 +518,12 @@ const MetricDrilldownModal = ({
               <TabsTrigger value="slices">
                 <Flex align="center" gap="1">
                   Slices
-                  <PaidFeatureBadge
-                    commercialFeature="metric-slices"
-                    useTip={false}
-                  />
+                  {!ownerHasMetricSlices && (
+                    <PaidFeatureBadge
+                      commercialFeature="metric-slices"
+                      useTip={false}
+                    />
+                  )}
                 </Flex>
               </TabsTrigger>
               <TabsTrigger value="debug">Debug</TabsTrigger>
@@ -523,19 +537,21 @@ const MetricDrilldownModal = ({
         submit={close}
         autoFocusSelector=""
       >
-        {parentSnapshot && experiment ? (
-          <LocalSnapshotProvider
-            experiment={experiment}
-            snapshot={parentSnapshot}
-            phase={contextPhase}
-            dimension={dimension}
-            initialAnalysisSettings={parentAnalysisSettings}
-          >
+        <MetricDrilldownContext.Provider value={null}>
+          {parentSnapshot && experiment ? (
+            <LocalSnapshotProvider
+              experiment={experiment}
+              snapshot={parentSnapshot}
+              phase={contextPhase}
+              dimension={dimension}
+              initialAnalysisSettings={parentAnalysisSettings}
+            >
+              <MetricDrilldownContent {...contentProps} />
+            </LocalSnapshotProvider>
+          ) : (
             <MetricDrilldownContent {...contentProps} />
-          </LocalSnapshotProvider>
-        ) : (
-          <MetricDrilldownContent {...contentProps} />
-        )}
+          )}
+        </MetricDrilldownContext.Provider>
       </Modal>
     </Tabs>
   );

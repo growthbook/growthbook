@@ -38,7 +38,7 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/MetricDrilldownContext";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
 import UsersTable from "./UsersTable";
 
@@ -209,7 +209,13 @@ const BreakDownResults: FC<{
           typeof row.label === "string"
             ? formatDimensionValueForDisplay(row.label)
             : "";
-        effectiveOnRowClick(row, { name: dimension, value });
+        if (onRowClick) {
+          onRowClick(row, { name: dimension, value });
+        } else if (drilldownContext) {
+          drilldownContext.openDrilldown(row, {
+            dimensionInfo: { name: dimension, value },
+          });
+        }
       }
     : undefined;
 
