@@ -4,21 +4,16 @@ import { PiPlusBold } from "react-icons/pi";
 import clsx from "clsx";
 import Link from "@/ui/Link";
 
-/** Card container for a condition group: renders header, wraps children in a Flex, optionally renders addButton below. */
-export function ConditionGroupCard({
+export function TargetingConditionsCard({
   targetingType,
   total,
-  extendToCardEdges,
   children,
   addButton,
   className,
 }: {
   targetingType: ConditionGroupTargetingType;
   total: number;
-  /** When true, header extends to card left/right edges. */
-  extendToCardEdges?: boolean;
   children: React.ReactNode;
-  /** Rendered below the content Flex with anti-stretch wrapper. */
   addButton?: React.ReactNode;
   className?: string;
 }) {
@@ -38,11 +33,7 @@ export function ConditionGroupCard({
         }}
       ></div>
       <Flex direction="column" gap="2" ml="1">
-        <ConditionGroupHeader
-          targetingType={targetingType}
-          total={total}
-          extendToCardEdges={extendToCardEdges}
-        />
+        <ConditionGroupHeader targetingType={targetingType} total={total} />
         <Flex direction="column" gap="4">
           {children}
         </Flex>
@@ -61,38 +52,26 @@ export type ConditionGroupTargetingType =
   | "group"
   | "prerequisite";
 
-/** Group header strip; label is derived from targeting type and index (attribute) or total (group). */
 export function ConditionGroupHeader({
   targetingType,
   total,
-  extendToCardEdges,
 }: {
   targetingType: ConditionGroupTargetingType;
   total: number;
-  /** When true, header extends to card left/right edges (use when Card has horizontal padding). */
-  extendToCardEdges?: boolean;
 }) {
   let label: React.ReactNode;
   if (targetingType === "attribute") {
-    label = `PASS IF`;
+    label = `INCLUDE IF`;
   } else if (targetingType === "group") {
-    label = `PASS IF`;
+    label = `INCLUDE IF IN`;
   } else {
-    label = `PASS IF PREREQUISITE${total > 1 ? "S" : ""} MET`;
+    label = `INCLUDE IF`;
   }
 
   return (
     <Flex
       className="gb-condition-group-header"
-      justify="between"
       align="center"
-      px="4"
-      style={{
-        ...(extendToCardEdges && {
-          marginLeft: "calc(-1 * var(--space-4))",
-          marginRight: "calc(-1 * var(--space-4))",
-        }),
-      }}
     >
       <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
         {label}
@@ -101,7 +80,7 @@ export function ConditionGroupHeader({
   );
 }
 
-/** Single condition row: responsive flex layout maintaining 25%/25%/50% proportions. Optional prefix and remove slots. */
+// Responsive flex layout: 25%/25%/50% proportions
 export function ConditionRow({
   prefixSlot,
   attributeSlot,
@@ -154,7 +133,6 @@ export function ConditionRow({
   );
 }
 
-/** Reusable AND/OR label text. */
 export function ConditionRowLabel({ label }: { label: string }) {
   return (
     <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
@@ -163,7 +141,6 @@ export function ConditionRowLabel({ label }: { label: string }) {
   );
 }
 
-/** OR separator: -------- OR -------- */
 export function OrSeparator() {
   return (
     <Flex align="center" gap="3" my="5" className="gb-or-separator">
@@ -176,7 +153,6 @@ export function OrSeparator() {
   );
 }
 
-/** Button with plus icon; default label "+ Add condition". */
 export function AddConditionButton({
   onClick,
   children,
@@ -185,7 +161,7 @@ export function AddConditionButton({
   children?: React.ReactNode;
 }) {
   return (
-    <Link onClick={onClick} style={{ cursor: "pointer" }}>
+    <Link onClick={onClick}>
       <Text weight="bold">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
@@ -194,11 +170,10 @@ export function AddConditionButton({
   );
 }
 
-/** Button with plus icon and "+ Add OR group" text. */
 export function AddOrGroupButton({ onClick }: { onClick: () => void }) {
   return (
     <Box my="4">
-      <Link onClick={onClick} style={{ cursor: "pointer" }}>
+      <Link onClick={onClick}>
         <Text weight="bold">
           <PiPlusBold className="mr-1" />
           Add OR group

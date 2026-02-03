@@ -6,7 +6,6 @@ import {
 import { PiXBold, PiPlusCircleBold, PiArrowSquareOut, PiInfo } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
 import { getDefaultPrerequisiteCondition } from "shared/util";
-import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
@@ -44,10 +43,10 @@ import {
   useBatchPrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import {
-  ConditionGroupCard,
+  TargetingConditionsCard,
   AddConditionButton,
   ConditionRowLabel,
-} from "@/components/Features/ConditionGroup";
+} from "@/components/Features/TargetingConditionsCard";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -297,10 +296,9 @@ export default function PrerequisiteTargetingField({
         </PremiumTooltip>
       </Flex>
       {value.length > 0 ? (
-        <ConditionGroupCard
+        <TargetingConditionsCard
           targetingType="prerequisite"
           total={value.length}
-          extendToCardEdges
           addButton={
             hasPrerequisitesCommercialFeature ? (
               <AddConditionButton
@@ -545,7 +543,7 @@ export default function PrerequisiteTargetingField({
               </React.Fragment>
             );
           })}
-        </ConditionGroupCard>
+        </TargetingConditionsCard>
       ) : (
         <Box>
           <Text color="gray" style={{ fontStyle: "italic" }} mr="3" mb="2">
@@ -597,15 +595,13 @@ function PrereqStatesRows({
   featureProject: string;
   loading?: boolean;
 }) {
-  const [showDetails, setShowDetails] = useState(true);
-
   if (!parentFeature || !parentFeature.id) {
     return null;
   }
 
   return (
     <>
-      <Flex align="center" justify="between" mt="1" mb="2">
+      <Box mt="1" mb="2">
         <Link
           href={`/features/${parentFeature.id}`}
           target="_blank"
@@ -613,18 +609,7 @@ function PrereqStatesRows({
         >
           {parentFeature.id} <PiArrowSquareOut />
         </Link>
-        <Link onClick={() => setShowDetails(!showDetails)}>
-          {showDetails ? (
-            <>
-              <BiHide /> Hide details
-            </>
-          ) : (
-            <>
-              <BiShow /> Show details
-            </>
-          )}
-        </Link>
-      </Flex>
+      </Box>
 
       {(parentFeature?.project || "") !== featureProject ? (
         <Callout
@@ -640,8 +625,7 @@ function PrereqStatesRows({
         </Callout>
       ) : null}
 
-      {showDetails && (
-        <Box mb="4" style={{ maxWidth: "100%", overflowX: "auto" }}>
+      <Box mb="4" style={{ maxWidth: "100%", overflowX: "auto" }}>
           <table className="table table-sm border mb-0">
             <thead className="text-dark">
               <tr>
@@ -684,7 +668,6 @@ function PrereqStatesRows({
             </tbody>
           </table>
         </Box>
-      )}
     </>
   );
 }

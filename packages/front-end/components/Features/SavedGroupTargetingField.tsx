@@ -13,11 +13,11 @@ import LargeSavedGroupPerformanceWarning, {
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import {
-  ConditionGroupCard,
+  TargetingConditionsCard,
   ConditionRow,
   AddConditionButton,
   ConditionRowLabel,
-} from "./ConditionGroup";
+} from "./TargetingConditionsCard";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -114,10 +114,9 @@ export default function SavedGroupTargetingField({
           ))}
         </Callout>
       )}
-      <ConditionGroupCard
+      <TargetingConditionsCard
         targetingType="group"
         total={value.length}
-        extendToCardEdges
         addButton={
           <AddConditionButton
             onClick={() => {
@@ -142,9 +141,7 @@ export default function SavedGroupTargetingField({
                 prefixSlot={
                 i > 0 ? (
                   <ConditionRowLabel label="AND" />
-                ) : (
-                  <ConditionRowLabel label="IN" />
-                )
+                ) : null
               }
             attributeSlot={
               <SelectField
@@ -210,7 +207,7 @@ export default function SavedGroupTargetingField({
           </React.Fragment>
         ))}
         </>
-      </ConditionGroupCard>
+      </TargetingConditionsCard>
     </Box>
   );
 }

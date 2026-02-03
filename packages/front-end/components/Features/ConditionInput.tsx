@@ -42,13 +42,13 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
-  ConditionGroupCard,
+  TargetingConditionsCard,
   ConditionRow,
   OrSeparator,
   AddConditionButton,
   AddOrGroupButton,
   ConditionRowLabel,
-} from "./ConditionGroup";
+} from "./TargetingConditionsCard";
 
 export function ConditionLabel({
   label,
@@ -346,10 +346,9 @@ export default function ConditionInput(props: Props) {
       {conds.map((andGroup, i) => (
         <Box key={i}>
           {i > 0 && <OrSeparator />}
-          <ConditionGroupCard
+          <TargetingConditionsCard
             targetingType="attribute"
             total={conds.length}
-            extendToCardEdges
             addButton={
               attributeSchema.length > 0 ? (
                 <AddConditionButton
@@ -395,7 +394,7 @@ export default function ConditionInput(props: Props) {
               allowNestedSavedGroups={props.allowNestedSavedGroups}
               excludeSavedGroupId={props.excludeSavedGroupId}
             />
-          </ConditionGroupCard>
+          </TargetingConditionsCard>
         </Box>
       ))}
 
