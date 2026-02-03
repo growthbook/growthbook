@@ -9,10 +9,10 @@ export type Segment = {
 };
 
 type ProgressBarProps = {
-  segments?: Segment[];
+  segments: Segment[];
 };
 
-export function ProgressBar({ segments = [] }: ProgressBarProps) {
+export function ProgressBar({ segments }: ProgressBarProps) {
   const firstSegment = segments[0];
   const firstCompletionPct =
     firstSegment &&
