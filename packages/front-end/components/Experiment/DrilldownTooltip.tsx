@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
-import { useHoverAnchor } from "@/hooks/useHoverAnchor";
+import { Text, Theme } from "@radix-ui/themes";
+import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 
 /**
  * Check if an element is interactive (links, buttons, etc.)
@@ -16,6 +17,7 @@ export function isInteractiveElement(target: HTMLElement): boolean {
 interface DrilldownTooltipHandlers {
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseLeave: () => void;
+  onClick: () => void;
 }
 
 interface DrilldownTooltipProps {
@@ -28,39 +30,43 @@ interface DrilldownTooltipProps {
  * Uses render props pattern to pass mouse handlers to children.
  */
 export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
-  const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderTooltip } =
-    useHoverAnchor({
-      delayMs: 1500,
-      enabled,
-      positioning: "cursor",
-    });
+  const { triggerProps, close, renderTooltip } = useHoverTooltip({
+    delayMs: 1500,
+    enabled,
+    positioning: "cursor",
+  });
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (isInteractiveElement(target)) {
-        handleMouseLeave();
+        close();
         return;
       }
 
-      handleMouseEnter(e);
-      handleMouseMove(e);
+      triggerProps.onMouseEnter(e);
+      triggerProps.onMouseMove(e);
     },
-    [handleMouseEnter, handleMouseMove, handleMouseLeave],
+    [triggerProps, close],
   );
 
   return (
     <>
       {children({
         onMouseMove,
-        onMouseLeave: handleMouseLeave,
+        onMouseLeave: close,
+        onClick: close,
       })}
       {renderTooltip(
-        <>
-          Click anywhere in a row to
-          <br />
-          open the Metric Drilldown.
-        </>,
+        <Theme>
+          <div className="rt-TooltipContent">
+            <Text as="p" className="rt-TooltipText" size="1">
+              Click anywhere in a row to
+              <br />
+              open the Metric Drilldown.
+            </Text>
+          </div>
+        </Theme>,
       )}
     </>
   );
