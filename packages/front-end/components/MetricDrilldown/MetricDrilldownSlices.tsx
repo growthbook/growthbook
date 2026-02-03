@@ -46,7 +46,7 @@ interface MetricDrilldownSlicesProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   // Initial sorting state (inherited from main table, managed locally)
   initialSortBy: ExperimentSortBy;
   initialSortDirection: "asc" | "desc" | null;
@@ -59,6 +59,7 @@ interface MetricDrilldownSlicesProps {
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
   hideTimeSeries?: boolean;
+  isReportContext?: boolean;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -89,6 +90,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
   hideTimeSeries,
+  isReportContext,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -249,6 +251,7 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutate}
+        isReportContext={isReportContext}
       />
     </Box>
   );

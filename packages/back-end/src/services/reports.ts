@@ -923,8 +923,8 @@ export async function generateExperimentReportSSRData({
     }
   }
 
-  // Include commercial features so public pages can check feature access
-  // based on the owning org rather than the (potentially unauthenticated) viewer
+  // Ensure we show slices if the org has access
+  // For public pages, we need to check against the org and not the user
   const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
   const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
   const commercialFeatures = publicRelevantFeatures.filter((f) =>

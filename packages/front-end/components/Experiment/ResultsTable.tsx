@@ -77,7 +77,7 @@ export type ResultsTableProps = {
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
-  status: ExperimentStatus;
+  status?: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   phase: number;
@@ -134,6 +134,7 @@ export type ResultsTableProps = {
   visibleTimeSeriesRowIds?: string[];
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
   timeSeriesMessage?: string;
+  isReportContext?: boolean;
 };
 
 const ROW_HEIGHT = 46;
@@ -202,6 +203,7 @@ export default function ResultsTable({
   visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
   onVisibleTimeSeriesRowIdsChange,
   timeSeriesMessage,
+  isReportContext,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -484,6 +486,7 @@ export default function ResultsTable({
             phaseStartDate: getValidDate(startDate),
             isLatestPhase,
             experimentStatus: status,
+            isReportContext,
           });
           rr[i].push(rowResults);
         });
@@ -508,6 +511,7 @@ export default function ResultsTable({
       queryStatusData,
       ssrPolyfills,
       getExperimentMetricById,
+      isReportContext,
     ]);
 
   const noRows = rows.length === 0;
@@ -1285,7 +1289,6 @@ export default function ResultsTable({
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
                                           phase={phase}
-                                          experimentStatus={status}
                                           metric={row.metric}
                                           differenceType={differenceType}
                                           variationNames={orderedVariations.map(

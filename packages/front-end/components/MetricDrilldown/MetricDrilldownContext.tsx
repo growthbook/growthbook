@@ -30,7 +30,7 @@ export interface MetricDrilldownProviderProps {
   // Required experiment/analysis data
   experimentId: string;
   phase: number;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   analysis: ExperimentSnapshotAnalysis | null;
   variations: ExperimentReportVariation[];
 

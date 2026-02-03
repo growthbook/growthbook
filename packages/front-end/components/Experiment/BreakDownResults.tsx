@@ -209,13 +209,7 @@ const BreakDownResults: FC<{
           typeof row.label === "string"
             ? formatDimensionValueForDisplay(row.label)
             : "";
-        if (onRowClick) {
-          onRowClick(row, { name: dimension, value });
-        } else if (drilldownContext) {
-          drilldownContext.openDrilldown(row, {
-            dimensionInfo: { name: dimension, value },
-          });
-        }
+        effectiveOnRowClick(row, { name: dimension, value });
       }
     : undefined;
 

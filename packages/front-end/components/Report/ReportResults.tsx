@@ -160,9 +160,8 @@ export default function ReportResults({
           </div>
         ) : (
           <MetricDrilldownProvider
-            experimentId={snapshot.experiment}
+            experimentId={report.experimentId ?? ""}
             phase={phase}
-            experimentStatus="stopped"
             analysis={analysis ?? null}
             variations={variations}
             goalMetrics={report.experimentAnalysisSettings.goalMetrics}
@@ -180,14 +179,17 @@ export default function ReportResults({
               report.experimentAnalysisSettings.customMetricSlices
             }
             statsEngine={
-              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+              report.experimentAnalysisSettings?.statsEngine ||
+              DEFAULT_STATS_ENGINE
             }
             pValueCorrection={pValueCorrection}
             startDate={getValidDate(phaseObj.dateStarted).toISOString()}
             endDate={getValidDate(phaseObj.dateEnded).toISOString()}
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === phases.length - 1}
-            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            sequentialTestingEnabled={
+              report.experimentAnalysisSettings?.sequentialTestingEnabled
+            }
             differenceType={
               report.experimentAnalysisSettings.differenceType || "relative"
             }

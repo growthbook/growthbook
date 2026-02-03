@@ -76,7 +76,7 @@ interface MetricDrilldownModalProps {
   // Experiment context props
   experimentId: string;
   phase: number;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
   startDate: string;
   endDate: string;
@@ -129,7 +129,7 @@ interface MetricDrilldownContentProps {
   setLocalDifferenceType: (type: DifferenceType) => void;
   experimentId: string;
   phase: number;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
   startDate: string;
   endDate: string;
@@ -314,6 +314,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
                 ? "Time series is not available for unit dimension breakdowns."
                 : undefined
           }
+          isReportContext={isReportContext}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -346,6 +347,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           ssrPolyfills={ssrPolyfills}
           hideTimeSeries={hideTimeSeries}
+          isReportContext={isReportContext}
         />
       </TabsContent>
       <TabsContent value="debug">
@@ -370,6 +372,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
           variationNames={variations.map((v) => v.name)}
+          isReportContext={isReportContext}
         />
       </TabsContent>
     </>

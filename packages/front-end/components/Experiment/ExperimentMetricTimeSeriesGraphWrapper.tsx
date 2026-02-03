@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentStatus, MetricTimeSeries } from "shared/validators";
+import { MetricTimeSeries } from "shared/validators";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
@@ -23,7 +23,6 @@ import ExperimentTimeSeriesGraph, {
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
   phase: number;
-  experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
   variationNames: string[];
@@ -56,7 +55,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
   phase,
-  experimentStatus,
   metric,
   differenceType,
   variationNames,
@@ -137,8 +135,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
     });
-  } else if (experimentStatus === "running") {
-    // When experiment is running, always show one additional day at the end of the graph
+  } else {
+    // Always show one additional day at the end of the graph
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 1),
     });
