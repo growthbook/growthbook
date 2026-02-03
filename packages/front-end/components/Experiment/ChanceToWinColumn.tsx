@@ -52,34 +52,41 @@ export default function ChanceToWinColumn({
   minSampleSize = 0,
   ...otherProps
 }: Props) {
-  const { isDraw, SuspiciousTrigger, NotEnoughDataTrigger, DrawTrigger } =
-    useColumnStatusPopovers({
-      stats,
-      rowResults,
-      metric,
-      differenceType,
-      statsEngine,
-      ssrPolyfills,
-      minSampleSize,
-      showSuspicious,
-    });
+  const { statusType, Trigger } = useColumnStatusPopovers({
+    stats,
+    rowResults,
+    metric,
+    differenceType,
+    statsEngine,
+    ssrPolyfills,
+    minSampleSize,
+    showSuspicious,
+  });
 
-  return (
-    <td className={clsx("chance align-middle", className)} {...otherProps}>
-      {!baseline?.value || !stats?.value ? (
-        <em className="text-muted small">No data</em>
-      ) : hideScaledImpact ? (
-        <NoScaledImpact />
-      ) : !rowResults.enoughData ? (
-        <NotEnoughDataTrigger>
+  const renderContent = () => {
+    if (!baseline?.value || !stats?.value) {
+      return <em className="text-muted small">No data</em>;
+    }
+
+    if (hideScaledImpact) {
+      return <NoScaledImpact />;
+    }
+
+    if (statusType === "notEnoughData") {
+      return (
+        <Trigger>
           <NotEnoughData
             rowResults={rowResults}
             showTimeRemaining={showTimeRemaining}
             showPercentComplete={showPercentComplete}
           />
-        </NotEnoughDataTrigger>
-      ) : isDraw ? (
-        <DrawTrigger>
+        </Trigger>
+      );
+    }
+
+    if (statusType === "draw" || statusType === "suspicious") {
+      return (
+        <Trigger>
           <Flex direction="row" align="center" gap="1">
             <div className="result-number d-inline-block">
               {percentFormatter.format(stats.chanceToWin ?? 0)}
@@ -89,24 +96,20 @@ export default function ChanceToWinColumn({
               style={{ color: "var(--color-text-high)" }}
             />
           </Flex>
-        </DrawTrigger>
-      ) : showSuspicious && rowResults.suspiciousChange ? (
-        <SuspiciousTrigger>
-          <Flex direction="row" align="center" gap="1">
-            <div className="result-number d-inline-block">
-              {percentFormatter.format(stats.chanceToWin ?? 0)}
-            </div>
-            <PiWarningCircle
-              size={15}
-              style={{ color: "var(--color-text-high)" }}
-            />
-          </Flex>
-        </SuspiciousTrigger>
-      ) : (
-        <div className="result-number d-inline-block">
-          {percentFormatter.format(stats.chanceToWin ?? 0)}
-        </div>
-      )}
+        </Trigger>
+      );
+    }
+
+    return (
+      <div className="result-number d-inline-block">
+        {percentFormatter.format(stats.chanceToWin ?? 0)}
+      </div>
+    );
+  };
+
+  return (
+    <td className={clsx("chance align-middle", className)} {...otherProps}>
+      {renderContent()}
     </td>
   );
 }

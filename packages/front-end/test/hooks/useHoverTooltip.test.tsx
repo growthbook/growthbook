@@ -1,4 +1,3 @@
-// packages/front-end/test/hooks/useHoverTooltip.test.tsx
 import {
   renderHook,
   act,

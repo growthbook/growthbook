@@ -123,38 +123,17 @@ export function Popover({
   );
 }
 
-// ============================================================================
-// PopoverContent - Styled container without Radix positioning
-// ============================================================================
-
-interface PopoverContentProps {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  className?: string;
-}
-
 /**
  * A styled popover container without Radix positioning.
  * Use this when you need popover styling but handle positioning yourself
- * (e.g., with useHoverTooltip's renderTooltip).
  */
-export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
-  function PopoverContent({ children, style, className }, ref) {
-    const appliedStyle: React.CSSProperties = {
-      padding: "15px 20px",
-      ...style,
-    };
-
-    return (
-      <RadixTheme>
-        <div
-          ref={ref}
-          className={`${styles.Content}${className ? ` ${className}` : ""}`}
-          style={appliedStyle}
-        >
-          {children}
-        </div>
-      </RadixTheme>
-    );
-  },
-);
+export const PopoverContent = forwardRef<
+  HTMLDivElement,
+  { children: React.ReactNode }
+>(function PopoverContent({ children }, ref) {
+  return (
+    <div ref={ref} className={styles.Content}>
+      {children}
+    </div>
+  );
+});

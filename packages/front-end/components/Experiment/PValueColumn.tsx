@@ -69,66 +69,69 @@ export default function PValueColumn({
     );
   }
 
-  const { isDraw, SuspiciousTrigger, NotEnoughDataTrigger, DrawTrigger } =
-    useColumnStatusPopovers({
-      stats,
-      rowResults,
-      metric,
-      differenceType,
-      statsEngine,
-      ssrPolyfills,
-      minSampleSize,
-      showSuspicious,
-    });
+  const { statusType, Trigger } = useColumnStatusPopovers({
+    stats,
+    rowResults,
+    metric,
+    differenceType,
+    statsEngine,
+    ssrPolyfills,
+    minSampleSize,
+    showSuspicious,
+  });
+
+  const renderContent = () => {
+    if (!baseline?.value || !stats?.value) {
+      return <em className="text-muted small">No data</em>;
+    }
+
+    if (hideScaledImpact) {
+      return <NoScaledImpact />;
+    }
+
+    if (statusType === "notEnoughData") {
+      return (
+        <Trigger>
+          <NotEnoughData
+            rowResults={rowResults}
+            showTimeRemaining={showTimeRemaining}
+            showPercentComplete={showPercentComplete}
+          />
+        </Trigger>
+      );
+    }
+
+    if (statusType === "draw" || statusType === "suspicious") {
+      return (
+        <Trigger>
+          <div className="d-flex align-items-center justify-content-end">
+            <div className="result-number d-inline-block">
+              {pValText || "P-value missing"}
+            </div>{" "}
+            <PiWarningCircle
+              size={15}
+              style={{ color: "var(--color-text-high)" }}
+            />
+          </div>
+        </Trigger>
+      );
+    }
+
+    return (
+      <div className="d-flex align-items-center justify-content-end">
+        <div className="result-number d-inline-block">
+          {pValText || "P-value missing"}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <td
       className={clsx("variation chance align-middle", className)}
       {...otherProps}
     >
-      {!baseline?.value || !stats?.value ? (
-        <em className="text-muted small">No data</em>
-      ) : hideScaledImpact ? (
-        <NoScaledImpact />
-      ) : !rowResults.enoughData ? (
-        <NotEnoughDataTrigger>
-          <NotEnoughData
-            rowResults={rowResults}
-            showTimeRemaining={showTimeRemaining}
-            showPercentComplete={showPercentComplete}
-          />
-        </NotEnoughDataTrigger>
-      ) : isDraw ? (
-        <DrawTrigger>
-          <div className="d-flex align-items-center justify-content-end">
-            <div className="result-number d-inline-block">
-              {pValText || "P-value missing"}
-            </div>{" "}
-            <PiWarningCircle
-              size={15}
-              style={{ color: "var(--color-text-high)" }}
-            />
-          </div>
-        </DrawTrigger>
-      ) : showSuspicious && rowResults.suspiciousChange ? (
-        <SuspiciousTrigger>
-          <div className="d-flex align-items-center justify-content-end">
-            <div className="result-number d-inline-block">
-              {pValText || "P-value missing"}
-            </div>{" "}
-            <PiWarningCircle
-              size={15}
-              style={{ color: "var(--color-text-high)" }}
-            />
-          </div>
-        </SuspiciousTrigger>
-      ) : (
-        <div className="d-flex align-items-center justify-content-end">
-          <div className="result-number d-inline-block">
-            {pValText || "P-value missing"}
-          </div>
-        </div>
-      )}
+      {renderContent()}
     </td>
   );
 }

@@ -18,11 +18,8 @@ import {
   autoUpdate,
   type VirtualElement,
 } from "@floating-ui/react";
+import { RadixTheme } from "@/services/RadixTheme";
 import styles from "./useHoverTooltip.module.scss";
-
-// ============================================================================
-// Context
-// ============================================================================
 
 interface HoverTooltipContextValue {
   openTooltip: (id: string) => boolean;
@@ -39,7 +36,7 @@ export function HoverTooltipProvider({
 }: {
   children: React.ReactNode;
 }) {
-  // Use ref for synchronous state tracking (needed for openTooltip return value)
+  // Use ref for synchronous state tracking
   const openTooltipIdRef = useRef<string | null>(null);
 
   const openTooltip = useCallback((id: string): boolean => {
@@ -72,19 +69,15 @@ export function useHoverTooltipContext() {
   return useContext(HoverTooltipContext);
 }
 
-// ============================================================================
-// Hook
-// ============================================================================
-
 const HIDE_DELAY_MS = 50;
-
+const VERTICAL_OFFSET_PX = 8;
 type PositioningMode = "cursor" | "element";
 type TooltipState = "idle" | "waiting" | "visible";
 
 export interface UseHoverTooltipOptions {
+  enabled?: boolean;
   delayMs?: number;
   positioning?: PositioningMode;
-  enabled?: boolean;
 }
 
 export interface UseHoverTooltipReturn {
@@ -105,12 +98,6 @@ interface Position {
 }
 
 export type { PositioningMode };
-
-// ============================================================================
-// Internal TooltipPortal component (uses Floating UI for positioning)
-// ============================================================================
-
-const VERTICAL_OFFSET = 8;
 
 interface TooltipPortalProps {
   content: React.ReactNode;
@@ -149,9 +136,9 @@ function TooltipPortal({
   const { refs, floatingStyles, update, placement } = useFloating({
     placement: "top",
     middleware: [
-      offset(VERTICAL_OFFSET),
+      offset(VERTICAL_OFFSET_PX),
       flip({ fallbackPlacements: ["bottom", "top"] }),
-      shift({ padding: 8 }),
+      shift({ padding: VERTICAL_OFFSET_PX }),
     ],
   });
 
@@ -184,7 +171,7 @@ function TooltipPortal({
           ...(isPlacedOnTop
             ? { bottom: 0, transform: "translateY(100%)" }
             : { top: 0, transform: "translateY(-100%)" }),
-          height: VERTICAL_OFFSET + 4,
+          height: VERTICAL_OFFSET_PX + 4,
         }
       : {};
 
@@ -200,39 +187,43 @@ function TooltipPortal({
 
   if (positioning === "cursor") {
     return createPortal(
-      <div
-        ref={refs.setFloating}
-        className={styles.tooltip}
-        style={tooltipStyle}
-        onClick={handleClick}
-      >
-        {content}
-      </div>,
+      <RadixTheme>
+        <div
+          ref={refs.setFloating}
+          className={styles.tooltip}
+          style={tooltipStyle}
+          onClick={handleClick}
+        >
+          {content}
+        </div>
+      </RadixTheme>,
       document.body,
     );
   }
 
   return createPortal(
-    <div
-      ref={refs.setFloating}
-      className={styles.tooltip}
-      style={tooltipStyle}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      onClick={handleClick}
-    >
-      {content}
-      <div style={bridgeStyle} />
-    </div>,
+    <RadixTheme>
+      <div
+        ref={refs.setFloating}
+        className={styles.tooltip}
+        style={tooltipStyle}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onClick={handleClick}
+      >
+        {content}
+        <div style={bridgeStyle} />
+      </div>
+    </RadixTheme>,
     document.body,
   );
 }
 
-export function useHoverTooltip(
-  options: UseHoverTooltipOptions = {},
-): UseHoverTooltipReturn {
-  const { delayMs = 100, positioning = "element", enabled = true } = options;
-
+export function useHoverTooltip({
+  enabled = true,
+  delayMs = 100,
+  positioning = "element",
+}: UseHoverTooltipOptions = {}): UseHoverTooltipReturn {
   const id = useId();
   const { openTooltip, closeTooltip } = useHoverTooltipContext();
 
@@ -340,6 +331,8 @@ export function useHoverTooltip(
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      if (!enabled) return;
+
       if (positioning === "cursor") {
         // Update position to cursor coordinates
         setCursorPosition({
@@ -369,7 +362,7 @@ export function useHoverTooltip(
         }
       }
     },
-    [positioning, state, delayMs, openTooltip, id, close],
+    [enabled, positioning, state, delayMs, openTooltip, id, close],
   );
 
   const onMouseLeave = useCallback(
@@ -438,7 +431,7 @@ export function useHoverTooltip(
 
   const renderTooltip = useCallback(
     (content: React.ReactNode): React.ReactElement | null => {
-      if (state !== "visible" || typeof document === "undefined") {
+      if (!enabled || state !== "visible" || typeof document === "undefined") {
         return null;
       }
 
@@ -454,6 +447,7 @@ export function useHoverTooltip(
       );
     },
     [
+      enabled,
       state,
       triggerElement,
       cursorPosition,
@@ -471,10 +465,6 @@ export function useHoverTooltip(
   };
 }
 
-// ============================================================================
-// Component
-// ============================================================================
-
 export interface HoverTooltipProps {
   children: React.ReactElement;
   content: React.ReactNode;
@@ -488,12 +478,10 @@ export function HoverTooltip({
   content,
   delayMs,
   positioning,
-  enabled,
 }: HoverTooltipProps) {
   const { triggerProps, renderTooltip } = useHoverTooltip({
     delayMs,
     positioning,
-    enabled,
   });
 
   const child = React.Children.only(children);

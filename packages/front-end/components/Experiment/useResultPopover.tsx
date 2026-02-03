@@ -13,7 +13,6 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { PopoverContent } from "@/ui/Popover";
 import ExperimentResultTooltipContent from "./ExperimentResultTooltipContent/ExperimentResultTooltipContent";
-import styles from "./useResultPopover.module.scss";
 
 interface ResultPopoverData {
   stats: SnapshotMetric;
@@ -109,7 +108,7 @@ export function useResultPopover({
     }
 
     return renderTooltip(
-      <PopoverContent style={{ padding: 0 }} className={styles.popoverContent}>
+      <PopoverContent>
         <ExperimentResultTooltipContent
           stats={data.stats}
           metric={data.metric}

@@ -16,6 +16,8 @@ interface UseColumnStatusPopoversOptions {
   showSuspicious?: boolean;
 }
 
+export type StatusType = "notEnoughData" | "draw" | "suspicious" | null;
+
 export function useColumnStatusPopovers({
   stats,
   rowResults,
@@ -28,6 +30,16 @@ export function useColumnStatusPopovers({
 }: UseColumnStatusPopoversOptions) {
   const popoverEnabled = !!(metric && differenceType && statsEngine);
 
+  // Determine which status applies (in priority order)
+  // notEnoughData takes priority, then draw, then suspicious
+  const statusType: StatusType = !rowResults.enoughData
+    ? "notEnoughData"
+    : rowResults.resultsStatus === "draw"
+      ? "draw"
+      : showSuspicious && rowResults.suspiciousChange
+        ? "suspicious"
+        : null;
+
   // Get time remaining for "not enough data" tooltip
   const enoughDataMeta = rowResults.enoughDataMeta;
   const timeRemainingMs =
@@ -36,57 +48,30 @@ export function useColumnStatusPopovers({
       ? (enoughDataMeta.timeRemainingMs ?? undefined)
       : undefined;
 
-  const commonData = {
-    stats,
-    metric: metric!,
-    differenceType: differenceType!,
-    statsEngine: statsEngine!,
-    ssrPolyfills,
-    minSampleSize,
-    minPercentChange: rowResults.minPercentChange,
-    currentMetricTotal: rowResults.currentMetricTotal,
-    suspiciousThreshold: rowResults.suspiciousThreshold,
-  };
-
-  const suspiciousPopover = useResultPopover({
-    enabled: popoverEnabled && showSuspicious && rowResults.suspiciousChange,
+  // Single popover with dynamic data - ExperimentResultTooltipContent
+  // handles notEnoughData first, so we can pass raw values
+  const popover = useResultPopover({
+    enabled: popoverEnabled && statusType !== null,
     data: {
-      ...commonData,
+      stats,
+      metric: metric!,
+      differenceType: differenceType!,
+      statsEngine: statsEngine!,
+      ssrPolyfills,
+      minSampleSize,
+      minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal: rowResults.currentMetricTotal,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
       significant: rowResults.significant,
       resultsStatus: rowResults.resultsStatus,
-      suspiciousChange: true,
-      notEnoughData: false,
-    },
-  });
-
-  const notEnoughDataPopover = useResultPopover({
-    enabled: popoverEnabled && !rowResults.enoughData,
-    data: {
-      ...commonData,
-      significant: false,
-      resultsStatus: "",
       suspiciousChange: rowResults.suspiciousChange,
-      notEnoughData: true,
+      notEnoughData: !rowResults.enoughData,
       timeRemainingMs,
     },
   });
 
-  const drawPopover = useResultPopover({
-    enabled: popoverEnabled && rowResults.resultsStatus === "draw",
-    data: {
-      ...commonData,
-      significant: rowResults.significant,
-      resultsStatus: rowResults.resultsStatus,
-      suspiciousChange: rowResults.suspiciousChange,
-      notEnoughData: false,
-    },
-  });
-
   return {
-    popoverEnabled,
-    isDraw: rowResults.resultsStatus === "draw",
-    SuspiciousTrigger: suspiciousPopover.Trigger,
-    NotEnoughDataTrigger: notEnoughDataPopover.Trigger,
-    DrawTrigger: drawPopover.Trigger,
+    statusType,
+    Trigger: popover.Trigger,
   };
 }
