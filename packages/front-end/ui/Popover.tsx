@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef } from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
 import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
@@ -122,3 +122,18 @@ export function Popover({
     </RadixPopover.Root>
   );
 }
+
+/**
+ * A styled popover container without Radix positioning.
+ * Use this when you need popover styling but handle positioning yourself
+ */
+export const PopoverContent = forwardRef<
+  HTMLDivElement,
+  { children: React.ReactNode }
+>(function PopoverContent({ children }, ref) {
+  return (
+    <div ref={ref} className={styles.Content}>
+      {children}
+    </div>
+  );
+});

@@ -536,7 +536,11 @@ export default function ResultsTable({
 
   return (
     <DrilldownTooltip enabled={drilldownEnabled}>
-      {({ onMouseMove: onRowMouseMove, onMouseLeave: onRowMouseLeave }) => (
+      {({
+        onMouseMove: onRowMouseMove,
+        onMouseLeave: onRowMouseLeave,
+        onClick: onRowClick_,
+      }) => (
         <div className="position-relative">
           <div ref={tableContainerRef} className="experiment-results-wrapper">
             <div className="w-100" style={{ minWidth: 700 }}>
@@ -804,6 +808,7 @@ export default function ResultsTable({
                                 ? (e) => {
                                     const target = e.target as HTMLElement;
                                     if (!isInteractiveElement(target)) {
+                                      onRowClick_();
                                       effectiveOnRowClick(row);
                                     }
                                   }
@@ -1111,6 +1116,13 @@ export default function ResultsTable({
                                                 "results-ctw",
                                                 resultsHighlightClassname,
                                               )}
+                                              metric={row.metric}
+                                              differenceType={differenceType}
+                                              statsEngine={statsEngine}
+                                              ssrPolyfills={ssrPolyfills}
+                                              minSampleSize={getMinSampleSizeForMetric(
+                                                row.metric,
+                                              )}
                                             />
                                           ) : (
                                             <PValueColumn
@@ -1132,6 +1144,13 @@ export default function ResultsTable({
                                               className={clsx(
                                                 "results-pval",
                                                 resultsHighlightClassname,
+                                              )}
+                                              metric={row.metric}
+                                              differenceType={differenceType}
+                                              statsEngine={statsEngine}
+                                              ssrPolyfills={ssrPolyfills}
+                                              minSampleSize={getMinSampleSizeForMetric(
+                                                row.metric,
                                               )}
                                             />
                                           )
@@ -1187,6 +1206,21 @@ export default function ResultsTable({
                                             }
                                             statsEngine={statsEngine}
                                             ssrPolyfills={ssrPolyfills}
+                                            suspiciousChange={
+                                              rowResults.suspiciousChange
+                                            }
+                                            notEnoughData={
+                                              !rowResults.enoughData
+                                            }
+                                            minSampleSize={getMinSampleSizeForMetric(
+                                              row.metric,
+                                            )}
+                                            minPercentChange={
+                                              rowResults.minPercentChange
+                                            }
+                                            currentMetricTotal={
+                                              rowResults.currentMetricTotal
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph
@@ -1224,6 +1258,9 @@ export default function ResultsTable({
                                                 ? timeSeriesButton
                                                 : undefined
                                             }
+                                            minSampleSize={getMinSampleSizeForMetric(
+                                              row.metric,
+                                            )}
                                           />
                                         ) : (
                                           <td></td>

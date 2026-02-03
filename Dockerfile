@@ -4,6 +4,7 @@ ARG NODE_MAJOR=20
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
+RUN pip install --upgrade pip
 COPY ./packages/stats .
 RUN \
   pip3 install poetry==1.8.5  \
@@ -83,6 +84,7 @@ RUN apt-get update && \
   npm install -g pnpm@9.15.0 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pip
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 
