@@ -531,7 +531,6 @@ export function getRowResults({
   phaseStartDate: Date;
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
-  isReportContext?: boolean;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -590,8 +589,7 @@ export function getRowResults({
         const showTimeRemaining =
           timeRemainingMs !== null &&
           isLatestPhase &&
-          experimentStatus === "running" &&
-          !isReportContext;
+          experimentStatus === "running";
         return {
           percentComplete,
           percentCompleteNumerator: Math.max(
