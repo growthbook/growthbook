@@ -1136,7 +1136,11 @@ def preprocess_bandits(
         bandit_stats = {}
     else:
         pdrows = pd.DataFrame(rows)
-        pdrows = pdrows.loc[pdrows[BANDIT_DIMENSION["column"]] == dimension]
+        dim_col = BANDIT_DIMENSION["column"]
+        if dim_col in pdrows.columns:
+            pdrows = pdrows.loc[pdrows[dim_col] == dimension]
+        else:
+            pdrows[dim_col] = dimension
         metric_data = get_metric_dfs(
             rows=pdrows,
             var_id_map=get_var_id_map(bandit_settings.var_ids),
