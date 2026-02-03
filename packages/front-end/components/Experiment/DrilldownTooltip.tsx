@@ -54,7 +54,7 @@ export function DrilldownTooltip({ enabled, children }: DrilldownTooltipProps) {
     <>
       {children({
         onMouseMove,
-        onMouseLeave: () => triggerProps.onMouseLeave({} as React.MouseEvent),
+        onMouseLeave: close,
         onClick: close,
       })}
       {renderTooltip(

@@ -478,10 +478,12 @@ export function HoverTooltip({
   content,
   delayMs,
   positioning,
+  enabled,
 }: HoverTooltipProps) {
   const { triggerProps, renderTooltip } = useHoverTooltip({
     delayMs,
     positioning,
+    enabled,
   });
 
   const child = React.Children.only(children);
