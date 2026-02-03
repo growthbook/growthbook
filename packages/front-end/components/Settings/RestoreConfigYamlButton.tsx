@@ -54,7 +54,7 @@ export default function RestoreConfigYamlButton({
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [parsed, setParsed] = useState(null);
+  const [parsed, setParsed] = useState<object | null>(null);
   const [diffHTML, setDiffHTML] = useState("");
 
   const { apiCall } = useAuth();
@@ -272,7 +272,6 @@ export default function RestoreConfigYamlButton({
               if (!json || typeof json !== "object") {
                 throw new Error("Could not parsed yaml file into JSON object");
               }
-              // @ts-expect-error TS(2354) If you come across this, please fix it!: Argument of type 'object' is not assignable to parameter of type 'SetStateAction<null>'.
               setParsed(json);
               parseConfig(json);
             }}

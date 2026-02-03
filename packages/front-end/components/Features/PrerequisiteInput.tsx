@@ -5,13 +5,7 @@ import { RxInfoCircled, RxLoop } from "react-icons/rx";
 
 export interface MinimalFeatureInfo {
   id?: string;
-  valueType:
-    | "boolean"
-    | "string"
-    | "number"
-    | "json"
-    | "secureString"
-    | "secureString[]";
+  valueType: "boolean" | "string" | "number" | "json";
   project?: string;
   defaultValue?: string;
 }

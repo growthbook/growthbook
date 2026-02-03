@@ -188,7 +188,6 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
               Input,
-              IndicatorSeparator: () => null,
               ...(creatable && noMenu
                 ? {
                     Menu: () => null,
@@ -197,6 +196,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                   }
                 : creatable
                   ? {
+                      IndicatorSeparator: () => null,
                       MenuList: (props) => {
                         return (
                           <>
@@ -214,7 +214,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                         );
                       },
                     }
-                  : {}),
+                  : {
+                      IndicatorSeparator: () => null,
+                    }),
             }}
             {...(creatable && noMenu
               ? {
