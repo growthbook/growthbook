@@ -106,10 +106,6 @@ const BreakDownResults: FC<{
   ) => void;
   mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
-  onRowClick?: (
-    row: ExperimentTableRow,
-    dimensionInfo?: { name: string; value: string },
-  ) => void;
 }> = ({
   experimentId,
   dimensionId,
@@ -157,7 +153,6 @@ const BreakDownResults: FC<{
   setAnalysisSettings,
   mutate,
   setDifferenceType,
-  onRowClick,
 }) => {
   const { getDimensionById, getExperimentMetricById } = useDefinitions();
 
@@ -166,7 +161,6 @@ const BreakDownResults: FC<{
 
   // Detect drilldown context for automatic row click handling
   const drilldownContext = useMetricDrilldownContext();
-  const effectiveOnRowClick = onRowClick ?? drilldownContext?.openDrilldown;
 
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
@@ -202,14 +196,16 @@ const BreakDownResults: FC<{
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
 
-  // Wrap onRowClick to include dimension info
-  const handleRowClick = effectiveOnRowClick
+  // Wrap drilldown to include dimension info
+  const handleRowClick = drilldownContext
     ? (row: ExperimentTableRow) => {
         const value =
           typeof row.label === "string"
             ? formatDimensionValueForDisplay(row.label)
             : "";
-        effectiveOnRowClick(row, { name: dimension, value });
+        drilldownContext.openDrilldown(row, {
+          dimensionInfo: { name: dimension, value },
+        });
       }
     : undefined;
 

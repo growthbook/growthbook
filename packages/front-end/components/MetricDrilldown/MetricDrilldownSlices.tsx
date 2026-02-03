@@ -59,7 +59,6 @@ interface MetricDrilldownSlicesProps {
   // SSR polyfills for public pages
   ssrPolyfills?: SSRPolyfills;
   hideTimeSeries?: boolean;
-  isReportContext?: boolean;
 }
 
 const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
@@ -90,7 +89,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
   setVisibleTimeSeriesRowIds,
   ssrPolyfills,
   hideTimeSeries,
-  isReportContext,
 }) => {
   const { hasCommercialFeature } = useUser();
 
@@ -251,7 +249,6 @@ const MetricDrilldownSlices: FC<MetricDrilldownSlicesProps> = ({
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutate}
-        isReportContext={isReportContext}
       />
     </Box>
   );

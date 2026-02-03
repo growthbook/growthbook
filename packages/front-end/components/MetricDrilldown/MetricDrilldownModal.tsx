@@ -314,7 +314,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
                 ? "Time series is not available for unit dimension breakdowns."
                 : undefined
           }
-          isReportContext={isReportContext}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -347,7 +346,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           ssrPolyfills={ssrPolyfills}
           hideTimeSeries={hideTimeSeries}
-          isReportContext={isReportContext}
         />
       </TabsContent>
       <TabsContent value="debug">
@@ -372,7 +370,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
           variationNames={variations.map((v) => v.name)}
-          isReportContext={isReportContext}
         />
       </TabsContent>
     </>

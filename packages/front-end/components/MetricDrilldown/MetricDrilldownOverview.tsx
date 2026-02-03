@@ -40,7 +40,6 @@ interface MetricDrilldownOverviewProps {
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
   timeSeriesMessage?: string;
-  isReportContext?: boolean;
 }
 
 function MetricDrilldownOverview({
@@ -65,7 +64,6 @@ function MetricDrilldownOverview({
   setLocalDifferenceType,
   sequentialTestingEnabled,
   timeSeriesMessage,
-  isReportContext,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -141,7 +139,6 @@ function MetricDrilldownOverview({
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
         mutate={mutateSnapshot}
-        isReportContext={isReportContext}
       />
 
       <Box>

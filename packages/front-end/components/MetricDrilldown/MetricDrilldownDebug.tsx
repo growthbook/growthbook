@@ -39,7 +39,6 @@ interface MetricDrilldownDebugProps {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   experimentStatus?: ExperimentStatus;
-  isReportContext?: boolean;
 }
 
 function createRowLabel(description: string) {
@@ -133,7 +132,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   pValueCorrection,
   sequentialTestingEnabled,
   experimentStatus,
-  isReportContext,
 }) => {
   const {
     snapshot,
@@ -331,7 +329,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutate}
-            isReportContext={isReportContext}
           />
         </div>
       )}
@@ -374,7 +371,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutate}
-            isReportContext={isReportContext}
           />
         </div>
       )}
@@ -417,7 +413,6 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
             mutate={mutate}
-            isReportContext={isReportContext}
           />
         </div>
       )}

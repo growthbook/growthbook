@@ -134,7 +134,6 @@ export type ResultsTableProps = {
   visibleTimeSeriesRowIds?: string[];
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
   timeSeriesMessage?: string;
-  isReportContext?: boolean;
 };
 
 const ROW_HEIGHT = 46;
@@ -203,7 +202,6 @@ export default function ResultsTable({
   visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
   onVisibleTimeSeriesRowIdsChange,
   timeSeriesMessage,
-  isReportContext,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -486,7 +484,6 @@ export default function ResultsTable({
             phaseStartDate: getValidDate(startDate),
             isLatestPhase,
             experimentStatus: status,
-            isReportContext,
           });
           rr[i].push(rowResults);
         });
@@ -511,7 +508,6 @@ export default function ResultsTable({
       queryStatusData,
       ssrPolyfills,
       getExperimentMetricById,
-      isReportContext,
     ]);
 
   const noRows = rows.length === 0;
