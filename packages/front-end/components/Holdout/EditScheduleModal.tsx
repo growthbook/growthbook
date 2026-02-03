@@ -25,9 +25,9 @@ const validateSchedule = (
 };
 
 const checkConsecutiveDates = (
-  startDate: Date | undefined,
-  startAnalysisPeriodDate: Date | undefined,
-  stopDate: Date | undefined,
+  startDate: string | undefined,
+  startAnalysisPeriodDate: string | undefined,
+  stopDate: string | undefined,
 ) => {
   const dateError =
     (startDate &&
