@@ -345,7 +345,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           ssrPolyfills={ssrPolyfills}
-          hideTimeSeries={isReportContext || !!dimensionInfo}
+          hideTimeSeries={hideTimeSeries}
         />
       </TabsContent>
       <TabsContent value="debug">

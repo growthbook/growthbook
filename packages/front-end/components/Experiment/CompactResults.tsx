@@ -42,7 +42,6 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -169,10 +168,6 @@ const CompactResults: FC<{
     ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
-
-  // Detect drilldown context for automatic row click handling
-  const drilldownContext = useMetricDrilldownContext();
-  const effectiveOnRowClick = onRowClick ?? drilldownContext?.openDrilldown;
 
   const [totalUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -374,7 +369,7 @@ const CompactResults: FC<{
           setVariationFilter={setVariationFilter}
           baselineRow={baselineRow}
           rows={filteredRows.filter((r) => r.resultGroup === "goal")}
-          onRowClick={effectiveOnRowClick}
+          onRowClick={onRowClick}
           id={id}
           resultGroup="goal"
           tableRowAxis="metric"
@@ -436,7 +431,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "secondary")}
-            onRowClick={effectiveOnRowClick}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="secondary"
             tableRowAxis="metric"
@@ -492,7 +487,7 @@ const CompactResults: FC<{
             setVariationFilter={setVariationFilter}
             baselineRow={baselineRow}
             rows={filteredRows.filter((r) => r.resultGroup === "guardrail")}
-            onRowClick={effectiveOnRowClick}
+            onRowClick={onRowClick}
             id={id}
             resultGroup="guardrail"
             tableRowAxis="metric"

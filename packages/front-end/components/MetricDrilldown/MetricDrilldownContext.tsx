@@ -1,4 +1,4 @@
-import React, { useState, useCallback, FC, ReactNode } from "react";
+import React, { useState, useCallback, useMemo, FC, ReactNode } from "react";
 import { ExperimentStatus, MetricOverride } from "shared/types/experiment";
 import {
   ExperimentReportVariation,
@@ -154,9 +154,10 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
     setOpenModalInfo(null);
   }, []);
 
-  const contextValue: MetricDrilldownContextValue = {
-    openDrilldown,
-  };
+  const contextValue = useMemo<MetricDrilldownContextValue>(
+    () => ({ openDrilldown }),
+    [openDrilldown],
+  );
 
   return (
     <MetricDrilldownContext.Provider value={contextValue}>

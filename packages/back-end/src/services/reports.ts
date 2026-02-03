@@ -55,7 +55,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
-import { accountFeatures } from "shared/enterprise";
+import { accountFeatures, CommercialFeature } from "shared/enterprise";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -925,9 +925,11 @@ export async function generateExperimentReportSSRData({
 
   // Include commercial features so public pages can check feature access
   // based on the owning org rather than the (potentially unauthenticated) viewer
-  const commercialFeatures = [
-    ...accountFeatures[getEffectiveAccountPlan(context.org)],
-  ];
+  const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
+  const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
+  const commercialFeatures = publicRelevantFeatures.filter((f) =>
+    allFeatures.has(f),
+  );
 
   return {
     metrics: metricMap,

@@ -85,7 +85,6 @@ export type ResultsTableProps = {
   endDate: string;
   rows: ExperimentTableRow[];
   onRowClick?: (row: ExperimentTableRow) => void;
-  warnIfNoDrilldown?: boolean;
   dimension?: string;
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
@@ -175,7 +174,6 @@ export default function ResultsTable({
   endDate,
   renderLabelColumn,
   onRowClick,
-  warnIfNoDrilldown,
   resultGroup,
   dateCreated,
   statsEngine,
@@ -212,18 +210,6 @@ export default function ResultsTable({
   // Detect drilldown context for automatic row click handling
   const drilldownContext = useMetricDrilldownContext();
   const effectiveOnRowClick = onRowClick ?? drilldownContext?.openDrilldown;
-
-  // Dev warning for missing drilldown handler
-  if (
-    process.env.NODE_ENV === "development" &&
-    warnIfNoDrilldown &&
-    !effectiveOnRowClick
-  ) {
-    console.warn(
-      "ResultsTable: warnIfNoDrilldown is true but no drilldown handler available. " +
-        "Wrap with MetricDrilldownProvider or pass onRowClick prop.",
-    );
-  }
 
   const SortButton = ({ column }: { column: "significance" | "change" }) => {
     if (!setSortBy || !setSortDirection) return null;
