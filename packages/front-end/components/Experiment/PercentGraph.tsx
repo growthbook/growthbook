@@ -143,7 +143,7 @@ export default function PercentGraph({
 
   const handleMouseLeave = useCallback(
     (e: React.MouseEvent<SVGPathElement>) => {
-      popoverMouseLeave();
+      popoverMouseLeave(e);
       onMouseLeave?.(e);
     },
     [popoverMouseLeave, onMouseLeave],

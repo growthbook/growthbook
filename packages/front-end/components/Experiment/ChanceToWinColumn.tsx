@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Flex } from "@radix-ui/themes";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -77,33 +78,34 @@ export default function ChanceToWinColumn({
             showPercentComplete={showPercentComplete}
           />
         </NotEnoughDataTrigger>
+      ) : isDraw ? (
+        <DrawTrigger>
+          <Flex direction="row" align="center" gap="1">
+            <div className="result-number d-inline-block">
+              {percentFormatter.format(stats.chanceToWin ?? 0)}
+            </div>
+            <PiWarningCircle
+              size={15}
+              style={{ color: "var(--color-text-high)" }}
+            />
+          </Flex>
+        </DrawTrigger>
+      ) : showSuspicious && rowResults.suspiciousChange ? (
+        <SuspiciousTrigger>
+          <Flex direction="row" align="center" gap="1">
+            <div className="result-number d-inline-block">
+              {percentFormatter.format(stats.chanceToWin ?? 0)}
+            </div>
+            <PiWarningCircle
+              size={15}
+              style={{ color: "var(--color-text-high)" }}
+            />
+          </Flex>
+        </SuspiciousTrigger>
       ) : (
-        <>
-          <div className="result-number d-inline-block">
-            {percentFormatter.format(stats.chanceToWin ?? 0)}
-          </div>
-          {isDraw ? (
-            <>
-              {" "}
-              <DrawTrigger>
-                <PiWarningCircle
-                  size={15}
-                  style={{ color: "var(--color-text-high)" }}
-                />
-              </DrawTrigger>
-            </>
-          ) : showSuspicious && rowResults.suspiciousChange ? (
-            <>
-              {" "}
-              <SuspiciousTrigger>
-                <PiWarningCircle
-                  size={15}
-                  style={{ color: "var(--color-text-high)" }}
-                />
-              </SuspiciousTrigger>
-            </>
-          ) : null}
-        </>
+        <div className="result-number d-inline-block">
+          {percentFormatter.format(stats.chanceToWin ?? 0)}
+        </div>
       )}
     </td>
   );

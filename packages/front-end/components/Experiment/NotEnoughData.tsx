@@ -1,3 +1,4 @@
+import { Flex } from "@radix-ui/themes";
 import { formatDistance } from "date-fns";
 import { PiWarningCircle } from "react-icons/pi";
 import { RowResults } from "@/services/experiments";
@@ -24,18 +25,18 @@ export default function NotEnoughData({
   const enoughDataMeta = rowResults.enoughDataMeta;
   return (
     <div className="not-enough-data">
-      <div>
+      <Flex direction="row" align="center" gap="1">
         <em
           className="text-muted font-weight-normal"
           style={{ fontSize: "10.5px", lineHeight: "14px" }}
         >
-          Not enough data{" "}
-          <PiWarningCircle
-            size={15}
-            style={{ color: "var(--color-text-high)" }}
-          />
+          Not enough data
         </em>
-      </div>
+        <PiWarningCircle
+          size={15}
+          style={{ color: "var(--color-text-high)" }}
+        />
+      </Flex>
       {showTimeRemaining &&
         enoughDataMeta.reason === "notEnoughData" &&
         enoughDataMeta.showTimeRemaining && (

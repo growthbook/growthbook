@@ -517,7 +517,11 @@ export default function ResultsTable({
 
   return (
     <DrilldownTooltip enabled={drilldownEnabled}>
-      {({ onMouseMove: onRowMouseMove, onMouseLeave: onRowMouseLeave }) => (
+      {({
+        onMouseMove: onRowMouseMove,
+        onMouseLeave: onRowMouseLeave,
+        onClick: onRowClick_,
+      }) => (
         <div className="position-relative">
           <div ref={tableContainerRef} className="experiment-results-wrapper">
             <div className="w-100" style={{ minWidth: 700 }}>
@@ -785,6 +789,7 @@ export default function ResultsTable({
                                 ? (e) => {
                                     const target = e.target as HTMLElement;
                                     if (!isInteractiveElement(target)) {
+                                      onRowClick_();
                                       onRowClick(row);
                                     }
                                   }

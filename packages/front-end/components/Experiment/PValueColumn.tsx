@@ -98,32 +98,35 @@ export default function PValueColumn({
             showPercentComplete={showPercentComplete}
           />
         </NotEnoughDataTrigger>
+      ) : isDraw ? (
+        <DrawTrigger>
+          <div className="d-flex align-items-center justify-content-end">
+            <div className="result-number d-inline-block">
+              {pValText || "P-value missing"}
+            </div>{" "}
+            <PiWarningCircle
+              size={15}
+              style={{ color: "var(--color-text-high)" }}
+            />
+          </div>
+        </DrawTrigger>
+      ) : showSuspicious && rowResults.suspiciousChange ? (
+        <SuspiciousTrigger>
+          <div className="d-flex align-items-center justify-content-end">
+            <div className="result-number d-inline-block">
+              {pValText || "P-value missing"}
+            </div>{" "}
+            <PiWarningCircle
+              size={15}
+              style={{ color: "var(--color-text-high)" }}
+            />
+          </div>
+        </SuspiciousTrigger>
       ) : (
         <div className="d-flex align-items-center justify-content-end">
           <div className="result-number d-inline-block">
             {pValText || "P-value missing"}
           </div>
-          {isDraw ? (
-            <>
-              {" "}
-              <DrawTrigger>
-                <PiWarningCircle
-                  size={15}
-                  style={{ color: "var(--color-text-high)" }}
-                />
-              </DrawTrigger>
-            </>
-          ) : showSuspicious && rowResults.suspiciousChange ? (
-            <>
-              {" "}
-              <SuspiciousTrigger>
-                <PiWarningCircle
-                  size={15}
-                  style={{ color: "var(--color-text-high)" }}
-                />
-              </SuspiciousTrigger>
-            </>
-          ) : null}
         </div>
       )}
     </td>

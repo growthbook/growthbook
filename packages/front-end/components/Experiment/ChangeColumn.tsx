@@ -83,26 +83,25 @@ export default function ChangeColumn({
   };
   const showPopover = !!stats?.ci;
 
-  const { handleMouseEnter, handleMouseMove, handleMouseLeave, renderPopover } =
-    useResultPopover({
-      enabled: showPopover,
-      positioning: "element",
-      data: {
-        stats,
-        metric,
-        significant: rowResults.significant,
-        resultsStatus: rowResults.resultsStatus,
-        differenceType,
-        statsEngine,
-        ssrPolyfills,
-        suspiciousChange: rowResults.suspiciousChange,
-        suspiciousThreshold: rowResults.suspiciousThreshold,
-        notEnoughData: !rowResults.enoughData,
-        minSampleSize,
-        minPercentChange: rowResults.minPercentChange,
-        currentMetricTotal: rowResults.currentMetricTotal,
-      },
-    });
+  const { Trigger } = useResultPopover({
+    enabled: showPopover,
+    positioning: "element",
+    data: {
+      stats,
+      metric,
+      significant: rowResults.significant,
+      resultsStatus: rowResults.resultsStatus,
+      differenceType,
+      statsEngine,
+      ssrPolyfills,
+      suspiciousChange: rowResults.suspiciousChange,
+      suspiciousThreshold: rowResults.suspiciousThreshold,
+      notEnoughData: !rowResults.enoughData,
+      minSampleSize,
+      minPercentChange: rowResults.minPercentChange,
+      currentMetricTotal: rowResults.currentMetricTotal,
+    },
+  });
 
   if (!rowResults.hasScaledImpact && differenceType === "scaled") {
     return null;
@@ -149,25 +148,14 @@ export default function ChangeColumn({
     </div>
   );
 
-  return (
-    <>
-      {metric && rowResults.enoughData ? (
-        <td className={clsx("results-change", className)} {...otherProps}>
-          <Flex align="center" justify="end" gap="2">
-            <span
-              onMouseEnter={handleMouseEnter}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-            >
-              {changeContent}
-            </span>
-            {additionalButton}
-          </Flex>
-        </td>
-      ) : (
-        <td />
-      )}
-      {renderPopover()}
-    </>
+  return metric && rowResults.enoughData ? (
+    <td className={clsx("results-change", className)} {...otherProps}>
+      <Flex align="center" justify="end" gap="2">
+        <Trigger>{changeContent}</Trigger>
+        {additionalButton}
+      </Flex>
+    </td>
+  ) : (
+    <td />
   );
 }
