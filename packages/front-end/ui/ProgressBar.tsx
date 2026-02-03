@@ -35,8 +35,9 @@ export function ProgressBar({ segments }: ProgressBarProps) {
   return (
     <Flex
       wrap="nowrap"
-      className="h-2 w-full overflow-hidden rounded-full bg-gray-200"
+      className="h-2 w-full rounded-full bg-gray-200"
       style={{ height: "24px", borderRadius: "4px" }}
+      overflow="hidden"
       my="4"
     >
       {!isFirstSegmentComplete && firstSegment ? (
@@ -97,8 +98,9 @@ export function ProgressBar({ segments }: ProgressBarProps) {
             <Flex
               key={i}
               wrap="nowrap"
-              className="shrink-0 overflow-hidden transition-all"
+              className="shrink-0 transition-all"
               style={segmentStyle}
+              overflow="hidden"
             >
               {completedWidth > 0 && (
                 <Box
