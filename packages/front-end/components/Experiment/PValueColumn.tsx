@@ -1,11 +1,18 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { PValueCorrection } from "shared/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "shared/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { PiWarningCircle } from "react-icons/pi";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import { GBSuspicious } from "@/components/Icons";
 import NoScaledImpact from "@/components/Experiment/NoScaledImpact";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useColumnStatusPopovers } from "./useColumnStatusPopovers";
 
 interface Props
   extends DetailedHTMLProps<
@@ -22,6 +29,12 @@ interface Props
   showUnadjustedPValue?: boolean;
   className?: string;
   hideScaledImpact?: boolean;
+  // Props for popover
+  metric?: ExperimentMetricInterface;
+  differenceType?: DifferenceType;
+  statsEngine?: StatsEngine;
+  ssrPolyfills?: SSRPolyfills;
+  minSampleSize?: number;
 }
 
 export default function PValueColumn({
@@ -35,6 +48,11 @@ export default function PValueColumn({
   showUnadjustedPValue = false,
   className,
   hideScaledImpact = false,
+  metric,
+  differenceType,
+  statsEngine,
+  ssrPolyfills,
+  minSampleSize = 0,
   ...otherProps
 }: Props) {
   let pValText = (
@@ -50,33 +68,70 @@ export default function PValueColumn({
       <>{pValueFormatter(stats.pValueAdjusted)}</>
     );
   }
+
+  const { statusType, Trigger } = useColumnStatusPopovers({
+    stats,
+    rowResults,
+    metric,
+    differenceType,
+    statsEngine,
+    ssrPolyfills,
+    minSampleSize,
+    showSuspicious,
+  });
+
+  const renderContent = () => {
+    if (!baseline?.value || !stats?.value) {
+      return <em className="text-muted small">No data</em>;
+    }
+
+    if (hideScaledImpact) {
+      return <NoScaledImpact />;
+    }
+
+    if (statusType === "notEnoughData") {
+      return (
+        <Trigger>
+          <NotEnoughData
+            rowResults={rowResults}
+            showTimeRemaining={showTimeRemaining}
+            showPercentComplete={showPercentComplete}
+          />
+        </Trigger>
+      );
+    }
+
+    if (statusType === "draw" || statusType === "suspicious") {
+      return (
+        <Trigger>
+          <div className="d-flex align-items-center justify-content-end">
+            <div className="result-number d-inline-block">
+              {pValText || "P-value missing"}
+            </div>{" "}
+            <PiWarningCircle
+              size={15}
+              style={{ color: "var(--color-text-high)" }}
+            />
+          </div>
+        </Trigger>
+      );
+    }
+
+    return (
+      <div className="d-flex align-items-center justify-content-end">
+        <div className="result-number d-inline-block">
+          {pValText || "P-value missing"}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <td
       className={clsx("variation chance align-middle", className)}
       {...otherProps}
     >
-      {!baseline?.value || !stats?.value ? (
-        <em className="text-muted small">No data</em>
-      ) : hideScaledImpact ? (
-        <NoScaledImpact />
-      ) : !rowResults.enoughData ? (
-        <NotEnoughData
-          rowResults={rowResults}
-          showTimeRemaining={showTimeRemaining}
-          showPercentComplete={showPercentComplete}
-        />
-      ) : (
-        <div className="d-flex align-items-center justify-content-end">
-          <div className="result-number d-inline-block">
-            {pValText || "P-value missing"}
-          </div>
-          {showSuspicious && rowResults.suspiciousChange ? (
-            <span className="suspicious" style={{ marginLeft: 1 }}>
-              <GBSuspicious />
-            </span>
-          ) : null}
-        </div>
-      )}
+      {renderContent()}
     </td>
   );
 }

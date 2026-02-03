@@ -37,7 +37,7 @@ import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
-import { HoverAnchorProvider } from "@/hooks/useHoverAnchor";
+import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -177,7 +177,7 @@ function App({
       {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
-            <HoverAnchorProvider>
+            <HoverTooltipProvider>
               <SidebarOpenProvider>
                 <GrowthBookProvider growthbook={growthbook}>
                   <div id="portal-root" />
@@ -221,7 +221,7 @@ function App({
                   )}
                 </GrowthBookProvider>
               </SidebarOpenProvider>
-            </HoverAnchorProvider>
+            </HoverTooltipProvider>
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
