@@ -1,10 +1,9 @@
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import {
   FaExclamationCircle,
-  FaExternalLinkAlt,
   FaRecycle,
 } from "react-icons/fa";
-import { PiXBold, PiPlusCircleBold, PiArrowSquareOut } from "react-icons/pi";
+import { PiXBold, PiPlusCircleBold, PiArrowSquareOut, PiInfo } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -353,7 +352,6 @@ export default function PrerequisiteTargetingField({
                 )}
 
                 <Box>
-                  {/* Feature selector row with remove button */}
                   <Flex gap="3" align="start">
                     <Flex
                       direction="column"
@@ -643,15 +641,17 @@ function PrereqStatesRows({
       ) : null}
 
       {showDetails && (
-        <Box>
-          <table className="table mb-4 border bg-white">
+        <Box mb="4" style={{ maxWidth: "100%", overflowX: "auto" }}>
+          <table className="table table-sm border mb-0">
             <thead className="text-dark">
               <tr>
                 <th className="pl-4">Type</th>
-                <th className="border-right">Default value</th>
+                <th className="border-right" style={{ minWidth: 120 }}>
+                  Default value
+                </th>
                 {environments.map((env) => (
                   <th key={env} className="text-center">
-                    {env}
+                    <OverflowText maxWidth={100}>{env}</OverflowText>
                   </th>
                 ))}
               </tr>
@@ -740,7 +740,7 @@ export const PrerequisiteAlerts = ({
           <>
             However, some of your{" "}
             <Link href="/sdks" target="_blank">
-              SDK Connections <FaExternalLinkAlt />
+              SDK Connections <PiArrowSquareOut />
             </Link>{" "}
             in this project may not support prerequisite evaluation.
           </>
@@ -748,7 +748,7 @@ export const PrerequisiteAlerts = ({
           <>
             However, none of your{" "}
             <Link href="/sdks" target="_blank">
-              SDK Connections <FaExternalLinkAlt />
+              SDK Connections <PiArrowSquareOut />
             </Link>{" "}
             in this project support prerequisite evaluation. Either upgrade your
             SDKs or{" "}

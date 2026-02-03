@@ -8,14 +8,14 @@ import {
 import {
   FaExclamationCircle,
   FaExclamationTriangle,
-  FaExternalLinkAlt,
   FaRecycle,
 } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import clsx from "clsx";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteInput";
 import {
   getFeatureDefaultValue,
@@ -33,7 +33,6 @@ import {
   PrerequisiteAlerts,
   FeatureOptionMeta,
 } from "@/components/Features/PrerequisiteTargetingField";
-import { DocLink } from "@/components/DocLink";
 import Modal from "@/components/Modal";
 import SelectField, {
   GroupedValue,
@@ -304,11 +303,7 @@ export default function PrerequisiteModal({
       </Callout>
 
       <label className="mt-4 d-block">
-        Select feature from boolean features (
-        <DocLink docSection="prerequisites">
-          docs <PiArrowSquareOut />
-        </DocLink>
-        )
+        Select prerequisite from boolean features
       </label>
 
       <SelectField
@@ -422,15 +417,14 @@ export default function PrerequisiteModal({
 
       {parentFeature ? (
         <div>
-          <Flex mb="4">
-            <a
+          <Flex mt="1" mb="4">
+            <Link
               href={`/features/${form.watch("id")}`}
               target="_blank"
-              rel="noreferrer"
+              style={{ whiteSpace: "nowrap" }}
             >
-              {form.watch("id")}
-              <FaExternalLinkAlt className="ml-1" />
-            </a>
+              {form.watch("id")} <PiArrowSquareOut />
+            </Link>
           </Flex>
 
           {(parentFeature?.project || "") !== featureProject ? (
@@ -446,45 +440,47 @@ export default function PrerequisiteModal({
             </Callout>
           ) : null}
 
-          <table className="table mb-4 border">
-            <thead className="bg-light text-dark">
-              <tr>
-                <th className="pl-4">Type</th>
-                <th className="border-right">Default value</th>
-                {envs.map((env) => (
-                  <th key={env} className="text-center">
-                    {env}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="pl-4">
-                  {parentFeature.valueType === "json"
-                    ? "JSON"
-                    : parentFeature.valueType}
-                </td>
-                <td className="border-right" style={{ maxWidth: 400 }}>
-                  <ValueDisplay
-                    value={getFeatureDefaultValue(parentFeature)}
-                    type={parentFeature.valueType}
-                    fullStyle={{
-                      maxHeight: 120,
-                      overflowY: "auto",
-                      overflowX: "auto",
-                      maxWidth: "100%",
-                    }}
+          <Box mb="4" style={{ maxWidth: "100%", overflowX: "auto" }}>
+            <table className="table border mb-0">
+              <thead className="bg-light text-dark">
+                <tr>
+                  <th className="pl-4">Type</th>
+                  <th className="border-right">Default value</th>
+                  {envs.map((env) => (
+                    <th key={env} className="text-center">
+                      {env}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="pl-4">
+                    {parentFeature.valueType === "json"
+                      ? "JSON"
+                      : parentFeature.valueType}
+                  </td>
+                  <td className="border-right" style={{ maxWidth: 400 }}>
+                    <ValueDisplay
+                      value={getFeatureDefaultValue(parentFeature)}
+                      type={parentFeature.valueType}
+                      fullStyle={{
+                        maxHeight: 120,
+                        overflowY: "auto",
+                        overflowX: "auto",
+                        maxWidth: "100%",
+                      }}
+                    />
+                  </td>
+                  <PrerequisiteStatesCols
+                    prereqStates={prereqStates ?? undefined}
+                    envs={envs}
+                    loading={prereqStatesLoading}
                   />
-                </td>
-                <PrerequisiteStatesCols
-                  prereqStates={prereqStates ?? undefined}
-                  envs={envs}
-                  loading={prereqStatesLoading}
-                />
-              </tr>
-            </tbody>
-          </table>
+                </tr>
+              </tbody>
+            </table>
+          </Box>
         </div>
       ) : null}
 
