@@ -23,6 +23,7 @@ import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import MetricName from "@/components/Metrics/MetricName";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import TagsInput from "@/components/Tags/TagsInput";
 
 export type SliceChunk = {
   column: string;
@@ -366,7 +367,7 @@ export default function ResultsFilter({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
-  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
+  const { getExperimentMetricById, getMetricGroupById, getTagById } = useDefinitions();
 
   const filteringApplied =
     metricTagFilter?.length > 0 ||
@@ -609,24 +610,24 @@ export default function ResultsFilter({
                   >
                     Tags
                   </Heading>
-                  <MultiSelectField
-                    customClassName="multiselect-unfixed"
-                    containerClassName="w-100"
-                    placeholder="Type to search..."
-                    value={metricTagFilter || []}
-                    options={metricTagOptions.map((tag) => ({
-                      label: tag.label,
-                      value: tag.value,
-                      isOrphaned: tag.isOrphaned,
-                    }))}
-                    formatOptionLabel={(option) =>
-                      formatMetricTagOptionLabel(option)
-                    }
-                    onChange={(v) => {
-                      setMetricTagFilter?.(v);
-                      return;
-                    }}
-                  />
+                  <Box className="w-100">
+                    <TagsInput
+                      value={metricTagFilter || []}
+                      onChange={(v) => {
+                        setMetricTagFilter?.(v);
+                      }}
+                      prompt="Type to search..."
+                      closeMenuOnSelect={false}
+                      autoFocus={false}
+                      creatable={false}
+                      customClassName="multiselect-unfixed"
+                      tagOptions={metricTagOptions.map((tag) => ({
+                        id: tag.value,
+                        description: "",
+                        color: getTagById(tag.value)?.color || "#029dd1",
+                      }))}
+                    />
+                  </Box>
                 </Flex>
               )}
             </Box>

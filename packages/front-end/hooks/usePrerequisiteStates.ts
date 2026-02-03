@@ -81,10 +81,11 @@ interface BatchPrerequisiteStatesResponse {
 }
 
 interface UseBatchPrerequisiteStatesOptions {
-  targetFeatureId: string;
+  baseFeatureId: string;
   featureIds: string[];
   environments: string[];
   enabled?: boolean;
+  isExperiment?: boolean; // Use experiment-specific endpoint without cyclic checks
   checkPrerequisite?: {
     id: string;
     condition: string;
@@ -120,10 +121,11 @@ export interface UseBatchPrerequisiteStatesReturn {
 
 // Batch fetch prerequisite states and cyclic checks for multiple features
 export function useBatchPrerequisiteStates({
-  targetFeatureId,
+  baseFeatureId,
   featureIds,
   environments,
   enabled = true,
+  isExperiment = false,
   checkPrerequisite,
   checkRulePrerequisites,
 }: UseBatchPrerequisiteStatesOptions): UseBatchPrerequisiteStatesReturn {
@@ -137,12 +139,12 @@ export function useBatchPrerequisiteStates({
         .sort()
         .join(",")}`
     : "";
+  
   const key =
     enabled &&
-    targetFeatureId &&
     environments.length &&
     (featureIds.length > 0 || hasCycleCheck)
-      ? `${orgId}::/feature/${targetFeatureId}/batch-prerequisite-states|${featureIds
+      ? `${orgId}::/features/batch-prerequisite-states|${isExperiment ? "" : baseFeatureId}|${featureIds
           .slice()
           .sort()
           .join(
@@ -154,12 +156,13 @@ export function useBatchPrerequisiteStates({
     key,
     async () => {
       return apiCall<BatchPrerequisiteStatesResponse>(
-        `/feature/${targetFeatureId}/batch-prerequisite-states`,
+        "/features/batch-prerequisite-states",
         {
           method: "POST",
           body: JSON.stringify({
             featureIds,
             environments,
+            ...(baseFeatureId && !isExperiment && { baseFeatureId }),
             ...(checkPrerequisite && { checkPrerequisite }),
             ...(checkRulePrerequisites && { checkRulePrerequisites }),
           }),
@@ -176,7 +179,7 @@ export function useBatchPrerequisiteStates({
       !data &&
       !error &&
       enabled &&
-      !!targetFeatureId &&
+      !!baseFeatureId &&
       environments.length > 0 &&
       (featureIds.length > 0 || hasCycleCheck),
     error,

@@ -4,19 +4,21 @@ import {
   FaExternalLinkAlt,
   FaRecycle,
 } from "react-icons/fa";
-import {
-  PiXBold,
-  PiPlusBold,
-  PiPlusCircleBold,
-  PiArrowSquareOut,
-} from "react-icons/pi";
+import { PiXBold, PiPlusCircleBold, PiArrowSquareOut } from "react-icons/pi";
 import React, { useEffect, useMemo, useState } from "react";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { FaRegCircleQuestion } from "react-icons/fa6";
 import clsx from "clsx";
-import { Box, Flex, Text, IconButton, Tooltip as RadixTooltip } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  Text,
+  IconButton,
+  Tooltip as RadixTooltip,
+  Separator,
+} from "@radix-ui/themes";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue } from "@/services/features";
 import { useFeaturesNames } from "@/hooks/useFeaturesNames";
@@ -29,7 +31,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import { DocLink } from "@/components/DocLink";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -39,14 +40,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import {
   ConditionGroupCard,
-  LogicalSeparator,
+  AddConditionButton,
+  ConditionRowLabel,
 } from "@/components/Features/ConditionGroup";
 
 export interface Props {
@@ -114,28 +115,38 @@ export default function PrerequisiteTargetingField({
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueStr, featureNames]);
 
-  // Get all feature IDs that we need states for (dropdown options + selected prerequisites)
-  const allFeatureIds = useMemo(() => {
-    const selectedIds = value.map((v) => v.id).filter(Boolean);
-    const dropdownIds = featureNames
-      .filter((f) => f.id !== feature?.id)
-      .map((f) => f.id);
-    return [...new Set([...selectedIds, ...dropdownIds])];
-  }, [value, featureNames, feature?.id]);
-
-  // Fetch prerequisite states and cyclic checks from backend for all relevant features
+  const isSingleEnvironment = environments.length === 1;
   const targetFeatureId = feature?.id || "";
+  const hasTargetFeature = !!targetFeatureId;
+
+  // Get feature IDs to fetch based on environment count
+  // Single env with feature: all features (for dropdown icons + selected states)
+  // Otherwise: only selected prerequisites (for summary table)
+  const featureIdsToFetch = useMemo(() => {
+    if (isSingleEnvironment && hasTargetFeature) {
+      // Include both dropdown options and selected prerequisites
+      const selectedIds = value.map((v) => v.id).filter(Boolean);
+      const dropdownIds = featureNames
+        .filter((f) => f.id !== feature?.id)
+        .map((f) => f.id);
+      return [...new Set([...selectedIds, ...dropdownIds])];
+    } else {
+      // Only selected prerequisites
+      return value.map((v) => v.id).filter(Boolean);
+    }
+  }, [isSingleEnvironment, hasTargetFeature, value, featureNames, feature?.id]);
+
+  // Fetch prerequisite states using batch hook
   const { results: batchStates, loading: batchStatesLoading } =
     useBatchPrerequisiteStates({
-      targetFeatureId,
-      featureIds: allFeatureIds,
+      baseFeatureId: targetFeatureId,
+      featureIds: featureIdsToFetch,
       environments,
-      enabled:
-        !!targetFeatureId &&
-        allFeatureIds.length > 0 &&
-        environments.length > 0,
+      isExperiment: !hasTargetFeature,
+      enabled: featureIdsToFetch.length > 0 && environments.length > 0,
     });
 
   // Extract prerequisite states from backend response
@@ -151,15 +162,6 @@ export default function PrerequisiteTargetingField({
     return states;
   }, [batchStates]);
 
-  // Map selected prerequisites to their states
-  const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
-    useMemo(() => {
-      return value.map((v) => {
-        if (!v.id) return null;
-        return featuresStates[v.id] || null;
-      });
-    }, [value, featuresStates]);
-
   // Extract wouldBeCyclic flags from backend response
   const wouldBeCyclicStates: Record<string, boolean> = useMemo(() => {
     if (!batchStates) return {};
@@ -169,6 +171,15 @@ export default function PrerequisiteTargetingField({
     }
     return states;
   }, [batchStates]);
+
+  // Map selected prerequisites to their states
+  const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
+    useMemo(() => {
+      return value.map((v) => {
+        if (!v.id) return null;
+        return featuresStates[v.id] || null;
+      });
+    }, [value, featuresStates]);
 
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < prereqStatesArr.length; i++) {
@@ -182,7 +193,7 @@ export default function PrerequisiteTargetingField({
       }
     }
     return false;
-  }, [prereqStatesArr, valueStr, hasSDKWithPrerequisites]);
+  }, [prereqStatesArr, hasSDKWithPrerequisites]);
 
   useEffect(() => {
     setPrerequisiteTargetingSdkIssues(blockedBySdkLimitations);
@@ -200,13 +211,20 @@ export default function PrerequisiteTargetingField({
     .filter((f) => f.id !== feature?.id)
     .filter((f) => !f.archived)
     .map((f) => {
-      const conditional = Object.values(featuresStates[f.id] || {}).some(
-        (s) => s.state === "conditional",
-      );
-      const cyclic = Object.values(featuresStates[f.id] || {}).some(
-        (s) => s.state === "cyclic",
-      );
-      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
+      // Only compute states/cyclic for single environment (where we have batch data)
+      const conditional = isSingleEnvironment
+        ? Object.values(featuresStates[f.id] || {}).some(
+            (s) => s.state === "conditional",
+          )
+        : false;
+      const cyclic = isSingleEnvironment
+        ? Object.values(featuresStates[f.id] || {}).some(
+            (s) => s.state === "cyclic",
+          )
+        : false;
+      const wouldBeCyclic = isSingleEnvironment
+        ? wouldBeCyclicStates[f.id] || false
+        : false;
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
@@ -271,18 +289,14 @@ export default function PrerequisiteTargetingField({
 
   return (
     <Box my="4">
-      <PremiumTooltip
-        commercialFeature="prerequisite-targeting"
-        premiumText="Prerequisite targeting is available for Enterprise customers"
-      >
-        <label style={{ marginBottom: 0 }} className="mb-2 d-block">
-          Target by Prerequisite Features (
-          <DocLink docSection="prerequisites">
-            docs <PiArrowSquareOut />
-          </DocLink>
-          )
-        </label>
-      </PremiumTooltip>
+      <Flex mb="1">
+        <PremiumTooltip
+          commercialFeature="prerequisite-targeting"
+          premiumText="Prerequisite targeting is available for Enterprise customers"
+        >
+          <label>Target by Prerequisite Features</label>
+        </PremiumTooltip>
+      </Flex>
       {value.length > 0 ? (
         <ConditionGroupCard
           targetingType="prerequisite"
@@ -290,9 +304,7 @@ export default function PrerequisiteTargetingField({
           extendToCardEdges
           addButton={
             hasPrerequisitesCommercialFeature ? (
-              <Button
-                variant="outline"
-                size="sm"
+              <AddConditionButton
                 onClick={() => {
                   setValue([
                     ...value,
@@ -302,10 +314,9 @@ export default function PrerequisiteTargetingField({
                     },
                   ]);
                 }}
-                icon={<PiPlusBold size={16} />}
               >
                 Add prerequisite
-              </Button>
+              </AddConditionButton>
             ) : undefined
           }
         >
@@ -327,12 +338,28 @@ export default function PrerequisiteTargetingField({
 
             return (
               <React.Fragment key={i}>
-                {i > 0 && <LogicalSeparator label="AND" />}
-                
+                {i > 0 && (
+                  <Box key={`sep-${i}`}>
+                    <Separator
+                      style={{
+                        width: "100%",
+                        backgroundColor: "var(--slate-a3)",
+                      }}
+                    />
+                    <Box mt="2">
+                      <ConditionRowLabel label="AND" />
+                    </Box>
+                  </Box>
+                )}
+
                 <Box>
                   {/* Feature selector row with remove button */}
                   <Flex gap="3" align="start">
-                    <Flex direction="column" gap="2" style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <Flex
+                      direction="column"
+                      gap="2"
+                      style={{ flex: "1 1 0", minWidth: 0 }}
+                    >
                       <label style={{ marginBottom: 0 }}>Feature</label>
                       <SelectField
                         useMultilineLabels={true}
@@ -457,7 +484,7 @@ export default function PrerequisiteTargetingField({
                         }}
                       />
                     </Flex>
-                    <Box style={{ flexShrink: 0, marginLeft: -2, marginRight: -6 }} pt="7">
+                    <Box flexShrink="0" pt="7">
                       <RadixTooltip content="Remove prerequisite">
                         <IconButton
                           type="button"

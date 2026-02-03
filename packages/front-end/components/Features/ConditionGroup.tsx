@@ -1,7 +1,8 @@
 import React from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text, Separator, Card } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
-import Button from "@/ui/Button";
+import clsx from "clsx";
+import Link from "@/ui/Link";
 
 /** Card container for a condition group: renders header, wraps children in a Flex, optionally renders addButton below. */
 export function ConditionGroupCard({
@@ -10,7 +11,6 @@ export function ConditionGroupCard({
   extendToCardEdges,
   children,
   addButton,
-  style,
   className,
 }: {
   targetingType: ConditionGroupTargetingType;
@@ -20,41 +20,39 @@ export function ConditionGroupCard({
   children: React.ReactNode;
   /** Rendered below the content Flex with anti-stretch wrapper. */
   addButton?: React.ReactNode;
-  style?: React.CSSProperties;
   className?: string;
 }) {
   return (
-    <Flex
-      className={["gb-condition-group-card", className]
-        .filter(Boolean)
-        .join(" ")}
-      direction="column"
-      gap="4"
-      pt="0"
-      px="4"
-      pb="4"
-      style={{
-        backgroundColor: "var(--slate-2)",
-        border: "1px solid var(--slate-a3)",
-        borderRadius: "var(--radius-3)",
-        overflow: "hidden",
-        ...style,
-      }}
+    <Card
+      className={clsx("gb-condition-group-card", className)}
+      style={{ contain: "none" }}
     >
-      <ConditionGroupHeader
-        targetingType={targetingType}
-        total={total}
-        extendToCardEdges={extendToCardEdges}
-      />
-      <Flex direction="column" gap="4">
-        {children}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: "4px",
+          backgroundColor: "var(--slate-9)",
+        }}
+      ></div>
+      <Flex direction="column" gap="2" ml="1">
+        <ConditionGroupHeader
+          targetingType={targetingType}
+          total={total}
+          extendToCardEdges={extendToCardEdges}
+        />
+        <Flex direction="column" gap="4">
+          {children}
+        </Flex>
+        {addButton != null && (
+          <Box style={{ alignSelf: "flex-start" }} pt="2" pb="0">
+            {addButton}
+          </Box>
+        )}
       </Flex>
-      {addButton != null && (
-        <Box style={{ alignSelf: "flex-start" }} pt="2">
-          {addButton}
-        </Box>
-      )}
-    </Flex>
+    </Card>
   );
 }
 
@@ -89,18 +87,14 @@ export function ConditionGroupHeader({
       justify="between"
       align="center"
       px="4"
-      py="2"
       style={{
-        backgroundColor: "var(--slate-3)",
-        borderBottom: "1px solid var(--slate-a3)",
-        borderRadius: "var(--radius-3) var(--radius-3) 0 0",
         ...(extendToCardEdges && {
           marginLeft: "calc(-1 * var(--space-4))",
           marginRight: "calc(-1 * var(--space-4))",
         }),
       }}
     >
-      <Text size="2" style={logicLabelTextStyle}>
+      <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
         {label}
       </Text>
     </Flex>
@@ -115,13 +109,11 @@ export function ConditionRow({
   valueSlot,
   removeSlot,
 }: {
-  /** Rendered before attribute; when null, prefix column is skipped. */
-  prefixSlot?: React.ReactNode | null;
+  prefixSlot?: React.ReactNode | null; // null = draw empty slot
   attributeSlot: React.ReactNode;
-  /** When null, operator column is skipped. */
-  operatorSlot?: React.ReactNode | null;
+  operatorSlot?: React.ReactNode | null; // null = draw empty slot
   valueSlot?: React.ReactNode;
-  removeSlot?: React.ReactNode;
+  removeSlot?: React.ReactNode | null; // null = draw empty slot
 }) {
   return (
     <Flex
@@ -135,8 +127,10 @@ export function ConditionRow({
       }}
     >
       {prefixSlot !== undefined && (
-        <Box flexShrink="0" pt="1" style={{ width: 45, textAlign: "center" }}>
-          {prefixSlot}
+        <Box flexShrink="0" style={{ width: 30 }}>
+          <Flex align="center" style={{ height: 38 }}>
+            {prefixSlot}
+          </Flex>
         </Box>
       )}
       <Flex
@@ -145,11 +139,11 @@ export function ConditionRow({
         wrap="wrap"
         style={{ flex: "1 1 0", minWidth: 0 }}
       >
-        <Box style={{ minWidth: 160, flex: "1 1 0" }}>{attributeSlot}</Box>
+        <Box style={{ minWidth: 150, flex: "1 1 0" }}>{attributeSlot}</Box>
         {operatorSlot != undefined && (
-          <Box style={{ minWidth: 160, flex: "1 1 0" }}>{operatorSlot}</Box>
+          <Box style={{ minWidth: 150, flex: "1 1 0" }}>{operatorSlot}</Box>
         )}
-        <Box style={{ minWidth: 320, flex: "2 1 0" }}>{valueSlot}</Box>
+        <Box style={{ minWidth: 300, flex: "2 1 0" }}>{valueSlot}</Box>
       </Flex>
       {removeSlot != undefined && (
         <Box flexShrink="0" pt="3">
@@ -160,64 +154,26 @@ export function ConditionRow({
   );
 }
 
-const separatorLineStyle: React.CSSProperties = {
-  flexGrow: 1,
-  borderTop: "1px dashed var(--slate-5)",
-  alignSelf: "center",
-};
-
-const logicLabelBoxStyle: React.CSSProperties = {
-  background: "var(--slate-a2)",
-  width: 45,
-  textAlign: "center",
-  border: "1px solid var(--slate-5)",
-  borderRadius: "var(--radius-5)",
-};
-
-export const logicLabelTextStyle: React.CSSProperties = {
-  color: "var(--slate-11)",
-  fontFamily: "var(--font-mono)",
-  fontWeight: 500,
-};
-
-/** Reusable AND/OR label box (background, border, centered text). */
-export function LogicLabelBox({ label }: { label: string }) {
+/** Reusable AND/OR label text. */
+export function ConditionRowLabel({ label }: { label: string }) {
   return (
-    <Box py="1" style={logicLabelBoxStyle}>
-      <Text size="2" style={logicLabelTextStyle}>
-        {label}
-      </Text>
-    </Box>
+    <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
+      {label}
+    </Text>
   );
 }
 
-/** Logical separator: label box (shrink 0) + growing dashed line. */
-export function LogicalSeparator({
-  label,
-  className,
-  ...flexProps
-}: {
-  label: string;
-  className?: string;
-} & React.ComponentProps<typeof Flex>) {
+/** OR separator: -------- OR -------- */
+export function OrSeparator() {
   return (
-    <Flex className={className} align="center" {...flexProps}>
-      <Box flexShrink="0">
-        <LogicLabelBox label={label} />
-      </Box>
-      <Box style={separatorLineStyle} />
+    <Flex align="center" gap="3" my="5" className="gb-or-separator">
+      <Separator style={{ flexGrow: 1 }} />
+      <Text size="2" weight="medium">
+        OR
+      </Text>
+      <Separator style={{ flexGrow: 1 }} />
     </Flex>
   );
-}
-
-/** AND separator (uses LogicalSeparator). */
-export function AndSeparator() {
-  return <LogicalSeparator label="AND" className="gb-and-separator" />;
-}
-
-/** OR separator (uses LogicalSeparator). */
-export function OrSeparator() {
-  return <LogicalSeparator label="OR" className="gb-or-separator" my="5" />;
 }
 
 /** Button with plus icon; default label "+ Add condition". */
@@ -229,30 +185,25 @@ export function AddConditionButton({
   children?: React.ReactNode;
 }) {
   return (
-    <Button
-      className="gb-add-condition-button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      icon={<PiPlusBold size={16} />}
-    >
-      {children ?? "Add condition"}
-    </Button>
+    <Link onClick={onClick} style={{ cursor: "pointer" }}>
+      <Text weight="bold">
+        <PiPlusBold className="mr-1" />
+        {children ?? "Add condition"}
+      </Text>
+    </Link>
   );
 }
 
 /** Button with plus icon and "+ Add OR group" text. */
 export function AddOrGroupButton({ onClick }: { onClick: () => void }) {
   return (
-    <Button
-      className="gb-add-or-group-button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      icon={<PiPlusBold size={16} />}
-      my="5"
-    >
-      Add OR group
-    </Button>
+    <Box my="4">
+      <Link onClick={onClick} style={{ cursor: "pointer" }}>
+        <Text weight="bold">
+          <PiPlusBold className="mr-1" />
+          Add OR group
+        </Text>
+      </Link>
+    </Box>
   );
 }

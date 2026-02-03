@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 
 import React, { useState, useEffect, useMemo } from "react";
-import { RxInfoCircled, RxLoop } from "react-icons/rx";
+import { RxInfoCircled } from "react-icons/rx";
 
 export interface MinimalFeatureInfo {
   id?: string;
@@ -21,6 +21,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import {
   CaseInsensitiveRegexWarning,
   operatorSupportsCaseInsensitive,
@@ -117,10 +118,29 @@ export default function PrerequisiteInput(props: Props) {
     );
 
     return (
-      <Box>
-        <Text weight="medium" size="2" mb="2" style={{ display: "block" }}>
-          PASS IF
-        </Text>
+      <Box mb="6">
+        <Flex justify="between" align="center" mb="2">
+          <Text weight="medium" size="2">
+            PASS IF
+          </Text>
+          {simpleAllowed && (
+            <Switch
+              value={advanced}
+              onChange={(checked) => {
+                if (checked) {
+                  setAdvanced(true);
+                } else {
+                  const newConds = jsonToConds(value, parentValueMap);
+                  if (newConds === null) return;
+                  setConds(newConds);
+                  setAdvanced(false);
+                }
+              }}
+              label="Advanced"
+              size="1"
+            />
+          )}
+        </Flex>
         <CodeTextArea
           language="json"
           value={value}
@@ -131,22 +151,7 @@ export default function PrerequisiteInput(props: Props) {
             <>
               <Flex justify="between" align="center">
                 <Text>JSON format using MongoDB query syntax.</Text>
-                <Flex gap="3">
-                  {formatJSONButton}
-                  {simpleAllowed && (
-                    <Link
-                      onClick={() => {
-                        const newConds = jsonToConds(value, parentValueMap);
-                        // TODO: show error
-                        if (newConds === null) return;
-                        setConds(newConds);
-                        setAdvanced(false);
-                      }}
-                    >
-                      <RxLoop /> Simple mode
-                    </Link>
-                  )}
-                </Flex>
+                {formatJSONButton}
               </Flex>
               <Box mt="2">
                 <Text color="gray" size="2">
@@ -192,7 +197,28 @@ export default function PrerequisiteInput(props: Props) {
 
   return (
     <>
-      {conds[0]?.map(({ field, operator, value }, i) => {
+      <Flex justify="between" align="center" mb="2">
+        <Text weight="medium" size="2">
+          PASS IF
+        </Text>
+        <Switch
+          value={advanced}
+          onChange={(checked) => {
+            if (checked) {
+              setAdvanced(true);
+            } else {
+              const newConds = jsonToConds(value, parentValueMap);
+              if (newConds === null) return;
+              setConds(newConds);
+              setAdvanced(false);
+            }
+          }}
+          label="Advanced"
+          size="1"
+        />
+      </Flex>
+      <>
+        {conds[0]?.map(({ field, operator, value }, i) => {
         const attribute = parentValueMap.get(field);
 
         if (!attribute) {
@@ -281,9 +307,9 @@ export default function PrerequisiteInput(props: Props) {
           <React.Fragment key={i}>
             {/* Operator and optional case insensitive checkbox */}
             <Flex gap="2" align="start" wrap="wrap">
-              <Box style={{ flexShrink: 0 }} mt="2">
+              <Flex flexShrink="0" align="center" style={{ height: 38 }}>
                 <Badge label="VALUE" color="gray" radius="full" />
-              </Box>
+              </Flex>
               <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                 <Flex direction="column" gap="1">
                   <SelectField
@@ -398,18 +424,10 @@ export default function PrerequisiteInput(props: Props) {
                   </Box>
                 ) : null)}
             </Flex>
-
-            {/* Advanced mode link */}
-            {!advanced && (
-              <Flex justify="end" mt="2">
-                <Link onClick={() => setAdvanced(true)}>
-                  <RxLoop /> Advanced mode
-                </Link>
-              </Flex>
-            )}
           </React.Fragment>
         );
       })}
+      </>
       <CaseInsensitiveRegexWarning
         value={value}
         project={parentFeature?.project}

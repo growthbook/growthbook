@@ -112,7 +112,7 @@ export default function PrerequisiteModal({
 
   const { results: batchStates, checkPrerequisiteCyclic } =
     useBatchPrerequisiteStates({
-      targetFeatureId: feature.id,
+      baseFeatureId: feature.id,
       featureIds,
       environments: envs,
       enabled: featureIds.length > 0 && envs.length > 0,

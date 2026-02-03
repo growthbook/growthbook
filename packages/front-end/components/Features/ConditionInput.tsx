@@ -2,19 +2,20 @@
 
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
-import { RxLoop } from "react-icons/rx";
 import {
   PiArrowSquareOut,
   PiBracketsCurly,
   PiPlusCircleBold,
   PiXBold,
+  PiTextAa,
 } from "react-icons/pi";
 import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
-import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Text, IconButton, Separator } from "@radix-ui/themes";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Tooltip from "@/ui/Tooltip";
+import Switch from "@/ui/Switch";
 import {
   Condition,
   condToJson,
@@ -37,15 +38,16 @@ import CountrySelector, {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import {
   ConditionGroupCard,
   ConditionRow,
-  AndSeparator,
   OrSeparator,
   AddConditionButton,
   AddOrGroupButton,
+  ConditionRowLabel,
 } from "./ConditionGroup";
 
 export function ConditionLabel({
@@ -216,38 +218,40 @@ export default function ConditionInput(props: Props) {
           </Flex>
         </Flex>
         {hasSecureAttributes && (
-          <Callout status="warning" mt="2">
+          <HelperText status="warning" mt="2">
             Secure attribute hashing not guaranteed to work for complicated
             rules
-          </Callout>
+          </HelperText>
         )}
         <CaseInsensitiveRegexWarning value={value} project={props.project} />
       </>
     );
 
     return (
-      <Box my="4">
-        <Flex gap="2">
-          <Box flexGrow={"1"}>
-            <label className={props.labelClassName || ""}>{title}</label>
+      <Box mb="6">
+        <Flex gap="2" mb="1">
+          <Box flexGrow="1">
+            <label className={props.labelClassName}>{title}</label>
           </Box>
           {simpleAllowed && attributes.size > 0 && (
-            <Box>
-              <Link
-                onClick={() => {
+            <Switch
+              value={advanced}
+              onChange={(checked) => {
+                if (checked) {
+                  setAdvanced(true);
+                } else {
                   const newConds = jsonToConds(value, attributes);
-                  // TODO: show error
                   if (newConds === null) return;
                   setConds(newConds);
                   setAdvanced(false);
-                }}
-              >
-                <RxLoop /> Simple mode
-              </Link>
-            </Box>
+                }
+              }}
+              label="Advanced"
+              size="1"
+            />
           )}
         </Flex>
-        <Box className="appbox bg-light px-3 py-3">
+        <Box mb="3">
           {codeEditorToggledOn ? (
             <CodeTextArea
               labelClassName={props.labelClassName}
@@ -281,7 +285,7 @@ export default function ConditionInput(props: Props) {
   if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
       <Box my="4">
-        <label className={props.labelClassName || ""}>{title}</label>
+        <label className={props.labelClassName}>{title}</label>
         <Box>
           <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
             {emptyText}
@@ -317,15 +321,26 @@ export default function ConditionInput(props: Props) {
     );
   }
   return (
-    <Box my="4">
-      <Flex justify="between" align="center" mb="3">
-        <label className={props.labelClassName || ""}>{title}</label>
-        <Link
-          onClick={() => setAdvanced(true)}
-          style={{ fontSize: "var(--font-size-2)", fontWeight: 500 }}
-        >
-          <RxLoop /> Advanced mode
-        </Link>
+    <Box mb="6">
+      <Flex justify="between" align="center" mb="1">
+        <label className={props.labelClassName}>{title}</label>
+        {attributes.size > 0 && (
+          <Switch
+            value={advanced}
+            onChange={(checked) => {
+              if (checked) {
+                setAdvanced(true);
+              } else {
+                const newConds = jsonToConds(value, attributes);
+                if (newConds === null) return;
+                setConds(newConds);
+                setAdvanced(false);
+              }
+            }}
+            label="Advanced"
+            size="1"
+          />
+        )}
       </Flex>
 
       {conds.map((andGroup, i) => (
@@ -586,11 +601,13 @@ function ConditionAndGroupInput({
             }
           });
 
-          return [
-            ...(i > 0 ? [<AndSeparator key={`and-${i}`} />] : []),
-            <ConditionRow
-              key={i}
-              attributeSlot={fieldSelector}
+        return [
+          <ConditionRow
+            key={i}
+            prefixSlot={
+              i > 0 ? <ConditionRowLabel label="AND" /> : null
+            }
+            attributeSlot={fieldSelector}
               operatorSlot={
                 <SelectField
                   useMultilineLabels={true}
@@ -832,13 +849,16 @@ function ConditionAndGroupInput({
           displayType === "string" && value !== value.trim();
 
         return [
-          ...(i > 0 ? [<AndSeparator key={`and-${i}`} />] : []),
+          ...(i > 0 ? [<Separator key={`sep-${i}`} style={{ width: "100%", backgroundColor: "var(--slate-a3)" }} />] : []),
           <ConditionRow
             key={i}
+            prefixSlot={
+              i > 0 ? <ConditionRowLabel label="AND" /> : <Box style={{ width: 45 }} />
+            }
             attributeSlot={fieldSelector}
             operatorSlot={
-              <Flex gap="1" align="start">
-                <Box style={{ flexGrow: 1 }}>
+              <Flex gap="3" align="start">
+                <Box flexGrow="1">
                   <SelectField
                     useMultilineLabels={true}
                     value={getDisplayOperator(operator)}
@@ -861,7 +881,7 @@ function ConditionAndGroupInput({
                     >
                       <IconButton
                         type="button"
-                        variant="outline"
+                        variant={isCaseInsensitiveOperator(operator) ? "soft" : "ghost"}
                         size="1"
                         radius="medium"
                         onClick={() => {
@@ -874,17 +894,11 @@ function ConditionAndGroupInput({
                         style={{
                           width: 24,
                           height: 24,
-                          margin: "14px 0 0 2px",
+                          margin: "8px 0 0 0",
                           padding: 0,
-                          backgroundColor: isCaseInsensitiveOperator(operator)
-                            ? "var(--violet-4)"
-                            : undefined,
-                          boxShadow: isCaseInsensitiveOperator(operator)
-                            ? undefined
-                            : "inset 0 0 0 1px var(--accent-a4)",
                         }}
                       >
-                        Aa
+                        <PiTextAa />
                       </IconButton>
                     </Tooltip>
                   )}

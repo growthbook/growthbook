@@ -60,14 +60,19 @@
   font-weight: 600;
 }
 
+.gb-multi-select__multi-value__remove,
+.gb-select__multi-value__remove {
+  &:hover {
+    background-color: var(--slate-a4) !important;
+    color: var(--slate-12) !important;
+  }
+}
+
 // Hide clear (X) and raw-text-mode buttons until the field is hovered
 .gb-multi-select__control,
 .gb-select__control {
+  .gb-multi-select__indicators,
   .gb-select__indicators {
-    margin-left: -6px;
-    position: relative;
-  }
-  .gb-multi-select__indicators {
     margin-left: -12px;
     position: relative;
   }

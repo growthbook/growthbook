@@ -1,7 +1,7 @@
 import { SavedGroupTargeting } from "shared/types/feature";
 import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React from "react";
-import { Box, Text, IconButton } from "@radix-ui/themes";
+import { Box, Text, IconButton, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +16,7 @@ import {
   ConditionGroupCard,
   ConditionRow,
   AddConditionButton,
-  LogicLabelBox,
+  ConditionRowLabel,
 } from "./ConditionGroup";
 
 export interface Props {
@@ -92,9 +92,9 @@ export default function SavedGroupTargetingField({
   }
 
   return (
-    <Box my="4">
-      <label>Target by Saved Groups</label>
-      <Box mb="2">
+    <Box mb="6">
+      <Box>
+        <label>Target by Saved Groups</label>
         <LargeSavedGroupPerformanceWarning
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           unsupportedConnections={unsupportedConnections}
@@ -134,16 +134,18 @@ export default function SavedGroupTargetingField({
           </AddConditionButton>
         }
       >
-        {value.map((v, i) => (
-          <ConditionRow
-            key={i}
-            prefixSlot={
-              i > 0 ? (
-                <LogicLabelBox label="AND" />
-              ) : (
-                <LogicLabelBox label="IN" />
-              )
-            }
+        <>
+          {value.map((v, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <Separator style={{ width: "100%", backgroundColor: "var(--slate-a3)" }} />}
+              <ConditionRow
+                prefixSlot={
+                i > 0 ? (
+                  <ConditionRowLabel label="AND" />
+                ) : (
+                  <ConditionRowLabel label="IN" />
+                )
+              }
             attributeSlot={
               <SelectField
                 useMultilineLabels={true}
@@ -204,8 +206,10 @@ export default function SavedGroupTargetingField({
                 </IconButton>
               </Tooltip>
             }
-          />
+            />
+          </React.Fragment>
         ))}
+        </>
       </ConditionGroupCard>
     </Box>
   );
