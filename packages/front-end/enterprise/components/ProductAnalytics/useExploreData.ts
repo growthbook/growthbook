@@ -2,7 +2,10 @@
 // TODO: Implement real backend API call
 
 import { useState, useCallback } from "react";
-import type { ProductAnalyticsConfig, ProductAnalyticsResult } from "shared/validators";
+import type {
+  ProductAnalyticsConfig,
+  ProductAnalyticsResult,
+} from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { generateMockExploreData } from "@/services/mockData";
 
@@ -32,10 +35,13 @@ export function useExploreData() {
       try {
         // TODO: Make actual API call to backend
         // Example:
-        const response = await apiCall<ProductAnalyticsResult>("/product-analytics/run", {
-          method: "POST",
-          body: JSON.stringify({ config:config }),
-        });
+        const response = await apiCall<ProductAnalyticsResult>(
+          "/product-analytics/run",
+          {
+            method: "POST",
+            body: JSON.stringify({ config: config }),
+          },
+        );
         console.log("API response", response);
         setData(response);
 

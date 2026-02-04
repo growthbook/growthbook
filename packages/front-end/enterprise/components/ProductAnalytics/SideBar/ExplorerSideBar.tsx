@@ -24,7 +24,7 @@ function getDatasetIcon(type: DatasetType, size = 16) {
 export default function ExplorerSideBar() {
   const { draftExploreState, setDraftExploreState, changeDatasetType } =
     useExplorerContext();
-  const { factTables } = useDefinitions();
+  const { factTables, datasources } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";
@@ -32,6 +32,7 @@ export default function ExplorerSideBar() {
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const sqlDatasource = dataset?.type === "sql" ? dataset.datasource : null;
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -47,16 +48,29 @@ export default function ExplorerSideBar() {
       </Text>
       <Tabs value={activeType} onValueChange={handleTabChange}>
         <Flex>
-          <Flex width="100%" direction="column" p="3" gap="2" style={{
-            border: "1px solid var(--gray-a3)",
-            borderRadius: "var(--radius-4)",
-            backgroundColor: "var(--color-panel-translucent)",
-          }}>
+          <Flex
+            width="100%"
+            direction="column"
+            p="3"
+            gap="2"
+            style={{
+              border: "1px solid var(--gray-a3)",
+              borderRadius: "var(--radius-4)",
+              backgroundColor: "var(--color-panel-translucent)",
+            }}
+          >
             <Text size="2" weight="medium">
               Data Source
             </Text>
 
-            <TabsList size="1" justify="center" style={{ border: "1px solid var(--gray-a3)", borderRadius: "var(--radius-4)" }}>
+            <TabsList
+              size="1"
+              justify="center"
+              style={{
+                border: "1px solid var(--gray-a3)",
+                borderRadius: "var(--radius-4)",
+              }}
+            >
               <TabsTrigger value="metric">
                 <Flex align="center" gap="2">
                   {getDatasetIcon("metric", 14)}
@@ -91,19 +105,44 @@ export default function ExplorerSideBar() {
                     },
                   }))
                 }
-                options={factTables.map((ft) => ({ label: ft.name, value: ft.id }))}
+                options={factTables.map((ft) => ({
+                  label: ft.name,
+                  value: ft.id,
+                }))}
                 placeholder="Select fact table..."
+                forceUndefinedValueToNull
+              />
+            )}
+            {activeType === "sql" && (
+              <SelectField
+                label="Data source"
+                value={sqlDatasource || ""}
+                onChange={(datasource) =>
+                  setDraftExploreState((prev) => ({
+                    ...prev,
+                    dataset: { ...dataset, datasource },
+                  }))
+                }
+                options={datasources.map((d) => ({
+                  label: d.name,
+                  value: d.id,
+                }))}
+                placeholder="Select data source..."
                 forceUndefinedValueToNull
               />
             )}
           </Flex>
         </Flex>
 
-        <Box px="0" mt="3" style={{
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-4)",
-          backgroundColor: "var(--color-panel-translucent)",
-        }}>
+        <Box
+          px="0"
+          mt="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
           <TabsContent value="metric">
             <Box p="3">
               <MetricTabContent />
@@ -126,6 +165,3 @@ export default function ExplorerSideBar() {
     </Flex>
   );
 }
-
-
-
