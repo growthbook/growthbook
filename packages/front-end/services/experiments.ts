@@ -480,6 +480,8 @@ export type RowResults = {
   suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
+  minPercentChange: number;
+  currentMetricTotal: number;
 };
 export type EnoughDataMetaZeroValues = {
   reason: "baselineZero" | "variationZero";
@@ -528,7 +530,7 @@ export function getRowResults({
   snapshotDate: Date;
   phaseStartDate: Date;
   isLatestPhase: boolean;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -628,6 +630,8 @@ export function getRowResults({
   );
   const suspiciousThreshold =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
+  const minPercentChange =
+    metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
         suspiciousThreshold,
@@ -694,6 +698,9 @@ export function getRowResults({
     }
   }
 
+  // Max numerator value across baseline and variation
+  const currentMetricTotal = Math.max(baseline.value ?? 0, stats.value ?? 0);
+
   return {
     directionalStatus,
     resultsStatus,
@@ -709,6 +716,8 @@ export function getRowResults({
     suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
+    minPercentChange,
+    currentMetricTotal,
   };
 }
 

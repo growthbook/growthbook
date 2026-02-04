@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "4.2.0",
+  "version": "4.3.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -33,6 +33,8 @@
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
   "dependencies": {
+    "@datadog/native-metrics": "^3.1.1",
+    "@datadog/pprof": "^5.13.2",
     "dd-trace": "^5.83.0",
     "pm2": "^6.0.14"
   },

@@ -184,7 +184,7 @@ const FeatureSearchFilters: FC<
           {
             searchValue: "force",
             id: "hasForce",
-            name: "has an force rule",
+            name: "has a force rule",
           },
         ]}
         updateQuery={updateQuery}

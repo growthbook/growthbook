@@ -4,6 +4,7 @@ ARG NODE_MAJOR=20
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
+RUN pip install --upgrade pip
 COPY ./packages/stats .
 RUN \
   pip3 install poetry==1.8.5  \
@@ -28,6 +29,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
+COPY .npmrc ./.npmrc
 COPY package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -69,7 +71,10 @@ RUN pnpm postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+# TODO: Remove openssl upgrade once base image has version >3.5.4-1~deb13u2
+# Check with: `docker run --rm python:3.11-slim dpkg -l | grep openssl`
 RUN apt-get update && \
+  apt-get install --only-upgrade -y openssl && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
@@ -79,6 +84,7 @@ RUN apt-get update && \
   npm install -g pnpm@9.15.0 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pip
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 

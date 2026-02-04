@@ -58,6 +58,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -76,7 +77,7 @@ export type ResultsTableProps = {
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
-  status: ExperimentStatus;
+  status?: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   phase: number;
@@ -132,6 +133,7 @@ export type ResultsTableProps = {
   totalMetricsCount?: number;
   visibleTimeSeriesRowIds?: string[];
   onVisibleTimeSeriesRowIdsChange?: (ids: string[]) => void;
+  timeSeriesMessage?: string;
 };
 
 const ROW_HEIGHT = 46;
@@ -199,10 +201,15 @@ export default function ResultsTable({
   totalMetricsCount,
   visibleTimeSeriesRowIds: visibleTimeSeriesRowIdsProp,
   onVisibleTimeSeriesRowIdsChange,
+  timeSeriesMessage,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  // Detect drilldown context for automatic row click handling
+  const drilldownContext = useMetricDrilldownContext();
+  const effectiveOnRowClick = onRowClick ?? drilldownContext?.openDrilldown;
 
   const SortButton = ({ column }: { column: "significance" | "change" }) => {
     if (!setSortBy || !setSortDirection) return null;
@@ -513,11 +520,15 @@ export default function ResultsTable({
     ? (pValueCorrection ?? null)
     : null;
 
-  const drilldownEnabled = !!onRowClick && !noTooltip;
+  const drilldownEnabled = !!effectiveOnRowClick && !noTooltip;
 
   return (
     <DrilldownTooltip enabled={drilldownEnabled}>
-      {({ onMouseMove: onRowMouseMove, onMouseLeave: onRowMouseLeave }) => (
+      {({
+        onMouseMove: onRowMouseMove,
+        onMouseLeave: onRowMouseLeave,
+        onClick: onRowClick_,
+      }) => (
         <div className="position-relative">
           <div ref={tableContainerRef} className="experiment-results-wrapper">
             <div className="w-100" style={{ minWidth: 700 }}>
@@ -777,15 +788,16 @@ export default function ResultsTable({
                           <tbody
                             className={clsx("results-group-row", {
                               "slice-row": row.isSliceRow,
-                              [styles.clickableRow]: !!onRowClick,
+                              [styles.clickableRow]: !!effectiveOnRowClick,
                             })}
                             key={`${rowId}-tbody`}
                             onClick={
-                              onRowClick
+                              effectiveOnRowClick
                                 ? (e) => {
                                     const target = e.target as HTMLElement;
                                     if (!isInteractiveElement(target)) {
-                                      onRowClick(row);
+                                      onRowClick_();
+                                      effectiveOnRowClick(row);
                                     }
                                   }
                                 : undefined
@@ -1092,6 +1104,13 @@ export default function ResultsTable({
                                                 "results-ctw",
                                                 resultsHighlightClassname,
                                               )}
+                                              metric={row.metric}
+                                              differenceType={differenceType}
+                                              statsEngine={statsEngine}
+                                              ssrPolyfills={ssrPolyfills}
+                                              minSampleSize={getMinSampleSizeForMetric(
+                                                row.metric,
+                                              )}
                                             />
                                           ) : (
                                             <PValueColumn
@@ -1113,6 +1132,13 @@ export default function ResultsTable({
                                               className={clsx(
                                                 "results-pval",
                                                 resultsHighlightClassname,
+                                              )}
+                                              metric={row.metric}
+                                              differenceType={differenceType}
+                                              statsEngine={statsEngine}
+                                              ssrPolyfills={ssrPolyfills}
+                                              minSampleSize={getMinSampleSizeForMetric(
+                                                row.metric,
                                               )}
                                             />
                                           )
@@ -1168,6 +1194,21 @@ export default function ResultsTable({
                                             }
                                             statsEngine={statsEngine}
                                             ssrPolyfills={ssrPolyfills}
+                                            suspiciousChange={
+                                              rowResults.suspiciousChange
+                                            }
+                                            notEnoughData={
+                                              !rowResults.enoughData
+                                            }
+                                            minSampleSize={getMinSampleSizeForMetric(
+                                              row.metric,
+                                            )}
+                                            minPercentChange={
+                                              rowResults.minPercentChange
+                                            }
+                                            currentMetricTotal={
+                                              rowResults.currentMetricTotal
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph
@@ -1205,6 +1246,9 @@ export default function ResultsTable({
                                                 ? timeSeriesButton
                                                 : undefined
                                             }
+                                            minSampleSize={getMinSampleSizeForMetric(
+                                              row.metric,
+                                            )}
                                           />
                                         ) : (
                                           <td></td>
@@ -1241,7 +1285,6 @@ export default function ResultsTable({
                                         <ExperimentMetricTimeSeriesGraphWrapper
                                           experimentId={experimentId}
                                           phase={phase}
-                                          experimentStatus={status}
                                           metric={row.metric}
                                           differenceType={differenceType}
                                           variationNames={orderedVariations.map(
@@ -1258,6 +1301,7 @@ export default function ResultsTable({
                                           )}
                                           sliceId={row.sliceId}
                                           baselineRow={baselineRow}
+                                          unavailableMessage={timeSeriesMessage}
                                         />
                                       </div>
                                     </div>
