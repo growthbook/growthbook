@@ -662,9 +662,15 @@ export default function PrerequisiteInput({
                                     condToJson([newConds], parentValueMap),
                                   );
                                 }}
-                                placeholder="value 1, value 2, value 3..."
+                                placeholder={
+                                  parentFeatureMeta?.valueType === "number"
+                                    ? "1, 2, 3..."
+                                    : "value 1, value 2, value 3..."
+                                }
                                 delimiters={["Enter", "Tab"]}
-                                enableRawTextMode
+                                enableRawTextMode={
+                                  parentFeatureMeta?.valueType !== "number"
+                                }
                                 required
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (

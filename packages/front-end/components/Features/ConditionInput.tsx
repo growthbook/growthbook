@@ -98,9 +98,9 @@ export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
 }
 
-/** True when the attribute datatype supports case-insensitive operators (false for secureString / secureString[]). */
+/** True when the attribute datatype supports case-insensitive operators (only string types). */
 export function datatypeSupportsCaseInsensitive(datatype?: string): boolean {
-  return !["secureString", "secureString[]"].includes(datatype ?? "");
+  return datatype === "string";
 }
 
 export function getDisplayOperator(operator: string): string {
@@ -960,9 +960,13 @@ function ConditionAndGroupInput({
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
                         onChange={handleListChange}
-                        placeholder="value 1, value 2, value 3..."
+                        placeholder={
+                          attribute?.datatype === "number"
+                            ? "1, 2, 3..."
+                            : "value 1, value 2, value 3..."
+                        }
                         delimiters={["Enter", "Tab"]}
-                        enableRawTextMode
+                        enableRawTextMode={attribute?.datatype !== "number"}
                         required
                       />
                     </Flex>
