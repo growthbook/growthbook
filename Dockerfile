@@ -76,6 +76,8 @@ RUN pnpm postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 # TODO: Remove openssl upgrade once base image has version >3.5.4-1~deb13u2
 # Check with: `docker run --rm python:3.11-slim dpkg -l | grep openssl`
 RUN apt-get update && \
@@ -89,7 +91,6 @@ RUN apt-get update && \
   npm install -g pnpm@9.15.0 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-RUN pip install --upgrade pip
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 
