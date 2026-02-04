@@ -1,5 +1,6 @@
 import React from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { FaRegCircleQuestion } from "react-icons/fa6";
 import { Text } from "@radix-ui/themes";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Link from "@/ui/Link";
@@ -46,6 +47,7 @@ export default function PrerequisiteAlerts({
       status={hasSDKWithPrerequisites ? "warning" : "error"}
       mb={mb}
       mt={mt}
+      icon={<FaRegCircleQuestion className="text-warning-orange" />}
     >
       <Text>
         This {type} is in a{" "}

@@ -4,7 +4,6 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import { getFeatureDefaultValue } from "@/services/features";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Callout from "@/ui/Callout";
 import { PrerequisiteStateResult } from "@/hooks/usePrerequisiteStates";
 
 export interface MinimalFeatureInfo {
@@ -18,7 +17,6 @@ interface Props {
   parentFeature?: MinimalFeatureInfo;
   prereqStates: Record<string, PrerequisiteStateResult> | null;
   environments: string[];
-  featureProject: string;
   loading?: boolean;
 }
 
@@ -26,7 +24,6 @@ export default function PrerequisiteStatesTable({
   parentFeature,
   prereqStates,
   environments,
-  featureProject,
   loading = false,
 }: Props) {
   if (!parentFeature || !parentFeature.id) {
@@ -35,20 +32,6 @@ export default function PrerequisiteStatesTable({
 
   return (
     <Box mt="1" mb="3">
-      {(parentFeature?.project || "") !== featureProject ? (
-        <Callout
-          status="warning"
-          mb="3"
-          size="sm"
-          dismissible={true}
-          id="prerequisite-project-mismatch--field"
-        >
-          The prerequisite&apos;s project does not match this feature&apos;s
-          project. For SDK connections that do not overlap in project scope,
-          prerequisite evaluation will not pass.
-        </Callout>
-      ) : null}
-
       <Box style={{ maxWidth: "100%", overflowX: "auto" }}>
         <table className="table table-sm border mb-0">
           <thead className="text-dark">

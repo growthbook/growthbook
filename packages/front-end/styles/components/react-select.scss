@@ -12,13 +12,11 @@
   min-width: 100% !important;
   width: max-content !important;
   background-color: var(--color-surface-solid) !important;
-}
-
-.gb-select__menu {
   border-radius: 8px !important;
   overflow: hidden !important;
 }
-.gb-select__menu-list {
+.gb-select__menu-list,
+.gb-multi-select__menu-list {
   padding: 8px !important;
 }
 

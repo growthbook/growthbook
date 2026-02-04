@@ -8,6 +8,7 @@ import {
   PiTextAa,
   PiCaretRightFill,
 } from "react-icons/pi";
+import { RxInfoCircled } from "react-icons/rx";
 import {
   Box,
   Flex,
@@ -48,6 +49,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 import {
   datatypeSupportsCaseInsensitive,
   getDisplayOperator,
@@ -791,7 +793,25 @@ export default function PrerequisiteInput({
                         setValue={(newVal) => updateCondition(i, newVal)}
                         minLines={3}
                         maxLines={6}
+                        showCopyButton={true}
+                        showFullscreenButton={true}
                       />
+                      <Box>
+                        <Text color="gray" size="1">
+                          <code>"value"</code> refers to the prerequisite&apos;s
+                          evaluated value.
+                          <Tooltip
+                            body={<div>Example: <code>{`{"value": {"$gt": 3}}`}</code></div>}
+                            className="ml-2"
+                            flipTheme={false}
+                          >
+                            <RxInfoCircled
+                              className="text-info hover-underline"
+                              style={{ verticalAlign: "middle" }}
+                            />
+                          </Tooltip>
+                        </Text>
+                      </Box>
                     </Box>
                   )}
 
@@ -813,12 +833,28 @@ export default function PrerequisiteInput({
                           parentFeature={parentFeature}
                           prereqStates={prereqStates}
                           environments={environments}
-                          featureProject={featureProject}
                           loading={batchStatesLoading}
                         />
                       </Collapsible>
                     </Box>
                   )}
+
+                  {/* Project mismatch warning */}
+                  {parentFeature &&
+                    (parentFeature?.project || "") !== featureProject && (
+                      <Callout
+                        status="warning"
+                        mb="2"
+                        size="sm"
+                        // dismissible={true}
+                        id="prerequisite-project-mismatch--field"
+                      >
+                        The prerequisite&apos;s project does not match this
+                        feature&apos;s project. For SDK connections that do not
+                        overlap in project scope, prerequisite evaluation will not
+                        pass.
+                      </Callout>
+                    )}
 
                   {/* Conditional state alerts */}
                   {parentFeature && hasConditionalState && (

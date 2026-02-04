@@ -103,18 +103,21 @@ export default function PrerequisiteFeatureSelector({
         const foundOption = featureOptions.find((o) => o.value === optionValue);
         const meta = foundOption?.meta;
         const projectName = foundOption?.projectName;
+        const isSelectedValue = context === "value" && optionValue;
 
-        // When displaying the selected value (not in dropdown menu)
-        if (context === "value" && optionValue) {
-          return (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                width: "100%",
-              }}
-            >
+        return (
+          <div
+            className={clsx({
+              "cursor-disabled": !isSelectedValue && !!meta?.disabled,
+            })}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              width: "100%",
+            }}
+          >
+            {isSelectedValue ? (
               <Link
                 href={`/features/${optionValue}`}
                 target="_blank"
@@ -129,11 +132,38 @@ export default function PrerequisiteFeatureSelector({
                 <OverflowText maxWidth={180}>{label}</OverflowText>
                 <PiArrowSquareOut />
               </Link>
+            ) : (
+              <span style={{ opacity: meta?.disabled ? 0.5 : 1 }}>{label}</span>
+            )}
+            <div
+              style={{
+                marginLeft: "auto",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              {projectName ? (
+                <OverflowText maxWidth={150} className="text-muted small">
+                  project: <strong>{projectName}</strong>
+                </OverflowText>
+              ) : (
+                <em className="text-muted small" style={{ opacity: 0.5 }}>
+                  no project
+                </em>
+              )}
               {meta?.wouldBeCyclic && (
-                <Tooltip body="Selecting this feature would create a cyclic dependency.">
-                  <span style={{ position: "relative", zIndex: 1000 }}>
-                    <FaRecycle className="text-muted" />
-                  </span>
+                <Tooltip
+                  body="Selecting this feature would create a cyclic dependency."
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaRecycle className="text-muted" />
                 </Tooltip>
               )}
               {meta?.conditional && (
@@ -154,110 +184,30 @@ export default function PrerequisiteFeatureSelector({
                       )}
                     </>
                   }
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
                 >
-                  <span style={{ position: "relative", zIndex: 1000 }}>
-                    <FaRegCircleQuestion className="text-warning-orange" />
-                  </span>
+                  <FaRegCircleQuestion className="text-warning-orange" />
                 </Tooltip>
               )}
               {meta?.cyclic && (
-                <Tooltip body="This feature has a cyclic dependency.">
-                  <span style={{ position: "relative", zIndex: 1000 }}>
-                    <FaExclamationCircle className="text-danger" />
-                  </span>
+                <Tooltip
+                  body="This feature has a cyclic dependency."
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaExclamationCircle className="text-danger" />
                 </Tooltip>
               )}
-              <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-                {projectName ? (
-                  <OverflowText maxWidth={150} className="text-muted small">
-                    project: <strong>{projectName}</strong>
-                  </OverflowText>
-                ) : (
-                  <em className="text-muted small" style={{ opacity: 0.5 }}>
-                    no project
-                  </em>
-                )}
-              </div>
             </div>
-          );
-        }
-
-        // When displaying in the dropdown menu
-        return (
-          <div
-            className={clsx({
-              "cursor-disabled": !!meta?.disabled,
-            })}
-          >
-            <span
-              className="mr-2"
-              style={{ opacity: meta?.disabled ? 0.5 : 1 }}
-            >
-              {label}
-            </span>
-            {projectName ? (
-              <OverflowText
-                maxWidth={150}
-                className="text-muted small float-right text-right"
-              >
-                project: <strong>{projectName}</strong>
-              </OverflowText>
-            ) : (
-              <em
-                className="text-muted small float-right position-relative"
-                style={{ top: 3, opacity: 0.5 }}
-              >
-                no project
-              </em>
-            )}
-            {meta?.wouldBeCyclic && (
-              <Tooltip
-                body="Selecting this feature would create a cyclic dependency."
-                className="mr-2"
-              >
-                <FaRecycle
-                  className="text-muted position-relative"
-                  style={{ zIndex: 1 }}
-                />
-              </Tooltip>
-            )}
-            {meta?.conditional && (
-              <Tooltip
-                body={
-                  <>
-                    This feature is in a{" "}
-                    <span className="text-warning-orange font-weight-bold">
-                      Schrödinger state
-                    </span>
-                    {environments.length > 1 && " in some environments"}.
-                    {!hasSDKWithPrerequisites && (
-                      <>
-                        {" "}
-                        None of your SDK Connections in this project support
-                        evaluating Schrödinger states.
-                      </>
-                    )}
-                  </>
-                }
-                className="mr-2"
-              >
-                <FaRegCircleQuestion
-                  className="text-warning-orange position-relative"
-                  style={{ zIndex: 1 }}
-                />
-              </Tooltip>
-            )}
-            {meta?.cyclic && (
-              <Tooltip
-                body="This feature has a cyclic dependency."
-                className="mr-2"
-              >
-                <FaExclamationCircle
-                  className="text-danger position-relative"
-                  style={{ zIndex: 1 }}
-                />
-              </Tooltip>
-            )}
           </div>
         );
       }}
