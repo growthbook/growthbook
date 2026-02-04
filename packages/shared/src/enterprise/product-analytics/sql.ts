@@ -1061,12 +1061,12 @@ export function generateProductAnalyticsSQL(
 
     // If this is the first fact table and there are dynamic dimensions, add CTEs
     if (i === 0) {
-      config.dimensions.forEach((dimension) => {
+      config.dimensions.forEach((dimension, dimensionIndex) => {
         if (dimension.dimensionType === "dynamic") {
           const dynamicDimensionCTE = generateDynamicDimensionCTE(
             factTableGroup,
             dimension,
-            i,
+            dimensionIndex,
             factTableCTE,
             sqlHelpers,
           );
