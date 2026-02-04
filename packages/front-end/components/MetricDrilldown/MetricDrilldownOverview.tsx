@@ -12,6 +12,7 @@ import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import VariationStatsTable from "@/ui/VariationStatsTable";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
@@ -25,7 +26,7 @@ interface MetricDrilldownOverviewProps {
   phase: number;
   startDate: string;
   endDate: string;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
   localBaselineRow: number;
   setLocalBaselineRow: (baseline: number) => void;
@@ -38,6 +39,7 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  timeSeriesMessage?: string;
 }
 
 function MetricDrilldownOverview({
@@ -61,8 +63,10 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  timeSeriesMessage,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
+  const { isAuthenticated } = useAuth();
   const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
     useSnapshot();
 
@@ -127,7 +131,10 @@ function MetricDrilldownOverview({
         noTooltip={false}
         isBandit={false}
         isHoldout={false}
-        visibleTimeSeriesRowIds={[`${tableId}-${metric.id}-0`]}
+        visibleTimeSeriesRowIds={
+          isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
+        }
+        timeSeriesMessage={timeSeriesMessage}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
@@ -164,12 +171,14 @@ function MetricDrilldownOverview({
           Metric definition
         </Text>
         <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
-        <Flex direction="row" gap="5">
-          <MetricDrilldownMetricCard metric={metric} type="numerator" />
-          {isRatioMetric(metric) && (
-            <MetricDrilldownMetricCard metric={metric} type="denominator" />
-          )}
-        </Flex>
+        {isAuthenticated && (
+          <Flex direction="row" gap="5">
+            <MetricDrilldownMetricCard metric={metric} type="numerator" />
+            {isRatioMetric(metric) && (
+              <MetricDrilldownMetricCard metric={metric} type="denominator" />
+            )}
+          </Flex>
+        )}
       </Flex>
     </Flex>
   );

@@ -3,6 +3,7 @@ import {
   ExperimentDecisionFrameworkSettings,
   ProjectInterface,
 } from "shared/validators";
+import { CommercialFeature } from "shared/enterprise";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DimensionInterface } from "shared/types/dimension";
@@ -195,4 +196,5 @@ export type ExperimentReportSSRData = {
   settings: OrganizationSettings;
   projects: Record<string, ProjectInterface>;
   dimensions: DimensionInterface[];
+  commercialFeatures?: CommercialFeature[];
 };
