@@ -25,6 +25,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
+        unit: null,
       } as FactTableValue;
     case "sql":
       return {
@@ -32,6 +33,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         type: "sql",
         valueType: "count",
         valueColumn: null,
+        unit: null,
       } as SqlValue;
     default:
       throw new Error(`Invalid dataset type: ${type}`);
@@ -42,7 +44,7 @@ export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
-    return { type, values: [] }
+    return { type, values: [], factTableId: null }
   }
   else if (type === "sql") {
     return { type, values: [], datasource: "", sql: "", timestampColumn: "", columnTypes: {} };

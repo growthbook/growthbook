@@ -38,7 +38,7 @@ export type FactTableValue = z.infer<typeof factTableValueValidator>;
 const factTableDatasetValidator = z
   .object({
     type: z.literal("fact_table"),
-    factTableId: z.string(),
+    factTableId: z.string().nullable(),
     values: z.array(factTableValueValidator),
   })
   .strict();
@@ -140,7 +140,7 @@ const lookbackUnit = ["hour", "day", "week", "month"] as const;
 // The config defined in the UI
 export const productAnalyticsConfigValidator = z
   .object({
-    dataset: datasetValidator.nullable(),
+    dataset: datasetValidator.default({ type: "metric", values: [] }),
     dimensions: z.array(dimensionValidator),
     chartType: z.enum(chartTypes),
     dateRange: z.object({

@@ -21,22 +21,28 @@ export default function ExplorerDataTable() {
   }, [submittedExploreState?.dimensions]);
 
   const valueColumnHeaders = useMemo(() => {
-    return submittedExploreState?.dataset.values.map(v => v.name) || [];
-}, [submittedExploreState?.dataset.values]);
+    return submittedExploreState?.dataset?.values.map(v => v.name) || [];
+}, [submittedExploreState?.dataset?.values]);
 
   const rowData = useMemo(() => {
     const rows: string[][] = [];
     for (const row of exploreData?.rows || []) {
       const tempRow: string[] = [];
       for (const dimension of row.dimensions) {
-        tempRow.push(dimension);
+        if (dimension) {
+          tempRow.push(dimension);
+        }
       }
       const missingDims = dimensionColumnHeaders.length - tempRow.length;
       for (let i = 0; i < missingDims; i++) {
         tempRow.push("");
       }
       for (const value of row.values) {
-        tempRow.push(value.value.toString());
+        if (value?.numerator) {
+          tempRow.push(value.numerator.toString());
+        } else {
+          tempRow.push("");
+        }
       }
       rows.push(tempRow);
     }

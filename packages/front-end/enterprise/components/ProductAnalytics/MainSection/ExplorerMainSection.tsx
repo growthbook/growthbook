@@ -36,7 +36,7 @@ export default function ExplorerMainSection() {
             {submittedExploreState?.dataset?.values?.length && submittedExploreState?.dataset?.values?.length > 0 ? (
                 <>
                     <ExplorerChart />
-                    {/* <ExplorerDataTable /> */}
+                    <ExplorerDataTable />
                 </>
             ) : (
                 <Flex
