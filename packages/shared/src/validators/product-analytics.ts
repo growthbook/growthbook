@@ -31,13 +31,14 @@ const factTableValueValidator = baseValueValidator.extend({
   type: z.literal("fact_table"),
   valueType: z.enum(valueType),
   valueColumn: z.string().nullable(),
+  unit: z.string().nullable(),
 });
 export type FactTableValue = z.infer<typeof factTableValueValidator>;
 
 const factTableDatasetValidator = z
   .object({
     type: z.literal("fact_table"),
-    factTableId: z.string().optional(),
+    factTableId: z.string(),
     values: z.array(factTableValueValidator),
   })
   .strict();
@@ -47,6 +48,7 @@ const sqlValueValidator = baseValueValidator.extend({
   type: z.literal("sql"),
   valueType: z.enum(valueType),
   valueColumn: z.string().nullable(),
+  unit: z.string().nullable(),
 });
 export type SqlValue = z.infer<typeof sqlValueValidator>;
 
