@@ -179,20 +179,15 @@ export default function ReportResults({
               report.experimentAnalysisSettings.customMetricSlices
             }
             statsEngine={
-              report.experimentAnalysisSettings?.statsEngine ||
-              DEFAULT_STATS_ENGINE
+              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
             }
             pValueCorrection={pValueCorrection}
             startDate={getValidDate(phaseObj.dateStarted).toISOString()}
             endDate={getValidDate(phaseObj.dateEnded).toISOString()}
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === phases.length - 1}
-            sequentialTestingEnabled={
-              report.experimentAnalysisSettings?.sequentialTestingEnabled
-            }
-            differenceType={
-              report.experimentAnalysisSettings.differenceType || "relative"
-            }
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            differenceType={analysis?.settings.differenceType}
             ssrPolyfills={ssrPolyfills}
             isReportContext
           >
@@ -211,10 +206,7 @@ export default function ReportResults({
                 statsEngine={
                   analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
                 }
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
             ) : showBreakDownResults ? (
@@ -250,10 +242,7 @@ export default function ReportResults({
                 pValueCorrection={pValueCorrection}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 // metricFilter={metricFilter}
                 // setMetricFilter={setMetricFilter}
                 ssrPolyfills={ssrPolyfills}
@@ -286,10 +275,7 @@ export default function ReportResults({
                 pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 isTabActive={true}
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
