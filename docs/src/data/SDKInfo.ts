@@ -703,6 +703,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        savedGroupReferences: "≥ v1.0.58",
+      },
+      {
         remoteEval: "≥ v1.0.50",
       },
       {
@@ -725,9 +728,6 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
-      },
-      {
-        savedGroupReferences: "≥ v1.0.58",
       },
     ],
   },
