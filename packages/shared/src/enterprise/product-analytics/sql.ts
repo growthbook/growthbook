@@ -915,7 +915,7 @@ function generateUnitAggregationRollupCTE(
     SELECT
       ${selects.join(",\n  ")}
     FROM ${sourceCTE.name}
-    GROUP BY ${groupBys.join(", ")}
+    ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}
   `,
   };
 }
@@ -960,7 +960,7 @@ function generateEventRollupCTE(
     SELECT
       ${selects.join(",\n  ")}
     FROM ${sourceCTE.name}
-    GROUP BY ${groupBys.join(", ")}
+    ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}
   `,
   };
 }
@@ -992,7 +992,7 @@ function generateFinalSelect(
   return `
   SELECT ${selects.join(", ")} 
   FROM ${combinedRollupCTE.name}
-  GROUP BY ${groupBys.join(", ")}`;
+  ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}`;
 }
 
 export function generateProductAnalyticsSQL(
