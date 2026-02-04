@@ -1,7 +1,6 @@
 /* Shared styles for light & dark themes */
 .radix-themes {
   font-size: 14px !important; /* radix should start at 16px as standard but that messes with all our em and rem */
-  color: var(--color-text-mid);
 
   --default-line-height: var(
     --line-height-2
