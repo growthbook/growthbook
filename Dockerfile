@@ -9,6 +9,8 @@ ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 RUN \
   pip3 install --retries 10 --timeout 60 poetry==1.8.5 \
+  && poetry source add --priority=primary aliyun https://mirrors.aliyun.com/pypi/simple/ \
+  && poetry lock --no-update \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
