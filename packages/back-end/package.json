@@ -57,7 +57,6 @@
     "@opentelemetry/sdk-metrics": "~1.30.0",
     "@opentelemetry/sdk-node": "~0.57.0",
     "@opentelemetry/semantic-conventions": "~1.30.0",
-    "@sentry/cli-linux-x64": "^2.58.4",
     "@sentry/node": "^10.36.0",
     "@stdlib/random": "^0.1.1",
     "@stdlib/stats": "^0.1.1",
