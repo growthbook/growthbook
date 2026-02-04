@@ -4,11 +4,9 @@ ARG NODE_MAJOR=20
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 COPY ./packages/stats .
 RUN \
-  curl -sSL https://install.python-poetry.org | python3 - --version 1.8.5 \
-  && export PATH="/root/.local/bin:$PATH" \
+  pip3 install --index-url https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com --retries 10 --timeout 60 poetry==1.8.5 \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
