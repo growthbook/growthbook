@@ -155,9 +155,9 @@ export default function SavedGroupTargetingField({
                 }}
                 sort={false}
                 options={[
-                  { value: "any", label: "Any of" },
-                  { value: "all", label: "All of" },
-                  { value: "none", label: "None of" },
+                  { value: "any", label: "any of" },
+                  { value: "all", label: "all of" },
+                  { value: "none", label: "none of" },
                 ]}
               />
             }

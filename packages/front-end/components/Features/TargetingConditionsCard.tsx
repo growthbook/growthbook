@@ -6,15 +6,17 @@ import Link from "@/ui/Link";
 
 export function TargetingConditionsCard({
   targetingType,
-  total,
+  total: _total,
   children,
   addButton,
+  advancedToggle,
   className,
 }: {
   targetingType: ConditionGroupTargetingType;
   total: number;
   children: React.ReactNode;
   addButton?: React.ReactNode;
+  advancedToggle?: React.ReactNode;
   className?: string;
 }) {
   return (
@@ -33,7 +35,10 @@ export function TargetingConditionsCard({
         }}
       ></div>
       <Flex direction="column" gap="2" ml="1">
-        <ConditionGroupHeader targetingType={targetingType} total={total} />
+        <ConditionGroupHeader
+          targetingType={targetingType}
+          advancedToggle={advancedToggle}
+        />
         <Flex direction="column" gap="4">
           {children}
         </Flex>
@@ -54,10 +59,10 @@ export type ConditionGroupTargetingType =
 
 export function ConditionGroupHeader({
   targetingType,
-  total,
+  advancedToggle,
 }: {
   targetingType: ConditionGroupTargetingType;
-  total: number;
+  advancedToggle?: React.ReactNode;
 }) {
   let label: React.ReactNode;
   if (targetingType === "attribute") {
@@ -72,28 +77,34 @@ export function ConditionGroupHeader({
     <Flex
       className="gb-condition-group-header"
       align="center"
+      justify="between"
     >
       <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
         {label}
       </Text>
+      {advancedToggle && <Box>{advancedToggle}</Box>}
     </Flex>
   );
 }
 
-// Responsive flex layout: 25%/25%/50% proportions
+// Responsive flex layout: configurable width proportions
 export function ConditionRow({
   prefixSlot,
   attributeSlot,
   operatorSlot,
   valueSlot,
   removeSlot,
+  widthMode = "default",
 }: {
   prefixSlot?: React.ReactNode | null; // null = draw empty slot
   attributeSlot: React.ReactNode;
   operatorSlot?: React.ReactNode | null; // null = draw empty slot
   valueSlot?: React.ReactNode;
   removeSlot?: React.ReactNode | null; // null = draw empty slot
+  widthMode?: "default" | "wide-attribute"; // default: 25/25/50, wide-attribute: 50/25/25
 }) {
+  const isWideAttribute = widthMode === "wide-attribute";
+
   return (
     <Flex
       gap="3"
@@ -118,11 +129,25 @@ export function ConditionRow({
         wrap="wrap"
         style={{ flex: "1 1 0", minWidth: 0 }}
       >
-        <Box style={{ minWidth: 150, flex: "1 1 0" }}>{attributeSlot}</Box>
+        <Box
+          style={{
+            minWidth: isWideAttribute ? 300 : 150,
+            flex: isWideAttribute ? "2 1 0" : "1 1 0",
+          }}
+        >
+          {attributeSlot}
+        </Box>
         {operatorSlot != undefined && (
           <Box style={{ minWidth: 150, flex: "1 1 0" }}>{operatorSlot}</Box>
         )}
-        <Box style={{ minWidth: 300, flex: "2 1 0" }}>{valueSlot}</Box>
+        <Box
+          style={{
+            minWidth: isWideAttribute ? 150 : 300,
+            flex: isWideAttribute ? "1 1 0" : "2 1 0",
+          }}
+        >
+          {valueSlot}
+        </Box>
       </Flex>
       {removeSlot != undefined && (
         <Box flexShrink="0" pt="3">
@@ -138,6 +163,29 @@ export function ConditionRowLabel({ label }: { label: string }) {
     <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
       {label}
     </Text>
+  );
+}
+
+export function ConditionRowHeader({
+  label,
+  advancedToggle,
+}: {
+  label: string;
+  advancedToggle?: React.ReactNode;
+}) {
+  return (
+    <Flex
+      className="gb-condition-row-header"
+      align="center"
+      justify="between"
+      mb="2"
+      style={{ minHeight: 24 }}
+    >
+      <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
+        {label}
+      </Text>
+      {advancedToggle && <Box>{advancedToggle}</Box>}
+    </Flex>
   );
 }
 

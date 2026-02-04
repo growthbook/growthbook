@@ -52,7 +52,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -1280,7 +1280,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                   />
                   <hr />
-                  <PrerequisiteTargetingField
+                  <PrerequisiteInput
                     value={form.watch("phases.0.prerequisites") || []}
                     setValue={(prerequisites) =>
                       form.setValue("phases.0.prerequisites", prerequisites)

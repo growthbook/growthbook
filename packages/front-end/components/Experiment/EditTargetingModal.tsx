@@ -21,7 +21,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import ConditionInput from "@/components//Features/ConditionInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
@@ -528,7 +528,7 @@ function TargetingForm({
             project={experiment.project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
               form.setValue("prerequisites", prerequisites)

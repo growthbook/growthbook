@@ -1132,7 +1132,7 @@ export function CaseInsensitiveRegexWarning({
   }
 
   return (
-    <Callout status={hasSDKWithCaseInsensitive ? "warning" : "error"} mt="2">
+    <Callout status={hasSDKWithCaseInsensitive ? "warning" : "error"} mt="2" size="sm">
       {hasSDKWithCaseInsensitive
         ? "Some of your SDK Connections in this project may not support case-insensitive operators."
         : "None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."}

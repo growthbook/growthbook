@@ -85,7 +85,7 @@ import {
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
-import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
+import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";

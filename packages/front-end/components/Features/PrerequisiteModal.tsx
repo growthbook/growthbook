@@ -16,7 +16,7 @@ import { FaRegCircleQuestion } from "react-icons/fa6";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
-import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteInput";
+import { MinimalFeatureInfo } from "@/components/Features/PrerequisiteStatesTable";
 import {
   getFeatureDefaultValue,
   getPrerequisites,
@@ -29,10 +29,8 @@ import { useAuth } from "@/services/auth";
 import { PrerequisiteStatesCols } from "@/components/Features/PrerequisiteStatusRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import {
-  PrerequisiteAlerts,
-  FeatureOptionMeta,
-} from "@/components/Features/PrerequisiteTargetingField";
+import { FeatureOptionMeta } from "@/components/Features/PrerequisiteFeatureSelector";
+import PrerequisiteAlerts from "@/components/Features/PrerequisiteAlerts";
 import Modal from "@/components/Modal";
 import SelectField, {
   GroupedValue,
