@@ -1,4 +1,4 @@
-import React, {  } from "react";
+import React, { useMemo } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type {
@@ -8,7 +8,6 @@ import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { SERIES_COLORS, getSeriesTag } from "../util";
 import ValueCard from "./ValueCard";
 
 
@@ -20,7 +19,7 @@ export default function MetricTabContent() {
       deleteValueFromDataset,
     } = useExplorerContext();
     const { factMetrics, getFactTableById } = useDefinitions();
-  
+    
     const values: MetricValue[] =
       draftExploreState.dataset?.type === "metric"
         ? draftExploreState.dataset.values
@@ -62,8 +61,6 @@ export default function MetricTabContent() {
               <ValueCard
                 key={idx}
                 index={idx}
-                tag={v.tag ?? getSeriesTag(idx)}
-                color={v.color ?? SERIES_COLORS[idx % SERIES_COLORS.length]}
                 name={v.name}
                 onNameChange={(name) =>
                   updateValueInDataset(idx, { ...v, name } as MetricValue)
@@ -101,7 +98,7 @@ export default function MetricTabContent() {
                         unit: val || null,
                       } as MetricValue)
                     }
-                    options={[{ label: "TBD", value: "TBD" }]}
+                    options={factTable?.userIdTypes.map((t) => ({ label: t, value: t })) ?? []}
                     placeholder="Select..."
                   />
                 </Flex>

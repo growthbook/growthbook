@@ -1,18 +1,7 @@
 import React from "react";
-import {
-  DashboardBlockInterfaceOrData,
-  MetricExplorerBlockInterface,
-} from "shared/enterprise";
 import { Select, SelectItem } from "@/ui/Select";
 import { useExplorerContext } from "../../ExplorerContext";
 import { dateGranularity } from "shared/validators";
-
-// interface Props {
-//   block: DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>;
-//   setBlock: React.Dispatch<
-//     DashboardBlockInterfaceOrData<MetricExplorerBlockInterface>
-//   >;
-// }
 
 const dateGranularityLabels: Record<typeof dateGranularity[number], string> = {
   auto: "Auto",
@@ -24,10 +13,9 @@ const dateGranularityLabels: Record<typeof dateGranularity[number], string> = {
 };
 
 export default function GranularitySelector() {
-  const { draftExploreState, submittedExploreState, exploreData, loading, hasPendingChanges, setDraftExploreState } = useExplorerContext();
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
   
   const dateDimension = draftExploreState.dimensions.find((d) => d.dimensionType === "date");
-  console.log("draftExploreState", draftExploreState);
   const granularity = dateDimension?.dateGranularity || "day";
 
   return (

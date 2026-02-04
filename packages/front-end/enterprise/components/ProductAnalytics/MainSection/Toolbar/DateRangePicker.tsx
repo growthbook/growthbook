@@ -1,7 +1,8 @@
 import React from "react";
-import { Flex, TextField } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
+import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "../../ExplorerContext";
 
@@ -20,6 +21,18 @@ const PREDEFINED_LABELS: Record<
 export default function DateRangePicker() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
+
+  const handleCustomLookbackValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value ? parseInt(e.target.value) : null;
+    console.log("value", value);
+    if ((value !== null && value < 1) || (value !== null && isNaN(value))) {
+      return;
+    }
+    setDraftExploreState((prev) => ({
+      ...prev,
+      dateRange: { ...prev.dateRange, lookbackValue: value },
+    }));  
+  };
 
   return (
     <Flex align="center" gap="2">
@@ -46,21 +59,14 @@ export default function DateRangePicker() {
 
       {dateRange.predefined === "customLookback" && (
         <>
-          <TextField.Root
-            size="2"
-            type="number"
+
+          <Field
+            style={{ width: "55px", paddingTop: "0px", paddingBottom: "0px", height: "32px"}}
+            placeholder="#"
             min="1"
-            placeholder="Value"
             value={dateRange.lookbackValue?.toString() || ""}
             onChange={(e) => {
-              const val = parseInt(e.target.value);
-              setDraftExploreState((prev) => ({
-                ...prev,
-                dateRange: {
-                  ...prev.dateRange,
-                  lookbackValue: isNaN(val) ? null : val,
-                },
-              }));
+              handleCustomLookbackValueChange(e);
             }}
           />
           <Select
@@ -78,7 +84,7 @@ export default function DateRangePicker() {
           >
             {lookbackUnit.map((u) => (
               <SelectItem key={u} value={u}>
-                {u}
+                {u}(s)
               </SelectItem>
             ))}
           </Select>
@@ -87,6 +93,7 @@ export default function DateRangePicker() {
 
       {dateRange.predefined === "customDateRange" && (
         <DatePicker
+          containerClassName="mb-0"
           date={dateRange.startDate || undefined}
           date2={dateRange.endDate || undefined}
           setDate={(d) => {

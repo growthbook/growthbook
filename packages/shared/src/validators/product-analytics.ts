@@ -3,8 +3,6 @@ import { rowFilterValidator } from "./fact-table";
 
 const baseValueValidator = z.object({
   name: z.string(),
-  color: z.string().nullable(),
-  tag: z.string().nullable(),
   rowFilters: z.array(rowFilterValidator),
 });
 

@@ -8,7 +8,6 @@ import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { SERIES_COLORS, getSeriesTag } from "../util";
 import ValueCard from "./ValueCard";
 
 const VALUE_TYPE_OPTIONS: {
@@ -84,8 +83,6 @@ export default function FactTableTabContent() {
                     <ValueCard
                         key={idx}
                         index={idx}
-                        tag={v.tag ?? getSeriesTag(idx)}
-                        color={v.color ?? SERIES_COLORS[idx % SERIES_COLORS.length]}
                         name={v.name}
                         onNameChange={(name) =>
                             updateValueInDataset(idx, {

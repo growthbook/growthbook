@@ -1,56 +1,16 @@
-import React, { useCallback, useState } from "react";
-import { Flex, Box, Text, TextField, Separator } from "@radix-ui/themes";
-import { PiChartBar, PiTable, PiCode, PiPlus, PiTrash, PiX, PiPencilSimple } from "react-icons/pi";
-import type {
-  ProductAnalyticsValue,
-  MetricValue,
-  FactTableValue,
-  SqlValue,
-} from "shared/validators";
+import React, { useCallback } from "react";
+import { Flex, Box, Text } from "@radix-ui/themes";
+import { PiChartBar, PiTable, PiCode } from "react-icons/pi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import SelectField from "@/components/Forms/SelectField";
-import Button from "@/ui/Button";
 import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { SERIES_COLORS, getSeriesTag } from "../util";
-import { z } from "zod";
-import { rowFilterOperators, rowFilterValidator } from "shared/validators";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import SqlTabContent from "./SqlTabContent";
-
-type RowFilter = z.infer<typeof rowFilterValidator>;
+import GroupBySection from "./GroupBySection";
 
 type DatasetType = "metric" | "fact_table" | "sql";
-
-const VALUE_TYPE_OPTIONS: {
-  value: "unit_count" | "count" | "sum";
-  label: string;
-}[] = [
-    { value: "count", label: "Count" },
-    { value: "unit_count", label: "Unit count" },
-    { value: "sum", label: "Sum" },
-  ];
-
-// function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
-//   switch (type) {
-//     case "metric":
-//       return { type: "metric", values: [] };
-//     case "fact_table":
-//       return { type: "fact_table", factTableId: "", values: [] };
-//     case "sql":
-//       return {
-//         type: "sql",
-//         datasource: "",
-//         sql: "",
-//         timestampColumn: "",
-//         columnTypes: {},
-//         values: [],
-//       };
-//   }
-// }
-
 
 function getDatasetIcon(type: DatasetType, size = 16) {
   const icons: Record<DatasetType, React.ReactNode> = {
@@ -61,7 +21,7 @@ function getDatasetIcon(type: DatasetType, size = 16) {
   return icons[type];
 }
 
-export default function MetricExplorerSettings() {
+export default function ExplorerSideBar() {
   const { draftExploreState, setDraftExploreState, changeDatasetType } =
     useExplorerContext();
   const { factTables } = useDefinitions();
@@ -161,6 +121,8 @@ export default function MetricExplorerSettings() {
           </TabsContent>
         </Box>
       </Tabs>
+
+      {dataset?.values?.length > 0 && <GroupBySection />}
     </Flex>
   );
 }

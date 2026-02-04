@@ -6,7 +6,6 @@ import GranularitySelector from "./Toolbar/GranularitySelector";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { getSeriesTag } from "../util";
 import { PiArrowsClockwise, PiPlus } from "react-icons/pi";
 
 export default function ExplorerMainSection() {
@@ -18,35 +17,6 @@ export default function ExplorerMainSection() {
                 <Flex align="center" gap="3">
 
                     <GraphTypeSelector/>
-
-                    {/* Show series tags being visualized */}
-                    <Flex align="center" gap="1" display={!submittedExploreState?.dataset?.values.length ? "none" : undefined} >
-                        <Text size="1" style={{ color: "var(--gray-9)" }}>
-                            Showing:
-                        </Text>
-                        {submittedExploreState?.dataset?.values.map((seriesItem, index) => (
-                            <Tooltip
-                                key={index}
-                                body={seriesItem.name}
-                            >
-                                <Flex
-                                    align="center"
-                                    justify="center"
-                                    style={{
-                                        width: "20px",
-                                        height: "20px",
-                                        borderRadius: "var(--radius-2)",
-                                        backgroundColor: seriesItem.color || "var(--gray-9)",
-                                        color: "white",
-                                        fontSize: "11px",
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    {seriesItem.tag ?? getSeriesTag(index)}
-                                </Flex>
-                            </Tooltip>
-                        ))}
-                    </Flex>
                 </Flex>
                 <Flex align="center" gap="3">
                     <Button
@@ -59,7 +29,7 @@ export default function ExplorerMainSection() {
                         Update
                     </Button>
                     <DateRangePicker />
-                    <GranularitySelector />
+                    {draftExploreState.chartType === 'line' && <GranularitySelector />}
                 </Flex>
             </Flex>
 

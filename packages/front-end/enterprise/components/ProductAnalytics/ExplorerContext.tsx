@@ -5,11 +5,14 @@ import React, {
   useMemo,
   useCallback,
   ReactNode,
+  useEffect,
 } from "react";
 import isEqual from "lodash/isEqual";
-import { assignSeriesColorsAndTags, createEmptyValue, createEmptyDataset } from "./util";
+import { createEmptyValue, createEmptyDataset, getCommonColumns } from "./util";
 import { useExploreData } from "./useExploreData";
 import { DatasetType, ProductAnalyticsConfig, ProductAnalyticsDataset, ProductAnalyticsResult, ProductAnalyticsValue, SqlValue } from "shared/validators";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { ColumnInterface } from "shared/types/fact-table";
 
 const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
   dataset: {
@@ -40,6 +43,7 @@ export interface ExplorerContextValue {
   hasPendingChanges: boolean;
   exploreData: ProductAnalyticsResult | null;
   loading: boolean;
+  commonColumns: ColumnInterface[];
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: React.Dispatch<
@@ -64,6 +68,8 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
   const { data, loading, fetchData } =
     useExploreData();
 
+  const { getFactTableById, getFactMetricById } = useDefinitions();
+
   const [draftExploreState, setDraftExploreState] =
     useState<ProductAnalyticsConfig>(INITIAL_EXPLORE_STATE);
 
@@ -75,9 +81,39 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     [draftExploreState, submittedExploreState],
   );
 
+  const commonColumns = useMemo(() => {
+    return getCommonColumns(draftExploreState.dataset, getFactTableById, getFactMetricById);
+  }, [draftExploreState.dataset, getFactTableById, getFactMetricById]);
+
+  // Validate dimensions against commonColumns
+  useEffect(() => {
+    const newDimensions = draftExploreState.dimensions.filter(d => {
+      if (d.dimensionType !== 'dynamic') return true;
+      if (commonColumns.some(c => c.column === d.column)) return true;
+      return false;
+    });
+
+    if (newDimensions != draftExploreState.dimensions) {
+      setDraftExploreState(prev => ({
+        ...prev,
+        dimensions: newDimensions
+      }));
+    }
+  }, [commonColumns]);
+
+  useEffect(() => {
+    // clear date dimension if chart type is not line
+    if (draftExploreState.chartType !== 'line') {
+      console.log("clearing date dimension");
+      setDraftExploreState(prev => ({
+        ...prev,
+        dimensions: prev.dimensions.filter(d => d.dimensionType !== 'date')
+      }));
+    }
+  }, [draftExploreState.chartType])
+
   const handleSubmit = useCallback(async () => {
     await fetchData(draftExploreState);
-    console.log("fetched data", data);
     setSubmittedExploreState(draftExploreState);
   }, [draftExploreState]);
 
@@ -101,7 +137,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           ...prev,
           dataset: {
             ...prev.dataset,
-            values: assignSeriesColorsAndTags([...prev.dataset.values, value]),
+            values: [...prev.dataset.values, value],
           },
         } as ProductAnalyticsConfig;
       });
@@ -132,7 +168,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       const newValues = [...prev.dataset.values.slice(0, index), ...prev.dataset.values.slice(index + 1)];
       return {
         ...prev,
-        dataset: { ...prev.dataset, values: assignSeriesColorsAndTags(newValues) },
+        dataset: { ...prev.dataset, values: newValues },
       } as ProductAnalyticsConfig;
     });
   }, []);
@@ -163,6 +199,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       hasPendingChanges,
       exploreData: data,
       loading,
+      commonColumns,
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
@@ -177,6 +214,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       hasPendingChanges,
       data,
       loading,
+      commonColumns,
       handleSubmit,
       addValueToDataset,
       updateValueInDataset,

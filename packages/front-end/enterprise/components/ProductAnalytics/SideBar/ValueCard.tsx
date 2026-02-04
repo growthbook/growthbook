@@ -11,8 +11,6 @@ type RowFilter = z.infer<typeof rowFilterValidator>;
 
 export default function ValueCard({
     index,
-    tag,
-    color,
     name,
     onNameChange,
     onDelete,
@@ -22,8 +20,6 @@ export default function ValueCard({
     columns = [],
   }: {
     index: number;
-    tag: string;
-    color: string;
     name?: string;
     onNameChange?: (name: string) => void;
     onDelete: () => void;
@@ -94,22 +90,6 @@ export default function ValueCard({
       >
         <Flex justify="between" align="center" mb="2">
           <Flex align="center" gap="2" style={{ minWidth: 0, flex: 1 }}>
-            <Flex
-              align="center"
-              justify="center"
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "var(--radius-2)",
-                backgroundColor: color,
-                color: "white",
-                fontSize: 11,
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {tag}
-            </Flex>
             {isEditing ? (
               <TextField.Root
                 size="1"

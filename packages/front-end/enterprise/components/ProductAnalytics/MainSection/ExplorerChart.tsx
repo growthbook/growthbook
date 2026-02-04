@@ -11,7 +11,7 @@ import { useExplorerContext } from "../ExplorerContext";
 
 const CHART_ID = "explorer-chart";
 
-const FALLBACK_COLORS = [
+const CHART_COLORS = [
   "#8b5cf6",
   "#3b82f6",
   "#06b6d4",
@@ -31,18 +31,6 @@ function formatNumber(value: number): string {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function getSeriesColor(
-  config: ProductAnalyticsConfig | null,
-  metricId: string,
-  index: number,
-): string {
-  const value = config?.dataset?.values?.find(
-    (v) => (v.type === "metric" && v.metricId === metricId) || v.name === metricId,
-  );
-  if (value?.color) return value.color;
-  return FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 }
 
 function getSeriesTitle(
@@ -67,140 +55,124 @@ export default function ExplorerChart() {
     const rows = exploreData.rows;
     const chartType = submittedExploreState.chartType;
 
-    // Big number: single row with single (or first) value
-    if (rows.length === 1 && rows[0].values.length >= 1) {
-      const singleRow = rows[0];
-      if (singleRow.dimensions[0] === "_total" || singleRow.values.length === 1) {
-        const value = singleRow.values[0]?.value ?? 0;
-        return { type: "bigNumber" as const, value };
-      }
+    if (chartType === "bigNumber") {
+      const value = rows[0]?.values[0]?.value ?? 0;
+      return { type: "bigNumber" as const, value };
     }
 
-    // Collect unique metricIds in order (from first row)
-    const metricIds =
-      rows[0]?.values.map((v) => v.metricId) ?? [];
-    const numSeries = metricIds.length;
+    // 1. Collect all unique dates/categories (X-axis) and data points
+    const uniqueXValues = new Set<string>();
+    // Map structure: { "seriesKey": { "xValue": value } }
+    const dataMap: Record<string, Record<string, number>> = {};
+    // Track metadata for each series key to build the final series config
+    const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
-    // Bar chart: x = dimensions[0] per row, one series per metricId
-    if (chartType === "bar") {
-      const source: (string | number)[][] = [
-        ["dim", ...metricIds],
-        ...rows.map((r) => [
-          r.dimensions[0] ?? "",
-          ...metricIds.map((id) => r.values.find((v) => v.metricId === id)?.value ?? 0),
-        ]),
-      ];
-      const seriesConfigs = metricIds.map((metricId, idx) => ({
-        name: getSeriesTitle(submittedExploreState, metricId),
-        type: "bar",
-        encode: { x: "dim", y: metricId },
-        color: getSeriesColor(submittedExploreState, metricId, idx),
-      }));
-      return {
-        tooltip: {
-          appendTo: "body",
-          trigger: "axis",
-          axisPointer: { type: "shadow" },
-        },
-        legend: {
-          show: numSeries > 1,
-          top: 0,
-          textStyle: { color: textColor },
-        },
-        xAxis: {
-          type: "category",
-          nameLocation: "middle",
-          scale: false,
-          nameTextStyle: {
-            fontSize: 14,
-            fontWeight: "bold",
-            padding: [10, 0],
-            color: textColor,
-          },
-          axisLabel: {
-            color: textColor,
-            rotate: -45,
-            hideOverlap: true,
-            interval: 0,
-          },
-        },
-        yAxis: {
-          type: "value",
-          scale: false,
-          nameLocation: "middle",
-          nameTextStyle: {
-            fontSize: 14,
-            fontWeight: "bold",
-            padding: [40, 0],
-            color: textColor,
-          },
-          axisLabel: { color: textColor, formatter: formatNumber },
-        },
-        dataset: [{ source }],
-        series: seriesConfigs,
+    rows.forEach((row) => {
+      // First dimension is the X-axis value (Date or Category)
+      const xValue = row.dimensions[0] || "";
+      uniqueXValues.add(xValue);
+
+      // Remaining dimensions form the group key
+      const groupParts = row.dimensions.slice(1);
+      const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
+
+      row.values.forEach((v) => {
+        // Create a unique key for this series: Metric + Group
+        const seriesKey = JSON.stringify({ m: v.metricId, g: groupKey });
+
+        if (!dataMap[seriesKey]) {
+          dataMap[seriesKey] = {};
+
+          // Construct a friendly name
+          const metricName = getSeriesTitle(submittedExploreState, v.metricId);
+          const name = groupKey ? `${metricName} (${groupKey})` : metricName;
+
+          seriesMeta[seriesKey] = {
+            metricId: v.metricId,
+            name,
+          };
+        }
+
+        dataMap[seriesKey][xValue] = v.value;
+      });
+    });
+
+    // 2. Sort X-axis values
+    const sortedXValues = Array.from(uniqueXValues).sort();
+
+    // 3. Build Series
+    const seriesConfigs = Object.keys(dataMap).map((seriesKey, idx) => {
+      const { name } = seriesMeta[seriesKey];
+      const seriesDataMap = dataMap[seriesKey];
+
+      // Map values to the sorted X-axis, filling gaps with 0
+      const data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
+
+      const commonSeriesConfig = {
+        name,
+        data,
+        color: CHART_COLORS[idx % CHART_COLORS.length],
       };
-    }
 
-    // Line / area: x = dimensions[0] (date), one series per metricId
-    if (chartType === "line") {
-      const source: (string | number)[][] = [
-        ["date", ...metricIds],
-        ...rows.map((r) => [
-          r.dimensions[0] ?? "",
-          ...metricIds.map((id) => r.values.find((v) => v.metricId === id)?.value ?? 0),
-        ]),
-      ];
-      const seriesConfigs = metricIds.map((metricId, idx) => ({
-        name: getSeriesTitle(submittedExploreState, metricId),
+      if (chartType === "bar") {
+        return {
+          ...commonSeriesConfig,
+          type: "bar",
+        };
+      }
+
+      // Line chart
+      return {
+        ...commonSeriesConfig,
         type: "line",
-        encode: { x: "date", y: metricId },
-        color: getSeriesColor(submittedExploreState, metricId, idx),
         smooth: true,
         symbol: "circle",
         symbolSize: 4,
-      }));
-      return {
-        tooltip: {
-          appendTo: "body",
-          trigger: "axis",
-          axisPointer: { type: "cross" },
-        },
-        legend: {
-          show: numSeries > 1,
-          top: 16,
-          textStyle: { color: textColor },
-          type: "scroll",
-        },
-        xAxis: {
-          type: "time",
-          nameLocation: "middle",
-          scale: false,
-          nameTextStyle: {
-            fontSize: 14,
-            fontWeight: "bold",
-            padding: [10, 0],
-            color: textColor,
-          },
-          axisLabel: { color: textColor, rotate: -45, hideOverlap: true },
-        },
-        yAxis: {
-          type: "value",
-          scale: false,
-          nameLocation: "middle",
-          nameTextStyle: {
-            fontSize: 14,
-            fontWeight: "bold",
-            padding: [40, 0],
-            color: textColor,
-          },
-          axisLabel: { color: textColor, formatter: formatNumber },
-        },
-        dataset: [{ source }],
-        series: seriesConfigs,
       };
-    }
+    });
 
-    return null;
+    return {
+      tooltip: {
+        appendTo: "body",
+        trigger: "axis",
+        axisPointer: { type: chartType === "bar" ? "shadow" : "cross" },
+      },
+      legend: {
+        show: seriesConfigs.length > 1,
+        top: chartType === "line" ? 16 : 0,
+        textStyle: { color: textColor },
+        type: "scroll",
+      },
+      xAxis: {
+        type: "category",
+        data: sortedXValues,
+        nameLocation: "middle",
+        nameTextStyle: {
+          fontSize: 14,
+          fontWeight: "bold",
+          padding: [10, 0],
+          color: textColor,
+        },
+        axisLabel: {
+          color: textColor,
+          rotate: -45,
+          hideOverlap: true,
+        },
+      },
+      yAxis: {
+        type: "value",
+        scale: false,
+        nameLocation: "middle",
+        nameTextStyle: {
+          fontSize: 14,
+          fontWeight: "bold",
+          padding: [40, 0],
+          color: textColor,
+        },
+        axisLabel: { color: textColor, formatter: formatNumber },
+      },
+      series: seriesConfigs,
+    };
   }, [exploreData, submittedExploreState, textColor]);
 
   const hasEmptyData = useMemo(() => {
