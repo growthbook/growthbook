@@ -28,6 +28,7 @@ import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
 import SwitchStories from "@/ui/Switch.stories";
 import TabsStories from "@/ui/Tabs.stories";
+import DialogStories from "@/ui/Dialog.stories";
 
 type StoryEntry = {
   name: string;
@@ -55,6 +56,7 @@ export default function DesignSystemPage() {
     { name: "Checkbox", Stories: CheckboxStories },
     { name: "DataList", Stories: DataListStories },
     { name: "DatePicker", Stories: DatePickerStories },
+    { name: "Dialog", Stories: DialogStories },
     { name: "DropdownMenu", Stories: DropdownMenuStories },
     {
       name: "ExperimentResultIndicator",

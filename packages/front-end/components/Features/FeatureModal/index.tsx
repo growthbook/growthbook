@@ -34,13 +34,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
+import Dialog from "@/ui/Dialog";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
 
 export type Props = {
-  close?: () => void;
+  close: () => void;
   onSuccess: (feature: FeatureInterface) => Promise<void>;
   inline?: boolean;
   cta?: string;
@@ -218,17 +219,27 @@ export default function FeatureModal({
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   return (
-    <Modal
-      trackingEventModalType=""
+    // <Modal
+    //   trackingEventModalType=""
+    //   open
+    //   size="lg"
+    //   inline={inline}
+    //   header={modalHeader}
+    //   cta={cta}
+    //   close={close}
+    //   ctaEnabled={ctaEnabled}
+    //   disabledMessage={disabledMessage}
+    //   secondaryCTA={secondaryCTA}
+    <Dialog
       open
       size="lg"
-      inline={inline}
+      trackingEventModalType=""
       header={modalHeader}
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      disabledMessage={disabledMessage}
-      secondaryCTA={secondaryCTA}
+      // disabledMessage={disabledMessage}
+      // secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
         const valueType = feature.valueType;
@@ -438,6 +449,7 @@ export default function FeatureModal({
           }}
         />
       </FormProvider>
-    </Modal>
+      {/* </Modal> */}
+    </Dialog>
   );
 }
