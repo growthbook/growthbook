@@ -122,6 +122,8 @@ export default function PrerequisiteInput({
 
   // Auto-populate default conditions when feature is selected
   useEffect(() => {
+    const updates: Array<{ index: number; condStr: string }> = [];
+
     for (let i = 0; i < value.length; i++) {
       const v = value[i];
       const parentFeatureMeta = featureNames.find((f) => f.id === v.id);
@@ -131,17 +133,21 @@ export default function PrerequisiteInput({
           const condStr = getDefaultPrerequisiteCondition({
             valueType: parentFeatureMeta.valueType,
           });
-          setValue([
-            ...value.slice(0, i),
-            {
-              id: v.id,
-              condition: condStr,
-            },
-            ...value.slice(i + 1),
-          ]);
-          forceConditionRender(i);
+          updates.push({ index: i, condStr });
         }
       }
+    }
+
+    if (updates.length > 0) {
+      const newValue = [...value];
+      updates.forEach(({ index, condStr }) => {
+        newValue[index] = {
+          id: value[index].id,
+          condition: condStr,
+        };
+        forceConditionRender(index);
+      });
+      setValue(newValue);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueStr, featureNames]);

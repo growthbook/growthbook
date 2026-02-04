@@ -139,11 +139,9 @@ export function useBatchPrerequisiteStates({
         .sort()
         .join(",")}`
     : "";
-  
+
   const key =
-    enabled &&
-    environments.length &&
-    (featureIds.length > 0 || hasCycleCheck)
+    enabled && environments.length && (featureIds.length > 0 || hasCycleCheck)
       ? `${orgId}::/features/batch-prerequisite-states|${isExperiment ? "" : baseFeatureId}|${featureIds
           .slice()
           .sort()
@@ -179,7 +177,7 @@ export function useBatchPrerequisiteStates({
       !data &&
       !error &&
       enabled &&
-      !!baseFeatureId &&
+      (!!baseFeatureId || isExperiment) &&
       environments.length > 0 &&
       (featureIds.length > 0 || hasCycleCheck),
     error,
