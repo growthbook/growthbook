@@ -211,6 +211,9 @@ importers:
       '@opentelemetry/winston-transport':
         specifier: ~0.21.0
         version: 0.21.0
+      '@sentry/cli-linux-x64':
+        specifier: ^2.58.4
+        version: 2.58.4
       '@sentry/node':
         specifier: ^10.36.0
         version: 10.36.0
@@ -19843,8 +19846,7 @@ snapshots:
   '@sentry/cli-linux-i686@2.58.4':
     optional: true
 
-  '@sentry/cli-linux-x64@2.58.4':
-    optional: true
+  '@sentry/cli-linux-x64@2.58.4': {}
 
   '@sentry/cli-win32-arm64@2.58.4':
     optional: true
