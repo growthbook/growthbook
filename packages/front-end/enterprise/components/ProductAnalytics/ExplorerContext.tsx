@@ -162,6 +162,17 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         dimensions: prev.dimensions.filter((d) => d.dimensionType !== "date"),
       }));
     }
+
+    if (draftExploreState.chartType === "line") {
+      setDraftExploreState((prev) => {
+        if (prev.dimensions.some((d) => d.dimensionType === "date")) {
+          return prev;
+        }
+        return {
+        ...prev,
+        dimensions: [...prev.dimensions, { dimensionType: "date", column: "date", dateGranularity: "day" }],
+      }});
+    }
   }, [draftExploreState.chartType]);
 
   const handleSubmit = useCallback(async () => {
