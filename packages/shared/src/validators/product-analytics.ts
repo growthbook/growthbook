@@ -1,39 +1,56 @@
 import { z } from "zod";
 import { rowFilterValidator } from "./fact-table";
 
+const baseValueValidator = z.object({
+  name: z.string(),
+  rowFilters: z.array(rowFilterValidator),
+});
+
+// Metrics
+const metricValueValidator = baseValueValidator.extend({
+  type: z.literal("metric"),
+  metricId: z.string(),
+  unit: z.string().nullable(),
+  denominatorUnit: z.string().nullable(),
+});
+export type MetricValue = z.infer<typeof metricValueValidator>;
+
+export type DatasetType = "metric" | "fact_table" | "sql";
+
 const metricDatasetValidator = z
   .object({
     type: z.literal("metric"),
-    values: z.array(
-      z.object({
-        metricId: z.string(),
-        unit: z.string().nullable(),
-        denominatorUnit: z.string().nullable(),
-        rowFilters: z.array(rowFilterValidator),
-      }),
-    ),
+    values: z.array(metricValueValidator),
   })
   .strict();
 
+// Fact Tables
 const valueType = ["unit_count", "count", "sum"] as const;
 
-export const factTableDatasetValidator = z
+const factTableValueValidator = baseValueValidator.extend({
+  type: z.literal("fact_table"),
+  valueType: z.enum(valueType),
+  valueColumn: z.string().nullable(),
+});
+export type FactTableValue = z.infer<typeof factTableValueValidator>;
+
+const factTableDatasetValidator = z
   .object({
     type: z.literal("fact_table"),
-    factTableId: z.string(),
-    values: z.array(
-      z.object({
-        name: z.string(),
-        valueType: z.enum(valueType),
-        valueColumn: z.string().nullable(),
-        unit: z.string().nullable(),
-        rowFilters: z.array(rowFilterValidator),
-      }),
-    ),
+    factTableId: z.string().optional(),
+    values: z.array(factTableValueValidator),
   })
   .strict();
 
-export const sqlDatasetValidator = z
+// SQL
+const sqlValueValidator = baseValueValidator.extend({
+  type: z.literal("sql"),
+  valueType: z.enum(valueType),
+  valueColumn: z.string().nullable(),
+});
+export type SqlValue = z.infer<typeof sqlValueValidator>;
+
+const sqlDatasetValidator = z
   .object({
     type: z.literal("sql"),
     datasource: z.string(),
@@ -43,15 +60,7 @@ export const sqlDatasetValidator = z
       z.string(),
       z.enum(["string", "number", "date", "boolean", "other"]),
     ),
-    values: z.array(
-      z.object({
-        name: z.string(),
-        valueType: z.enum(valueType),
-        valueColumn: z.string().nullable(),
-        unit: z.string().nullable(),
-        rowFilters: z.array(rowFilterValidator),
-      }),
-    ),
+    values: z.array(sqlValueValidator),
   })
   .strict();
 
@@ -60,8 +69,16 @@ const datasetValidator = z.discriminatedUnion("type", [
   factTableDatasetValidator,
   sqlDatasetValidator,
 ]);
+export type ProductAnalyticsDataset = z.infer<typeof datasetValidator>;
 
-const dateGranularity = [
+const valueValidator = z.discriminatedUnion("type", [
+  metricValueValidator,
+  factTableValueValidator,
+  sqlValueValidator,
+]);
+export type ProductAnalyticsValue = z.infer<typeof valueValidator>;
+
+export const dateGranularity = [
   "auto",
   "hour",
   "day",
@@ -105,9 +122,9 @@ export const dimensionValidator = z.discriminatedUnion("dimensionType", [
   sliceDimensionValidator,
 ]);
 
-const chartTypes = ["bar", "line", "area", "table"] as const;
+export const chartTypes = ["line", "bar", "bigNumber"] as const;
 
-const dateRangePredefined = [
+export const dateRangePredefined = [
   "today",
   "last7Days",
   "last30Days",
