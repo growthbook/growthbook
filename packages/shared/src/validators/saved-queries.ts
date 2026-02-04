@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { QueryResponseColumnData } from "shared/types/integrations";
+import { factTableColumnTypeValidator } from "./fact-table";
 
 const dateAggregationEnum = z.enum([
   "none",
@@ -238,11 +240,21 @@ export type PivotTable = z.infer<typeof pivotTableValidator>;
 
 export const testQueryRowSchema = z.record(z.string(), z.any());
 
+export const queryResponseColumnDataValidator: z.ZodType<QueryResponseColumnData> =
+  z.lazy(() =>
+    z.object({
+      name: z.string(),
+      dataType: factTableColumnTypeValidator.optional(),
+      fields: z.array(queryResponseColumnDataValidator).optional(),
+    }),
+  );
+
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),
   error: z.string().nullable().optional(),
   duration: z.number().optional(),
   sql: z.string().optional(),
+  columns: z.array(queryResponseColumnDataValidator).optional(),
 });
 
 export const savedQueryValidator = z

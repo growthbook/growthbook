@@ -31,8 +31,7 @@ export default function SqlTabContent() {
     addValueToDataset,
     updateValueInDataset,
     deleteValueFromDataset,
-    updateSql,
-    updateColumnTypes,
+    updateSqlDataset,
     updateTimestampColumn,
   } = useExplorerContext();
 
@@ -74,11 +73,7 @@ export default function SqlTabContent() {
           datasourceId={datasource}
           initialSql={dataset.sql || undefined}
           onSave={(data) => {
-            updateSql(data.sql);
-            updateColumnTypes(data.columnTypes);
-            //MKTODO: We also need to update the chart type depending on the availability of a timestamp column
-            //MKTODO: Should we have a single function to handle updating the sql, updating columns, detecting a timestamp column, and changing the chart
-            // type depending on the availability of a timestamp column?
+            updateSqlDataset(data.sql, data.columnTypes);
           }}
         />
       )}

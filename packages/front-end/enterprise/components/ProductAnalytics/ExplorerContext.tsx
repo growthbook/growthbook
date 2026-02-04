@@ -28,6 +28,7 @@ function autoDetectTimestamp(
     "string" | "number" | "date" | "boolean" | "other"
   >,
 ): string | null {
+  //MKTODO: This is a simple version to get us started. Need to improve.
   // First, try to find a column with "timestamp" in the name
   let timestampColumn = Object.keys(columnTypes).find((key) =>
     key.toLowerCase().includes("timestamp"),
@@ -97,8 +98,8 @@ export interface ExplorerContextValue {
   deleteValueFromDataset: (index: number) => void;
   clearDataset: () => void;
   changeDatasetType: (type: DatasetType) => void;
-  updateSql: (sql: string) => void;
-  updateColumnTypes: (
+  updateSqlDataset: (
+    sql: string,
     columnTypes: Record<
       string,
       "string" | "number" | "date" | "boolean" | "other"
@@ -182,7 +183,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 
   const addValueToDataset = useCallback((valueType: DatasetType) => {
     setDraftExploreState((prev) => {
-      if (prev.dataset.type !== valueType) {
+      if (!prev.dataset || prev.dataset.type !== valueType) {
         return prev;
       }
       const value = createEmptyValue(valueType);
@@ -239,72 +240,59 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     });
   }, []);
 
-  const updateSql = useCallback((sql: string) => {
-    setDraftExploreState((prev) => {
-      return {
-        ...prev,
-        dataset: { ...prev.dataset, sql },
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
-
-  const updateTimestampColumn = useCallback((column: string) => {
-    setDraftExploreState((prev) => {
-      return {
-        ...prev,
-        dataset: { ...prev.dataset, timestampColumn: column },
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
-
-  const updateColumnTypes = useCallback(
+  const updateSqlDataset = useCallback(
     (
+      sql: string,
       columnTypes: Record<
         string,
         "string" | "number" | "date" | "boolean" | "other"
       >,
     ) => {
       setDraftExploreState((prev) => {
-        if (prev.dataset.type !== "sql") {
+        if (!prev.dataset) {
           return prev;
         }
 
-        const currentTimestamp = prev.dataset.timestampColumn;
-        const availableColumns = Object.keys(columnTypes);
+        // Auto-detect timestamp column from the new columnTypes
+        const detectedTimestamp = autoDetectTimestamp(columnTypes);
+        const currentTimestamp =
+          prev.dataset.type === "sql" ? prev.dataset.timestampColumn : "";
 
-        let newTimestampColumn = currentTimestamp;
-
-        // Case 1: If we had a timestamp column but it no longer exists, clear it
-        if (currentTimestamp && !availableColumns.includes(currentTimestamp)) {
-          newTimestampColumn = "";
-
-          // Try to auto-detect a new one since the old one is gone
-          const detected = autoDetectTimestamp(columnTypes);
-          if (detected) {
-            newTimestampColumn = detected;
-          }
-        }
-
-        // Case 2: If we never had a timestamp column, try to auto-detect one
-        if (!currentTimestamp) {
-          const detected = autoDetectTimestamp(columnTypes);
-          if (detected) {
-            newTimestampColumn = detected;
-          }
+        // Use detected timestamp if we don't have one, or if the current one is not in the new columns
+        let timestampColumn = currentTimestamp;
+        if (
+          !currentTimestamp ||
+          !Object.keys(columnTypes).includes(currentTimestamp)
+        ) {
+          timestampColumn = detectedTimestamp || "";
         }
 
         return {
           ...prev,
           dataset: {
             ...prev.dataset,
+            type: "sql",
+            sql,
             columnTypes,
-            timestampColumn: newTimestampColumn,
+            timestampColumn,
           },
         } as ProductAnalyticsConfig;
       });
     },
     [],
   );
+
+  const updateTimestampColumn = useCallback((column: string) => {
+    setDraftExploreState((prev) => {
+      if (!prev.dataset) {
+        return prev;
+      }
+      return {
+        ...prev,
+        dataset: { ...prev.dataset, timestampColumn: column },
+      } as ProductAnalyticsConfig;
+    });
+  }, []);
 
   const changeDatasetType = useCallback((type: DatasetType) => {
     setDraftExploreState((prev) => {
@@ -317,6 +305,9 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 
   const clearDataset = useCallback(() => {
     setDraftExploreState((prev) => {
+      if (!prev.dataset) {
+        return prev;
+      }
       return {
         ...prev,
         dataset: createEmptyDataset(prev.dataset.type),
@@ -339,8 +330,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       deleteValueFromDataset,
       changeDatasetType,
       clearDataset,
-      updateSql,
-      updateColumnTypes,
+      updateSqlDataset,
       updateTimestampColumn,
     }),
     [
@@ -356,8 +346,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       deleteValueFromDataset,
       changeDatasetType,
       clearDataset,
-      updateSql,
-      updateColumnTypes,
+      updateSqlDataset,
       updateTimestampColumn,
     ],
   );

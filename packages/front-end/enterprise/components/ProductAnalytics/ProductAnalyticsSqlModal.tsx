@@ -71,9 +71,6 @@ export default function ProductAnalyticsSqlModal({
   const [informationSchema, setInformationSchema] = useState<
     InformationSchemaInterfaceWithPaths | undefined
   >();
-  const [detectedColumns, setDetectedColumns] = useState<
-    Record<string, "string" | "number" | "date" | "boolean" | "other">
-  >({});
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
 
@@ -90,6 +87,7 @@ export default function ProductAnalyticsSqlModal({
         error: undefined,
         duration: undefined,
         sql: undefined,
+        columns: undefined,
       },
     },
   });
@@ -117,21 +115,6 @@ export default function ProductAnalyticsSqlModal({
     [apiCall, datasourceId],
   );
 
-  const detectColumns = useCallback(async (sql: string) => {
-    // Run LIMIT 0 query to get column metadata
-    // Get the results & call setDetectedColumns with the column types
-    // TODO: Let's mock this for now
-    setDetectedColumns({
-      user_id: "string",
-      event_name: "string",
-      event_date: "date",
-      event_time: "string",
-      paid_customer: "boolean",
-      timestamp: "date",
-      revenue: "number",
-    });
-  }, []);
-
   const handleQuery = useCallback(async () => {
     setIsRunningQuery(true);
     // Reset the results field so it's empty
@@ -140,36 +123,30 @@ export default function ProductAnalyticsSqlModal({
       error: undefined,
       duration: undefined,
       sql: undefined,
+      columns: undefined,
     });
 
     try {
       // First, run the query for preview
-      const { results, error, duration, sql } = await runQuery(
-        form.watch("sql"),
-      );
-
-      // Update the form's results field
+      const result = await runQuery(form.watch("sql"));
       form.setValue("results", {
-        results: results || [],
-        error,
-        duration,
-        sql,
+        results: result.results || [],
+        error: result.error,
+        duration: result.duration,
+        sql: result.sql,
+        columns: result.columns,
       });
-
-      // If query succeeded, detect columns
-      if (!error) {
-        await detectColumns(form.watch("sql"));
-      }
     } catch (e) {
       form.setValue("results", {
         results: [],
         error: e.message,
         duration: undefined,
         sql: form.watch("sql"),
+        columns: undefined,
       });
     }
     setIsRunningQuery(false);
-  }, [form, runQuery, detectColumns]);
+  }, [form, runQuery]);
 
   const handleFormatClick = () => {
     const result = formatSql(form.watch("sql"), datasource?.type);
@@ -181,11 +158,18 @@ export default function ProductAnalyticsSqlModal({
     }
   };
 
+  // Helper to check if we have any columns detected
+  const hasColumns = () => {
+    const columns = form.watch("results").columns || [];
+    return columns.length > 0;
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
 
     try {
       const sql = form.watch("sql").trim();
+      const columns = form.watch("results").columns || [];
 
       if (!sql) {
         throw new Error("SQL query cannot be empty");
@@ -195,15 +179,43 @@ export default function ProductAnalyticsSqlModal({
         throw new Error("Only SELECT queries are allowed");
       }
 
-      if (Object.keys(detectedColumns).length === 0) {
+      if (columns.length === 0) {
         throw new Error(
           "Please run the query first to detect columns before saving",
         );
       }
 
+      // Map unsupported column types to "other" for Product Analytics
+      // - Empty string "" (unknown type) -> "other"
+      // - JSON type (can't be directly charted) -> "other"
+      const supportedColumns: Record<
+        string,
+        "string" | "number" | "date" | "boolean" | "other"
+      > = {};
+
+      columns.forEach((col) => {
+        let dataType: "string" | "number" | "date" | "boolean" | "other" =
+          "other";
+
+        if (col.dataType) {
+          if (
+            col.dataType === "string" ||
+            col.dataType === "number" ||
+            col.dataType === "date" ||
+            col.dataType === "boolean" ||
+            col.dataType === "other"
+          ) {
+            dataType = col.dataType;
+          }
+          // else: json or "" gets mapped to "other" (the default)
+        }
+
+        supportedColumns[col.name] = dataType;
+      });
+
       await onSave({
         sql,
-        columnTypes: detectedColumns,
+        columnTypes: supportedColumns,
       });
 
       close();
@@ -273,13 +285,11 @@ export default function ProductAnalyticsSqlModal({
       loading={loading}
       closeCta="Cancel"
       cta="Apply Changes"
-      ctaEnabled={
-        !!form.watch("sql").trim() && Object.keys(detectedColumns).length > 0
-      }
+      ctaEnabled={!!form.watch("sql").trim() && hasColumns()}
       disabledMessage={
         !form.watch("sql").trim()
           ? "Enter a SQL query"
-          : Object.keys(detectedColumns).length === 0
+          : !hasColumns()
             ? "Run the query to detect columns before saving"
             : undefined
       }
