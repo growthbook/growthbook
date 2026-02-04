@@ -56,7 +56,7 @@ export default function ExplorerChart() {
     const chartType = submittedExploreState.chartType;
 
     if (chartType === "bigNumber") {
-      const value = rows[0]?.values[0]?.value ?? 0;
+      const value = rows[0]?.values[0]?.numerator ?? 0;
       return { type: "bigNumber" as const, value };
     }
 
@@ -93,7 +93,7 @@ export default function ExplorerChart() {
           };
         }
 
-        dataMap[seriesKey][xValue] = v.value;
+        dataMap[seriesKey][xValue] = v.numerator ?? 0;
       });
     });
 
