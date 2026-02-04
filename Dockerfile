@@ -7,6 +7,9 @@ WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 RUN \
   pip3 install --index-url https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com --retries 10 --timeout 60 poetry==1.8.5 \
+  && poetry config repositories.aliyun https://mirrors.aliyun.com/pypi/simple/ \
+  && poetry config virtualenvs.create true \
+  && poetry source add --priority=primary aliyun https://mirrors.aliyun.com/pypi/simple/ \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
