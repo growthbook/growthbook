@@ -5,6 +5,8 @@ ARG NODE_MAJOR=20
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
+# TODO: The preview environment is having network connectivity issues Feb 4, 2026. 
+# Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it.
 ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 RUN \
