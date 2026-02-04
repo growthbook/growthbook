@@ -828,7 +828,8 @@ export class GrowthBook<
 
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
       if (
-        result?.inExperiment &&
+        result &&
+        result.inExperiment &&
         getAutoExperimentChangeType(exp) === "redirect"
       ) {
         break;
@@ -891,7 +892,7 @@ export class GrowthBook<
    * @deprecated Use {@link evalFeature}
    * @param id
    */
-  // eslint-disable-next-line
+
   public feature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,

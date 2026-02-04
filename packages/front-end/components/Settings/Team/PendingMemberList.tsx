@@ -1,7 +1,8 @@
 import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
-import { PendingMember } from "back-end/types/organization";
+import { PendingMember } from "shared/types/organization";
 import { datetime } from "shared/dates";
+import { getRoleDisplayName } from "shared/permissions";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -76,7 +77,7 @@ const PendingMemberList: FC<{
                 <td>{member.name}</td>
                 <td>{member.email}</td>
                 <td>{member.dateCreated && datetime(member.dateCreated)}</td>
-                <td>{roleInfo.role}</td>
+                <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
                 {!project && (
                   <td className="col-3">
                     {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
@@ -89,7 +90,7 @@ const PendingMemberList: FC<{
                               resourceType="member"
                               projectIds={[p.id]}
                             />
-                            — {pr.role}
+                            — {getRoleDisplayName(pr.role, organization)}
                           </div>
                         );
                       }

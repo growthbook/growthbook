@@ -3,7 +3,7 @@ import {
   CustomField,
   CustomFieldSection,
   CustomFieldTypes,
-} from "back-end/types/custom-fields";
+} from "shared/types/custom-fields";
 import React from "react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,6 +17,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
+import RadioGroup from "@/ui/RadioGroup";
 
 export default function CustomFieldModal({
   existing,
@@ -32,7 +33,7 @@ export default function CustomFieldModal({
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const form = useForm<Partial<CustomField>>({
+  const form = useForm<CustomField>({
     defaultValues: {
       id: existing.id || "",
       name: existing.name || "",
@@ -46,7 +47,7 @@ export default function CustomFieldModal({
           ? (existing.defaultValue ?? false)
           : "",
       section: existing.section || section,
-      projects: existing.projects || [project] || [],
+      projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
       index: true,
     },
@@ -72,11 +73,12 @@ export default function CustomFieldModal({
   const showSearchableToggle = false;
   return (
     <Modal
-      trackingEventModalType={"custom-field"}
+      trackingEventModalType="custom-field"
       open={true}
       close={close}
       header={existing.id ? `Edit Custom Field` : "Create New Custom Field"}
-      cta={"Save"}
+      cta="Save"
+      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         if (value.type === "boolean") {
           // make sure the default value is a boolean
@@ -112,7 +114,7 @@ export default function CustomFieldModal({
           edit.description = value?.description ?? "";
           edit.placeholder = value?.placeholder ?? "";
           edit.projects = value.projects;
-          edit.section = section;
+          edit.section = value.section;
 
           await apiCall(`/custom-fields/${existing.id}`, {
             method: "PUT",
@@ -133,7 +135,7 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            section: section,
+            section: value.section,
           };
 
           await apiCall(`/custom-fields`, {
@@ -172,6 +174,17 @@ export default function CustomFieldModal({
         placeholder=""
         required={true}
       />
+      <div className="mb-3">
+        <label className="form-label">Applies to</label>
+        <RadioGroup
+          value={form.watch("section") ?? section}
+          setValue={(v) => form.setValue("section", v as CustomFieldSection)}
+          options={[
+            { value: "feature", label: "Feature" },
+            { value: "experiment", label: "Experiment" },
+          ]}
+        />
+      </div>
       <Field
         label="Description"
         {...form.register("description")}
@@ -179,7 +192,7 @@ export default function CustomFieldModal({
       />
       <div className="mb-3">
         <SelectField
-          label="Type"
+          label="Value type"
           value={form.watch("type") ?? "text"}
           options={fieldOptions.map((o) => ({ label: o, value: o }))}
           onChange={(v: CustomFieldTypes) => {
@@ -254,7 +267,7 @@ export default function CustomFieldModal({
         <Checkbox
           id={"required"}
           label="Required"
-          description="Make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
+          description="Make the custom field required when creating or editing features or experiments."
           value={!!form.watch("required")}
           setValue={(value) => {
             form.setValue("required", value);

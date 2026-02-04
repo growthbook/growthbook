@@ -8,7 +8,7 @@ import {
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
@@ -33,8 +33,11 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -84,8 +87,6 @@ const AnalysisForm: FC<{
   const orgSettings = useOrgSettings();
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
-    useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const pid = experiment?.project;
@@ -94,10 +95,20 @@ const AnalysisForm: FC<{
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment,
+  });
+
+  // Get parent settings (without experiment scope) for displaying defaults
+  const { settings: parentScopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
+  );
+  const hasPostStratificationFeature = hasCommercialFeature(
+    "post-stratification",
   );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
@@ -151,7 +162,6 @@ const AnalysisForm: FC<{
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       customMetricSlices: experiment.customMetricSlices || [],
-      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -159,6 +169,7 @@ const AnalysisForm: FC<{
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
+      postStratificationEnabled: experiment.postStratificationEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -221,6 +232,12 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
+
   if (upgradeModal) {
     return (
       <UpgradeModal
@@ -253,7 +270,6 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
@@ -523,23 +539,59 @@ const AnalysisForm: FC<{
           </div>
         )}
         {!!datasource && !isBandit && !isHoldout && (
-          <MetricSelector
-            datasource={form.watch("datasource")}
-            exposureQueryId={exposureQueryId}
-            project={experiment.project}
-            includeFacts={true}
-            labelClassName="font-weight-bold"
-            label={
-              <>
-                Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
-              </>
-            }
-            initialOption="None"
-            onlyBinomial
-            value={form.watch("activationMetric")}
-            onChange={(value) => form.setValue("activationMetric", value || "")}
-            helpText="Users must convert on this metric before being included"
-          />
+          <>
+            <Tooltip
+              shouldDisplay={
+                isExperimentIncludedInIncrementalRefresh &&
+                form.watch("activationMetric") === ""
+              }
+              body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+            >
+              <MetricSelector
+                disabled={isExperimentIncludedInIncrementalRefresh}
+                datasource={form.watch("datasource")}
+                exposureQueryId={exposureQueryId}
+                project={experiment.project}
+                includeFacts={true}
+                labelClassName="font-weight-bold"
+                label={
+                  <>
+                    Activation Metric
+                    {!isExperimentIncludedInIncrementalRefresh ? (
+                      <>
+                        {" "}
+                        <MetricsSelectorTooltip
+                          onlyBinomial={true}
+                          isSingular={true}
+                        />
+                      </>
+                    ) : null}
+                  </>
+                }
+                initialOption="None"
+                onlyBinomial
+                value={form.watch("activationMetric")}
+                onChange={(value) =>
+                  form.setValue("activationMetric", value || "")
+                }
+                helpText="Users must convert on this metric before being included"
+              />
+            </Tooltip>
+            {isExperimentIncludedInIncrementalRefresh &&
+              form.watch("activationMetric") !== "" && (
+                <Callout status="warning" mb="2">
+                  Activation metrics are not yet supported with Incremental
+                  Refresh. Please{" "}
+                  <Link
+                    style={{ display: "inline" }}
+                    onClick={() => form.setValue("activationMetric", "")}
+                  >
+                    click to remove it
+                  </Link>
+                  .
+                </Callout>
+              )}
+          </>
         )}
         <StatsEngineSelect
           label={
@@ -557,38 +609,103 @@ const AnalysisForm: FC<{
           onChange={(v) => {
             form.setValue("statsEngine", v);
           }}
-          parentSettings={scopedSettings}
+          parentSettings={parentScopedSettings}
           allowUndefined={!isBandit}
           disabled={isBandit}
         />
-        {isBandit && (
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
-              </PremiumTooltip>
-            }
-            style={{ width: 200 }}
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            disabled={
-              !hasRegressionAdjustmentFeature ||
-              (isBandit && experiment.status !== "draft")
-            }
-          />
+        {!isHoldout && (
+          <>
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="regression-adjustment">
+                  <GBCuped /> Use CUPED
+                </PremiumTooltip>
+              }
+              style={{ width: 200 }}
+              labelClassName="font-weight-bold"
+              value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              disabled={
+                !hasRegressionAdjustmentFeature ||
+                (isBandit && experiment.status !== "draft")
+              }
+            />
+            {!orgSettings.disablePrecomputedDimensions ? (
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="post-stratification">
+                    Use Post-Stratification
+                  </PremiumTooltip>
+                }
+                style={{ width: 200 }}
+                labelClassName="font-weight-bold"
+                value={
+                  form.watch("postStratificationEnabled") == null
+                    ? ""
+                    : form.watch("postStratificationEnabled")
+                      ? "on"
+                      : "off"
+                }
+                onChange={(v) => {
+                  form.setValue(
+                    "postStratificationEnabled",
+                    v === "" ? null : v === "on",
+                  );
+                }}
+                options={[
+                  {
+                    label: "Organization default",
+                    value: "",
+                  },
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                formatOptionLabel={({ value, label }) => {
+                  if (value === "") {
+                    return <em className="text-muted">{label}</em>;
+                  }
+                  return label;
+                }}
+                sort={false}
+                helpText={
+                  <span>
+                    (
+                    {parentScopedSettings.postStratificationEnabled.meta
+                      ?.scopeApplied &&
+                      parentScopedSettings.postStratificationEnabled.meta
+                        ?.scopeApplied + " "}
+                    default:{" "}
+                    {parentScopedSettings.postStratificationEnabled.value
+                      ? "On"
+                      : "Off"}
+                    )
+                  </span>
+                }
+                disabled={
+                  !hasPostStratificationFeature ||
+                  (isBandit && experiment.status !== "draft")
+                }
+              />
+            ) : null}
+          </>
         )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" &&
@@ -677,6 +794,8 @@ const AnalysisForm: FC<{
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
+              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+              excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}
@@ -699,6 +818,7 @@ const AnalysisForm: FC<{
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
+              experimentId={experiment.id}
             />
 
             <CustomMetricSlicesSelector
@@ -708,10 +828,6 @@ const AnalysisForm: FC<{
               customMetricSlices={form.watch("customMetricSlices") || []}
               setCustomMetricSlices={(slices) =>
                 form.setValue("customMetricSlices", slices)
-              }
-              pinnedMetricSlices={form.watch("pinnedMetricSlices") || []}
-              setPinnedMetricSlices={(slices) =>
-                form.setValue("pinnedMetricSlices", slices)
               }
             />
 
@@ -751,25 +867,37 @@ const AnalysisForm: FC<{
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
-                        <SelectField
-                          label="Metric Conversion Windows"
-                          labelClassName="font-weight-bold"
-                          value={form.watch("skipPartialData")}
-                          onChange={(value) =>
-                            form.setValue("skipPartialData", value)
+                        <Tooltip
+                          shouldDisplay={
+                            isExperimentIncludedInIncrementalRefresh
                           }
-                          options={[
-                            {
-                              label: "Include In-Progress Conversions",
-                              value: "loose",
-                            },
-                            {
-                              label: "Exclude In-Progress Conversions",
-                              value: "strict",
-                            },
-                          ]}
-                          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-                        />
+                          body="In-progress Conversions is not supported with Incremental Refresh while in beta"
+                        >
+                          <SelectField
+                            label="Metric Conversion Windows"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("skipPartialData")}
+                            onChange={(value) =>
+                              form.setValue("skipPartialData", value)
+                            }
+                            options={[
+                              {
+                                label: "Include In-Progress Conversions",
+                                value: "loose",
+                              },
+                              {
+                                label: "Exclude In-Progress Conversions",
+                                value: "strict",
+                              },
+                            ]}
+                            isOptionDisabled={(option) =>
+                              isExperimentIncludedInIncrementalRefresh &&
+                              "value" in option &&
+                              option.value === "strict"
+                            }
+                            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                          />
+                        </Tooltip>
                       </div>
                     )}
                     {datasourceProperties?.separateExperimentResultQueries && (
@@ -859,9 +987,9 @@ const AnalysisForm: FC<{
                           form={
                             form as unknown as UseFormReturn<EditMetricsFormInterface>
                           }
-                          disabled={!hasOverrideMetricsFeature}
-                          setHasMetricOverrideRiskError={(v: boolean) =>
-                            setHasMetricOverrideRiskError(v)
+                          disabled={
+                            !hasOverrideMetricsFeature ||
+                            isExperimentIncludedInIncrementalRefresh
                           }
                         />
                         {!hasOverrideMetricsFeature && (

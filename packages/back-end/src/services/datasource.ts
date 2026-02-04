@@ -1,5 +1,18 @@
 import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
+import { TemplateVariables } from "shared/types/sql";
+import {
+  FeatureEvalDiagnosticsQueryResponseRows,
+  TestQueryRow,
+  UserExperimentExposuresQueryResponseRows,
+} from "shared/types/integrations";
+import {
+  DataSourceInterface,
+  DataSourceParams,
+  ExposureQuery,
+} from "shared/types/datasource";
+import { QueryStatistics } from "shared/types/query";
+import { SQLExecutionError } from "back-end/src/util/errors";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -12,23 +25,12 @@ import Vertica from "back-end/src/integrations/Vertica";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
-import {
-  SourceIntegrationInterface,
-  TestQueryRow,
-  UserExperimentExposuresQueryResponseRows,
-} from "back-end/src/types/Integration";
-import {
-  DataSourceInterface,
-  DataSourceParams,
-  ExposureQuery,
-} from "back-end/types/datasource";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { TemplateVariables } from "back-end/types/sql";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { QueryStatistics } from "back-end/types/query";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -233,6 +235,48 @@ export async function runUserExposureQuery(
       error: e.message,
       sql,
     };
+  }
+}
+
+export async function runFeatureEvalDiagnosticsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  feature: string,
+): Promise<{
+  rows?: FeatureEvalDiagnosticsQueryResponseRows;
+  statistics?: QueryStatistics;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support feature usage queries
+  if (
+    !integration.getFeatureEvalDiagnosticsQuery ||
+    !integration.runFeatureEvalDiagnosticsQuery
+  ) {
+    throw new Error(
+      "Datasource does not support feature evaluation diagnostics queries.",
+    );
+  }
+
+  const sql = integration.getFeatureEvalDiagnosticsQuery({
+    feature,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runFeatureEvalDiagnosticsQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    throw new SQLExecutionError(e.message, sql);
   }
 }
 

@@ -3,12 +3,12 @@ import { useFieldArray, useForm } from "react-hook-form";
 import {
   ExperimentReportInterface,
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import uniq from "lodash/uniq";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -16,8 +16,8 @@ import {
 } from "shared/constants";
 import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "back-end/types/metric";
-import { DifferenceType } from "back-end/types/stats";
+import { MetricInterface } from "shared/types/metric";
+import { DifferenceType } from "shared/types/stats";
 import {
   getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
@@ -64,6 +64,7 @@ export default function ConfigureLegacyReport({
     getDatasourceById,
     getMetricById,
     getExperimentMetricById,
+    metricGroups,
   } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
 
@@ -90,6 +91,7 @@ export default function ConfigureLegacyReport({
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     report.args,
     false,
+    metricGroups,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m),
@@ -409,7 +411,8 @@ export default function ConfigureLegacyReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            Activation Metric{" "}
+            <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
           </>
         }
         labelClassName="font-weight-bold"

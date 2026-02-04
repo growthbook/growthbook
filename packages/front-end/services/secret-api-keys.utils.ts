@@ -1,4 +1,4 @@
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 
 type GroupedApiKeys = {
   secret: ApiKeyInterface[];

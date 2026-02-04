@@ -142,7 +142,7 @@ The inherent latency of the [trackingCallback](/lib/js#experimentation-ab-testin
 
 2. If you opt to use a front-end SDK (JS, React, or Vue), you can still greatly reduce or nearly eliminate SRM by implementing an **async tracking callback**. If your event tracking vendor supports async callbacks, then simply ensure that the `trackingCallback` that you pass into the GrowthBook SDK constructor awaits a successful network request for the tracked event. If you are using our HTML Script Tag, this is automatically handled for _GA4_ and _GTM_ tracking calls.
 
-:::note
+:::note Async tracking callbacks
 
 GrowthBook JavaScript and React SDKs introduced **async tracking callbacks** in version `1.2.0`.
 

@@ -130,10 +130,27 @@ export async function getSignedImageUrl(
     throw new Error("Error: Filename must not contain null bytes");
   }
 
+  // Extract the object key from a full URL if necessary
+  let objectKey = filePath;
+  try {
+    const url = new URL(filePath);
+    objectKey = url.pathname;
+    // Remove leading slash if present
+    if (objectKey.startsWith("/")) {
+      objectKey = objectKey.substring(1);
+    }
+    // Remove /upload/ prefix if present (for local uploads)
+    if (objectKey.startsWith("upload/")) {
+      objectKey = objectKey.substring(7);
+    }
+  } catch {
+    // Not a full URL, use as-is
+  }
+
   if (UPLOAD_METHOD === "s3") {
     const params = {
       Bucket: S3_BUCKET,
-      Key: filePath,
+      Key: objectKey,
       Expires: expiresInMinutes * 60, // Convert to seconds
     };
 
@@ -144,7 +161,7 @@ export async function getSignedImageUrl(
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
-    const file = bucket.file(filePath);
+    const file = bucket.file(objectKey);
 
     const [signedUrl] = await file.getSignedUrl({
       action: "read",
@@ -163,30 +180,59 @@ export async function getSignedUploadUrl(
   filePath: string,
   contentType: string,
   expiresInMinutes: number = 15,
-): Promise<{ signedUrl: string; fileUrl: string }> {
+): Promise<{
+  signedUrl: string;
+  fileUrl: string;
+  fields?: Record<string, string>;
+}> {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
     throw new Error("Error: Filename must not contain null bytes");
   }
 
   if (UPLOAD_METHOD === "s3") {
+    const s3Client = await getS3();
+
+    // Use createPresignedPost for uploads
     const params = {
       Bucket: S3_BUCKET,
-      Key: filePath,
+      Fields: {
+        key: filePath,
+        "Content-Type": contentType,
+      },
       Expires: expiresInMinutes * 60, // Convert to seconds
-      ContentType: contentType,
+      Conditions: [
+        // ["content-length-range", 0, 5242880], // Max 5MB file size
+        ["eq", "$Content-Type", contentType], // Enforce exact content-type match
+        ["eq", "$key", filePath], // Enforce exact key match
+      ],
     };
-    const s3Client = await getS3();
-    const signedUrl = s3Client.getSignedUrl("putObject", params);
+
+    const postData = await new Promise<{
+      url: string;
+      fields: Record<string, string>;
+    }>((resolve, reject) => {
+      s3Client.createPresignedPost(params, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+
     const fileUrl = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
 
-    return { signedUrl, fileUrl };
+    return {
+      signedUrl: postData.url,
+      fileUrl,
+      fields: postData.fields,
+    };
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
     const file = bucket.file(filePath);
 
+    // GCS will reject uploads if the Content-Type header doesn't match exactly
     const [signedUrl] = await file.getSignedUrl({
+      version: "v4",
       action: "write",
       expires: Date.now() + expiresInMinutes * 60 * 1000,
       contentType,

@@ -24,6 +24,7 @@ import {
   ReactSelectProps,
   SingleValue,
   Option,
+  GroupedValue,
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
@@ -76,7 +77,7 @@ export type MultiSelectFieldProps = Omit<
 > & {
   value: string[];
   placeholder?: string;
-  options: Option[];
+  options: (Option | GroupedValue)[];
   initialOption?: string;
   onChange: (value: string[]) => void;
   sort?: boolean;
@@ -88,6 +89,7 @@ export type MultiSelectFieldProps = Omit<
     value: SingleValue,
     meta: FormatOptionLabelMeta<SingleValue>,
   ) => ReactNode;
+  formatGroupLabel?: (value: GroupedValue) => ReactNode;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
@@ -107,9 +109,11 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   creatable,
   closeMenuOnSelect = false,
   formatOptionLabel,
+  formatGroupLabel,
   onPaste,
   isOptionDisabled,
   noMenu,
+  pattern,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -168,11 +172,16 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             id={id}
             ref={ref}
             formatOptionLabel={formatOptionLabel}
+            formatGroupLabel={formatGroupLabel}
             isDisabled={disabled || false}
             options={sorted}
             isMulti={true}
             onChange={(selected) => {
               onChange(selected?.map((s) => s.value) ?? []);
+            }}
+            isValidNewOption={(value) => {
+              if (!pattern) return !!value;
+              return new RegExp(pattern).test(value);
             }}
             components={{
               MultiValue: SortableMultiValue,

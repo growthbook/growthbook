@@ -6,14 +6,14 @@ import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
+import { metricAnalysisSettingsValidator } from "shared/validators";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { metricAnalysisSettingsValidator } from "./metric-analysis.validators";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
@@ -51,6 +51,7 @@ export const postMetricAnalysis = async (
   ) {
     throw new Error("Custom metric populations are a premium feature");
   }
+
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,
@@ -58,7 +59,10 @@ export const postMetricAnalysis = async (
     endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
+    additionalNumeratorFilters: data.additionalNumeratorFilters,
+    additionalDenominatorFilters: data.additionalDenominatorFilters,
   };
+
   const metricAnalysis = await createMetricAnalysis(
     context,
     metricObj,
@@ -124,6 +128,52 @@ export async function cancelMetricAnalysis(
     integration,
   );
   await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function refreshMetricAnalysisStatus(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  const metricAnalysis = await context.models.metricAnalysis.getById(
+    req.params.id,
+  );
+
+  if (!metricAnalysis) {
+    throw new Error("Could not refresh metric analysis status");
+  }
+
+  const metric = await context.models.factMetrics.getById(
+    metricAnalysis.metric,
+  );
+
+  if (!metric) {
+    throw new Error(
+      "Could not refresh metric analysis status, metric not found",
+    );
+  }
+  if (!metric.datasource) {
+    throw new Error(
+      "Could not refresh metric analysis status, no datasource provided",
+    );
+  }
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    metric.datasource,
+  );
+
+  const queryRunner = new MetricAnalysisQueryRunner(
+    context,
+    metricAnalysis,
+    integration,
+  );
+  queryRunner.setMetric(metric);
+  await queryRunner.refreshQueryStatuses();
 
   res.status(200).json({
     status: 200,

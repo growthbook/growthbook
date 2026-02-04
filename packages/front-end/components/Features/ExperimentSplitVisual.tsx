@@ -1,12 +1,12 @@
 import clsx from "clsx";
 import React, { CSSProperties } from "react";
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
   getVariationDefaultName,
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 import styles from "./ExperimentSplitVisual.module.scss";
 
 export interface Props {
@@ -38,15 +38,14 @@ export default function ExperimentSplitVisual({
 
   return (
     <div className={`${totalWeights > 1 ? "overflow-hidden" : ""}`}>
+      {totalWeights !== 1 ? (
+        <Callout status="error" size="sm" mb="3">
+          Please adjust weights to sum to 100%.
+        </Callout>
+      ) : null}
       <div className="row">
         <div className="col">
           <label>{label}</label>
-          {totalWeights !== 1 && (
-            <span className="ml-2 text-danger">
-              <FaExclamationTriangle className="text-danger mr-2" />
-              <span className="">Please adjust weights to sum to 100%.</span>
-            </span>
-          )}
         </div>
         {coverage < 1 && (
           <div className={clsx("col-auto", styles.legend)}>
@@ -70,7 +69,7 @@ export default function ExperimentSplitVisual({
         style={{
           width: "100%",
           textAlign: "right",
-          height: 30,
+          height: 20,
           backgroundColor: "#e0e0e0",
         }}
       >

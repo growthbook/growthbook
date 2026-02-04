@@ -5,7 +5,7 @@ import {
   metricTypeValidator,
   quantileSettingsValidator,
   windowSettingsValidator,
-} from "back-end/src/routers/fact-table/fact-table.validators";
+} from "shared/validators";
 import { z } from "zod";
 import { ReactNode, useState } from "react";
 import dJSON from "dirty-json";
@@ -63,7 +63,7 @@ export default function CreateMetricFromTemplate() {
 
         if (json.numerator) {
           json.numerator.factTableId = "";
-          json.numerator.filters = json.numerator.filters || [];
+          json.numerator.rowFilters = json.numerator.rowFilters || [];
 
           if (
             json.metricType === "proportion" ||
@@ -76,7 +76,7 @@ export default function CreateMetricFromTemplate() {
         }
         if (json.denominator) {
           json.denominator.factTableId = "";
-          json.denominator.filters = json.denominator.filters || [];
+          json.denominator.rowFilters = json.denominator.rowFilters || [];
           json.denominator.column = json.denominator.column || "";
         }
 

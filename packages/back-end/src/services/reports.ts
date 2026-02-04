@@ -24,27 +24,40 @@ import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
-import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
-  ExperimentReportArgs,
+  LegacyExperimentReportArgs,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
   ExperimentReportSSRData,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
-import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+} from "shared/types/experiment-snapshot";
+import { OrganizationSettings } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+  MetricWindowSettings,
+  FactTableInterface,
+  ColumnInterface,
+} from "shared/types/fact-table";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ProjectInterface } from "shared/types/project";
+import { accountFeatures, CommercialFeature } from "shared/enterprise";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   FactTableMap,
@@ -59,22 +72,13 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
+  getAdditionalQueryMetadataForExperiment,
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
-import { MetricInterface } from "back-end/types/metric";
-import {
-  ConversionWindowUnit,
-  MetricPriorSettings,
-  MetricWindowSettings,
-  FactTableInterface,
-  ColumnInterface,
-} from "back-end/types/fact-table";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
-import { ProjectInterface } from "back-end/types/project";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -119,7 +123,7 @@ export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
-): ExperimentReportArgs {
+): LegacyExperimentReportArgs {
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
@@ -158,12 +162,14 @@ export function reportArgsFromSnapshot(
 }
 
 export function getAnalysisSettingsFromReportArgs(
-  args: ExperimentReportArgs,
+  args: LegacyExperimentReportArgs,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: args.dimension ? [args.dimension] : [],
     statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
     regressionAdjusted: args.regressionAdjustmentEnabled,
+    // legacy report args do not support post stratification
+    postStratificationEnabled: false,
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
@@ -174,7 +180,7 @@ export function getAnalysisSettingsFromReportArgs(
   };
 }
 export function getSnapshotSettingsFromReportArgs(
-  args: ExperimentReportArgs,
+  args: LegacyExperimentReportArgs,
   metricMap: Map<string, ExperimentMetricInterface>,
   factTableMap?: FactTableMap,
   experiment?: ExperimentInterface,
@@ -225,7 +231,6 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
-    manual: false,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -457,6 +462,9 @@ export async function createReportSnapshot({
   });
   const statsEngine =
     report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
+  const postStratificationEnabled =
+    report.experimentAnalysisSettings.postStratificationEnabled ??
+    settings.postStratificationEnabled.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
 
@@ -496,13 +504,14 @@ export async function createReportSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
-  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
-    report.experimentAnalysisSettings,
+    experiment: report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
-    report.experimentAnalysisSettings.dimension,
-  );
+    postStratificationEnabled,
+    dimension: report.experimentAnalysisSettings.dimension,
+  });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     ...defaultAnalysisSettings,
@@ -578,6 +587,9 @@ export async function createReportSnapshot({
     metricMap,
     queryParentId: snapshot.id,
     factTableMap,
+    experimentQueryMetadata: experiment
+      ? getAdditionalQueryMetadataForExperiment(experiment)
+      : null,
   });
 
   return snapshot;
@@ -676,7 +688,6 @@ export function getReportSnapshotSettings({
 
   const phase = report.experimentMetadata.phases?.[phaseIndex];
   return {
-    manual: false,
     activationMetric:
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:
@@ -912,6 +923,14 @@ export async function generateExperimentReportSSRData({
     }
   }
 
+  // Ensure we show slices if the org has access
+  // For public pages, we need to check against the org and not the user
+  const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
+  const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
+  const commercialFeatures = publicRelevantFeatures.filter((f) =>
+    allFeatures.has(f),
+  );
+
   return {
     metrics: metricMap,
     metricGroups,
@@ -920,5 +939,6 @@ export async function generateExperimentReportSSRData({
     settings: orgSettings,
     projects: projectMap,
     dimensions,
+    commercialFeatures,
   };
 }

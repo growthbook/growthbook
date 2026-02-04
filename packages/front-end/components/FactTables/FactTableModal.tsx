@@ -2,7 +2,7 @@ import {
   CreateFactTableProps,
   FactTableInterface,
   UpdateFactTableProps,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
@@ -13,7 +13,6 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import track from "@/services/track";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
@@ -25,6 +24,7 @@ import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
 import Dialog from "@/ui/Dialog";
 import Callout from "@/ui/Callout";
+import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -70,6 +70,7 @@ export default function FactTableModal({
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
       projects: existing?.projects || [],
+      autoSliceUpdatesEnabled: existing?.autoSliceUpdatesEnabled ?? false,
     },
   });
 
@@ -95,6 +96,14 @@ export default function FactTableModal({
     );
   }, [isNew]);
 
+  const autoUpdateFrequencyHours = getAutoSliceUpdateFrequencyHours();
+  const autoUpdateFrequencyDays =
+    Math.round((autoUpdateFrequencyHours / 24) * 10) / 10; // Round to 1 decimal place
+  const autoUpdateFrequencyText =
+    autoUpdateFrequencyDays >= 1
+      ? `${autoUpdateFrequencyDays} ${autoUpdateFrequencyDays === 1 ? "day" : "days"}`
+      : `${autoUpdateFrequencyHours} ${autoUpdateFrequencyHours === 1 ? "hour" : "hours"}`;
+
   return (
     <>
       {sqlOpen && (
@@ -105,6 +114,7 @@ export default function FactTableModal({
             sql: form.watch("sql"),
             eventName: form.watch("eventName"),
             userIdTypes: form.watch("userIdTypes"),
+            name: form.watch("name"),
           }}
           save={async ({ sql, userIdTypes, eventName }) => {
             form.setValue("sql", sql);
@@ -145,6 +155,7 @@ export default function FactTableModal({
               eventName: value.eventName,
               managedBy: value.managedBy,
               projects: value.projects,
+              autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -279,7 +290,7 @@ export default function FactTableModal({
         {permissionsUtil.canCreateOfficialResources({
           projects: form.watch("projects") || [],
         }) && hasCommercialFeature("manage-official-resources") ? (
-          <div className="mt-2">
+          <div className="mt-4">
             <Checkbox
               label="Mark as Official Fact Table"
               disabled={form.watch("managedBy") === "api"}
@@ -292,6 +303,18 @@ export default function FactTableModal({
             />
           </div>
         ) : null}
+        {hasCommercialFeature("metric-slices") && (
+          <div className="mt-4">
+            <Checkbox
+              label="Auto-update slice levels"
+              description={`Automatically update Auto Slice levels based on top column values (14 day lookback). Updates run every ${autoUpdateFrequencyText}. Locked slice levels will always be preserved.`}
+              value={form.watch("autoSliceUpdatesEnabled") ?? false}
+              setValue={(value) => {
+                form.setValue("autoSliceUpdatesEnabled", value);
+              }}
+            />
+          </div>
+        )}
       </Dialog>
     </>
   );

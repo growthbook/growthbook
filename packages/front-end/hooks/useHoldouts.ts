@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { HoldoutInterface } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useApi from "./useApi";
 
 export function useHoldouts(

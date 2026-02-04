@@ -4,7 +4,7 @@ import { cloneDeep } from "lodash";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "back-end/types/team";
+import { TeamInterface } from "shared/types/team";
 import {
   DemographicData,
   Invite,
@@ -14,9 +14,9 @@ import {
   OrganizationMessage,
   OrgMemberInfo,
   Role,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import { ApiOrganization } from "shared/types/openapi";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
-import { ApiOrganization } from "back-end/types/openapi";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
@@ -208,6 +208,7 @@ export async function createOrganization({
         },
       ],
       killswitchConfirmation: true,
+      runHealthTrafficQuery: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
@@ -278,6 +279,13 @@ export async function findAllOrganizations(
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
+}
+
+export async function _dangerouslyFindAllOrganizationsByIds(orgIds: string[]) {
+  const docs = await OrganizationModel.find({
+    id: { $in: orgIds },
+  });
+  return docs.map(toInterface);
 }
 
 export async function findOrganizationById(id: string) {
@@ -493,6 +501,7 @@ export const customRoleValidator = z
     id: z.string().min(2).max(64),
     description: z.string().max(100),
     policies: z.array(z.enum(POLICIES)),
+    displayName: z.string().max(64).optional(),
   })
   .strict();
 
@@ -503,6 +512,13 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
   // Make sure role id is not reserved
   if (RESERVED_ROLE_IDS.includes(role.id)) {
     throw new Error("That role id is reserved and cannot be used");
+  }
+
+  // Make sure role id doesn't start with gbDefault_ prefix
+  if (role.id.startsWith("gbDefault_")) {
+    throw new Error(
+      "Role id cannot start with 'gbDefault_' as this prefix is reserved for default roles",
+    );
   }
 
   // Make sure role id is not already in use

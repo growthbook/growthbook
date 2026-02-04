@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
@@ -40,77 +40,96 @@ export default function DataSourcePipeline({
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
+  function getTitle() {
+    if (pipelineSettings?.allowWriting) {
+      if (pipelineSettings?.mode === "incremental") {
+        return "Enabled (Incremental)";
+      }
+      if (pipelineSettings?.mode === "ephemeral") {
+        return "Enabled (Ephemeral)";
+      }
+      const _exhaustiveCheck: never = pipelineSettings?.mode;
+      return "Enabled";
+    }
+    return "Disabled";
+  }
+
+  function getDescription() {
+    if (pipelineSettings?.allowWriting) {
+      if (pipelineSettings?.mode === "incremental") {
+        return "Maintain incremental tables with new data to reduce re-scans of data.";
+      }
+      if (pipelineSettings?.mode === "ephemeral") {
+        return "Create temporary tables per-experiment refresh.";
+      }
+      const _exhaustiveCheck: never = pipelineSettings?.mode;
+      return "Create intermediate tables to improve query performance.";
+    }
+    return "Run read queries only, no intermediate tables written.";
+  }
+
   return (
     <Box>
-      <Flex align="center" justify="start" mb="3" gap="3">
-        <Heading as="h3" size="4" mb="0">
-          Data Pipeline Settings
-        </Heading>
-        <Badge label="Beta" color="teal" />
+      <Flex align="center" justify="between" gap="3" mb="2">
+        <Flex align="center" justify="start" gap="2">
+          <Heading as="h3" size="4" mb="0">
+            Data Pipeline Settings
+          </Heading>
+          <Badge label="BETA" color="gray" variant="solid" />
+        </Flex>
+        {canEdit && (
+          <Link
+            weight="medium"
+            underline="none"
+            onClick={() => {
+              setUiMode("edit");
+            }}
+          >
+            Edit
+          </Link>
+        )}
       </Flex>
       <p>
-        Configure how GrowthBook can use write permissions to your Data Source
-        to improve the performance of experiment queries.
+        Improve the performance of experiment queries by writing intermediate
+        tables to your Data Source.
       </p>
+
       <Card>
-        <Box px="3" py="2">
-          <Flex
-            align={pipelineSettings?.allowWriting ? "start" : "center"}
-            justify="between"
-          >
-            <Box>
-              <Text weight="medium" mb="0" as="p">
-                {"Pipeline Mode: "}
-                {pipelineSettings?.allowWriting ? "Enabled" : "Disabled"}
-              </Text>
-              {pipelineSettings?.allowWriting && (
-                <>
-                  <Box mt="2">
-                    {`Destination ${
-                      dataSourcePathNames(dataSource.type).schemaName
-                    }: `}
-                    {pipelineSettings?.writeDataset ? (
-                      <code>{`${
-                        pipelineSettings?.writeDatabase
-                          ? pipelineSettings?.writeDatabase + "."
-                          : ""
-                      }${pipelineSettings.writeDataset}`}</code>
-                    ) : (
-                      <em className="text-muted">not specified</em>
-                    )}
-                  </Box>
-                  {dataSource.type === "databricks" ? (
-                    <Box mt="2">
-                      {
-                        "Drop units table when analysis finishes (recommended): "
-                      }
-                      {pipelineSettings?.unitsTableDeletion
-                        ? "Enabled"
-                        : "Disabled"}
-                    </Box>
-                  ) : (
-                    <Box mt="2">
-                      {"Retention of temporary units table (hours): "}
-                      {pipelineSettings?.unitsTableRetentionHours ?? 24}
-                    </Box>
-                  )}
-                </>
-              )}
-            </Box>
-            {canEdit && (
-              <Box>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setUiMode("edit");
-                  }}
-                >
-                  Edit
-                </Button>
-              </Box>
-            )}
+        <Flex direction="column" gap="3" p="2">
+          <Flex direction="column" gap="1">
+            <Text
+              size="3"
+              weight="medium"
+              style={{
+                color: pipelineSettings?.allowWriting
+                  ? "var(--color-text-high)"
+                  : "var(--color-text-low)",
+              }}
+            >
+              {getTitle()}
+            </Text>
+            <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+              {getDescription()}
+            </Text>
           </Flex>
-        </Box>
+          {pipelineSettings?.allowWriting && (
+            <Flex direction="row" gap="4" align="center" wrap="wrap">
+              <Box>
+                <Text weight="medium">
+                  Destination {dataSourcePathNames(dataSource.type).schemaName}
+                  :{" "}
+                </Text>
+                <code>
+                  {`${
+                    pipelineSettings?.writeDatabase
+                      ? pipelineSettings?.writeDatabase + "."
+                      : "(default)."
+                  }${pipelineSettings.writeDataset}`}
+                </code>
+              </Box>
+            </Flex>
+          )}
+        </Flex>
       </Card>
 
       {uiMode === "edit" ? (

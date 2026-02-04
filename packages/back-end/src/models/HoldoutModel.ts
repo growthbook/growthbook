@@ -1,8 +1,5 @@
-import {
-  HoldoutInterface,
-  holdoutValidator,
-} from "back-end/src/routers/holdout/holdout.validators";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { HoldoutInterface, holdoutValidator } from "shared/validators";
+import { ExperimentInterface } from "shared/types/experiment";
 import { MakeModelClass } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
@@ -35,6 +32,10 @@ export class HoldoutModel extends BaseClass {
   }
   protected canDelete(doc: HoldoutInterface): boolean {
     return this.context.permissions.canDeleteHoldout(doc);
+  }
+
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("holdouts");
   }
 
   public async getAllPayloadHoldouts(

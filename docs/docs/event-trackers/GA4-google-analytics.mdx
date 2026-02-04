@@ -15,13 +15,9 @@ with GA4.
 
 For help debugging GA4 integration issues, please review our [GA4 Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting).
 
-:::info
-
 You can watch a video version of this guide, largely focused on Google Optimize replacement, here:
 
-<iframe style={{width: "100%", height: "auto", aspectRatio: 16/9}} src="https://www.youtube.com/embed/w8MBaBqcVZI?si=ZwioZRXQ7ftPY6hp" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-
-:::
+<iframe style={{width: "100%", height: "auto", aspectRatio: 16/9}} src="https://www.youtube.com/embed/w8MBaBqcVZI?si=ZwioZRXQ7ftPY6hp" title="GA4 and GrowthBook"  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen></iframe>
 
 ## Configuring GrowthBook to use Google Analytics GA4 as a data source
 
@@ -50,7 +46,7 @@ Once created, you'll be redirected to the BigQuery dashboard.
 
 If you created a new project, the BigQuery API is automatically enabled. Otherwise, you'll need to [enable it manually](https://console.cloud.google.com/flows/enableapi?apiid=bigquery)
 
-:::note
+:::note Using the BigQuery sandbox project
 
 If you are just testing GrowthBook with GA4 out, you can use the sandbox project that Google provides for free. When you create a new cloud project the sandbox should be automatically enabled. You can find more information about the sandbox [here](https://cloud.google.com/bigquery/docs/sandbox).
 
@@ -96,7 +92,7 @@ And then your BigQuery link will show up on the listing page:
 ![GA4 BigQuery successfully connected](/images/guides/GA4-5-link-to-bigquery-7.png)
 </MaxWidthImage>
 
-:::note
+:::note Loading Google Analytics via Google Tag Manager (GTM)
 
 If you are loading Google Analytics via Google Tag Manager (GTM), you may need to add the custom event to GTM to ensure
 the data is passed to GA4 from the datalayer. You can add the custom event by following this [section from the GTM guide](/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm). Our [Google Tag Manager (GTM) Troubleshooting Guide](/kb/google-analytics/google-tag-manager-gtm-troubleshooting) may be helpful for debugging if needed.
@@ -122,7 +118,7 @@ Within GrowthBook, navigate to the **_Analysis_** section, and then click on the
 Then add your BigQuery connection info. GrowthBook will pre-populate the SQL queries required to use your GA4 data. You
 can also add a custom SQL query if you want to use a different table or filter the data in some way as you like.
 
-:::note
+:::note Automatic SQL query creation
 
 While GrowthBook will pre-populate the SQL queries for you, you may need to adjust the experiment query to match your
 data depending on the way you are tracking your experiments (see the **_trackingCallback_** below).
@@ -137,7 +133,7 @@ when a user is exposed to an experiment.
 
 With the data source connected, you can integrate the GrowthBook SDK into your application to run A/B tests. Once implemented, the SDK will do the random assignments and send the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
 
-:::info
+:::info Visual editor for creating experiments
 
 We do have a visual editor for creating experiments as part of our Pro plan. Our visual editor is meant for simple
 experiments. Experiments that are more complex are best created by writing code with feature flags.
@@ -148,7 +144,7 @@ experiments. Experiments that are more complex are best created by writing code 
 
 The easiest and recommended way to integrate GrowthBook is by using our [Script Tag SDK](/lib/script-tag). This SDK will work out-of-the-box with GA4 without any configuration required.
 
-:::note
+:::note Debugging GA4 integrations
 
 If your experiment is not firing the `trackingCallback` you can use our
 [Chrome developer tool](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)

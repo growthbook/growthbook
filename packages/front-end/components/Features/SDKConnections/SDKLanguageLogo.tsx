@@ -1,7 +1,7 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import { SDKLanguage } from "shared/types/sdk-connection";
 import { IconType } from "react-icons";
 import { DiRuby, DiPython, DiReact, DiAndroid } from "react-icons/di";
-import { FaHashtag, FaApple, FaJava, FaCode } from "react-icons/fa";
+import { FaHashtag, FaApple, FaJava, FaCode, FaRust } from "react-icons/fa";
 import {
   SiAwslambda,
   SiCloudflare,
@@ -162,6 +162,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["server"],
     packageName: "github.com/growthbook/growthbook-golang",
     packageUrl: "https://pkg.go.dev/github.com/growthbook/growthbook-golang",
+  },
+  rust: {
+    Icon: FaRust,
+    color: "#D34516",
+    label: "Rust",
+    docs: "rust",
+    type: "backend",
+    filters: ["server"],
+    packageName: "growthbook-rust",
+    packageUrl: "https://crates.io/crates/growthbook-rust",
   },
   elixir: {
     Icon: SiElixir,

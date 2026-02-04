@@ -9,7 +9,7 @@ on:
       - ".github/workflows/deploy.yml"
       - "packages/**"
       - "!**.md"
-      - "yarn.lock"
+      - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
 jobs:
@@ -30,6 +30,17 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
+      - name: Configure AWS credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Install Depot CLI
         uses: depot/setup-action@v1
 
@@ -42,7 +53,7 @@ jobs:
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
           echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      - name: Build, tag, and push image to Docker Hub
+      - name: Build, tag, and push image to Docker Hub and ECR
         uses: depot/build-push-action@v1
         with:
           push: true
@@ -55,6 +66,8 @@ jobs:
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
+            ${{ steps.login-ecr.outputs.registry }}/growthbook:latest
+            ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
 
   # Deploy GrowthBook Cloud
@@ -74,16 +87,22 @@ jobs:
           fetch-depth: 0
 
       - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Login to Amazon ECR
+        id: login-ecr-prod
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Extract static assets from Docker image and upload to S3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr-prod.outputs.registry }}
         run: |
-          docker pull growthbook/growthbook:latest
-          docker create --name temp-container growthbook/growthbook:latest
+          docker pull ${ECR_REGISTRY}/growthbook:latest
+          docker create --name temp-container ${ECR_REGISTRY}/growthbook:latest
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
           # This is for the sentry source maps task below.
           docker cp temp-container:/usr/local/src/app/packages/back-end/dist ./back-end-dist
@@ -97,6 +116,7 @@ jobs:
           environment: "production"
           sourcemaps: "./back-end-dist"
           release: ${{ github.sha }}
+          inject: false
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook
@@ -108,6 +128,8 @@ jobs:
           environment: "production"
           sourcemaps: "./front-end-dist"
           release: ${{ github.sha }}
+          inject: false
+          url_prefix: "app:///_next"
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: growthbook

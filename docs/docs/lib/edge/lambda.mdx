@@ -15,7 +15,7 @@ import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 <SdkResources sdk="edgeLambda" />
 
-:::caution beta
+:::caution Beta
 
 Our Lambda@Edge implementation is in **beta**. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-proxy/issues).
 
@@ -40,7 +40,7 @@ GrowthBook currently supports two levels of integration with most edge workers, 
 
 ## Worker Configuration
 
-:::tip
+:::tip Get up to speed with Lambda@Edge
 
 This tutorial assumes some familiarity with building and deploying AWS Lambda@Edge applications. You can get up to speed by following the AWS [Tutorial: Create a basic Lambda@Edge function <ExternalLink />](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html) guide.
 
@@ -285,7 +285,7 @@ You have the option to manually persist this cookie at any time, for example whe
 document.dispatchEvent(new CustomEvent("growthbookpersist"));
 ```
 
-:::note
+:::note Sticky Bucketing and consent
 
 If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
 

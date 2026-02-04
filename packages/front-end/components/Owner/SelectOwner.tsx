@@ -1,8 +1,8 @@
 import { Text } from "@radix-ui/themes";
 import useMembers from "@/hooks/useMembers";
 import metaDataStyles from "@/ui/Metadata.module.scss";
-import UserAvatar from "../Avatar/UserAvatar";
-import SelectField from "../Forms/SelectField";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import SelectField from "@/components/Forms/SelectField";
 
 interface Props {
   value: string;
@@ -17,7 +17,8 @@ interface Props {
     | "metric"
     | "factMetric"
     | "archetype"
-    | "factTable";
+    | "factTable"
+    | "dashboard";
   placeholder?: string;
   disabled?: boolean;
 }
@@ -37,6 +38,7 @@ export default function SelectOwner({
     "experimentTemplate",
     "factTable",
     "archetype",
+    "dashboard",
   ].includes(resourceType)
     ? "id"
     : "name";

@@ -1,6 +1,6 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { HoldoutInterface } from "shared/validators";
 import { isEqual } from "lodash";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

@@ -37,7 +37,7 @@ If you do not use any of those you choose [Custom Data Source](/event-trackers/c
 
 ## Configuration Settings
 
-Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have choosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances, you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
+Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have chosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances, you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
 
 ### Identifier Types
 
@@ -49,7 +49,7 @@ There are some cases where a single database column isn't enough to uniquely ide
 
 An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
 
-:::tip
+:::note Queries used to generate experiment results
 
 Assignment queries are one-half of the queries that are used to generate experiment results, the other being metric queries. Assignment queries can be edited from the `Metrics and Data` → `Data Sources` page.
 
@@ -152,6 +152,8 @@ Below are the data sources that currently support the Schema Browser:
 - Redshift
 - Snowflake
 
-:::note
+:::note Generating the schema manually
+
 If you added a supported data source prior to GrowthBook v2.0, you can generate the schema manually by clicking "Data Sources" on the left-nav, selecting the data source, and then clicking the "View Schema Browser" button and following the on-screen prompt.
+
 :::

@@ -6,7 +6,7 @@ import {
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   ExperimentRefRule,
   ExperimentRule,
@@ -17,10 +17,11 @@ import {
   ForceRule,
   RolloutRule,
   ComputedFeatureInterface,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureUsageRecords } from "back-end/types/realtime";
+import dJSON from "dirty-json";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { FeatureUsageRecords } from "shared/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
@@ -31,12 +32,12 @@ import {
   validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
-import { SavedGroupInterface } from "shared/src/types";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import { SafeRolloutRule } from "shared/validators";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -71,6 +72,21 @@ export interface AttributeData {
   format?: SDKAttributeFormat;
   disableEqualityConditions?: boolean;
 }
+
+export const STRING_VERSION_FORMAT_OPERATORS_MAP = {
+  $eq: "$veq",
+  $ne: "$vne",
+  $gt: "$vgt",
+  $gte: "$vgte",
+  $lt: "$vlt",
+  $lte: "$vlte",
+};
+export const STRING_OPERATORS = Object.keys(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
+export const STRING_VERSION_OPERATORS = Object.values(
+  STRING_VERSION_FORMAT_OPERATORS_MAP,
+);
 
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
@@ -199,7 +215,7 @@ export function useFeatureSearch({
   return useSearch({
     items: features,
     defaultSortField: defaultSortField,
-    searchFields: ["id^3", "description", "tags^2", "defaultValue"],
+    searchFields: ["id^3", "description"],
     filterResults,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
@@ -301,7 +317,10 @@ export function useFeatureSearch({
 export function getRules(feature: FeatureInterface, environment: string) {
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
-export function getFeatureDefaultValue(feature: FeatureInterface) {
+export function getFeatureDefaultValue(feature: {
+  defaultValue?: string;
+  valueType?: "boolean" | "string" | "number" | "json";
+}) {
   return feature.defaultValue ?? "";
 }
 export function getPrerequisites(feature: FeatureInterface) {
@@ -332,6 +351,42 @@ export function getVariationDefaultName(
   }
 
   return val.value;
+}
+
+// File size constants for JSON formatting
+export const MEDIUM_FILE_SIZE = 1 * 1024; // 1KB - disable dirty-json parsing
+export const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
+
+// Format JSON string with pretty-printing, handling malformed JSON gracefully
+export function formatJSON(value: string): string | undefined {
+  const isMediumOrLargerJSON = value.length > MEDIUM_FILE_SIZE;
+
+  let formatted: string | undefined;
+  if (!isMediumOrLargerJSON) {
+    // Use dirty-json for small files to handle malformed JSON
+    try {
+      const parsed = dJSON.parse(value);
+      formatted = stringify(parsed);
+    } catch (e) {
+      // Fallback to native JSON.parse if dirty-json fails
+      try {
+        const parsed = JSON.parse(value);
+        formatted = stringify(parsed);
+      } catch (e2) {
+        // Ignore
+      }
+    }
+  } else {
+    // For medium+ files, only use native JSON.parse (much faster)
+    try {
+      const parsed = JSON.parse(value);
+      formatted = stringify(parsed);
+    } catch (e) {
+      // Invalid JSON - skip formatting to avoid blocking UI
+    }
+  }
+
+  return formatted;
 }
 
 export function isRuleInactive(
@@ -412,12 +467,24 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true, includeArchived = false) {
-  const { project } = useDefinitions();
+export function useFeaturesList({
+  project, // provided project takes precedence over useCurrentProject: true
+  useCurrentProject = true, // use the project selected in the project selector
+  includeArchived = false,
+  skipFetch = false, // skip fetching entirely (useful when waiting for data to load)
+}: {
+  project?: string;
+  useCurrentProject?: boolean;
+  includeArchived?: boolean;
+  skipFetch?: boolean;
+} = {}) {
+  const { project: currentProject } = useDefinitions();
 
   const qs = new URLSearchParams();
-  if (withProject) {
-    qs.set("project", project);
+  const projectToUse =
+    project ?? (useCurrentProject ? currentProject : undefined);
+  if (projectToUse) {
+    qs.set("project", projectToUse);
   }
   if (includeArchived) {
     qs.set("includeArchived", "true");
@@ -427,29 +494,25 @@ export function useFeaturesList(withProject = true, includeArchived = false) {
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
-    linkedExperiments: ExperimentInterfaceStringDates[];
     hasArchived: boolean;
-  }>(url);
+  }>(url, { shouldRun: () => !skipFetch });
 
-  const { features, experiments, hasArchived } = useMemo(() => {
+  const { features, hasArchived } = useMemo(() => {
     if (data) {
       return {
         features: data.features,
-        experiments: data.linkedExperiments,
         hasArchived: data.hasArchived,
       };
     }
     return {
       features: [],
-      experiments: [],
       hasArchived: false,
     };
   }, [data]);
 
   return {
     features,
-    experiments,
-    loading: !data,
+    loading: !data && !skipFetch,
     error,
     mutate,
     hasArchived,
@@ -930,19 +993,80 @@ export function getUnreachableRuleIndex(
 export function jsonToConds(
   json: string,
   attributes?: Map<string, AttributeData>,
-): null | Condition[] {
+  isNested: boolean = false,
+): null | Condition[][] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
-  if (json.match(/\$(or|nor|all|type)/)) return null;
+  if (json.match(/\$(nor|all|type)/)) return null;
 
   try {
     const parsed = JSON.parse(json);
-    if (parsed["$not"]) return null;
+
+    if ("$or" in parsed && Array.isArray(parsed["$or"])) {
+      if (isNested) return null;
+
+      // If there are any other top-level keys, return null
+      if (Object.keys(parsed).length > 1) return null;
+
+      const ret: Condition[][] = [];
+      for (const part of parsed["$or"]) {
+        const conds = jsonToConds(JSON.stringify(part), attributes, true);
+
+        // If any of the sub conditions could not be parsed
+        if (!conds) return null;
+        // No conditions, skip
+        if (!conds.length) continue;
+        // Nested $or - not supported
+        if (conds.length > 1) return null;
+
+        ret.push(conds[0]);
+      }
+      return ret;
+    }
 
     const conds: Condition[] = [];
     let valid = true;
 
+    if (parsed["$not"]) {
+      // Allow $savedGroups as the only key inside $not
+      const notObj = parsed["$not"];
+      if (
+        typeof notObj === "object" &&
+        Object.keys(notObj).length === 1 &&
+        "$savedGroups" in notObj
+      ) {
+        const v = notObj["$savedGroups"];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          conds.push({
+            field: "$savedGroups",
+            operator: "$nin",
+            value: v.join(", "),
+          });
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+
     Object.keys(parsed).forEach((field) => {
+      if (field === "$not") return;
+
+      if (field === "$savedGroups") {
+        const v = parsed[field];
+        if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
+          return conds.push({
+            field,
+            operator: "$in",
+            value: v.join(", "),
+          });
+        } else {
+          valid = false;
+          return;
+        }
+      }
+
       if (attributes && !attributes.has(field)) {
         valid = false;
         return;
@@ -972,7 +1096,12 @@ export function jsonToConds(
       Object.keys(value).forEach((operator) => {
         const v = value[operator];
 
-        if (operator === "$in" || operator === "$nin") {
+        if (
+          operator === "$in" ||
+          operator === "$nin" ||
+          operator === "$ini" ||
+          operator === "$nini"
+        ) {
           if (v.some((str) => typeof str === "string" && str.includes(","))) {
             valid = false;
             return;
@@ -1005,6 +1134,13 @@ export function jsonToConds(
                 field,
                 operator: "$notRegex",
                 value: v["$regex"],
+              });
+            }
+            if ("$regexi" in v && typeof v["$regexi"] === "string") {
+              return conds.push({
+                field,
+                operator: "$notRegexi",
+                value: v["$regexi"],
               });
             }
             if ("$elemMatch" in v) {
@@ -1077,6 +1213,7 @@ export function jsonToConds(
             "$lt",
             "$lte",
             "$regex",
+            "$regexi",
             "$veq",
             "$vne",
             "$vgt",
@@ -1107,7 +1244,7 @@ export function jsonToConds(
       });
     });
     if (!valid) return null;
-    return conds;
+    return [conds];
   } catch (e) {
     return null;
   }
@@ -1123,59 +1260,107 @@ function parseValue(
 }
 
 export function condToJson(
-  conds: Condition[],
+  conds: Condition[][],
   attributes: Map<string, AttributeData>,
 ) {
-  const obj = {};
-  conds.forEach(({ field, operator, value }) => {
-    obj[field] = obj[field] || {};
-    if (operator === "$notRegex") {
-      obj[field]["$not"] = { $regex: value };
-    } else if (operator === "$notExists") {
-      obj[field]["$exists"] = false;
-    } else if (operator === "$exists") {
-      obj[field]["$exists"] = true;
-    } else if (operator === "$true") {
-      obj[field]["$eq"] = true;
-    } else if (operator === "$false") {
-      obj[field]["$eq"] = false;
-    } else if (operator === "$includes") {
-      obj[field]["$elemMatch"] = {
-        $eq: parseValue(value, attributes.get(field)?.datatype),
-      };
-    } else if (operator === "$notIncludes") {
-      obj[field]["$not"] = {
-        $elemMatch: { $eq: parseValue(value, attributes.get(field)?.datatype) },
-      };
-    } else if (operator === "$empty") {
-      obj[field]["$size"] = 0;
-    } else if (operator === "$notEmpty") {
-      obj[field]["$size"] = { $gt: 0 };
-    } else if (operator === "$in" || operator === "$nin") {
-      // Allow for the empty list
-      if (value === "") {
-        obj[field][operator] = [];
-      } else {
-        obj[field][operator] = value
+  const or: unknown[] = [];
+  conds.forEach((cond) => {
+    const obj = {};
+    cond.forEach(({ field, operator, value }) => {
+      // Special handling for $savedGroups since it's not a real attribute
+      if (field === "$savedGroups") {
+        const ids = value
           .split(",")
           .map((x) => x.trim())
-          .map((x) => parseValue(x, attributes.get(field)?.datatype));
+          .filter((x) => !!x);
+        if (!ids.length) return;
+
+        if (operator === "$nin") {
+          obj["$not"] = obj["$not"] || {};
+          obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
+          obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
+        } else if (operator === "$in") {
+          obj["$savedGroups"] = obj["$savedGroups"] || [];
+          obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
+        }
+        return;
       }
-    } else if (operator === "$inGroup" || operator === "$notInGroup") {
-      obj[field][operator] = value;
-    } else {
-      obj[field][operator] = parseValue(value, attributes.get(field)?.datatype);
+
+      obj[field] = obj[field] || {};
+      if (operator === "$notRegex") {
+        obj[field]["$not"] = { $regex: value };
+      } else if (operator === "$notRegexi") {
+        obj[field]["$not"] = { $regexi: value };
+      } else if (operator === "$regexi") {
+        obj[field]["$regexi"] = value;
+      } else if (operator === "$notExists") {
+        obj[field]["$exists"] = false;
+      } else if (operator === "$exists") {
+        obj[field]["$exists"] = true;
+      } else if (operator === "$true") {
+        obj[field]["$eq"] = true;
+      } else if (operator === "$false") {
+        obj[field]["$eq"] = false;
+      } else if (operator === "$includes") {
+        obj[field]["$elemMatch"] = {
+          $eq: parseValue(value, attributes.get(field)?.datatype),
+        };
+      } else if (operator === "$notIncludes") {
+        obj[field]["$not"] = {
+          $elemMatch: {
+            $eq: parseValue(value, attributes.get(field)?.datatype),
+          },
+        };
+      } else if (operator === "$empty") {
+        obj[field]["$size"] = 0;
+      } else if (operator === "$notEmpty") {
+        obj[field]["$size"] = { $gt: 0 };
+      } else if (
+        operator === "$in" ||
+        operator === "$nin" ||
+        operator === "$ini" ||
+        operator === "$nini"
+      ) {
+        // Allow for the empty list
+        if (value === "") {
+          obj[field][operator] = [];
+        } else {
+          obj[field][operator] = value
+            .split(",")
+            .map((x) => x.trim())
+            .map((x) => parseValue(x, attributes.get(field)?.datatype));
+        }
+      } else if (operator === "$inGroup" || operator === "$notInGroup") {
+        obj[field][operator] = value;
+      } else {
+        obj[field][operator] = parseValue(
+          value,
+          attributes.get(field)?.datatype,
+        );
+      }
+    });
+
+    // Simplify {$eg: ""} rules
+    Object.keys(obj).forEach((key) => {
+      if (Object.keys(obj[key]).length === 1 && "$eq" in obj[key]) {
+        obj[key] = obj[key]["$eq"];
+      }
+    });
+
+    if (Object.keys(obj).length) {
+      or.push(obj);
     }
   });
 
-  // Simplify {$eg: ""} rules
-  Object.keys(obj).forEach((key) => {
-    if (Object.keys(obj[key]).length === 1 && "$eq" in obj[key]) {
-      obj[key] = obj[key]["$eq"];
-    }
-  });
+  // No conditions
+  if (!or.length) return "{}";
 
-  return stringify(obj);
+  // Single or condition
+  if (or.length === 1) {
+    return stringify(or[0]);
+  }
+
+  return stringify({ $or: or });
 }
 
 function getAttributeDataType(type: SDKAttributeType) {
@@ -1334,10 +1519,39 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$true";
   } else if (attribute.array) {
     return "$includes";
+  } else if (attribute.format === "version") {
+    return "$veq";
   } else if (attribute.disableEqualityConditions) {
     return "$regex";
   }
   return "$eq";
+}
+
+export function getFormatEquivalentOperator(
+  operator: string,
+  desiredFormat?: SDKAttributeFormat,
+): string | null {
+  const isVersionOperator = STRING_VERSION_OPERATORS.includes(operator);
+  if (
+    (desiredFormat === "version" && isVersionOperator) ||
+    (desiredFormat !== "version" && !isVersionOperator)
+  ) {
+    return operator;
+  }
+
+  if (desiredFormat === "version" && !isVersionOperator) {
+    return STRING_VERSION_FORMAT_OPERATORS_MAP[operator];
+  }
+
+  if (desiredFormat !== "version" && isVersionOperator) {
+    return (
+      Object.keys(STRING_VERSION_FORMAT_OPERATORS_MAP).find(
+        (key) => STRING_VERSION_FORMAT_OPERATORS_MAP[key] === operator,
+      ) || null
+    );
+  }
+
+  return null;
 }
 
 export function genDuplicatedKey({ id }: FeatureInterface) {
@@ -1509,4 +1723,43 @@ export function parseDefaultValue(
   } catch (e) {
     throw new Error(`JSON parse error for default value`);
   }
+}
+
+/**
+ * Detects if a targeting condition has version string operator mismatches
+ * i.e. if a version string attribute is using gt instead of vgt or vice-versa
+ */
+export function getAttributesWithVersionStringMismatches(
+  condition: string,
+  attributes: Map<string, AttributeData>,
+): string[] | null {
+  const conds = jsonToConds(condition, attributes);
+  if (!conds || conds.length === 0) {
+    return null;
+  }
+
+  const mismatchedAttributes = new Set<string>();
+
+  conds.forEach((cond) =>
+    cond.forEach(({ field, operator }) => {
+      const attribute = attributes.get(field);
+      if (
+        attribute &&
+        attribute.format === "version" &&
+        STRING_OPERATORS.includes(operator)
+      ) {
+        mismatchedAttributes.add(field);
+      } else if (
+        attribute &&
+        attribute.format !== "version" &&
+        STRING_VERSION_OPERATORS.includes(operator)
+      ) {
+        mismatchedAttributes.add(field);
+      }
+    }),
+  );
+
+  return mismatchedAttributes.size > 0
+    ? Array.from(mismatchedAttributes)
+    : null;
 }

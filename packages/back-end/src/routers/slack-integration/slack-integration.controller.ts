@@ -1,10 +1,10 @@
 import type { Response } from "express";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import { NotificationEventName } from "shared/types/events/base-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
-import { NotificationEventName } from "back-end/src/events/base-types";
 
 // region GET /integrations/slack
 

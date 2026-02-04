@@ -308,12 +308,13 @@ var gb: GrowthBookSDK = GrowthBookBuilder(...)
 gb.clearCache()
 ```
 
-:::note
+:::note Cache management
 
 - The cache directory will be created automatically if it does not exist.
 - Cache file keys are SHA256-hashed with a 5-character prefix for human-friendly diagnostics while avoiding path-length and special-character issues.
 - Multiple environments/apps can safely share the same parent directory; per-`clientKey` subfolders prevent collisions.
-  :::
+
+:::
 
 #### Cache Key Hashing
 
@@ -346,6 +347,10 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 ```
 
 ## Remote evaluation vs. local evaluation
+
+:::tip
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information about what Remote Evaluation is, how it works, and deployment options.
+:::
 
 - Local evaluation loads a full feature payload into the SDK (e.g., via built-in fetching or a bundled JSON) and evaluates rules on-device.
 - Remote evaluation delegates evaluation to GrowthBook and downloads already-evaluated feature values for the current attributes. This reduces payload size and can simplify privacy controls.
@@ -525,13 +530,15 @@ n = fnv32a(fnv32a(seed + value) + "")
 return (n % 10000) / 10000
 ```
 
-:::note
-**V2 Hashing is:**
+:::info V2 Hashing
+
+V2 Hashing is:
 
 - **Unbiased**: Eliminates parallel experiment bias.
 - **Higher Precision**: Uses 10,000 buckets instead of 1,000
 - **Consistent**: Identical behavior across all GrowthBook SDKs
-  :::
+
+:::
 
 ## Experimentation and tracking
 
@@ -622,7 +629,7 @@ gb.setAttributes([
 ])
 ```
 
-:::note
+:::note Secure attribute hashing
 **Important**: When secure attribute hashing is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. You must manually hash these attributes using your organization's secure attribute salt.
 :::
 
@@ -645,6 +652,8 @@ let gbSecure = GrowthBookBuilder(
   remoteEval: true  // Enable remote evaluation
 ).initializer()
 ```
+
+See the [Remote Evaluation overview](/self-host/remote-evaluation) for more information.
 
 ## Troubleshooting and debugging
 

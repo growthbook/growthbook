@@ -7,6 +7,7 @@ slug: quick-start
 
 import ButtonCard from '@site/src/components/ButtonCard'
 import MaxWidthImage from '@site/src/components/MaxWidthImage'
+import { StepperStep, Stepper } from '@site/src/components/Stepper'
 
 # Quick Start Guide
 
@@ -14,9 +15,9 @@ This guide walks you through the basics of a full integration of GrowthBook for 
 
 ## Set Up GrowthBook
 
-You can either **self-host** GrowthBook or use our **Cloud**. 
+You can either **self-host** GrowthBook or use our **Cloud**.
 
-For the easiest setup, [sign up for a free Cloud account](https://app.growthbook.io). 
+For the easiest setup, [sign up for a free Cloud account](https://app.growthbook.io).
 
 If you prefer to self-host, follow the [instructions here](/self-host) or on our GitHub page.
 
@@ -24,116 +25,127 @@ After creating your account, it will walk you through the initial setup steps, i
 
 ## Feature Flags
 
-### Step 1. Integrate the GrowthBook SDK
+<Stepper>
+  <StepperStep>
+    ### Integrate the GrowthBook SDK
+    As part of the initial setup, you should have created an initial SDK Connection. If not, you can do so now by going to **SDK Configuration** &rarr; **SDK Connections**. Then, click **Add SDK Connection**.  Follow the directions based on your application's language and platform.
+    The [full SDK docs](/lib) are also available if you want to dive deeper.
+  </StepperStep>
 
-As part of the initial setup, you should have created an initial SDK Connection. If not, you can do so now by going to **SDK Configuration** &rarr; **SDK Connections**. Then, click **Add SDK Connection**.  Follow the directions based on your application's language and platform.
+  <StepperStep>
+    ### Create a Feature Flag
+    
+    On the **Features** page, create your first feature flag.
 
-The [full SDK docs](/lib) are also available if you want to dive deeper.
+    <MaxWidthImage maxWidth={600}>
+        ![Create Feature](/images/features/feature-create-feature-1.png)
+    </MaxWidthImage>
 
-### Step 2. Create a Feature Flag
+    The **Feature Key** is what you will reference in your application and cannot be changed later.
 
-On the **Features** page, create your first feature flag.
+    Feature flags in GrowthBook are robust, supporting advanced [targeting](/features/targeting), powerful [rule evaluation](/features/rules), [prerequisite features](/features/prerequisites), JSON schema validation, and more. In this quick start, we'll just stick with a simple boolean feature flag that is always `on` or `off` for everyone.
 
-<MaxWidthImage maxWidth={600}>
-    ![Create Feature](/images/features/feature-create-feature-1.png)
-</MaxWidthImage>
+  </StepperStep>
+  <StepperStep>
+    ### Use the Feature in Your Application
 
-The **Feature Key** is what you will reference in your application and cannot be changed later.
+    When you create your first feature, you'll see instructions on how to use it in your application. Here's an example using our JavaScript SDK:
 
-Feature flags in GrowthBook are robust, supporting advanced [targeting](/features/targeting), powerful [rule evaluation](/features/rules), [prerequisite features](/features/prerequisites), JSON schema validation, and more. In this quick start, we'll just stick with a simple boolean feature flag that is always `on` or `off` for everyone.
+    ```js
+    if (gb.isOn("my-feature")) {
+        console.log("It's On!")
+    }
+    ```
 
-### Step 3. Use the Feature in Your Application
+    It really is that simple to get started! For next steps, we recommend reading our [Feature Flag Basics](/features/basics) page, which goes into more depth.
 
-When you create your first feature, you'll see instructions on how to use it in your application. Here's an example using our JavaScript SDK:
+    Feature flags are the foundation for powerful experimentation. In the next section, we show you how to use them to run no-code experimentation using our Visual Editor. Need more advanced options? Dive into our [complete guide for code-based experimentation](/feature-flag-experiments).
 
-```js
-if (gb.isOn("my-feature")) {
-    console.log("It's On!")
-}
-```
-
-It really is that simple to get started! For next steps, we recommend reading our [Feature Flag Basics](/features/basics) page, which goes into more depth.
-
-Feature flags are the foundation for powerful experimentation. In the next section, we show you how to use them to run no-code experimentation using our Visual Editor. Need more advanced options? Dive into our [complete guide for code-based experimentation](/feature-flag-experiments).
-
+  </StepperStep>
+</Stepper>
+    
 ## Experiment Analysis
 
-### Step 1. Connect to Your Data Warehouse
+<Stepper>
+  <StepperStep>
+    ### Connect to Your Data Warehouse
 
-GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments. We support all major SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and ClickHouse.
+    GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments. We support all major SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and ClickHouse.
 
-GrowthBook is extremely flexible and can support almost any schema structure with a bit of configuration.
+    GrowthBook is extremely flexible and can support almost any schema structure with a bit of configuration.
 
-:::info **Don't have a data warehouse?**
+    :::info **Don't have a data warehouse?**
 
-Our most popular option is to have [Google Analytics 4 (GA4) sync data to BigQuery](/guide/GA4-google-analytics). We also provide [guides on working with other popular data sources](/app/datasources).
+    Our most popular option is to have [Google Analytics 4 (GA4) sync data to BigQuery](/guide/GA4-google-analytics). We also provide [guides on working with other popular data sources](/app/datasources).
 
-:::
+    :::
 
-To connect GrowthBook to your data warehouse, go to **Metrics and Data** &rarr; **Data Sources**. Select the type of data source to get started. We then ask you to select your event tracker. This step is optional, but highly recommended as it allows us to generate initial SQL that works out of the box. If you want to skip, just select **Custom**.
+    To connect GrowthBook to your data warehouse, go to **Metrics and Data** &rarr; **Data Sources**. Select the type of data source to get started. We then ask you to select your event tracker. This step is optional, but highly recommended as it allows us to generate initial SQL that works out of the box. If you want to skip, just select **Custom**.
 
-Lastly, fill out the connection details. This typically includes the host, port, database name, username, and password, although this varies by data warehouse type. GrowthBook only requires read-only access to the tables and views needed for your experiments and metrics.
+    Lastly, fill out the connection details. This typically includes the host, port, database name, username, and password, although this varies by data warehouse type. GrowthBook only requires read-only access to the tables and views needed for your experiments and metrics.
 
-Additional guides on [how to set up the data source for your specific data warehouse](/warehouses) are available.
+    Additional guides on [how to set up the data source for your specific data warehouse](/warehouses) are available.
 
-### Step 2. Add a Metric or Two
+  </StepperStep>
 
-GrowthBook needs to know what metrics you want to measure for your experiments. This starts by creating one or more Fact Tables using SQL, which selects raw data from your warehouse. Metrics are then built on top of these Fact Tables.
+  <StepperStep>
+    ### Add a Metric or Two
 
-Go to **Metrics and Data** &rarr; **Fact Tables**. Click **Add a Fact Table** and edit the default SQL if needed. Here's an example SQL query for an Orders fact table.
+    GrowthBook needs to know what metrics you want to measure for your experiments. This starts by creating one or more Fact Tables using SQL, which selects raw data from your warehouse. Metrics are then built on top of these Fact Tables.
 
-```sql
-SELECT
-  user_id,
-  timestamp,
-  qty,
-  amount
-FROM orders
-```
+    Go to **Metrics and Data** &rarr; **Fact Tables**. Click **Add a Fact Table** and edit the default SQL if needed. Here's an example SQL query for an Orders fact table.
 
-Once the fact table is created, you can easily add metrics on top of it. For example, consider a simple proportion metric, which measures the percentage of experiment users who complete an action at least once. In this case, it'd measure the percentage of users who made a purchase.
+    ```sql
+    SELECT
+      user_id,
+      timestamp,
+      qty,
+      amount
+    FROM orders
+    ```
 
-Metrics in GrowthBook are powerful and have many advanced settings. Read about them on our [Metrics page](/app/metrics).
+    Once the fact table is created, you can easily add metrics on top of it. For example, consider a simple proportion metric, which measures the percentage of experiment users who complete an action at least once. In this case, it'd measure the percentage of users who made a purchase.
 
-### Step 3. View Experiment Results
+    Metrics in GrowthBook are powerful and have many advanced settings. Read about them on our [Metrics page](/app/metrics).
 
-Go to the **Experiments** page. If you implemented an experiment using feature flags, your experiment will already be listed. Click through to it. If you ran your experiment outside of GrowthBook instead, that's fine, too! Add a new experiment and select the **Import Existing** option.
+  </StepperStep>
 
-Once inside your experiment, go to the **Results** tab. Edit your analysis settings and pick the metrics you created earlier. The results will show up in a table like this:
+  <StepperStep>
+    ### View Experiment Results
 
-<MaxWidthImage border>
-    ![Results Table](/images/results-table.png)
-</MaxWidthImage>
+    Go to the **Experiments** page. If you implemented an experiment using feature flags, your experiment will already be listed. Click through to it. If you ran your experiment outside of GrowthBook instead, that's fine, too! Add a new experiment and select the **Import Existing** option.
 
-We have an [entire page in our docs](/app/experiment-results) just about these results and how to interpret them.
+    Once inside your experiment, go to the **Results** tab. Edit your analysis settings and pick the metrics you created earlier. The results will show up in a table like this:
+
+    <MaxWidthImage border>
+        ![Results Table](/images/results-table.png)
+    </MaxWidthImage>
+
+    We have an [entire page in our docs](/app/experiment-results) just about these results and how to interpret them.
+
+  </StepperStep>
+</Stepper>
 
 ## Next Steps
 
-<div className="row is-multiline">
-    <div className="col col--4">
-        <ButtonCard
-            to={'/self-host'}
-            title="Self-Host"
-            description="Run GrowthBook on your own infrastructure"
-            style={{ height: '100%' }}
-        ></ButtonCard>
-    </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/lib'}
-            title="SDK Docs"
-            description="Connect GrowthBook to your application"
-            style={{ height: '100%' }}
-            color="default"
-        ></ButtonCard>
-    </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/faq'}
-            title="FAQ"
-            description="Find answers to common questions"
-            style={{ height: '100%' }}
-            color="default"
-        ></ButtonCard>
-    </div>
+<div className="button-card-grid">
+    <ButtonCard
+          to={'/self-host'}
+          title="Self-Host"
+          description="Run GrowthBook on your own infrastructure"
+          icon={<svg fill="currentColor" viewBox="0 0 256 256"><path d="M208,36H48A20,20,0,0,0,28,56V200a20,20,0,0,0,20,20H208a20,20,0,0,0,20-20V56A20,20,0,0,0,208,36Zm-4,24v56H52V60ZM52,196V140H204v56ZM160,88a16,16,0,1,1,16,16A16,16,0,0,1,160,88Zm32,80a16,16,0,1,1-16-16A16,16,0,0,1,192,168Z"></path></svg>}
+      />
+   
+      <ButtonCard
+          to={'/lib'}
+          title="SDK Docs"
+          description="Connect GrowthBook to your application"
+          icon={<svg fill="currentColor" viewBox="0 0 256 256"><path d="M225.6,62.64l-88-48.17a19.91,19.91,0,0,0-19.2,0l-88,48.17A20,20,0,0,0,20,80.19v95.62a20,20,0,0,0,10.4,17.55l88,48.17a19.89,19.89,0,0,0,19.2,0l88-48.17A20,20,0,0,0,236,175.81V80.19A20,20,0,0,0,225.6,62.64ZM128,36.57,200,76,128,115.4,56,76ZM44,96.79l72,39.4v76.67L44,173.44Zm96,116.07V136.19l72-39.4v76.65Z"></path></svg>}
+      />
+    <ButtonCard
+        to={'/faq'}
+        title="FAQ"
+        description="Find answers to common questions"
+        icon={<svg fill="currentColor" viewBox="0 0 256 256"><path d="M144,180a16,16,0,1,1-16-16A16,16,0,0,1,144,180Zm92-52A108,108,0,1,1,128,20,108.12,108.12,0,0,1,236,128Zm-24,0a84,84,0,1,0-84,84A84.09,84.09,0,0,0,212,128ZM128,64c-24.26,0-44,17.94-44,40v4a12,12,0,0,0,24,0v-4c0-8.82,9-16,20-16s20,7.18,20,16-9,16-20,16a12,12,0,0,0-12,12v8a12,12,0,0,0,23.73,2.56C158.31,137.88,172,122.37,172,104,172,81.94,152.26,64,128,64Z"></path></svg>}
+    />
 </div>

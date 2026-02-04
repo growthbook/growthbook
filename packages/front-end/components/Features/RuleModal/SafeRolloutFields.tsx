@@ -1,6 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
@@ -13,6 +12,7 @@ import { useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
+import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
@@ -29,8 +29,6 @@ import { AppFeatures } from "@/types/app-features";
 export default function SafeRolloutFields({
   feature,
   environment,
-  version,
-  revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
@@ -44,8 +42,6 @@ export default function SafeRolloutFields({
   feature: FeatureInterface;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
-  version: number;
-  revisions?: FeatureRevisionInterface[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   isCyclic: boolean;
   cyclicFeatureId: string | null;
@@ -116,8 +112,6 @@ export default function SafeRolloutFields({
             form.setValue("prerequisites", prerequisites)
           }
           feature={feature}
-          revisions={revisions}
-          version={version}
           environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
@@ -394,6 +388,9 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
+              useCodeInput={true}
+              showFullscreenButton={true}
+              codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
           </Box>
           <Box
@@ -416,6 +413,9 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}
+              useCodeInput={true}
+              showFullscreenButton={true}
+              codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
           </Box>
         </Grid>

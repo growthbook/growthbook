@@ -1,4 +1,6 @@
-import { ListSdkConnectionsResponse } from "back-end/types/openapi";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { ListSdkConnectionsResponse } from "shared/types/openapi";
+import { listSdkConnectionsValidator } from "shared/validators";
 import {
   findAllSDKConnectionsAcrossAllOrgs,
   findSDKConnectionsByOrganization,
@@ -10,8 +12,6 @@ import {
   createApiRequestHandler,
   validateIsSuperUserRequest,
 } from "back-end/src/util/handler";
-import { listSdkConnectionsValidator } from "back-end/src/validators/openapi";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 
 export const listSdkConnections = createApiRequestHandler(
   listSdkConnectionsValidator,

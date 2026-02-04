@@ -37,7 +37,7 @@ To do this, create a [Fact Table](/app/metrics#fact-tables) that has both `organ
 along with whatever other columns you need to create your metrics of interest. You can also use multiple fact tables with this
 configuration if you prefer.
 
-:::caution
+:::warning Avoid multiple organizations per user
 
 There must be a one-to-many relationship between `organization_id` and `user_id`. Avoid users belonging to multiple organizations, as this can introduce bias.
 
@@ -53,8 +53,7 @@ The screenshot above shows:
 - An `event` column that represents the event you are interested in measuring.
 - A numeric `value` column that represents the value of the event.
 
-:::info
-
+:::info Ensure every user has at least one event
 Every `user_id` exposed to the experiment should have at least 1 event logged to ensure inclusion in the metric denominator.
 
 :::

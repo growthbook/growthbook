@@ -17,6 +17,7 @@ import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.sto
 import HelperTextStories from "@/ui/HelperText.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
+import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
@@ -66,6 +67,7 @@ export default function DesignSystemPage() {
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
+    { name: "Popover", Stories: PopoverStories },
     { name: "PremiumCallout", Stories: PremiumCalloutStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },

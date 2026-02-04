@@ -4,7 +4,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Badge from "@/ui/Badge";
 import Button, { Props as ButtonProps } from "@/ui/Button";
-import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
+import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 
 interface Props {
   className?: string;
@@ -21,14 +21,15 @@ export default function DashboardViewQueriesButton({
   buttonProps = {},
   hideQueryCount = false,
 }: Props) {
-  const { allQueries, snapshotError, refreshStatus } = useContext(
-    DashboardSnapshotContext,
-  );
-  const count = (allQueries ?? []).length;
+  const { allQueries, savedQueriesMap, snapshotError, refreshStatus } =
+    useContext(DashboardSnapshotContext);
+  const savedQueryIds = [...savedQueriesMap.keys()];
+  const count = (allQueries ?? []).length + savedQueryIds.length;
   return (
     <ViewAsyncQueriesButton
       ctaComponent={(onClick) => (
         <Button
+          disabled={count === 0}
           onClick={onClick}
           className={className}
           style={{
@@ -57,6 +58,7 @@ export default function DashboardViewQueriesButton({
       )}
       error={snapshotError}
       queries={allQueries.map((q) => q.query) ?? []}
+      savedQueries={savedQueryIds}
       icon={null}
       status={refreshStatus}
       hideQueryCount

@@ -2,21 +2,31 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { useState, useEffect, useMemo } from "react";
-import { FeatureInterface } from "back-end/types/feature";
 import { RxInfoCircled, RxLoop } from "react-icons/rx";
+
+export interface MinimalFeatureInfo {
+  id?: string;
+  valueType: "boolean" | "string" | "number" | "json";
+  project?: string;
+  defaultValue?: string;
+}
+import { FaMagic } from "react-icons/fa";
 import { PrerequisiteStateResult } from "shared/util";
-import { condToJson, jsonToConds } from "@/services/features";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import Badge from "@/ui/Badge";
+import { condToJson, jsonToConds, formatJSON } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import styles from "./ConditionInput.module.scss";
+import Link from "@/ui/Link";
+import { ConditionLabel, CaseInsensitiveRegexWarning } from "./ConditionInput";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
-  parentFeature?: FeatureInterface;
+  parentFeature?: MinimalFeatureInfo;
   prereqStates?: Record<string, PrerequisiteStateResult> | null;
 }
 
@@ -56,13 +66,36 @@ export default function PrerequisiteInput(props: Props) {
 
   useEffect(() => {
     props.onChange(value);
-    setSimpleAllowed(jsonToConds(value, parentValueMap) !== null);
+    const conds = jsonToConds(value, parentValueMap);
+    setSimpleAllowed(conds !== null && conds.length <= 1);
   }, [value, parentValueMap]);
 
   if (advanced || !parentValueMap.size || !simpleAllowed) {
+    const formatted = formatJSON(value);
+
+    const formatJSONButton = (
+      <Link
+        onClick={(e) => {
+          e.preventDefault();
+          if (formatted && formatted !== value) {
+            setValue(formatted);
+          }
+        }}
+        style={{
+          whiteSpace: "nowrap",
+          opacity: !formatted || formatted === value ? 0.5 : 1,
+          cursor: !formatted || formatted === value ? "default" : "pointer",
+        }}
+      >
+        <FaMagic /> Format JSON
+      </Link>
+    );
+
     return (
-      <div>
-        <div className={`mb-2 ${styles.passif}`}>PASS IF</div>
+      <Box>
+        <Text weight="medium" size="2" mb="2" style={{ display: "block" }}>
+          PASS IF
+        </Text>
         <CodeTextArea
           language="json"
           value={value}
@@ -71,14 +104,13 @@ export default function PrerequisiteInput(props: Props) {
           maxLines={6}
           helpText={
             <>
-              <div className="d-flex">
-                <div>JSON format using MongoDB query syntax.</div>
-                {simpleAllowed && (
-                  <div className="ml-auto">
-                    <span
-                      className="link-purple cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
+              <Flex justify="between" align="center">
+                <Text>JSON format using MongoDB query syntax.</Text>
+                <Flex gap="3">
+                  {formatJSONButton}
+                  {simpleAllowed && (
+                    <Link
+                      onClick={() => {
                         const newConds = jsonToConds(value, parentValueMap);
                         // TODO: show error
                         if (newConds === null) return;
@@ -87,24 +119,30 @@ export default function PrerequisiteInput(props: Props) {
                       }}
                     >
                       <RxLoop /> Simple mode
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="text-muted mt-1">
-                <div>
+                    </Link>
+                  )}
+                </Flex>
+              </Flex>
+              <Box mt="2">
+                <Text color="gray" size="2">
                   <code>"value"</code> refers to the prerequisite&apos;s
                   evaluated value.
                   <Tooltip
-                    className="ml-3 text-info hover-underline"
+                    className="ml-2 text-info hover-underline"
                     body={<code>{`{"value": {"$gt": 3}}`}</code>}
+                    flipTheme={false}
                   >
                     <RxInfoCircled className="mr-1" />
                     Example
                   </Tooltip>
-                </div>
+                </Text>
                 {parentFeatureValueType === "json" && (
-                  <div>
+                  <Text
+                    color="gray"
+                    size="2"
+                    mt="1"
+                    style={{ display: "block" }}
+                  >
                     You may also target specific JSON fields.
                     <Tooltip
                       className="ml-3 text-info hover-underline"
@@ -113,19 +151,23 @@ export default function PrerequisiteInput(props: Props) {
                       <RxInfoCircled className="mr-1" />
                       Example
                     </Tooltip>
-                  </div>
+                  </Text>
                 )}
-              </div>
+              </Box>
+              <CaseInsensitiveRegexWarning
+                value={value}
+                project={parentFeature?.project}
+              />
             </>
           }
         />
-      </div>
+      </Box>
     );
   }
 
   return (
     <>
-      {conds.map(({ field, operator, value }, i) => {
+      {conds[0]?.map(({ field, operator, value }, i) => {
         const attribute = parentValueMap.get(field);
 
         if (!attribute) {
@@ -134,10 +176,10 @@ export default function PrerequisiteInput(props: Props) {
         }
 
         const handleCondsChange = (value: string, name: string) => {
-          const newConds = [...conds];
+          const newConds = [...conds[0]];
           newConds[i] = { ...newConds[i] };
           newConds[i][name] = value;
-          setConds(newConds);
+          setConds([newConds]);
         };
 
         const handleFieldChange = (
@@ -171,12 +213,28 @@ export default function PrerequisiteInput(props: Props) {
                   { label: "is not equal to", value: "$ne" },
                   { label: "matches regex", value: "$regex" },
                   { label: "does not match regex", value: "$notRegex" },
+                  {
+                    label: "matches regex (case insensitive)",
+                    value: "$regexi",
+                  },
+                  {
+                    label: "does not match regex (case insensitive)",
+                    value: "$notRegexi",
+                  },
                   { label: "is greater than", value: "$gt" },
                   { label: "is greater than or equal to", value: "$gte" },
                   { label: "is less than", value: "$lt" },
                   { label: "is less than or equal to", value: "$lte" },
                   { label: "is in the list", value: "$in" },
                   { label: "is not in the list", value: "$nin" },
+                  {
+                    label: "is in the list (case insensitive)",
+                    value: "$ini",
+                  },
+                  {
+                    label: "is not in the list (case insensitive)",
+                    value: "$nini",
+                  },
                 ]
               : attribute.datatype === "number"
                 ? [
@@ -199,20 +257,15 @@ export default function PrerequisiteInput(props: Props) {
                   : [];
 
         return (
-          <div key={i}>
-            <div className="d-flex align-items-center mb-2">
-              <div className={styles.passif}>PASS IF</div>
+          <Box key={i}>
+            <Flex align="center" gap="2" mb="2">
+              <ConditionLabel label="PASS IF" width={60} />
               {!advanced && (
-                <div className="ml-2">
-                  <div className="border rounded bg-main-color mb-0 px-2 py-0">
-                    {field}
-                  </div>
-                </div>
+                <Badge label={field} color="gray" radius="full" mr="1" />
               )}
-            </div>
-            <div className="row">
-              <div className="col-sm-12 col-md">
+              <Box style={{ minWidth: 200, flex: "1 1 0" }}>
                 <SelectField
+                  useMultilineLabels={true}
                   value={operator}
                   name="operator"
                   options={operatorOptions}
@@ -227,18 +280,24 @@ export default function PrerequisiteInput(props: Props) {
                       <span>
                         {label}
                         {value === def && (
-                          <span
-                            className="text-muted uppercase-title float-right position-relative"
-                            style={{ top: 3 }}
+                          <Text
+                            color="gray"
+                            size="1"
+                            style={{
+                              float: "right",
+                              position: "relative",
+                              top: 3,
+                              textTransform: "uppercase",
+                            }}
                           >
                             default
-                          </span>
+                          </Text>
                         )}
                       </span>
                     );
                   }}
                 />
-              </div>
+              </Box>
               {[
                 "$exists",
                 "$notExists",
@@ -246,19 +305,25 @@ export default function PrerequisiteInput(props: Props) {
                 "$false",
                 "$empty",
                 "$notEmpty",
-              ].includes(operator) ? (
-                ""
-              ) : ["$in", "$nin"].includes(operator) ? (
-                <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
+              ].includes(operator) ? null : [
+                  "$in",
+                  "$nin",
+                  "$ini",
+                  "$nini",
+                ].includes(operator) ? (
+                <Flex
+                  direction="column"
+                  align="end"
+                  style={{ minWidth: 200, flex: "1 1 0" }}
+                >
                   {rawTextMode ? (
                     <Field
-                      containerClassName="w-100"
                       textarea
                       value={value}
                       onChange={handleFieldChange}
                       name="value"
                       minRows={1}
-                      className={styles.matchingInput}
+                      containerClassName="w-100"
                       helpText={
                         <span className="position-relative" style={{ top: -5 }}>
                           separate values by comma
@@ -276,73 +341,68 @@ export default function PrerequisiteInput(props: Props) {
                       required
                     />
                   )}
-                  <span
-                    className="link-purple cursor-pointer"
+                  <Link
+                    onClick={() => setRawTextMode((prev) => !prev)}
                     style={{ fontSize: "0.8em" }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setRawTextMode((prev) => !prev);
-                    }}
                   >
                     Switch to {rawTextMode ? "token" : "raw text"} mode
-                  </span>
-                </div>
+                  </Link>
+                </Flex>
               ) : attribute.enum.length ? (
-                <SelectField
-                  options={attribute.enum.map((v) => ({
-                    label: v,
-                    value: v,
-                  }))}
-                  value={value}
-                  onChange={(v) => {
-                    handleCondsChange(v, "value");
-                  }}
-                  name="value"
-                  initialOption="Choose One..."
-                  containerClassName="col-sm-12 col-md"
-                  required
-                />
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                  <SelectField
+                    useMultilineLabels={true}
+                    options={attribute.enum.map((v) => ({
+                      label: v,
+                      value: v,
+                    }))}
+                    value={value}
+                    onChange={(v) => {
+                      handleCondsChange(v, "value");
+                    }}
+                    name="value"
+                    initialOption="Choose One..."
+                    required
+                  />
+                </Box>
               ) : attribute.datatype === "number" ? (
-                <Field
-                  type="number"
-                  step="any"
-                  value={value}
-                  onChange={handleFieldChange}
-                  name="value"
-                  className={styles.matchingInput}
-                  containerClassName="col-sm-12 col-md"
-                  required
-                />
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                  <Field
+                    type="number"
+                    step="any"
+                    value={value}
+                    onChange={handleFieldChange}
+                    name="value"
+                    style={{ minHeight: 38 }}
+                    required
+                  />
+                </Box>
               ) : ["string", "secureString"].includes(attribute.datatype) ? (
-                <Field
-                  value={value}
-                  onChange={handleFieldChange}
-                  name="value"
-                  className={styles.matchingInput}
-                  containerClassName="col-sm-12 col-md"
-                  required
-                />
-              ) : (
-                ""
-              )}
-            </div>
+                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                  <Field
+                    value={value}
+                    onChange={handleFieldChange}
+                    name="value"
+                    style={{ minHeight: 38 }}
+                    required
+                  />
+                </Box>
+              ) : null}
+            </Flex>
             {!advanced && (
-              <div className="d-flex mt-1">
-                <div className="flex-1" />
-                <span
-                  className="link-purple cursor-pointer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setAdvanced(true);
-                  }}
-                >
+              <Flex justify="end" mt="2">
+                <Link onClick={() => setAdvanced(true)}>
                   <RxLoop /> Advanced mode
-                </span>
-              </div>
+                </Link>
+              </Flex>
             )}
-          </div>
+          </Box>
         );
       })}
+      <CaseInsensitiveRegexWarning
+        value={value}
+        project={parentFeature?.project}
+      />
     </>
   );
 }

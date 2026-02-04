@@ -6,8 +6,8 @@ import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
+import { startCase } from "lodash";
 import SortedTags from "@/components/Tags/SortedTags";
-import ProjectBadges from "@/components/ProjectBadges";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,7 +20,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
-import MetricName from "@/components/Metrics/MetricName";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/ui/Button";
@@ -328,7 +328,7 @@ const MetricsList = (): React.ReactElement => {
     items: filteredMetrics,
     defaultSortField: "name",
     localStorageKey: "metrics",
-    searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
+    searchFields: ["name^3", "description"],
     updateSearchQueryOnChange: true,
     searchTermFilters: {
       is: (item) => {
@@ -454,29 +454,23 @@ const MetricsList = (): React.ReactElement => {
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
+            <th />
             <SortableTH field="name" className="col-3">
-              Name
+              Metric Name
             </SortableTH>
             <SortableTH field="type" className="col-1">
               Type
             </SortableTH>
-            <th className="col-2">Tags</th>
             <th>Projects</th>
-            <th className="col-1">Owner</th>
-            <SortableTH
-              field="datasourceName"
-              className="d-none d-lg-table-cell col-auto"
-            >
-              Data Source
-            </SortableTH>
+            <th className="col-2">Tags</th>
             <SortableTH
               field="dateUpdated"
               className="d-none d-md-table-cell col-1"
             >
               Last Updated
             </SortableTH>
-            <th></th>
-            <th></th>
+            <th />
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -567,45 +561,34 @@ const MetricsList = (): React.ReactElement => {
                 className={metric.archived ? "text-muted" : ""}
               >
                 <td>
+                  <OfficialBadge
+                    type="metric"
+                    managedBy={metric.managedBy || ""}
+                    leftGap
+                  />
+                </td>
+                <td>
                   <Link
                     href={getMetricLink(metric.id)}
                     className={`${
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    <MetricName id={metric.id} officialBadgePosition="left" />
+                    {metric.name}
                   </Link>
                 </td>
-                <td>{metric.type}</td>
-
+                <td>{startCase(metric.type)}</td>
+                <td className="col-2">
+                  {metric.projectNames.length === 0
+                    ? null
+                    : metric.projectNames.join(", ")}
+                </td>
                 <td className="col-4">
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
                   />
-                </td>
-                <td className="col-2">
-                  {metric && (metric.projects || []).length > 0 ? (
-                    <ProjectBadges
-                      resourceType="metric"
-                      projectIds={metric.projects}
-                    />
-                  ) : (
-                    <ProjectBadges resourceType="metric" />
-                  )}
-                </td>
-                <td>{metric.owner}</td>
-                <td className="d-none d-lg-table-cell">
-                  {metric.datasourceName}
-                  {metric.datasourceDescription && (
-                    <div
-                      className="text-gray font-weight-normal small text-ellipsis"
-                      style={{ maxWidth: 350 }}
-                    >
-                      {metric.datasourceDescription}
-                    </div>
-                  )}
                 </td>
                 <td
                   title={datetime(metric.dateUpdated || "")}
@@ -646,7 +629,7 @@ const MetricsList = (): React.ReactElement => {
 
           {!items.length && isFiltered && (
             <tr>
-              <td colSpan={9} align={"center"}>
+              <td colSpan={8} align={"center"}>
                 No matching metrics
               </td>
             </tr>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Separator } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
+import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -177,7 +177,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Integrate the GrowthBook SDK into your app",
-                      source: "experiments",
+                      source: "experimentGuide",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "sdk",
                     })
@@ -229,7 +229,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     onClick={() =>
                       setStep({
                         step: "Editing Your Auto-generated Experiment",
-                        source: "experiments",
+                        source: "experimentGuide",
                         sourceParams: params.hypId
                           ? `hypId=${params.hypId}`
                           : "",
@@ -284,7 +284,7 @@ const ExperimentGuide = (): React.ReactElement => {
                         step: project
                           ? "Design the First Experiment for this Project"
                           : "Design Your Organization’s First Experiment",
-                        source: "experiments",
+                        source: "experimentGuide",
                         stepKey: "createExperiment",
                       })
                     }
@@ -341,7 +341,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     onClick={() =>
                       setStep({
                         step: "Start the Test",
-                        source: "experiments",
+                        source: "experimentGuide",
                         stepKey: "startExperiment",
                       })
                     }
@@ -416,7 +416,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   onClick={() =>
                     setStep({
                       step: "Connect to Your Data Warehouse",
-                      source: "experiments",
+                      source: "experimentGuide",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "connectDataWarehouse",
                     })

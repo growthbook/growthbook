@@ -3,10 +3,10 @@ import router from "next/router";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import { ProjectInterface, ProjectSettings } from "back-end/types/project";
+import { ProjectInterface, ProjectSettings } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft } from "@/components/Icons";
@@ -319,6 +319,7 @@ const ProjectPage: FC = () => {
                   mutate={refreshOrganization}
                   project={pid}
                   canEditRoles={canManageTeam}
+                  canEditProjectRoles={canEditSettings}
                   canDeleteMembers={false}
                   canInviteMembers={false}
                 />

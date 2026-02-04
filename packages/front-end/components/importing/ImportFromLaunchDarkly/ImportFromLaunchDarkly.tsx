@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from "react";
-import { ProjectInterface } from "back-end/types/project";
+import React, { useEffect, useMemo, useState } from "react";
+import { ProjectInterface } from "shared/types/project";
 import PQueue from "p-queue";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import {
   FaCheck,
@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Field from "@/components/Forms/Field";
@@ -19,12 +19,15 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
+import Checkbox from "@/ui/Checkbox";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { isCloud } from "@/services/env";
 import {
   FeatureVariationsMap,
   getLDEnvironments,
@@ -130,6 +133,11 @@ function FeatureDiff({
       oldValue={a}
       newValue={b}
       compareMethod={DiffMethod.LINES}
+      styles={{
+        contentText: {
+          wordBreak: "break-all",
+        },
+      }}
     />
   );
 }
@@ -141,6 +149,9 @@ async function buildImportedData(
   existingEnvs: Set<string>,
   features: FeatureInterface[],
   callback: (data: ImportData) => void,
+  useBackendProxy: boolean = false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall?: ApiCallType<any>,
 ): Promise<void> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
 
@@ -162,7 +173,7 @@ async function buildImportedData(
   };
 
   // Get projects
-  const ldProjects = await getLDProjects(apiToken);
+  const ldProjects = await getLDProjects(apiToken, useBackendProxy, apiCall);
   const projects: ProjectImport[] = transformLDProjectsToGBProject(
     ldProjects,
   ).map((p) => {
@@ -216,7 +227,12 @@ async function buildImportedData(
     // Get environments for each project
     queue.add(async () => {
       try {
-        const ldEnvs = await getLDEnvironments(apiToken, p.key);
+        const ldEnvs = await getLDEnvironments(
+          apiToken,
+          p.key,
+          useBackendProxy,
+          apiCall,
+        );
         ldEnvs.items.forEach((env) => {
           envs[env.key] = envs[env.key] || { name: env.name, projects: [] };
           envs[env.key].projects.push(p.key);
@@ -231,7 +247,12 @@ async function buildImportedData(
     // Get feature flags for the project
     queue.add(async () => {
       try {
-        const ldFeatures = await getLDFeatureFlags(apiToken, p.key);
+        const ldFeatures = await getLDFeatureFlags(
+          apiToken,
+          p.key,
+          useBackendProxy,
+          apiCall,
+        );
         // Build a map of feature key to type and variations
         // This is required for prerequisites
         const featureVarMap: FeatureVariationsMap = new Map();
@@ -254,7 +275,13 @@ async function buildImportedData(
           importedFeatureIds.add(f.key);
           queue.add(async () => {
             try {
-              const def = await getLDFeatureFlag(apiToken, p.key, f.key);
+              const def = await getLDFeatureFlag(
+                apiToken,
+                p.key,
+                f.key,
+                useBackendProxy,
+                apiCall,
+              );
               try {
                 const feature = transformLDFeatureFlag(
                   def,
@@ -645,11 +672,24 @@ function ImportHeader({
 export default function ImportFromLaunchDarkly() {
   const [token, setToken] = useSessionStorage("ldApiToken", "");
   const [intervalCap, setIntervalCap] = useState(50);
+  const [useBackendProxy, setUseBackendProxy] = useLocalStorage(
+    "launchdarkly_use_backend_proxy",
+    false,
+  );
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  // Force useBackendProxy to false for cloud users
+  useEffect(() => {
+    if (isCloud() && useBackendProxy) {
+      setUseBackendProxy(false);
+    }
+  }, [useBackendProxy, setUseBackendProxy]);
+
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    useCurrentProject: false,
+  });
   const { projects, mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
   const { refreshOrganization } = useUser();
@@ -699,6 +739,22 @@ export default function ImportFromLaunchDarkly() {
                   onChange={(e) => setIntervalCap(parseInt(e.target.value))}
                 />
               </div>
+              {!isCloud() && (
+                <div className="col-auto" style={{ maxWidth: 180 }}>
+                  <label className="form-label d-block">Backend Proxy</label>
+                  <Checkbox
+                    label="Proxy through API"
+                    value={useBackendProxy}
+                    setValue={setUseBackendProxy}
+                    size="lg"
+                    weight="regular"
+                    mt="2"
+                  />
+                  <div className="text-muted small mt-1">
+                    Workaround for HTTP origin requests
+                  </div>
+                </div>
+              )}
             </div>
             <Button
               type="button"
@@ -723,6 +779,8 @@ export default function ImportFromLaunchDarkly() {
                     existingEnvironments,
                     features,
                     (d) => setData(d),
+                    isCloud() ? false : useBackendProxy,
+                    apiCall,
                   );
                 } catch (e) {
                   setData({

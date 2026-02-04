@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { useEnvironments } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -184,7 +184,7 @@ const FeatureSearchFilters: FC<
           {
             searchValue: "force",
             id: "hasForce",
-            name: "has an force rule",
+            name: "has a force rule",
           },
         ]}
         updateQuery={updateQuery}

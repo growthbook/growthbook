@@ -4,10 +4,9 @@ import {
   isFactMetricId,
   isMetricGroupId,
 } from "shared/experiments";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -69,12 +68,13 @@ export default function SafeRolloutSummary({
           <Box>
             <strong className="font-weight-semibold">SERVE</strong>
           </Box>
-          <Box>
+          <Box flexGrow="1">
             <ValueDisplay
               value={
                 rule.status === "rolled-back" ? controlValue : variationValue
               }
               type={type}
+              showFullscreenButton={true}
             />
           </Box>
         </Flex>
@@ -159,11 +159,15 @@ function ValueRow({
 }) {
   return (
     <TableRow style={{ color: "var(--color-text-high)" }}>
-      <TableCell>
+      <TableCell style={{ whiteSpace: "nowrap" }}>
         <Text weight="medium">{label}</Text>
       </TableCell>
-      <TableCell>
-        <ValueDisplay value={value} type={valueType} />
+      <TableCell width="100%">
+        <ValueDisplay
+          value={value}
+          type={valueType}
+          showFullscreenButton={true}
+        />
       </TableCell>
       <TableCell style={{ color: "var(--color-text-mid)", width: "65%" }}>
         {percentFormatter.format(coverage)}

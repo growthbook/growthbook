@@ -1,58 +1,112 @@
 ---
-title: Regression Adjustment (CUPED)
-description: Regression Adjustment (CUPED)
-sidebar_label: Regression Adjustment (CUPED)
+title: CUPED
+description: Regression Adjustment (CUPED) + post-stratification
+sidebar_label: CUPED + Post-stratification
 slug: cuped
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-# Regression Adjustment (CUPED)
+# CUPED + post-stratification
 
 :::note
 
-Regression Adjustment (CUPED) is a premium feature.
+CUPED is available to Pro customers, CUPED + post-stratification is available to Enterprise customers.
 
 :::
 
-GrowthBook aims to unlock high-velocity, enterprise-scale experimentation. Regression adjustment (also known as CUPED, short for Controlled-experiment Using Pre-Experiment Data) is one way to increase the velocity of experimentation by reducing the uncertainty in estimates of experiment uplift.
+CUPEDps (Controlled-experiment Using Pre-Experiment Data + post-stratification) increases the velocity of experimentation by reducing the uncertainty in estimates of experiment uplift. It uses both pre-experiment metric data as well as user attributes to improve the accuracy of experiment results.
 
-### Why use CUPED?
+## Why use CUPEDps?
 
-CUPED decreases the variance of experiment uplift, increasing the accuracy of your experimental results and therefore the speed at which you can see the effects of an experiment. In the right conditions, CUPED can equate to getting 20% or more traffic during your experiment!
+CUPEDps decreases the variance of experiment uplift, increasing the accuracy of your experimental results and therefore the speed at which you can see the effects of an experiment. In the right conditions, CUPEDps can equate to getting 20% or more traffic during your experiment!
 
 - In 2016, Netflix reported that CUPED reduced variance by roughly ~40% for some key engagement metrics ([source](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
 - In 2022, Microsoft reported that, for one product team, CUPED was akin to adding 20% more traffic to analysis of a majority of metrics ([source](https://www.microsoft.com/en-us/research/group/experimentation-platform-exp/articles/deep-dive-into-variance-reduction/)).
 
 ### How does it work?
 
-Regression adjustment (RA) in general uses data correlated with a metric to reduce our uncertainty about that metric and the statistics we compute. Any data correlated with the metric of interest, but uncorrelated with variation assignment can be used. GrowthBook (and many others) use pre-experiment data, as metrics collected before an experiment will not be affected by said experiment. In fact, the very name CUPED embeds this concept of using pre-experiment data. Using this pre-experiment data, we can fit a simple model to predict our outcome metric and use those predictions to adjust our metric. The adjusted metric then tends to have lower variance.
+CUPEDps leverages both regression adjustment and post-stratification to improve the accuracy of your experiment results. Suppose revenue is your key metric, and you have historical revenue data on your users. You know that revenue spend varies across country (e.g. US vs. UK), and historical revenue spend is correlated with future revenue spend.  
+In an ideal experiment, you would: 1) bucket users by country; 2) create pairs of users within each bucket that have the same revenue spend; and 3) randomly assign one user in each pair to the treatment and the other to the control. Balancing helps ensure the treatment and control groups are similar before the experiment starts, and makes it easier to detect post-randomization differences. However, this level of assignment in online experimentation is often difficult to achieve.
 
-The more correlated the pre-experiment data is with your metric of interest, the more variance reduction you can achieve. For example, the following plot demonstrates the difference in the distribution of a metric before adjustment ("Normal") and after adjustment ("Adjusted"). In both panels, the green, adjusted metric is distributed less widely (e.g. it is more tightly spaced out around the mean). However, the adjusted distribution is even tighter in the right plot, showing that variance reduction will be greater the more correlated your pre-experiment data is with your post-experiment data.
+CUPEDps is a statistical technique that permits you to answer the question, "If I had run the ideal experiment, what would the lift be?"
+Regression adjustment helps balance users with respect to their pre-randomization revenue spend.
+Post-stratification helps balance users by country and account for spending differences across countries.
+
+The more correlated the pre-experiment metric data and attributes are with your metric of interest, the more variance reduction you can achieve. For example, the following plot demonstrates the difference in the distribution of a metric before adjustment ("Normal") and after adjustment ("Adjusted"). In both panels, the green, adjusted metric is distributed less widely (e.g. it is more tightly spaced out around the mean). However, the adjusted distribution is even tighter in the right plot, showing that variance reduction will be greater the more correlated your pre-experiment data is with your post-experiment data.
 
 <MaxWidthImage maxWidth={600}>
   ![Variance Reduction by Correlation](/images/statistics/cuped-corr.png)
 </MaxWidthImage>
 
-In simpler terms, if we know a particular user tends to buy a lot of products on your website before you launch an experiment, we can use that information to understand whether purchase behavior after an experiment is driven by that customer's innate tendency to buy a lot of products or whether it was due to the experiment.
+In simpler terms, if we know a particular user tends to buy a lot of products on your website before you launch an experiment, or if a certain type of users tends to have high spend, we can use that information to understand whether purchase behavior after an experiment is driven by that customer's innate behavior or whether you can attribute it to the experiment.
 
 The concept of regression adjustment has been around for a long time, but you should feel free to read more in the original CUPED paper ([Deng et al. 2013](https://exp-platform.com/Documents/2013-02-CUPED-ImprovingSensitivityOfControlledExperiments.pdf)), a more general purpose paper on the underpinnings of regression adjustment from a sampling perspective ([Lin 2013](https://projecteuclid.org/journals/annals-of-applied-statistics/volume-7/issue-1/Agnostic-notes-on-regression-adjustments-to-experimental-data--Reexamining/10.1214/12-AOAS583.full)), and any of the many blog posts on the topic (e.g. [Booking.com](https://booking.ai/how-booking-com-increases-the-power-of-online-experiments-with-cuped-995d186fff1d), [Microsoft](https://www.microsoft.com/en-us/research/group/experimentation-platform-exp/articles/deep-dive-into-variance-reduction/)).
 
-## GrowthBook's implementation
+### Why CUPEDps is different
 
-GrowthBook takes a transparent, simple approach to CUPED.
+We have combined CUPED with post-stratification to bring additional accuracy gains in three ways.
 
-For each metric you analyze, we use the metric itself from the pre-exposure period as the correlated data. This tends to be very powerful for metrics that are frequently produced by users (e.g. engagement measures), but can be less powerful if your metric is rare, or if you are measuring behavior for new users. In general, CUPED is more powerful the more you know about your units of interest and the longer they have been able to generate the metric that you are analyzing as a part of your experiment.
+Most importantly, we estimate average lift across all users by weighting the strata-specific (e.g. country-specific) lifts.
+Leveraging within-strata lifts isolates the treatment effect from the often substantial between-strata noise (e.g., the large natural differences in revenue between countries).
+This can significantly increase the precision of the overall lift estimate.
+For example, suppose average user revenue is high in the US and UK, but low in France.
+A two-sample t-test simply compares the averages of the two groups, ignoring strata information.  
+In contrast, CUPEDps estimates are weighted averages of the lift for US users, the lift for UK users, and the lift for French users.
+Each of these three apples-to-apples comparisons are unaffected by the between-strata variability, and appropriately weighting them provides our lift estimate.
 
-We then use the standard CUPED estimator for each variation mean,
+Second, if there is an imbalance in the observed proportion of treatment users in a country compared to the variation split, then post-stratification will adjust the lift estimate for that country to account for the imbalance.
+For example, if the desired variation split for an experiment is 50/50, but within France it is 48/52, post-stratification will upweight the French control user metrics and downweight their treatment counterparts to reflect the true variation split.
 
-$$
-\bar{Y}_{adjusted} = \bar{Y} - \theta * \bar{X}
-$$
+Finally, we can estimate country-specific lifts by running CUPED for each country individually.
+This can lead to additional variance reduction when the country-specific relationships in pre-experiment and post-exposure metric behavior vary.
 
-where $\bar{Y}$ is the post-exposure metric average, $\bar{X}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y, X) / \text{Var}(X)$. We describe CUPED for ratio metrics and how to estimate uncertainty [here](/statistics/cuped-technical).
+You can read more technical details about when post-stratification is useful and how, with large enough data, it is often as good as stratifying your experiment ahead of time (see section 3.4 in [Xie and Aurisset 2016](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
 
-As discussed above, we could use any correlated data instead of $X$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
+## Configuring CUPEDps
+
+### Organization-level settings
+
+You can turn CUPEDps on for all analyses under Settings → General. CUPEDps can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
+
+<MaxWidthImage maxWidth={800} border>
+  ![Organization-level CUPED Setting](/images/statistics/cuped-org.png)
+</MaxWidthImage>
+
+Additionally, you can choose whether to enable post-stratification in the same location in your organization settings. For post-stratification to take effect, you **must** enable pre-computed dimensions in your organization settings as well as have at least one dimension configured in your experiment assignment query.
+
+### Metric-level settings
+
+You can also override these organization-level defaults at the Metric level. When creating or editing a Metric, go to the "Behavior" panel, click "Show advanced options" and scroll to the bottom. From there, you will see the following settings. These settings will allow you to disable CUPED for a metric, even if it is set at the organization or experiment level.
+
+<MaxWidthImage maxWidth={700}>
+  ![Metric-level CUPED Setting](/images/statistics/cuped-metric.png)
+</MaxWidthImage>
+
+You might want to disable CUPEDps for a particular metric if that metric never collects values for a user before they enter an experiment. You might want to adjust metric-specific lookback windows for any of the reasons listed in the section above.
+
+Finally, you could also, if you wanted, override these metric-level settings for a particular experiment using metric overrides on the experiment page.
+
+### Experiment settings and results
+
+By default, each experiment will use your organization-level defaults, unless they are overridden by a metric. However, you can always toggle CUPED on or off using the toggle added to the top of the results table. You need to re-run your analysis if you change this setting.
+If the toggle is On, then CUPEDps will be applied for all metrics, excluding the cases described above (e.g., legacy ratio metrics) and exceptions like metric overrides.
+
+The following screenshot shows the results with CUPEDps on.
+However, you can see that there is an icon showing that CUPEDps is disabled for revenue_p50 (because it is a quantile metric).
+So even if CUPEDps is toggled on, we will always show you any metrics for which GrowthBook did not use CUPEDps using that small CUPEDps icon with a red x.
+
+<MaxWidthImage maxWidth={800}>
+  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio.png)
+</MaxWidthImage>
+
+The screenshot below shows the same data with CUPEDps toggled off.
+Note that the interval widths for the CUPEDps-enabled metrics are now much bigger, while the interval width for revenue_p50 is the same.
+CUPEDps increases the accuracy of your estimates.
+
+<MaxWidthImage maxWidth={800}>
+  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio-off.png)
+</MaxWidthImage>
 
 ### Regression Adjustment lookback window
 
@@ -69,53 +123,28 @@ Why use a shorter lookback window?
 
 ### Availability
 
-CUPED works for all metrics except for:
+CUPEDps works for all metrics except for:
 
-- Legacy ratio metrics, or non query-optimized ratio [Fact Metrics](/app/metrics#fact-tables)
 - Ratio metrics that are the goal metric for a [Bandit](/bandits/overview)
 - Quantile metrics
-- Metrics with custom user value aggregations
+- Legacy (non-fact) ratio metrics
+- Legacy (non-fact)metrics with custom user value aggregations
 - Metrics from a MixPanel data sources
 
-## Configuring CUPED
+## CUPEDps implementation
 
-### Organization-level settings
+GrowthBook takes a transparent, simple approach to regression adjustment.
 
-You can turn CUPED on for all analyses under Settings → General. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
+For each metric you analyze, we use the metric itself from the pre-exposure period as the correlated data. This tends to be very powerful for metrics that are frequently produced by users (e.g. engagement measures), but can be less powerful if your metric is rare, or if you are measuring behavior for new users. In general, CUPED is more powerful the more you know about your units of interest and the longer they have been able to generate the metric that you are analyzing as a part of your experiment.
 
-<MaxWidthImage maxWidth={800} border>
-  ![Organization-level CUPED Setting](/images/statistics/cuped-org.png)
-</MaxWidthImage>
+We then use the standard CUPED estimator for each variation mean,
 
-### Metric-level settings
+$$
+\bar{Y}_{adjusted} = \bar{Y} - \theta * \bar{X}
+$$
 
-You can also override these organization-level defaults at the Metric level. When creating or editing a Metric, go to the "Behavior" panel, click "Show advanced options" and scroll to the bottom. From there, you will see the following settings. These settings will allow you to disable CUPED for a metric, even if it is set at the organization or experiment level.
+where $\bar{Y}$ is the post-exposure metric average, $\bar{X}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y, X) / \text{Var}(X)$. We describe CUPED for ratio metrics and how to estimate uncertainty [here](/statistics/cuped-technical).
 
-<MaxWidthImage maxWidth={700}>
-  ![Metric-level CUPED Setting](/images/statistics/cuped-metric.png)
-</MaxWidthImage>
+As discussed above, we could use any correlated data instead of $X$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. To resolve this, we have added post-stratification to CUPED, creating CUPEDps, which allows you to use key user dimensions to improve variance reduction beyond vanilla CUPED.
 
-You might want to disable CUPED for a particular metric if that metric never collects values for a user before they enter an experiment. You might want to adjust metric-specific lookback windows for any of the reasons listed in the section above.
-
-Finally, you could also, if you wanted, override these metric-level settings for a particular experiment using metric overrides on the experiment page.
-
-### Experiment settings and results
-
-By default, each experiment will use your organization-level defaults, unless they are overridden by a metric. However, you can always toggle CUPED on or off using the toggle added to the top of the results table. You need to re-run your analysis if you change this setting.
-If the toggle is On, then CUPED will be applied for all metrics, excluding the cases described above (e.g., legacy ratio metrics) and exceptions like metric overrides.
-
-The following screenshot shows the results with CUPED on.
-However, you can see that there is an icon showing that CUPED is disabled for revenue_p50 (because it is a quantile metric).
-So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED using that small CUPED icon with a red x.
-
-<MaxWidthImage maxWidth={800}>
-  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio.png)
-</MaxWidthImage>
-
-The screenshot below shows the same data with CUPED toggled off.
-Note that the interval widths for the CUPED-enabled metrics are now much bigger, while the interval width for revenue_p50 is the same.
-CUPED increases the accuracy of your estimates.
-
-<MaxWidthImage maxWidth={800}>
-  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio-off.png)
-</MaxWidthImage>
+We describe technical details of post-stratification [here](/statistics/post-stratification).

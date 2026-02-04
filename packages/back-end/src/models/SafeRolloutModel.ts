@@ -1,12 +1,10 @@
+import { UpdateProps } from "shared/types/base-model";
+import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import {
-  SafeRolloutInterface,
-  safeRolloutValidator,
-} from "back-end/src/validators/safe-rollout";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { MakeModelClass, UpdateProps } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "saferollout";
 
@@ -21,6 +19,9 @@ const BaseClass = MakeModelClass({
     deleteEvent: "safeRollout.delete",
   },
   globallyUniqueIds: true,
+  defaultValues: {
+    autoSnapshots: true,
+  },
 });
 
 export class SafeRolloutModel extends BaseClass {
@@ -81,13 +82,18 @@ export class SafeRolloutModel extends BaseClass {
       const feature = await getFeature(this.context, existing.featureId);
       if (!feature) return;
 
-      await refreshSDKPayloadCache(
-        this.context,
-        getAffectedSDKPayloadKeys(
+      queueSDKPayloadRefresh({
+        context: this.context,
+        payloadKeys: getAffectedSDKPayloadKeys(
           [feature],
           getEnvironmentIdsFromOrg(this.context.org),
         ),
-      );
+        auditContext: {
+          event: "step changed",
+          model: "saferollout",
+          id: existing.featureId,
+        },
+      });
     }
   }
 

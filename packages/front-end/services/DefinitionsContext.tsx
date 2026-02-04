@@ -1,8 +1,8 @@
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { DimensionInterface } from "back-end/types/dimension";
-import { MetricInterface } from "back-end/types/metric";
-import { SegmentInterface } from "back-end/types/segment";
-import { ProjectInterface } from "back-end/types/project";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { DimensionInterface } from "shared/types/dimension";
+import { MetricInterface } from "shared/types/metric";
+import { SegmentInterface } from "shared/types/segment";
+import { ProjectInterface } from "shared/types/project";
 import {
   useContext,
   useMemo,
@@ -13,17 +13,17 @@ import {
   ReactElement,
   useEffect,
 } from "react";
-import { TagInterface } from "back-end/types/tag";
+import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
   FactTableInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
-import { SavedGroupInterface } from "shared/src/types";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { CustomField } from "back-end/types/custom-fields";
-import { DecisionCriteriaInterface } from "back-end/types/experiment";
-import { WebhookSecretFrontEndInterface } from "back-end/src/validators/webhook-secrets";
+import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { CustomField } from "shared/types/custom-fields";
+import { DecisionCriteriaInterface } from "shared/types/experiment";
+import { WebhookSecretFrontEndInterface } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -37,7 +37,7 @@ type Definitions = {
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
-  savedGroups: SavedGroupInterface[];
+  savedGroups: SavedGroupWithoutValues[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
@@ -61,7 +61,7 @@ type DefinitionContextValue = Definitions & {
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
-  getSavedGroupById: (id: string) => null | SavedGroupInterface;
+  getSavedGroupById: (id: string) => null | SavedGroupWithoutValues;
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
@@ -123,7 +123,6 @@ function useGetById<T extends IndexableItem>(
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
-      // eslint-disable-next-line
       return () => null;
     }
 

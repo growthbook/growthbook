@@ -73,6 +73,9 @@ export default function UpgradeModal({
   const orgIsManagedByVercel = organization.isVercelIntegration;
 
   function shouldShowEnterpriseTreatment(): boolean {
+    // Self-hosted Pro is not allowed, always show Enterprise
+    if (!isCloud()) return true;
+
     // if no commercialFeature is provided, determine what plan to show based on org's current plan
     if (!commercialFeature) {
       if (
@@ -282,6 +285,8 @@ export default function UpgradeModal({
   };
 
   const bullets: Partial<Record<CommercialFeature, string>> = {
+    "share-product-analytics-dashboards":
+      "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
     "encrypt-features-endpoint": "SDK endpoint encryption",
@@ -326,8 +331,8 @@ export default function UpgradeModal({
     "require-approvals":
       "Reduce errors by requiring approval flows when changing feature flag values",
     "audit-logging": "Easily export historical audit logs",
-    "managed-warehouse":
-      "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
+    "unlimited-managed-warehouse-usage":
+      "Access to all your tracked events in the Managed Warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",
@@ -484,7 +489,7 @@ export default function UpgradeModal({
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
-              {dynamicBullet || "Add up to 100 team members"}
+              {dynamicBullet || "Add up to 50 team members"}
             </Text>
           </Flex>
           <Flex align="center" className="pb-2">
@@ -494,7 +499,7 @@ export default function UpgradeModal({
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
             >
               {dynamicBullet === "advanced-permissions"
-                ? "Add up to 100 team members"
+                ? "Add up to 50 team members"
                 : "Manage advanced user permissions"}
             </Text>
           </Flex>
@@ -528,12 +533,12 @@ export default function UpgradeModal({
                   Base price
                 </Text>
                 <Text size="3" weight={"bold"}>
-                  ${numOfCurrentMembers * 20} / month
+                  ${numOfCurrentMembers * 40} / month
                 </Text>
               </Flex>
               <Box mb="5">
                 <Text size="2">
-                  $20 per seat per month, {numOfCurrentMembers} current seat
+                  $40 per seat per month, {numOfCurrentMembers} current seat
                   {numOfCurrentMembers > 1 ? "s" : ""}
                 </Text>
               </Box>
@@ -549,7 +554,8 @@ export default function UpgradeModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {commercialFeature === "managed-warehouse" && (
+                  {commercialFeature ===
+                    "unlimited-managed-warehouse-usage" && (
                     <tr>
                       <td>
                         Managed Warehouse{" "}
@@ -643,10 +649,10 @@ export default function UpgradeModal({
                     className="pl-1"
                   />
                 </span>
-                <label>~${numOfCurrentMembers * 20} / month</label>
+                <label>~${numOfCurrentMembers * 40} / month</label>
               </Flex>
               <p className="mb-0 text-secondary">
-                $20 per seat per month, {numOfCurrentMembers} current seat
+                $40 per seat per month, {numOfCurrentMembers} current seat
                 {numOfCurrentMembers > 1 ? "s" : ""}
               </p>
             </div>

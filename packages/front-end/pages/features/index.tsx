@@ -7,7 +7,7 @@ import {
   ComputedFeatureInterface,
   FeatureInterface,
   FeatureRule,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
@@ -78,12 +78,14 @@ export default function FeaturesPage() {
   const environments = useEnvironments();
   const {
     features: allFeatures,
-    experiments,
     loading,
     error,
     mutate,
     hasArchived,
-  } = useFeaturesList(true, showArchived);
+  } = useFeaturesList({
+    useCurrentProject: true,
+    includeArchived: showArchived,
+  });
   const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -251,14 +253,16 @@ export default function FeaturesPage() {
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id} className="position-relative text-center">
-                        {featureHasEnvironment(feature, en) && (
-                          <EnvironmentToggle
-                            feature={feature}
-                            environment={en.id}
-                            mutate={mutate}
-                          />
-                        )}
+                      <td key={en.id}>
+                        <Flex align="center" justify="center">
+                          {featureHasEnvironment(feature, en) && (
+                            <EnvironmentToggle
+                              feature={feature}
+                              environment={en.id}
+                              mutate={mutate}
+                            />
+                          )}
+                        </Flex>
                       </td>
                     ))}
                     <td>
@@ -473,7 +477,6 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...allFeatures, feature],
-              linkedExperiments: experiments,
               hasArchived,
             });
           }}
@@ -566,7 +569,7 @@ export default function FeaturesPage() {
           </TabsContent>
 
           <TabsContent value="drafts">
-            <FeaturesDraftTable features={allFeatures} />
+            <FeaturesDraftTable />
           </TabsContent>
         </Tabs>
       )}

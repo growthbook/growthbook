@@ -1,10 +1,11 @@
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
 import { isEqual } from "lodash";
+import { ToggleFeatureResponse } from "shared/types/openapi";
+import { revertFeatureValidator } from "shared/validators";
 import {
   getRevision,
   markRevisionAsPublished,
 } from "back-end/src/models/FeatureRevisionModel";
-import { ToggleFeatureResponse } from "back-end/types/openapi";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   applyRevisionChanges,
@@ -17,7 +18,6 @@ import {
 } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { revertFeatureValidator } from "back-end/src/validators/openapi";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 
 export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
@@ -97,7 +97,13 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes,
     );
 
-    await markRevisionAsPublished(context, revision, req.eventAudit, comment);
+    await markRevisionAsPublished(
+      context,
+      feature,
+      revision,
+      req.eventAudit,
+      comment,
+    );
 
     await req.audit({
       event: "feature.revert",
@@ -110,7 +116,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       }),
     });
 
-    const groupMap = await getSavedGroupMap(req.organization);
+    const groupMap = await getSavedGroupMap(req.context);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       feature.id,

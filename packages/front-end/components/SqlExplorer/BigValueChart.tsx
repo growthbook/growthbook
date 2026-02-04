@@ -1,12 +1,13 @@
 import { Flex, Heading, Text } from "@radix-ui/themes";
 import React from "react";
-import { BigValueFormat } from "back-end/src/validators/saved-queries";
+import { BigValueFormat } from "shared/validators";
 import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency } from "@/services/metrics";
 
 type Props = {
   value: number;
-  format: BigValueFormat;
+  format?: BigValueFormat;
+  formatter?: (value: number) => string;
   label?: string;
 };
 
@@ -35,7 +36,12 @@ function formatValue(value: number, format: BigValueFormat, currency: string) {
   }
 }
 
-export default function BigValueChart({ value, label, format }: Props) {
+export default function BigValueChart({
+  value,
+  label,
+  format,
+  formatter,
+}: Props) {
   const currency = useCurrency();
   if (value === undefined || value === null) {
     return <div style={{ textAlign: "center", color: "#888" }}>No data</div>;
@@ -50,7 +56,9 @@ export default function BigValueChart({ value, label, format }: Props) {
       pb="2"
     >
       <Heading as="h1" size="9">
-        {formatValue(value, format, currency)}
+        {formatter
+          ? formatter(value)
+          : formatValue(value, format ?? "longNumber", currency)}
       </Heading>
       {label && (
         <Text as="div" size="3" color="gray">

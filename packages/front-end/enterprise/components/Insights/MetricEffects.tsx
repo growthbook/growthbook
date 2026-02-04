@@ -5,14 +5,14 @@ import React, {
   useMemo,
   ReactNode,
 } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentWithSnapshot,
-} from "back-end/types/experiment-snapshot";
+} from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType } from "shared/types/stats";
 import { useRouter } from "next/router";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -253,7 +253,7 @@ const MetricEffectCard = ({
 }): React.ReactElement => {
   const { apiCall } = useAuth();
 
-  const { project, getExperimentMetricById, getFactTableById } =
+  const { project, getExperimentMetricById, getFactTableById, metricGroups } =
     useDefinitions();
 
   const metricExpCounts = useMetricExpCounts(experiments);
@@ -312,8 +312,12 @@ const MetricEffectCard = ({
     }
 
     setLoading(true);
-
-    const filteredExperiments = filterExperimentsByMetrics(experiments, metric);
+    const filteredExperiments = filterExperimentsByMetrics(
+      experiments,
+      metric,
+      undefined,
+      metricGroups,
+    );
     const experimentsWithData = new Map<string, ExperimentWithSnapshot>();
 
     setSearchParams({
@@ -407,7 +411,14 @@ const MetricEffectCard = ({
       setExperimentsWithSnapshot(Array.from(experimentsWithData.values()));
       setLoading(false);
     }
-  }, [metric, experiments, differenceType, setSearchParams, apiCall]);
+  }, [
+    metric,
+    experiments,
+    differenceType,
+    setSearchParams,
+    apiCall,
+    metricGroups,
+  ]);
 
   useEffect(() => {
     handleFetchMetric();

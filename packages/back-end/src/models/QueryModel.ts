@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface, QueryType } from "back-end/types/query";
+import { QueryInterface, QueryType } from "shared/types/query";
+import { QueryLanguage } from "shared/types/datasource";
+import { ApiQuery } from "shared/types/openapi";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
-import { QueryLanguage } from "back-end/types/datasource";
-import { ApiQuery } from "back-end/types/openapi";
-import type { ReqContext } from "back-end/types/organization";
+import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
 export const queriesSchema = [
@@ -22,6 +22,7 @@ const querySchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  displayTitle: String,
   organization: {
     type: String,
     index: true,
@@ -41,6 +42,7 @@ const querySchema = new mongoose.Schema({
   externalId: String,
   result: {},
   rawResult: [],
+  hasChunkedResults: Boolean,
   error: String,
   statistics: {},
   dependencies: [String],
@@ -59,10 +61,23 @@ function toInterface(doc: QueryDocument): QueryInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getQueriesByIds(organization: string, ids: string[]) {
+export async function getQueriesByIds(
+  context: ReqContext,
+  ids: string[],
+  includeChunkedResults: boolean = true,
+) {
   if (!ids.length) return [];
-  const docs = await QueryModel.find({ organization, id: { $in: ids } });
-  return docs.map((doc) => toInterface(doc));
+  const docs = await QueryModel.find({
+    organization: context.org.id,
+    id: { $in: ids },
+  });
+  const queries = docs.map((doc) => toInterface(doc));
+
+  if (includeChunkedResults) {
+    await context.models.sqlResultChunks.addResultsToQueries(queries);
+  }
+
+  return queries;
 }
 
 export async function getQueryById(
@@ -101,9 +116,29 @@ export async function countRunningQueries(
 }
 
 export async function updateQuery(
+  context: ReqContext,
   query: QueryInterface,
   changes: Partial<QueryInterface>,
 ): Promise<QueryInterface> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  // If we're setting results, store them in a separate collection
+  // Some legacy queries have processed results that differ from raw results, so skip those
+  if (
+    changes.result &&
+    changes.result === changes.rawResult &&
+    changes.rawResult.length > 0
+  ) {
+    await context.models.sqlResultChunks.createFromResults(
+      query.id,
+      changes.rawResult,
+    );
+    changes = omit(changes, ["result", "rawResult"]);
+    changes.hasChunkedResults = true;
+  }
+
   await QueryModel.updateOne(
     { organization: query.organization, id: query.id },
     { $set: changes },
@@ -118,10 +153,12 @@ export async function getRecentQuery(
   organization: string,
   datasource: string,
   query: string,
+  cacheTTLMins?: number,
 ) {
   // Only re-use queries that were run recently
+  const ttl = cacheTTLMins ?? QUERY_CACHE_TTL_MINS;
   const earliestDate = new Date();
-  earliestDate.setMinutes(earliestDate.getMinutes() - QUERY_CACHE_TTL_MINS);
+  earliestDate.setMinutes(earliestDate.getMinutes() - ttl);
 
   const latest = await QueryModel.find({
     organization,
@@ -131,6 +168,8 @@ export async function getRecentQuery(
       $gt: earliestDate,
     },
     status: { $in: ["succeeded", "running"] },
+    // Exclude documents that were created from cache - they shouldn't reset the TTL
+    cachedQueryUsed: { $exists: false },
   })
     .sort({ createdAt: -1 })
     .limit(1);
@@ -182,6 +221,7 @@ export async function createNewQuery({
   datasource,
   language,
   query,
+  displayTitle,
   dependencies = [],
   running = false,
   queryType = "",
@@ -191,6 +231,7 @@ export async function createNewQuery({
   datasource: string;
   language: QueryLanguage;
   query: string;
+  displayTitle?: string;
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
@@ -204,6 +245,7 @@ export async function createNewQuery({
     language,
     organization,
     query,
+    displayTitle,
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
@@ -228,6 +270,7 @@ export async function createNewQueryFromCached({
     datasource: existing.datasource,
     heartbeat: new Date(),
     id: uniqid("qry_"),
+    displayTitle: existing.displayTitle,
     language: existing.language,
     organization: existing.organization,
     query: existing.query,
@@ -240,7 +283,8 @@ export async function createNewQueryFromCached({
     statistics: existing.statistics,
     dependencies: dependencies,
     runAtEnd: runAtEnd,
-    cachedQueryUsed: existing.id,
+    cachedQueryUsed: existing.cachedQueryUsed || existing.id,
+    hasChunkedResults: existing.hasChunkedResults,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);

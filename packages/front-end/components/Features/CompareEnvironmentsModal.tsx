@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { Flex, useThemeContext, Text } from "@radix-ui/themes";
@@ -128,6 +128,11 @@ export default function CompareEnvironmentsModal({
           newValue={JSON.stringify(rulesByEnv[sourceEnv], null, 2)}
           compareMethod={DiffMethod.LINES}
           useDarkTheme={appearance === "dark"}
+          styles={{
+            contentText: {
+              wordBreak: "break-all",
+            },
+          }}
         />
       )}
     </Modal>

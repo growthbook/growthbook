@@ -17,7 +17,9 @@ export interface Props {
     | "attribute"
     | "sdk connection"
     | "saved group"
-    | "holdout";
+    | "holdout"
+    | "dashboard"
+    | "custom field";
   projectIds?: string[];
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;

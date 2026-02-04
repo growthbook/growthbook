@@ -5,15 +5,19 @@ import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
+import { VisualChange } from "shared/types/visual-changeset";
+import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
   ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "back-end/types/experiment";
-import { ReqContext } from "back-end/types/organization";
-import { VisualChange } from "back-end/types/visual-changeset";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { DiffResult } from "shared/types/events/diff";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -21,12 +25,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
-  refreshSDKPayloadCache,
+  queueSDKPayloadRefresh,
   URLRedirectExperiment,
   VisualExperiment,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
@@ -43,12 +46,8 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
-import {
-  DiffResult,
-  getObjectDiff,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
+} from "back-end/src/enterprise/services/ai";
+import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -254,6 +253,7 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
+  postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
@@ -315,7 +315,6 @@ const experimentSchema = new mongoose.Schema({
   dismissedWarnings: [String],
   holdoutId: String,
   defaultDashboardId: String,
-  pinnedMetricSlices: [String],
   customMetricSlices: [
     {
       _id: false,
@@ -558,6 +557,17 @@ export async function createExperiment({
   return experiment;
 }
 
+export function hasActualChanges(
+  experiment: ExperimentInterface,
+  changes: Partial<ExperimentInterface>,
+) {
+  const changeKeys = Object.keys(changes).filter(
+    (key) => key !== "dateUpdated",
+  ) as Array<keyof ExperimentInterface>;
+
+  return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -569,12 +579,15 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
-  // TODO: are there some changes where we don't want to update the dateUpdated?
+  // If no actual changes, return the experiment as-is
+  if (!hasActualChanges(experiment, changes)) {
+    return experiment;
+  }
+
   const allChanges = {
     ...changes,
+    dateUpdated: new Date(),
   };
-  allChanges.dateUpdated = new Date();
-
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
@@ -590,7 +603,6 @@ export async function updateExperiment({
 
   const updated = { ...experiment, ...allChanges };
 
-  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -737,22 +749,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
-export async function getExperimentsUsingMetric(
-  context: ReqContext | ApiReqContext,
-  metricId: string,
-  limit?: number,
-): Promise<ExperimentInterface[]> {
+export async function getExperimentsUsingMetric({
+  context,
+  metricId,
+  excludeMetricGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricId: string;
+  excludeMetricGroupIds?: boolean;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  const metricGroups = excludeMetricGroupIds
+    ? undefined
+    : await context.models.metricGroups.findByMetric(metricId);
+
+  const metricGroupIds = metricGroups?.map((g) => g.id);
+  const allIds = metricGroupIds ? [metricId, ...metricGroupIds] : [metricId];
+
   const experiments = await findExperiments(
     context,
     {
       organization: context.org.id,
       $or: [
-        { metrics: metricId },
-        { goalMetrics: metricId },
-        { guardrails: metricId },
-        { guardrailMetrics: metricId },
-        { secondaryMetrics: metricId },
-        { activationMetric: metricId },
+        { metrics: { $in: allIds } },
+        { goalMetrics: { $in: allIds } },
+        { guardrails: { $in: allIds } },
+        { guardrailMetrics: { $in: allIds } },
+        { secondaryMetrics: { $in: allIds } },
+        { activationMetric: { $in: allIds } },
       ],
       archived: {
         $ne: true,
@@ -1380,11 +1405,18 @@ export async function getExperimentMapForFeature(
 
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string,
+  projects?: string[],
 ): Promise<Map<string, ExperimentInterface>> {
+  const projectFilter =
+    !projects || !projects.length
+      ? {}
+      : projects.length === 1
+        ? { project: projects[0] }
+        : { project: { $in: projects } };
+
   const experiments = await findExperiments(context, {
     organization: context.org.id,
-    ...(project ? { project } : {}),
+    ...projectFilter,
     archived: { $ne: true },
     $or: [
       {
@@ -1507,17 +1539,14 @@ export async function generateExperimentEmbeddings(
   for (let i = 0; i < experimentsToGenerateEmbeddings.length; i += batchSize) {
     const batch = experimentsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((exp) => getTextForEmbedding(exp));
-    const embeddings = await generateEmbeddings({
-      context,
-      input,
-    });
+    const embeddings = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const exp = batch[j];
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j],
         });
       } catch (error) {
         throw new Error("Error updating embeddings");
@@ -1719,8 +1748,14 @@ const onExperimentUpdate = async ({
       isEqual,
     );
 
-    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
-      logger.error(e, "Error refreshing SDK payload cache");
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        event: "updated",
+        model: "experiment",
+        id: newExperiment.id,
+      },
     });
   }
 
@@ -1744,8 +1779,14 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
-    logger.error(e, "Error refreshing SDK payload cache");
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      event: "deleted",
+      model: "experiment",
+      id: experiment.id,
+    },
   });
 
   if (context.org.isVercelIntegration)
@@ -1754,3 +1795,16 @@ const onExperimentDelete = async (
       organization: context.org,
     });
 };
+
+export async function hasNonDemoExperiment(
+  context: ReqContext | ApiReqContext,
+) {
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
+  const exp = await getCollection(COLLECTION).findOne({
+    organization: context.org.id,
+    project: { $ne: demoProjectId },
+  });
+  return !!exp;
+}

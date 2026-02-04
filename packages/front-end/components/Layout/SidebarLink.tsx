@@ -5,9 +5,9 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "back-end/types/organization";
+import { GlobalPermission } from "shared/types/organization";
 import { Permissions } from "shared/permissions";
-import { SegmentInterface } from "back-end/types/segment";
+import { SegmentInterface } from "shared/types/segment";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
@@ -43,6 +43,7 @@ export type SidebarLinkProps = {
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
+
   const router = useRouter();
 
   const path = router.route.substr(1);

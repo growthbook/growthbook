@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
+import { PostFeatureResponse } from "shared/types/openapi";
+import { postFeatureValidator } from "shared/validators";
+import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
+import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { PostFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postFeatureValidator } from "back-end/src/validators/openapi";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { FeatureInterface, JSONSchemaDef } from "back-end/types/feature";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToRules,
@@ -15,11 +16,11 @@ import {
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { OrganizationInterface } from "back-end/types/organization";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
+import { validateCustomFields } from "./validation";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -135,6 +136,15 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     }
   }
 
+  // check if the custom fields are valid
+  if (req.body.customFields) {
+    await validateCustomFields(
+      req.body.customFields,
+      req.context,
+      req.body.project,
+    );
+  }
+
   const tags = req.body.tags || [];
 
   if (tags.length > 0) {
@@ -159,6 +169,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
       condition: `{"value": true}`,
     })),
     tags,
+    customFields: req.body.customFields,
   };
 
   const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
@@ -206,7 +217,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMap(req.organization);
+  const groupMap = await getSavedGroupMap(req.context);
 
   const experimentMap = await getExperimentMapForFeature(
     req.context,

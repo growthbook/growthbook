@@ -4,13 +4,14 @@ import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import uniqid from "uniqid";
+import { experimentAnalysisSettings } from "shared/validators";
 import {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -39,12 +40,12 @@ import {
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
 import {
   createReportSnapshot,
   generateExperimentReportSSRData,
 } from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
@@ -105,7 +106,6 @@ export async function postReportFromSnapshot(
       "dateStarted",
       "dateEnded",
       "customMetricSlices",
-      "pinnedMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -268,7 +268,7 @@ export async function getReportPublic(
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type"]);
+  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
@@ -394,6 +394,7 @@ export async function refreshReport(
       metricMap,
       factTableMap,
       metricGroups,
+      experimentQueryMetadata: null,
     });
 
     return res.status(200).json({
@@ -482,7 +483,6 @@ export async function putReport(
           "dateStarted",
           "dateEnded",
           "customMetricSlices",
-          "pinnedMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(
@@ -573,6 +573,9 @@ export async function putReport(
         metricMap,
         factTableMap,
         metricGroups,
+        experimentQueryMetadata: experiment
+          ? getAdditionalQueryMetadataForExperiment(experiment)
+          : null,
       });
     }
 

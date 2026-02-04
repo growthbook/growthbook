@@ -18,6 +18,7 @@ const docSections = {
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
+  productAnalytics: "/app/product-analytics",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
@@ -60,6 +61,7 @@ const docSections = {
   csharp: "/lib/csharp",
   elixir: "/lib/elixir",
   flutter: "/lib/flutter",
+  rust: "/lib/rust",
   nocode: "/lib/script-tag",
   cloudflare: "/lib/edge/cloudflare",
   fastly: "/lib/edge/fastly",
@@ -136,6 +138,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/saved-groups": "savedGroups",
   "/archetypes": "archetypes",
   "/settings/team": "team",
+  "/product-analytics": "productAnalytics",
 };
 
 //for testing use "http://localhost:3200"

@@ -1,21 +1,22 @@
 import Agenda, { Job } from "agenda";
+import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
-import { ReqContext } from "back-end/types/organization";
-import {
-  getFactTable,
-  updateFactTableColumns,
-} from "back-end/src/models/FactTableModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
   JSONColumnFields,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ReqContext } from "back-end/types/request";
+import {
+  getFactTable,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
@@ -56,12 +57,12 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   await updateFactTableColumns(factTable, updates, context);
 };
 
-export async function runColumnTopValuesQuery(
+export async function runColumnsTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName">,
-  column: ColumnInterface,
-): Promise<string[]> {
+  columns: ColumnInterface[],
+): Promise<Record<string, string[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
@@ -69,24 +70,37 @@ export async function runColumnTopValuesQuery(
   const integration = getSourceIntegrationObject(context, datasource, true);
 
   if (
-    !integration.getColumnTopValuesQuery ||
-    !integration.runColumnTopValuesQuery
+    !integration.getColumnsTopValuesQuery ||
+    !integration.runColumnsTopValuesQuery
   ) {
     throw new Error("Top values not supported on this data source");
   }
 
-  const sql = integration.getColumnTopValuesQuery({
+  if (columns.length === 0) {
+    return {};
+  }
+
+  const sql = integration.getColumnsTopValuesQuery({
     factTable,
-    column,
+    columns,
     limit: Math.max(
       100,
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
   });
-  const result = await integration.runColumnTopValuesQuery(sql);
+  const result = await integration.runColumnsTopValuesQuery(sql);
 
-  return result.rows.map((r) => r.value);
+  // Group results by column name
+  const columnValues: Record<string, string[]> = {};
+  for (const row of result.rows) {
+    if (!columnValues[row.column]) {
+      columnValues[row.column] = [];
+    }
+    columnValues[row.column].push(row.value);
+  }
+
+  return columnValues;
 }
 
 export function populateAutoSlices(
@@ -243,6 +257,8 @@ export async function runRefreshColumnsQuery(
     }
   });
 
+  // Collect columns that need top values
+  const columnsNeedingTopValues: ColumnInterface[] = [];
   for (const col of columns) {
     if (col.numberFormat === undefined) {
       col.numberFormat = "";
@@ -255,27 +271,41 @@ export async function runRefreshColumnsQuery(
       canInlineFilterColumn(factTable, col.column) &&
       col.datatype === "string"
     ) {
+      columnsNeedingTopValues.push(col);
+    }
+  }
+
+  // Batch query for all columns that need top values, chunked into groups of 10
+  // to prevent returning more than 1k rows per update (10 columns * 100 values = 1000 rows max per chunk)
+  if (columnsNeedingTopValues.length > 0) {
+    const columnChunks = chunk(columnsNeedingTopValues, 10);
+
+    for (const columnChunk of columnChunks) {
       try {
-        const topValues = await runColumnTopValuesQuery(
+        const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
           factTable,
-          col,
+          columnChunk,
         );
 
-        col.topValues = topValues;
-        col.topValuesDate = new Date();
+        // Process results for each column
+        for (const col of columnChunk) {
+          const topValues = topValuesByColumn[col.column] || [];
+          col.topValues = topValues;
+          col.topValuesDate = new Date();
 
-        if (col.isAutoSliceColumn) {
-          col.autoSlices = populateAutoSlices(
-            col,
-            topValues,
-            context.org.settings?.maxMetricSliceLevels,
-          );
+          if (col.isAutoSliceColumn) {
+            col.autoSlices = populateAutoSlices(
+              col,
+              topValues,
+              context.org.settings?.maxMetricSliceLevels,
+            );
+          }
         }
       } catch (e) {
         logger.error(e, "Error running top values query", {
-          column: col.column,
+          columns: columnChunk.map((c) => c.column),
         });
       }
     }

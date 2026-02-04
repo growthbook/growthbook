@@ -1,6 +1,14 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { TagInterface } from "back-end/types/tag";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { TagInterface } from "shared/types/tag";
+import { Environment } from "shared/types/organization";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import {
+  CreateFactMetricProps,
+  CreateFactTableProps,
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
 
 // beginregion Import Types
 
@@ -14,11 +22,16 @@ export type ImportStatus =
 export type BaseImportStatus = {
   key: string;
   status: ImportStatus;
+  exists?: boolean;
   error?: string;
+  hasChanges?: boolean;
+  transformedData?: string; // Diff-friendly string of new entity (right column on diff display)
+  existingData?: string; // Diff-friendly string of existing entity (left column on diff display)
 };
 
 export type EnvironmentImport = BaseImportStatus & {
   environment?: StatsigEnvironment;
+  existingEnvironment?: Environment;
 };
 
 export type FeatureGateImport = BaseImportStatus & {
@@ -51,20 +64,39 @@ export type ExperimentImport = BaseImportStatus & {
   >;
   existingExperiment?: ExperimentInterfaceStringDates;
   existingFeature?: FeatureInterface;
+  transformedExperiment?: Partial<ExperimentInterfaceStringDates>;
+  transformedFeature?: Omit<
+    FeatureInterface,
+    "organization" | "dateCreated" | "dateUpdated" | "version"
+  >;
 };
 
 export type SegmentImport = BaseImportStatus & {
   segment?: StatsigSavedGroup;
+  existingSavedGroup?: SavedGroupInterface;
+  transformedSavedGroup?: Omit<
+    SavedGroupInterface,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >;
 };
 
 export type MetricImport = BaseImportStatus & {
-  metric?: unknown;
+  metric?: StatsigMetric;
+  existingMetric?: FactMetricInterface;
+  transformedMetric?: CreateFactMetricProps;
+};
+
+export type MetricSourceImport = BaseImportStatus & {
+  metricSource?: StatsigMetricSource;
+  existingMetricSource?: FactTableInterface;
+  transformedMetricSource?: CreateFactTableProps;
 };
 
 export type TagImport = BaseImportStatus & {
   tag?: StatsigTag;
   gbTag?: TagInterface;
   existingTag?: TagInterface;
+  transformedTag?: TagInterface;
 };
 
 export type StatsigTag = {
@@ -82,6 +114,7 @@ export interface ImportData {
   experiments?: ExperimentImport[];
   segments?: SegmentImport[];
   tags?: TagImport[];
+  metricSources?: MetricSourceImport[];
   metrics?: MetricImport[];
   error?: string;
 }
@@ -248,6 +281,194 @@ export type StatsigEnvironment = {
   requiresReview: boolean;
   requiresReleasePipeline: boolean;
 };
+
+export type StatsigMetricSource = {
+  name: string;
+  description: string;
+  sql: string;
+  timestampColumn: string;
+  idTypeMapping: {
+    statsigUnitID: string;
+    column: string;
+  }[];
+  tags?: string[];
+  timestampAsDay?: boolean;
+  sourceType?: "table" | "query";
+  tableName?: string;
+  datePartitionColumn?: string;
+  customFieldMapping?: {
+    key: string;
+    formula: string;
+  }[];
+  isReadOnly?: boolean;
+  isVerified?: boolean;
+  owner?: {
+    ownerID?: string;
+    ownerType?: string;
+    ownerName?: string;
+    ownerEmail?: string;
+  } | null;
+  team?: string | null;
+  teamID?: string | null;
+};
+
+export type StatsigMetricCriteria = {
+  type: "value" | "metadata" | "user" | "user_custom";
+  condition:
+    | "in"
+    | "not_in"
+    | "="
+    | ">"
+    | "<"
+    | ">="
+    | "<="
+    | "is_null"
+    | "non_null"
+    | "contains"
+    | "not_contains"
+    | "sql_filter"
+    | "starts_with"
+    | "ends_with"
+    | "after_exposure"
+    | "before_exposure"
+    | "is_true"
+    | "is_false";
+  column?: string;
+  values?: string[];
+  nullVacuousOverride?: boolean;
+};
+
+export type StatsigMetric = {
+  name: string;
+  type:
+    | "ratio"
+    | "sum"
+    | "composite"
+    | "mean"
+    | "event_count_custom"
+    | "event_user"
+    | "funnel"
+    | "undefined"
+    | "setup_incomplete"
+    | "composite_sum"
+    | "import_window"
+    | "user_warehouse"
+    | "count_distinct";
+  directionality: "increase" | "decrease";
+  id: string;
+  lineage: {
+    events: string[];
+    metrics: string[];
+  };
+  isVerified?: boolean;
+  isReadOnly?: boolean;
+  unitTypes?: string[];
+  metricEvents?: {
+    name: string;
+    type?: "count" | "count_distinct" | "value" | "metadata";
+    metadataKey?: string;
+    criteria?: StatsigMetricCriteria[];
+  }[];
+  metricComponentMetrics?: {
+    name: string;
+    type: string;
+  }[];
+  description?: string;
+  tags?: string[];
+  isPermanent?: boolean;
+  rollupTimeWindow?: string;
+  customRollUpStart?: number;
+  customRollUpEnd?: number;
+  funnelEventList?: {
+    name: string;
+    type: "event_dau" | "event_user" | "event_count" | "event_count_custom";
+  }[];
+  funnelCountDistinct?: "events" | "users";
+  warehouseNative?: {
+    aggregation?: StatsigMetricAggregation;
+    metricSourceName?: string;
+    criteria?: StatsigMetricCriteria[];
+    waitForCohortWindow?: boolean;
+    denominatorCriteria?: StatsigMetricCriteria[];
+    denominatorAggregation?: StatsigMetricAggregation;
+    denominatorCustomRollupEnd?: number;
+    denominatorCustomRollupStart?: number;
+    denominatorMetricSourceName?: string;
+    denominatorRollupTimeWindow?: string;
+    denominatorValueColumn?: string;
+    funnelCalculationWindow?: number;
+    funnelCountDistinct?: "sessions" | "users";
+    funnelEvents?: {
+      criteria?: StatsigMetricCriteria[];
+      metricSourceName?: string;
+      name?: string;
+      sessionIdentifierField?: string | null;
+    }[];
+    funnelStartCriteria?: "start_event" | "exposure";
+    metricDimensionColumns?: string[];
+    metricBakeDays?: number;
+    numeratorAggregation?: StatsigMetricAggregation;
+    valueColumn?: string;
+    valueThreshold?: number;
+    allowNullRatioDenominator?: boolean;
+    funnelStrictOrdering?: boolean;
+    funnelUseExposureAsFirstEvent?: boolean;
+    funnelTimestampAllowanceMs?: number;
+    funnelTimeToConvert?: boolean;
+    winsorizationHigh?: number;
+    winsorizationLow?: number;
+    winsorizationHighDenominator?: number;
+    winsorizationLowDenominator?: number;
+    cupedAttributionWindow?: number;
+    rollupTimeWindow?: string;
+    customRollUpStart?: number;
+    customRollUpEnd?: number;
+    onlyIncludeUsersWithConversionEvent?: boolean;
+    denominatorCustomRollupMeasureInMinutes?: boolean;
+    customRollupMeasureInMinutes?: boolean;
+    percentile?: number;
+    useLogTransform?: boolean;
+    useSecondaryRetentionEvent?: boolean;
+    retentionEnd?: number;
+    retentionLength?: number;
+    logTransformBase?: number | null;
+    cap?: number;
+    surrogateMetricMSE?: number | null;
+  };
+  team?: string | null;
+  teamID?: string | null;
+  dryRun?: boolean;
+  isHidden?: boolean;
+  creatorName?: string | null;
+  creatorEmail?: string | null;
+  createdTime?: number;
+  lastModifierID?: string | null;
+  lastModifiedTime?: number | null;
+  lastModifierEmail?: string | null;
+  lastModifierName?: string | null;
+  owner?: {
+    name: string;
+    ownerID?: string;
+    ownerType?: string;
+    ownerName?: string;
+    ownerEmail?: string;
+  };
+};
+
+export type StatsigMetricAggregation =
+  | "count"
+  | "sum"
+  | "mean"
+  | "daily_participation"
+  | "ratio"
+  | "funnel"
+  | "count_distinct"
+  | "percentile"
+  | "first_value"
+  | "latest_value"
+  | "retention"
+  | "max"
+  | "min";
 
 // API Response types
 export type StatsigFeatureGatesResponse = {

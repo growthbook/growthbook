@@ -1,14 +1,16 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
+import {
+  EventWebHookInterface,
+  EventWebHookMethod,
+} from "shared/types/event-webhook";
+import { LegacyNotificationEvent } from "shared/types/events/notification-events";
+import { NotificationEventName } from "shared/types/events/event";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
   updateEventWebHookStatus,
 } from "back-end/src/models/EventWebhookModel";
-import {
-  EventWebHookInterface,
-  EventWebHookMethod,
-} from "back-end/types/event-webhook";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel";
 import { logger } from "back-end/src/util/logger";
@@ -18,8 +20,6 @@ import {
   getSlackMessageForLegacyNotificationEvent,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
-import { LegacyNotificationEvent } from "back-end/src/events/notification-events";
-import { NotificationEventName } from "back-end/types/event";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
 import {

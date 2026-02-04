@@ -5,9 +5,9 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ReactElement, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
@@ -132,14 +132,17 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  // Scope features to the experiment's project (or all features if experiment has no project)
+  const { features, mutate: mutateFeatures } = useFeaturesList({
+    project: experiment.project,
+    useCurrentProject: false,
+  });
 
   // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
     // Skip features that already have this experiment
     if (experiment.linkedFeatures?.includes(f.id)) return false;
-    if ((experiment.project || "") !== (f.project || "")) return false;
     return true;
   });
 
@@ -430,6 +433,8 @@ export default function FeatureFromExperimentModal({
               value={form.watch(`variations.${i}.value`) || ""}
               setValue={(v) => form.setValue(`variations.${i}.value`, v)}
               valueType={form.watch("valueType")}
+              useCodeInput={true}
+              showFullscreenButton={true}
             />
           ))}
         </div>

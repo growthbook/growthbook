@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

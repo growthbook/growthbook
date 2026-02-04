@@ -1,9 +1,9 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { OrganizationSettings } from "back-end/types/organization";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -14,8 +14,8 @@ import { kebabCase } from "lodash";
 import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
-import { FeatureEnvironment } from "back-end/types/feature";
-import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { FeatureEnvironment } from "shared/types/feature";
+import { HoldoutInterface } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -45,10 +45,10 @@ import variationInputStyles from "@/components/Features/VariationsInput.module.s
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import ExperimentMetricsSelector from "../Experiment/ExperimentMetricsSelector";
-import StatsEngineSelect from "../Settings/forms/StatsEngineSelect";
-import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
-import MultiSelectField from "../Forms/MultiSelectField";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -349,8 +349,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const prerequisiteAlert = hasSDKWithNoPrerequisites ? (
     <Callout status={hasSDKWithPrerequisites ? "warning" : "error"} mb="4">
       {hasSDKWithPrerequisites
-        ? "Some of your SDK Connections in this Project may not support Prerequisite evaluation, which is mandatory for Holdouts."
-        : "None of your SDK Connections in this Project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
+        ? "Some of your SDK Connections in this project may not support Prerequisite evaluation, which is mandatory for Holdouts."
+        : "None of your SDK Connections in this project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
       <Link
         href={"/sdks"}
         weight="bold"

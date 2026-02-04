@@ -83,6 +83,7 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
+        style={{ whiteSpace: "nowrap" }}
       >
         Talk to Sales <PiArrowSquareOut size={15} />
       </Link>

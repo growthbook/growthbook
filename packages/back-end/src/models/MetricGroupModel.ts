@@ -1,5 +1,5 @@
-import { metricGroupValidator } from "back-end/src/routers/metric-group/metric-group.validators";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { metricGroupValidator } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -14,6 +14,11 @@ const BaseClass = MakeModelClass({
   },
   globallyUniqueIds: false,
   additionalIndexes: [{ fields: { organization: 1, id: 1 } }],
+  defaultValues: {
+    owner: "",
+    tags: [],
+    archived: false,
+  },
 });
 
 export class MetricGroupModel extends BaseClass {
@@ -33,5 +38,22 @@ export class MetricGroupModel extends BaseClass {
 
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteMetricGroup();
+  }
+
+  findByMetric(metricId: string): Promise<MetricGroupInterface[]> {
+    return this._find({
+      metrics: metricId,
+    });
+  }
+
+  async removeMetricFromAllGroups(metricId: string): Promise<void> {
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, metrics: metricId },
+      {
+        // @ts-expect-error - not sure why $pull is complaining, but it works
+        $pull: { metrics: metricId },
+        $set: { dateUpdated: new Date() },
+      },
+    );
   }
 }

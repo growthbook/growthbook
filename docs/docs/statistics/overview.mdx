@@ -58,7 +58,7 @@ You can read more about how we use the prior and your experiment data to produce
 ### Inferential Statistics
 
 GrowthBook uses fast estimation techniques to quickly generate inferential statistics at scale for every metric in an experiment -
-Chance to Win, Relative Uplift, and Risk (or expected loss).
+Chance to Win and Relative Uplift (along with Absolute Change and Scaled Impact).
 
 **Chance to Win** is straight forward. It is simply the probability that a variation is better.
 You typically want to wait until this reaches 95% (or 5% if it's worse).
@@ -71,10 +71,6 @@ probability distribution using a violin plot:
 We have found this tends to lead to more accurate interpretations. For example, instead of
 just reading the above as _"it’s 17% better"_, people tend to factor in the error bars (_"it’s
 about 17% better, but there’s a lot of uncertainty still"_).
-
-**Risk** (or expected loss) can be interpreted as, "If I stop the test now and choose variation X, under the scenarios where variation X is worse, how much am I expected to lose?"
-This is shown as a relative percent change - so if your baseline metric value is \$5/user, a 10% risk equates to losing \$0.50/user.
-You can specify your risk tolerance thresholds on a per-metric basis.
 
 GrowthBook gives the human decision maker everything they need to weigh the results against external factors to determine when to stop an experiment and which variation to declare the winner.
 

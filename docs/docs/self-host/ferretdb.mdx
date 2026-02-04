@@ -7,9 +7,7 @@ description: How to use FerretDB with GrowthBook
 
 FerretDB is a MongoDB-compatible database that is open source and free to use. It serves as a drop-in replacement for MongoDB, converting MongoDB wire protocol queries to SQL and using PostgreSQL as its backend storage engine.
 
-:::info
 For organizations that require a 100% open-source stack, FerretDB provides a truly open-source MongoDB-compatible database alternative—free from SSPL licensing restrictions—allowing you to run GrowthBook without any proprietary database dependencies.
-:::
 
 ## Install FerretDB
 
@@ -30,7 +28,7 @@ docker run -d \
 
 Replace `username`, `password`, and `<ferretdb-host>` with your FerretDB connection details.
 
-:::note
+:::note Container network access
 Ensure that the FerretDB instance is accessible to the GrowthBook container. If both are running in Docker, make sure they're on the same network.
 :::
 

@@ -1,11 +1,11 @@
 import { createClient, ResponseJSON } from "@clickhouse/client";
-import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import {
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
-} from "back-end/src/types/Integration";
+} from "shared/types/integrations";
+import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -65,6 +65,9 @@ export default class ClickHouse extends SqlIntegration {
       .toISOString()
       .substr(0, 19)
       .replace("T", " ")}', 'UTC')`;
+  }
+  getCurrentTimestamp(): string {
+    return `now()`;
   }
   addTime(
     col: string,

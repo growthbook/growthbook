@@ -40,6 +40,7 @@ export type SelectFieldProps = Omit<
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
   forceUndefinedValueToNull?: boolean;
+  useMultilineLabels?: boolean;
 };
 
 export function useSelectOptions(
@@ -123,10 +124,17 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
-    option: (styles, { isFocused }) => {
+    option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,
         color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+        ...(isDisabled
+          ? {
+              opacity: 0.5,
+              color: "var(--text-color-muted)",
+              cursor: "not-allowed",
+            }
+          : {}),
       };
     },
     input: (styles) => {
@@ -144,6 +152,18 @@ export const ReactSelectProps = {
   },
   menuPosition: "fixed" as const,
   isSearchable: true,
+};
+
+const multilineStyles = {
+  singleValue: (styles: Record<string, unknown>) => ({
+    ...styles,
+    color: "var(--text-color-main)",
+    whiteSpace: "normal",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    lineHeight: "1.1",
+  }),
 };
 
 const SelectField: FC<SelectFieldProps> = ({
@@ -169,6 +189,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isOptionDisabled,
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
+  useMultilineLabels = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -222,6 +243,10 @@ const SelectField: FC<SelectFieldProps> = ({
             {createable ? (
               <CreatableSelect
                 {...ReactSelectProps}
+                styles={{
+                  ...ReactSelectProps.styles,
+                  ...(useMultilineLabels ? multilineStyles : {}),
+                }}
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
@@ -281,6 +306,10 @@ const SelectField: FC<SelectFieldProps> = ({
             ) : (
               <ReactSelect
                 {...ReactSelectProps}
+                styles={{
+                  ...ReactSelectProps.styles,
+                  ...(useMultilineLabels ? multilineStyles : {}),
+                }}
                 id={id}
                 ref={ref}
                 isClearable={isClearable}

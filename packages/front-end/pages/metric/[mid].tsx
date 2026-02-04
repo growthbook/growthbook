@@ -9,16 +9,12 @@ import React, {
 } from "react";
 import Link from "next/link";
 import { FaQuestionCircle, FaTimes } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import { IdeaInterface } from "back-end/types/idea";
+import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
 import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import useApi from "@/hooks/useApi";
@@ -64,7 +60,6 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
-import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -81,10 +76,8 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization } = useUser();
 
-  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
-    useState(false);
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
   const [editTags, setEditTags] = useState(false);
@@ -322,30 +315,10 @@ const MetricPage: FC = () => {
             ...metric,
             name: metric.name + " (copy)",
             // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
-            managedBy:
-              metric.managedBy === "admin" &&
-              permissionsUtil.canCreateOfficialResources(metric)
-                ? "admin"
-                : "",
+            managedBy: "",
           }}
           close={() => setDuplicateModalOpen(false)}
           source="metrics-detail"
-        />
-      )}
-      {showConvertToOfficialModal && (
-        <OfficialResourceModal
-          resourceType="Metric"
-          source="metric-page"
-          close={() => setShowConvertToOfficialModal(false)}
-          onSubmit={async () => {
-            await apiCall(`/metric/${metric.id}`, {
-              method: "PUT",
-              body: JSON.stringify({
-                managedBy: "admin",
-              }),
-            });
-            await mutateDefinitions();
-          }}
         />
       )}
       {editTags && (
@@ -479,18 +452,6 @@ const MetricPage: FC = () => {
                 Edit metric
               </Button>
             ) : null}
-            {!metric.managedBy &&
-            canEditMetric &&
-            permissionsUtil.canCreateOfficialResources(metric) &&
-            hasCommercialFeature("manage-official-resources") ? (
-              <Button
-                className="btn dropdown-item py-2"
-                color=""
-                onClick={() => setShowConvertToOfficialModal(true)}
-              >
-                Convert to Official Metric
-              </Button>
-            ) : null}
             {canDuplicateMetric ? (
               <Button
                 className="btn dropdown-item py-2"
@@ -616,6 +577,8 @@ const MetricPage: FC = () => {
                                 throw new Error(
                                   `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                                 );
+                              } else if (responseData.message) {
+                                throw new Error(responseData.message);
                               } else {
                                 throw new Error("Error getting AI suggestion");
                               }
@@ -1349,29 +1312,6 @@ const MetricPage: FC = () => {
                     <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
-                    </span>
-                  </li>
-                </ul>
-              </RightRailSectionGroup>
-
-              <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled mb-4">
-                  <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
-                    </small>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>

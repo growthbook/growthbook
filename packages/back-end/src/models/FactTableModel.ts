@@ -10,10 +10,11 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   ColumnInterface,
-} from "back-end/types/fact-table";
-import { ApiFactTable, ApiFactTableFilter } from "back-end/types/openapi";
-import { ReqContext } from "back-end/types/organization";
+} from "shared/types/fact-table";
+import { ApiFactTable, ApiFactTableFilter } from "shared/types/openapi";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -47,6 +48,7 @@ const factTableSchema = new mongoose.Schema({
       topValuesDate: Date,
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
+      lockedAutoSlices: [String],
     },
   ],
   columnsError: String,
@@ -63,6 +65,7 @@ const factTableSchema = new mongoose.Schema({
     },
   ],
   archived: Boolean,
+  autoSliceUpdatesEnabled: Boolean,
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -199,6 +202,18 @@ export async function getFactTablesByIds(
   );
 }
 
+// Get all fact tables with auto-slice updates enabled across all organizations.
+// Used by scheduled jobs that need to query across organizations.
+export async function getAllFactTablesWithAutoSliceUpdatesEnabled(): Promise<
+  FactTableInterface[]
+> {
+  const docs = await FactTableModel.find({
+    autoSliceUpdatesEnabled: true,
+    archived: { $ne: true },
+  });
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
@@ -228,14 +243,10 @@ export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
-  {
-    bypassManagedByCheck,
-  }: {
-    bypassManagedByCheck?: boolean;
-  } = {},
 ) {
+  // Allow changing columns even for API-managed fact tables
   if (
-    !bypassManagedByCheck &&
+    Object.keys(changes).some((k) => k !== "columns") &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
@@ -565,6 +576,26 @@ export async function deleteFactTable(
     id: factTable.id,
     organization: factTable.organization,
   });
+}
+
+export async function deleteAllFactTablesForAProject({
+  projectId,
+  context,
+}: {
+  projectId: string;
+  context: ReqContext | ApiReqContext;
+}) {
+  const factTablesToDelete = await FactTableModel.find({
+    organization: context.org.id,
+    projects: [projectId],
+  });
+
+  await promiseAllChunks(
+    factTablesToDelete.map(
+      (factTable) => async () => await deleteFactTable(context, factTable),
+    ),
+    5,
+  );
 }
 
 export async function deleteFactFilter(

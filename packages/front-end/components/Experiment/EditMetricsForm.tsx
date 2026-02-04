@@ -3,15 +3,15 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -24,6 +24,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -37,7 +38,6 @@ export interface EditMetricsFormInterface {
   activationMetric: string;
   metricOverrides: MetricOverride[];
   customMetricSlices?: CustomMetricSlice[];
-  pinnedMetricSlices?: string[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -139,13 +139,11 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
-    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -156,6 +154,13 @@ const EditMetricsForm: FC<{
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
 
+  const datasource = getDatasourceById(experiment.datasource);
+  const isExperimentIncludedInIncrementalRefresh =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+    );
+
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       goalMetrics: experiment.goalMetrics || [],
@@ -164,7 +169,6 @@ const EditMetricsForm: FC<{
       activationMetric: experiment.activationMetric || "",
       metricOverrides: defaultMetricOverrides,
       customMetricSlices: experiment.customMetricSlices || [],
-      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
     },
   });
   const { apiCall } = useAuth();
@@ -190,7 +194,6 @@ const EditMetricsForm: FC<{
       size="lg"
       open={true}
       close={cancel}
-      ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
@@ -203,6 +206,8 @@ const EditMetricsForm: FC<{
       cta="Save"
     >
       <ExperimentMetricsSelector
+        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+        excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}
@@ -224,6 +229,7 @@ const EditMetricsForm: FC<{
             : undefined
         }
         filterConversionWindowMetrics={isHoldout}
+        experimentId={experiment.id}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (
@@ -247,7 +253,7 @@ const EditMetricsForm: FC<{
               <span className="font-italic">
                 Users must convert on this metric before being included.{" "}
               </span>
-              <MetricsSelectorTooltip onlyBinomial={true} />
+              <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
             </div>
             <MetricSelector
               initialOption="None"
@@ -271,15 +277,6 @@ const EditMetricsForm: FC<{
             setCustomMetricSlices={(slices) =>
               form.setValue(
                 "customMetricSlices" as keyof EditMetricsFormInterface,
-                slices,
-              )
-            }
-            pinnedMetricSlices={
-              (form.watch("pinnedMetricSlices") as string[]) || []
-            }
-            setPinnedMetricSlices={(slices) =>
-              form.setValue(
-                "pinnedMetricSlices" as keyof EditMetricsFormInterface,
                 slices,
               )
             }
@@ -314,9 +311,9 @@ const EditMetricsForm: FC<{
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={form}
-                  disabled={!hasOverrideMetricsFeature}
-                  setHasMetricOverrideRiskError={(v: boolean) =>
-                    setHasMetricOverrideRiskError(v)
+                  disabled={
+                    !hasOverrideMetricsFeature ||
+                    isExperimentIncludedInIncrementalRefresh
                   }
                 />
                 {!hasOverrideMetricsFeature && (

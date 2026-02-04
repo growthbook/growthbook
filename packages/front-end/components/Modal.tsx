@@ -19,6 +19,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
+import styles from "./Modal.module.scss";
 
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
@@ -71,7 +72,9 @@ type ModalProps = {
   aboveBodyContent?: ReactNode;
   useRadixButton?: boolean;
   borderlessHeader?: boolean;
+  backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
+  onBackdropClick?: () => void;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -120,7 +123,9 @@ const Modal: FC<ModalProps> = ({
   useRadixButton,
   aboveBodyContent = null,
   borderlessHeader = false,
+  backgroundlessHeader = false,
   borderlessFooter = false,
+  onBackdropClick,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
@@ -180,7 +185,11 @@ const Modal: FC<ModalProps> = ({
     >
       {loading && <LoadingOverlay />}
       {header ? (
-        <div className={clsx("modal-header", headerClassName)}>
+        <div
+          className={clsx("modal-header", headerClassName, {
+            [styles["modal-header-backgroundless"]]: backgroundlessHeader,
+          })}
+        >
           <div>
             <h4 className="modal-title">
               {header === "logo" ? (
@@ -237,7 +246,7 @@ const Modal: FC<ModalProps> = ({
       )}
       <div
         className={`modal-body ${bodyClassName} ${
-          !header && (!close || !showHeaderCloseButton) ? "ml-4 mt-2" : ""
+          !header && (!close || !showHeaderCloseButton) ? "mt-2" : ""
         }`}
         ref={bodyRef}
         style={
@@ -322,7 +331,12 @@ const Modal: FC<ModalProps> = ({
                 className={fullWidthSubmit ? "w-100" : ""}
               >
                 {useRadixButton ? (
-                  <Button type="submit" disabled={!ctaEnabled} ml="3">
+                  <Button
+                    type="submit"
+                    disabled={!ctaEnabled}
+                    ml="3"
+                    color={submitColor === "danger" ? "red" : undefined}
+                  >
                     {cta}
                   </Button>
                 ) : (
@@ -392,6 +406,9 @@ const Modal: FC<ModalProps> = ({
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
       onClick={(e) => {
+        if (onBackdropClick && e.target === e.currentTarget) {
+          onBackdropClick();
+        }
         e.stopPropagation();
       }}
     >

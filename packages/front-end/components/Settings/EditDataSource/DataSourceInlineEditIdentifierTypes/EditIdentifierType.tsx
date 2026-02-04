@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import Dialog from "@/ui/Dialog";
 
@@ -74,7 +74,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
       cta="Save"
       ctaEnabled={saveEnabled}
-      trigger={trigger}
+      trackingEventModalType=""
     >
       <Field
         label="Identifier Type"

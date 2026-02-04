@@ -123,6 +123,8 @@ import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
+import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
+import { importingRouter } from "./routers/importing/importing.router";
 
 const app = express();
 
@@ -166,7 +168,7 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
 
 app.use(cookieParser());
 
-// Health check route (does not require JWT or cors)
+// Health check route  (does not require JWT or cors)
 app.get("/healthcheck", (req, res) => {
   // TODO: more robust health check?
   res.status(200).json({
@@ -234,8 +236,8 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "1mb" }));
+// increase max payload json size to 2mb
+app.use(bodyParser.json({ limit: "2mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -508,6 +510,10 @@ app.post(
   "/query/user-exposures",
   datasourcesController.runUserExperimentExposuresQuery,
 );
+app.post(
+  "/query/feature-eval-diagnostic",
+  datasourcesController.postFeatureEvalDiagnostics,
+);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
@@ -611,6 +617,10 @@ app.post(
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
+app.get(
+  "/experiment/:id/incremental-refresh",
+  experimentsController.getExperimentIncrementalRefresh,
+);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post(
   "/experiment/:id/targeting",
@@ -799,6 +809,15 @@ app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
 app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);
+app.get(
+  "/feature/:id/prerequisite-states",
+  featuresController.getPrerequisiteStates,
+);
+app.post(
+  "/feature/:id/batch-prerequisite-states",
+  featuresController.postBatchPrerequisiteStates,
+);
+app.get("/features/names", featuresController.getFeatureNames);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -931,16 +950,29 @@ app.use("/upload", uploadRouter);
 app.use("/teams", teamRouter);
 
 // Admin
-app.get("/admin/organizations", adminController.getOrganizations);
-app.put("/admin/organization", adminController.putOrganization);
-app.put("/admin/organization/disable", adminController.disableOrganization);
-app.put("/admin/organization/enable", adminController.enableOrganization);
+app.get(
+  "/admin/organizations",
+  adminController._dangerousAdminGetOrganizations,
+);
+app.put("/admin/organization", adminController._dangerousAdminPutOrganization);
+app.put(
+  "/admin/organization/disable",
+  adminController._dangerousAdminDisableOrganization,
+);
+app.put(
+  "/admin/organization/enable",
+  adminController._dangerousAdminEnableOrganization,
+);
 app.get(
   "/admin/organization/:orgId/members",
-  adminController.getOrganizationMembers,
+  adminController._dangerousAdminGetOrganizationMembers,
 );
-app.get("/admin/members", adminController.getMembers);
-app.put("/admin/member", adminController.putMember);
+app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.put("/admin/member", adminController._dangerousAdminPutMember);
+app.post(
+  "/admin/sso-connection",
+  adminController._dangerousAdminUpsertSSOConnection,
+);
 
 // License
 app.get("/license", licenseController.getLicenseData);
@@ -969,6 +1001,12 @@ app.get(
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);
+
+// Custom Hooks
+app.use("/custom-hooks", customHooksRouter);
+
+// 3rd party data importing proxy
+app.use("/importing", importingRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

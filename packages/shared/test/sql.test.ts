@@ -1,4 +1,10 @@
-import { ensureLimit, isMultiStatementSQL, isReadOnlySQL } from "../src/sql";
+import {
+  decodeSQLResults,
+  encodeSQLResults,
+  ensureLimit,
+  isMultiStatementSQL,
+  isReadOnlySQL,
+} from "../src/sql";
 
 describe("ensureLimit", () => {
   describe("already has LIMIT and OFFSET clauses", () => {
@@ -250,6 +256,10 @@ describe("isReadOnlySQL", () => {
     const sql = `-- /*\nDROP TABLE users\n-- */ SELECT 1`;
     expect(isReadOnlySQL(sql)).toBe(false);
   });
+  it("cannot be tricked by nested comments and an IN clause", () => {
+    const sql = `-- /*\nDELETE FROM users WHERE id NOT IN (--*/\nSELECT 1)`;
+    expect(isReadOnlySQL(sql)).toBe(false);
+  });
 });
 describe("isMultiStatementSQL", () => {
   it("should return true for multiple statements", () => {
@@ -346,9 +356,72 @@ describe("isMultiStatementSQL", () => {
     const sql = `SELECT \`It\`\`s a test\`; DROP TABLE users; SELECT \`1\`;`;
     expect(isMultiStatementSQL(sql)).toBe(true);
   });
-
-  it("is conservative with dialects that don't support backslash escaping", () => {
-    const sql = `SELECT 'It\\'; DROP TABLE users; SELECT '1'`;
+  it("allows parse errors as long as there are no semicolons", () => {
+    const sql = `SELECT 'It\\'`;
+    expect(isMultiStatementSQL(sql)).toBe(false);
+  });
+  it("allows parse errors as long as there is only a trailing semicolon", () => {
+    const sql = `SELECT 'It\\'; `;
+    expect(isMultiStatementSQL(sql)).toBe(false);
+  });
+  it("blocks all internal semicolons when there is a parse error", () => {
+    const sql = `SELECT 'It\\'; DROP TABLE users`;
     expect(isMultiStatementSQL(sql)).toBe(true);
+  });
+});
+
+describe("encodeSQLResults", () => {
+  it("should encode and decode SQL results correctly", () => {
+    const results = [
+      { id: 1, name: "Alice", age: 30 },
+      { id: 2, name: "Bob", age: 25 },
+      { id: 3, name: "Charlie", age: 35 },
+    ];
+
+    const encoded = encodeSQLResults(results);
+    expect(encoded).toEqual([
+      {
+        numRows: 3,
+        data: {
+          id: [1, 2, 3],
+          name: ["Alice", "Bob", "Charlie"],
+          age: [30, 25, 35],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual(results);
+  });
+
+  it("should chunk results", () => {
+    const results = [
+      { id: 1, name: "Alice", age: 30 },
+      { id: 2, name: "Bob", age: 25 },
+      { id: 3, name: "Charlie", age: 35 },
+    ];
+
+    const encoded = encodeSQLResults(results, 50);
+    expect(encoded).toEqual([
+      {
+        numRows: 2,
+        data: {
+          id: [1, 2],
+          name: ["Alice", "Bob"],
+          age: [30, 25],
+        },
+      },
+      {
+        numRows: 1,
+        data: {
+          id: [3],
+          name: ["Charlie"],
+          age: [35],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual(results);
   });
 });

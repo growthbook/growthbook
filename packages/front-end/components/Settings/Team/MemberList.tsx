@@ -1,9 +1,10 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import { ExpandedMember } from "back-end/types/organization";
+import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
+import { getRoleDisplayName } from "shared/permissions";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -18,18 +19,21 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
+import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
 
 const MemberList: FC<{
   mutate: () => void;
   project: string;
   canEditRoles?: boolean;
+  canEditProjectRoles?: boolean; // Some users with the project-admin role can't edit global roles, but they can edit roles for a specific project
   canDeleteMembers?: boolean;
   canInviteMembers?: boolean;
 }> = ({
   mutate,
   project,
   canEditRoles = true,
+  canEditProjectRoles = false,
   canDeleteMembers = true,
   canInviteMembers = true,
 }) => {
@@ -37,6 +41,7 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
+  const [projectRoleModal, setProjectRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] =
     useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
@@ -53,6 +58,7 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
+  const projectRoleModalUser = users.get(projectRoleModal);
 
   const members = Array.from(users).sort((a, b) =>
     a[1].name.localeCompare(b[1].name),
@@ -82,6 +88,30 @@ const MemberList: FC<{
       {canInviteMembers && inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
+      {projectRoleModal && projectRoleModalUser && (
+        <ChangeProjectRoleModal
+          memberName={projectRoleModalUser.name || projectRoleModalUser.email}
+          projectRole={
+            projectRoleModalUser.projectRoles?.find(
+              (r) => r.project === project,
+            ) || {
+              role: projectRoleModalUser.role,
+              environments: projectRoleModalUser.environments || [],
+              limitAccessByEnvironment:
+                projectRoleModalUser.limitAccessByEnvironment || false,
+              project: project,
+            }
+          }
+          close={() => setProjectRoleModal("")}
+          onConfirm={async (value) => {
+            await apiCall(`/member/${projectRoleModal}/project-role`, {
+              method: "PUT",
+              body: JSON.stringify({ projectRole: value }),
+            });
+            mutate();
+          }}
+        />
+      )}
       {canEditRoles && roleModal && roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}
@@ -91,8 +121,7 @@ const MemberList: FC<{
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
           }}
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-          close={() => setRoleModal(null)}
+          close={() => setRoleModal("")}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
               method: "PUT",
@@ -175,7 +204,7 @@ const MemberList: FC<{
                     <td>
                       {member.lastLoginDate && date(member.lastLoginDate)}
                     </td>
-                    <td>{roleInfo.role}</td>
+                    <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
                     {!project && (
                       <td className="col-2">
                         {member.projectRoles?.map((pr) => {
@@ -187,7 +216,7 @@ const MemberList: FC<{
                                   resourceType="member"
                                   projectIds={[p.id]}
                                 />{" "}
-                                — {pr.role}
+                                — {getRoleDisplayName(pr.role, organization)}
                               </div>
                             );
                           }
@@ -217,18 +246,31 @@ const MemberList: FC<{
                     <td>{member.teams ? member.teams.length : 0}</td>
 
                     <td>
-                      {canEditRoles && member.id !== userId && (
+                      {member.id !== userId && (
                         <>
                           <MoreMenu>
-                            <button
-                              className="dropdown-item"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setRoleModal(member.id);
-                              }}
-                            >
-                              Edit Role
-                            </button>
+                            {canEditRoles && (
+                              <button
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setRoleModal(member.id);
+                                }}
+                              >
+                                Edit Role
+                              </button>
+                            )}
+                            {!canEditRoles && canEditProjectRoles && (
+                              <button
+                                className="dropdown-item"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setProjectRoleModal(member.id);
+                                }}
+                              >
+                                Edit Project Role
+                              </button>
+                            )}
                             {canDeleteMembers && !usingSSO() && (
                               <button
                                 className="dropdown-item"

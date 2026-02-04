@@ -1,13 +1,13 @@
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import cloneDeep from "lodash/cloneDeep";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   getConnectionSDKCapabilities,
   scrubFeatures,
   scrubSavedGroups,
 } from "../src/sdk-versioning";
 import { getSavedGroupsValuesFromInterfaces } from "../util";
-import { SavedGroupInterface } from "../src/types";
 
 const baseConnection: SDKConnectionInterface = {
   id: "sdk-123",

@@ -1,6 +1,9 @@
-import { SavedGroupTargeting } from "back-end/types/feature";
-import Link from "next/link";
+import { SavedGroupTargeting } from "shared/types/feature";
+import { Flex, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
@@ -30,31 +33,43 @@ export default function SavedGroupTargetingDisplay({
     <>
       {savedGroups?.map((s, i) => {
         return (
-          <div className={"d-flex " + groupClassName} key={"savedGroup-" + i}>
-            {i || initialAnd ? <div className="mr-1">AND</div> : null}
-            <div className="mr-1">{getDescription(s)}</div>
-            <div>
-              {s.ids.length > 1 && "( "}
+          <Flex
+            wrap="wrap"
+            gap="2"
+            className={groupClassName}
+            key={"savedGroup-" + i}
+          >
+            {i || initialAnd ? <Text weight="medium">AND</Text> : null}
+            {getDescription(s)}
+            <Flex wrap="wrap" gap="2">
+              {s.ids.length > 1 && "("}
               {s.ids.map((id) => {
                 const group = getSavedGroupById(id);
-                const link =
-                  group?.type === "list"
-                    ? `/saved-groups/${group.id}`
-                    : "/saved-groups#conditionGroups";
+                if (!group) {
+                  return (
+                    <Badge key={id} color="gray" label={<Text>{id}</Text>} />
+                  );
+                }
                 return (
-                  <Link
-                    href={link}
+                  <Badge
                     key={id}
-                    className={`border px-2 bg-light rounded mr-1`}
-                    title="Manage Saved Group"
-                  >
-                    {group?.groupName || id}
-                  </Link>
+                    color="gray"
+                    label={
+                      <Link
+                        href={`/saved-groups/${group.id}`}
+                        title="Manage Saved Group"
+                        target="_blank"
+                        color="violet"
+                      >
+                        {group.groupName} <PiArrowSquareOut />
+                      </Link>
+                    }
+                  />
                 );
               })}
               {s.ids.length > 1 && ")"}
-            </div>
-          </div>
+            </Flex>
+          </Flex>
         );
       })}
     </>

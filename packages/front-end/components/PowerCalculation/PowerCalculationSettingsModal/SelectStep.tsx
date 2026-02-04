@@ -8,7 +8,7 @@ import {
 } from "shared/experiments";
 import { config, FullModalPowerCalculationParams } from "shared/power";
 import { isProjectListValidForProject } from "shared/util";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -43,6 +43,7 @@ export const SelectStep = ({
 }) => {
   const {
     metrics: appMetrics,
+    metricGroups,
     factMetrics: appFactMetrics,
     segments: appSegments,
     project,
@@ -84,7 +85,7 @@ export const SelectStep = ({
           return {
             ...exp,
             exposureQueryUserIdType: exposureQuery?.userIdType,
-            allMetrics: getAllMetricIdsFromExperiment(exp),
+            allMetrics: getAllMetricIdsFromExperiment(exp, false, metricGroups),
           };
         })
         .filter((e) => {
@@ -96,7 +97,7 @@ export const SelectStep = ({
             return false;
           return true;
         }),
-    [experiments, datasources],
+    [experiments, datasources, metricGroups],
   );
 
   const availableSegments = useMemo(

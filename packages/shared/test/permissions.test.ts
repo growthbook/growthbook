@@ -1,6 +1,5 @@
-import { roleToPermissionMap } from "back-end/src/util/organization.util";
-import { OrganizationInterface } from "back-end/types/organization";
-import { Permissions } from "../permissions";
+import { OrganizationInterface } from "shared/types/organization";
+import { roleToPermissionMap, Permissions } from "../permissions";
 
 describe("Role permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -125,7 +124,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(false);
@@ -241,7 +239,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -357,7 +354,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -473,7 +469,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -589,7 +584,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -705,7 +699,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -821,7 +814,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
     expect(p.canViewAuditLogs()).toBe(false);
     expect(p.canViewEvent(event)).toBe(true);
@@ -937,7 +929,6 @@ describe("Role permissions", () => {
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(true);
     expect(p.canViewCreateFactTableModal()).toBe(true);
-    expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(true);
     expect(p.canViewAuditLogs()).toBe(true);
     expect(p.canViewEvent(event)).toBe(true);

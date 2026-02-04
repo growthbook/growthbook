@@ -3,12 +3,9 @@ import {
   FeatureRule,
   SchemaField,
   SimpleSchema,
-} from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import {
-  OrganizationSettings,
-  RequireReview,
-} from "back-end/types/organization";
+} from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   validateFeatureValue,
   getValidation,
@@ -1306,6 +1303,57 @@ describe("validateCondition", () => {
   });
   it("returns success when condition is valid", () => {
     expect(validateCondition('{"test": true}')).toEqual({
+      success: true,
+      empty: false,
+    });
+  });
+  it("returns error when condition has unknown nested saved group id", () => {
+    expect(
+      validateCondition(
+        JSON.stringify({
+          foo: "bar",
+          $savedGroups: ["a"],
+        }),
+        new Map([
+          [
+            "known-group-id",
+            {
+              id: "known-group-id",
+              type: "condition",
+              condition: JSON.stringify({
+                bar: "baz",
+              }),
+            },
+          ],
+        ]),
+      ),
+    ).toEqual({
+      success: false,
+      empty: false,
+      error: "Condition includes invalid or cyclic saved group reference",
+    });
+  });
+  it("returns success when condition has known nested saved group id", () => {
+    expect(
+      validateCondition(
+        JSON.stringify({
+          foo: "bar",
+          $savedGroups: ["known-group-id"],
+        }),
+        new Map([
+          [
+            "known-group-id",
+            {
+              id: "known-group-id",
+              type: "condition",
+              condition: JSON.stringify({
+                bar: "baz",
+              }),
+            },
+          ],
+        ]),
+      ),
+    ).toEqual({
       success: true,
       empty: false,
     });

@@ -7,7 +7,7 @@ on:
     paths:
       - "packages/**"
       - "!**.md"
-      - "yarn.lock"
+      - "pnpm-lock.yaml"
       - "Dockerfile"
       - ".dockerignore"
     types: [opened, reopened, closed, synchronize, ready_for_review]
@@ -28,6 +28,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Generate Fly Dockerfile
+        run: cat Dockerfile preview/Dockerfile.append > preview/Dockerfile.generated
 
       - name: Setup fly cli
         uses: superfly/flyctl-actions/setup-flyctl@master

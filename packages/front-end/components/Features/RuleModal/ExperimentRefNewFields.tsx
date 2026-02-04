@@ -4,9 +4,8 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   SavedGroupTargeting,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -58,8 +57,6 @@ export default function ExperimentRefNewFields({
   project,
   environments,
   defaultValues,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -93,8 +90,6 @@ export default function ExperimentRefNewFields({
   project?: string;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -386,8 +381,6 @@ export default function ExperimentRefNewFields({
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
             feature={feature}
-            revisions={revisions}
-            version={version}
             environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
@@ -528,10 +521,6 @@ export default function ExperimentRefNewFields({
             setCustomMetricSlices={(slices) =>
               form.setValue("customMetricSlices", slices)
             }
-            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
-            setPinnedMetricSlices={(slices) =>
-              form.setValue("pinnedMetricSlices", slices)
-            }
           />
 
           <hr className="mt-4" />
@@ -556,7 +545,10 @@ export default function ExperimentRefNewFields({
                   label={
                     <>
                       Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true} />
+                      <MetricsSelectorTooltip
+                        onlyBinomial={true}
+                        isSingular={true}
+                      />
                     </>
                   }
                   initialOption="None"

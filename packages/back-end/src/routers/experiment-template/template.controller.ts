@@ -1,15 +1,15 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { getContextFromReq } from "back-end/src/services/organizations";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import {
   createTemplateValidator,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
-} from "./template.validators";
+} from "shared/validators";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 
 export const getTemplates = async (
   req: AuthRequest,
@@ -96,7 +96,7 @@ export const deleteTemplate = async (
     req.params.id,
   );
   if (!template) {
-    throw new Error("Could not find template with that id");
+    return context.throwNotFoundError("Could not find template with that id");
   }
   if (!context.permissions.canDeleteExperimentTemplate(template)) {
     context.permissions.throwPermissionError();
@@ -126,7 +126,7 @@ export const putTemplate = async (
     req.params.id,
   );
   if (!existingTemplate) {
-    throw new Error("Could not find template with that id");
+    return context.throwNotFoundError("Could not find template with that id");
   }
   if (
     !context.permissions.canUpdateExperimentTemplate(

@@ -4,18 +4,18 @@ import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { generateEmbeddings } from "back-end/src/enterprise/services/openai";
+import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -160,12 +160,9 @@ export async function insertMetric(
     );
   }
 
-  if (
-    metric.managedBy === "admin" &&
-    !context.hasPremiumFeature("manage-official-resources")
-  ) {
+  if (metric.managedBy === "admin") {
     throw new Error(
-      "Your organization's plan does not support creating official metrics.",
+      "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
     );
   }
 
@@ -189,12 +186,9 @@ export async function insertMetrics(
         "Cannot mark a metric as managed by the API outside of the API.",
       );
     }
-    if (
-      metric.managedBy === "admin" &&
-      !context.hasPremiumFeature("manage-official-resources")
-    ) {
+    if (metric.managedBy === "admin") {
       throw new Error(
-        "Your organization's plan does not support creating official metrics.",
+        "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
       );
     }
     if (!context.permissions.canCreateMetric(metric)) {
@@ -230,6 +224,9 @@ export async function deleteMetricById(
 
   // Experiments
   await removeMetricFromExperiments(context, metric.id);
+
+  // Metric Groups
+  await context.models.metricGroups.removeMetricFromAllGroups(metric.id);
 
   await MetricModel.deleteOne({
     id: metric.id,
@@ -610,17 +607,14 @@ export async function generateMetricEmbeddings(
   for (let i = 0; i < metricsToGenerateEmbeddings.length; i += batchSize) {
     const batch = metricsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((m) => getTextForEmbedding(m));
-    const embeddings = await generateEmbeddings({
-      context,
-      input,
-    });
+    const embeddings = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const m = batch[j];
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateMetricVector(m.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j],
         });
       } catch (error) {
         throw new Error("Error updating embeddings");

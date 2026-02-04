@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   PresentationInterface,
   PresentationSlide,
-} from "back-end/types/presentation";
+} from "shared/types/presentation";
 import {
   resetServerContext,
   DragDropContext,

@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime, getValidDate } from "shared/dates";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -131,9 +131,12 @@ export function scaleImpactAndSetMissingExperiments({
 
       const fitsDateFilter =
         (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
-      const hasMetric = getAllMetricIdsFromExperiment(e, false).includes(
-        metric,
-      );
+      const { metricGroups } = useDefinitions();
+      const hasMetric = getAllMetricIdsFromExperiment(
+        e,
+        false,
+        metricGroups,
+      ).includes(metric);
       const inSelectedProject =
         selectedProjects.includes(e.project ?? "") || !selectedProjects.length;
 
