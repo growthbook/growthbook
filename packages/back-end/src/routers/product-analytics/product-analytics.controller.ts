@@ -35,7 +35,7 @@ export const postProductAnalyticsRun = async (
   const context = getContextFromReq(req);
 
   const config = productAnalyticsConfigValidator.parse(req.body.config);
-
+  console.log("config", config);
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
   let datasource: DataSourceInterface | null = null;

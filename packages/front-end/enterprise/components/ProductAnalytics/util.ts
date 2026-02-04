@@ -25,7 +25,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
-        unit: null,
+        unit: "user_id",
       } as FactTableValue;
     case "sql":
       return {

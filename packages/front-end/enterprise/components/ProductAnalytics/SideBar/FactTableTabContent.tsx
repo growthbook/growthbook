@@ -37,6 +37,7 @@ export default function FactTableTabContent() {
         ? getFactTableById(dataset.factTableId ?? "")
         : null;
 
+    // console.log("factTable", factTable);
     const numericColumns =
         factTable?.columns?.filter((c) => c.datatype === "number") ?? [];
     const allColumns =

@@ -204,7 +204,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           ...prev,
           dataset: {
             ...prev.dataset,
-            values: [...prev.dataset.values, value],
+            values: [...prev.dataset.values.slice(0, index), value, ...prev.dataset.values.slice(index + 1)],
           },
         } as ProductAnalyticsConfig;
       });
