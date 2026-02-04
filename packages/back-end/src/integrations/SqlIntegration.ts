@@ -4551,7 +4551,7 @@ export default abstract class SqlIntegration
   }
   SELECT
     bps.variation
-    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+    ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
     , SUM(bps.users) AS users
     ${metricData
       .map((data) => {
@@ -4866,7 +4866,7 @@ export default abstract class SqlIntegration
     }
     SELECT
       bps.variation
-      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+      ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
       , SUM(bps.users) AS users
       ${metricData
         .map((data) => {
