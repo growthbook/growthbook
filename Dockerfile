@@ -58,7 +58,7 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && pnpm install --frozen-lockfile --prod --no-optional \
+  && pnpm install --frozen-lockfile --prod \
   && pnpm store prune \
   && find node_modules -type f -name "*.md" -delete \
   && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
