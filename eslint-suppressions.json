@@ -114,6 +114,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Experiment/DrilldownTooltip.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Experiment/EditDescriptionModal.tsx": {
     "no-restricted-imports": {
       "count": 1
