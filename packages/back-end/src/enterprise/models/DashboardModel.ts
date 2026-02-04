@@ -389,7 +389,6 @@ export class DashboardModel extends BaseClass {
     updates: UpdateProps<DashboardDocument>,
     newDoc: DashboardDocument,
   ) {
-    console.log("beforeUpdate", existing, updates, newDoc);
     // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
     if (updates.enableAutoUpdates === false) {
       // Auto-updates being disabled - clear the nextUpdate
