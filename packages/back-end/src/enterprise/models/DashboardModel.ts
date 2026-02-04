@@ -112,6 +112,10 @@ export class DashboardModel extends BaseClass {
     return this._find({ experimentId, ...additionalFilter });
   }
 
+  public async getAllNonExperimentDashboards(): Promise<DashboardInterface[]> {
+    return this._find({ experimentId: null });
+  }
+
   public static async getDashboardsToUpdate(): Promise<
     Array<{
       id: string;

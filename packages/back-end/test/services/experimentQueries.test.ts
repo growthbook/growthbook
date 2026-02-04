@@ -42,20 +42,130 @@ describe("experimentQueries", () => {
         ).toBe(baseExpectedCols + 4);
       });
 
-      it("should return 4 columns for mean metric with percentile capping", () => {
+      it("should return 6 columns for mean metric with percentile capping", () => {
         const metric = factMetricFactory.build({
           metricType: "mean",
           numerator: { factTableId: "ft_1" },
           cappingSettings: { type: "percentile", value: 0.99 },
         });
-        // 1 (id) + 2 (base) + 1 (BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS) = 4
+        // 1 (id) + 2 (base) + 1 (BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS) + 2 (BASE_METRIC_FLOAT_COLS_UNCAPPED) = 6
         expect(
           maxColumnsNeededForMetric({
             metric,
             regressionAdjusted: false,
             isBandit: false,
           }),
-        ).toBe(4);
+        ).toBe(6);
+      });
+    });
+
+    describe("slice metrics vs regular metrics", () => {
+      it("should return fewer columns for slice metric (no uncapped cols) vs regular metric with percentile capping", () => {
+        const regularMetric = factMetricFactory.build({
+          id: "fact_regular",
+          metricType: "mean",
+          numerator: { factTableId: "ft_1" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+        });
+
+        // Slice metric has same settings but id contains slice query string
+        const sliceMetric = factMetricFactory.build({
+          id: "fact_regular?dim:browser=Chrome",
+          metricType: "mean",
+          numerator: { factTableId: "ft_1" },
+          cappingSettings: { type: "percentile", value: 0.99 },
+        });
+
+        const regularCols = maxColumnsNeededForMetric({
+          metric: regularMetric,
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+
+        const sliceCols = maxColumnsNeededForMetric({
+          metric: sliceMetric,
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+
+        // Regular metric: 1 (id) + 2 (base) + 1 (percentile cap) + 2 (uncapped) = 6
+        expect(regularCols).toBe(6);
+
+        // Slice metric: 1 (id) + 2 (base) + 1 (percentile cap) + 0 (NO uncapped for slices) = 4
+        expect(sliceCols).toBe(4);
+
+        // Slice metric should have 2 fewer columns (no uncapped cols)
+        expect(regularCols - sliceCols).toBe(2);
+      });
+
+      it("should return same columns for slice vs regular metric without capping", () => {
+        const regularMetric = factMetricFactory.build({
+          id: "fact_regular",
+          metricType: "mean",
+          numerator: { factTableId: "ft_1" },
+        });
+
+        const sliceMetric = factMetricFactory.build({
+          id: "fact_regular?dim:browser=Chrome",
+          metricType: "mean",
+          numerator: { factTableId: "ft_1" },
+        });
+
+        const regularCols = maxColumnsNeededForMetric({
+          metric: regularMetric,
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+
+        const sliceCols = maxColumnsNeededForMetric({
+          metric: sliceMetric,
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+
+        // Without capping, both should have same columns since uncapped cols only apply to capped metrics
+        // 1 (id) + 2 (base) = 3
+        expect(regularCols).toBe(3);
+        expect(sliceCols).toBe(3);
+      });
+
+      it("should return fewer columns for slice metric with absolute capping vs regular metric", () => {
+        const regularMetric = factMetricFactory.build({
+          id: "fact_regular",
+          metricType: "ratio",
+          numerator: { factTableId: "ft_1" },
+          denominator: { factTableId: "ft_1" },
+          cappingSettings: { type: "absolute", value: 100 },
+        });
+
+        const sliceMetric = factMetricFactory.build({
+          id: "fact_regular?dim:country=US",
+          metricType: "ratio",
+          numerator: { factTableId: "ft_1" },
+          denominator: { factTableId: "ft_1" },
+          cappingSettings: { type: "absolute", value: 100 },
+        });
+
+        const regularCols = maxColumnsNeededForMetric({
+          metric: regularMetric,
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+
+        const sliceCols = maxColumnsNeededForMetric({
+          metric: sliceMetric,
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+
+        // Regular ratio with absolute capping: 1 (id) + 2 (base) + 3 (ratio) + 5 (uncapped: 2 base + 3 ratio) = 11
+        expect(regularCols).toBe(11);
+
+        // Slice ratio: 1 (id) + 2 (base) + 3 (ratio) + 0 (NO uncapped for slices) = 6
+        expect(sliceCols).toBe(6);
+
+        // Slice metric should have 5 fewer columns (no uncapped cols for ratio)
+        expect(regularCols - sliceCols).toBe(5);
       });
     });
   });

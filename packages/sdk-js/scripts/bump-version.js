@@ -10,6 +10,11 @@ const packageJson = require("../package.json");
 // Get type of version bump from the script input
 const type = process.argv[2];
 
+if (!type) {
+  console.error("Error: Version bump type is required (major, minor, or patch)");
+  process.exit(1);
+}
+
 const version = packageJson.version.split(".");
 let major = parseInt(version[0]);
 let minor = parseInt(version[1]);
@@ -29,7 +34,7 @@ switch (type) {
     patch++;
     break;
   default:
-    console.error("Invalid version bump type", type);
+    console.error("Invalid version bump type (allowed: major, minor, patch)", type);
     process.exit(1);
 }
 
@@ -85,10 +90,16 @@ fs.writeFileSync(
   JSON.stringify(frontendPackageJson, null, 2) + "\n",
 );
 
-// Update resolution in top-level package.json
-console.log("Updating resolution in top-level package.json");
+// Update override in top-level package.json
+console.log("Updating override in top-level package.json");
 const topLevelPackageJson = require("../../../package.json");
-topLevelPackageJson.resolutions["@growthbook/growthbook"] = newVersion;
+if (!topLevelPackageJson.pnpm) {
+  topLevelPackageJson.pnpm = {};
+}
+if (!topLevelPackageJson.pnpm.overrides) {
+  topLevelPackageJson.pnpm.overrides = {};
+}
+topLevelPackageJson.pnpm.overrides["@growthbook/growthbook"] = newVersion;
 fs.writeFileSync(
   path.resolve(__dirname, "../../../package.json"),
   JSON.stringify(topLevelPackageJson, null, 2) + "\n",
@@ -144,7 +155,7 @@ fs.writeFileSync(
 
 // Run prettier to format the JSON files properly
 exec(
-  "yarn prettier --write ../shared/src/sdk-versioning/sdk-versions/{javascript,nodejs,react}.json",
+  "pnpm prettier --write ../shared/src/sdk-versioning/sdk-versions/{javascript,nodejs,react}.json",
   (err, stdout, stderr) => {
     console.log("Running prettier to format JSON files");
     if (err) {
@@ -156,7 +167,7 @@ exec(
 );
 
 // Generate a new SDK report
-exec("yarn workspace shared generate-sdk-report", (err, stdout, stderr) => {
+exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
   console.log("Generating new SDK report");
   if (err) {
     console.error(err);
@@ -166,7 +177,7 @@ exec("yarn workspace shared generate-sdk-report", (err, stdout, stderr) => {
 });
 
 // Update docs SDKInfo.ts
-exec("cd ../../docs && yarn gen-sdk-resources", (err, stdout, stderr) => {
+exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout, stderr) => {
   console.log("Updating docs SDKInfo.ts");
   if (err) {
     console.error(err);

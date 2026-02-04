@@ -28,7 +28,6 @@ import {
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
-  isBinomialMetric,
   isFactMetric,
   isMetricGroupId,
   isRatioMetric,
@@ -42,13 +41,8 @@ import {
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
 import { ReactElement } from "react";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -192,95 +186,6 @@ export type ExperimentTableRow = {
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };
-
-export function getRisk(
-  stats: SnapshotMetric,
-  baseline: SnapshotMetric,
-  metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults,
-  differenceType: DifferenceType,
-  // separate CR because sometimes "baseline" above is the variation
-  baselineCR: number,
-): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const statsRisk = stats.risk?.[1] ?? 0;
-  let risk: number;
-  let relativeRisk: number;
-  if (stats.riskType === "relative") {
-    risk = statsRisk * baselineCR;
-    relativeRisk = statsRisk;
-  } else {
-    // otherwise it is absolute, including legacy snapshots
-    // that were missing `riskType` field
-    risk = statsRisk;
-    relativeRisk = baselineCR ? statsRisk / baselineCR : 0;
-  }
-  const showRisk =
-    baseline.cr > 0 &&
-    hasEnoughData(baseline, stats, metric, metricDefaults) &&
-    !isSuspiciousUplift(
-      baseline,
-      stats,
-      metric,
-      metricDefaults,
-      differenceType,
-    );
-  return { risk, relativeRisk, showRisk };
-}
-
-export function getRiskByVariation(
-  riskVariation: number,
-  row: ExperimentTableRow,
-  metricDefaults: MetricDefaults,
-  differenceType: DifferenceType,
-) {
-  const baseline = row.variations[0];
-
-  if (riskVariation > 0) {
-    const stats = row.variations[riskVariation];
-    return getRisk(
-      stats,
-      baseline,
-      row.metric,
-      metricDefaults,
-      differenceType,
-      baseline.cr,
-    );
-  } else {
-    let risk = -1;
-    let relativeRisk = 0;
-    let showRisk = false;
-    // get largest risk for all variations as the control "risk"
-    row.variations.forEach((stats, i) => {
-      if (!i) return;
-
-      // baseline and stats are inverted here, because we want to get the risk for the control
-      // so we also use the `stats` cr for the relative risk, which in this case is actually
-      // the baseline
-      const {
-        risk: vRisk,
-        relativeRisk: vRelativeRisk,
-        showRisk: vShowRisk,
-      } = getRisk(
-        baseline,
-        stats,
-        row.metric,
-        metricDefaults,
-        differenceType,
-        baseline.cr,
-      );
-      if (vRisk > risk) {
-        risk = vRisk;
-        relativeRisk = vRelativeRisk;
-        showRisk = vShowRisk;
-      }
-    });
-    return {
-      risk,
-      relativeRisk,
-      showRisk,
-    };
-  }
-}
 
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
@@ -575,17 +480,8 @@ export type RowResults = {
   suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
-  risk: number;
-  relativeRisk: number;
-  riskMeta: RiskMeta;
-  guardrailWarning: string;
-};
-export type RiskMeta = {
-  riskStatus: "ok" | "warning" | "danger";
-  showRisk: boolean;
-  riskFormatted: string;
-  relativeRiskFormatted: string;
-  riskReason: string;
+  minPercentChange: number;
+  currentMetricTotal: number;
 };
 export type EnoughDataMetaZeroValues = {
   reason: "baselineZero" | "variationZero";
@@ -609,7 +505,6 @@ export function getRowResults({
   metric,
   denominator,
   metricDefaults,
-  isGuardrail,
   minSampleSize,
   statsEngine,
   differenceType,
@@ -620,8 +515,6 @@ export function getRowResults({
   phaseStartDate,
   isLatestPhase,
   experimentStatus,
-  displayCurrency,
-  getFactTableById,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -630,7 +523,6 @@ export function getRowResults({
   metric: ExperimentMetricInterface;
   denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
-  isGuardrail: boolean;
   minSampleSize: number;
   ciUpper: number;
   ciLower: number;
@@ -638,9 +530,7 @@ export function getRowResults({
   snapshotDate: Date;
   phaseStartDate: Date;
   isLatestPhase: boolean;
-  experimentStatus: ExperimentStatus;
-  displayCurrency: string;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  experimentStatus?: ExperimentStatus;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -740,57 +630,13 @@ export function getRowResults({
   );
   const suspiciousThreshold =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
+  const minPercentChange =
+    metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
         suspiciousThreshold,
       )}).`
     : "";
-
-  const { risk, relativeRisk, showRisk } = getRisk(
-    stats,
-    baseline,
-    metric,
-    metricDefaults,
-    differenceType,
-    baseline.cr,
-  );
-  const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
-  const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
-  let riskStatus: "ok" | "warning" | "danger" = "ok";
-  let riskReason = "";
-  if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
-    riskStatus = "warning";
-    riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk,
-    )}) exceeds the warning threshold (${percentFormatter.format(
-      winRiskThreshold,
-    )}) for this metric.`;
-  } else if (relativeRisk >= loseRiskThreshold) {
-    riskStatus = "danger";
-    riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk,
-    )}) exceeds the danger threshold (${percentFormatter.format(
-      loseRiskThreshold,
-    )}) for this metric.`;
-  }
-  let riskFormatted = "";
-
-  const isBinomial = isBinomialMetric(metric);
-
-  // TODO: support formatted risk for fact metrics
-  if (!isBinomial) {
-    riskFormatted = `${getExperimentMetricFormatter(metric, getFactTableById)(
-      risk,
-      { currency: displayCurrency },
-    )} / user`;
-  }
-  const riskMeta: RiskMeta = {
-    riskStatus,
-    showRisk,
-    riskFormatted: riskFormatted,
-    relativeRiskFormatted: percentFormatter.format(relativeRisk),
-    riskReason,
-  };
 
   const {
     belowMinChange,
@@ -852,15 +698,8 @@ export function getRowResults({
     }
   }
 
-  let guardrailWarning = "";
-  if (
-    isGuardrail &&
-    directionalStatus === "losing" &&
-    resultsStatus !== "lost"
-  ) {
-    guardrailWarning =
-      "Uplift for this guardrail metric may be in the undesired direction.";
-  }
+  // Max numerator value across baseline and variation
+  const currentMetricTotal = Math.max(baseline.value ?? 0, stats.value ?? 0);
 
   return {
     directionalStatus,
@@ -877,10 +716,8 @@ export function getRowResults({
     suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
-    risk,
-    relativeRisk,
-    riskMeta,
-    guardrailWarning,
+    minPercentChange,
+    currentMetricTotal,
   };
 }
 

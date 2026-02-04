@@ -1,6 +1,10 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import { DashboardInterface } from "shared/enterprise";
+import {
+  DashboardBlockInterface,
+  DashboardBlockInterfaceOrData,
+  DashboardInterface,
+} from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -52,61 +56,65 @@ export default function NewDashboardPage() {
   const handleSubmitDashboard: SubmitDashboard<UpdateDashboardArgs> =
     useCallback(
       async (args) => {
-        // If dashboardId is "new", we need to create the dashboard (POST)
-        if (args.dashboardId === "new") {
-          const res = await apiCall<{
-            status: number;
-            dashboard: DashboardInterface;
-          }>("/dashboards", {
-            method: "POST",
-            body: JSON.stringify({
-              title: dashboard.title,
-              editLevel: dashboard.editLevel,
-              shareLevel: dashboard.shareLevel,
-              enableAutoUpdates: dashboard.enableAutoUpdates,
-              experimentId: "",
-              projects: dashboard.projects || [],
-              blocks: args.data.blocks || dashboard.blocks,
-              updateSchedule:
-                args.data.updateSchedule || dashboard.updateSchedule,
-              userId: args.data.userId,
-            }),
-          });
-          setDashboard(res.dashboard);
-        } else {
-          // Otherwise, update as normal
-          const res = await apiCall<{
-            status: number;
-            dashboard: DashboardInterface;
-          }>(`/dashboards/${args.dashboardId}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              blocks: args.data.blocks,
-              title: args.data.title ?? dashboard.title,
-              shareLevel: args.data.shareLevel ?? dashboard.shareLevel,
-              editLevel: args.data.editLevel ?? dashboard.editLevel,
-              enableAutoUpdates:
-                args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
-              updateSchedule:
-                args.data.updateSchedule ?? dashboard.updateSchedule,
-              userId: args.data.userId,
-            }),
-          });
-          setDashboard(res.dashboard);
-        }
+        const method = args.dashboardId === "new" ? "POST" : "PUT";
+        const url =
+          method === "POST" ? "/dashboards" : `/dashboards/${args.dashboardId}`;
+
+        const res = await apiCall<{
+          status: number;
+          dashboard: DashboardInterface;
+        }>(url, {
+          method,
+          body: JSON.stringify(
+            method === "POST"
+              ? {
+                  title: args.data.title || dashboard.title,
+                  editLevel: args.data.editLevel || dashboard.editLevel,
+                  shareLevel: args.data.shareLevel || dashboard.shareLevel,
+                  enableAutoUpdates:
+                    args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
+                  experimentId: "",
+                  projects: dashboard.projects || [],
+                  blocks: args.data.blocks || dashboard.blocks,
+                  updateSchedule:
+                    args.data.updateSchedule || dashboard.updateSchedule,
+                  userId: args.data.userId || dashboard.userId,
+                }
+              : {
+                  blocks: args.data.blocks,
+                  title: args.data.title ?? dashboard.title,
+                  shareLevel: args.data.shareLevel ?? dashboard.shareLevel,
+                  editLevel: args.data.editLevel ?? dashboard.editLevel,
+                  enableAutoUpdates:
+                    args.data.enableAutoUpdates ?? dashboard.enableAutoUpdates,
+                  updateSchedule:
+                    args.data.updateSchedule ?? dashboard.updateSchedule,
+                  userId: args.data.userId,
+                },
+          ),
+        });
+
+        setDashboard(res.dashboard);
+        return { dashboardId: res.dashboard.id };
       },
       [apiCall, dashboard],
     );
 
-  const handleClose = useCallback(() => {
-    if (dashboard.id === "new" && dashboard.blocks.length === 0) {
-      // If the user hasn't saved the dashboard, navigate back to the dashboards list
-      router.push("/product-analytics/dashboards");
-    } else {
-      // Navigate to the dashboard page
-      router.push(`/product-analytics/dashboards/${dashboard.id}`);
-    }
-  }, [dashboard, router]);
+  const handleClose = useCallback(
+    (savedDashboardId?: string) => {
+      if (savedDashboardId) {
+        // If we have a saved dashboard ID, navigate to it
+        router.push(`/product-analytics/dashboards/${savedDashboardId}`);
+      } else if (dashboard.id === "new") {
+        // If the user hasn't saved the dashboard, navigate back to the dashboards list
+        router.push("/product-analytics/dashboards");
+      } else {
+        // Navigate to the dashboard page
+        router.push(`/product-analytics/dashboards/${dashboard.id}`);
+      }
+    },
+    [dashboard.id, router],
+  );
 
   if (!hasCommercialFeature("product-analytics-dashboards")) {
     return (
@@ -136,6 +144,17 @@ export default function NewDashboardPage() {
         submitDashboard={handleSubmitDashboard}
         close={handleClose}
         dashboardFirstSave={true}
+        updateTemporaryDashboard={(update: {
+          blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+        }) => {
+          setDashboard((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+            } as DashboardInterface;
+          });
+        }}
       />
     </DashboardSnapshotProvider>
   );

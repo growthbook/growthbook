@@ -666,9 +666,9 @@ export function validateAndFixCondition(
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
-export function getDefaultPrerequisiteCondition(
-  parentFeature?: FeatureInterface,
-) {
+export function getDefaultPrerequisiteCondition(parentFeature?: {
+  valueType?: "boolean" | "string" | "number" | "json";
+}) {
   const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {
     return `{"value": true}`;

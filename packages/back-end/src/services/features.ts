@@ -51,7 +51,10 @@ import {
   ApiFeatureEnvironment,
   ApiFeatureRule,
 } from "shared/types/openapi";
-import { HoldoutInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  SdkConnectionCacheAuditContext,
+} from "shared/validators";
 import {
   AttributeMap,
   ExperimentRefRule,
@@ -476,8 +479,12 @@ export function queueSDKPayloadRefresh(data: {
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
+  auditContext?: { event: string; model: string; id?: string };
 }) {
-  refreshSDKPayloadCache(data).catch((e) => {
+  // Capture stack trace at the entry point to include the original caller
+  const rawStack = new Error().stack || "";
+  const stackTrace = rawStack.replace(/^Error\n/, ""); // Remove "Error" since this is informational only
+  refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
 }
@@ -488,12 +495,16 @@ async function refreshSDKPayloadCache({
   skipRefreshForProject,
   sdkConnections: sdkConnectionsToUpdate = [],
   treatEmptyProjectAsGlobal = false,
+  auditContext: initialAuditContext,
+  stackTrace,
 }: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
+  auditContext?: { event: string; model: string; id?: string };
+  stackTrace?: string;
 }) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
@@ -715,9 +726,22 @@ async function refreshSDKPayloadCache({
                 organization: context.org,
               });
 
+        const auditContext: SdkConnectionCacheAuditContext | undefined =
+          initialAuditContext
+            ? {
+                dateUpdated: new Date(),
+                event: initialAuditContext.event,
+                model: initialAuditContext.model,
+                id: initialAuditContext.id,
+                stack: stackTrace || "",
+                connection: connection as unknown as Record<string, unknown>,
+              }
+            : undefined;
+
         await context.models.sdkConnectionCache.upsert(
           connection.key,
           JSON.stringify(contents),
+          auditContext,
         );
       } catch (e) {
         logger.error(e, "Error updating SDK connection cache");
@@ -785,6 +809,12 @@ export async function getFeatureDefinitionsResponse({
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
 }> {
+  // Clone features, experiments, holdouts, and savedGroups to avoid mutating shared objects across multiple connections' payloads
+  features = cloneDeep(features);
+  experiments = cloneDeep(experiments);
+  holdouts = cloneDeep(holdouts);
+  usedSavedGroups = cloneDeep(usedSavedGroups);
+
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }

@@ -117,9 +117,6 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
-  - name: custom-fields
-    x-displayName: Custom Fields
-    description: Custom fields for the organization.
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
@@ -132,9 +129,6 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
-  - name: CustomField_model
-    x-displayName: CustomField
-    description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -252,10 +246,16 @@ tags:
   - name: Dashboard_model
     x-displayName: Dashboard
     description: <SchemaDefinition schemaRef="#/components/schemas/Dashboard" />
+  - name: CustomField_model
+    x-displayName: CustomField
+    description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
 paths:
   /features:
     get:
       summary: Get all features
+      description: |
+        Returns features with pagination. The skipPagination query parameter is
+        honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted deployments).
       tags:
         - features
       parameters:
@@ -263,6 +263,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/skipPagination'
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -2880,12 +2881,14 @@ paths:
                           minimum: 0
                           exclusiveMinimum: true
                     riskThresholdSuccess:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                       minimum: 0
                     riskThresholdDanger:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                       minimum: 0
                     minPercentChange:
                       type: number
@@ -3195,12 +3198,14 @@ paths:
                           minimum: 0
                           exclusiveMinimum: true
                     riskThresholdSuccess:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                       minimum: 0
                     riskThresholdDanger:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                       minimum: 0
                     minPercentChange:
                       type: number
@@ -5144,12 +5149,14 @@ paths:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
                 riskThresholdSuccess:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                   minimum: 0
                 riskThresholdDanger:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
                 displayAsPercentage:
                   type: boolean
@@ -5523,12 +5530,14 @@ paths:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
                 riskThresholdSuccess:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                   minimum: 0
                 riskThresholdDanger:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
                 displayAsPercentage:
                   type: boolean
@@ -5923,27 +5932,6 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
-  /custom-fields:
-    get:
-      summary: Get list of custom fields
-      tags:
-        - custom-fields
-      parameters:
-        - $ref: '#/components/parameters/projectId'
-      operationId: getCustomFields
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl https://api.growthbook.io/api/v1/custom-fields?projectId=prj_5l652 \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CustomField'
   '/dashboards/{id}':
     get:
       $skipValidatorGeneration: true
@@ -10384,6 +10372,648 @@ paths:
                 required:
                   - dashboards
                 additionalProperties: false
+  /custom-fields:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - CustomFields
+      summary: Create a single customField
+      operationId: createCustomField
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/custom-fields -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                id:
+                  description: The unique key for the custom field
+                  type: string
+                  minLength: 1
+                name:
+                  description: The display name of the custom field
+                  type: string
+                description:
+                  type: string
+                placeholder:
+                  type: string
+                defaultValue:
+                  anyOf:
+                    - type: string
+                    - type: number
+                    - type: boolean
+                    - type: string
+                      format: date-time
+                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                    - type: string
+                      format: date
+                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                    - type: array
+                      items:
+                        type: string
+                    - type: array
+                      items:
+                        type: number
+                    - type: array
+                      items:
+                        type: boolean
+                    - type: array
+                      items:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                    - type: array
+                      items:
+                        type: string
+                        format: date
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                type:
+                  description: The type of value this custom field will take
+                  type: string
+                  enum:
+                    - text
+                    - textarea
+                    - markdown
+                    - enum
+                    - multiselect
+                    - url
+                    - number
+                    - boolean
+                    - date
+                    - datetime
+                values:
+                  type: string
+                required:
+                  type: boolean
+                index:
+                  type: boolean
+                projects:
+                  type: array
+                  items:
+                    type: string
+                section:
+                  description: What type of objects this custom field is applicable to
+                  type: string
+                  enum:
+                    - feature
+                    - experiment
+              required:
+                - id
+                - name
+                - type
+                - required
+                - section
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - customField
+                properties:
+                  customField:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      placeholder:
+                        type: string
+                      defaultValue:
+                        anyOf:
+                          - type: string
+                          - type: number
+                          - type: boolean
+                          - type: string
+                            format: date-time
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                          - type: string
+                            format: date
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                          - type: array
+                            items:
+                              type: string
+                          - type: array
+                            items:
+                              type: number
+                          - type: array
+                            items:
+                              type: boolean
+                          - type: array
+                            items:
+                              type: string
+                              format: date-time
+                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                          - type: array
+                            items:
+                              type: string
+                              format: date
+                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                      type:
+                        type: string
+                        enum:
+                          - text
+                          - textarea
+                          - markdown
+                          - enum
+                          - multiselect
+                          - url
+                          - number
+                          - boolean
+                          - date
+                          - datetime
+                      values:
+                        type: string
+                      required:
+                        type: boolean
+                      index:
+                        type: boolean
+                      creator:
+                        type: string
+                      projects:
+                        type: array
+                        items:
+                          type: string
+                      section:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
+                      active:
+                        type: boolean
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - name
+                      - type
+                      - required
+                      - section
+                    additionalProperties: false
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: string
+      tags:
+        - CustomFields
+      summary: Get all custom fields
+      operationId: listCustomFields
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/custom-fields -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    dateCreated:
+                      type: string
+                      format: date-time
+                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                    dateUpdated:
+                      type: string
+                      format: date-time
+                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    placeholder:
+                      type: string
+                    defaultValue:
+                      anyOf:
+                        - type: string
+                        - type: number
+                        - type: boolean
+                        - type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        - type: string
+                          format: date
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                        - type: array
+                          items:
+                            type: string
+                        - type: array
+                          items:
+                            type: number
+                        - type: array
+                          items:
+                            type: boolean
+                        - type: array
+                          items:
+                            type: string
+                            format: date-time
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        - type: array
+                          items:
+                            type: string
+                            format: date
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                    type:
+                      type: string
+                      enum:
+                        - text
+                        - textarea
+                        - markdown
+                        - enum
+                        - multiselect
+                        - url
+                        - number
+                        - boolean
+                        - date
+                        - datetime
+                    values:
+                      type: string
+                    required:
+                      type: boolean
+                    index:
+                      type: boolean
+                    creator:
+                      type: string
+                    projects:
+                      type: array
+                      items:
+                        type: string
+                    section:
+                      type: string
+                      enum:
+                        - feature
+                        - experiment
+                    active:
+                      type: boolean
+                  required:
+                    - id
+                    - dateCreated
+                    - dateUpdated
+                    - name
+                    - type
+                    - required
+                    - section
+                  additionalProperties: false
+  '/custom-fields/{id}':
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - CustomFields
+      summary: Delete a single customField
+      operationId: deleteCustomField
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/custom-fields/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - CustomFields
+      summary: Get a single customField
+      operationId: getCustomField
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/custom-fields/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - customField
+                properties:
+                  customField:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      placeholder:
+                        type: string
+                      defaultValue:
+                        anyOf:
+                          - type: string
+                          - type: number
+                          - type: boolean
+                          - type: string
+                            format: date-time
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                          - type: string
+                            format: date
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                          - type: array
+                            items:
+                              type: string
+                          - type: array
+                            items:
+                              type: number
+                          - type: array
+                            items:
+                              type: boolean
+                          - type: array
+                            items:
+                              type: string
+                              format: date-time
+                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                          - type: array
+                            items:
+                              type: string
+                              format: date
+                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                      type:
+                        type: string
+                        enum:
+                          - text
+                          - textarea
+                          - markdown
+                          - enum
+                          - multiselect
+                          - url
+                          - number
+                          - boolean
+                          - date
+                          - datetime
+                      values:
+                        type: string
+                      required:
+                        type: boolean
+                      index:
+                        type: boolean
+                      creator:
+                        type: string
+                      projects:
+                        type: array
+                        items:
+                          type: string
+                      section:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
+                      active:
+                        type: boolean
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - name
+                      - type
+                      - required
+                      - section
+                    additionalProperties: false
+    put:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - CustomFields
+      summary: Update a single customField
+      operationId: updateCustomField
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X PUT https://api.growthbook.io/api/v1/custom-fields/{id} -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                name:
+                  description: The display name of the custom field
+                  type: string
+                description:
+                  type: string
+                placeholder:
+                  type: string
+                defaultValue:
+                  anyOf:
+                    - type: string
+                    - type: number
+                    - type: boolean
+                    - type: string
+                      format: date-time
+                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                    - type: string
+                      format: date
+                      pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                    - type: array
+                      items:
+                        type: string
+                    - type: array
+                      items:
+                        type: number
+                    - type: array
+                      items:
+                        type: boolean
+                    - type: array
+                      items:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                    - type: array
+                      items:
+                        type: string
+                        format: date
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                type:
+                  description: The type of value this custom field will take
+                  type: string
+                  enum:
+                    - text
+                    - textarea
+                    - markdown
+                    - enum
+                    - multiselect
+                    - url
+                    - number
+                    - boolean
+                    - date
+                    - datetime
+                values:
+                  type: string
+                required:
+                  type: boolean
+                index:
+                  type: boolean
+                projects:
+                  type: array
+                  items:
+                    type: string
+                section:
+                  description: What type of objects this custom field is applicable to
+                  type: string
+                  enum:
+                    - feature
+                    - experiment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - customField
+                properties:
+                  customField:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      placeholder:
+                        type: string
+                      defaultValue:
+                        anyOf:
+                          - type: string
+                          - type: number
+                          - type: boolean
+                          - type: string
+                            format: date-time
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                          - type: string
+                            format: date
+                            pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                          - type: array
+                            items:
+                              type: string
+                          - type: array
+                            items:
+                              type: number
+                          - type: array
+                            items:
+                              type: boolean
+                          - type: array
+                            items:
+                              type: string
+                              format: date-time
+                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                          - type: array
+                            items:
+                              type: string
+                              format: date
+                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+                      type:
+                        type: string
+                        enum:
+                          - text
+                          - textarea
+                          - markdown
+                          - enum
+                          - multiselect
+                          - url
+                          - number
+                          - boolean
+                          - date
+                          - datetime
+                      values:
+                        type: string
+                      required:
+                        type: boolean
+                      index:
+                        type: boolean
+                      creator:
+                        type: string
+                      projects:
+                        type: array
+                        items:
+                          type: string
+                      section:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
+                      active:
+                        type: boolean
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - name
+                      - type
+                      - required
+                      - section
+                    additionalProperties: false
 components:
   parameters:
     id:
@@ -10484,6 +11114,17 @@ components:
       description: Filter by a SDK connection's client key
       schema:
         type: string
+    skipPagination:
+      name: skipPagination
+      in: query
+      description: |
+        If true, return all matching features and ignore limit/offset.
+        Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set to true or 1.
+      schema:
+        type: boolean
+        default: false
+      x-selfHostedOnly: true
+      x-requiresEnv: API_ALLOW_SKIP_PAGINATION
   schemas:
     Dashboard:
       $schema: 'https://json-schema.org/draft/2020-12/schema'
@@ -11058,6 +11699,98 @@ components:
         - dateCreated
         - dateUpdated
         - blocks
+      additionalProperties: false
+      $skipValidatorGeneration: true
+    CustomField:
+      $schema: 'https://json-schema.org/draft/2020-12/schema'
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        name:
+          type: string
+        description:
+          type: string
+        placeholder:
+          type: string
+        defaultValue:
+          anyOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: string
+              format: date-time
+              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+            - type: string
+              format: date
+              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+            - type: array
+              items:
+                type: string
+            - type: array
+              items:
+                type: number
+            - type: array
+              items:
+                type: boolean
+            - type: array
+              items:
+                type: string
+                format: date-time
+                pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+            - type: array
+              items:
+                type: string
+                format: date
+                pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
+        type:
+          type: string
+          enum:
+            - text
+            - textarea
+            - markdown
+            - enum
+            - multiselect
+            - url
+            - number
+            - boolean
+            - date
+            - datetime
+        values:
+          type: string
+        required:
+          type: boolean
+        index:
+          type: boolean
+        creator:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        section:
+          type: string
+          enum:
+            - feature
+            - experiment
+        active:
+          type: boolean
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - type
+        - required
+        - section
       additionalProperties: false
       $skipValidatorGeneration: true
     PaginationFields:
@@ -13061,6 +13794,11 @@ components:
           items:
             type: string
           description: Specific slices to automatically analyze for this column.
+        lockedAutoSlices:
+          type: array
+          items:
+            type: string
+          description: Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.
         dateCreated:
           type: string
           format: date-time
@@ -13824,42 +14562,6 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
-    CustomField:
-      type: object
-      required:
-        - id
-        - name
-        - type
-        - section
-        - dateCreated
-        - dateUpdated
-        - active
-        - required
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        type:
-          type: string
-        section:
-          type: string
-        dateCreated:
-          type: string
-          format: date-time
-        dateUpdated:
-          type: string
-          format: date-time
-        active:
-          type: boolean
-        required:
-          type: boolean
-        projects:
-          type: array
-          items:
-            type: string
-        values:
-          type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -13916,15 +14618,14 @@ x-tagGroups:
       - archetypes
       - queries
       - settings
-      - custom-fields
       - attributes
       - Dashboards
+      - CustomFields
   - name: Models
     tags:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
-      - CustomField_model
       - DataSource_model
       - Dimension_model
       - Environment_model
@@ -13964,3 +14665,4 @@ x-tagGroups:
       - VisualChange_model
       - VisualChangeset_model
       - Dashboard_model
+      - CustomField_model

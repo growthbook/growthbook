@@ -76,9 +76,13 @@ function evalConditionValue(
   condition: ConditionValue,
   value: any,
   savedGroups: SavedGroupsValues,
+  insensitive: boolean = false,
 ) {
   // Simple equality comparisons
   if (typeof condition === "string") {
+    if (insensitive) {
+      return String(value).toLowerCase() === condition.toLowerCase();
+    }
     return value + "" === condition;
   }
   if (typeof condition === "number") {
@@ -145,12 +149,49 @@ function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
   return false;
 }
 
-function isIn(actual: any, expected: Array<any>): boolean {
+function isIn(
+  actual: any,
+  expected: Array<any>,
+  insensitive: boolean = false,
+): boolean {
+  if (insensitive) {
+    const caseFold = (val: any) =>
+      typeof val === "string" ? val.toLowerCase() : val;
+    // Do an intersection if attribute is an array (insensitive)
+    if (Array.isArray(actual)) {
+      return actual.some((el) =>
+        expected.some((exp) => caseFold(el) === caseFold(exp)),
+      );
+    }
+    return expected.some((exp) => caseFold(actual) === caseFold(exp));
+  }
   // Do an intersection if attribute is an array
   if (Array.isArray(actual)) {
     return actual.some((el) => expected.includes(el));
   }
   return expected.includes(actual);
+}
+
+function isInAll(
+  actual: any,
+  expected: ConditionValue[],
+  savedGroups: SavedGroupsValues,
+  insensitive: boolean = false,
+): boolean {
+  if (!Array.isArray(actual)) return false;
+  for (let i = 0; i < expected.length; i++) {
+    let passed = false;
+    for (let j = 0; j < actual.length; j++) {
+      if (
+        evalConditionValue(expected[i], actual[j], savedGroups, insensitive)
+      ) {
+        passed = true;
+        break;
+      }
+    }
+    if (!passed) return false;
+  }
+  return true;
 }
 
 // Evaluate a single operator condition
@@ -191,6 +232,9 @@ function evalOperatorCondition(
     case "$in":
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected);
+    case "$ini":
+      if (!Array.isArray(expected)) return false;
+      return isIn(actual, expected, true);
     case "$inGroup":
       return isIn(actual, savedGroups[expected] || []);
     case "$notInGroup":
@@ -198,6 +242,9 @@ function evalOperatorCondition(
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);
+    case "$nini":
+      if (!Array.isArray(expected)) return false;
+      return !isIn(actual, expected, true);
     case "$not":
       return !evalConditionValue(expected, actual, savedGroups);
     case "$size":
@@ -206,18 +253,11 @@ function evalOperatorCondition(
     case "$elemMatch":
       return elemMatch(actual, expected, savedGroups);
     case "$all":
-      if (!Array.isArray(actual)) return false;
-      for (let i = 0; i < expected.length; i++) {
-        let passed = false;
-        for (let j = 0; j < actual.length; j++) {
-          if (evalConditionValue(expected[i], actual[j], savedGroups)) {
-            passed = true;
-            break;
-          }
-        }
-        if (!passed) return false;
-      }
-      return true;
+      if (!Array.isArray(expected)) return false;
+      return isInAll(actual, expected, savedGroups);
+    case "$alli":
+      if (!Array.isArray(expected)) return false;
+      return isInAll(actual, expected, savedGroups, true);
     case "$regex":
       try {
         return getRegex(expected).test(actual);

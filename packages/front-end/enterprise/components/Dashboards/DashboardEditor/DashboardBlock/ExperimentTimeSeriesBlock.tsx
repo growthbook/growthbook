@@ -120,8 +120,6 @@ export default function ExperimentTimeSeriesBlock({
   const rowGroups = groupBy(filteredRows, ({ resultGroup }) => resultGroup);
 
   const renderLabelColumn = getRenderLabelColumn({
-    statsEngine,
-    hideDetails: false,
     expandedMetrics,
     toggleExpandedMetric,
     getExperimentMetricById,
@@ -194,7 +192,6 @@ export default function ExperimentTimeSeriesBlock({
                         key={metric.id}
                         experimentId={experiment.id}
                         phase={snapshot.phase}
-                        experimentStatus={experiment.status}
                         metric={metric}
                         differenceType={
                           analysis?.settings.differenceType || "relative"
@@ -240,7 +237,6 @@ export default function ExperimentTimeSeriesBlock({
                           <ExperimentMetricTimeSeriesGraphWrapper
                             experimentId={experiment.id}
                             phase={snapshot.phase}
-                            experimentStatus={experiment.status}
                             metric={sliceRow.metric}
                             differenceType={
                               analysis?.settings.differenceType || "relative"

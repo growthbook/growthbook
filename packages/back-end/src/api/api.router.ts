@@ -35,7 +35,6 @@ import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
-import customFieldsRouter from "./custom-fields/custom-fields.router";
 import { API_MODELS, defineRouterForApiConfig } from "./ApiModel";
 
 const router = Router();
@@ -58,8 +57,8 @@ router.get("/openapi.yaml", (req, res) => {
   res.send(openapiSpec);
 });
 
-router.use(bodyParser.json({ limit: "1mb" }));
-router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
+router.use(bodyParser.json({ limit: "2mb" }));
+router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
 
@@ -133,7 +132,6 @@ router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
-router.use("/custom-fields", customFieldsRouter);
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;

@@ -87,6 +87,11 @@ export const postSDKConnection = async (
     context,
     payloadKeys: [],
     sdkConnections: [doc],
+    auditContext: {
+      event: "created",
+      model: "sdkconnection",
+      id: doc.id,
+    },
   });
 
   res.status(200).json({

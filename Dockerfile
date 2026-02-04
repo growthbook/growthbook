@@ -4,6 +4,7 @@ ARG NODE_MAJOR=20
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
+RUN pip install --upgrade pip
 COPY ./packages/stats .
 RUN \
   pip3 install poetry==1.8.5  \
@@ -28,6 +29,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
+COPY .npmrc ./.npmrc
 COPY package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
@@ -53,14 +55,14 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && pnpm install --frozen-lockfile --prod \
+  && pnpm install --frozen-lockfile --prod --no-optional \
   && pnpm store prune \
-  && find node_modules -name "*.md" -delete \
-  && find node_modules -name "*.ts" ! -name "*.d.ts" -delete \
-  && find node_modules -name "*.map" -delete \
-  && find node_modules -name "CHANGELOG*" -delete \
-  && find node_modules -name "LICENSE*" -delete \
-  && find node_modules -name "README*" -delete \
+  && find node_modules -type f -name "*.md" -delete \
+  && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
+  && find node_modules -type f -name "*.map" -delete \
+  && find node_modules -type f -name "CHANGELOG*" -delete \
+  && find node_modules -type f -name "LICENSE*" -delete \
+  && find node_modules -type f -name "README*" -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
 RUN pnpm postinstall
 
@@ -69,7 +71,10 @@ RUN pnpm postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+# TODO: Remove openssl upgrade once base image has version >3.5.4-1~deb13u2
+# Check with: `docker run --rm python:3.11-slim dpkg -l | grep openssl`
 RUN apt-get update && \
+  apt-get install --only-upgrade -y openssl && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
@@ -79,11 +84,21 @@ RUN apt-get update && \
   npm install -g pnpm@9.15.0 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pip
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
+
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
+
+# Remove TypeScript files from front-end so Next.js doesn't try to install TypeScript
+RUN rm -f packages/front-end/tsconfig.json && \
+    find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
+    find packages/front-end -maxdepth 1 -name "*.tsx" -delete
+
+# Copy PM2 config file
+COPY ecosystem.config.js ./ecosystem.config.js
 
 # Copy yarn compatibility shim for users with custom entry points
 COPY bin/yarn ./bin/yarn
@@ -106,4 +121,5 @@ EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
 # Start both front-end and back-end at once
-CMD ["pnpm","start"]
+# Use TRACING_PROVIDER env var to enable tracing (datadog or opentelemetry)
+CMD ["node_modules/.bin/pm2-runtime", "start", "ecosystem.config.js"]

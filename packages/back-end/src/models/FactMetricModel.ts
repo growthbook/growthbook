@@ -261,6 +261,10 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
+  protected async afterDelete(doc: FactMetricInterface) {
+    await this.context.models.metricGroups.removeMetricFromAllGroups(doc.id);
+  }
+
   // TODO: Once we migrate fact tables to new data model, we can use that instead
   private _factTableMap: Map<string, FactTableInterface> | null = null;
   private async getFactTableMap() {
