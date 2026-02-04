@@ -7,7 +7,8 @@ WORKDIR /usr/local/src/app
 RUN pip install --upgrade pip
 COPY ./packages/stats .
 RUN \
-  pip3 install poetry==1.8.5  \
+  curl -sSL https://install.python-poetry.org | python3 - --version 1.8.5 \
+  && export PATH="/root/.local/bin:$PATH" \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
