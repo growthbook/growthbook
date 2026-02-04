@@ -22,7 +22,7 @@ export default function ExplorerMainSection() {
                     <Button
                         size="2"
                         variant="solid"
-                        disabled={!hasPendingChanges || loading || !draftExploreState?.dataset?.values?.length}
+                        disabled={loading || !draftExploreState?.dataset?.values?.length}
                         onClick={handleSubmit}
                     >
                         <PiArrowsClockwise />

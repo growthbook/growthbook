@@ -35,12 +35,10 @@ function formatNumber(value: number): string {
 
 function getSeriesTitle(
   config: ProductAnalyticsConfig | null,
-  metricId: string,
+  valueIndex: number,
+  fallback: string,
 ): string {
-  const value = config?.dataset?.values?.find(
-    (v) => (v.type === "metric" && v.metricId === metricId) || v.name === metricId,
-  );
-  return value?.name ?? metricId;
+  return config?.dataset?.values?.[valueIndex]?.name ?? fallback;
 }
 
 export default function ExplorerChart() {
@@ -76,15 +74,15 @@ export default function ExplorerChart() {
       const groupParts = row.dimensions.slice(1);
       const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
 
-      row.values.forEach((v) => {
-        // Create a unique key for this series: Metric + Group
-        const seriesKey = JSON.stringify({ m: v.metricId, g: groupKey });
+      row.values.forEach((v, valueIndex) => {
+        // Create a unique key for this series: Value index + Group
+        const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
 
         if (!dataMap[seriesKey]) {
           dataMap[seriesKey] = {};
 
-          // Construct a friendly name
-          const metricName = getSeriesTitle(submittedExploreState, v.metricId);
+          // Construct a friendly name using the config's value name by index
+          const metricName = getSeriesTitle(submittedExploreState, valueIndex, v.metricId);
           const name = groupKey ? `${metricName} (${groupKey})` : metricName;
 
           seriesMeta[seriesKey] = {
@@ -106,7 +104,12 @@ export default function ExplorerChart() {
       const seriesDataMap = dataMap[seriesKey];
 
       // Map values to the sorted X-axis, filling gaps with 0
-      const data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
+      let data: number[][] | number[] = [];
+      if (chartType === "line") {
+        data = sortedXValues.map((x) => [new Date(x).getTime(), seriesDataMap[x] ?? 0]);
+      } else {
+        data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
+      }
 
       const commonSeriesConfig = {
         name,
@@ -144,7 +147,7 @@ export default function ExplorerChart() {
         type: "scroll",
       },
       xAxis: {
-        type: "category",
+        type: chartType === "line" ? "time" : "category",
         data: sortedXValues,
         nameLocation: "middle",
         nameTextStyle: {

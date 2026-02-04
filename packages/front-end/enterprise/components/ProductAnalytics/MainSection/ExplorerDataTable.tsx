@@ -28,9 +28,14 @@ export default function ExplorerDataTable() {
     const rows: string[][] = [];
     for (const row of exploreData?.rows || []) {
       const tempRow: string[] = [];
-      for (const dimension of row.dimensions) {
+      for (let i = 0; i < dimensionColumnHeaders.length; i++) {
+        const dimension = row.dimensions[i];
         if (dimension) {
-          tempRow.push(dimension);
+          if (i === 0 && submittedExploreState?.chartType === "line") {
+            tempRow.push(new Date(dimension).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }));
+          } else {
+            tempRow.push(dimension);
+          }
         }
       }
       const missingDims = dimensionColumnHeaders.length - tempRow.length;

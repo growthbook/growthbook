@@ -172,8 +172,8 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         return {
           ...prev,
           dimensions: [
-            ...prev.dimensions,
             { dimensionType: "date", column: "date", dateGranularity: "day" },
+            ...prev.dimensions,
           ],
         };
       });

@@ -135,7 +135,7 @@ export const dateRangePredefined = [
   "customDateRange",
 ] as const;
 
-const lookbackUnit = ["hour", "day", "week", "month"] as const;
+export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
 // The config defined in the UI
 export const productAnalyticsConfigValidator = z

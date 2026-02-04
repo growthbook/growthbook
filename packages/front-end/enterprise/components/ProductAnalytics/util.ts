@@ -74,7 +74,6 @@ export function getCommonColumns(
       const factMetric = getFactMetricById(metricId);
       if (factMetric) {
         const ft = getFactTableById(factMetric.numerator.factTableId);
-        console.log("Fact table", ft);
         valueColumns = ft?.columns || [];
       }
 
