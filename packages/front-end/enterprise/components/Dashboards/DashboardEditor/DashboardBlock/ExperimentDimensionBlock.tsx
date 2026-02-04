@@ -13,6 +13,7 @@ import { isPrecomputedDimension } from "shared/experiments";
 import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
 import { BlockProps } from ".";
@@ -100,53 +101,78 @@ export default function ExperimentDimensionBlock({
   };
 
   return (
-    <BreakDownResults
+    <MetricDrilldownProvider
       experimentId={experiment.id}
-      noStickyHeader
-      idPrefix={blockId}
-      key={snapshot.dimension}
-      results={analysis.results}
-      queryStatusData={queryStatusData}
+      phase={experiment.phases.length - 1}
+      experimentStatus={experiment.status}
+      analysis={analysis}
       variations={variations}
-      variationFilter={variationFilter}
-      setVariationFilter={isEditing ? setVariationFilter : undefined}
-      baselineRow={baselineRow}
-      setBaselineRow={isEditing ? setBaselineRow : undefined}
-      columnsFilter={columnsFilter}
       goalMetrics={goalMetrics}
       secondaryMetrics={secondaryMetrics}
       guardrailMetrics={guardrailMetrics}
       metricOverrides={experiment.metricOverrides ?? []}
-      dimensionId={dimensionId}
-      dimensionValuesFilter={dimensionValues}
-      isLatestPhase={true}
-      phase={experiment.phases.length - 1}
+      settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+      statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+      pValueCorrection={pValueCorrection}
       startDate={latestPhase.dateStarted ?? ""}
       endDate={latestPhase.dateEnded ?? ""}
       reportDate={snapshot.dateCreated}
-      activationMetric={experiment.activationMetric}
-      status={experiment.status}
-      statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
-      pValueCorrection={pValueCorrection}
-      settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+      isLatestPhase={true}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
-      setDifferenceType={isEditing ? setDifferenceType : undefined}
-      renderMetricName={(metric) => metric.name}
-      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some(
-        isPrecomputedDimension,
-      )}
-      sortBy={blockSortBy ?? null}
-      setSortBy={isEditing ? setSortBy : undefined}
-      sortDirection={blockSortDirection ?? null}
-      setSortDirection={isEditing ? setSortDirection : undefined}
-      customMetricOrder={
-        blockSortBy === "metrics" && blockMetricIds && blockMetricIds.length > 0
-          ? blockMetricIds
-          : undefined
-      }
-      metricTagFilter={blockMetricTagFilter}
-      metricsFilter={blockMetricIds}
-    />
+      baselineRow={baselineRow}
+      variationFilter={variationFilter}
+    >
+      <BreakDownResults
+        experimentId={experiment.id}
+        noStickyHeader
+        idPrefix={blockId}
+        key={snapshot.dimension}
+        results={analysis.results}
+        queryStatusData={queryStatusData}
+        variations={variations}
+        variationFilter={variationFilter}
+        setVariationFilter={isEditing ? setVariationFilter : undefined}
+        baselineRow={baselineRow}
+        setBaselineRow={isEditing ? setBaselineRow : undefined}
+        columnsFilter={columnsFilter}
+        goalMetrics={goalMetrics}
+        secondaryMetrics={secondaryMetrics}
+        guardrailMetrics={guardrailMetrics}
+        metricOverrides={experiment.metricOverrides ?? []}
+        dimensionId={dimensionId}
+        dimensionValuesFilter={dimensionValues}
+        isLatestPhase={true}
+        phase={experiment.phases.length - 1}
+        startDate={latestPhase.dateStarted ?? ""}
+        endDate={latestPhase.dateEnded ?? ""}
+        reportDate={snapshot.dateCreated}
+        activationMetric={experiment.activationMetric}
+        status={experiment.status}
+        statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+        pValueCorrection={pValueCorrection}
+        settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+        sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+        differenceType={differenceType}
+        setDifferenceType={isEditing ? setDifferenceType : undefined}
+        renderMetricName={(metric) => metric.name}
+        showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some(
+          isPrecomputedDimension,
+        )}
+        sortBy={blockSortBy ?? null}
+        setSortBy={isEditing ? setSortBy : undefined}
+        sortDirection={blockSortDirection ?? null}
+        setSortDirection={isEditing ? setSortDirection : undefined}
+        customMetricOrder={
+          blockSortBy === "metrics" &&
+          blockMetricIds &&
+          blockMetricIds.length > 0
+            ? blockMetricIds
+            : undefined
+        }
+        metricTagFilter={blockMetricTagFilter}
+        metricsFilter={blockMetricIds}
+      />
+    </MetricDrilldownProvider>
   );
 }

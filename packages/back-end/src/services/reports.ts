@@ -55,6 +55,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ProjectInterface } from "shared/types/project";
+import { accountFeatures, CommercialFeature } from "shared/enterprise";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -77,6 +78,7 @@ import {
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -921,6 +923,14 @@ export async function generateExperimentReportSSRData({
     }
   }
 
+  // Ensure we show slices if the org has access
+  // For public pages, we need to check against the org and not the user
+  const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
+  const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
+  const commercialFeatures = publicRelevantFeatures.filter((f) =>
+    allFeatures.has(f),
+  );
+
   return {
     metrics: metricMap,
     metricGroups,
@@ -929,5 +939,6 @@ export async function generateExperimentReportSSRData({
     settings: orgSettings,
     projects: projectMap,
     dimensions,
+    commercialFeatures,
   };
 }
