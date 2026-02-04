@@ -170,9 +170,13 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           return prev;
         }
         return {
-        ...prev,
-        dimensions: [...prev.dimensions, { dimensionType: "date", column: "date", dateGranularity: "day" }],
-      }});
+          ...prev,
+          dimensions: [
+            ...prev.dimensions,
+            { dimensionType: "date", column: "date", dateGranularity: "day" },
+          ],
+        };
+      });
     }
   }, [draftExploreState.chartType]);
 
@@ -194,7 +198,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       while (existingNames.has(`Series ${i}`)) {
         i++;
       }
-      value.name = `Series ${i}`;
+      value.name = `${valueType === "metric" ? "Metric" : "Series"} ${i}`;
 
       return {
         ...prev,
@@ -216,7 +220,11 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           ...prev,
           dataset: {
             ...prev.dataset,
-            values: [...prev.dataset.values.slice(0, index), value, ...prev.dataset.values.slice(index + 1)],
+            values: [
+              ...prev.dataset.values.slice(0, index),
+              value,
+              ...prev.dataset.values.slice(index + 1),
+            ],
           },
         } as ProductAnalyticsConfig;
       });

@@ -22,8 +22,12 @@ function getDatasetIcon(type: DatasetType, size = 16) {
 }
 
 export default function ExplorerSideBar() {
-  const { draftExploreState, setDraftExploreState, changeDatasetType } =
-    useExplorerContext();
+  const {
+    draftExploreState,
+    setDraftExploreState,
+    changeDatasetType,
+    addValueToDataset,
+  } = useExplorerContext();
   const { factTables, datasources } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
@@ -95,16 +99,18 @@ export default function ExplorerSideBar() {
               <SelectField
                 label="Fact table"
                 value={factTableDataset.factTableId ?? ""}
-                onChange={(factTableId) =>
+                onChange={(factTableId) => {
                   setDraftExploreState((prev) => ({
                     ...prev,
                     dataset: {
                       ...factTableDataset,
                       factTableId,
-                      values: factTableDataset.values,
+                      // Resets values to empty array
+                      values: [],
                     },
-                  }))
-                }
+                  }));
+                  addValueToDataset("fact_table");
+                }}
                 options={factTables.map((ft) => ({
                   label: ft.name,
                   value: ft.id,
