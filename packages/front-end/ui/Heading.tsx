@@ -4,11 +4,8 @@ import type { HeadingProps as RadixHeadingProps } from "@radix-ui/themes";
 type HeadingSizes = "small" | "medium" | "large" | "x-large" | "2x-large";
 type HeadingWeights = "medium" | "semibold";
 type HeadingAlign = "left" | "center" | "right";
-type HeadingColors =
-  | "text-high"
-  | "text-mid"
-  | "text-low"
-  | RadixHeadingProps["color"];
+// NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
+type HeadingColors = "text-high" | "text-mid" | "text-low";
 
 const radixSizeMap: Record<HeadingSizes, RadixHeadingProps["size"]> = {
   small: "3",
@@ -25,7 +22,7 @@ const radixWeightMap: Record<HeadingWeights, RadixHeadingProps["weight"]> = {
 
 export interface HeadingProps {
   children: React.ReactNode;
-  as: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+  as: NonNullable<RadixHeadingProps["as"]>;
   size?: HeadingSizes;
   weight?: HeadingWeights;
 
@@ -61,15 +58,12 @@ export default function Heading({
 }: HeadingProps) {
   const style: React.CSSProperties = {};
 
-  let colorProp: RadixHeadingProps["color"] | undefined;
   if (color === "text-high") {
     style.color = "var(--color-text-high)";
   } else if (color === "text-mid") {
     style.color = "var(--color-text-mid)";
   } else if (color === "text-low") {
     style.color = "var(--color-text-low)";
-  } else {
-    colorProp = color;
   }
 
   return (
@@ -79,7 +73,6 @@ export default function Heading({
       align={align}
       as={as}
       title={title}
-      color={colorProp}
       style={style}
       m={m}
       mx={mx}

@@ -3,15 +3,24 @@ import { Flex, Grid } from "@radix-ui/themes";
 import Text, { TextProps } from "./Text";
 import { Select, SelectItem } from "./Select";
 
-export default function StepperStories() {
+export default function TextStories() {
   const [textColor, setTextColor] = useState<TextProps["color"]>("text-mid");
   return (
     <Flex direction="row" gap="9">
-      <Flex direction="column" gap="1">
-        <span>Unwrapped text</span>
+      <Flex direction="column" gap="3">
+        <span>Unwrapped text example</span>
         <Grid columns="repeat(3, 1fr)" gap="0.5rem">
+          <Text size="small" weight="regular" color={textColor}>
+            body/small/regular
+          </Text>
+          <Text size="small" weight="medium" color={textColor}>
+            body/small/medium
+          </Text>
+          <Text size="small" weight="semibold" color={textColor}>
+            body/small/semibold
+          </Text>
           <Text size="medium" weight="regular" color={textColor}>
-            Unwrapped text
+            body/medium/regular
           </Text>
           <Text size="medium" weight="medium" color={textColor}>
             body/medium/medium
@@ -42,32 +51,6 @@ export default function StepperStories() {
           <SelectItem value="text-high">Text High</SelectItem>
           <SelectItem value="text-mid">Text Mid</SelectItem>
           <SelectItem value="text-low">Text Low</SelectItem>
-          <SelectItem value="gray">Gray</SelectItem>
-          <SelectItem value="gold">Gold</SelectItem>
-          <SelectItem value="bronze">Bronze</SelectItem>
-          <SelectItem value="brown">Brown</SelectItem>
-          <SelectItem value="yellow">Yellow</SelectItem>
-          <SelectItem value="amber">Amber</SelectItem>
-          <SelectItem value="orange">Orange</SelectItem>
-          <SelectItem value="tomato">Tomato</SelectItem>
-          <SelectItem value="red">Red</SelectItem>
-          <SelectItem value="ruby">Ruby</SelectItem>
-          <SelectItem value="crimson">Crimson</SelectItem>
-          <SelectItem value="pink">Pink</SelectItem>
-          <SelectItem value="plum">Plum</SelectItem>
-          <SelectItem value="purple">Purple</SelectItem>
-          <SelectItem value="violet">Violet</SelectItem>
-          <SelectItem value="iris">Iris</SelectItem>
-          <SelectItem value="indigo">Indigo</SelectItem>
-          <SelectItem value="blue">Blue</SelectItem>
-          <SelectItem value="cyan">Cyan</SelectItem>
-          <SelectItem value="teal">Teal</SelectItem>
-          <SelectItem value="jade">Jade</SelectItem>
-          <SelectItem value="green">Green</SelectItem>
-          <SelectItem value="grass">Grass</SelectItem>
-          <SelectItem value="lime">Lime</SelectItem>
-          <SelectItem value="mint">Mint</SelectItem>
-          <SelectItem value="sky">Sky</SelectItem>
         </Select>
       </Flex>
     </Flex>

@@ -3,6 +3,7 @@ import { Flex, Grid, Separator } from "@radix-ui/themes";
 import Heading, { HeadingProps } from "./Heading";
 import { Select, SelectItem } from "./Select";
 import Text from "./Text";
+import Callout from "./Callout";
 
 export default function HeadingStories() {
   const [headingColor, setHeadingColor] =
@@ -20,32 +21,6 @@ export default function HeadingStories() {
           <SelectItem value="text-high">Text High</SelectItem>
           <SelectItem value="text-mid">Text Mid</SelectItem>
           <SelectItem value="text-low">Text Low</SelectItem>
-          <SelectItem value="gray">Gray</SelectItem>
-          <SelectItem value="gold">Gold</SelectItem>
-          <SelectItem value="bronze">Bronze</SelectItem>
-          <SelectItem value="brown">Brown</SelectItem>
-          <SelectItem value="yellow">Yellow</SelectItem>
-          <SelectItem value="amber">Amber</SelectItem>
-          <SelectItem value="orange">Orange</SelectItem>
-          <SelectItem value="tomato">Tomato</SelectItem>
-          <SelectItem value="red">Red</SelectItem>
-          <SelectItem value="ruby">Ruby</SelectItem>
-          <SelectItem value="crimson">Crimson</SelectItem>
-          <SelectItem value="pink">Pink</SelectItem>
-          <SelectItem value="plum">Plum</SelectItem>
-          <SelectItem value="purple">Purple</SelectItem>
-          <SelectItem value="violet">Violet</SelectItem>
-          <SelectItem value="iris">Iris</SelectItem>
-          <SelectItem value="indigo">Indigo</SelectItem>
-          <SelectItem value="blue">Blue</SelectItem>
-          <SelectItem value="cyan">Cyan</SelectItem>
-          <SelectItem value="teal">Teal</SelectItem>
-          <SelectItem value="jade">Jade</SelectItem>
-          <SelectItem value="green">Green</SelectItem>
-          <SelectItem value="grass">Grass</SelectItem>
-          <SelectItem value="lime">Lime</SelectItem>
-          <SelectItem value="mint">Mint</SelectItem>
-          <SelectItem value="sky">Sky</SelectItem>
         </Select>
       </Flex>
       <Flex direction="column" gap="3">
@@ -93,10 +68,12 @@ export default function HeadingStories() {
         </Grid>
         <Separator size="4" />
         <Flex direction="column" gap="2">
-          <Text size="large" color="amber">
-            Unstyled headings are for reference only, not recommended for new
-            usages.
-          </Text>
+          <Callout status="warning">
+            <Text size="medium">
+              Unstyled headings are for reference only, not recommended for new
+              usages.
+            </Text>
+          </Callout>
           <h1>Unstyled h1</h1>
           <h2>Unstyled h2</h2>
           <h3>Unstyled h3</h3>
