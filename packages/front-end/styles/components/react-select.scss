@@ -14,16 +14,26 @@
   background-color: var(--color-surface-solid) !important;
 }
 
+.gb-select__menu {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+.gb-select__menu-list {
+  padding: 8px !important;
+}
+
 .gb-multi-select__option,
 .gb-select__option {
   color: var(--text-color-main) !important;
   background-color: transparent !important;
+  border-radius: 4px !important;
 
   &--is-selected {
+    background-color: var(--gray-a3) !important;
   }
 
   &--is-focused {
-    background-color: var(--select-hover-background) !important;
+    background-color: var(--accent-a4) !important;
   }
 
   .disabled {
