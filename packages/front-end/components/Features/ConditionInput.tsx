@@ -586,7 +586,6 @@ function ConditionAndGroupInput({
               value: g.id,
             }));
 
-          // Add any missing ids to options
           const ids = value
             ? value
                 .split(",")
@@ -679,9 +678,7 @@ function ConditionAndGroupInput({
         }
 
         const savedGroupOptions = savedGroups
-          // First, limit to groups with the correct attribute
           .filter((g) => g.type === "list" && g.attributeKey === field)
-          // Filter by project
           .filter((group) => {
             return (
               !props.project ||
@@ -689,7 +686,6 @@ function ConditionAndGroupInput({
               group.projects.includes(props.project)
             );
           })
-          // Then, transform into the select option format
           .map((g) => ({ label: g.groupName, value: g.id }));
 
         let operatorOptions =
@@ -805,7 +801,6 @@ function ConditionAndGroupInput({
                       : [];
 
         if (attribute.disableEqualityConditions) {
-          // Remove equality operators if the attribute has them disabled
           operatorOptions = operatorOptions.filter(
             (o) =>
               !["$eq", "$ne", "$in", "$nin", "$ini", "$nini"].includes(o.value),

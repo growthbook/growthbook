@@ -95,7 +95,6 @@ export default function PrerequisiteInput({
     "prerequisite-targeting",
   );
 
-  // Initialize advanced mode states
   useEffect(() => {
     if (advancedMode.length !== value.length) {
       const parentValueMaps = value.map((v) => {
@@ -122,7 +121,6 @@ export default function PrerequisiteInput({
     }
   }, [value.length, featureNames, value, advancedMode.length]);
 
-  // Auto-populate default conditions when feature is selected
   useEffect(() => {
     const updates: Array<{ index: number; condStr: string }> = [];
 
@@ -158,7 +156,6 @@ export default function PrerequisiteInput({
   const targetFeatureId = feature?.id || "";
   const hasTargetFeature = !!targetFeatureId;
 
-  // Get feature IDs to fetch
   const featureIdsToFetch = useMemo(() => {
     if (isSingleEnvironment && hasTargetFeature) {
       const selectedIds = value.map((v) => v.id).filter(Boolean);
@@ -171,7 +168,6 @@ export default function PrerequisiteInput({
     }
   }, [isSingleEnvironment, hasTargetFeature, value, featureNames, feature?.id]);
 
-  // Fetch prerequisite states using batch hook
   const { results: batchStates, loading: batchStatesLoading } =
     useBatchPrerequisiteStates({
       baseFeatureId: targetFeatureId,
@@ -181,7 +177,6 @@ export default function PrerequisiteInput({
       enabled: featureIdsToFetch.length > 0 && environments.length > 0,
     });
 
-  // Extract states
   const featuresStates: Record<
     string,
     Record<string, PrerequisiteStateResult>
@@ -212,7 +207,6 @@ export default function PrerequisiteInput({
     [value, featuresStates],
   );
 
-  // Check if blocked by SDK limitations
   const blockedBySdkLimitations = useMemo(() => {
     for (let i = 0; i < value.length; i++) {
       const prereqStates = prereqStatesArr[i];
@@ -239,24 +233,40 @@ export default function PrerequisiteInput({
     return map;
   }, [projects]);
 
-  // Build feature options with metadata
   const allFeatureOptions = featureNames
     .filter((f) => f.id !== feature?.id)
     .filter((f) => !f.archived)
     .map((f) => {
-      const conditional = isSingleEnvironment
-        ? Object.values(featuresStates[f.id] || {}).some(
-            (s) => s.state === "conditional",
-          )
+      const featureStates = featuresStates[f.id] || {};
+      const prodEnv = environments.find(
+        (env) => env === "production" || env === "prod",
+      );
+      const targetEnv = isSingleEnvironment ? environments[0] : prodEnv;
+
+      const conditional = targetEnv
+        ? featureStates[targetEnv]?.state === "conditional"
+        : Object.values(featureStates).some((s) => s.state === "conditional");
+      const cyclic = targetEnv
+        ? featureStates[targetEnv]?.state === "cyclic"
         : false;
-      const cyclic = isSingleEnvironment
-        ? Object.values(featuresStates[f.id] || {}).some(
-            (s) => s.state === "cyclic",
-          )
-        : false;
-      const wouldBeCyclic = isSingleEnvironment
+      const wouldBeCyclic = targetEnv
         ? wouldBeCyclicStates[f.id] || false
         : false;
+
+      const states = targetEnv
+        ? [featureStates[targetEnv]].filter(Boolean)
+        : [];
+      const allDeterministic =
+        states.length > 0 && states.every((s) => s.state === "deterministic");
+
+      const deterministicLive =
+        allDeterministic &&
+        states.every((s) => s.value !== null && s.value !== "false");
+      const deterministicNotLive =
+        allDeterministic && states.every((s) => s.value === null);
+      const deterministicFalse =
+        allDeterministic && states.every((s) => s.value === "false");
+
       const disabled =
         (!hasSDKWithPrerequisites && conditional) || cyclic || wouldBeCyclic;
       const projectId = f.project || "";
@@ -269,6 +279,9 @@ export default function PrerequisiteInput({
           cyclic,
           wouldBeCyclic,
           disabled,
+          deterministicLive,
+          deterministicNotLive,
+          deterministicFalse,
         } as FeatureOptionMeta,
         project: projectId,
         projectName,
@@ -393,7 +406,6 @@ export default function PrerequisiteInput({
                 )}
 
                 <Box>
-                  {/* Per-row header with label and Advanced toggle (for rows after first) */}
                   {i > 0 && (
                     <ConditionRowHeader
                       label="AND"
@@ -414,9 +426,7 @@ export default function PrerequisiteInput({
                     />
                   )}
 
-                  {/* Main condition row */}
                   {!isAdvanced ? (
-                    // Simple mode with 3 columns
                     <>
                       <ConditionRow
                         widthMode="wide-attribute"
@@ -737,7 +747,7 @@ export default function PrerequisiteInput({
                       />
                     </>
                   ) : (
-                    // Advanced mode or no condition - just feature selector
+                    // Advanced mode - only show feature selector
                     <>
                       <ConditionRow
                         widthMode="wide-attribute"
@@ -785,7 +795,6 @@ export default function PrerequisiteInput({
                     </>
                   )}
 
-                  {/* Advanced mode code editor */}
                   {isAdvanced && parentFeature && (
                     <Box mt="2" mb="4">
                       <CodeTextArea
@@ -820,7 +829,6 @@ export default function PrerequisiteInput({
                     </Box>
                   )}
 
-                  {/* Collapsible status table */}
                   {parentFeature && (
                     <Box mb="2">
                       <Collapsible
@@ -844,14 +852,12 @@ export default function PrerequisiteInput({
                     </Box>
                   )}
 
-                  {/* Project mismatch warning */}
                   {parentFeature &&
                     (parentFeature?.project || "") !== featureProject && (
                       <Callout
                         status="warning"
                         mb="2"
                         size="sm"
-                        // dismissible={true}
                         id="prerequisite-project-mismatch--field"
                       >
                         The prerequisite&apos;s project does not match this
@@ -861,7 +867,6 @@ export default function PrerequisiteInput({
                       </Callout>
                     )}
 
-                  {/* Conditional state alerts */}
                   {parentFeature && hasConditionalState && (
                     <PrerequisiteAlerts
                       environments={environments}

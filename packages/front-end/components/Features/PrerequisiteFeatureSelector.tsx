@@ -1,6 +1,10 @@
 import React, { useMemo } from "react";
 import { FaExclamationCircle, FaRecycle } from "react-icons/fa";
-import { FaRegCircleQuestion } from "react-icons/fa6";
+import {
+  FaRegCircleQuestion,
+  FaRegCircleCheck,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
 import SelectField, {
@@ -16,6 +20,9 @@ export interface FeatureOptionMeta {
   cyclic: boolean;
   wouldBeCyclic: boolean;
   disabled: boolean;
+  deterministicLive: boolean;
+  deterministicNotLive: boolean;
+  deterministicFalse: boolean;
 }
 
 interface FeatureOption {
@@ -164,6 +171,85 @@ export default function PrerequisiteFeatureSelector({
                   }}
                 >
                   <FaRecycle className="text-muted" />
+                </Tooltip>
+              )}
+              {meta?.deterministicLive && (
+                <Tooltip
+                  body={
+                    <>
+                      This feature is{" "}
+                      <span className="text-success font-weight-bold">
+                        live
+                      </span>{" "}
+                      {environments.length === 1
+                        ? "in this environment"
+                        : environments.includes("production") ||
+                            environments.includes("prod")
+                          ? "in production"
+                          : "in this environment"}
+                      .
+                    </>
+                  }
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaRegCircleCheck className="text-success" />
+                </Tooltip>
+              )}
+              {meta?.deterministicNotLive && (
+                <Tooltip
+                  body={
+                    <>
+                      This feature is{" "}
+                      <span className="text-gray font-weight-bold">
+                        not live
+                      </span>{" "}
+                      {environments.length === 1
+                        ? "in this environment"
+                        : environments.includes("production") ||
+                            environments.includes("prod")
+                          ? "in production"
+                          : "in this environment"}
+                      .
+                    </>
+                  }
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaRegCircleXmark className="text-muted" />
+                </Tooltip>
+              )}
+              {meta?.deterministicFalse && (
+                <Tooltip
+                  body={
+                    <>
+                      This feature is currently serving{" "}
+                      <span className="rounded px-1 bg-light">false</span>{" "}
+                      {environments.length === 1
+                        ? "in this environment"
+                        : environments.includes("production") ||
+                            environments.includes("prod")
+                          ? "in production"
+                          : "in this environment"}
+                      .
+                    </>
+                  }
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaRegCircleXmark className="text-muted" />
                 </Tooltip>
               )}
               {meta?.conditional && (
