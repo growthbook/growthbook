@@ -3,6 +3,8 @@ primary_region = 'sjc'
 
 [build]
   dockerfile = 'preview/Dockerfile.generated'
+  [build.args]
+    PYPI_MIRROR_URL = 'https://mirrors.aliyun.com/pypi/simple/'
 
 [deploy]
   strategy = 'immediate'
