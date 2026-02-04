@@ -394,11 +394,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteTargetingField.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 2

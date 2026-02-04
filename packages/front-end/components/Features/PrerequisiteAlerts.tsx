@@ -1,10 +1,10 @@
 import React from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaRegCircleQuestion } from "react-icons/fa6";
-import { Text } from "@radix-ui/themes";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import useSDKConnections from "@/hooks/useSDKConnections";

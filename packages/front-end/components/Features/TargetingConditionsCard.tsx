@@ -1,8 +1,9 @@
 import React from "react";
-import { Box, Flex, Text, Separator, Card } from "@radix-ui/themes";
+import { Box, Flex, Separator, Card } from "@radix-ui/themes";
 import { PiPlusBold } from "react-icons/pi";
 import clsx from "clsx";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export function TargetingConditionsCard({
   targetingType,
