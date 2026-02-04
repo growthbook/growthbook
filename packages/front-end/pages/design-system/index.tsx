@@ -14,6 +14,8 @@ import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
 import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
+import TextStories from "@/ui/Text.stories";
+import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
@@ -62,6 +64,8 @@ export default function DesignSystemPage() {
       name: "ExperimentStatusIndicator",
       Stories: ExperimentStatusIndicatorStories,
     },
+    { name: "Text", Stories: TextStories },
+    { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
