@@ -1179,6 +1179,7 @@ function parseStringValue(value: unknown): string | null {
   if (value == null) return null;
   if (typeof value === "string") return value;
   if (typeof value === "number") return value.toString();
+  if (value instanceof Date) return value.toISOString();
   return null;
 }
 function parseNumberValue(value: unknown): number | null {
