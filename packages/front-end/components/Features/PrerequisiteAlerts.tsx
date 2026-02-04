@@ -49,48 +49,44 @@ export default function PrerequisiteAlerts({
       mt={mt}
       icon={<FaRegCircleQuestion className="text-warning-orange" />}
     >
-      <Text>
-        This {type} is in a{" "}
-        <Text weight="bold" style={{ color: "var(--orange-9)" }}>
-          Schrödinger state
-        </Text>{" "}
-        {environments.length > 1
-          ? "in some environments"
-          : "in this environment"}{" "}
-        and {type === "feature" && "its prerequisites "}must be evaluated at
-        runtime in the SDK.{" "}
-        {hasSDKWithPrerequisites ? (
+      This {type} is in a{" "}
+      <Text size="small" weight="semibold">
+        <span className="text-warning-orange">Schrödinger state</span>
+      </Text>{" "}
+      {environments.length > 1 ? "in some environments" : "in this environment"}{" "}
+      and {type === "feature" && "its prerequisites "}must be evaluated at
+      runtime in the SDK.{" "}
+      {hasSDKWithPrerequisites ? (
+        <>
+          However, some of your{" "}
+          <Link href="/sdks" target="_blank">
+            SDK Connections <PiArrowSquareOut />
+          </Link>{" "}
+          in this project may not support prerequisite evaluation.
+        </>
+      ) : (
+        <>
+          However, none of your{" "}
+          <Link href="/sdks" target="_blank">
+            SDK Connections <PiArrowSquareOut />
+          </Link>{" "}
+          in this project support prerequisite evaluation. Either upgrade your
+          SDKs or{" "}
+          {type === "prerequisite"
+            ? "remove this prerequisite"
+            : "remove Schrödinger prerequisites"}
+          .
+        </>
+      )}{" "}
+      <Tooltip
+        body={
           <>
-            However, some of your{" "}
-            <Link href="/sdks" target="_blank">
-              SDK Connections <PiArrowSquareOut />
-            </Link>{" "}
-            in this project may not support prerequisite evaluation.
+            Prerequisite evaluation is only supported in the following SDKs and
+            versions:
+            <MinSDKVersionsList capability="prerequisites" />
           </>
-        ) : (
-          <>
-            However, none of your{" "}
-            <Link href="/sdks" target="_blank">
-              SDK Connections <PiArrowSquareOut />
-            </Link>{" "}
-            in this project support prerequisite evaluation. Either upgrade your
-            SDKs or{" "}
-            {type === "prerequisite"
-              ? "remove this prerequisite"
-              : "remove Schrödinger prerequisites"}
-            .
-          </>
-        )}{" "}
-        <Tooltip
-          body={
-            <>
-              Prerequisite evaluation is only supported in the following SDKs
-              and versions:
-              <MinSDKVersionsList capability="prerequisites" />
-            </>
-          }
-        />
-      </Text>
+        }
+      />
     </Callout>
   );
 }

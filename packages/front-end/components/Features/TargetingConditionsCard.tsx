@@ -80,7 +80,7 @@ export function ConditionGroupHeader({
       align="center"
       justify="between"
     >
-      <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
+      <Text size="medium" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -161,7 +161,7 @@ export function ConditionRow({
 
 export function ConditionRowLabel({ label }: { label: string }) {
   return (
-    <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
+    <Text size="medium" weight="medium" color="text-mid">
       {label}
     </Text>
   );
@@ -182,7 +182,7 @@ export function ConditionRowHeader({
       mb="2"
       style={{ minHeight: 24 }}
     >
-      <Text size="2" weight="medium" style={{ color: "var(--color-text-mid)" }}>
+      <Text size="medium" weight="medium" color="text-mid">
         {label}
       </Text>
       {advancedToggle && <Box>{advancedToggle}</Box>}
@@ -194,7 +194,7 @@ export function OrSeparator() {
   return (
     <Flex align="center" gap="3" my="5" className="gb-or-separator">
       <Separator style={{ flexGrow: 1 }} />
-      <Text size="2" weight="medium">
+      <Text size="medium" weight="medium">
         OR
       </Text>
       <Separator style={{ flexGrow: 1 }} />
@@ -211,7 +211,7 @@ export function AddConditionButton({
 }) {
   return (
     <Link onClick={onClick}>
-      <Text weight="bold">
+      <Text weight="semibold">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
       </Text>
@@ -223,7 +223,7 @@ export function AddOrGroupButton({ onClick }: { onClick: () => void }) {
   return (
     <Box my="4">
       <Link onClick={onClick}>
-        <Text weight="bold">
+        <Text weight="semibold">
           <PiPlusBold className="mr-1" />
           Add OR group
         </Text>

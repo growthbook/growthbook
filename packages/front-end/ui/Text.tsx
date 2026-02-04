@@ -56,7 +56,7 @@ export default function Text({
   size = "medium",
   weight = "regular",
   as,
-  color = "text-mid",
+  color,
   align = "left",
   title,
   overflowWrap = "normal",
