@@ -31,6 +31,10 @@
       "version": "1.0.62"
     },
     {
+      "version": "1.0.58",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
       "version": "1.0.57"
     },
     {

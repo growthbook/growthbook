@@ -726,6 +726,9 @@ export default {
       {
         looseUnmarshalling: "≥ v0.0.0",
       },
+      {
+        savedGroupReferences: "≥ v1.0.58",
+      },
     ],
   },
   reactNative: {
