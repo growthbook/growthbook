@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { getScopedSettings } from "shared/settings";
+import { isPrecomputedDimension } from "shared/experiments";
 import React, { useState, useCallback } from "react";
 import {
   ExperimentSnapshotReportArgs,
@@ -160,9 +161,7 @@ export default function ResultsTab({
     setAnalysisSettings(null);
     setAnalysisBarSettings((prev) => ({
       ...prev,
-      dimension: prev.dimension.startsWith("precomputed:")
-        ? ""
-        : prev.dimension,
+      dimension: isPrecomputedDimension(prev.dimension) ? "" : prev.dimension,
       baselineRow: 0,
       variationFilter: [],
       differenceType: "relative",

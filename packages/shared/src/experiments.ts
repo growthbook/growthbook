@@ -6,6 +6,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  PRECOMPUTED_DIMENSION_PREFIX,
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
@@ -1905,4 +1906,8 @@ export function expandAllSliceMetricsInMap({
       });
     }
   }
+}
+
+export function isPrecomputedDimension(dimension: string | undefined): boolean {
+  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
 }

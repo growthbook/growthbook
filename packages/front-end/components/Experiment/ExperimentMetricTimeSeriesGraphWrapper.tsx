@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentStatus, MetricTimeSeries } from "shared/validators";
+import { MetricTimeSeries } from "shared/validators";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
@@ -23,7 +23,6 @@ import ExperimentTimeSeriesGraph, {
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
   phase: number;
-  experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
   variationNames: string[];
@@ -33,6 +32,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   firstDateToRender: Date;
   sliceId?: string;
   baselineRow?: number;
+  unavailableMessage?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -55,7 +55,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
   phase,
-  experimentStatus,
   metric,
   differenceType,
   variationNames,
@@ -65,6 +64,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   firstDateToRender,
   sliceId,
   baselineRow = 0,
+  unavailableMessage,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -85,6 +85,10 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const filteredMetricTimeSeries = useMemo(() => {
     return filterInvalidMetricTimeSeries(data?.timeSeries || []);
   }, [data]);
+
+  if (unavailableMessage) {
+    return <Message height="70px">{unavailableMessage}</Message>;
+  }
 
   if (baselineRow !== 0) {
     return (
@@ -131,8 +135,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
     });
-  } else if (experimentStatus === "running") {
-    // When experiment is running, always show one additional day at the end of the graph
+  } else {
+    // Always show one additional day at the end of the graph
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 1),
     });
@@ -229,13 +233,19 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 }
 
-function Message({ children }: { children: React.ReactNode }) {
+function Message({
+  children,
+  height = "220px",
+}: {
+  children: React.ReactNode;
+  height?: string;
+}) {
   return (
     <Flex
       align="center"
-      height="220px"
+      height={height}
       justify="center"
-      pb="1rem"
+      mb="-1rem"
       position="relative"
       width="100%"
     >
