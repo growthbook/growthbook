@@ -367,7 +367,8 @@ export default function ResultsFilter({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
-  const { getExperimentMetricById, getMetricGroupById, getTagById } = useDefinitions();
+  const { getExperimentMetricById, getMetricGroupById, getTagById } =
+    useDefinitions();
 
   const filteringApplied =
     metricTagFilter?.length > 0 ||

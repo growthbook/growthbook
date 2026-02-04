@@ -600,13 +600,11 @@ function ConditionAndGroupInput({
             }
           });
 
-        return [
-          <ConditionRow
-            key={i}
-            prefixSlot={
-              i > 0 ? <ConditionRowLabel label="AND" /> : null
-            }
-            attributeSlot={fieldSelector}
+          return [
+            <ConditionRow
+              key={i}
+              prefixSlot={i > 0 ? <ConditionRowLabel label="AND" /> : null}
+              attributeSlot={fieldSelector}
               operatorSlot={
                 <SelectField
                   useMultilineLabels={true}
@@ -848,11 +846,22 @@ function ConditionAndGroupInput({
           displayType === "string" && value !== value.trim();
 
         return [
-          ...(i > 0 ? [<Separator key={`sep-${i}`} style={{ width: "100%", backgroundColor: "var(--slate-a3)" }} />] : []),
+          ...(i > 0
+            ? [
+                <Separator
+                  key={`sep-${i}`}
+                  style={{ width: "100%", backgroundColor: "var(--slate-a3)" }}
+                />,
+              ]
+            : []),
           <ConditionRow
             key={i}
             prefixSlot={
-              i > 0 ? <ConditionRowLabel label="AND" /> : <Box style={{ width: 45 }} />
+              i > 0 ? (
+                <ConditionRowLabel label="AND" />
+              ) : (
+                <Box style={{ width: 45 }} />
+              )
             }
             attributeSlot={fieldSelector}
             operatorSlot={
@@ -880,7 +889,9 @@ function ConditionAndGroupInput({
                     >
                       <IconButton
                         type="button"
-                        variant={isCaseInsensitiveOperator(operator) ? "soft" : "ghost"}
+                        variant={
+                          isCaseInsensitiveOperator(operator) ? "soft" : "ghost"
+                        }
                         size="1"
                         radius="medium"
                         onClick={() => {
@@ -1132,7 +1143,11 @@ export function CaseInsensitiveRegexWarning({
   }
 
   return (
-    <Callout status={hasSDKWithCaseInsensitive ? "warning" : "error"} mt="2" size="sm">
+    <Callout
+      status={hasSDKWithCaseInsensitive ? "warning" : "error"}
+      mt="2"
+      size="sm"
+    >
       {hasSDKWithCaseInsensitive
         ? "Some of your SDK Connections in this project may not support case-insensitive operators."
         : "None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."}

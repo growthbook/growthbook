@@ -136,76 +136,79 @@ export default function SavedGroupTargetingField({
         <>
           {value.map((v, i) => (
             <React.Fragment key={i}>
-              {i > 0 && <Separator style={{ width: "100%", backgroundColor: "var(--slate-a3)" }} />}
+              {i > 0 && (
+                <Separator
+                  style={{ width: "100%", backgroundColor: "var(--slate-a3)" }}
+                />
+              )}
               <ConditionRow
-                prefixSlot={
-                i > 0 ? (
-                  <ConditionRowLabel label="AND" />
-                ) : null
-              }
-            attributeSlot={
-              <SelectField
-                useMultilineLabels={true}
-                value={v.match}
-                onChange={(match) => {
-                  const newValue = [...value];
-                  newValue[i] = { ...v };
-                  newValue[i].match = match as "all" | "any" | "none";
-                  setValue(newValue);
-                }}
-                sort={false}
-                options={[
-                  { value: "any", label: "any of" },
-                  { value: "all", label: "all of" },
-                  { value: "none", label: "none of" },
-                ]}
+                prefixSlot={i > 0 ? <ConditionRowLabel label="AND" /> : null}
+                attributeSlot={
+                  <SelectField
+                    useMultilineLabels={true}
+                    value={v.match}
+                    onChange={(match) => {
+                      const newValue = [...value];
+                      newValue[i] = { ...v };
+                      newValue[i].match = match as "all" | "any" | "none";
+                      setValue(newValue);
+                    }}
+                    sort={false}
+                    options={[
+                      { value: "any", label: "any of" },
+                      { value: "all", label: "all of" },
+                      { value: "none", label: "none of" },
+                    ]}
+                  />
+                }
+                valueSlot={
+                  <MultiSelectField
+                    value={v.ids}
+                    onChange={(ids) => {
+                      const newValue = [...value];
+                      newValue[i] = { ...v };
+                      newValue[i].ids = ids;
+                      setValue(newValue);
+                    }}
+                    options={options}
+                    formatOptionLabel={(o, meta) => {
+                      if (meta.context !== "value") return o.label;
+                      const group = getSavedGroupById(o.value);
+                      if (!group) return o.label;
+                      return (
+                        <Link
+                          href={`/saved-groups/${group.id}`}
+                          target="_blank"
+                        >
+                          {o.label} <PiArrowSquareOut />
+                        </Link>
+                      );
+                    }}
+                    required
+                    placeholder="Select groups..."
+                    closeMenuOnSelect={true}
+                  />
+                }
+                removeSlot={
+                  <Tooltip content="Remove group">
+                    <IconButton
+                      type="button"
+                      color="gray"
+                      variant="ghost"
+                      radius="full"
+                      size="1"
+                      onClick={() => {
+                        const newValue = value.filter((_, idx) => idx !== i);
+                        setValue(newValue);
+                      }}
+                    >
+                      <PiXBold size={16} />
+                    </IconButton>
+                  </Tooltip>
+                }
               />
-            }
-            valueSlot={
-              <MultiSelectField
-                value={v.ids}
-                onChange={(ids) => {
-                  const newValue = [...value];
-                  newValue[i] = { ...v };
-                  newValue[i].ids = ids;
-                  setValue(newValue);
-                }}
-                options={options}
-                formatOptionLabel={(o, meta) => {
-                  if (meta.context !== "value") return o.label;
-                  const group = getSavedGroupById(o.value);
-                  if (!group) return o.label;
-                  return (
-                    <Link href={`/saved-groups/${group.id}`} target="_blank">
-                      {o.label} <PiArrowSquareOut />
-                    </Link>
-                  );
-                }}
-                required
-                placeholder="Select groups..."
-                closeMenuOnSelect={true}
-              />
-            }
-            removeSlot={
-              <Tooltip content="Remove group">
-                <IconButton
-                  type="button"
-                  color="gray"
-                  variant="ghost"
-                  radius="full"
-                  size="1"
-                  onClick={() => {
-                    const newValue = value.filter((_, idx) => idx !== i);
-                    setValue(newValue);
-                  }}
-                >
-                  <PiXBold size={16} />
-                </IconButton>
-              </Tooltip>
-            }
-            />
-          </React.Fragment>
-        ))}
+            </React.Fragment>
+          ))}
         </>
       </TargetingConditionsCard>
     </Box>
