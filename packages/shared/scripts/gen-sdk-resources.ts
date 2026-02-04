@@ -225,7 +225,7 @@ const baseSDKInfo = {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.0.3",
+    version: getLatestSDKVersion("rust"),
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {

@@ -19,6 +19,7 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 
 export default function ReportResults({
   report,
@@ -158,7 +159,38 @@ export default function ReportResults({
             <LoadingSpinner />
           </div>
         ) : (
-          <>
+          <MetricDrilldownProvider
+            experimentId={report.experimentId ?? ""}
+            phase={phase}
+            analysis={analysis ?? null}
+            variations={variations}
+            goalMetrics={report.experimentAnalysisSettings.goalMetrics}
+            secondaryMetrics={
+              report.experimentAnalysisSettings.secondaryMetrics
+            }
+            guardrailMetrics={
+              report.experimentAnalysisSettings.guardrailMetrics
+            }
+            metricOverrides={
+              report.experimentAnalysisSettings.metricOverrides ?? []
+            }
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+            customMetricSlices={
+              report.experimentAnalysisSettings.customMetricSlices
+            }
+            statsEngine={
+              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+            }
+            pValueCorrection={pValueCorrection}
+            startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+            endDate={getValidDate(phaseObj.dateEnded).toISOString()}
+            reportDate={snapshot.dateCreated}
+            isLatestPhase={phase === phases.length - 1}
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            differenceType={analysis?.settings.differenceType}
+            ssrPolyfills={ssrPolyfills}
+            isReportContext
+          >
             {showDateResults ? (
               <DateResults
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
@@ -174,10 +206,7 @@ export default function ReportResults({
                 statsEngine={
                   analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
                 }
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 ssrPolyfills={ssrPolyfills}
               />
             ) : showBreakDownResults ? (
@@ -213,10 +242,7 @@ export default function ReportResults({
                 pValueCorrection={pValueCorrection}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 // metricFilter={metricFilter}
                 // setMetricFilter={setMetricFilter}
                 ssrPolyfills={ssrPolyfills}
@@ -249,10 +275,7 @@ export default function ReportResults({
                 pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-                differenceType={
-                  report?.experimentAnalysisSettings?.differenceType ||
-                  "relative"
-                }
+                differenceType={analysis.settings.differenceType}
                 isTabActive={true}
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
@@ -267,7 +290,7 @@ export default function ReportResults({
                 </Callout>
               </div>
             )}
-          </>
+          </MetricDrilldownProvider>
         )}
       </div>
     </>

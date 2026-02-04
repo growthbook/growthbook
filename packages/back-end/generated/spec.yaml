@@ -2881,12 +2881,14 @@ paths:
                           minimum: 0
                           exclusiveMinimum: true
                     riskThresholdSuccess:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                       minimum: 0
                     riskThresholdDanger:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                       minimum: 0
                     minPercentChange:
                       type: number
@@ -3196,12 +3198,14 @@ paths:
                           minimum: 0
                           exclusiveMinimum: true
                     riskThresholdSuccess:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                       minimum: 0
                     riskThresholdDanger:
+                      deprecated: true
                       type: number
-                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                       minimum: 0
                     minPercentChange:
                       type: number
@@ -5145,12 +5149,14 @@ paths:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
                 riskThresholdSuccess:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                   minimum: 0
                 riskThresholdDanger:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
                 displayAsPercentage:
                   type: boolean
@@ -5524,12 +5530,14 @@ paths:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
                 riskThresholdSuccess:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  description: 'No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
                   minimum: 0
                 riskThresholdDanger:
+                  deprecated: true
                   type: number
-                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  description: 'No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
                   minimum: 0
                 displayAsPercentage:
                   type: boolean
