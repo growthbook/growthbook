@@ -798,10 +798,14 @@ export default function PrerequisiteInput({
                       />
                       <Box>
                         <Text color="gray" size="1">
-                          <code>"value"</code> refers to the prerequisite&apos;s
-                          evaluated value.
+                          <code>{`"value"`}</code> refers to the
+                          prerequisite&apos;s evaluated value.
                           <Tooltip
-                            body={<div>Example: <code>{`{"value": {"$gt": 3}}`}</code></div>}
+                            body={
+                              <div>
+                                Example: <code>{`{"value": {"$gt": 3}}`}</code>
+                              </div>
+                            }
                             className="ml-2"
                             flipTheme={false}
                           >
@@ -851,8 +855,8 @@ export default function PrerequisiteInput({
                       >
                         The prerequisite&apos;s project does not match this
                         feature&apos;s project. For SDK connections that do not
-                        overlap in project scope, prerequisite evaluation will not
-                        pass.
+                        overlap in project scope, prerequisite evaluation will
+                        not pass.
                       </Callout>
                     )}
 
