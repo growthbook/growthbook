@@ -5,11 +5,10 @@ ARG NODE_MAJOR=20
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 RUN \
-  pip3 install --index-url https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com --retries 10 --timeout 60 poetry==1.8.5 \
-  && poetry config repositories.aliyun https://mirrors.aliyun.com/pypi/simple/ \
-  && poetry config virtualenvs.create true \
-  && poetry source add --priority=primary aliyun https://mirrors.aliyun.com/pypi/simple/ \
+  pip3 install --retries 10 --timeout 60 poetry==1.8.5 \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
