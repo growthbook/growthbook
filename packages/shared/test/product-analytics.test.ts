@@ -1,6 +1,6 @@
 import { format } from "shared/sql";
+import { ProductAnalyticsConfig } from "shared/validators";
 import { SqlHelpers } from "shared/types/sql";
-import { ProductAnalyticsConfig } from "shared/src/validators/product-analytics";
 import { generateProductAnalyticsSQL } from "shared/src/enterprise/product-analytics/sql";
 import {
   FactMetricInterface,

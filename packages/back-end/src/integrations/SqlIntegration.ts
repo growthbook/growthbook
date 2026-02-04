@@ -150,7 +150,7 @@ import {
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
-import { ProductAnalyticsConfig } from "shared/src/validators/product-analytics";
+import { ProductAnalyticsConfig } from "shared/validators";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";

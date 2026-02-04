@@ -3,7 +3,7 @@ import {
   ProductAnalyticsConfig,
   productAnalyticsConfigValidator,
   ProductAnalyticsResultRow,
-} from "shared/src/validators/product-analytics";
+} from "shared/validators";
 import {
   FactMetricInterface,
   FactTableInterface,
