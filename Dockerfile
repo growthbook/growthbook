@@ -1,21 +1,31 @@
 ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=20
+ARG PYPI_MIRROR_URL=""
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
+ARG PYPI_MIRROR_URL
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 # TODO: The preview environment is having network connectivity issues Feb 4, 2026. 
-# Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it.
-ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
-ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
+# Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
+# as there is probably no need to have this conditional logic long term.
 RUN \
-  pip3 install --retries 10 --timeout 60 poetry==1.8.5 \
-  && poetry source add --priority=primary aliyun https://mirrors.aliyun.com/pypi/simple/ \
-  && poetry lock --no-update \
-  && poetry install --no-root --without dev --no-interaction --no-ansi \
-  && poetry build \
-  && poetry export -f requirements.txt --output requirements.txt
+  if [ -n "$PYPI_MIRROR_URL" ]; then \
+    export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
+    && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
+    && pip3 install poetry==1.8.5 \
+    && poetry source add --priority=primary mirror "$PYPI_MIRROR_URL" \
+    && poetry lock --no-update \
+    && poetry install --no-root --without dev --no-interaction --no-ansi \
+    && poetry build \
+    && poetry export -f requirements.txt --output requirements.txt; \
+  else \
+    pip3 install poetry==1.8.5 \
+    && poetry install --no-root --without dev --no-interaction --no-ansi \
+    && poetry build \
+    && poetry export -f requirements.txt --output requirements.txt; \
+  fi
 
 # Build the nodejs app
 FROM python:${PYTHON_MAJOR}-slim AS nodebuild
@@ -75,9 +85,8 @@ RUN pnpm postinstall
 # Package the full app together
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
+ARG PYPI_MIRROR_URL
 WORKDIR /usr/local/src/app
-ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
-ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 # TODO: Remove openssl upgrade once base image has version >3.5.4-1~deb13u2
 # Check with: `docker run --rm python:3.11-slim dpkg -l | grep openssl`
 RUN apt-get update && \
@@ -92,7 +101,13 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
-RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
+RUN if [ -n "$PYPI_MIRROR_URL" ]; then \
+      export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
+      && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
+      && pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip; \
+    else \
+      pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip; \
+    fi
 
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
