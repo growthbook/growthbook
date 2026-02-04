@@ -11,7 +11,7 @@
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
-    "test": "NODE_OPTIONS='--no-node-snapshot --max-old-space-size=4096' vitest run",
+    "test": "NODE_OPTIONS='--no-node-snapshot --max-old-space-size=16384' vitest run",
     "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
   },
   "dependencies": {
