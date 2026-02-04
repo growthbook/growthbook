@@ -771,7 +771,7 @@ export abstract class BaseModel<
         id: doc.id || "",
       },
       {
-        $set: allUpdates,
+        $set: newDoc,
       },
     );
 
