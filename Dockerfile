@@ -70,7 +70,7 @@ RUN \
   && rm -rf packages/shared/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
-  && SENTRYCLI_SKIP_DOWNLOAD=1 pnpm install --frozen-lockfile --prod --no-optional \
+  && pnpm install --frozen-lockfile --prod --no-optional \
   && pnpm store prune \
   && find node_modules -type f -name "*.md" -delete \
   && find node_modules -type f -name "*.ts" ! -name "*.d.ts" -delete \
