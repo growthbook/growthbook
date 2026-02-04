@@ -276,7 +276,8 @@ export default function PrerequisiteInput({
     });
 
   allFeatureOptions.sort((a, b) => {
-    if (b.meta?.disabled) return -1;
+    if (a.meta?.disabled && !b.meta?.disabled) return 1;
+    if (!a.meta?.disabled && b.meta?.disabled) return -1;
     return 0;
   });
 

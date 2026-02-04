@@ -163,20 +163,6 @@ export function isSliceCoveredBySelectAll(
   });
 }
 
-export function formatMetricTagOptionLabel(option: {
-  value: string;
-  label: string;
-  isOrphaned?: boolean;
-}) {
-  return (
-    <span
-      style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
-    >
-      {option.label}
-    </span>
-  );
-}
-
 export function formatMetricOptionLabel(
   option: { value: string; label: string; isOrphaned?: boolean },
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
@@ -413,7 +399,6 @@ export default function ResultsFilter({
   );
 
   const metricTagOptions = useMemo(() => {
-    const availableTagSet = new Set(availableMetricTags);
     const allTagIds = Array.from(
       new Set([...availableMetricTags, ...(metricTagFilter || [])]),
     );
@@ -421,7 +406,6 @@ export default function ResultsFilter({
     return allTagIds.map((tag) => ({
       value: tag,
       label: tag,
-      isOrphaned: !availableTagSet.has(tag),
     }));
   }, [availableMetricTags, metricTagFilter]);
 
