@@ -50,7 +50,6 @@ const SortableMultiValueLabel = SortableHandle<any>(
   (props: MultiValueGenericProps) => {
     const title = props.data?.tooltip || props.data?.label || "";
     const innerProps = { ...props.innerProps, title };
-    // @ts-expect-error TS(2322) innerProps type mismatch
     return <components.MultiValueLabel {...props} innerProps={innerProps} />;
   },
 );

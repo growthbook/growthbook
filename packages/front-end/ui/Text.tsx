@@ -1,7 +1,7 @@
 import { Text as RadixText } from "@radix-ui/themes";
 import type { TextProps as RadixTextProps } from "@radix-ui/themes";
 
-type TextSizes = "small" | "medium" | "large";
+type TextSizes = "small" | "medium" | "large" | "inherit";
 type TextWeights = "regular" | "medium" | "semibold";
 type TextAlign = "left" | "center" | "right";
 type TextOverflowWrap = "normal" | "anywhere" | "break-word";
@@ -15,10 +15,11 @@ type TextWhiteSpace =
 // NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
 type TextColors = "text-high" | "text-mid" | "text-low";
 
-const radixSizeMap: Record<TextSizes, RadixTextProps["size"]> = {
+const radixSizeMap: Record<TextSizes, RadixTextProps["size"] | undefined> = {
   small: "1",
   medium: "2",
   large: "3",
+  inherit: undefined,
 };
 
 const radixWeightMap: Record<TextWeights, RadixTextProps["weight"]> = {

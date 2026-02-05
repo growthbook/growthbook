@@ -1,14 +1,17 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { ReactNode } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
   initialAnd?: boolean;
   groupClassName?: string;
+  prefix?: ReactNode;
 }
 
 function getDescription({ match, ids }: SavedGroupTargeting): string {
@@ -26,6 +29,7 @@ export default function SavedGroupTargetingDisplay({
   savedGroups,
   initialAnd = false,
   groupClassName = "",
+  prefix,
 }: Props) {
   const { getSavedGroupById } = useDefinitions();
 
@@ -36,9 +40,10 @@ export default function SavedGroupTargetingDisplay({
           <Flex
             wrap="wrap"
             gap="2"
-            className={groupClassName}
+            className={i === 0 && prefix ? undefined : groupClassName}
             key={"savedGroup-" + i}
           >
+            {i === 0 && prefix}
             {i || initialAnd ? <Text weight="medium">AND</Text> : null}
             {getDescription(s)}
             <Flex wrap="wrap" gap="2">

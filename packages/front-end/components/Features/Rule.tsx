@@ -5,7 +5,7 @@ import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading, Text, IconButton } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
@@ -13,6 +13,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import Text from "@/ui/Text";
 import track from "@/services/track";
 import {
   getRules,
@@ -479,17 +480,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </>
                   ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <Flex direction="row" gap="2" mb="3">
-                      <Text weight="medium">IF</Text>
-                      <Box>
-                        <TruncatedConditionDisplay
-                          condition={rule.condition || ""}
-                          savedGroups={rule.savedGroups}
-                          prerequisites={rule.prerequisites}
-                          maxLength={500}
-                        />
-                      </Box>
-                    </Flex>
+                    <Box mb="3">
+                      <TruncatedConditionDisplay
+                        condition={rule.condition || ""}
+                        savedGroups={rule.savedGroups}
+                        prerequisites={rule.prerequisites}
+                        maxLength={500}
+                        prefix={<Text weight="medium">IF</Text>}
+                      />
+                    </Box>
                   )}
                   {rule.type === "force" && (
                     <ForceSummary value={rule.value} feature={feature} />
