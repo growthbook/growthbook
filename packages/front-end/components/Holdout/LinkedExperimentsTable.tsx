@@ -1,4 +1,4 @@
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Text } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -10,7 +10,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   experiments: ExperimentInterfaceStringDates[];
 }
 

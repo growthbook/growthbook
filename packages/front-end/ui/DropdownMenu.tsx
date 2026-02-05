@@ -168,6 +168,7 @@ type DropdownItemProps = {
     closeDropdown?: () => void;
   };
   style?: React.CSSProperties;
+  tooltip?: string;
 } & MarginProps;
 
 export function DropdownMenuItem({
@@ -178,6 +179,7 @@ export function DropdownMenuItem({
   onClick,
   confirmation,
   style,
+  tooltip,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -269,7 +271,13 @@ export function DropdownMenuItem({
       >
         <Flex as="div" justify="between" align="center" style={style}>
           <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
-            {children}
+            {tooltip ? (
+              <Tooltip body={tooltip} tipPosition="left">
+                {children}
+              </Tooltip>
+            ) : (
+              children
+            )}
           </Box>
           {loading || error ? (
             <Box width="14px" className="ml-3">

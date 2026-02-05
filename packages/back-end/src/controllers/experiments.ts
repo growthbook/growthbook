@@ -1868,7 +1868,6 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
-      holdoutRunningStatus?: "running" | "analysis-period";
     },
     { id: string }
   >,
@@ -1877,7 +1876,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded, holdoutRunningStatus } = req.body;
+  const { status, reason, dateEnded } = req.body;
 
   const changes: Changeset = {};
 
@@ -1887,6 +1886,13 @@ export async function postExperimentStatus(
   }
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
+  }
+  if (experiment.type === "holdout") {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot edit the status of a holdout through this endpoint",
+    });
+    return;
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
@@ -1924,12 +1930,6 @@ export async function postExperimentStatus(
     phases?.length > 0 &&
     !phases[lastIndex].dateEnded
   ) {
-    if (experiment.type === "holdout") {
-      phases[0] = {
-        ...phases[0],
-        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
-      };
-    }
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
@@ -1957,24 +1957,10 @@ export async function postExperimentStatus(
     phases?.length > 0
   ) {
     const clonedPhase = { ...phases[lastIndex] };
-    const clonedFirstPhase = { ...phases[0] };
-    if (experiment.type === "holdout") {
-      // when setting moving back to running or draft remove the end date of both phases
-      delete clonedFirstPhase.dateEnded;
-      delete clonedPhase.dateEnded;
-      // reset the analysis phase if new status is set to "analysis-period"
-      if (phases.length > 1 && holdoutRunningStatus === "analysis-period") {
-        clonedPhase.lookbackStartDate = new Date();
-        phases[lastIndex] = clonedPhase;
-        // delete analysis phase if new status is set to "running"
-      } else {
-        phases.pop();
-      }
-      phases[0] = clonedFirstPhase;
-    } else {
-      delete clonedPhase.dateEnded;
-      phases[lastIndex] = clonedPhase;
-    }
+
+    delete clonedPhase.dateEnded;
+    phases[lastIndex] = clonedPhase;
+
     changes.phases = phases;
 
     // Bandit-specific changes
@@ -2074,6 +2060,14 @@ export async function postExperimentStop(
     return;
   }
 
+  if (experiment.type === "holdout") {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot stop a holdout through this endpoint",
+    });
+    return;
+  }
+
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
   }
@@ -2098,12 +2092,6 @@ export async function postExperimentStop(
   const phases = [...experiment.phases];
   // Already has phases
   if (phases.length) {
-    if (experiment.type === "holdout") {
-      phases[0] = {
-        ...phases[0],
-        dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
-      };
-    }
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),

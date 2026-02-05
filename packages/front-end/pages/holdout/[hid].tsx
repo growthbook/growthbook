@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
 import { includeHoldoutInPayload } from "shared/util";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -22,6 +22,7 @@ import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutA
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
+import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -38,12 +39,14 @@ const HoldoutPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
+  const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
+    useState(false);
   const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
     number | null
   >(null);
 
   const { data, error, mutate } = useApi<{
-    holdout: HoldoutInterface;
+    holdout: HoldoutInterfaceStringDates;
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
@@ -93,7 +96,6 @@ const HoldoutPage = (): ReactElement => {
   const editMetrics = canEditExperiment
     ? () => setMetricsModalOpen(true)
     : null;
-  const stop = canRunExperiment ? () => setStopModalOpen(true) : null;
   const editResult = canRunExperiment
     ? () => {
         if (holdout?.analysisStartDate) {
@@ -117,6 +119,9 @@ const HoldoutPage = (): ReactElement => {
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
+    : null;
+  const editHoldoutSchedule = canRunExperiment
+    ? () => setEditHoldoutScheduleModalOpen(true)
     : null;
 
   const safeToEdit =
@@ -214,6 +219,14 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
+      {editHoldoutScheduleModalOpen && (
+        <EditScheduleModal
+          close={() => setEditHoldoutScheduleModalOpen(false)}
+          holdout={holdout}
+          experiment={experiment}
+          mutate={mutate}
+        />
+      )}
 
       <PageHead
         breadcrumb={[
@@ -247,7 +260,7 @@ const HoldoutPage = (): ReactElement => {
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
-          stop={stop}
+          editHoldoutSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>

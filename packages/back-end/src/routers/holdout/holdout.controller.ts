@@ -6,6 +6,7 @@ import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
 import { HoldoutInterface } from "shared/validators";
 import {
+  Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
@@ -38,7 +39,10 @@ import {
   SNAPSHOT_TIMEOUT,
   validateVariationIds,
 } from "back-end/src/controllers/experiments";
-import { validateExperimentData } from "back-end/src/services/experiments";
+import {
+  getChangesToStartExperiment,
+  validateExperimentData,
+} from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
@@ -372,7 +376,72 @@ export const updateHoldout = async (
     });
   }
 
-  const updatedHoldout = await context.models.holdout.update(holdout, req.body);
+  // Convert string dates to Date objects for scheduledStatusUpdates
+  const updates = { ...req.body };
+  if (updates.scheduledStatusUpdates) {
+    const scheduledUpdates = updates.scheduledStatusUpdates as {
+      startAt?: string | Date;
+      startAnalysisPeriodAt?: string | Date;
+      stopAt?: string | Date;
+    };
+    updates.scheduledStatusUpdates = {
+      startAt: scheduledUpdates.startAt
+        ? getValidDate(scheduledUpdates.startAt)
+        : undefined,
+      startAnalysisPeriodAt: scheduledUpdates.startAnalysisPeriodAt
+        ? getValidDate(scheduledUpdates.startAnalysisPeriodAt)
+        : undefined,
+      stopAt: scheduledUpdates.stopAt
+        ? getValidDate(scheduledUpdates.stopAt)
+        : undefined,
+    };
+
+    // Compute next scheduled update and next scheduled update type
+    // Next scheduled update should be the earliest date among startAt, startAnalysisPeriodAt, and stopAt that is in the future
+    const now = new Date();
+    const potentialUpdates: Array<{
+      date: Date;
+      type: "start" | "startAnalysisPeriod" | "stop";
+    }> = [];
+
+    if (updates.scheduledStatusUpdates.startAt) {
+      potentialUpdates.push({
+        date: updates.scheduledStatusUpdates.startAt,
+        type: "start",
+      });
+    }
+    if (updates.scheduledStatusUpdates.startAnalysisPeriodAt) {
+      potentialUpdates.push({
+        date: updates.scheduledStatusUpdates.startAnalysisPeriodAt,
+        type: "startAnalysisPeriod",
+      });
+    }
+    if (updates.scheduledStatusUpdates.stopAt) {
+      potentialUpdates.push({
+        date: updates.scheduledStatusUpdates.stopAt,
+        type: "stop",
+      });
+    }
+
+    // Filter to only future dates and find the earliest one
+    const futureUpdates = potentialUpdates.filter(
+      (update) => update.date > now,
+    );
+
+    if (futureUpdates.length > 0) {
+      const nextUpdate = futureUpdates.reduce((earliest, current) =>
+        current.date < earliest.date ? current : earliest,
+      );
+      updates.nextScheduledUpdate = nextUpdate.date;
+      updates.nextScheduledUpdateType = nextUpdate.type;
+    } else {
+      // No future dates, set to null
+      updates.nextScheduledUpdate = null;
+      updates.nextScheduledUpdateType = null;
+    }
+  }
+
+  const updatedHoldout = await context.models.holdout.update(holdout, updates);
   return res.status(200).json({ status: 200, holdout: updatedHoldout });
 };
 
@@ -412,6 +481,7 @@ export const editStatus = async (
   }
 
   let phases = [...experiment.phases] as ExperimentPhase[];
+  const changes: Changeset = {};
 
   if (req.body.status === "stopped" && experiment.status !== "stopped") {
     // put end date on both phases
@@ -430,6 +500,11 @@ export const editStatus = async (
         status: "stopped",
       },
     });
+    // Clear next scheduled update
+    await context.models.holdout.update(holdout, {
+      nextScheduledUpdateType: null,
+      nextScheduledUpdate: null,
+    });
 
     queueSDKPayloadRefresh({
       context,
@@ -439,6 +514,41 @@ export const editStatus = async (
       ),
       auditContext: {
         event: "status changed to stopped",
+        model: "holdout",
+        id: holdout.id,
+      },
+    });
+  }
+  // Starting a holdout from draft
+  else if (req.body.status === "running" && experiment.status === "draft") {
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment,
+    );
+    Object.assign(changes, additionalChanges);
+    await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+    await context.models.holdout.update(holdout, {
+      analysisStartDate: undefined,
+      nextScheduledUpdateType: holdout.scheduledStatusUpdates
+        ?.startAnalysisPeriodAt
+        ? "startAnalysisPeriod"
+        : null,
+      nextScheduledUpdate:
+        holdout.scheduledStatusUpdates?.startAnalysisPeriodAt ?? null,
+    });
+
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys: getAffectedSDKPayloadKeys(
+        holdout,
+        getEnvironmentIdsFromOrg(context.org),
+      ),
+      auditContext: {
+        event: "status changed to running",
         model: "holdout",
         id: holdout.id,
       },
@@ -462,6 +572,10 @@ export const editStatus = async (
       };
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),
+        nextScheduledUpdateType: holdout.scheduledStatusUpdates?.stopAt
+          ? "stop"
+          : null,
+        nextScheduledUpdate: holdout.scheduledStatusUpdates?.stopAt ?? null,
       });
       // check to see if we already are in the running phase
     } else if (
@@ -652,3 +766,32 @@ export const deleteHoldoutFeature = async (
 };
 
 // endregion DELETE /holdout/:id/feature/:featureId
+
+// region DELETE /holdout/:id/schedule
+
+export const deleteHoldoutSchedule = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 | 404; message?: string }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
+  }
+
+  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await context.models.holdout.update(holdout, {
+    scheduledStatusUpdates: undefined,
+    nextScheduledUpdate: null,
+    nextScheduledUpdateType: null,
+  });
+
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion DELETE /holdout/:id/schedule
