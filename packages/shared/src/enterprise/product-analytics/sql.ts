@@ -147,6 +147,9 @@ function getFactTableGroups({
       ];
     case "fact_table":
       return (() => {
+        if (!config.dataset.factTableId) {
+          throw new Error("Fact table ID is required");
+        }
         const factTable = factTableMap.get(config.dataset.factTableId);
         if (!factTable) {
           throw new Error(`Fact table ${config.dataset.factTableId} not found`);

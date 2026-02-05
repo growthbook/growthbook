@@ -75,6 +75,7 @@ describe("productAnalytics", () => {
         values: [
           {
             name: "purchasers",
+            type: "fact_table",
             rowFilters: [],
             valueType: "unit_count",
             unit: "user_id",
@@ -82,6 +83,7 @@ describe("productAnalytics", () => {
           },
           {
             name: "revenue",
+            type: "fact_table",
             rowFilters: [],
             valueType: "sum",
             unit: null,

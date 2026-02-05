@@ -35,7 +35,6 @@ export const postProductAnalyticsRun = async (
   const context = getContextFromReq(req);
 
   const config = productAnalyticsConfigValidator.parse(req.body.config);
-  console.log("config", config);
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
   let datasource: DataSourceInterface | null = null;
@@ -47,6 +46,9 @@ export const postProductAnalyticsRun = async (
   }
 
   if (dataset.type === "fact_table") {
+    if (!dataset.factTableId) {
+      throw new BadRequestError("Fact table ID is required");
+    }
     const factTable = await getFactTable(context, dataset.factTableId);
     if (!factTable) {
       throw new NotFoundError("Fact table not found");
