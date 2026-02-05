@@ -210,7 +210,7 @@ export function AddConditionButton({
   children?: React.ReactNode;
 }) {
   return (
-    <Link onClick={onClick}>
+    <Link onClick={onClick} className="and-button">
       <Text weight="semibold">
         <PiPlusBold className="mr-1" />
         {children ?? "Add condition"}
@@ -222,7 +222,7 @@ export function AddConditionButton({
 export function AddOrGroupButton({ onClick }: { onClick: () => void }) {
   return (
     <Box my="4">
-      <Link onClick={onClick}>
+      <Link onClick={onClick} className="or-button">
         <Text weight="semibold">
           <PiPlusBold className="mr-1" />
           Add OR group
