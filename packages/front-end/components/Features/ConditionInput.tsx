@@ -961,6 +961,7 @@ function ConditionAndGroupInput({
                             : "value 1, value 2..."
                         }
                         delimiters={["Enter", "Tab"]}
+                        showCopyButton
                         required
                       />
                     </Flex>

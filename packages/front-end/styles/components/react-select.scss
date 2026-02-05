@@ -87,7 +87,8 @@
   .gb-multi-select__clear-indicator,
   .gb-select__clear-indicator,
   .gb-multi-select__raw-text-mode-indicator,
-  .gb-select__raw-text-mode-indicator {
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button {
     opacity: 0 !important;
     transition: opacity 0.1s ease-in-out;
   }
@@ -97,7 +98,8 @@
   .gb-multi-select__clear-indicator,
   .gb-select__clear-indicator,
   .gb-multi-select__raw-text-mode-indicator,
-  .gb-select__raw-text-mode-indicator {
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button {
     opacity: 1 !important;
   }
 }
@@ -106,12 +108,14 @@
 .gb-select__clear-indicator,
 .gb-select__dropdown-indicator,
 .gb-multi-select__dropdown-indicator,
-.gb-select__raw-text-mode-indicator {
+.gb-select__raw-text-mode-indicator,
+.gb-select__copy-button {
   padding: 8px 2px !important;
 }
 
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)
-.gb-select__raw-text-mode-indicator {
+.gb-select__raw-text-mode-indicator,
+.gb-select__copy-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -133,7 +137,8 @@
 }
 
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
-.gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator {
+.gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator,
+.gb-select__control--is-focused .gb-select__copy-button {
   color: hsl(0, 0%, 40%);
   &:hover {
     color: hsl(0, 0%, 20%);

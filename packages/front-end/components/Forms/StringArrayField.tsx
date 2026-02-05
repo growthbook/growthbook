@@ -3,6 +3,7 @@ import CreatableSelect from "react-select/creatable";
 import { components as SelectComponents } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
 import { FaRetweet } from "react-icons/fa";
+import { PiCopy } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "./Field";
 import { ReactSelectProps } from "./SelectField";
@@ -16,6 +17,7 @@ export type Props = Omit<
   delimiters?: string[];
   enableRawTextMode?: boolean;
   removeDuplicates?: boolean;
+  showCopyButton?: boolean;
 };
 
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
@@ -62,24 +64,56 @@ function RawTextModeToggleButton({
   );
 }
 
+function CopyButton({ value }: { value: string[] }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const text = value.join(", ");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <Tooltip content={copied ? "Copied!" : "Copy all values"}>
+      <button
+        type="button"
+        className="gb-select__copy-button"
+        onClick={handleCopy}
+      >
+        <PiCopy />
+      </button>
+    </Tooltip>
+  );
+}
+
 /** Wrapper that adds a raw-text-mode toggle button when selectProps provides onToggleRawTextMode. */
-function IndicatorsContainerWithModeToggle(
+function IndicatorsContainerWithButtons(
   props: React.ComponentProps<typeof SelectComponents.IndicatorsContainer>,
 ) {
   const selectProps = props.selectProps as unknown as Record<string, unknown>;
   const onToggleRawTextMode = selectProps?.onToggleRawTextMode;
   const showToggle = typeof onToggleRawTextMode === "function";
+  const showCopy = selectProps?.showCopyButton === true;
+  const value = selectProps?.value as string[] | undefined;
 
-  if (!showToggle) {
+  if (!showToggle && !showCopy) {
     return <SelectComponents.IndicatorsContainer {...props} />;
   }
 
   return (
     <SelectComponents.IndicatorsContainer {...props}>
-      <RawTextModeToggleButton
-        rawTextMode={false}
-        onToggle={onToggleRawTextMode as () => void}
-      />
+      {showCopy && value && <CopyButton value={value} />}
+      {showToggle && (
+        <RawTextModeToggleButton
+          rawTextMode={false}
+          onToggle={onToggleRawTextMode as () => void}
+        />
+      )}
       {props.children}
     </SelectComponents.IndicatorsContainer>
   );
@@ -95,19 +129,20 @@ export default function StringArrayField({
   pattern,
   enableRawTextMode = false,
   removeDuplicates = true,
+  showCopyButton = false,
   helpText,
   ...otherProps
 }: Props) {
   const [inputValue, setInputValue] = useState("");
   const [rawTextMode, setRawTextMode] = useState(false);
 
-  const showModeToggle = enableRawTextMode;
+  const showButtons = enableRawTextMode || showCopyButton;
   const components = {
     ...baseComponents,
     Input: InputWithPasteHandler,
-    ...(showModeToggle
+    ...(showButtons
       ? {
-          IndicatorsContainer: IndicatorsContainerWithModeToggle,
+          IndicatorsContainer: IndicatorsContainerWithButtons,
         }
       : {}),
   };
@@ -184,7 +219,7 @@ export default function StringArrayField({
       }
       helpTextClassName="mt-0"
       render={(id, ref) => {
-        if (showModeToggle && rawTextMode) {
+        if (enableRawTextMode && rawTextMode) {
           return (
             <div
               className="gb-select__control gb-select__raw-text-control"
@@ -221,8 +256,9 @@ export default function StringArrayField({
             isDisabled={disabled}
             components={components}
             onToggleRawTextMode={
-              showModeToggle ? () => setRawTextMode(true) : undefined
+              enableRawTextMode ? () => setRawTextMode(true) : undefined
             }
+            showCopyButton={showCopyButton}
             onPasteCapture={handlePaste}
             inputValue={inputValue}
             isClearable
