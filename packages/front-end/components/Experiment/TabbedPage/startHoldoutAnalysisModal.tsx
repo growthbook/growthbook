@@ -27,7 +27,7 @@ export default function StartAnalysisModal({ close, startAnalysis }: Props) {
           <ul className="pl-4">
             <li>No new features or experiments can be added to the holdout</li>
             <li>
-              Units will continue to be held out from existing features and
+              Traffic will continue to be held out from existing features and
               experiments
             </li>
             <li>Data will continue collecting until you stop the holdout</li>

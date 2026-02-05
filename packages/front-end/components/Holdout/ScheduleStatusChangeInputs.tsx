@@ -4,6 +4,7 @@ import { Box, Text } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
+import { format } from "date-fns";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
@@ -15,6 +16,8 @@ interface Props {
   holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
 }
+
+const DATE_FORMAT = "Pp";
 
 export default function ScheduleStatusChangeInputs({
   form,
@@ -68,9 +71,12 @@ export default function ScheduleStatusChangeInputs({
             <Field
               value={
                 experiment.phases[0].dateStarted
-                  ? datetime(experiment.phases[0].dateStarted)
+                  ? format(
+                      new Date(experiment.phases[0].dateStarted),
+                      DATE_FORMAT,
+                    )
                   : startDate
-                    ? datetime(startDate)
+                    ? format(new Date(startDate), DATE_FORMAT)
                     : ""
               }
               disabled
@@ -103,9 +109,9 @@ export default function ScheduleStatusChangeInputs({
             <Field
               value={
                 holdout.analysisStartDate
-                  ? datetime(holdout.analysisStartDate)
+                  ? format(new Date(holdout.analysisStartDate), DATE_FORMAT)
                   : startAnalysisPeriodDate
-                    ? datetime(startAnalysisPeriodDate)
+                    ? format(new Date(startAnalysisPeriodDate), DATE_FORMAT)
                     : ""
               }
               disabled
@@ -139,9 +145,12 @@ export default function ScheduleStatusChangeInputs({
             <Field
               value={
                 experiment.phases[1].dateEnded
-                  ? datetime(experiment.phases[1].dateEnded)
+                  ? format(
+                      new Date(experiment.phases[1].dateEnded),
+                      DATE_FORMAT,
+                    )
                   : stopDate
-                    ? datetime(stopDate)
+                    ? format(new Date(stopDate), DATE_FORMAT)
                     : ""
               }
               disabled

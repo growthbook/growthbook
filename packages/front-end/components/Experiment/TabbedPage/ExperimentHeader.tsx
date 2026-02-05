@@ -58,7 +58,6 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
-import Linkbutton from "@/ui/LinkButton";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -70,7 +69,7 @@ import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
-  setTab: (tab: ExperimentTab) => void;
+  setTab: (tab: ExperimentTab, scrollToId?: string) => void;
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
   mutate: () => void;
@@ -217,7 +216,6 @@ export default function ExperimentHeader({
 
   const phases = experiment.phases || [];
   const hasMultiplePhases = phases.length > 1;
-  const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
@@ -732,9 +730,9 @@ export default function ExperimentHeader({
             {isHoldout &&
             holdout?.nextScheduledUpdate &&
             holdout.nextScheduledUpdateType ? (
-              <Linkbutton
+              <Button
                 variant="ghost"
-                href={`/holdout/${holdout?.id}#overview`}
+                onClick={() => setTab("overview", "holdout-schedule")}
               >
                 {
                   HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
@@ -745,7 +743,7 @@ export default function ExperimentHeader({
                   new Date(holdout.nextScheduledUpdate),
                   "MMM d, yyyy 'at' h:mm a",
                 )}
-              </Linkbutton>
+              </Button>
             ) : canRunExperiment ? (
               <div>
                 {experiment.status === "running" ? (
@@ -1106,7 +1104,7 @@ export default function ExperimentHeader({
           holdout={holdout}
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
-          editTags={!viewingOldPhase ? editTags : undefined}
+          editTags={editTags}
         />
 
         {runningExperimentDecisionBanner ? (
