@@ -12,6 +12,23 @@ import type {
   ProductAnalyticsDataset,
 } from "shared/validators";
 
+export const VALUE_TYPE_OPTIONS: {
+  value: "unit_count" | "count" | "sum";
+  label: string;
+}[] = [
+  { value: "count", label: "Count" },
+  { value: "unit_count", label: "Unit count" },
+  { value: "sum", label: "Sum" },
+];
+
+export function getValueTypeLabel(
+  valueType: "count" | "unit_count" | "sum",
+): string {
+  return (
+    VALUE_TYPE_OPTIONS.find((o) => o.value === valueType)?.label ?? valueType
+  );
+}
+
 export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   const base = {
     name: "",
@@ -21,6 +38,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     case "metric":
       return {
         ...base,
+        name: "",
         type: "metric",
         metricId: "",
         unit: null,
@@ -29,6 +47,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     case "fact_table":
       return {
         ...base,
+        name: "Count",
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
@@ -37,6 +56,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     case "sql":
       return {
         ...base,
+        name: "Count",
         type: "sql",
         valueType: "count",
         valueColumn: null,
@@ -45,6 +65,28 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     default:
       throw new Error(`Invalid dataset type: ${type}`);
   }
+}
+
+export function generateUniqueValueName(
+  baseName: string,
+  existingValues: ProductAnalyticsValue[],
+): string {
+  if (!baseName) return "";
+
+  const existingNames = new Set(existingValues.map((v) => v.name));
+
+  // If base name doesn't exist, use it as-is (no number)
+  if (!existingNames.has(baseName)) {
+    return baseName;
+  }
+
+  // If base name exists, start incrementing from 1
+  let i = 1;
+  while (existingNames.has(`${baseName} ${i}`)) {
+    i++;
+  }
+
+  return `${baseName} ${i}`;
 }
 
 export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {

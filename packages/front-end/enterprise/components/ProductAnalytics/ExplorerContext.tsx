@@ -8,7 +8,12 @@ import React, {
   useEffect,
 } from "react";
 import isEqual from "lodash/isEqual";
-import { createEmptyValue, createEmptyDataset, getCommonColumns } from "./util";
+import {
+  createEmptyValue,
+  createEmptyDataset,
+  getCommonColumns,
+  generateUniqueValueName,
+} from "./util";
 import { useExploreData } from "./useExploreData";
 import {
   DatasetType,
@@ -92,7 +97,7 @@ export interface ExplorerContextValue {
     React.SetStateAction<ProductAnalyticsConfig>
   >;
   handleSubmit: () => Promise<void>;
-  addValueToDataset: (valueType: DatasetType) => void;
+  addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
   clearDataset: () => void;
@@ -184,20 +189,17 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     setSubmittedExploreState(draftExploreState);
   }, [draftExploreState]);
 
-  const addValueToDataset = useCallback((valueType: DatasetType) => {
+  const addValueToDataset = useCallback((datasetType: DatasetType) => {
     setDraftExploreState((prev) => {
-      if (!prev.dataset || prev.dataset.type !== valueType) {
+      if (!prev.dataset || prev.dataset.type !== datasetType) {
         return prev;
       }
-      const value = createEmptyValue(valueType);
+      const value = createEmptyValue(datasetType);
 
       // Generate unique name
-      const existingNames = new Set(prev.dataset.values.map((v) => v.name));
-      let i = 1;
-      while (existingNames.has(`Series ${i}`)) {
-        i++;
+      if (value.name) {
+        value.name = generateUniqueValueName(value.name, prev.dataset.values);
       }
-      value.name = `${valueType === "metric" ? "Metric" : "Series"} ${i}`;
 
       return {
         ...prev,

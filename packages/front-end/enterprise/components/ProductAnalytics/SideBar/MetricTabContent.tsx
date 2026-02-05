@@ -4,6 +4,7 @@ import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import { generateUniqueValueName } from "../util";
 import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ValueCard from "./ValueCard";
@@ -94,6 +95,12 @@ export default function MetricTabContent() {
                       ...v,
                       metricId: val,
                       unit,
+                      name: newMetric?.name
+                        ? generateUniqueValueName(
+                            newMetric.name,
+                            draftExploreState.dataset.values,
+                          )
+                        : v.name,
                     } as MetricValue;
 
                     updateValueInDataset(idx, updates as MetricValue);

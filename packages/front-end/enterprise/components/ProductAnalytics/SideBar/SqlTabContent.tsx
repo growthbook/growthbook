@@ -4,6 +4,7 @@ import { PiTable, PiPlus, PiPencilSimple } from "react-icons/pi";
 import type { SqlValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import { generateUniqueValueName, getValueTypeLabel } from "../util";
 import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -130,7 +131,6 @@ export default function SqlTabContent() {
             )}
           </Flex>
         </Box>
-        {/* Values section */}
         {dataset.sql && (
           <Box>
             <Flex justify="between" align="center">
@@ -148,7 +148,6 @@ export default function SqlTabContent() {
                 </Flex>
               </Button>
             </Flex>
-            {/* Values list */}
             <Flex direction="column" gap="2">
               {values.map((v, idx) => (
                 <ValueCard
@@ -176,6 +175,12 @@ export default function SqlTabContent() {
                         updateValueInDataset(idx, {
                           ...v,
                           valueType: val as "count" | "unit_count" | "sum",
+                          name: generateUniqueValueName(
+                            getValueTypeLabel(
+                              val as "count" | "unit_count" | "sum",
+                            ),
+                            draftExploreState.dataset.values,
+                          ),
                         } as SqlValue)
                       }
                       options={VALUE_TYPE_OPTIONS.map((o) => ({
@@ -222,7 +227,6 @@ export default function SqlTabContent() {
             </Flex>
           </Box>
         )}
-        {/* Group by section */}
       </Flex>
     </>
   );
