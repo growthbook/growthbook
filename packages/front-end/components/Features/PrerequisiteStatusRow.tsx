@@ -8,6 +8,7 @@ import {
   FaRegCircleXmark,
 } from "react-icons/fa6";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -23,7 +24,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import { IconButton } from "@radix-ui/themes";
 
 interface Props {
   i: number;
@@ -116,19 +116,22 @@ export default function PrerequisiteStatusRow({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     color="red"
-                    onClick={async () => {
-                      track("Delete Prerequisite", {
-                        prerequisiteIndex: i,
-                      });
-                      await apiCall<{ version: number }>(
-                        `/feature/${feature.id}/prerequisite`,
-                        {
-                          method: "DELETE",
-                          body: JSON.stringify({ i }),
-                        },
-                      );
-                      mutate();
-                      setOpen(false);
+                    confirmation={{
+                      confirmationTitle: "Delete Prerequisite",
+                      cta: "Delete",
+                      submit: async () => {
+                        track("Delete Prerequisite", {
+                          prerequisiteIndex: i,
+                        });
+                        await apiCall<{ version: number }>(
+                          `/feature/${feature.id}/prerequisite`,
+                          {
+                            method: "DELETE",
+                            body: JSON.stringify({ i }),
+                          },
+                        );
+                        mutate();
+                      },
                     }}
                   >
                     Delete
