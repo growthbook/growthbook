@@ -135,7 +135,7 @@
   },
   "license": "Mixed",
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "packageManager": "pnpm@10.28.2"
 }
