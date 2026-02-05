@@ -52,7 +52,6 @@ export default function ExplorerMainSection() {
             borderRadius: "var(--radius-4)",
           }}
         >
-          <PiPlus size={32} style={{ opacity: 0.5 }} />
           <Text size="3" weight="medium">
             Add a series to get started
           </Text>

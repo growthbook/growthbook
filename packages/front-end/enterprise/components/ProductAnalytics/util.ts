@@ -38,7 +38,7 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     case "metric":
       return {
         ...base,
-        name: "",
+        name: "Metric",
         type: "metric",
         metricId: "",
         unit: null,
