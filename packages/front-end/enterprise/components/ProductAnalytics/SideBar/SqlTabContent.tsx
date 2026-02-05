@@ -82,7 +82,6 @@ export default function SqlTabContent() {
         />
       )}
       <Flex direction="column" gap="3">
-        {/* SQL section */}
         <Box
           style={{
             padding: "var(--space-3)",
@@ -103,32 +102,31 @@ export default function SqlTabContent() {
                 {dataset.sql ? "Edit" : "Add"} SQL Query
               </Flex>
             </Button>
-            {dataset.timestampColumn && (
-              <>
-                <Separator size="4" my="2" />
-                <Flex direction="column" gap="2">
-                  <Text size="2" weight="medium">
-                    Timestamp Column (Optional)
-                  </Text>
-                  <Text size="2" color="gray">
-                    Select the column that contains the timestamp data for the
-                    query.
-                  </Text>
-                  <SelectField
-                    value={dataset.timestampColumn ?? ""}
-                    onChange={(val) => updateTimestampColumn(val)}
-                    options={
-                      dataset.columnTypes
-                        ? Object.entries(dataset.columnTypes).map(([name]) => ({
-                            label: name,
-                            value: name,
-                          }))
-                        : []
-                    }
-                  />
-                </Flex>
-              </>
-            )}
+            <>
+              <Separator size="4" my="2" />
+              <Flex direction="column" gap="2">
+                <Text size="2" weight="medium">
+                  Timestamp Column (Optional)
+                </Text>
+                <Text size="2" color="gray">
+                  Select the column that contains the timestamp data for the
+                  query.
+                </Text>
+                <SelectField
+                  isClearable={true}
+                  value={dataset.timestampColumn ?? ""}
+                  onChange={(val) => updateTimestampColumn(val)}
+                  options={
+                    dataset.columnTypes
+                      ? Object.entries(dataset.columnTypes).map(([name]) => ({
+                          label: name,
+                          value: name,
+                        }))
+                      : []
+                  }
+                />
+              </Flex>
+            </>
           </Flex>
         </Box>
         {dataset.sql && (

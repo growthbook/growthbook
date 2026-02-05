@@ -4,11 +4,11 @@ import EChartsReact from "echarts-for-react";
 import type { ProductAnalyticsConfig } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import { useExplorerContext } from "../ExplorerContext";
 import Callout from "front-end/ui/Callout";
+import LoadingSpinner from "front-end/components/LoadingSpinner";
 
 const CHART_ID = "explorer-chart";
 
@@ -202,7 +202,7 @@ export default function ExplorerChart() {
     >
       {loading ? (
         <Flex justify="center" align="center" height="500px">
-          <LoadingOverlay text="Loading data..." />
+          <LoadingSpinner style={{ width: "12px", height: "12px" }} />
         </Flex>
       ) : exploreError ? (
         <Box p="4">
