@@ -30,6 +30,7 @@ import {
   DEFAULT_METRIC_HISTOGRAM_BINS,
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+  NULL_DIMENSION_VALUE,
 } from "shared/constants";
 import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import {
@@ -1716,20 +1717,19 @@ export default abstract class SqlIntegration
     dimension: UserDimension | ExperimentDimension | null,
     experimentDimensionPrefix?: string,
   ) {
-    const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
       return this.castToString("''");
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
         `__dim_unit_${dimension.dimension.id}.value`,
-      )}),'${missingDimString}')`;
+      )}),'${NULL_DIMENSION_VALUE}')`;
     } else if (dimension.type === "experiment") {
       return `SUBSTRING(
         MIN(
           CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
             coalesce(${this.castToString(
               `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`,
-            )}, ${this.castToString(`'${missingDimString}'`)})
+            )}, ${this.castToString(`'${NULL_DIMENSION_VALUE}'`)})
           )
         ),
         20, 
@@ -4551,7 +4551,7 @@ export default abstract class SqlIntegration
   }
   SELECT
     bps.variation
-    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+    ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
     , SUM(bps.users) AS users
     ${metricData
       .map((data) => {
@@ -4866,7 +4866,7 @@ export default abstract class SqlIntegration
     }
     SELECT
       bps.variation
-      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+      ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
       , SUM(bps.users) AS users
       ${metricData
         .map((data) => {

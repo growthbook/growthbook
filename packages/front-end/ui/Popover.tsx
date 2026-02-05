@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef } from "react";
 import * as RadixPopover from "@radix-ui/react-popover";
 import { IconButton } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
@@ -76,41 +76,64 @@ export function Popover({
         </RadixPopover.Trigger>
       )}
       <RadixPopover.Portal>
-        <RadixTheme>
-          <RadixPopover.Content
-            side={side}
-            align={align}
-            className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
-            style={appliedContentStyle}
-            onEscapeKeyDown={
-              disableDismiss ? (e) => e.preventDefault() : undefined
-            }
-            onPointerDownOutside={
-              disableDismiss ? (e) => e.preventDefault() : undefined
-            }
-            onInteractOutside={
-              disableDismiss ? (e) => e.preventDefault() : undefined
-            }
-          >
-            {showCloseButton && (
-              <RadixPopover.Close
-                asChild
-                style={{
-                  position: "absolute",
-                  top: 8,
-                  right: 8,
-                }}
-              >
-                <IconButton variant="ghost" color="gray" size="1" radius="full">
-                  <PiX />
-                </IconButton>
-              </RadixPopover.Close>
-            )}
-            {content}
-            {showArrow && <RadixPopover.Arrow className={styles.Arrow} />}
-          </RadixPopover.Content>
-        </RadixTheme>
+        {/* Wrapper div required to avoid React warning about invalid DOM nesting when RadixTheme renders a fragment */}
+        <div>
+          <RadixTheme>
+            <RadixPopover.Content
+              side={side}
+              align={align}
+              className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
+              style={appliedContentStyle}
+              onEscapeKeyDown={
+                disableDismiss ? (e) => e.preventDefault() : undefined
+              }
+              onPointerDownOutside={
+                disableDismiss ? (e) => e.preventDefault() : undefined
+              }
+              onInteractOutside={
+                disableDismiss ? (e) => e.preventDefault() : undefined
+              }
+            >
+              {showCloseButton && (
+                <RadixPopover.Close
+                  asChild
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                  }}
+                >
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="1"
+                    radius="full"
+                  >
+                    <PiX />
+                  </IconButton>
+                </RadixPopover.Close>
+              )}
+              {content}
+              {showArrow && <RadixPopover.Arrow className={styles.Arrow} />}
+            </RadixPopover.Content>
+          </RadixTheme>
+        </div>
       </RadixPopover.Portal>
     </RadixPopover.Root>
   );
 }
+
+/**
+ * A styled popover container without Radix positioning.
+ * Use this when you need popover styling but handle positioning yourself
+ */
+export const PopoverContent = forwardRef<
+  HTMLDivElement,
+  { children: React.ReactNode }
+>(function PopoverContent({ children }, ref) {
+  return (
+    <div ref={ref} className={styles.Content}>
+      {children}
+    </div>
+  );
+});

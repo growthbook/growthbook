@@ -4,13 +4,15 @@ import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { createApiRequestHandler } from "back-end/src/util/handler";
+import {
+  createApiRequestHandler,
+  validatePagination,
+} from "back-end/src/util/handler";
 
 export const getFeatureRevisions = createApiRequestHandler(
   getFeatureRevisionsValidator,
 )(async (req) => {
-  const limit = req.query.limit ?? 10;
-  const offset = req.query.offset ?? 0;
+  const { limit, offset } = validatePagination(req.query);
   // Fetch paginated revisions from DB
   const pagedRevisions = await getFeatureRevisionsByStatus({
     context: req.context,

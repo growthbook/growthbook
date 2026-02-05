@@ -81,8 +81,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     setRefreshingTopValues(true);
     setShouldForceOverwriteSlices(true); // Flag to force overwrite slices
     try {
+      // If the column is newly added as an auto slice, the endpoint below
+      // will not run the top values query since the column in the DB is not
+      // set as a auto slice column. We need to tell the backend to proceed with the query.
+      const forceAutoSlice =
+        (form.watch("isAutoSliceColumn") && !existing.isAutoSliceColumn) ||
+        form.watch("datatype") !== existing.datatype;
       await apiCall(
-        `/fact-tables/${factTable.id}/column/${existing.column}/top-values`,
+        `/fact-tables/${factTable.id}/column/${existing.column}/top-values${forceAutoSlice ? "?forceAutoSlice=true" : ""}`,
         {
           method: "POST",
         },
