@@ -178,7 +178,7 @@ const toInterface = (
   const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
   featureInterface.environmentSettings = applyEnvironmentInheritance(
     context.org.settings?.environments || [],
-    featureInterface.environmentSettings,
+    featureInterface.environmentSettings || {},
   );
   return featureInterface;
 };
