@@ -3,6 +3,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import { ExplorerProvider } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
+import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 
 function MetricExplorerContent() {
   return (
@@ -26,7 +27,9 @@ function MetricExplorerContent() {
           padding: "var(--space-3)",
         }}
       >
-        <ExplorerSideBar />
+        <ShadowedScrollArea height="calc(100vh - 160px)">
+          <ExplorerSideBar />
+        </ShadowedScrollArea>
       </Box>
     </Flex>
   );
