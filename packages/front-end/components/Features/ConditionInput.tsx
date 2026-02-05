@@ -959,7 +959,7 @@ function ConditionAndGroupInput({
                             ? "1, 2..."
                             : "value 1, value 2..."
                         }
-                        delimiters={["Enter", "Tab"]}
+                        delimiters={["Enter", "Tab", ","]}
                         required
                       />
                     </Flex>
