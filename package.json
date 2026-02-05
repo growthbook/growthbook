@@ -102,7 +102,26 @@
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
       "agenda@5.0.0": "patches/agenda@5.0.0.patch",
       "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@datadog/native-appsec",
+      "@datadog/native-iast-taint-tracking",
+      "@datadog/native-metrics",
+      "@datadog/pprof",
+      "@parcel/watcher",
+      "@sentry/cli",
+      "@swc/core",
+      "aws-sdk",
+      "dd-trace",
+      "esbuild",
+      "isolated-vm",
+      "kerberos",
+      "lz4",
+      "mongodb-memory-server",
+      "protobufjs",
+      "unrs-resolver",
+      "yarn"
+    ]
   },
   "prettier": {
     "overrides": [
@@ -118,5 +137,5 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@10.28.2"
 }
