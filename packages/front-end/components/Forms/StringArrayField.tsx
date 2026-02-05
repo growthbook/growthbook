@@ -14,8 +14,8 @@ export type Props = Omit<
   value: string[];
   onChange: (value: string[]) => void;
   delimiters?: string[];
-  /** When true, shows a token ⇄ raw text mode toggle inside the control and an alternate textarea view. */
   enableRawTextMode?: boolean;
+  removeDuplicates?: boolean;
 };
 
 const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
@@ -23,6 +23,18 @@ const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 const baseComponents = {
   DropdownIndicator: null,
 };
+
+function InputWithPasteHandler(
+  props: React.ComponentProps<typeof SelectComponents.Input>,
+) {
+  const selectProps = props.selectProps as unknown as {
+    onPasteCapture?: (event: React.ClipboardEvent) => void;
+  };
+
+  return (
+    <SelectComponents.Input {...props} onPaste={selectProps.onPasteCapture} />
+  );
+}
 
 function RawTextModeToggleButton({
   rawTextMode,
@@ -82,6 +94,7 @@ export default function StringArrayField({
   placeholder,
   pattern,
   enableRawTextMode = false,
+  removeDuplicates = true,
   helpText,
   ...otherProps
 }: Props) {
@@ -89,12 +102,15 @@ export default function StringArrayField({
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const showModeToggle = enableRawTextMode;
-  const components = showModeToggle
-    ? {
-        ...baseComponents,
-        IndicatorsContainer: IndicatorsContainerWithModeToggle,
-      }
-    : baseComponents;
+  const components = {
+    ...baseComponents,
+    Input: InputWithPasteHandler,
+    ...(showModeToggle
+      ? {
+          IndicatorsContainer: IndicatorsContainerWithModeToggle,
+        }
+      : {}),
+  };
 
   const onChange = (val: string[]) => {
     if (pattern) {
@@ -126,7 +142,36 @@ export default function StringArrayField({
     if (!inputValue) return;
     if (delimiters.includes(event.key)) {
       event.preventDefault();
+      if (removeDuplicates && value.includes(inputValue)) {
+        setInputValue("");
+        return;
+      }
       onChange([...value, inputValue]);
+      setInputValue("");
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent) => {
+    const pastedText = event.clipboardData.getData("text");
+    // Commas mean list entry. Parse list:
+    if (pastedText.includes(",")) {
+      event.preventDefault();
+
+      let newValues = pastedText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .filter((v) => {
+          // pattern validation
+          if (!pattern) return true;
+          return new RegExp(pattern).test(v);
+        });
+      if (removeDuplicates) {
+        newValues = newValues.filter((v) => !value.includes(v));
+      }
+      if (newValues.length > 0) {
+        onChange([...value, ...newValues]);
+      }
       setInputValue("");
     }
   };
@@ -151,7 +196,7 @@ export default function StringArrayField({
                   className="form-control gb-select__raw-text-input"
                   value={rawTextValue}
                   onChange={handleRawTextChange}
-                  placeholder={placeholder ?? "value 1, value 2, value 3..."}
+                  placeholder={placeholder ?? "value 1, value 2..."}
                   minRows={1}
                   disabled={disabled}
                   required={fieldProps.required}
@@ -178,6 +223,7 @@ export default function StringArrayField({
             onToggleRawTextMode={
               showModeToggle ? () => setRawTextMode(true) : undefined
             }
+            onPasteCapture={handlePaste}
             inputValue={inputValue}
             isClearable
             classNamePrefix="gb-select"
@@ -191,6 +237,10 @@ export default function StringArrayField({
             onKeyDown={(event) => handleKeyDown(event)}
             onBlur={() => {
               if (!inputValue) return;
+              if (removeDuplicates && value.includes(inputValue)) {
+                setInputValue("");
+                return;
+              }
               onChange([...value, inputValue]);
               setInputValue("");
             }}

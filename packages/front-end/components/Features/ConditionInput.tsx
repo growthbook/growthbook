@@ -957,11 +957,10 @@ function ConditionAndGroupInput({
                         onChange={handleListChange}
                         placeholder={
                           attribute?.datatype === "number"
-                            ? "1, 2, 3..."
-                            : "value 1, value 2, value 3..."
+                            ? "1, 2..."
+                            : "value 1, value 2..."
                         }
                         delimiters={["Enter", "Tab"]}
-                        enableRawTextMode={attribute?.datatype !== "number"}
                         required
                       />
                     </Flex>

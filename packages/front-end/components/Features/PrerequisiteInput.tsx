@@ -677,13 +677,10 @@ export default function PrerequisiteInput({
                                 }}
                                 placeholder={
                                   parentFeatureMeta?.valueType === "number"
-                                    ? "1, 2, 3..."
-                                    : "value 1, value 2, value 3..."
+                                    ? "1, 2..."
+                                    : "value 1, value 2..."
                                 }
                                 delimiters={["Enter", "Tab"]}
-                                enableRawTextMode={
-                                  parentFeatureMeta?.valueType !== "number"
-                                }
                                 required
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (

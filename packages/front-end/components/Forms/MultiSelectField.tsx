@@ -93,6 +93,8 @@ export type MultiSelectFieldProps = Omit<
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
+  /** When true, prevents duplicate values from being added. Default: true */
+  removeDuplicates?: boolean;
 };
 
 const MultiSelectField: FC<MultiSelectFieldProps> = ({
@@ -110,10 +112,11 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   closeMenuOnSelect = false,
   formatOptionLabel,
   formatGroupLabel,
-  onPaste,
+  onPaste: userOnPaste,
   isOptionDisabled,
   noMenu,
   pattern,
+  removeDuplicates = true,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -123,6 +126,37 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const fieldProps = otherProps as any;
 
   const Component = creatable ? SortableCreatableSelect : SortableSelect;
+
+  const handlePaste =
+    userOnPaste ??
+    (creatable
+      ? (event: React.ClipboardEvent<HTMLInputElement>) => {
+          const pastedText = event.clipboardData.getData("text");
+          // Commas mean list entry. Parse list:
+          if (pastedText.includes(",")) {
+            event.preventDefault();
+
+            let newValues = pastedText
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .filter((v) => {
+                // pattern validation
+                if (!pattern) return true;
+                return new RegExp(pattern).test(v);
+              });
+
+            // Remove duplicates if flag is enabled
+            if (removeDuplicates) {
+              newValues = newValues.filter((v) => !value.includes(v));
+            }
+
+            if (newValues.length > 0) {
+              onChange([...value, ...newValues]);
+            }
+          }
+        }
+      : undefined);
 
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
@@ -148,7 +182,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       render={(id, ref) => {
         return (
           <Component
-            onPaste={onPaste}
+            onPaste={handlePaste}
             useDragHandle
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"

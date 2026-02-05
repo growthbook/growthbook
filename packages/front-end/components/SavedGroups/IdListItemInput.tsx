@@ -191,6 +191,7 @@ export const IdListItemInput: FC<{
           placeholder="Separate values using the 'Enter' key"
           delimiters={["Enter", "Tab"]}
           enableRawTextMode
+          removeDuplicates={false}
           required
         />
       )}
