@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { Box, Text } from "@radix-ui/themes";
 import { useExplorerContext } from "../ExplorerContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 
 export default function ExplorerDataTable() {
   const { exploreData, submittedExploreState } = useExplorerContext();
@@ -60,54 +63,79 @@ export default function ExplorerDataTable() {
     return rows;
   }, [exploreData?.rows]);
 
-  if (!exploreData?.rows?.length) return null;
+  if (!exploreData?.rows?.length && !exploreData?.sql) return null;
 
   return (
-    <Box
-      style={{
-        border: "1px solid var(--gray-a3)",
-        borderRadius: "var(--radius-4)",
-        overflow: "hidden",
-        maxHeight: "400px",
-        overflowY: "auto",
-      }}
-    >
-      <table className="table gbtable mb-0">
-        <thead
-          style={{
-            position: "sticky",
-            top: 0,
-            backgroundColor: "var(--color-background)",
-            zIndex: 1,
-          }}
-        >
-          <tr>
-            {dimensionColumnHeaders.map((h, i) => (
-              <th key={i}>{h}</th>
-            ))}
-            {valueColumnHeaders.map((h, i) => (
-              <th key={i} style={{ textAlign: "right" }}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rowData.map((row, i) => (
-            <tr key={i}>
-              {row.map((cell, j) =>
-                j < dimensionColumnHeaders.length ? (
-                  <td key={j}>{cell}</td>
-                ) : (
-                  <td key={j} style={{ textAlign: "right" }}>
-                    {cell}
-                  </td>
-                ),
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Box>
+    <Tabs defaultValue={exploreData?.rows?.length ? "results" : "sql"}>
+      <AreaWithHeader
+        header={
+          <TabsList>
+            <TabsTrigger value="results" disabled={rowData.length === 0}>
+              Results
+            </TabsTrigger>
+            <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
+          </TabsList>
+        }
+      >
+        <TabsContent value="results">
+          <Box
+            style={{
+              border: "1px solid var(--gray-a3)",
+              borderRadius: "var(--radius-4)",
+              overflow: "hidden",
+              maxHeight: "400px",
+              overflowY: "auto",
+            }}
+          >
+            <table className="table gbtable mb-0">
+              <thead
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  backgroundColor: "var(--color-background)",
+                  zIndex: 1,
+                }}
+              >
+                <tr>
+                  {dimensionColumnHeaders.map((h, i) => (
+                    <th key={i}>{h}</th>
+                  ))}
+                  {valueColumnHeaders.map((h, i) => (
+                    <th key={i} style={{ textAlign: "right" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rowData.map((row, i) => (
+                  <tr key={i}>
+                    {row.map((cell, j) =>
+                      j < dimensionColumnHeaders.length ? (
+                        <td key={j}>{cell}</td>
+                      ) : (
+                        <td key={j} style={{ textAlign: "right" }}>
+                          {cell}
+                        </td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        </TabsContent>
+
+        <TabsContent value="sql">
+          <Box p="3">
+            {exploreData?.sql ? (
+              <Code code={exploreData.sql} language="sql" expandable />
+            ) : (
+              <div className="text-muted">No SQL query available</div>
+            )}
+          </Box>
+        </TabsContent>
+      </AreaWithHeader>
+    </Tabs>
   );
 }

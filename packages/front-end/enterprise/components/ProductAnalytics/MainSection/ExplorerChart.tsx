@@ -215,11 +215,17 @@ export default function ExplorerChart() {
           </Text>
         </Box>
       ) : hasEmptyData ? (
-        <Box p="4" style={{ textAlign: "center" }}>
+        <Flex
+          p="4"
+          style={{ textAlign: "center" }}
+          minHeight="200px"
+          align="center"
+          justify="center"
+        >
           <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
             The query ran successfully, but no data was returned.
           </Text>
-        </Box>
+        </Flex>
       ) : chartConfig?.type === "bigNumber" ? (
         <BigValueChart value={chartConfig.value} formatter={formatNumber} />
       ) : chartConfig ? (
