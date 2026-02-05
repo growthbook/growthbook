@@ -761,7 +761,7 @@ export abstract class BaseModel<
       );
     }
 
-    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, options?.writeOptions);
 
@@ -771,7 +771,7 @@ export abstract class BaseModel<
         id: doc.id || "",
       },
       {
-        $set: newDoc,
+        $set: allUpdates,
       },
     );
 

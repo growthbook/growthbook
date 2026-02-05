@@ -387,16 +387,16 @@ export class DashboardModel extends BaseClass {
   protected async beforeUpdate(
     existing: DashboardDocument,
     updates: UpdateProps<DashboardDocument>,
-    newDoc: DashboardDocument,
+    _newDoc: DashboardDocument,
   ) {
     // Recalculate nextUpdate if auto-updates are enabled and schedule is being updated
     if (updates.enableAutoUpdates === false) {
       // Auto-updates being disabled - clear the nextUpdate
-      newDoc.nextUpdate = undefined;
+      updates.nextUpdate = undefined;
     } else if (shouldRecalculateNextUpdate(updates, existing)) {
       // Recalculate nextUpdate based on the schedule
       const schedule = updates.updateSchedule ?? existing.updateSchedule;
-      newDoc.nextUpdate = schedule
+      updates.nextUpdate = schedule
         ? (determineNextDate(schedule) ?? undefined)
         : undefined;
     }
