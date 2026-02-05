@@ -303,8 +303,8 @@ export default function PrerequisiteModal({
               dismissible={true}
               id="prerequisite-project-mismatch--modal"
             >
-              Project mismatch. Prerequisite evaluation may fail for SDK Connections
-              with non-overlapping project scope.
+              Project mismatch. Prerequisite evaluation may fail for SDK
+              Connections with non-overlapping project scope.
             </Callout>
           ) : null}
 
