@@ -111,13 +111,13 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
-      // announcementBar: {
-      //   id: "announcement-bar",
-      //   content: `<p style="margin: 0;">Office Hours | GrowthBook 4.3: Faster Experiments, Deeper Insights. <a href="https://us06web.zoom.us/webinar/register/8217678192715/WN_HOgWam-wQ9KPADnH7sE0qA" target="_blank">Register Now →</a></p>`,
-      //   backgroundColor: "var(--violet-a3)",
-      //   textColor: "var(--violet-a11)",
-      //   isCloseable: true,
-      // },
+      announcementBar: {
+        id: "announcement-bar",
+        content: `<p style="margin: 0;">Office Hours | GrowthBook 4.3: Faster Experiments, Deeper Insights. <a href="https://us06web.zoom.us/webinar/register/8217678192715/WN_HOgWam-wQ9KPADnH7sE0qA" target="_blank">Register Now →</a></p>`,
+        backgroundColor: "var(--violet-a3)",
+        textColor: "var(--violet-a11)",
+        isCloseable: true,
+      },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
