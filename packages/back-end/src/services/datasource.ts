@@ -352,9 +352,9 @@ export async function testQueryValidity(
 
     let columns: Set<string>;
 
-    // For datasources supporting LIMIT 0, use column metadata
-    if (integration.supportsLimitZeroColumnValidation?.()) {
-      const columnNames = results.columns?.map((c) => c.name) || [];
+    // For datasources where the result includes columns, use column metadata
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
       if (columnNames.length === 0) {
         return "Unable to determine columns from query";
       }
