@@ -21,8 +21,8 @@ export default function ExplorerDataTable() {
   }, [submittedExploreState?.dimensions]);
 
   const valueColumnHeaders = useMemo(() => {
-    return submittedExploreState?.dataset?.values.map(v => v.name) || [];
-}, [submittedExploreState?.dataset?.values]);
+    return submittedExploreState?.dataset?.values.map((v) => v.name) || [];
+  }, [submittedExploreState?.dataset?.values]);
 
   const rowData = useMemo(() => {
     const rows: string[][] = [];
@@ -32,7 +32,13 @@ export default function ExplorerDataTable() {
         const dimension = row.dimensions[i];
         if (dimension) {
           if (i === 0 && submittedExploreState?.chartType === "line") {
-            tempRow.push(new Date(dimension).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }));
+            tempRow.push(
+              new Date(dimension).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              }),
+            );
           } else {
             tempRow.push(dimension);
           }
@@ -54,15 +60,7 @@ export default function ExplorerDataTable() {
     return rows;
   }, [exploreData?.rows]);
 
-  if (!exploreData?.rows?.length) {
-    return (
-      <Box p="4" style={{ textAlign: "center" }}>
-        <Text size="2" style={{ color: "var(--gray-9)" }}>
-          No data available
-        </Text>
-      </Box>
-    );
-  }
+  if (!exploreData?.rows?.length) return null;
 
   return (
     <Box
@@ -88,20 +86,24 @@ export default function ExplorerDataTable() {
               <th key={i}>{h}</th>
             ))}
             {valueColumnHeaders.map((h, i) => (
-              <th key={i} style={{ textAlign: "right" }}>{h}</th>
+              <th key={i} style={{ textAlign: "right" }}>
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rowData.map((row, i) => (
             <tr key={i}>
-              {row.map((cell, j) => (
+              {row.map((cell, j) =>
                 j < dimensionColumnHeaders.length ? (
                   <td key={j}>{cell}</td>
                 ) : (
-                  <td key={j} style={{ textAlign: "right" }}>{cell}</td>
-                )
-              ))}
+                  <td key={j} style={{ textAlign: "right" }}>
+                    {cell}
+                  </td>
+                ),
+              )}
             </tr>
           ))}
         </tbody>

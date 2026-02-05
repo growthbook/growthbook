@@ -8,6 +8,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import { useExplorerContext } from "../ExplorerContext";
+import Callout from "front-end/ui/Callout";
 
 const CHART_ID = "explorer-chart";
 
@@ -42,7 +43,8 @@ function getSeriesTitle(
 }
 
 export default function ExplorerChart() {
-  const { exploreData, submittedExploreState, loading } = useExplorerContext();
+  const { exploreData, submittedExploreState, loading, exploreError } =
+    useExplorerContext();
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const chartsContext = useDashboardCharts();
@@ -82,7 +84,11 @@ export default function ExplorerChart() {
           dataMap[seriesKey] = {};
 
           // Construct a friendly name using the config's value name by index
-          const metricName = getSeriesTitle(submittedExploreState, valueIndex, v.metricId);
+          const metricName = getSeriesTitle(
+            submittedExploreState,
+            valueIndex,
+            v.metricId,
+          );
           const name = groupKey ? `${metricName} (${groupKey})` : metricName;
 
           seriesMeta[seriesKey] = {
@@ -106,7 +112,10 @@ export default function ExplorerChart() {
       // Map values to the sorted X-axis, filling gaps with 0
       let data: number[][] | number[] = [];
       if (chartType === "line") {
-        data = sortedXValues.map((x) => [new Date(x).getTime(), seriesDataMap[x] ?? 0]);
+        data = sortedXValues.map((x) => [
+          new Date(x).getTime(),
+          seriesDataMap[x] ?? 0,
+        ]);
       } else {
         data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
       }
@@ -195,6 +204,10 @@ export default function ExplorerChart() {
         <Flex justify="center" align="center" height="500px">
           <LoadingOverlay text="Loading data..." />
         </Flex>
+      ) : exploreError ? (
+        <Box p="4">
+          <Callout status="error">{exploreError}</Callout>
+        </Box>
       ) : !exploreData ? (
         <Box p="4" style={{ textAlign: "center" }}>
           <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>

@@ -85,6 +85,7 @@ export interface ExplorerContextValue {
   submittedExploreState: ProductAnalyticsConfig | null;
   hasPendingChanges: boolean;
   exploreData: ProductAnalyticsResult | null;
+  exploreError: string | null;
   loading: boolean;
   commonColumns: ColumnInterface[];
 
@@ -115,7 +116,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({ children }: ExplorerProviderProps) {
-  const { data, loading, fetchData } = useExploreData();
+  const { data, loading, fetchData, error } = useExploreData();
 
   const { getFactTableById, getFactMetricById } = useDefinitions();
 
@@ -329,6 +330,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       submittedExploreState,
       hasPendingChanges,
       exploreData: data,
+      exploreError: error?.message || null,
       loading,
       commonColumns,
       setDraftExploreState,
@@ -347,6 +349,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       hasPendingChanges,
       data,
       loading,
+      error,
       commonColumns,
       handleSubmit,
       addValueToDataset,
