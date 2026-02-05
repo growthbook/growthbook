@@ -90,7 +90,7 @@
     "generic-pool": "^3.9.0",
     "googleapis": "^59.0.0",
     "handlebars": "^4.7.8",
-    "isolated-vm": "5.0.4",
+    "isolated-vm": "^6.0.2",
     "jose": "^4.15.5",
     "js-yaml": "^4.1.0",
     "json5": "^2.2.3",
