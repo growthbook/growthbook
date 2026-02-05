@@ -199,7 +199,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
         const parsed = JSON.parse(clipboard.getData("text"));
 
         if (Array.isArray(parsed)) {
-          const newValues = parsed
+          let newValues = parsed
             .map((v) => String(v))
             .filter(Boolean)
             .filter((v) => {
@@ -209,8 +209,15 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             .filter((v) => {
               if (creatable) return true;
               return options.some((o) => "value" in o && o.value === v);
-            })
-            .filter((v) => !value.includes(v));
+            });
+
+          // Remove duplicates within pasted values AND against existing values
+          const seen = new Set(value);
+          newValues = newValues.filter((v) => {
+            if (seen.has(v)) return false;
+            seen.add(v);
+            return true;
+          });
 
           if (newValues.length > 0) {
             event.preventDefault();

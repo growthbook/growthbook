@@ -212,9 +212,17 @@ export default function StringArrayField({
           if (!pattern) return true;
           return new RegExp(pattern).test(v);
         });
+
       if (removeDuplicates) {
-        newValues = newValues.filter((v) => !value.includes(v));
+        // Remove duplicates within pasted values AND against existing values
+        const seen = new Set(value);
+        newValues = newValues.filter((v) => {
+          if (seen.has(v)) return false;
+          seen.add(v);
+          return true;
+        });
       }
+
       if (newValues.length > 0) {
         onChange([...value, ...newValues]);
       }
