@@ -394,10 +394,9 @@ export default function PrerequisiteInput({
             const isAdvanced = advancedMode[i];
 
             return (
-              <React.Fragment key={conditionKeys[i]}>
+              <React.Fragment key={`${i}-${v.id}-${conditionKeys[i] ?? 0}`}>
                 {i > 0 && (
                   <Separator
-                    key={`sep-${conditionKeys[i]}`}
                     style={{
                       width: "100%",
                       backgroundColor: "var(--slate-a3)",
@@ -856,11 +855,10 @@ export default function PrerequisiteInput({
                         mb="2"
                         size="sm"
                         id="prerequisite-project-mismatch--field"
+                        dismissible={true}
                       >
-                        The prerequisite&apos;s project does not match this
-                        feature&apos;s project. For SDK connections that do not
-                        overlap in project scope, prerequisite evaluation will
-                        not pass.
+                        Project mismatch. Prerequisite evaluation may fail for
+                        SDK Connections with non-overlapping project scope.
                       </Callout>
                     )}
 

@@ -4,7 +4,6 @@ import { FaRegCircleQuestion } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -50,12 +49,12 @@ export default function PrerequisiteAlerts({
       icon={<FaRegCircleQuestion className="text-warning-orange" />}
     >
       This {type} is in a{" "}
-      <Text size="small" weight="semibold">
-        <span className="text-warning-orange">Schrödinger state</span>
-      </Text>{" "}
+      <span className="text-warning-orange font-weight-bold">
+        Schrödinger state
+      </span>{" "}
       {environments.length > 1 ? "in some environments" : "in this environment"}{" "}
       and {type === "feature" && "its prerequisites "}must be evaluated at
-      runtime in the SDK.{" "}
+      runtime.{" "}
       {hasSDKWithPrerequisites ? (
         <>
           However, some of your{" "}
