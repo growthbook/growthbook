@@ -57,11 +57,27 @@ export default function SavedGroupTargetingDisplay({
                     label={
                       <Link
                         href={`/saved-groups/${group.id}`}
-                        title="Manage Saved Group"
+                        title={`Manage Saved Group: ${group.groupName}`}
                         target="_blank"
                         color="violet"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          overflow: "hidden",
+                        }}
                       >
-                        {group.groupName} <PiArrowSquareOut />
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: "400px",
+                          }}
+                        >
+                          {group.groupName}
+                        </span>
+                        <PiArrowSquareOut style={{ flexShrink: 0 }} />
                       </Link>
                     }
                   />

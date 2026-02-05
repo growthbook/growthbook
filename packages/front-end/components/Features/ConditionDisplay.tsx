@@ -137,9 +137,25 @@ export function MultiValuesDisplay({
                 href={`/saved-groups/${group.id}`}
                 target="_blank"
                 color="violet"
-                title="Manage Saved Group"
+                title={`Manage Saved Group: ${displayValue}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  overflow: "hidden",
+                }}
               >
-                {displayValue} <PiArrowSquareOut />
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: "400px",
+                  }}
+                >
+                  {displayValue}
+                </span>
+                <PiArrowSquareOut style={{ flexShrink: 0 }} />
               </Link>
             }
           />
@@ -414,9 +430,25 @@ function getConditionParts({
                     href={`/saved-groups/${group.id}`}
                     target="_blank"
                     color="violet"
-                    title="Manage Saved Group"
+                    title={`Manage Saved Group: ${group.groupName}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      overflow: "hidden",
+                    }}
                   >
-                    {group.groupName} <PiArrowSquareOut />
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: "400px",
+                      }}
+                    >
+                      {group.groupName}
+                    </span>
+                    <PiArrowSquareOut style={{ flexShrink: 0 }} />
                   </Link>
                 }
               />
@@ -464,11 +496,27 @@ function ParentIdLink({ parentId }: { parentId: string }) {
       label={
         <Link
           href={`/features/${parentId}`}
-          title="Manage Feature"
+          title={`Manage Feature: ${parentId}`}
           target="_blank"
           color="violet"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            overflow: "hidden",
+          }}
         >
-          {parentId} <PiArrowSquareOut />
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "400px",
+            }}
+          >
+            {parentId}
+          </span>
+          <PiArrowSquareOut style={{ flexShrink: 0 }} />
         </Link>
       }
     />

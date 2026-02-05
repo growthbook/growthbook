@@ -64,7 +64,13 @@ export default function LargeSavedGroupPerformanceWarning({
   if (unsupportedConnections.length === 0) return null;
 
   return (
-    <Callout status="warning" mb="4" size="sm">
+    <Callout
+      status="warning"
+      mb="4"
+      size="sm"
+      dismissible={true}
+      id="large-saved-group-support-warning"
+    >
       Enable &quot;Pass Saved Groups by reference&quot; to improve SDK
       performance. <Link href="/sdks">View SDKs</Link>
     </Callout>

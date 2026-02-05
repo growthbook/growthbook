@@ -179,8 +179,24 @@ export default function SavedGroupTargetingField({
                         <Link
                           href={`/saved-groups/${group.id}`}
                           target="_blank"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            overflow: "hidden",
+                          }}
                         >
-                          {o.label} <PiArrowSquareOut />
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: "200px",
+                            }}
+                          >
+                            {o.label}
+                          </span>
+                          <PiArrowSquareOut style={{ flexShrink: 0 }} />
                         </Link>
                       );
                     }}

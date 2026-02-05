@@ -48,8 +48,10 @@ const SortableMultiValue = SortableElement(
 // eslint-disable-next-line
 const SortableMultiValueLabel = SortableHandle<any>(
   (props: MultiValueGenericProps) => {
-    const label = <components.MultiValueLabel {...props} />;
-    return <div title={props.data?.tooltip}>{label}</div>;
+    const title = props.data?.tooltip || props.data?.label || "";
+    const innerProps = { ...props.innerProps, title };
+    // @ts-expect-error TS(2322) innerProps type mismatch
+    return <components.MultiValueLabel {...props} innerProps={innerProps} />;
   },
 );
 
