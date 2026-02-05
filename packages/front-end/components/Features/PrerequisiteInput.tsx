@@ -879,6 +879,7 @@ export default function PrerequisiteInput({
         <PremiumTooltip commercialFeature="prerequisite-targeting">
           <Link
             onClick={() => {
+              if (!hasPrerequisitesCommercialFeature) return;
               setValue([{ id: "", condition: "{}" }]);
             }}
             style={{
