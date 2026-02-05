@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Flex, Box, Separator, Text, TextField } from "@radix-ui/themes";
 import { PiTable, PiPlus, PiPencilSimple } from "react-icons/pi";
 import type { SqlValue } from "shared/validators";
@@ -6,9 +6,6 @@ import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { z } from "zod";
-import { rowFilterOperators, rowFilterValidator } from "shared/validators";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ProductAnalyticsSqlModal from "front-end/enterprise/components/ProductAnalytics/ProductAnalyticsSqlModal";
 import ValueCard from "./ValueCard";
@@ -26,6 +23,7 @@ const VALUE_TYPE_OPTIONS: {
 
 export default function SqlTabContent() {
   const [sqlOpen, setSqlOpen] = useState(false);
+  const { datasources } = useDefinitions();
   const {
     draftExploreState,
     addValueToDataset,
@@ -41,6 +39,13 @@ export default function SqlTabContent() {
       : null;
   const datasource = dataset?.datasource || null;
   const values: SqlValue[] = dataset?.values || [];
+
+  const datasourceUserIdTypes = useMemo(() => {
+    const datasourceObject = datasource
+      ? datasources.find((d) => d.id === datasource)
+      : null;
+    return datasourceObject?.settings?.userIdTypes ?? [];
+  }, [datasource, datasources]);
 
   if (!dataset) return null;
 
@@ -60,8 +65,6 @@ export default function SqlTabContent() {
         </Text>
       </Flex>
     );
-
-  console.log("dataset", dataset);
 
   return (
     <>
@@ -196,6 +199,21 @@ export default function SqlTabContent() {
                           value: name,
                         }),
                       )}
+                      placeholder="Select..."
+                    />
+                    <SelectField
+                      label="Unit"
+                      value={v.unit ?? ""}
+                      onChange={(val) =>
+                        updateValueInDataset(idx, {
+                          ...v,
+                          unit: val,
+                        } as SqlValue)
+                      }
+                      options={datasourceUserIdTypes.map((ut) => ({
+                        label: ut.userIdType,
+                        value: ut.userIdType,
+                      }))}
                       placeholder="Select..."
                     />
                   </Flex>

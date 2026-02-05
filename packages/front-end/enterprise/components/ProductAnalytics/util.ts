@@ -3,7 +3,14 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import type { MetricValue, FactTableValue, SqlValue, ProductAnalyticsValue, DatasetType, ProductAnalyticsDataset } from "shared/validators";
+import type {
+  MetricValue,
+  FactTableValue,
+  SqlValue,
+  ProductAnalyticsValue,
+  DatasetType,
+  ProductAnalyticsDataset,
+} from "shared/validators";
 
 export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
   const base = {
@@ -44,10 +51,16 @@ export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
-    return { type, values: [], factTableId: null }
-  }
-  else if (type === "sql") {
-    return { type, values: [], datasource: "", sql: "", timestampColumn: "", columnTypes: {} };
+    return { type, values: [], factTableId: null };
+  } else if (type === "sql") {
+    return {
+      type,
+      values: [],
+      datasource: "",
+      sql: "",
+      timestampColumn: "",
+      columnTypes: {},
+    };
   } else {
     throw new Error(`Invalid dataset type: ${type}`);
   }
@@ -62,10 +75,10 @@ export function getCommonColumns(
 
   let columns: ColumnInterface[] | null = null;
 
-  if (dataset.type === 'fact_table') {
+  if (dataset.type === "fact_table") {
     const ft = getFactTableById(dataset.factTableId || "");
     columns = ft?.columns || [];
-  } else if (dataset.type === 'metric') {
+  } else if (dataset.type === "metric") {
     for (const value of dataset.values) {
       const metricId = value.metricId;
       let valueColumns: ColumnInterface[] = [];
@@ -81,12 +94,14 @@ export function getCommonColumns(
         columns = valueColumns;
       } else {
         // Intersect by column name
-        const valueColumnNames = new Set(valueColumns.map(c => c.column));
-        columns = columns.filter(c => valueColumnNames.has(c.column));
+        const valueColumnNames = new Set(valueColumns.map((c) => c.column));
+        columns = columns.filter((c) => valueColumnNames.has(c.column));
       }
     }
   }
 
   // Filter out deleted columns
-  return (columns || []).filter(c => !c.deleted).sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column));
+  return (columns || [])
+    .filter((c) => !c.deleted)
+    .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column));
 }
