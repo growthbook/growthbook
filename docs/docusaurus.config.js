@@ -113,7 +113,7 @@ const config = {
     {
       // announcementBar: {
       //   id: "announcement-bar",
-      //   content: `<p style="margin: 0;">Office Hours: Live demo of GrowthBook's MCP server. <a href="https://us06web.zoom.us/webinar/register/8217678192715/WN_s9WmhALhTneHZyJFKs0jpg" target="_blank">Register Now →</a></p>`,
+      //   content: `<p style="margin: 0;">Office Hours | GrowthBook 4.3: Faster Experiments, Deeper Insights. <a href="https://us06web.zoom.us/webinar/register/8217678192715/WN_HOgWam-wQ9KPADnH7sE0qA" target="_blank">Register Now →</a></p>`,
       //   backgroundColor: "var(--violet-a3)",
       //   textColor: "var(--violet-a11)",
       //   isCloseable: true,
