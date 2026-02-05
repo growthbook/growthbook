@@ -98,7 +98,6 @@ export function operatorSupportsCaseInsensitive(operator: string): boolean {
   return OPERATORS_WITH_CASE_INSENSITIVE.has(operator);
 }
 
-/** True when the attribute datatype supports case-insensitive operators (only string types). */
 export function datatypeSupportsCaseInsensitive(datatype?: string): boolean {
   return datatype === "string";
 }

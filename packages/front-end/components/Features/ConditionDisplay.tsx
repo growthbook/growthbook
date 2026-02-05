@@ -306,9 +306,9 @@ function getConditionOrParts({
     parts.push(
       <Box
         key={keyPrefix + "or-group-" + i}
+        pl="3"
         style={{
           borderLeft: "2px solid var(--gray-6)",
-          paddingLeft: "var(--space-3)",
         }}
       >
         <Flex direction="column" gap="2">
