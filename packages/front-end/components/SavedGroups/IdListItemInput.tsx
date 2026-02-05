@@ -192,6 +192,7 @@ export const IdListItemInput: FC<{
           delimiters={["Enter", "Tab"]}
           enableRawTextMode
           removeDuplicates={false}
+          showCopyButton={false}
           required
         />
       )}

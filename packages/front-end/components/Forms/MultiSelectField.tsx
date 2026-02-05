@@ -1,4 +1,4 @@
-import { FC, MouseEventHandler, ReactNode } from "react";
+import { FC, MouseEventHandler, ReactNode, useState } from "react";
 import ReactSelect, {
   components,
   MultiValueGenericProps,
@@ -20,6 +20,8 @@ import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
+import { PiCopy } from "react-icons/pi";
+import { Tooltip } from "@radix-ui/themes";
 import {
   ReactSelectProps,
   SingleValue,
@@ -71,6 +73,68 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
+function CopyButton({ value }: { value: string[] }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const text = JSON.stringify(value);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 750);
+    });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  return (
+    <Tooltip
+      content={copied ? "Copied" : "Copy to clipboard"}
+      open={copied ? true : undefined}
+    >
+      <button
+        type="button"
+        className="gb-multi-select__copy-button"
+        onClick={handleCopy}
+        onMouseDown={handleMouseDown}
+      >
+        <PiCopy />
+      </button>
+    </Tooltip>
+  );
+}
+
+function IndicatorsContainerWithCopyButton(
+  props: React.ComponentProps<typeof components.IndicatorsContainer>,
+) {
+  const selectProps = props.selectProps as unknown as {
+    showCopyButton?: boolean;
+    value?: Array<{ value: string; label: string }>;
+  };
+
+  const showCopy = selectProps?.showCopyButton === true;
+  const options = selectProps?.value;
+
+  if (!showCopy || !options || options.length === 0) {
+    return <components.IndicatorsContainer {...props} />;
+  }
+
+  // Extract just the value strings from the option objects
+  const values = options.map((opt) => opt.value);
+
+  return (
+    <components.IndicatorsContainer {...props}>
+      <CopyButton value={values} />
+      {props.children}
+    </components.IndicatorsContainer>
+  );
+}
+
 export type MultiSelectFieldProps = Omit<
   FieldProps,
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
@@ -93,8 +157,7 @@ export type MultiSelectFieldProps = Omit<
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
   noMenu?: boolean;
-  /** When true, prevents duplicate values from being added. Default: true */
-  removeDuplicates?: boolean;
+  showCopyButton?: boolean;
 };
 
 const MultiSelectField: FC<MultiSelectFieldProps> = ({
@@ -116,7 +179,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   isOptionDisabled,
   noMenu,
   pattern,
-  removeDuplicates = true,
+  showCopyButton = true,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -129,34 +192,35 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
 
   const handlePaste =
     userOnPaste ??
-    (creatable
-      ? (event: React.ClipboardEvent<HTMLInputElement>) => {
-          const pastedText = event.clipboardData.getData("text");
-          // Commas mean list entry. Parse list:
-          if (pastedText.includes(",")) {
+    ((event: React.ClipboardEvent<HTMLInputElement>) => {
+      try {
+        const clipboard = event.clipboardData;
+        const parsed = JSON.parse(clipboard.getData("text"));
+
+        if (Array.isArray(parsed)) {
+          const newValues = parsed
+            .map((v) => String(v))
+            .filter(Boolean)
+            .filter((v) => {
+              if (!pattern) return true;
+              return new RegExp(pattern).test(v);
+            })
+            .filter((v) => {
+              if (creatable) return true;
+              return options.some((o) => "value" in o && o.value === v);
+            })
+            .filter((v) => !value.includes(v));
+
+          if (newValues.length > 0) {
             event.preventDefault();
-
-            let newValues = pastedText
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-              .filter((v) => {
-                // pattern validation
-                if (!pattern) return true;
-                return new RegExp(pattern).test(v);
-              });
-
-            // Remove duplicates if flag is enabled
-            if (removeDuplicates) {
-              newValues = newValues.filter((v) => !value.includes(v));
-            }
-
-            if (newValues.length > 0) {
-              onChange([...value, ...newValues]);
-            }
+            event.stopPropagation();
+            onChange([...value, ...newValues]);
           }
         }
-      : undefined);
+      } catch {
+        // fail silently
+      }
+    });
 
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
@@ -183,6 +247,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
         return (
           <Component
             onPaste={handlePaste}
+            showCopyButton={showCopyButton}
             useDragHandle
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"
@@ -222,6 +287,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
               Input,
+              ...(showCopyButton
+                ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
+                : {}),
               ...(creatable && noMenu
                 ? {
                     Menu: () => null,

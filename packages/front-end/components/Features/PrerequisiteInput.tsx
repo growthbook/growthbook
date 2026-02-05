@@ -681,7 +681,6 @@ export default function PrerequisiteInput({
                                     : "value 1, value 2..."
                                 }
                                 delimiters={["Enter", "Tab"]}
-                                showCopyButton
                                 required
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (

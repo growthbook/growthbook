@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import CreatableSelect from "react-select/creatable";
 import { components as SelectComponents } from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
-import { FaRetweet } from "react-icons/fa";
-import { PiCopy } from "react-icons/pi";
+import { PiCopy, PiRepeatBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "./Field";
 import { ReactSelectProps } from "./SelectField";
@@ -58,7 +57,7 @@ function RawTextModeToggleButton({
           onToggle();
         }}
       >
-        <FaRetweet />
+        <PiRepeatBold />
       </button>
     </Tooltip>
   );
@@ -74,12 +73,15 @@ function CopyButton({ value }: { value: string[] }) {
     const text = value.join(", ");
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 750);
     });
   };
 
   return (
-    <Tooltip content={copied ? "Copied!" : "Copy all values"}>
+    <Tooltip
+      content={copied ? "Copied" : "Copy to clipboard"}
+      open={copied ? true : undefined}
+    >
       <button
         type="button"
         className="gb-select__copy-button"
@@ -129,7 +131,7 @@ export default function StringArrayField({
   pattern,
   enableRawTextMode = false,
   removeDuplicates = true,
-  showCopyButton = false,
+  showCopyButton = true,
   helpText,
   ...otherProps
 }: Props) {
