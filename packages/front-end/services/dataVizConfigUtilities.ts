@@ -7,6 +7,19 @@ import {
   dimensionAxisConfiguration,
   xAxisConfiguration,
 } from "shared/validators";
+import {
+  blue,
+  teal,
+  orange,
+  pink,
+  amber,
+  mint,
+  lime,
+  cyan,
+  red,
+  indigo,
+  purple,
+} from "@radix-ui/colors";
 import { requiresXAxis, supportsDimension } from "./dataVizTypeGuards";
 
 export function getXAxisConfig(
@@ -116,3 +129,17 @@ export function normalizeDimensionsForChartType(
     } as Partial<DataVizConfig>;
   }
 }
+
+export const CHART_COLOR_PALETTE = [
+  blue.blue8,
+  teal.teal10,
+  orange.orange10,
+  pink.pink10,
+  amber.amber10,
+  red.red10,
+  indigo.indigo10,
+  purple.purple10,
+  cyan.cyan10,
+  mint.mint10,
+  lime.lime11,
+];
