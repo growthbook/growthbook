@@ -13,10 +13,8 @@ import { useExploreData } from "./useExploreData";
 import {
   DatasetType,
   ProductAnalyticsConfig,
-  ProductAnalyticsDataset,
   ProductAnalyticsResult,
   ProductAnalyticsValue,
-  SqlValue,
 } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ColumnInterface } from "shared/types/fact-table";
@@ -87,7 +85,7 @@ export interface ExplorerContextValue {
   exploreData: ProductAnalyticsResult | null;
   exploreError: string | null;
   loading: boolean;
-  commonColumns: ColumnInterface[];
+  commonColumns: Pick<ColumnInterface, "column" | "name">[];
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: React.Dispatch<

@@ -70,10 +70,11 @@ export function getCommonColumns(
   dataset: ProductAnalyticsDataset | null,
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
-): ColumnInterface[] {
+): Pick<ColumnInterface, "column" | "name">[] {
   if (!dataset || !dataset.values || dataset.values.length === 0) return [];
 
-  let columns: ColumnInterface[] | null = null;
+  type SimpleColumn = Pick<ColumnInterface, "column" | "name" | "deleted">;
+  let columns: SimpleColumn[] | null = null;
 
   if (dataset.type === "fact_table") {
     const ft = getFactTableById(dataset.factTableId || "");
@@ -81,9 +82,8 @@ export function getCommonColumns(
   } else if (dataset.type === "metric") {
     for (const value of dataset.values) {
       const metricId = value.metricId;
-      let valueColumns: ColumnInterface[] = [];
+      let valueColumns: SimpleColumn[] = [];
 
-      // if (isFactMetricId(metricId)) {
       const factMetric = getFactMetricById(metricId);
       if (factMetric) {
         const ft = getFactTableById(factMetric.numerator.factTableId);
@@ -98,10 +98,16 @@ export function getCommonColumns(
         columns = columns.filter((c) => valueColumnNames.has(c.column));
       }
     }
+  } else if (dataset.type === "sql") {
+    columns = Object.keys(dataset.columnTypes).map((name) => ({
+      column: name,
+      name,
+      deleted: false,
+    }));
   }
 
-  // Filter out deleted columns
   return (columns || [])
     .filter((c) => !c.deleted)
-    .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column));
+    .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
+    .map((c) => ({ column: c.column, name: c.name }));
 }
