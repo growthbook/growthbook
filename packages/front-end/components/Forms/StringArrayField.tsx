@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import CreatableSelect from "react-select/creatable";
-import { components as SelectComponents } from "react-select";
+import {
+  components as SelectComponents,
+  ClearIndicatorProps,
+} from "react-select";
 import TextareaAutosize from "react-textarea-autosize";
-import { PiCopy, PiRepeatBold } from "react-icons/pi";
+import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import Field, { FieldProps } from "./Field";
 import { ReactSelectProps } from "./SelectField";
@@ -24,6 +27,26 @@ const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 const baseComponents = {
   DropdownIndicator: null,
 };
+
+function CustomClearIndicator(
+  props: ClearIndicatorProps<{ value: string; label: string }, true>,
+) {
+  return (
+    <SelectComponents.ClearIndicator {...props}>
+      <PiXBold />
+    </SelectComponents.ClearIndicator>
+  );
+}
+
+function CustomMultiValueRemove(
+  props: React.ComponentProps<typeof SelectComponents.MultiValueRemove>,
+) {
+  return (
+    <SelectComponents.MultiValueRemove {...props}>
+      <PiXBold />
+    </SelectComponents.MultiValueRemove>
+  );
+}
 
 function InputWithPasteHandler(
   props: React.ComponentProps<typeof SelectComponents.Input>,
@@ -151,6 +174,8 @@ export default function StringArrayField({
         <SelectComponents.MultiValueLabel {...props} innerProps={innerProps} />
       );
     },
+    MultiValueRemove: CustomMultiValueRemove,
+    ClearIndicator: CustomClearIndicator,
     ...(showButtons
       ? {
           IndicatorsContainer: IndicatorsContainerWithButtons,

@@ -70,7 +70,14 @@
 
 .gb-multi-select__multi-value__remove,
 .gb-select__multi-value__remove {
+  opacity: 0.25;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+
   &:hover {
+    opacity: 1;
     background-color: var(--slate-a4) !important;
     color: var(--slate-12) !important;
   }
@@ -114,6 +121,7 @@
 .gb-select__copy-button,
 .gb-multi-select__copy-button {
   padding: 8px 2px !important;
+  cursor: pointer;
 }
 
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)

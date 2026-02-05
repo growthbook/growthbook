@@ -8,6 +8,7 @@ import ReactSelect, {
   StylesConfig,
   OptionProps,
   FormatOptionLabelMeta,
+  ClearIndicatorProps,
 } from "react-select";
 import {
   SortableContainer,
@@ -20,7 +21,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
-import { PiCopy } from "react-icons/pi";
+import { PiCopy, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import {
   ReactSelectProps,
@@ -133,6 +134,24 @@ function IndicatorsContainerWithCopyButton(
       <CopyButton value={values} />
       {props.children}
     </components.IndicatorsContainer>
+  );
+}
+
+function CustomClearIndicator(props: ClearIndicatorProps<ColorOption, true>) {
+  return (
+    <components.ClearIndicator {...props}>
+      <PiXBold />
+    </components.ClearIndicator>
+  );
+}
+
+function CustomMultiValueRemove(
+  props: React.ComponentProps<typeof components.MultiValueRemove>,
+) {
+  return (
+    <components.MultiValueRemove {...props}>
+      <PiXBold />
+    </components.MultiValueRemove>
   );
 }
 
@@ -293,8 +312,10 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             components={{
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
+              MultiValueRemove: CustomMultiValueRemove,
               Option: OptionWithTitle,
               Input,
+              ClearIndicator: CustomClearIndicator,
               ...(showCopyButton
                 ? { IndicatorsContainer: IndicatorsContainerWithCopyButton }
                 : {}),
