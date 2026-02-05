@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Flex, Box, Text, TextField, Separator } from "@radix-ui/themes";
-import { PiPlus, PiX, PiPencilSimple } from "react-icons/pi";
-import SelectField from "@/components/Forms/SelectField";
+import { PiX, PiPencilSimple } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { z } from "zod";
-import { rowFilterOperators, rowFilterValidator } from "shared/validators";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { rowFilterValidator } from "shared/validators";
+import { useExplorerContext } from "../ExplorerContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { FactTableInterface } from "shared/types/fact-table";
+import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 
 type RowFilter = z.infer<typeof rowFilterValidator>;
 
@@ -31,6 +33,19 @@ export default function ValueCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(name ?? "");
 
+  const { draftExploreState } = useExplorerContext();
+  const { getFactTableById, getFactMetricById } = useDefinitions();
+
+  let factTable: FactTableInterface | null = null;
+  if (draftExploreState.dataset?.type === "fact_table") {
+    factTable = getFactTableById(draftExploreState.dataset.factTableId ?? "");
+  } else if (draftExploreState.dataset?.type === "metric") {
+    const factTableId = getFactMetricById(draftExploreState.dataset.values[index].metricId ?? "")?.numerator?.factTableId;
+    if (factTableId) {
+      factTable = getFactTableById(factTableId);
+    }
+  }
+
   const displayName = (name ?? "").trim();
 
   const handleStartEdit = () => {
@@ -51,32 +66,6 @@ export default function ValueCard({
       setEditValue(name ?? "");
       setIsEditing(false);
     }
-  };
-
-  const handleAddFilter = () => {
-    onFiltersChange([
-      ...filters,
-      {
-        column: "",
-        operator: "=",
-        values: [],
-      },
-    ]);
-  };
-
-  const handleUpdateFilter = (
-    filterIndex: number,
-    updatedFilter: RowFilter,
-  ) => {
-    const newFilters = [...filters];
-    newFilters[filterIndex] = updatedFilter;
-    onFiltersChange(newFilters);
-  };
-
-  const handleDeleteFilter = (filterIndex: number) => {
-    const newFilters = [...filters];
-    newFilters.splice(filterIndex, 1);
-    onFiltersChange(newFilters);
   };
 
   return (
@@ -129,74 +118,9 @@ export default function ValueCard({
       </Flex>
       <Separator style={{ width: "100%" }} mb="2" />
       {children}
-      <Flex align="start" gap="2" direction="column" mt="2">
-        <Text size="2" weight="medium">
-          Filters
-        </Text>
-        <Flex direction="column" gap="2" width="100%">
-          <Separator
-            style={{
-              width: "100%",
-              display: filters.length ? "block" : "none",
-            }}
-          />
-          {filters.map((filter, i) => (
-            <Flex key={i} direction="column" gap="2">
-              <Flex justify="between" align="center" width="100%">
-                <Text size="1">Filter {i + 1}</Text>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => handleDeleteFilter(i)}
-                >
-                  <PiX size={14} />
-                </Button>
-              </Flex>
-              <SelectField
-                value={filter.column ?? ""}
-                onChange={(val) =>
-                  handleUpdateFilter(i, { ...filter, column: val })
-                }
-                options={columns}
-                placeholder="Select column..."
-              />
-              <SelectField
-                value={filter.operator}
-                onChange={(val) =>
-                  handleUpdateFilter(i, {
-                    ...filter,
-                    operator: val as RowFilter["operator"],
-                  })
-                }
-                options={rowFilterOperators.map((o) => ({
-                  label: o,
-                  value: o,
-                }))}
-                placeholder="Select operator..."
-              />
-              <MultiSelectField
-                value={filter.values ?? []}
-                creatable={true}
-                onChange={(vals) =>
-                  handleUpdateFilter(i, { ...filter, values: vals })
-                }
-                options={(filter.values ?? []).map((v) => ({
-                  label: v,
-                  value: v,
-                }))}
-                placeholder="Select value..."
-              />
-              <Separator style={{ width: "100%" }} />
-            </Flex>
-          ))}
-        </Flex>
-        <Button size="xs" variant="ghost" onClick={handleAddFilter}>
-          <Flex align="center" gap="2">
-            <PiPlus size={14} />
-            Add Filter
-          </Flex>
-        </Button>
-      </Flex>
+      {factTable && (
+        <RowFilterInput factTable={factTable} value={filters} setValue={onFiltersChange} variant="compact"/>
+      )}
     </Box>
   );
 }
