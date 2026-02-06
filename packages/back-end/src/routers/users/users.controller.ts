@@ -77,7 +77,6 @@ export async function getUser(req: AuthRequest, res: Response) {
 
   // List of all organizations the user belongs to
   const orgs = await findOrganizationsByMemberId(userId);
-
   // If the user is not in an organization yet and is using SSO
   // Check to see if they should be auto-added to one based on their email domain
   if (!orgs.length) {
@@ -87,9 +86,12 @@ export async function getUser(req: AuthRequest, res: Response) {
     }
   }
 
+  // Filter out disabled organizations
+  const enabledOrgs = orgs.filter((org) => !org.disabled);
+
   // Filter out orgs that the user can't log in to
   let lastError = "";
-  const validOrgs = orgs.filter((org) => {
+  const validOrgs = enabledOrgs.filter((org) => {
     try {
       validateLoginMethod(org, req);
       return true;

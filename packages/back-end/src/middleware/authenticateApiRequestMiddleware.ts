@@ -99,6 +99,12 @@ export default function authenticateApiRequestMiddleware(
           );
         }
       }
+
+      // Check if organization is disabled
+      if (org.disabled === true && !req.user?.superAdmin) {
+        throw new Error("This organization has been deleted");
+      }
+
       req.organization = org;
 
       // If it's a user API key, verify that the user is part of the organization
