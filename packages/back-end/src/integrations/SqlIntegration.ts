@@ -412,6 +412,9 @@ export default abstract class SqlIntegration
   hasCountDistinctHLL(): boolean {
     return false;
   }
+  supportsLimitZeroColumnValidation(): boolean {
+    return false;
+  }
   // eslint-disable-next-line
   hllAggregate(col: string): string {
     throw new Error(
@@ -1537,11 +1540,13 @@ export default abstract class SqlIntegration
     testDays?: number,
     templateVariables?: TemplateVariables,
   ): string {
+    // Use LIMIT 0 for datasources that support column metadata without data
+    const limit = this.supportsLimitZeroColumnValidation() ? 0 : 1;
     return this.getTestQuery({
       query,
       templateVariables,
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
-      limit: 1,
+      limit,
     });
   }
 
