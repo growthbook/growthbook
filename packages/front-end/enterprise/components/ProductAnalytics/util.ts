@@ -29,7 +29,11 @@ export function getValueTypeLabel(
   );
 }
 
-export function createEmptyValue(type: DatasetType, factTable: FactTableInterface | null, factMetric: FactMetricInterface | null): ProductAnalyticsValue {
+export function createEmptyValue(
+  type: DatasetType,
+  factTable: FactTableInterface | null,
+  factMetric: FactMetricInterface | null,
+): ProductAnalyticsValue {
   const base = {
     name: "",
     rowFilters: [],
@@ -51,7 +55,7 @@ export function createEmptyValue(type: DatasetType, factTable: FactTableInterfac
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
-        unit: "user_id",
+        unit: null,
       } as FactTableValue;
     case "sql":
       return {
@@ -89,7 +93,10 @@ export function generateUniqueValueName(
   return `${baseName} ${i}`;
 }
 
-export function createEmptyDataset(type: DatasetType, factTable?: FactTableInterface): ProductAnalyticsDataset {
+export function createEmptyDataset(
+  type: DatasetType,
+  factTable?: FactTableInterface,
+): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
@@ -154,11 +161,16 @@ export function getCommonColumns(
     .map((c) => ({ column: c.column, name: c.name }));
 }
 
-export function removeIncompleteValues(dataset: ProductAnalyticsDataset): ProductAnalyticsDataset {
+export function removeIncompleteValues(
+  dataset: ProductAnalyticsDataset,
+): ProductAnalyticsDataset {
   if (dataset.type === "metric") {
     return { ...dataset, values: dataset.values.filter((v) => v.metricId) };
   } else if (dataset.type === "fact_table") {
-    return { ...dataset, values: dataset.values.filter((v) => v.unit && v.valueType) };
+    return {
+      ...dataset,
+      values: dataset.values.filter((v) => v.unit && v.valueType),
+    };
   } else if (dataset.type === "sql") {
     return { ...dataset, values: dataset.values.filter((v) => v.valueColumn) };
   }

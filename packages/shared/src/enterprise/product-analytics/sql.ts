@@ -83,7 +83,8 @@ interface DateRange {
 
 function getMetricAliases(index: number) {
   return {
-    numerator: `m${index}`,
+    base: `m${index}`,
+    numerator: `m${index}_numerator`,
     denominator: `m${index}_denominator`,
   };
 }
@@ -258,7 +259,7 @@ function getFactTableGroups({
       })();
   }
 }
-function calculateDateRange(
+export function calculateProductAnalyticsDateRange(
   dateRange: ProductAnalyticsConfig["dateRange"],
 ): DateRange {
   const startDate = new Date();
@@ -582,7 +583,7 @@ function getMetricData(
   }
 
   const aliases = getMetricAliases(metricIndex);
-  const alias = useDenominator ? aliases.denominator : aliases.numerator;
+  const alias = useDenominator ? aliases.denominator : aliases.base;
 
   const skipUnitAggregation =
     metric.metricType === "quantile" &&
@@ -596,9 +597,7 @@ function getMetricData(
     columnRef.column === "$$distinctUsers" ||
     columnRef.column === "$$distinctDates";
 
-  let selectedUnit = skipUnitAggregation
-    ? null
-    : unit || factTable.userIdTypes[0] || "user_id";
+  let selectedUnit = skipUnitAggregation ? null : unit || null;
 
   // Make sure selected unit is in the fact table user id types
   // Some metrics (like sum), we can fall back to event level aggregation instead
@@ -614,7 +613,7 @@ function getMetricData(
 
   // For mean metrics, we need to count the units to calculate the average
   let rollupCountExpr: string | null = null;
-  if (metric.metricType === "mean") {
+  if (metric.metricType === "mean" && selectedUnit) {
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
 
@@ -669,7 +668,7 @@ function createStubFactTable(
   const columnNames = new Set(Object.keys(columnTypes));
 
   // Get userIdTypes from datasource settings and intersect with available columns
-  let userIdTypes: string[] = ["user_id"]; // Default fallback
+  let userIdTypes: string[] = []; // Default fallback
   if (datasourceSettings?.userIdTypes) {
     // Extract userIdType strings and filter to only those that exist in columns
     userIdTypes = datasourceSettings.userIdTypes
@@ -678,7 +677,7 @@ function createStubFactTable(
 
     // If intersection is empty, fall back to default
     if (userIdTypes.length === 0) {
-      userIdTypes = ["user_id"];
+      userIdTypes = [];
     }
   }
 
@@ -900,12 +899,14 @@ function generateUnitAggregationRollupCTE(
     const metricData = includedMetrics.find((m) => m.alias === alias);
 
     if (metricData && metricData.rollupAggregationExpr) {
-      selects.push(`${metricData.rollupAggregationExpr || "NULL"} AS ${alias}`);
+      selects.push(
+        `${metricData.rollupAggregationExpr || "NULL"} AS ${alias}_numerator`,
+      );
       if (metricData.rollupCountExpr) {
         selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
       }
     } else {
-      selects.push(`NULL as ${alias}`);
+      selects.push(`NULL as ${alias}_numerator`);
       if (metricData?.rollupCountExpr) {
         selects.push(`NULL as ${alias}_denominator`);
       }
@@ -944,13 +945,13 @@ function generateEventRollupCTE(
     const metricData = includedMetrics.find((m) => m.alias === alias);
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}`,
+        `${metricData.rollupAggregationExpr || "NULL"} AS ${metricData.alias}_numerator`,
       );
       if (metricData.rollupCountExpr) {
         selects.push(`${metricData.rollupCountExpr} AS ${alias}_denominator`);
       }
     } else {
-      selects.push(`NULL as ${alias}`);
+      selects.push(`NULL as ${alias}_numerator`);
       if (metricData?.rollupCountExpr) {
         selects.push(`NULL as ${alias}_denominator`);
       }
@@ -979,17 +980,28 @@ function generateFinalSelect(
   combinedRollupCTE: CTE,
   dimensions: DimensionData[],
   allMetrics: MetricData[],
+  needsReaggregation: boolean,
 ): string {
   const selects: string[] = [];
   const groupBys: string[] = [];
   dimensions.forEach((d) => {
     selects.push(`${d.alias}`);
-    groupBys.push(`${d.alias}`);
+    if (needsReaggregation) {
+      groupBys.push(`${d.alias}`);
+    }
   });
   allMetrics.forEach((m) => {
-    selects.push(`MAX(${m.alias}) AS ${m.alias}`);
+    selects.push(
+      needsReaggregation
+        ? `MAX(${m.alias}_numerator) AS ${m.alias}_numerator`
+        : `${m.alias}_numerator AS ${m.alias}_numerator`,
+    );
     if (m.rollupCountExpr) {
-      selects.push(`MAX(${m.alias}_denominator) AS ${m.alias}_denominator`);
+      selects.push(
+        needsReaggregation
+          ? `MAX(${m.alias}_denominator) AS ${m.alias}_denominator`
+          : `${m.alias}_denominator AS ${m.alias}_denominator`,
+      );
     }
   });
   return `
@@ -1012,7 +1024,7 @@ export function generateProductAnalyticsSQL(
     throw new Error("Dataset is required");
   }
 
-  const dateRange = calculateDateRange(config.dateRange);
+  const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
   const factTableGroups = getFactTableGroups({
     config,
@@ -1155,11 +1167,13 @@ export function generateProductAnalyticsSQL(
 
   // Combine all rollup CTEs if there are multiple
   let finalSelectSource: CTE;
+  let needsReaggregation = true;
   if (ctesToRollup.length > 1) {
     finalSelectSource = generateCombinedRollupCTE(ctesToRollup);
     ctes.push(finalSelectSource);
   } else {
     finalSelectSource = ctesToRollup[0];
+    needsReaggregation = false;
   }
 
   // Final select
@@ -1167,7 +1181,7 @@ export function generateProductAnalyticsSQL(
     `
   WITH 
     ${ctes.map((c) => `${c.name} AS (\n${c.sql}\n)`).join(",\n  ")}
-  ${generateFinalSelect(finalSelectSource, allDimensions, allMetrics)}
+  ${generateFinalSelect(finalSelectSource, allDimensions, allMetrics, needsReaggregation)}
   `,
     sqlHelpers.formatDialect,
   );

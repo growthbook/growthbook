@@ -34,6 +34,7 @@ import {
 } from "shared/constants";
 import {
   generateProductAnalyticsSQL,
+  calculateProductAnalyticsDateRange,
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   transformProductAnalyticsRowsToResult,
 } from "shared/enterprise";
@@ -150,7 +151,7 @@ import {
 } from "shared/types/fact-table";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { AdditionalQueryMetadata, QueryMetadata } from "shared/types/query";
-import { ProductAnalyticsConfig } from "shared/validators";
+import { ProductAnalyticsConfig } from "shared/src/validators/product-analytics";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
@@ -8022,13 +8023,23 @@ ORDER BY column_name, count DESC
       formatDialect: this.getFormatDialect(),
     };
 
-    return generateProductAnalyticsSQL(
+    const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
+
+    const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
       config,
       factTableMap,
       metricMap,
       sqlHelpers,
       this.datasource,
     );
+
+    return {
+      sql: compileSqlTemplate(sql, {
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }),
+      orderedMetricIds,
+    };
   }
 
   async runProductAnalyticsQuery(
