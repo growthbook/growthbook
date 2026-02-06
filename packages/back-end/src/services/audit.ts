@@ -6,7 +6,6 @@ import {
 } from "shared/types/audit";
 import { entityTypes } from "shared/constants";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
-import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
@@ -15,10 +14,11 @@ export function isValidAuditEntityType(type: string): type is EntityType {
 }
 
 export async function getRecentWatchedAudits(
+  context: ReqContext,
   userId: string,
-  organization: string,
 ) {
-  const userWatches = await getWatchedByUser(organization, userId);
+  const organization = context.org.id;
+  const userWatches = await context.models.watch.getWatchedByUser(userId);
 
   if (!userWatches) {
     return [];
