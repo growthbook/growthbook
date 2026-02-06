@@ -39,8 +39,12 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) return;
 
-  const updates: Partial<Pick<FactTableInterface, "columns" | "columnsError">> =
-    {};
+  const updates: Partial<
+    Pick<
+      FactTableInterface,
+      "columns" | "columnsError" | "columnRefreshPending"
+    >
+  > = {};
 
   try {
     const columns = await runRefreshColumnsQuery(
@@ -54,6 +58,8 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columnsError = e.message;
   }
 
+  // Always set columnRefreshPending to false - job is done (even if it failed)
+  updates.columnRefreshPending = false;
   await updateFactTableColumns(factTable, updates, context);
 };
 
