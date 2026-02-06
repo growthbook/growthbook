@@ -15,11 +15,11 @@ const BaseClass = MakeModelClass({
 
 export class WatchModel extends BaseClass {
   protected async migrateModel() {
-    const numNullIds = await this._countDocuments({ id: null });
+    const numNullIds = await this._dangerousCountGlobalDocuments({ id: null });
     // We need to generate a new ID for each document, so we create N updateOne operations
     // From mongo docs: updateOne updates a single document in the collection that matches the filter.
     // If multiple documents match, updateOne will update the first matching document only.
-    await this._bulkWrite(
+    await this._dangerousBulkWrite(
       Array.from({ length: numNullIds }, () => ({
         updateOne: {
           filter: { id: null },
