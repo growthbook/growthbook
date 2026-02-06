@@ -16,7 +16,6 @@ import {
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getUserByEmail } from "back-end/src/models/UserModel";
-import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validation";
@@ -150,9 +149,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     if (ownerId) {
       // add owner as watcher
-      await upsertWatch({
+      await req.context.models.watch.upsertWatch({
         userId: ownerId,
-        organization: req.organization.id,
         item: experiment.id,
         type: "experiments",
       });

@@ -23,7 +23,6 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
 import {
   ExperimentSnapshotDocument,
@@ -226,6 +225,7 @@ type ExperimentSignificanceChange = {
 };
 
 const sendSignificanceEmail = async (
+  context: Context,
   experiment: ExperimentInterface,
   experimentChanges: ExperimentSignificanceChange[],
 ) => {
@@ -246,9 +246,8 @@ const sendSignificanceEmail = async (
 
   try {
     // send an email to any subscribers on this test:
-    const watchers = await getExperimentWatchers(
+    const watchers = await context.models.watch.getExperimentWatchers(
       experiment.id,
-      experiment.organization,
     );
 
     await sendExperimentChangesEmail(
@@ -402,7 +401,7 @@ export const notifySignificance = async ({
     snapshot.triggeredBy === "schedule" &&
     snapshot.type === "standard"
   ) {
-    await sendSignificanceEmail(experiment, experimentChanges);
+    await sendSignificanceEmail(context, experiment, experimentChanges);
   }
 
   await Promise.all(
