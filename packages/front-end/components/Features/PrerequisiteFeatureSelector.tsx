@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa6";
 import { PiArrowSquareOut } from "react-icons/pi";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -14,6 +15,7 @@ import SelectField, {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export interface FeatureOptionMeta {
   conditional: boolean;
@@ -136,11 +138,23 @@ export default function PrerequisiteFeatureSelector({
                   gap: "4px",
                 }}
               >
-                <OverflowText maxWidth={180}>{label}</OverflowText>
+                <OverflowText
+                  maxWidth={180}
+                  style={{ opacity: meta?.disabled ? 0.5 : 1 }}
+                  title={label}
+                >
+                  {label}
+                </OverflowText>
                 <PiArrowSquareOut />
               </Link>
             ) : (
-              <span style={{ opacity: meta?.disabled ? 0.5 : 1 }}>{label}</span>
+              <OverflowText
+                maxWidth={180}
+                style={{ opacity: meta?.disabled ? 0.5 : 1 }}
+                title={label}
+              >
+                {label}
+              </OverflowText>
             )}
             <div
               style={{
@@ -152,13 +166,20 @@ export default function PrerequisiteFeatureSelector({
               }}
             >
               {projectName ? (
-                <OverflowText maxWidth={150} className="text-muted small">
-                  project: <strong>{projectName}</strong>
-                </OverflowText>
+                <Box style={{ position: "relative", zIndex: 1000 }}>
+                  <Text size="small">
+                    <Text color="text-mid">project:</Text>{" "}
+                    <Text color="text-high">
+                      <OverflowText maxWidth={150} title={projectName}>
+                        {projectName}
+                      </OverflowText>
+                    </Text>
+                  </Text>
+                </Box>
               ) : (
-                <em className="text-muted small" style={{ opacity: 0.5 }}>
-                  no project
-                </em>
+                <Text color="text-low">
+                  <em>no project</em>
+                </Text>
               )}
               {meta?.wouldBeCyclic && (
                 <Tooltip
