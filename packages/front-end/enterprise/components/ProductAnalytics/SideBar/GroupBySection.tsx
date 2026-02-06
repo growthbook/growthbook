@@ -1,10 +1,10 @@
-import Button from "@/ui/Button";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiPlus, PiX } from "react-icons/pi";
-import { useExplorerContext } from "../ExplorerContext";
 import { useMemo, useState } from "react";
+import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { getMaxDimensions } from "../util";
+import { getMaxDimensions } from "@/enterprise/components/ProductAnalytics/util";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
 export default function GroupBySection() {
   const { draftExploreState, setDraftExploreState, commonColumns } =
@@ -29,7 +29,7 @@ export default function GroupBySection() {
         {
           dimensionType: "dynamic",
           column: column,
-          maxValues: 20,
+          maxValues: 5,
         },
       ],
     }));
@@ -61,10 +61,12 @@ export default function GroupBySection() {
         <DropdownMenu
           open={dropdownOpen}
           onOpenChange={setDropdownOpen}
-          disabled={getMaxDimensions(draftExploreState.dataset) <= draftExploreState.dimensions.length}
+          disabled={
+            getMaxDimensions(draftExploreState.dataset) <=
+            draftExploreState.dimensions.length
+          }
           trigger={
-            <Button size="xs" variant="ghost" 
-            >
+            <Button size="xs" variant="ghost">
               <Flex align="center" gap="2">
                 <PiPlus size={14} />
               </Flex>
