@@ -361,16 +361,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {environments.length > 1 && (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setCopyRuleModal({ environment, rules: [rule] });
-                              setDropdownOpen(false);
-                            }}
-                          >
-                            Copy rule to environment(s)
-                          </DropdownMenuItem>
-                        )}
                         {rule.type !== "experiment-ref" && (
                           <DropdownMenuItem
                             onClick={() => {
@@ -383,6 +373,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             }}
                           >
                             Duplicate rule
+                          </DropdownMenuItem>
+                        )}
+                        {environments.length > 1 && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setCopyRuleModal({ environment, rules: [rule] });
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            Copy rule to environment(s)
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
