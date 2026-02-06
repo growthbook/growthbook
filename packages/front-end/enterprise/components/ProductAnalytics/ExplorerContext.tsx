@@ -169,6 +169,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     if (hasPendingChanges && draftExploreState.dataset.values.length > 0) {
       const cleanedDataset = removeIncompleteValues(draftExploreState.dataset);
       if (cleanedDataset.values.length === 0) return;
+      if (cleanedDataset.type == "fact_table" && cleanedDataset.factTableId === null) return;
       fetchData({ ...draftExploreState, dataset: cleanedDataset });
       setSubmittedExploreState(draftExploreState);
     }

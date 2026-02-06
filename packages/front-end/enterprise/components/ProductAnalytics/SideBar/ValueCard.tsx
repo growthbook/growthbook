@@ -108,7 +108,7 @@ export default function ValueCard({
           </Button>
           {<Button
             variant="ghost"
-            disabled={index==0}
+            disabled={draftExploreState.dataset.values.length === 1}
             size="sm"
             onClick={onDelete}
             style={{ padding: "2px 6px" }}

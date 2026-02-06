@@ -42,9 +42,9 @@ export function createEmptyValue(
     case "metric":
       return {
         ...base,
-        name: factMetric?.name ?? "",
+        name: generateUniqueValueName("Metric", []),
         type: "metric",
-        metricId: factMetric?.id ?? "",
+        metricId: "",
         unit: factTable?.userIdTypes[0] ?? null,
         denominatorUnit: null,
       } as MetricValue;
@@ -100,7 +100,7 @@ export function createEmptyDataset(
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
-    return { type, values: [], factTableId: factTable?.id ?? null };
+    return { type, values: [], factTableId: null};
   } else if (type === "sql") {
     return {
       type,
