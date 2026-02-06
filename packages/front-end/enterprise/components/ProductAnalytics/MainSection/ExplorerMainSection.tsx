@@ -21,7 +21,7 @@ export default function ExplorerMainSection() {
         <Flex align="center" gap="3">
           <Button
             size="2"
-            variant="solid"
+            variant="outline"
             disabled={loading || !draftExploreState?.dataset?.values?.length}
             onClick={handleSubmit}
           >
