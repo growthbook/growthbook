@@ -195,6 +195,16 @@ export interface paths {
     /** Deletes a metric */
     delete: operations["deleteMetric"];
   };
+  "/metric-usage": {
+    /**
+     * Get metric usage across experiments 
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
+     * and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+     * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+     * all experiments.
+     */
+    post: operations["postMetricUsage"];
+  };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
     get: operations["getVisualChangeset"];
@@ -3869,6 +3879,34 @@ export interface components {
       /** @description The status of the analysis (e.g., "running", "completed", "error") */
       status: string;
       settings?: any;
+    };
+    MetricUsage: {
+      /** @description The metric ID */
+      metricId: string;
+      /** @description List of experiments using this metric */
+      experiments: ({
+          /** @description The experiment ID */
+          experimentId: string;
+          /**
+           * @description The current status of the experiment 
+           * @enum {string}
+           */
+          experimentStatus: "draft" | "running" | "stopped";
+          /**
+           * Format: date-time 
+           * @description The last time a snapshot was attempted for this experiment
+           */
+          lastSnapshotAttempt: string | null;
+        })[];
+      /** @description Number of running experiments using this metric */
+      nRunningExperiments: number;
+      /** @description Total number of experiments using this metric */
+      nTotalExperiments: number;
+      /**
+       * Format: date-time 
+       * @description The most recent snapshot attempt across all experiments using this metric
+       */
+      lastSnapshotAttempt: string | null;
     };
     Member: {
       id: string;
@@ -11107,6 +11145,59 @@ export interface operations {
       };
     };
   };
+  postMetricUsage: {
+    /**
+     * Get metric usage across experiments 
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
+     * and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+     * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+     * all experiments.
+     */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Array of metric IDs (both fact and legacy) to get usage for */
+          metricIds: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricUsage: ({
+                /** @description The metric ID */
+                metricId: string;
+                /** @description List of experiments using this metric */
+                experiments: ({
+                    /** @description The experiment ID */
+                    experimentId: string;
+                    /**
+                     * @description The current status of the experiment 
+                     * @enum {string}
+                     */
+                    experimentStatus: "draft" | "running" | "stopped";
+                    /**
+                     * Format: date-time 
+                     * @description The last time a snapshot was attempted for this experiment
+                     */
+                    lastSnapshotAttempt: string | null;
+                  })[];
+                /** @description Number of running experiments using this metric */
+                nRunningExperiments: number;
+                /** @description Total number of experiments using this metric */
+                nTotalExperiments: number;
+                /**
+                 * Format: date-time 
+                 * @description The most recent snapshot attempt across all experiments using this metric
+                 */
+                lastSnapshotAttempt: string | null;
+              })[];
+          };
+        };
+      };
+    };
+  };
   getVisualChangeset: {
     /** Get a single visual changeset */
     parameters: {
@@ -15958,6 +16049,7 @@ export type ApiFactTableColumn = z.infer<typeof openApiValidators.apiFactTableCo
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
+export type ApiMetricUsage = z.infer<typeof openApiValidators.apiMetricUsageValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
@@ -16011,6 +16103,7 @@ export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["c
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
+export type PostMetricUsageResponse = operations["postMetricUsage"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];

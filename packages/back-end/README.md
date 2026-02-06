@@ -397,7 +397,7 @@ First, you would document the endpoint using OpenAPI:
 We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
 
 ```bash
-yarn generate-api-types
+pnpm generate-api-types
 ```
 
 ### Router and Business Logic

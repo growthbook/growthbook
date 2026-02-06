@@ -70,6 +70,8 @@ FactMetric:
   $ref: "./FactMetric.yaml"
 MetricAnalysis:
   $ref: "./MetricAnalysis.yaml"
+MetricUsage:
+  $ref: "./MetricUsage.yaml"
 Member:
   $ref: "./Member.yaml"
 Archetype:
