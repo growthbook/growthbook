@@ -3,7 +3,7 @@
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
-import { Collection } from "mongodb";
+import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
@@ -353,6 +353,11 @@ export abstract class BaseModel<
     rawBody: unknown,
   ): Promise<UpdateProps<z.infer<T>>> {
     return rawBody as UpdateProps<z.infer<T>>;
+  }
+
+  // To be used if a legacy model is missing fields like id that are needed for indices
+  protected async migrateModel(): Promise<void> {
+    // Do nothing by default
   }
 
   /***************
@@ -819,6 +824,17 @@ export abstract class BaseModel<
     return newDoc;
   }
 
+  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+    return this._dangerousGetCollection().countDocuments(filter);
+  }
+
+  protected async _bulkWrite(
+    operations: AnyBulkWriteOperation[],
+    ordered: boolean = false,
+  ) {
+    this._dangerousGetCollection().bulkWrite(operations, { ordered });
+  }
+
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
@@ -935,45 +951,53 @@ export abstract class BaseModel<
     if (indexesUpdated.has(this.config.collectionName)) return;
     indexesUpdated.add(this.config.collectionName);
 
+    const migrationPromise = this.migrateModel(); // Compatibility for initial migration to baseModel
+
     const promises = [];
 
     // Always create a unique index for organization and id
     promises.push(
-      this._dangerousGetCollection()
-        .createIndex({ id: 1, organization: 1 }, { unique: true })
-        .catch((err) => {
-          logger.error(
-            err,
-            `Error creating org/id unique index for ${this.config.collectionName}`,
-          );
-        }),
+      migrationPromise.then(() => {
+        this._dangerousGetCollection()
+          .createIndex({ id: 1, organization: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating org/id unique index for ${this.config.collectionName}`,
+            );
+          });
+      }),
     );
 
     // If id is globally unique, create an index for that
     if (this.config.globallyUniqueIds) {
       promises.push(
-        this._dangerousGetCollection()
-          .createIndex({ id: 1 }, { unique: true })
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error creating id unique index for ${this.config.collectionName}`,
-            );
-          }),
+        migrationPromise.then(() => {
+          this._dangerousGetCollection()
+            .createIndex({ id: 1 }, { unique: true })
+            .catch((err) => {
+              logger.error(
+                err,
+                `Error creating id unique index for ${this.config.collectionName}`,
+              );
+            });
+        }),
       );
     }
 
     // If schema uses uid, create a globally unique index
     if ("uid" in this.config.schema.shape) {
       promises.push(
-        this._dangerousGetCollection()
-          .createIndex({ uid: 1 }, { unique: true })
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error creating uid unique index for ${this.config.collectionName}`,
-            );
-          }),
+        migrationPromise.then(() => {
+          this._dangerousGetCollection()
+            .createIndex({ uid: 1 }, { unique: true })
+            .catch((err) => {
+              logger.error(
+                err,
+                `Error creating uid unique index for ${this.config.collectionName}`,
+              );
+            });
+        }),
       );
     }
 
@@ -983,20 +1007,22 @@ export abstract class BaseModel<
       // Drop each index that needs to be removed
       indexesToRemove.forEach((indexName) => {
         promises.push(
-          this._dangerousGetCollection()
-            .dropIndex(indexName)
-            .catch((err) => {
-              // Ignore errors if the index or namespace doesn't exist
-              if (
-                err.codeName !== "IndexNotFound" &&
-                err.codeName !== "NamespaceNotFound"
-              ) {
-                logger.error(
-                  err,
-                  `Error dropping index ${indexName} for ${this.config.collectionName}`,
-                );
-              }
-            }),
+          migrationPromise.then(() => {
+            this._dangerousGetCollection()
+              .dropIndex(indexName)
+              .catch((err) => {
+                // Ignore errors if the index or namespace doesn't exist
+                if (
+                  err.codeName !== "IndexNotFound" &&
+                  err.codeName !== "NamespaceNotFound"
+                ) {
+                  logger.error(
+                    err,
+                    `Error dropping index ${indexName} for ${this.config.collectionName}`,
+                  );
+                }
+              });
+          }),
         );
       });
     }
@@ -1004,18 +1030,20 @@ export abstract class BaseModel<
     // Create any additional indexes
     this.config.additionalIndexes?.forEach((index) => {
       promises.push(
-        this._dangerousGetCollection()
-          .createIndex(index.fields as { [key: string]: number }, {
-            unique: !!index.unique,
-          })
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error creating ${Object.keys(index.fields).join("/")} ${
-                index.unique ? "unique " : ""
-              }index for ${this.config.collectionName}`,
-            );
-          }),
+        migrationPromise.then(() => {
+          this._dangerousGetCollection()
+            .createIndex(index.fields as { [key: string]: number }, {
+              unique: !!index.unique,
+            })
+            .catch((err) => {
+              logger.error(
+                err,
+                `Error creating ${Object.keys(index.fields).join("/")} ${
+                  index.unique ? "unique " : ""
+                }index for ${this.config.collectionName}`,
+              );
+            });
+        }),
       );
     });
 

@@ -8,13 +8,28 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: watchSchema,
   collectionName: "watches",
-  idPrefix: "Watch", // TODO
-  globallyUniqueIds: true,
+  idPrefix: "watch_",
   readonlyFields: [],
   additionalIndexes: [{ unique: true, fields: { userId: 1, organization: 1 } }],
 });
 
 export class WatchModel extends BaseClass {
+  protected async migrateModel() {
+    const numNullIds = await this._countDocuments({ id: null });
+    // We need to generate a new ID for each document, so we create N updateOne operations
+    // From mongo docs: updateOne updates a single document in the collection that matches the filter.
+    // If multiple documents match, updateOne will update the first matching document only.
+    await this._bulkWrite(
+      Array.from({ length: numNullIds }, () => ({
+        updateOne: {
+          filter: { id: null },
+          update: { $set: { id: this._generateId() } },
+        },
+      })),
+      true, // Ordered to prevent the sequential `updateOne`s from running in parallel
+    );
+  }
+
   protected canCreate(): boolean {
     return true;
   }
@@ -26,6 +41,15 @@ export class WatchModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return true;
+  }
+
+  protected migrate(legacyWatch: unknown): WatchInterface {
+    const typecast = legacyWatch as WatchInterface;
+    return {
+      ...typecast,
+      dateCreated: typecast.dateCreated ?? new Date(),
+      dateUpdated: typecast.dateUpdated ?? new Date(),
+    };
   }
 
   public async getWatchedByUser(
