@@ -329,13 +329,6 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     });
   }, []);
 
-  // populate dataset with first value if no values are present
-  useEffect(() => {
-    if (draftExploreState.dataset.values.length === 0) {
-      changeDatasetType(draftExploreState.dataset.type);
-    }
-  }, [draftExploreState.dataset.values, factTables]);
-
   const value = useMemo<ExplorerContextValue>(
     () => ({
       draftExploreState,
