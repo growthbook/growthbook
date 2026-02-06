@@ -102,21 +102,50 @@ export function ConditionRow({
   operatorSlot?: React.ReactNode | null; // null = draw empty slot
   valueSlot?: React.ReactNode;
   removeSlot?: React.ReactNode | null; // null = draw empty slot
-  widthMode?: "default" | "wide-attribute"; // default: 25/25/50, wide-attribute: 50/25/25
+  widthMode?: "default" | "stacked"; // default: 25/25/50, stacked: attribute full-width, then operator/value 50/50
 }) {
-  const isWideAttribute = widthMode === "wide-attribute";
+  const isStacked = widthMode === "stacked";
+
+  if (isStacked) {
+    return (
+      <Flex direction="column" gap="3" className="gb-condition-row">
+        <Flex gap="3" align="start">
+          {prefixSlot !== undefined && (
+            <Box flexShrink="0" style={{ width: 30 }}>
+              <Flex align="center" style={{ height: 38 }}>
+                {prefixSlot}
+              </Flex>
+            </Box>
+          )}
+          <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
+          {removeSlot != undefined && (
+            <Box flexShrink="0" pt="3">
+              {removeSlot}
+            </Box>
+          )}
+        </Flex>
+        {(operatorSlot !== undefined || valueSlot !== undefined) && (
+          <Flex gap="3" align="start">
+            {prefixSlot !== undefined && (
+              <Box flexShrink="0" style={{ width: 30 }} />
+            )}
+            {operatorSlot !== undefined && (
+              <Box style={{ minWidth: 150, flex: "1 1 0" }}>{operatorSlot}</Box>
+            )}
+            {valueSlot !== undefined && (
+              <Box style={{ minWidth: 150, flex: "1 1 0" }}>{valueSlot}</Box>
+            )}
+            {removeSlot !== undefined && (
+              <Box flexShrink="0" style={{ width: "var(--space-4)" }} />
+            )}
+          </Flex>
+        )}
+      </Flex>
+    );
+  }
 
   return (
-    <Flex
-      gap="3"
-      align="start"
-      className="gb-condition-row"
-      style={{
-        borderRadius: "var(--radius-2)",
-        border: "1px solid transparent",
-        minHeight: 40,
-      }}
-    >
+    <Flex gap="3" align="start" className="gb-condition-row">
       {prefixSlot !== undefined && (
         <Box flexShrink="0" style={{ width: 30 }}>
           <Flex align="center" style={{ height: 38 }}>
@@ -132,8 +161,8 @@ export function ConditionRow({
       >
         <Box
           style={{
-            minWidth: isWideAttribute ? 300 : 150,
-            flex: isWideAttribute ? "2 1 0" : "1 1 0",
+            minWidth: 150,
+            flex: "1 1 0",
           }}
         >
           {attributeSlot}
@@ -143,8 +172,8 @@ export function ConditionRow({
         )}
         <Box
           style={{
-            minWidth: isWideAttribute ? 150 : 300,
-            flex: isWideAttribute ? "1 1 0" : "2 1 0",
+            minWidth: 300,
+            flex: "2 1 0",
           }}
         >
           {valueSlot}

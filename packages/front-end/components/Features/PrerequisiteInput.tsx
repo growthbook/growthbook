@@ -428,7 +428,7 @@ export default function PrerequisiteInput({
                   {!isAdvanced ? (
                     <>
                       <ConditionRow
-                        widthMode="wide-attribute"
+                        widthMode="stacked"
                         attributeSlot={
                           <PrerequisiteFeatureSelector
                             value={v.id}
@@ -746,7 +746,7 @@ export default function PrerequisiteInput({
                     // Advanced mode - only show feature selector
                     <>
                       <ConditionRow
-                        widthMode="wide-attribute"
+                        widthMode="stacked"
                         attributeSlot={
                           <PrerequisiteFeatureSelector
                             value={v.id}
@@ -792,7 +792,12 @@ export default function PrerequisiteInput({
                   )}
 
                   {isAdvanced && parentFeature && (
-                    <Box mt="2" mb="4">
+                    <Box
+                      mt="2"
+                      style={{
+                        paddingRight: "calc(var(--space-3) + var(--space-4))",
+                      }}
+                    >
                       <CodeTextArea
                         language="json"
                         value={v.condition}
@@ -826,7 +831,7 @@ export default function PrerequisiteInput({
                   )}
 
                   {parentFeature && (
-                    <Box mb="2">
+                    <Box my="3">
                       <Collapsible
                         trigger={
                           <Link>
