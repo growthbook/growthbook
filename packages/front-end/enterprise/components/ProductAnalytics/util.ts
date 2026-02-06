@@ -29,7 +29,7 @@ export function getValueTypeLabel(
   );
 }
 
-export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
+export function createEmptyValue(type: DatasetType, factTable: FactTableInterface | null, factMetric: FactMetricInterface | null): ProductAnalyticsValue {
   const base = {
     name: "",
     rowFilters: [],
@@ -38,10 +38,10 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
     case "metric":
       return {
         ...base,
-        name: "Metric",
+        name: factMetric?.name ?? "",
         type: "metric",
-        metricId: "",
-        unit: null,
+        metricId: factMetric?.id ?? "",
+        unit: factTable?.userIdTypes[0] ?? null,
         denominatorUnit: null,
       } as MetricValue;
     case "fact_table":
@@ -89,11 +89,11 @@ export function generateUniqueValueName(
   return `${baseName} ${i}`;
 }
 
-export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
+export function createEmptyDataset(type: DatasetType, factTable?: FactTableInterface): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
-    return { type, values: [], factTableId: null };
+    return { type, values: [], factTableId: factTable?.id ?? null };
   } else if (type === "sql") {
     return {
       type,
@@ -152,4 +152,15 @@ export function getCommonColumns(
     .filter((c) => !c.deleted)
     .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
     .map((c) => ({ column: c.column, name: c.name }));
+}
+
+export function removeIncompleteValues(dataset: ProductAnalyticsDataset): ProductAnalyticsDataset {
+  if (dataset.type === "metric") {
+    return { ...dataset, values: dataset.values.filter((v) => v.metricId) };
+  } else if (dataset.type === "fact_table") {
+    return { ...dataset, values: dataset.values.filter((v) => v.unit && v.valueType) };
+  } else if (dataset.type === "sql") {
+    return { ...dataset, values: dataset.values.filter((v) => v.valueColumn) };
+  }
+  return dataset;
 }

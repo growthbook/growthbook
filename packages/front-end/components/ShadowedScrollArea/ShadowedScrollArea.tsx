@@ -47,7 +47,7 @@ export default function ShadowedScrollArea({
         }}
       />
       {/* Bottom gradient shadow */}
-      <div
+      {scrollState.canScrollDown && <div
         style={{
           position: "absolute",
           bottom: 0,
@@ -60,9 +60,20 @@ export default function ShadowedScrollArea({
           opacity: scrollState.canScrollDown ? 1 : 0,
           transition: "opacity 0.2s ease",
         }}
-      />
+      />}
       <Box style={{ height: "100%", overflowX: "hidden" }} onScroll={handleScroll}>
-        {children}
+        <Box
+          style={{
+            height: "100%",
+            overflowY: "scroll",
+            overflowX: "hidden",
+            marginRight: -20,
+            paddingRight: 20,
+          }}
+          onScroll={handleScroll}
+        >
+          {children}
+        </Box>
       </Box>
     </div>
   );

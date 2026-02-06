@@ -13,6 +13,7 @@ import {
   createEmptyDataset,
   getCommonColumns,
   generateUniqueValueName,
+  removeIncompleteValues,
 } from "./util";
 import { useExploreData } from "./useExploreData";
 import {
@@ -100,7 +101,6 @@ export interface ExplorerContextValue {
   addValueToDataset: (datasetType: DatasetType) => void;
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
-  clearDataset: () => void;
   changeDatasetType: (type: DatasetType) => void;
   updateSqlDataset: (
     sql: string,
@@ -110,6 +110,7 @@ export interface ExplorerContextValue {
     >,
   ) => void;
   updateTimestampColumn: (column: string) => void;
+  changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
 }
 
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
@@ -121,7 +122,7 @@ interface ExplorerProviderProps {
 export function ExplorerProvider({ children }: ExplorerProviderProps) {
   const { data, loading, fetchData, error } = useExploreData();
 
-  const { getFactTableById, getFactMetricById } = useDefinitions();
+  const { getFactTableById, getFactMetricById, factMetrics, factTables } = useDefinitions();
 
   const [draftExploreState, setDraftExploreState] =
     useState<ProductAnalyticsConfig>(INITIAL_EXPLORE_STATE);
@@ -142,59 +143,48 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     );
   }, [draftExploreState.dataset, getFactTableById, getFactMetricById]);
 
-  // Validate dimensions against commonColumns
   useEffect(() => {
-    const newDimensions = draftExploreState.dimensions.filter((d) => {
+    // 1. Validate dimensions against commonColumns
+    const validDimensions = draftExploreState.dimensions.filter((d) => {
       if (d.dimensionType !== "dynamic") return true;
-      if (commonColumns.some((c) => c.column === d.column)) return true;
-      return false;
+      return commonColumns.some((c) => c.column === d.column);
     });
 
-    if (newDimensions != draftExploreState.dimensions) {
+    if (validDimensions.length !== draftExploreState.dimensions.length) {
       setDraftExploreState((prev) => ({
         ...prev,
-        dimensions: newDimensions,
+        dimensions: validDimensions,
       }));
-    }
-  }, [commonColumns]);
-
-  useEffect(() => {
-    // clear date dimension if chart type is not line
-    if (draftExploreState.chartType !== "line") {
-      console.log("clearing date dimension");
-      setDraftExploreState((prev) => ({
-        ...prev,
-        dimensions: prev.dimensions.filter((d) => d.dimensionType !== "date"),
-      }));
+      return; // Re-render with valid dimensions before submitting
     }
 
-    if (draftExploreState.chartType === "line") {
-      setDraftExploreState((prev) => {
-        if (prev.dimensions.some((d) => d.dimensionType === "date")) {
-          return prev;
-        }
-        return {
-          ...prev,
-          dimensions: [
-            { dimensionType: "date", column: "date", dateGranularity: "day" },
-            ...prev.dimensions,
-          ],
-        };
-      });
+    // 2. Auto-submit if there are pending changes
+    if (hasPendingChanges && draftExploreState.dataset.values.length > 0) {
+      const cleanedDataset = removeIncompleteValues(draftExploreState.dataset);
+      if (cleanedDataset.values.length === 0) return;
+      fetchData({ ...draftExploreState, dataset: cleanedDataset });
+      setSubmittedExploreState(draftExploreState);
     }
-  }, [draftExploreState.chartType]);
+  }, [commonColumns, hasPendingChanges, draftExploreState]);
+
 
   const handleSubmit = useCallback(async () => {
     await fetchData(draftExploreState);
     setSubmittedExploreState(draftExploreState);
   }, [draftExploreState]);
 
+  const createDefaultValue = useCallback((datasetType: DatasetType): ProductAnalyticsValue => {
+    const factMetric = datasetType === "metric" ? factMetrics[0] : null;
+    const factTable = datasetType === "metric" && factMetric?.numerator.factTableId ? getFactTableById(factMetric.numerator.factTableId) : factTables[0];
+    return createEmptyValue(datasetType, factTable, factMetric);
+  }, [factMetrics, factTables, getFactTableById]);
+
   const addValueToDataset = useCallback((datasetType: DatasetType) => {
     setDraftExploreState((prev) => {
       if (!prev.dataset || prev.dataset.type !== datasetType) {
         return prev;
       }
-      const value = createEmptyValue(datasetType);
+      const value = createDefaultValue(datasetType);
 
       // Generate unique name
       if (value.name) {
@@ -303,26 +293,41 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     });
   }, []);
 
+  // changes chart type and updates dimensions
+  const changeChartType = useCallback(
+    (chartType: ProductAnalyticsConfig["chartType"]) => {
+      setDraftExploreState((prev) => {
+        let dimensions = prev.dimensions;
+        if (chartType !== "line") {
+          dimensions = dimensions.filter((d) => d.dimensionType !== "date");
+        } else if (!dimensions.some((d) => d.dimensionType === "date")) {
+          dimensions = [
+            { dimensionType: "date", column: "date", dateGranularity: "day" },
+            ...dimensions,
+          ];
+        }
+        return { ...prev, chartType, dimensions };
+      });
+    },
+    [],
+  );
+
   const changeDatasetType = useCallback((type: DatasetType) => {
+    const defaultDataset = createEmptyDataset(type, factTables[0]);
     setDraftExploreState((prev) => {
       return {
         ...prev,
-        dataset: createEmptyDataset(type),
+        dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
       } as ProductAnalyticsConfig;
     });
   }, []);
 
-  const clearDataset = useCallback(() => {
-    setDraftExploreState((prev) => {
-      if (!prev.dataset) {
-        return prev;
-      }
-      return {
-        ...prev,
-        dataset: createEmptyDataset(prev.dataset.type),
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
+  // populate dataset with first value if no values are present
+  useEffect(() => {
+    if (draftExploreState.dataset.values.length === 0) {
+      changeDatasetType(draftExploreState.dataset.type);
+    }
+  }, [draftExploreState.dataset.values, factTables]);
 
   const value = useMemo<ExplorerContextValue>(
     () => ({
@@ -339,9 +344,9 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       updateValueInDataset,
       deleteValueFromDataset,
       changeDatasetType,
-      clearDataset,
       updateSqlDataset,
       updateTimestampColumn,
+      changeChartType,
     }),
     [
       draftExploreState,
@@ -356,9 +361,9 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       updateValueInDataset,
       deleteValueFromDataset,
       changeDatasetType,
-      clearDataset,
       updateSqlDataset,
       updateTimestampColumn,
+      changeChartType,
     ],
   );
 

@@ -20,6 +20,9 @@ export default function ExplorerDataTable() {
         console.log("Unknown dimension type", dimension);
       }
     }
+    if (headers.length === 0) {
+      headers.push("Total");
+    }
     return headers;
   }, [submittedExploreState?.dimensions]);
 
@@ -45,6 +48,8 @@ export default function ExplorerDataTable() {
           } else {
             tempRow.push(dimension);
           }
+        } else if (dimensionColumnHeaders[0] === "Total") {
+          tempRow.push("Total")
         }
       }
       const missingDims = dimensionColumnHeaders.length - tempRow.length;
@@ -53,7 +58,11 @@ export default function ExplorerDataTable() {
       }
       for (const value of row.values) {
         if (value?.numerator) {
-          tempRow.push(value.numerator.toString());
+          let val = value.numerator;
+          if (value.denominator) {
+            val /= value.denominator;
+          }
+          tempRow.push(val.toFixed(2));
         } else {
           tempRow.push("");
         }

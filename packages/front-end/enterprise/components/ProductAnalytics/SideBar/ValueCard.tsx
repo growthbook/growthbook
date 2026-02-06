@@ -106,14 +106,15 @@ export default function ValueCard({
           >
             <PiPencilSimple size={14} />
           </Button>
-          <Button
+          {<Button
             variant="ghost"
+            disabled={index==0}
             size="sm"
             onClick={onDelete}
             style={{ padding: "2px 6px" }}
           >
             <PiX size={14} />
-          </Button>
+          </Button>}
         </Flex>
       </Flex>
       <Separator style={{ width: "100%" }} mb="2" />

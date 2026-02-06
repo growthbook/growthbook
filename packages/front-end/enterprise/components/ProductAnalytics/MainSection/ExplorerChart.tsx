@@ -7,8 +7,8 @@ import { useDashboardCharts } from "@/enterprise/components/Dashboards/Dashboard
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import { useExplorerContext } from "../ExplorerContext";
-import Callout from "front-end/ui/Callout";
-import LoadingSpinner from "front-end/components/LoadingSpinner";
+import Callout from "@/ui/Callout";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const CHART_ID = "explorer-chart";
 
@@ -56,7 +56,10 @@ export default function ExplorerChart() {
     const chartType = submittedExploreState.chartType;
 
     if (chartType === "bigNumber") {
-      const value = rows[0]?.values[0]?.numerator ?? 0;
+      let value = rows[0]?.values[0]?.numerator ?? 0;
+      if (rows[0]?.values[0]?.denominator) {
+        value /= rows[0]?.values[0]?.denominator;
+      }
       return { type: "bigNumber" as const, value };
     }
 
@@ -67,6 +70,7 @@ export default function ExplorerChart() {
     // Track metadata for each series key to build the final series config
     const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
+    const numMetrics = submittedExploreState?.dataset?.values?.length ?? 0;
     rows.forEach((row) => {
       // First dimension is the X-axis value (Date or Category)
       const xValue = row.dimensions[0] || "";
@@ -89,7 +93,16 @@ export default function ExplorerChart() {
             valueIndex,
             v.metricId,
           );
-          const name = groupKey ? `${metricName} (${groupKey})` : metricName;
+          let name: string;
+          if (groupKey) {
+            if (numMetrics > 1) {
+              name = `${metricName} (${groupKey})`;
+            } else {
+              name = groupKey;
+            }
+          } else {
+            name = metricName;
+          }
 
           seriesMeta[seriesKey] = {
             metricId: v.metricId,
@@ -98,6 +111,9 @@ export default function ExplorerChart() {
         }
 
         dataMap[seriesKey][xValue] = v.numerator ?? 0;
+        if (v.denominator) {
+          dataMap[seriesKey][xValue] /=  v.denominator;
+        }
       });
     });
 
