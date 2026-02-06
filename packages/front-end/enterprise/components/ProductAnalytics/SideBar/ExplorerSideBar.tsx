@@ -9,6 +9,7 @@ import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import SqlTabContent from "./SqlTabContent";
 import GroupBySection from "./GroupBySection";
+import Button from "@/ui/Button";
 
 type DatasetType = "metric" | "fact_table" | "sql";
 
@@ -59,9 +60,14 @@ export default function ExplorerSideBar() {
 
   return (
     <Flex direction="column" gap="2">
-      <Text size="3" weight="medium" mt="2">
-        Configuration
-      </Text>
+      <Flex justify="between" align="center">
+        <Text size="3" weight="medium" mt="2">
+          Configuration
+        </Text>
+        <Button size="sm">
+          Save to Dashboard
+        </Button>
+      </Flex>
       <Tabs value={activeType} onValueChange={handleTabChange}>
         <Flex>
           <Flex
