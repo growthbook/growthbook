@@ -170,44 +170,33 @@ export default function SqlTabContent() {
                           ),
                         } as SqlValue)
                       }
-                      options={VALUE_TYPE_OPTIONS.map((o) => ({
+                      options={VALUE_TYPE_OPTIONS.filter(
+                        (o) => o.value !== "unit_count",
+                      ).map((o) => ({
                         label: o.label,
                         value: o.value,
                       }))}
                       placeholder="Select..."
                     />
-                    <SelectField
-                      label="Value column"
-                      value={v.valueColumn ?? ""}
-                      onChange={(val) =>
-                        updateValueInDataset(idx, {
-                          ...v,
-                          valueColumn: val,
-                        } as SqlValue)
-                      }
-                      options={Object.entries(dataset.columnTypes ?? {}).map(
-                        ([name]) => ({
-                          label: name,
-                          value: name,
-                        }),
-                      )}
-                      placeholder="Select..."
-                    />
-                    <SelectField
-                      label="Unit"
-                      value={v.unit ?? ""}
-                      onChange={(val) =>
-                        updateValueInDataset(idx, {
-                          ...v,
-                          unit: val,
-                        } as SqlValue)
-                      }
-                      options={datasourceUserIdTypes.map((ut) => ({
-                        label: ut.userIdType,
-                        value: ut.userIdType,
-                      }))}
-                      placeholder="Select..."
-                    />
+                    {v.valueType === "sum" && (
+                      <SelectField
+                        label="Value column"
+                        value={v.valueColumn ?? ""}
+                        onChange={(val) =>
+                          updateValueInDataset(idx, {
+                            ...v,
+                            valueColumn: val,
+                          } as SqlValue)
+                        }
+                        options={Object.entries(dataset.columnTypes ?? {}).map(
+                          ([name]) => ({
+                            label: name,
+                            value: name,
+                          }),
+                        )}
+                        placeholder="Select..."
+                      />
+                    )}
                   </Flex>
                 </ValueCard>
               ))}
