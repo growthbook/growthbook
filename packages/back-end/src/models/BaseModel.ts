@@ -824,11 +824,20 @@ export abstract class BaseModel<
     return newDoc;
   }
 
-  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+  protected async _dangerousCountGlobalDocuments(filter: ScopedFilterQuery<T>) {
     return this._dangerousGetCollection().countDocuments(filter);
   }
 
-  protected async _bulkWrite(
+  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+    const query = {
+      ...this.getBaseQuery(),
+      ...filter,
+      organization: this.context.org.id,
+    };
+    return this._dangerousGetCollection().countDocuments(query);
+  }
+
+  protected async _dangerousBulkWrite(
     operations: AnyBulkWriteOperation[],
     ordered: boolean = false,
   ) {
