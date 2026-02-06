@@ -35,9 +35,6 @@ export default class Snowflake extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password", "privateKey", "privateKeyPassword"];
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
   runQuery(
     sql: string,
     setExternalId?: ExternalIdCallback,

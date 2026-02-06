@@ -43,9 +43,6 @@ export default class BigQuery extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["privateKey"];
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
 
   private getClient() {
     // If pull credentials from env or the metadata server

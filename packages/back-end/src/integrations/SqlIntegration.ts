@@ -1542,12 +1542,6 @@ export default abstract class SqlIntegration
     });
   }
 
-  // Whether this datasource can return column metadata from a LIMIT 0 query
-  // Override to true in datasources that support this (e.g., BigQuery, Snowflake)
-  supportsLimitZeroColumnValidation(): boolean {
-    return false;
-  }
-
   getFreeFormQuery(sql: string, limit?: number): string {
     const limitedQuery = this.ensureMaxLimit(sql, limit ?? SQL_ROW_LIMIT);
     return format(limitedQuery, this.getFormatDialect());
