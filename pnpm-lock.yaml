@@ -6,20 +6,21 @@ settings:
 
 overrides:
   '@growthbook/growthbook': 1.6.4
-  vite: ^6.0.0
+  '@grpc/grpc-js@1.8': 1.8.22
+  '@octokit/plugin-paginate-rest@9': ^9.2.2
+  '@octokit/request@8': ^8.4.1
+  '@octokit/request-error@5': ^5.1.1
   execa: ^5.0.0
   form-data@2: ^2.5.5
   form-data@3: ^3.0.4
   form-data@4: ^4.0.5
   fast-xml-parser@4: ^4.4.1
   mdast-util-to-hast@13: ^13.2.1
+  nan: 2.25.0
   node-forge@1: ^1.3.2
-  '@grpc/grpc-js@1.8': 1.8.22
-  '@octokit/plugin-paginate-rest@9': ^9.2.2
-  '@octokit/request@8': ^8.4.1
-  '@octokit/request-error@5': ^5.1.1
   prismjs@1: ^1.30.0
   qs@6: ^6.14.1
+  vite: ^6.0.0
 
 patchedDependencies:
   '@ephys/zod-to-ts@2.3.2':
@@ -10960,8 +10961,8 @@ packages:
     resolution: {integrity: sha512-eLoBxg6wE/rZkJPhU/xRX1WTpkFEwDJEN96oxFrTsqBdbT5ec295Q+CoHrL9IT0DipqKhmGcaZmwOt8OON5x1w==}
     engines: {node: '>=12.0.0'}
 
-  nan@2.19.0:
-    resolution: {integrity: sha512-nO1xXxfh/RWNxfd/XPfbIfFk5vgLsAxUR9y5O0cHMJu/AW9U95JLXqthYHjEp+8gQ5p96K9jUp8nbVOxCdRbtw==}
+  nan@2.25.0:
+    resolution: {integrity: sha512-0M90Ag7Xn5KMLLZ7zliPWP3rT90P6PN+IzVFS0VqmnPktBk3700xUVv8Ikm9EUaUE5SDWdp/BIxdENzVznpm1g==}
 
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
@@ -26550,7 +26551,7 @@ snapshots:
     dependencies:
       buffer: 5.7.1
       cuint: 0.2.2
-      nan: 2.19.0
+      nan: 2.25.0
       xxhashjs: 0.2.2
 
   magic-string@0.30.21:
@@ -27220,7 +27221,7 @@ snapshots:
     dependencies:
       lru-cache: 7.18.3
 
-  nan@2.19.0: {}
+  nan@2.25.0: {}
 
   nanoid@3.3.11: {}
 
