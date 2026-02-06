@@ -89,6 +89,7 @@
   .gb-multi-select__indicators,
   .gb-select__indicators {
     margin-left: -8px;
+    margin-right: 2px;
     position: relative;
   }
   .gb-multi-select__clear-indicator,
@@ -115,13 +116,24 @@
 
 .gb-multi-select__clear-indicator,
 .gb-select__clear-indicator,
-.gb-select__dropdown-indicator,
-.gb-multi-select__dropdown-indicator,
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
 .gb-multi-select__copy-button {
-  padding: 8px 2px !important;
+  width: 22px;
+  height: 22px;
+  margin: 0 1px;
+  padding: 4px !important;
   cursor: pointer;
+  border-radius: 16px !important;
+  background-color: transparent !important;
+  &:hover {
+    background-color: var(--gray-a3) !important;
+  }
+}
+.gb-select__dropdown-indicator,
+.gb-multi-select__dropdown-indicator {
+  padding: 4px !important;
+  margin-right: -4px;
 }
 
 // Raw text / token mode toggle button inside creatable multiselect (StringArrayField)

@@ -142,7 +142,9 @@ export default function SavedGroupTargetingField({
                 />
               )}
               <ConditionRow
-                prefixSlot={i > 0 ? <ConditionRowLabel label="AND" /> : null}
+                prefixSlot={
+                  <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
+                }
                 attributeSlot={
                   <SelectField
                     useMultilineLabels={true}

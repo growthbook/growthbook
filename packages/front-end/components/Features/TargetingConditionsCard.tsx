@@ -66,10 +66,8 @@ export function ConditionGroupHeader({
   advancedToggle?: React.ReactNode;
 }) {
   let label: React.ReactNode;
-  if (targetingType === "attribute") {
-    label = `INCLUDE IF`;
-  } else if (targetingType === "group") {
-    label = `INCLUDE IF IN`;
+  if (targetingType === "attribute" || targetingType === "group") {
+    label = `INCLUDE`;
   } else {
     label = `INCLUDE IF`;
   }
@@ -102,7 +100,7 @@ export function ConditionRow({
   operatorSlot?: React.ReactNode | null; // null = draw empty slot
   valueSlot?: React.ReactNode;
   removeSlot?: React.ReactNode | null; // null = draw empty slot
-  widthMode?: "default" | "stacked"; // default: 25/25/50, stacked: attribute full-width, then operator/value 50/50
+  widthMode?: "default" | "stacked"; // default: 25/25/50. stacked: attribute full-width, then operator/value 50/50
 }) {
   const isStacked = widthMode === "stacked";
 
@@ -111,7 +109,7 @@ export function ConditionRow({
       <Flex direction="column" gap="3" className="gb-condition-row">
         <Flex gap="3" align="start">
           {prefixSlot !== undefined && (
-            <Box flexShrink="0" style={{ width: 30 }}>
+            <Box flexShrink="0" style={{ width: 35 }}>
               <Flex align="center" style={{ height: 38 }}>
                 {prefixSlot}
               </Flex>
@@ -127,7 +125,7 @@ export function ConditionRow({
         {(operatorSlot !== undefined || valueSlot !== undefined) && (
           <Flex gap="3" align="start">
             {prefixSlot !== undefined && (
-              <Box flexShrink="0" style={{ width: 30 }} />
+              <Box flexShrink="0" style={{ width: 35 }} />
             )}
             {operatorSlot !== undefined && (
               <Box style={{ minWidth: 150, flex: "1 1 0" }}>{operatorSlot}</Box>
@@ -147,7 +145,7 @@ export function ConditionRow({
   return (
     <Flex gap="3" align="start" className="gb-condition-row">
       {prefixSlot !== undefined && (
-        <Box flexShrink="0" style={{ width: 30 }}>
+        <Box flexShrink="0" style={{ width: 35 }}>
           <Flex align="center" style={{ height: 38 }}>
             {prefixSlot}
           </Flex>

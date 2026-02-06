@@ -601,7 +601,7 @@ function ConditionAndGroupInput({
           return [
             <ConditionRow
               key={i}
-              prefixSlot={i > 0 ? <ConditionRowLabel label="AND" /> : null}
+              prefixSlot={<ConditionRowLabel label={i === 0 ? "IF" : "AND"} />}
               attributeSlot={fieldSelector}
               operatorSlot={
                 <SelectField
@@ -850,13 +850,7 @@ function ConditionAndGroupInput({
             : []),
           <ConditionRow
             key={i}
-            prefixSlot={
-              i > 0 ? (
-                <ConditionRowLabel label="AND" />
-              ) : (
-                <Box style={{ width: 45 }} />
-              )
-            }
+            prefixSlot={<ConditionRowLabel label={i === 0 ? "IF" : "AND"} />}
             attributeSlot={fieldSelector}
             operatorSlot={
               <Flex gap="3" align="start">

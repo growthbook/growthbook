@@ -679,7 +679,7 @@ export default function PrerequisiteInput({
                                     ? "1, 2..."
                                     : "value 1, value 2..."
                                 }
-                                delimiters={["Enter", "Tab"]}
+                                delimiters={["Enter", "Tab", ","]}
                                 required
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (
