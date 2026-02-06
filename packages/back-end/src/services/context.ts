@@ -65,6 +65,7 @@ import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
+import { WatchModel } from "back-end/src/models/WatchModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -101,7 +102,8 @@ export type ModelName =
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
-  | "savedGroups";
+  | "savedGroups"
+  | "watch";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -131,6 +133,7 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  watch: WatchModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -169,6 +172,7 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      watch: new WatchModel(this),
     };
   }
 
