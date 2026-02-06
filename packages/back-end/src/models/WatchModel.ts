@@ -1,97 +1,93 @@
-import mongoose from "mongoose";
-import { UpdateResult } from "mongodb";
-import { WatchInterface } from "back-end/types/watch";
 import {
-  ToInterface,
-  getCollection,
-  removeMongooseFields,
-} from "back-end/src/util/mongo.util";
+  UpdateWatchOptions,
+  WatchInterface,
+  watchSchema,
+} from "shared/validators";
+import { MakeModelClass } from "./BaseModel";
 
-const watchSchema = new mongoose.Schema({
-  userId: String,
-  organization: String,
-  experiments: [String],
-  features: [String],
+const BaseClass = MakeModelClass({
+  schema: watchSchema,
+  collectionName: "watches",
+  idPrefix: "watch_",
+  readonlyFields: [],
+  additionalIndexes: [{ unique: true, fields: { userId: 1, organization: 1 } }],
 });
-watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
-export type WatchDocument = mongoose.Document & WatchInterface;
+export class WatchModel extends BaseClass {
+  protected async migrateModel() {
+    const numNullIds = await this._dangerousCountGlobalDocuments({ id: null });
+    // We need to generate a new ID for each document, so we create N updateOne operations
+    // From mongo docs: updateOne updates a single document in the collection that matches the filter.
+    // If multiple documents match, updateOne will update the first matching document only.
+    await this._dangerousBulkWrite(
+      Array.from({ length: numNullIds }, () => ({
+        updateOne: {
+          filter: { id: null },
+          update: { $set: { id: this._generateId() } },
+        },
+      })),
+      true, // Ordered to prevent the sequential `updateOne`s from running in parallel
+    );
+  }
 
-interface UpdateWatchOptions {
-  organization: string;
-  userId: string;
-  type: "experiments" | "features";
-  item: string;
-}
+  protected canCreate(): boolean {
+    return true;
+  }
+  protected canRead(): boolean {
+    return true;
+  }
+  protected canUpdate(): boolean {
+    return true;
+  }
+  protected canDelete(): boolean {
+    return true;
+  }
 
-const WatchModel = mongoose.model<WatchInterface>("Watch", watchSchema);
-const COLLECTION = "watches";
+  protected migrate(legacyWatch: unknown): WatchInterface {
+    const typecast = legacyWatch as WatchInterface;
+    return {
+      ...typecast,
+      dateCreated: typecast.dateCreated ?? new Date(),
+      dateUpdated: typecast.dateUpdated ?? new Date(),
+    };
+  }
 
-const toInterface: ToInterface<WatchInterface> = (doc) =>
-  removeMongooseFields(doc);
-
-export async function getWatchedByUser(
-  organization: string,
-  userId: string,
-): Promise<WatchInterface | null> {
-  const watchDoc = await getCollection(COLLECTION).findOne({
-    userId,
-    organization,
-  });
-  return watchDoc ? toInterface(watchDoc) : null;
-}
-
-export async function getExperimentWatchers(
-  experimentId: string,
-  organization: string,
-): Promise<string[]> {
-  const watchers = await getCollection(COLLECTION)
-    .find({
-      experiments: experimentId,
-      organization,
-    })
-    .project({ userId: 1, _id: 0 })
-    .toArray();
-  return watchers.map((watcher) => watcher.userId);
-}
-
-export async function upsertWatch({
-  userId,
-  organization,
-  item,
-  type,
-}: UpdateWatchOptions): Promise<UpdateResult> {
-  return await WatchModel.updateOne(
-    {
+  public async getWatchedByUser(
+    userId: string,
+  ): Promise<WatchInterface | null> {
+    return await this._findOne({
       userId,
-      organization,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    },
-  );
-}
+    });
+  }
 
-export async function deleteWatchedByEntity({
-  organization,
-  userId,
-  type,
-  item,
-}: UpdateWatchOptions): Promise<UpdateResult> {
-  return await WatchModel.updateOne(
-    {
-      userId: userId,
-      organization: organization,
-    },
-    {
-      $pull: {
-        [type]: item,
-      },
-    },
-  );
+  public async getExperimentWatchers(experimentId: string): Promise<string[]> {
+    return (
+      await this._find({
+        experiments: experimentId,
+      })
+    ).map((watcher) => watcher.userId);
+  }
+
+  public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
+    const existing = await this.getWatchedByUser(userId);
+    existing
+      ? await this._updateOne(existing, { [type]: [...existing[type], item] })
+      : await this._createOne({
+          userId,
+          experiments: type === "experiments" ? [item] : [],
+          features: type === "features" ? [item] : [],
+        });
+  }
+
+  public async deleteWatchedByEntity({
+    userId,
+    type,
+    item,
+  }: UpdateWatchOptions) {
+    const existing = await this.getWatchedByUser(userId);
+    if (!existing) this.context.throwNotFoundError();
+    await this._updateOne(existing, {
+      [type]: existing[type].filter((el) => el !== item),
+    });
+  }
 }
