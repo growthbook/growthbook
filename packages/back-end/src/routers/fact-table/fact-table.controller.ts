@@ -13,6 +13,7 @@ import {
   TestFactFilterProps,
   FactFilterTestResults,
   ColumnInterface,
+  FactTableColumnType,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import { CreateProps } from "shared/types/base-model";
@@ -39,6 +40,7 @@ import {
   runRefreshColumnsQuery,
   runColumnsTopValuesQuery,
   populateAutoSlices,
+  queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
@@ -98,6 +100,118 @@ async function testFilterQuery(
   }
 }
 
+// Helper to merge existing columns with new type map from LIMIT 0
+function mergeColumnsWithTypeMap(
+  existingColumns: ColumnInterface[],
+  typeMap: Map<string, FactTableColumnType>
+): ColumnInterface[] {
+  const columns = cloneDeep(existingColumns);
+
+  // Update existing columns
+  columns.forEach((col) => {
+    const type = typeMap.get(col.column);
+    if (type === undefined) {
+      col.deleted = true;
+      col.dateUpdated = new Date();
+    } else {
+      if (col.deleted) {
+        col.deleted = false;
+        col.dateUpdated = new Date();
+      }
+      // Only update datatype if it was previously empty (preserve rich types)
+      if (col.datatype === "" && type !== "") {
+        col.datatype = type;
+        col.dateUpdated = new Date();
+      }
+    }
+  });
+
+  // Add new columns
+  typeMap.forEach((datatype, column) => {
+    if (!columns.some((c) => c.column === column)) {
+      columns.push({
+        column,
+        datatype,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description: "",
+        name: column,
+        numberFormat: "",
+        deleted: false,
+      });
+    }
+  });
+
+  return columns;
+}
+
+
+
+// Result type for the unified refreshColumns function
+export type RefreshColumnsResult = {
+  columns: ColumnInterface[];
+  needsBackgroundRefresh: boolean; // True if LIMIT 0 was used and background job needed
+};
+
+
+/**
+ * Unified function to refresh columns that handles both LIMIT 0 (fast) and LIMIT 20 (full) paths.
+ * - For datasources supporting LIMIT 0: Returns basic columns from metadata, signals background refresh needed
+ * - For other datasources: Returns full columns with type inference, no background refresh needed
+ */
+export async function refreshColumns(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "columns" | "userIdTypes"
+  >,
+  forceColumnRefresh?: boolean
+): Promise<RefreshColumnsResult> {
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  // Check if datasource supports LIMIT 0 for fast column metadata
+  if (!forceColumnRefresh && integration.supportsLimitZeroColumnValidation?.()) {
+    // Fast path: LIMIT 0 query
+    const sql = integration.getTestQuery({
+      query: factTable.sql,
+      templateVariables: { eventName: factTable.eventName },
+      testDays: context.org.settings?.testQueryDays,
+      limit: 0,
+    });
+
+    const result = await integration.runTestQuery(sql, ["timestamp"]);
+
+    if (!result.columns?.length) {
+      throw new Error("SQL did not return any columns");
+    }
+
+    // Build type map from metadata (includes "json" without fields)
+    const typeMap = new Map<string, FactTableColumnType>();
+    result.columns.forEach((col) => {
+      typeMap.set(col.name, col.dataType || "");
+    });
+
+    // Merge with existing columns (preserve rich types like json with jsonFields)
+    const columns = mergeColumnsWithTypeMap(factTable.columns || [], typeMap);
+
+    return { columns, needsBackgroundRefresh: true };
+  } else {
+    // Slow path: Full LIMIT 20 query (existing behavior)
+    const columns = await runRefreshColumnsQuery(context, datasource, factTable);
+    return { columns, needsBackgroundRefresh: false };
+  }
+}
+
+
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
   res: Response<{ status: 200; factTable: FactTableInterface }>,
@@ -114,18 +228,25 @@ export const postFactTable = async (
   }
 
   if (!data.columns?.length) {
-    data.columns = await runRefreshColumnsQuery(
+    const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
-      data as FactTableInterface,
+      data as FactTableInterface
     );
 
-    if (!data.columns.length) {
-      throw new Error("SQL did not return any rows");
+    if (!columns.length) {
+      throw new Error("SQL did not return any columns");
     }
+
+    data.columns = columns;
+    data.columnRefreshPending = needsBackgroundRefresh || undefined;
   }
 
   const factTable = await createFactTable(context, data);
+
+  if (data.columnRefreshPending) {
+    await queueFactTableColumnsRefresh(factTable);
+  }
   if (data.tags.length > 0) {
     await addTags(context.org.id, data.tags);
   }
@@ -157,18 +278,25 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
+  const forceColumnRefresh = req.query?.forceColumnRefresh === "true";
+
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
     const originalColumns = cloneDeep(factTable.columns || []);
-    data.columns = await runRefreshColumnsQuery(context, datasource, {
-      ...factTable,
-      ...data,
-    } as FactTableInterface);
-    data.columnsError = null;
+    const { columns, needsBackgroundRefresh } = await refreshColumns(
+      context,
+      datasource,
+      { ...factTable, ...data } as FactTableInterface,
+      forceColumnRefresh
+    );
 
-    if (!data.columns.some((col) => !col.deleted)) {
-      throw new Error("SQL did not return any rows");
+    if (!columns.some((col) => !col.deleted)) {
+      throw new Error("SQL did not return any columns");
     }
+
+    data.columns = columns;
+    data.columnsError = null;
+    data.columnRefreshPending = needsBackgroundRefresh || undefined;
 
     // Check for removed columns and trigger cleanup
     const removedColumns = detectRemovedColumns(originalColumns, data.columns);
@@ -183,6 +311,13 @@ export const putFactTable = async (
   }
 
   await updateFactTable(context, factTable, data);
+
+  if (data.columnRefreshPending) {
+    await queueFactTableColumnsRefresh({
+      ...factTable,
+      ...data,
+    } as FactTableInterface);
+  }
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
 
