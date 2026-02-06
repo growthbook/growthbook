@@ -88,6 +88,7 @@ export default forwardRef<
       size={getRadixSize(size)}
       {...containerProps}
       style={{
+        display: "flex",
         position: "relative",
       }}
       variant={variant}
@@ -100,7 +101,7 @@ export default forwardRef<
           <div>{children}</div>
         </Box>
       ) : (
-        <Flex align="center" gap="1" flexGrow="1">
+        <Flex align="start" gap="1" flexGrow="1">
           <RadixCallout.Text size={getRadixSize(size)} style={{ flex: 1 }}>
             {children}
           </RadixCallout.Text>
@@ -112,7 +113,7 @@ export default forwardRef<
                 size="1"
                 onClick={() => setDismissed(true)}
                 aria-label="Dismiss"
-                style={{ flexShrink: 0 }}
+                style={{ flexShrink: 0, marginTop: 0 }}
               >
                 <PiX />
               </IconButton>
