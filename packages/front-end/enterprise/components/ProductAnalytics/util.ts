@@ -55,7 +55,7 @@ export function createEmptyValue(
         type: "fact_table",
         valueType: "count",
         valueColumn: null,
-        unit: null,
+        unit: factTable?.userIdTypes[0] ?? null,
       } as FactTableValue;
     case "sql":
       return {
