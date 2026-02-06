@@ -102,7 +102,7 @@
     "module-alias": "^2.2.3",
     "mongodb": "^4.17.2",
     "mongoose": "^6.13.8",
-    "mssql": "^10.0.2",
+    "mssql": "^12.2.0",
     "mysql2": "^3.11.3",
     "node-fetch": "^2.6.1",
     "nodemailer": "^7.0.11",
