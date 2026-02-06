@@ -284,8 +284,8 @@ export default function ProductAnalyticsSqlModal({
       close={close}
       loading={loading}
       closeCta="Cancel"
-      cta="Apply Changes"
-      ctaEnabled={!!form.watch("sql").trim() && hasColumns()}
+      cta="Save & Close"
+      ctaEnabled={form.watch("sql").length > 0 && hasColumns()}
       disabledMessage={
         !form.watch("sql").trim()
           ? "Enter a SQL query"

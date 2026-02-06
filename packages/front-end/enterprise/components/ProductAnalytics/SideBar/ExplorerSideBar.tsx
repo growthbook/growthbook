@@ -40,9 +40,21 @@ export default function ExplorerSideBar() {
 
   const handleTabChange = useCallback(
     (value: string) => {
-      changeDatasetType(value as DatasetType);
+      const newType = value as DatasetType;
+      changeDatasetType(newType);
+
+      // If switching to SQL and datasources are available, default to the first one
+      if (newType === "sql" && datasources.length > 0) {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dataset: {
+            ...prev.dataset,
+            datasource: datasources[0].id,
+          },
+        }));
+      }
     },
-    [changeDatasetType],
+    [changeDatasetType, datasources, setDraftExploreState],
   );
 
   return (

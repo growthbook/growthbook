@@ -50,26 +50,9 @@ export default function SqlTabContent() {
 
   if (!dataset) return null;
 
-  if (!datasource)
-    return (
-      <Flex
-        justify="center"
-        align="center"
-        height="100%"
-        direction="column"
-        gap="2"
-        px="4"
-      >
-        <PiTable size={18} />
-        <Text size="2" weight="medium" align="center">
-          You must select a Data Source to begin configuring your SQL query
-        </Text>
-      </Flex>
-    );
-
   return (
     <>
-      {sqlOpen && (
+      {sqlOpen && datasource && (
         <ProductAnalyticsSqlModal
           close={() => {
             setSqlOpen(false);
@@ -103,29 +86,35 @@ export default function SqlTabContent() {
               </Flex>
             </Button>
             <>
-              <Separator size="4" my="2" />
-              <Flex direction="column" gap="2">
-                <Text size="2" weight="medium">
-                  Timestamp Column (Optional)
-                </Text>
-                <Text size="2" color="gray">
-                  Select the column that contains the timestamp data for the
-                  query.
-                </Text>
-                <SelectField
-                  isClearable={true}
-                  value={dataset.timestampColumn ?? ""}
-                  onChange={(val) => updateTimestampColumn(val)}
-                  options={
-                    dataset.columnTypes
-                      ? Object.entries(dataset.columnTypes).map(([name]) => ({
-                          label: name,
-                          value: name,
-                        }))
-                      : []
-                  }
-                />
-              </Flex>
+              {dataset.sql && (
+                <>
+                  <Separator size="4" my="2" />
+                  <Flex direction="column" gap="2">
+                    <Text size="2" weight="medium">
+                      Timestamp Column (Optional)
+                    </Text>
+                    <Text size="2" color="gray">
+                      Select the column that contains the timestamp data for the
+                      query.
+                    </Text>
+                    <SelectField
+                      isClearable={true}
+                      value={dataset.timestampColumn ?? ""}
+                      onChange={(val) => updateTimestampColumn(val)}
+                      options={
+                        dataset.columnTypes
+                          ? Object.entries(dataset.columnTypes).map(
+                              ([name]) => ({
+                                label: name,
+                                value: name,
+                              }),
+                            )
+                          : []
+                      }
+                    />
+                  </Flex>
+                </>
+              )}
             </>
           </Flex>
         </Box>
