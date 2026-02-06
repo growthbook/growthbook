@@ -110,7 +110,6 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[],
   ): Promise<TestQueryResult>;
-  supportsLimitZeroColumnValidation?(): boolean;
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
     params: Omit<MetricAnalysisParams, "metric">,
