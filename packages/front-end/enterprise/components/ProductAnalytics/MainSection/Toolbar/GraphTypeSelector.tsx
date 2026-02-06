@@ -1,13 +1,53 @@
-import React from "react";
-import { Select, SelectItem } from "@/ui/Select";
+import React, { ReactElement } from "react";
+import { Flex } from "@radix-ui/themes";
+import {
+  Select,
+  SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
+} from "@/ui/Select";
 import { useExplorerContext } from "../../ExplorerContext";
-import { chartTypes } from "shared/validators";
+import { AreaChartIcon } from "@/components/Icons";
+import { chartTypes as chartTypeValues } from "shared/validators";
+import {
+  PiChartBar,
+  PiChartBarHorizontal,
+  PiChartLine,
+  PiHash,
+  PiTable,
+} from "react-icons/pi";
 
-const chartTypeLabels: Record<typeof chartTypes[number], string> = {
-  line: "Timeseries",
-  bar: "Bar",
-  bigNumber: "Big Number",
-};
+const chartTypes: {
+  groupLabel: string;
+  items: {
+    value: (typeof chartTypeValues)[number];
+    label: string;
+    icon: React.ComponentType<{ size?: number }>;
+  }[];
+}[] = [
+  {
+    groupLabel: "Time Series",
+    items: [
+      { value: "line", label: "Line", icon: PiChartLine },
+      { value: "area", label: "Area", icon: AreaChartIcon },
+    ],
+  },
+  {
+    groupLabel: "Cumulative",
+    items: [
+      { value: "table", label: "Table", icon: PiTable },
+      { value: "bar", label: "Bar", icon: PiChartBar },
+      {
+        value: "horizontalBar",
+        label: "Horizontal Bar",
+        icon: PiChartBarHorizontal,
+      },
+      { value: "bigNumber", label: "Big Number", icon: PiHash },
+    ],
+  },
+];
+
 export default function GraphTypeSelector() {
   const { draftExploreState, changeChartType } = useExplorerContext();
 
@@ -16,12 +56,22 @@ export default function GraphTypeSelector() {
       size="2"
       value={draftExploreState.chartType}
       placeholder="Select value"
-      setValue={(v) => changeChartType(v as "line" | "bar" | "bigNumber")}
+      setValue={(v) => changeChartType(v as (typeof chartTypeValues)[number])}
     >
-      {chartTypes.map((type) => (
-        <SelectItem key={type} value={type}>
-          {chartTypeLabels[type]}
-        </SelectItem>
+      {chartTypes.map((group, groupIndex) => (
+        <div key={group.groupLabel}>
+          {groupIndex > 0 && <SelectSeparator />}
+          <SelectGroup>
+            <SelectLabel>{group.groupLabel}</SelectLabel>
+            {group.items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                <Flex align="center" gap="2">
+                  <item.icon size={15} /> {item.label}
+                </Flex>
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </div>
       ))}
     </Select>
   );

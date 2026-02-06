@@ -39,7 +39,9 @@ export default function ExplorerMainSection() {
             Update
           </Button>
           <DateRangePicker />
-          {draftExploreState.chartType === "line" && <GranularitySelector />}
+          {["line", "area"].includes(draftExploreState.chartType) && (
+            <GranularitySelector />
+          )}
         </Flex>
       </Flex>
 

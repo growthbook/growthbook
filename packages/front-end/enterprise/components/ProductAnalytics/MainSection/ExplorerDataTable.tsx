@@ -37,7 +37,8 @@ export default function ExplorerDataTable() {
       for (let i = 0; i < dimensionColumnHeaders.length; i++) {
         const dimension = row.dimensions[i];
         if (dimension) {
-          if (i === 0 && submittedExploreState?.chartType === "line") {
+          const currentDimension = submittedExploreState?.dimensions?.[i];
+          if (currentDimension?.dimensionType === "date") {
             tempRow.push(
               new Date(dimension).toLocaleDateString(undefined, {
                 year: "numeric",
@@ -49,7 +50,7 @@ export default function ExplorerDataTable() {
             tempRow.push(dimension);
           }
         } else if (dimensionColumnHeaders[0] === "Total") {
-          tempRow.push("Total")
+          tempRow.push("Total");
         }
       }
       const missingDims = dimensionColumnHeaders.length - tempRow.length;
@@ -70,7 +71,11 @@ export default function ExplorerDataTable() {
       rows.push(tempRow);
     }
     return rows;
-  }, [exploreData?.rows]);
+  }, [
+    exploreData?.rows,
+    submittedExploreState?.dimensions,
+    dimensionColumnHeaders,
+  ]);
 
   if (!exploreData?.rows?.length && !exploreData?.sql) return null;
 

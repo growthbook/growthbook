@@ -124,7 +124,14 @@ export const dimensionValidator = z.discriminatedUnion("dimensionType", [
   sliceDimensionValidator,
 ]);
 
-export const chartTypes = ["line", "bar", "bigNumber"] as const;
+export const chartTypes = [
+  "line",
+  "area",
+  "table",
+  "bar",
+  "horizontalBar",
+  "bigNumber",
+] as const;
 
 export const dateRangePredefined = [
   "today",

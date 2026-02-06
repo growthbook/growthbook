@@ -51,9 +51,15 @@ export default function ExplorerChart() {
 
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
-    if (!exploreData?.rows?.length || !submittedExploreState) return null;
+    if (
+      !exploreData?.rows?.length ||
+      !submittedExploreState ||
+      submittedExploreState.chartType === "table"
+    )
+      return null;
     const rows = exploreData.rows;
     const chartType = submittedExploreState.chartType;
+    const isHorizontalBar = chartType === "horizontalBar";
 
     if (chartType === "bigNumber") {
       let value = rows[0]?.values[0]?.numerator ?? 0;
@@ -112,7 +118,7 @@ export default function ExplorerChart() {
 
         dataMap[seriesKey][xValue] = v.numerator ?? 0;
         if (v.denominator) {
-          dataMap[seriesKey][xValue] /=  v.denominator;
+          dataMap[seriesKey][xValue] /= v.denominator;
         }
       });
     });
@@ -127,7 +133,7 @@ export default function ExplorerChart() {
 
       // Map values to the sorted X-axis, filling gaps with 0
       let data: number[][] | number[] = [];
-      if (chartType === "line") {
+      if (chartType === "line" || chartType === "area") {
         data = sortedXValues.map((x) => [
           new Date(x).getTime(),
           seriesDataMap[x] ?? 0,
@@ -142,63 +148,88 @@ export default function ExplorerChart() {
         color: CHART_COLORS[idx % CHART_COLORS.length],
       };
 
-      if (chartType === "bar") {
+      if (chartType === "bar" || chartType === "horizontalBar") {
         return {
           ...commonSeriesConfig,
           type: "bar",
         };
       }
 
-      // Line chart
-      return {
+      const baseLineCommonSeriesConfig = {
         ...commonSeriesConfig,
         type: "line",
         smooth: true,
         symbol: "circle",
         symbolSize: 4,
       };
+
+      if (chartType === "line") {
+        return baseLineCommonSeriesConfig;
+      }
+
+      if (chartType === "area") {
+        return {
+          ...baseLineCommonSeriesConfig,
+          areaStyle: {},
+        };
+      }
     });
+
+    // Define the category axis (shows the dimension labels)
+    const categoryAxis = {
+      type: chartType === "line" || chartType === "area" ? "time" : "category",
+      data: sortedXValues,
+      nameLocation: "middle" as const,
+      nameTextStyle: {
+        fontSize: 14,
+        fontWeight: "bold",
+        padding: [10, 0],
+        color: textColor,
+      },
+      axisLabel: {
+        color: textColor,
+        rotate: isHorizontalBar ? 0 : -45,
+        hideOverlap: true,
+      },
+    };
+
+    // Define the value axis (shows the numeric values)
+    const valueAxis = {
+      type: "value" as const,
+      scale: false,
+      nameLocation: "middle" as const,
+      nameTextStyle: {
+        fontSize: 14,
+        fontWeight: "bold",
+        padding: [40, 0],
+        color: textColor,
+      },
+      axisLabel: { color: textColor, formatter: formatNumber },
+    };
+
+    // Swap axes for horizontal bar
+    const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
+    const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
     return {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
-        axisPointer: { type: chartType === "bar" ? "shadow" : "cross" },
+        axisPointer: {
+          type:
+            chartType === "bar" || chartType === "horizontalBar"
+              ? "shadow"
+              : "cross",
+        },
       },
       legend: {
         show: seriesConfigs.length > 1,
-        top: chartType === "line" ? 16 : 0,
+        top: chartType === "line" || chartType === "area" ? 16 : 0,
         textStyle: { color: textColor },
         type: "scroll",
       },
-      xAxis: {
-        type: chartType === "line" ? "time" : "category",
-        data: sortedXValues,
-        nameLocation: "middle",
-        nameTextStyle: {
-          fontSize: 14,
-          fontWeight: "bold",
-          padding: [10, 0],
-          color: textColor,
-        },
-        axisLabel: {
-          color: textColor,
-          rotate: -45,
-          hideOverlap: true,
-        },
-      },
-      yAxis: {
-        type: "value",
-        scale: false,
-        nameLocation: "middle",
-        nameTextStyle: {
-          fontSize: 14,
-          fontWeight: "bold",
-          padding: [40, 0],
-          color: textColor,
-        },
-        axisLabel: { color: textColor, formatter: formatNumber },
-      },
+      xAxis,
+      yAxis,
       series: seriesConfigs,
     };
   }, [exploreData, submittedExploreState, textColor]);
@@ -225,16 +256,22 @@ export default function ExplorerChart() {
           <Callout status="error">{exploreError}</Callout>
         </Box>
       ) : !exploreData ? (
-        <Box p="4" style={{ textAlign: "center" }}>
+        <Flex
+          p="4"
+          style={{ textAlign: "center" }}
+          align="center"
+          justify="center"
+          minHeight="500px"
+        >
           <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
             No data available. Select a metric to see results.
           </Text>
-        </Box>
+        </Flex>
       ) : hasEmptyData ? (
         <Flex
           p="4"
           style={{ textAlign: "center" }}
-          minHeight="200px"
+          minHeight="500px"
           align="center"
           justify="center"
         >
@@ -243,14 +280,28 @@ export default function ExplorerChart() {
           </Text>
         </Flex>
       ) : chartConfig?.type === "bigNumber" ? (
-        <BigValueChart value={chartConfig.value} formatter={formatNumber} />
-      ) : chartConfig ? (
+        <Flex p="4" minHeight="500px" align="center" justify="center">
+          <BigValueChart
+            value={chartConfig.value}
+            formatter={formatNumber}
+            label={submittedExploreState?.dataset?.values?.[0]?.name}
+          />
+        </Flex>
+      ) : submittedExploreState?.chartType === "table" ? null : chartConfig ? (
         <EChartsReact
           key={JSON.stringify(chartConfig)}
           option={{
             ...chartConfig,
             padding: [0, 0, 0, 0],
-            grid: { left: "6%", right: "5%", top: "10%", bottom: "10%" },
+            grid: {
+              left:
+                submittedExploreState?.chartType === "horizontalBar"
+                  ? "15%"
+                  : "6%",
+              right: "5%",
+              top: "10%",
+              bottom: "10%",
+            },
           }}
           style={{ width: "100%", minHeight: "500px" }}
           onChartReady={(chart) => {

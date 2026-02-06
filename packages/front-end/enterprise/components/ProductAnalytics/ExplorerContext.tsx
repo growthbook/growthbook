@@ -123,7 +123,8 @@ interface ExplorerProviderProps {
 export function ExplorerProvider({ children }: ExplorerProviderProps) {
   const { data, loading, fetchData, error } = useExploreData();
 
-  const { getFactTableById, getFactMetricById, factMetrics, factTables } = useDefinitions();
+  const { getFactTableById, getFactMetricById, factMetrics, factTables } =
+    useDefinitions();
 
   const [draftExploreState, setDraftExploreState] =
     useState<ProductAnalyticsConfig>(INITIAL_EXPLORE_STATE);
@@ -151,11 +152,11 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       return commonColumns.some((c) => c.column === d.column);
     });
 
-  // 1a. Truncate dimensions if they exceed the max number of dimensions
+    // 1a. Truncate dimensions if they exceed the max number of dimensions
     const maxDimensions = getMaxDimensions(draftExploreState.dataset);
     if (validDimensions.length > maxDimensions) {
       validDimensions = validDimensions.slice(0, maxDimensions);
-    } 
+    }
 
     if (validDimensions.length !== draftExploreState.dimensions.length) {
       setDraftExploreState((prev) => ({
@@ -169,23 +170,32 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     if (hasPendingChanges && draftExploreState.dataset.values.length > 0) {
       const cleanedDataset = removeIncompleteValues(draftExploreState.dataset);
       if (cleanedDataset.values.length === 0) return;
-      if (cleanedDataset.type == "fact_table" && cleanedDataset.factTableId === null) return;
+      if (
+        cleanedDataset.type == "fact_table" &&
+        cleanedDataset.factTableId === null
+      )
+        return;
       fetchData({ ...draftExploreState, dataset: cleanedDataset });
       setSubmittedExploreState(draftExploreState);
     }
   }, [commonColumns, hasPendingChanges, draftExploreState]);
-
 
   const handleSubmit = useCallback(async () => {
     await fetchData(draftExploreState);
     setSubmittedExploreState(draftExploreState);
   }, [draftExploreState]);
 
-  const createDefaultValue = useCallback((datasetType: DatasetType): ProductAnalyticsValue => {
-    const factMetric = datasetType === "metric" ? factMetrics[0] : null;
-    const factTable = datasetType === "metric" && factMetric?.numerator.factTableId ? getFactTableById(factMetric.numerator.factTableId) : factTables[0];
-    return createEmptyValue(datasetType, factTable, factMetric);
-  }, [factMetrics, factTables, getFactTableById]);
+  const createDefaultValue = useCallback(
+    (datasetType: DatasetType): ProductAnalyticsValue => {
+      const factMetric = datasetType === "metric" ? factMetrics[0] : null;
+      const factTable =
+        datasetType === "metric" && factMetric?.numerator.factTableId
+          ? getFactTableById(factMetric.numerator.factTableId)
+          : factTables[0];
+      return createEmptyValue(datasetType, factTable, factMetric);
+    },
+    [factMetrics, factTables, getFactTableById],
+  );
 
   const addValueToDataset = useCallback((datasetType: DatasetType) => {
     setDraftExploreState((prev) => {
@@ -306,7 +316,11 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     (chartType: ProductAnalyticsConfig["chartType"]) => {
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
-        if (chartType !== "line") {
+        // Time-series charts (line, area) need date dimensions
+        const isTimeSeriesChart =
+          chartType === "line" || chartType === "area" || chartType === "table";
+
+        if (!isTimeSeriesChart) {
           dimensions = dimensions.filter((d) => d.dimensionType !== "date");
         } else if (!dimensions.some((d) => d.dimensionType === "date")) {
           dimensions = [
