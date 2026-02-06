@@ -14,6 +14,7 @@ import {
   getCommonColumns,
   generateUniqueValueName,
   removeIncompleteValues,
+  getMaxDimensions,
 } from "./util";
 import { useExploreData } from "./useExploreData";
 import {
@@ -145,10 +146,16 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 
   useEffect(() => {
     // 1. Validate dimensions against commonColumns
-    const validDimensions = draftExploreState.dimensions.filter((d) => {
+    let validDimensions = draftExploreState.dimensions.filter((d) => {
       if (d.dimensionType !== "dynamic") return true;
       return commonColumns.some((c) => c.column === d.column);
     });
+
+  // 1a. Truncate dimensions if they exceed the max number of dimensions
+    const maxDimensions = getMaxDimensions(draftExploreState.dataset);
+    if (validDimensions.length > maxDimensions) {
+      validDimensions = validDimensions.slice(0, maxDimensions);
+    } 
 
     if (validDimensions.length !== draftExploreState.dimensions.length) {
       setDraftExploreState((prev) => ({

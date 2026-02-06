@@ -164,3 +164,11 @@ export function removeIncompleteValues(dataset: ProductAnalyticsDataset): Produc
   }
   return dataset;
 }
+
+export function getMaxDimensions(dataset: ProductAnalyticsDataset): number {
+  let maxDimensions = 2;
+  if (dataset.values.length > 1) {
+    maxDimensions -= 1;
+  }
+  return maxDimensions;
+}
