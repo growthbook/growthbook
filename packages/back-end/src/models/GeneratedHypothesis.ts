@@ -5,7 +5,6 @@ import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis"
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
-import { upsertWatch } from "./WatchModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";
 
@@ -125,9 +124,8 @@ export const findOrCreateGeneratedHypothesis = async (
     context,
   });
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: createdExperiment.id,
     type: "experiments",
   });
@@ -206,9 +204,8 @@ export const findOrCreateGeneratedHypothesis = async (
       },
       linkedExperiments: [createdExperiment.id],
     });
-    await upsertWatch({
+    await context.models.watch.upsertWatch({
       userId,
-      organization: org.id,
       item: featureId,
       type: "features",
     });
