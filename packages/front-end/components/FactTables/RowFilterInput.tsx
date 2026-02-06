@@ -1,11 +1,12 @@
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text, Separator } from "@radix-ui/themes";
 import {
   ColumnInterface,
   FactTableInterface,
   RowFilter,
 } from "shared/types/fact-table";
-import { PiPlus, PiX } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiCaretUp, PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
+import Collapsible from "react-collapsible";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -14,6 +15,8 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Button from "@/ui/Button";
+
+export type RowFilterInputVariant = "default" | "compact";
 
 const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 const numberRegex = new RegExp(NUMBER_PATTERN);
@@ -58,16 +61,46 @@ export function RowFilterInput({
   value,
   setValue,
   factTable,
+  variant = "default",
+  // hideTitle = false,
+  // addButtonText = "Add",
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  /** "default" renders horizontal rows with AND labels. "compact" renders vertical stacked filters with headers. */
+  variant?: RowFilterInputVariant;
+  // /** Hide the "Row Filter" title */
+  // hideTitle?: boolean;
+  // /** Custom text for the add button */
+  // addButtonText?: string;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
+  const [collapsedFilters, setCollapsedFilters] = useState<Set<number>>(
+    new Set()
+  );
+  const isCompact = variant === "compact";
+
+  const toggleFilterCollapsed = (index: number) => {
+    setCollapsedFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
 
   return (
-    <Flex direction="column" gap="2">
-      <strong>Row Filter</strong>
+    <Flex direction="column" gap="2" width={isCompact ? "100%" : undefined}>
+      {isCompact ? (
+        <Text size="2" weight="medium">Filters</Text>
+      ) : (
+        <strong>Row Filter</strong>
+      )}
+      {isCompact && value.length > 0 && <Separator style={{ width: "100%" }} />}
       {value.map((filter, i) => {
         const columnOptions: SingleValue[] = [];
 
@@ -257,6 +290,274 @@ export function RowFilterInput({
         // Only auto-focus if it's the last row
         const autoFocus = i === value.length - 1;
 
+        const handleDeleteFilter = () => {
+          const newFilters = [...value];
+          newFilters.splice(i, 1);
+          setValue(newFilters);
+          // Adjust collapsed indices when a filter is deleted
+          setCollapsedFilters((prev) => {
+            const next = new Set<number>();
+            prev.forEach((idx) => {
+              if (idx < i) {
+                next.add(idx);
+              } else if (idx > i) {
+                next.add(idx - 1);
+              }
+              // idx === i is deleted, so we don't add it
+            });
+            return next;
+          });
+          // We use index for key, so force a re-render to avoid issues
+          setRowDeleted(!rowDeleted);
+        };
+
+        const columnSelect = (
+          <SelectField
+            value={
+              filter.operator === "sql_expr"
+                ? "$$sql_expr"
+                : filter.operator === "saved_filter"
+                  ? "$$saved_filter"
+                  : filter.column || ""
+            }
+            onChange={(v) => {
+              if (v === "$$sql_expr") {
+                updateRowFilter({
+                  operator: "sql_expr",
+                  values: [],
+                });
+              } else if (v === "$$saved_filter") {
+                updateRowFilter({
+                  operator: "saved_filter",
+                  values: [],
+                });
+              } else {
+                const { datatype } = getColumnInfo(factTable, v);
+
+                let newOperator = filter.operator;
+                let newValues = filter.values || [];
+
+                // If current operator is not valid for new datatype, reset it
+                const allowedOperators = getAllowedOperators(datatype);
+                if (!allowedOperators.includes(newOperator)) {
+                  newOperator = allowedOperators[0];
+                  newValues = [];
+                }
+
+                if (datatype === "number") {
+                  // If changing to number, remove any non-number values
+                  newValues = newValues.filter((v) => numberRegex.test(v));
+                }
+
+                updateRowFilter({
+                  operator: newOperator,
+                  column: v,
+                  values: newValues,
+                });
+              }
+            }}
+            options={firstSelectOptions}
+            autoFocus={autoFocus}
+            sort={false}
+            placeholder={isCompact ? "Select column..." : "Filter by..."}
+            required
+          />
+        );
+
+        const operatorSelect = operatorInputRequired && firstSelectCompleted && (
+          <SelectField
+            value={filter.operator}
+            onChange={(v: RowFilter["operator"]) => {
+              let newValues = filter.values || [];
+
+              // If changing from a single-value to multi-value operator, remove empty strings
+              if (
+                ["in", "not_in"].includes(v) &&
+                !["in", "not_in"].includes(filter.operator)
+              ) {
+                newValues = newValues.filter((val) => val !== "");
+              }
+
+              updateRowFilter({
+                operator: v,
+                values: newValues,
+              });
+            }}
+            options={operatorOptions}
+            sort={false}
+            placeholder={isCompact ? "Select operator..." : undefined}
+            required
+          />
+        );
+
+        const valueInput = valueInputRequired && firstSelectCompleted && (
+          <>
+            {multiValueInput && useValueOptions ? (
+              <MultiSelectField
+                value={filter.values || []}
+                onChange={(v) => {
+                  updateRowFilter({
+                    values: v,
+                  });
+                }}
+                options={valueOptions}
+                creatable={allowCreatingNewOptions}
+                sort={false}
+                autoFocus={autoFocus}
+                pattern={
+                  inputType === "number" ? NUMBER_PATTERN : undefined
+                }
+                placeholder={isCompact ? "Select values..." : undefined}
+                required
+              />
+            ) : multiValueInput ? (
+              <StringArrayField
+                value={filter.values || []}
+                onChange={(v) => {
+                  updateRowFilter({
+                    values: v,
+                  });
+                }}
+                delimiters={["Enter", "Tab"]}
+                autoFocus={autoFocus}
+                pattern={
+                  inputType === "number" ? NUMBER_PATTERN : undefined
+                }
+                required
+              />
+            ) : useValueOptions ? (
+              <SelectField
+                value={filter.values?.[0] || ""}
+                onChange={(v) => {
+                  updateRowFilter({
+                    values: [v],
+                  });
+                }}
+                options={valueOptions}
+                createable={allowCreatingNewOptions}
+                sort={false}
+                autoFocus={autoFocus}
+                pattern={
+                  inputType === "number" ? NUMBER_PATTERN : undefined
+                }
+                placeholder={isCompact ? "Select value..." : undefined}
+                required
+              />
+            ) : (
+              <Field
+                value={filter.values?.[0] || ""}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  // For numeric fields, only allow valid number input
+                  if (inputType === "number" && newValue !== "") {
+                    // Allow partial valid inputs like "-", ".", "-.", or valid numbers
+                    const isPartialValid = /^-?\.?$|^-?\d*\.?\d*$/.test(
+                      newValue
+                    );
+                    if (!isPartialValid) {
+                      return;
+                    }
+                  }
+                  updateRowFilter({
+                    values: [newValue],
+                  });
+                }}
+                textarea={filter.operator === "sql_expr"}
+                minRows={1}
+                autoFocus={autoFocus}
+                type={inputType === "number" ? "text" : inputType}
+                inputMode={inputType === "number" ? "decimal" : undefined}
+                required
+              />
+            )}
+          </>
+        );
+
+        // Compact variant: vertical stacked layout with filter headers
+        if (isCompact) {
+          const isCollapsed = collapsedFilters.has(i);
+
+          // Build a summary string for the filter
+          const getFilterSummary = () => {
+            if (filter.operator === "sql_expr") {
+              // Count SQL expression filters up to and including this one
+              const sqlExprCount = value
+                .slice(0, i + 1)
+                .filter((f) => f.operator === "sql_expr").length;
+              return `SQL Expression ${sqlExprCount}`;
+            }
+            if (filter.operator === "saved_filter") {
+              const savedFilter = factTable.filters.find(
+                (f) => f.id === filter.values?.[0]
+              );
+              return savedFilter ? savedFilter.name : "Saved Filter";
+            }
+            if (!filter.column) {
+              return `Filter ${i + 1}`;
+            }
+            const col = factTable.columns.find(
+              (c) => c.column === filter.column
+            );
+            const colName = col?.name || filter.column;
+            return `${colName} ${filter.operator} ${filter.values?.join(", ") || ""}`;
+          };
+
+          return (
+            <Flex key={`${rowDeleted}-${i}`} direction="column" gap="2">
+              <Flex justify="between" align="center" width="100%" gap="2">
+                <Text
+                  size="1"
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                  title={getFilterSummary()}
+                >
+                  {getFilterSummary()}
+                </Text>
+                <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => toggleFilterCollapsed(i)}
+                    style={{ padding: 2 }}
+                  >
+                    {isCollapsed ? (
+                      <PiCaretDown size={14} />
+                    ) : (
+                      <PiCaretUp size={14} />
+                    )}
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={handleDeleteFilter}
+                  >
+                    <PiX size={14} />
+                  </Button>
+                </Flex>
+              </Flex>
+              <Collapsible
+                open={!isCollapsed}
+                trigger=""
+                triggerDisabled
+                transitionTime={100}
+              >
+                <Flex direction="column" gap="2">
+                  {columnSelect}
+                  {operatorSelect}
+                  {valueInput}
+                </Flex>
+              </Collapsible>
+              <Separator style={{ width: "100%" }} />
+            </Flex>
+          );
+        }
+
+        // Default variant: horizontal row layout with AND labels
         return (
           <Flex
             direction="row"
@@ -265,182 +566,58 @@ export function RowFilterInput({
             align="center"
           >
             {i > 0 && <div>AND</div>}
-            <SelectField
-              value={
-                filter.operator === "sql_expr"
-                  ? "$$sql_expr"
-                  : filter.operator === "saved_filter"
-                    ? "$$saved_filter"
-                    : filter.column || ""
-              }
-              onChange={(v) => {
-                if (v === "$$sql_expr") {
-                  updateRowFilter({
-                    operator: "sql_expr",
-                    values: [],
-                  });
-                } else if (v === "$$saved_filter") {
-                  updateRowFilter({
-                    operator: "saved_filter",
-                    values: [],
-                  });
-                } else {
-                  const { datatype } = getColumnInfo(factTable, v);
-
-                  let newOperator = filter.operator;
-                  let newValues = filter.values || [];
-
-                  // If current operator is not valid for new datatype, reset it
-                  const allowedOperators = getAllowedOperators(datatype);
-                  if (!allowedOperators.includes(newOperator)) {
-                    newOperator = allowedOperators[0];
-                    newValues = [];
-                  }
-
-                  if (datatype === "number") {
-                    // If changing to number, remove any non-number values
-                    newValues = newValues.filter((v) => numberRegex.test(v));
-                  }
-
-                  updateRowFilter({
-                    operator: newOperator,
-                    column: v,
-                    values: newValues,
-                  });
-                }
-              }}
-              options={firstSelectOptions}
-              autoFocus={autoFocus}
-              sort={false}
-              placeholder="Filter by..."
-              required
-            />
-            {operatorInputRequired && firstSelectCompleted && (
-              <SelectField
-                value={filter.operator}
-                onChange={(v: RowFilter["operator"]) => {
-                  let newValues = filter.values || [];
-
-                  // If changing from a single-value to multi-value operator, remove empty strings
-                  if (
-                    ["in", "not_in"].includes(v) &&
-                    !["in", "not_in"].includes(filter.operator)
-                  ) {
-                    newValues = newValues.filter((val) => val !== "");
-                  }
-
-                  updateRowFilter({
-                    operator: v,
-                    values: newValues,
-                  });
-                }}
-                options={operatorOptions}
-                sort={false}
-                required
-              />
-            )}
-            {valueInputRequired && firstSelectCompleted && (
-              <>
-                {multiValueInput && useValueOptions ? (
-                  <MultiSelectField
-                    value={filter.values || []}
-                    onChange={(v) => {
-                      updateRowFilter({
-                        values: v,
-                      });
-                    }}
-                    options={valueOptions}
-                    creatable={allowCreatingNewOptions}
-                    sort={false}
-                    autoFocus={autoFocus}
-                    pattern={
-                      inputType === "number" ? NUMBER_PATTERN : undefined
-                    }
-                    required
-                  />
-                ) : multiValueInput ? (
-                  <StringArrayField
-                    value={filter.values || []}
-                    onChange={(v) => {
-                      updateRowFilter({
-                        values: v,
-                      });
-                    }}
-                    delimiters={["Enter", "Tab"]}
-                    autoFocus={autoFocus}
-                    pattern={
-                      inputType === "number" ? NUMBER_PATTERN : undefined
-                    }
-                    required
-                  />
-                ) : useValueOptions ? (
-                  <SelectField
-                    value={filter.values?.[0] || ""}
-                    onChange={(v) => {
-                      updateRowFilter({
-                        values: [v],
-                      });
-                    }}
-                    options={valueOptions}
-                    createable={allowCreatingNewOptions}
-                    sort={false}
-                    autoFocus={autoFocus}
-                    pattern={
-                      inputType === "number" ? NUMBER_PATTERN : undefined
-                    }
-                    required
-                  />
-                ) : (
-                  <Field
-                    value={filter.values?.[0] || ""}
-                    onChange={(e) => {
-                      updateRowFilter({
-                        values: [e.target.value],
-                      });
-                    }}
-                    textarea={filter.operator === "sql_expr"}
-                    minRows={1}
-                    autoFocus={autoFocus}
-                    type={inputType}
-                    step={inputType === "number" ? "any" : undefined}
-                    required
-                  />
-                )}
-              </>
-            )}
+            {columnSelect}
+            {operatorSelect}
+            {valueInput}
             <Button
               variant="ghost"
               color="red"
-              onClick={() => {
-                const newFilters = [...value];
-                newFilters.splice(i, 1);
-                setValue(newFilters);
-                // We use index for key, so force a re-render to avoid issues
-                setRowDeleted(!rowDeleted);
-              }}
+              onClick={handleDeleteFilter}
             >
               <PiX />
             </Button>
           </Flex>
         );
       })}
-      <div>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
+      {isCompact ? (
+        <Button
+          size="xs"
+          variant="ghost"
+          style={{ maxWidth: "fit-content" }}
+          onClick={() => {
             const newFilters = [...value];
             newFilters.push({
               column: "",
               operator: "=",
-              values: [""],
+              values: [],
             });
             setValue(newFilters);
           }}
         >
-          <PiPlus /> Add
-        </a>
-      </div>
+          <Flex align="center" gap="2">
+            <PiPlus size={14} />
+            Add Filter
+          </Flex>
+        </Button>
+      ) : (
+        <div>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              const newFilters = [...value];
+              newFilters.push({
+                column: "",
+                operator: "=",
+                values: [""],
+              });
+              setValue(newFilters);
+            }}
+          >
+            <PiPlus /> Add
+          </a>
+        </div>
+      )}
     </Flex>
   );
 }

@@ -3,6 +3,7 @@ import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
+  QueryResponseColumnData,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -11,8 +12,10 @@ import {
   DataSourceParams,
   ExposureQuery,
 } from "shared/types/datasource";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics } from "shared/types/query";
 import { SQLExecutionError } from "back-end/src/util/errors";
+import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -156,6 +159,7 @@ export async function runFreeFormQuery(
   error?: string;
   sql?: string;
   limit?: number;
+  columns?: QueryResponseColumnData[];
 }> {
   if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
     throw new Error("Permission denied");
@@ -174,13 +178,36 @@ export async function runFreeFormQuery(
 
   const sql = integration.getFreeFormQuery(query, limit);
   try {
-    const { results, duration } = await integration.runTestQuery(sql, [
+    const { results, duration, columns } = await integration.runTestQuery(sql, [
       "timestamp",
     ]);
+
+    // Build a type map from SQL engine metadata
+    const typeMap = new Map<string, FactTableColumnType>();
+    console.log("initial type map", typeMap);
+    columns?.forEach((col) => {
+      if (col.dataType !== undefined && col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    });
+
+    // Enhance with inferred types from actual data
+    const detectedColumns = determineColumnTypes(results, typeMap);
+    console.log("detected columns", detectedColumns);
+    detectedColumns.forEach((col) => {
+      typeMap.set(col.column, col.datatype);
+    });
+
+    // Build final columns array
+    const finalColumns: QueryResponseColumnData[] = Array.from(
+      typeMap.entries(),
+    ).map(([name, dataType]) => ({ name, dataType }));
+
     return {
       results,
       duration,
       sql,
+      columns: finalColumns,
     };
   } catch (e) {
     return {
