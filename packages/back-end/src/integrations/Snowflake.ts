@@ -60,6 +60,9 @@ export default class Snowflake extends SqlIntegration {
   hasCountDistinctHLL(): boolean {
     return true;
   }
+  supportsLimitZeroColumnValidation(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `HLL_ACCUMULATE(${col})`;
   }
