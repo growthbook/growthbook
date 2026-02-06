@@ -290,8 +290,8 @@ importers:
         specifier: ^1.1.4
         version: 1.2.0
       express-jwt:
-        specifier: ^6.0.0
-        version: 6.1.2
+        specifier: ^8.4.1
+        version: 8.5.1
       express-rate-limit:
         specifier: ^6.6.0
         version: 6.6.0(express@4.21.2)
@@ -323,8 +323,8 @@ importers:
         specifier: ^2.2.3
         version: 2.2.3
       jsonwebtoken:
-        specifier: ^8.5.1
-        version: 8.5.1
+        specifier: ^9.0.2
+        version: 9.0.2
       jwks-rsa:
         specifier: ^2.1.5
         version: 2.1.5
@@ -464,9 +464,6 @@ importers:
       '@types/express':
         specifier: ^4.17.14
         version: 4.17.14
-      '@types/express-jwt':
-        specifier: ^0.0.42
-        version: 0.0.42
       '@types/express-serve-static-core':
         specifier: ^4.17.31
         version: 4.17.31
@@ -6336,14 +6333,8 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  '@types/express-jwt@0.0.42':
-    resolution: {integrity: sha512-WszgUddvM1t5dPpJ3LhWNH8kfNN8GPIBrAGxgIYXVCEGx6Bx4A036aAuf/r5WH9DIEdlmp7gHOYvSM6U87B0ag==}
-
   '@types/express-serve-static-core@4.17.31':
     resolution: {integrity: sha512-DxMhY+NAsTwMMFHBTtJFNp5qiHKJ7TeqOo23zVEM9alT1Ml27Q3xcTH0xwxn7Q0BbMcVEJOs/7aQtUWupUQN3Q==}
-
-  '@types/express-unless@0.5.1':
-    resolution: {integrity: sha512-5fuvg7C69lemNgl0+v+CUxDYWVPSfXHhJPst4yTLcqi4zKJpORCxnDrnnilk3k0DTq/WrAUdvXFs01+vUqUZHw==}
 
   '@types/express@4.17.14':
     resolution: {integrity: sha512-TEbt+vaPFQ+xpxFLFssxUDXj5cWCxZJjIcB7Yg0k0GMHGtgtQgpvx/MUQUeAkNbA9AAGrwkAsoeItdTgS7FMyg==}
@@ -8789,8 +8780,8 @@ packages:
   express-async-handler@1.2.0:
     resolution: {integrity: sha512-rCSVtPXRmQSW8rmik/AIb2P0op6l7r1fMW538yyvTMltCO4xQEWMmobfrIxN2V1/mVrgxB8Az3reYF6yUZw37w==}
 
-  express-jwt@6.1.2:
-    resolution: {integrity: sha512-l5dlf5lNM/1EODMsJGfHn1VnrhhsUYEetzrKFStJZLjFQXtR+HGdBiW+jUNZ+ISsFe+h7Wl/hQKjLrY2TX0Qkg==}
+  express-jwt@8.5.1:
+    resolution: {integrity: sha512-Dv6QjDLpR2jmdb8M6XQXiCcpEom7mK8TOqnr0/TngDKsG2DHVkO8+XnVxkJVN7BuS1I3OrGw6N8j5DaaGgkDRQ==}
     engines: {node: '>= 8.0.0'}
 
   express-rate-limit@6.6.0:
@@ -8799,8 +8790,8 @@ packages:
     peerDependencies:
       express: ^4 || ^5
 
-  express-unless@1.0.0:
-    resolution: {integrity: sha512-zXSSClWBPfcSYjg0hcQNompkFN/MxQQ53eyrzm9BYgik2ut2I7PxAf2foVqBRMYCwWaZx/aWodi+uk76npdSAw==}
+  express-unless@2.1.3:
+    resolution: {integrity: sha512-wj4tLMyCVYuIIKHGt0FhCtIViBcwzWejX0EjNxveAa6dG+0XBCQhMbx+PnkLkFCxLC69qoFrxds4pIyL88inaQ==}
 
   express@4.21.2:
     resolution: {integrity: sha512-28HqgMZAmih1Czt9ny7qr6ek2qddF4FclbMzwhCREB6OFfH+rXAnuNCwo1/wFvrtbgsQDb4kSbX9de9lFbrXnA==}
@@ -10264,10 +10255,6 @@ packages:
   jsonparse@1.3.1:
     resolution: {integrity: sha512-POQXvpdL69+CluYsillJ7SUhKvytYjW9vG/GKpnf+xP8UWgYEM/RaMzHHofbALDiKbbP1W8UEYmgGl39WkPZsg==}
     engines: {'0': node >= 0.2.0}
-
-  jsonwebtoken@8.5.1:
-    resolution: {integrity: sha512-XjwVfRS6jTMsqYs0EsuJ4LGxXV14zQybNd4L2r0UvbVnSF9Af8x7p5MzbJ90Ioz/9TI41/hTCvznF/loiSzn8w==}
-    engines: {node: '>=4', npm: '>=1.4.28'}
 
   jsonwebtoken@9.0.2:
     resolution: {integrity: sha512-PRp66vJ865SSqOlgqS8hujT5U4AOgMfhrwYIuIhfKaoSCZcirrmASQr8CX7cUg+RMih+hgznrjp99o+W4pJLHQ==}
@@ -17679,7 +17666,7 @@ snapshots:
 
   '@npmcli/fs@3.1.1':
     dependencies:
-      semver: 7.7.1
+      semver: 7.7.3
 
   '@oclif/color@1.0.4':
     dependencies:
@@ -17710,7 +17697,7 @@ snapshots:
       natural-orderby: 2.0.3
       object-treeify: 1.1.33
       password-prompt: 1.1.2
-      semver: 7.7.1
+      semver: 7.7.3
       string-width: 4.2.3
       strip-ansi: 6.0.1
       supports-color: 8.1.1
@@ -17734,7 +17721,7 @@ snapshots:
       http-call: 5.3.0
       load-json-file: 5.3.0
       npm-run-path: 4.0.1
-      semver: 7.7.1
+      semver: 7.7.3
       tslib: 2.8.1
       yarn: 1.22.19
     transitivePeerDependencies:
@@ -18283,7 +18270,7 @@ snapshots:
       '@opentelemetry/instrumentation': 0.57.2(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.28.0
       forwarded-parse: 2.1.2
-      semver: 7.7.1
+      semver: 7.7.3
     transitivePeerDependencies:
       - supports-color
 
@@ -18635,7 +18622,7 @@ snapshots:
       '@types/shimmer': 1.2.0
       import-in-the-middle: 1.14.2
       require-in-the-middle: 7.2.0
-      semver: 7.7.1
+      semver: 7.7.3
       shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
@@ -18795,7 +18782,7 @@ snapshots:
       '@opentelemetry/propagator-b3': 1.30.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/propagator-jaeger': 1.30.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-trace-base': 1.30.1(@opentelemetry/api@1.9.0)
-      semver: 7.7.1
+      semver: 7.7.3
 
   '@opentelemetry/semantic-conventions@1.28.0': {}
 
@@ -21396,20 +21383,11 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
-  '@types/express-jwt@0.0.42':
-    dependencies:
-      '@types/express': 4.17.14
-      '@types/express-unless': 0.5.1
-
   '@types/express-serve-static-core@4.17.31':
     dependencies:
       '@types/node': 22.8.6
       '@types/qs': 6.9.6
       '@types/range-parser': 1.2.3
-
-  '@types/express-unless@0.5.1':
-    dependencies:
-      '@types/express': 4.17.14
 
   '@types/express@4.17.14':
     dependencies:
@@ -24343,18 +24321,17 @@ snapshots:
 
   express-async-handler@1.2.0: {}
 
-  express-jwt@6.1.2:
+  express-jwt@8.5.1:
     dependencies:
-      async: 3.2.5
-      express-unless: 1.0.0
-      jsonwebtoken: 8.5.1
-      lodash: 4.17.21
+      '@types/jsonwebtoken': 9.0.5
+      express-unless: 2.1.3
+      jsonwebtoken: 9.0.2
 
   express-rate-limit@6.6.0(express@4.21.2):
     dependencies:
       express: 4.21.2
 
-  express-unless@1.0.0: {}
+  express-unless@2.1.3: {}
 
   express@4.21.2:
     dependencies:
@@ -25483,7 +25460,7 @@ snapshots:
 
   is-bun-module@2.0.0:
     dependencies:
-      semver: 7.7.1
+      semver: 7.7.3
 
   is-callable@1.2.7: {}
 
@@ -26068,7 +26045,7 @@ snapshots:
       jest-util: 27.5.1
       natural-compare: 1.4.0
       pretty-format: 27.5.1
-      semver: 7.7.1
+      semver: 7.7.3
     transitivePeerDependencies:
       - supports-color
 
@@ -26259,19 +26236,6 @@ snapshots:
 
   jsonparse@1.3.1: {}
 
-  jsonwebtoken@8.5.1:
-    dependencies:
-      jws: 3.2.2
-      lodash.includes: 4.3.0
-      lodash.isboolean: 3.0.3
-      lodash.isinteger: 4.0.4
-      lodash.isnumber: 3.0.3
-      lodash.isplainobject: 4.0.6
-      lodash.isstring: 4.0.1
-      lodash.once: 4.1.1
-      ms: 2.1.3
-      semver: 5.7.1
-
   jsonwebtoken@9.0.2:
     dependencies:
       jws: 3.2.2
@@ -26283,7 +26247,7 @@ snapshots:
       lodash.isstring: 4.0.1
       lodash.once: 4.1.1
       ms: 2.1.3
-      semver: 7.7.1
+      semver: 7.7.3
 
   jsx-ast-utils@3.3.5:
     dependencies:
@@ -27299,7 +27263,7 @@ snapshots:
 
   node-abi@3.78.0:
     dependencies:
-      semver: 7.7.1
+      semver: 7.7.3
 
   node-abort-controller@3.1.1: {}
 
@@ -27399,7 +27363,7 @@ snapshots:
     dependencies:
       hosted-git-info: 4.1.0
       is-core-module: 2.16.1
-      semver: 7.7.1
+      semver: 7.7.3
       validate-npm-package-license: 3.0.4
 
   normalize-path@3.0.0: {}
