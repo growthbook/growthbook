@@ -168,7 +168,7 @@ export default function PrerequisiteFeatureSelector({
               {projectName ? (
                 <Box style={{ position: "relative", zIndex: 1000 }}>
                   <Text size="small">
-                    <Text color="text-mid">project:</Text>{" "}
+                    <Text color="text-low">Project:</Text>{" "}
                     <Text color="text-high">
                       <OverflowText maxWidth={150} title={projectName}>
                         {projectName}
@@ -177,9 +177,7 @@ export default function PrerequisiteFeatureSelector({
                   </Text>
                 </Box>
               ) : (
-                <Text color="text-low">
-                  <em>no project</em>
-                </Text>
+                <Text color="text-low">no project</Text>
               )}
               {meta?.wouldBeCyclic && (
                 <Tooltip
