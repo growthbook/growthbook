@@ -7,7 +7,7 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { NewExperimentRefRule } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 
 export default function ForceValueFields({
   feature,
@@ -77,7 +77,7 @@ export default function ForceValueFields({
         project={feature.project || ""}
       />
       <hr />
-      <PrerequisiteTargetingField
+      <PrerequisiteInput
         value={form.watch("prerequisites") || []}
         setValue={(prerequisites) =>
           form.setValue("prerequisites", prerequisites)
