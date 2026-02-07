@@ -1,5 +1,6 @@
 import React, { Fragment, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
 import { SDKAttribute } from "shared/types/organization";
 import { recursiveWalk } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -19,6 +20,9 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
 import Button from "@/ui/Button";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import Field from "@/components/Forms/Field";
+import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
@@ -26,7 +30,7 @@ const MAX_REFERENCES_PER_TYPE = 10;
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
-  const { project, savedGroups } = useDefinitions();
+  const { project, getProjectById, savedGroups } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
 
   const canCreateAttributes = permissionsUtil.canViewAttributeModal(project);
@@ -36,6 +40,67 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const { features } = useFeaturesList({ useCurrentProject: false });
   const { experiments } = useExperiments();
+
+  const attributesWithComputedFields = useAddComputedFields(
+    attributeSchema,
+    (attr) => {
+      // Same project names shown in the table (ProjectBadges uses projects.find(p => p.id === pid).name)
+      const projectNames = (attr.projects || []).map(
+        (pid) => getProjectById(pid)?.name ?? pid,
+      );
+      // Everything shown in the Data Type column (datatype, enum, format) for full-text search
+      const datatypeSearch = [
+        attr.datatype,
+        attr.datatype === "enum" && attr.enum ? attr.enum : "",
+        attr.format ? `format ${attr.format}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return {
+        ...attr,
+        id: attr.property,
+        projectNames,
+        // Single string for full-text search so typing a project name in the search box matches
+        projectNamesSearch: projectNames.filter(Boolean).join(" "),
+        datatypeSearch,
+      };
+    },
+    [getProjectById],
+  );
+
+  const hasArchived = attributeSchema.some((a) => a.archived);
+
+  const {
+    items: filteredAttributes,
+    searchInputProps,
+    setSearchValue,
+    syntaxFilters,
+    isFiltered,
+    SortableTH,
+  } = useSearch({
+    items: attributesWithComputedFields,
+    localStorageKey: "attributes",
+    defaultSortField: "property",
+    searchFields: [
+      "property^3",
+      "description",
+      "datatype",
+      "datatypeSearch",
+      "projectNamesSearch",
+    ],
+    updateSearchQueryOnChange: true,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.datatype];
+        if (item.archived) is.push("archived");
+        return is;
+      },
+      datatype: (item) => item.datatype,
+      project: (item) => item.projectNames || [],
+      identifier: (item) =>
+        item.hashAttribute ? ["yes", "true"] : ["no", "false"],
+    },
+  });
 
   const { attributeFeatures, attributeExperiments, attributeGroups } =
     useMemo(() => {
@@ -395,10 +460,30 @@ const FeatureAttributesPage = (): React.ReactElement => {
               </p>
             </div>
           </div>
+          {attributeSchema?.length > 0 && (
+            <Box className="mb-3">
+              <Flex justify="between" gap="3" align="center">
+                <Box className="relative" style={{ width: "40%" }}>
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    {...searchInputProps}
+                  />
+                </Box>
+                <AttributeSearchFilters
+                  attributes={attributesWithComputedFields}
+                  searchInputProps={searchInputProps}
+                  setSearchValue={setSearchValue}
+                  syntaxFilters={syntaxFilters}
+                  hasArchived={hasArchived}
+                />
+              </Flex>
+            </Box>
+          )}
           <table className="table gbtable appbox table-hover">
             <thead>
               <tr>
-                <th>Attribute</th>
+                <SortableTH field="property">Attribute</SortableTH>
                 <th>Description</th>
                 <th>Data Type</th>
                 <th>Projects</th>
@@ -416,7 +501,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </thead>
             <tbody>
               {attributeSchema?.length > 0 ? (
-                <>{attributeSchema.map((v, i) => drawRow(v, i))}</>
+                <>
+                  {filteredAttributes.map((v, i) => drawRow(v, i))}
+                  {!filteredAttributes.length && isFiltered && (
+                    <tr>
+                      <td colSpan={7} className="text-center text-gray">
+                        No matching attributes found.
+                      </td>
+                    </tr>
+                  )}
+                </>
               ) : (
                 <>
                   <tr>
