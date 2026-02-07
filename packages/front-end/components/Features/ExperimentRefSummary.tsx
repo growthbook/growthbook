@@ -213,7 +213,16 @@ export default function ExperimentRefSummary({
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
         <>
-          <Text weight="medium">SERVE</Text>
+          <Flex gap="2">
+            <Text weight="medium">SERVE</Text>
+            {useStickyBucketing ? (
+              <Text>
+                (Sticky Bucketing{" "}
+                {experiment.disableStickyBucketing ? "disabled" : "enabled"})
+              </Text>
+            ) : null}
+          </Flex>
+
           <Box
             mt="3"
             px="3"
@@ -283,12 +292,6 @@ export default function ExperimentRefSummary({
               </TableBody>
             </Table>
           </Box>
-          {useStickyBucketing ? (
-            <Box mt="3">
-              <Text weight="medium">WITH</Text> Sticky Bucketing{" "}
-              {experiment.disableStickyBucketing ? "disabled" : "enabled"}
-            </Box>
-          ) : null}
           <Box mt="3">
             {!isBandit && (
               <ExperimentSplitVisual
