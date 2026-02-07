@@ -20,6 +20,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Checkbox from "@/ui/Checkbox";
 import MinSDKVersionsList from "./MinSDKVersionsList";
+import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
   close: () => void;
@@ -58,6 +59,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
       disableEqualityConditions: current?.disableEqualityConditions || false,
+      tags: current?.tags || [],
     },
   });
 
@@ -123,6 +125,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           enum: value.enum,
           hashAttribute: value.hashAttribute,
           disableEqualityConditions: value.disableEqualityConditions,
+          tags: value.tags,
         };
 
         // If the attribute name is changed, we need to pass in the original name
@@ -169,6 +172,10 @@ export default function AttributeModal({ close, attribute }: Props) {
           textarea={true}
         />
       </div>
+      <TagsField
+        value={form.watch("tags") || []}
+        onChange={(tags) => form.setValue("tags", tags)}
+      />
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField

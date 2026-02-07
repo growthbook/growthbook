@@ -4,6 +4,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { addTags } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
@@ -14,6 +15,11 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
     };
 
     const org = req.context.org;
+
+    const tags = req.body.tags || [];
+    if (tags.length > 0) {
+      await addTags(org.id, tags);
+    }
 
     if (
       org.settings?.attributeSchema?.some(
