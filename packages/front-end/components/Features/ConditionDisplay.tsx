@@ -6,12 +6,19 @@ import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
+import {
+  Condition,
+  jsonToConds,
+  useAttributeMap,
+  useAttributeSchema,
+} from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import Markdown from "@/components/Markdown/Markdown";
+import SortedTags from "@/components/Tags/SortedTags";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -224,18 +231,22 @@ function MultiValueDisplay({
   );
 }
 
+type AttributeInfo = { description?: string; tags?: string[] };
+
 function getConditionOrParts({
   conditions,
   savedGroups,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
+  attributeInfoMap,
 }: {
   conditions: ConditionWithParentId[][];
   savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
+  attributeInfoMap?: Map<string, AttributeInfo>;
 }) {
   if (conditions.length === 0) return [];
   if (conditions.length === 1) {
@@ -245,6 +256,7 @@ function getConditionOrParts({
       initialAnd,
       renderPrerequisite,
       keyPrefix,
+      attributeInfoMap,
     });
   }
 
@@ -270,6 +282,7 @@ function getConditionOrParts({
         initialAnd: false,
         renderPrerequisite,
         keyPrefix: `${keyPrefix}or-${i}-`,
+        attributeInfoMap,
       }),
     );
     parts.push(<div key={keyPrefix + "or-end-" + i}>{")"}</div>);
@@ -288,15 +301,22 @@ function getConditionParts({
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
+  attributeInfoMap,
 }: {
   conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
+  attributeInfoMap?: Map<string, AttributeInfo>;
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
-    let fieldEl: ReactNode = (
+    const attributeInfo = attributeInfoMap?.get(field);
+    const hasAttributeInfo =
+      attributeInfo &&
+      (attributeInfo.description || (attributeInfo.tags?.length ?? 0) > 0);
+
+    const attributeBadge = (
       <Badge
         color="gray"
         className="text-ellipsis d-inline-block"
@@ -304,6 +324,45 @@ function getConditionParts({
         title={field}
         label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
       />
+    );
+
+    let fieldEl: ReactNode = hasAttributeInfo ? (
+      <Tooltip
+        usePortal
+        tipPosition="bottom"
+        popperStyle={{ marginTop: 8 }}
+        body={
+          <div
+            className="pl-3 pr-3 py-2"
+            style={{ minWidth: 200, maxWidth: 350 }}
+          >
+            {attributeInfo!.description && (
+              <>
+                <div className="text-muted font-weight-bold mb-1">
+                  Description:
+                </div>
+                <div className="mb-2">
+                  <Markdown className="mb-0">
+                    {attributeInfo!.description}
+                  </Markdown>
+                </div>
+              </>
+            )}
+            {attributeInfo!.tags && attributeInfo!.tags.length > 0 && (
+              <>
+                <div className="text-muted font-weight-bold mb-1">Tags:</div>
+                <div>
+                  <SortedTags tags={attributeInfo!.tags} useFlex={true} />
+                </div>
+              </>
+            )}
+          </div>
+        }
+      >
+        {attributeBadge}
+      </Tooltip>
+    ) : (
+      attributeBadge
     );
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
@@ -479,13 +538,31 @@ export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
   prerequisites,
+  project,
+  showAttributeTooltip = false,
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
+  project?: string;
+  showAttributeTooltip?: boolean;
 }) {
   const { savedGroups } = useDefinitions();
-  const attributes = useAttributeMap();
+  const attributes = useAttributeMap(project);
+  const attributeSchema = useAttributeSchema(false, project);
+  const attributeInfoMap = useMemo(() => {
+    if (!showAttributeTooltip) return new Map<string, AttributeInfo>();
+    const map = new Map<string, AttributeInfo>();
+    attributeSchema.forEach((attr) => {
+      if (attr.description || (attr.tags?.length ?? 0) > 0) {
+        map.set(attr.property, {
+          description: attr.description,
+          tags: attr.tags,
+        });
+      }
+    });
+    return map;
+  }, [attributeSchema, showAttributeTooltip]);
 
   const parts: ReactNode[] = [];
   let partId = 0;
@@ -557,6 +634,7 @@ export default function ConditionDisplay({
       renderPrerequisite: true,
       initialAnd: parts.length > 0,
       keyPrefix: `${partId++}-prereq-`,
+      attributeInfoMap,
     });
     parts.push(...prereqParts);
   }
@@ -576,6 +654,7 @@ export default function ConditionDisplay({
         savedGroups,
         keyPrefix: `${partId++}-condition-`,
         initialAnd: parts.length > 0,
+        attributeInfoMap,
       });
       parts.push(...conditionParts);
     }

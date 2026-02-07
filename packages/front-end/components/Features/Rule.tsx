@@ -465,6 +465,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           savedGroups={rule.savedGroups}
                           prerequisites={rule.prerequisites}
                           maxLength={500}
+                          project={feature.project}
+                          showAttributeTooltip
                         />
                       </Box>
                     </Flex>
