@@ -21,13 +21,15 @@ RUN \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
     && poetry build \
     && poetry export -f requirements.txt --output requirements.txt \
-    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt dist/*.whl ddtrace==4.3.2; \
+    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt \
+    && pip3 install --no-cache-dir --target=/python-packages dist/*.whl ddtrace==4.3.2; \
   else \
     pip3 install --no-cache-dir poetry==1.8.5 \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
     && poetry build \
     && poetry export -f requirements.txt --output requirements.txt \
-    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt dist/*.whl ddtrace==4.3.2; \
+    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt \
+    && pip3 install --no-cache-dir --target=/python-packages dist/*.whl ddtrace==4.3.2; \
   fi
 
 # Build the nodejs app
