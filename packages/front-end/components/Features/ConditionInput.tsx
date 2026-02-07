@@ -432,6 +432,20 @@ function ConditionAndGroupInput({
                     ]
                   : []),
               ]}
+              filterOption={(option, inputValue) => {
+                const search = inputValue.trim().toLowerCase();
+                if (!search) return true;
+                const label = (option.label || "").toLowerCase();
+                if (label.includes(search)) return true;
+                const opt = option as {
+                  data?: { tags?: string[] };
+                  tags?: string[];
+                };
+                const tags = opt.tags ?? opt.data?.tags;
+                if (tags?.some((t) => t.toLowerCase().includes(search)))
+                  return true;
+                return false;
+              }}
               formatOptionLabel={(o, { context }) => {
                 const tags =
                   "tags" in o ? (o.tags as string[] | undefined) : undefined;

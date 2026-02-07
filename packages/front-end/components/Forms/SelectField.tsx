@@ -41,6 +41,10 @@ export type SelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
+  filterOption?: (
+    option: { label: string; value: string; data?: Option },
+    inputValue: string,
+  ) => boolean;
 };
 
 export function useSelectOptions(
@@ -190,6 +194,7 @@ const SelectField: FC<SelectFieldProps> = ({
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
+  filterOption,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -298,6 +303,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
                 onPaste={onPaste}
+                filterOption={filterOption}
                 components={{
                   Input,
                 }}
@@ -329,6 +335,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
                 onPaste={onPaste}
+                filterOption={filterOption}
                 components={{
                   Input,
                 }}
