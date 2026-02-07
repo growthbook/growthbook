@@ -28,6 +28,7 @@ import Markdown from "@/components/Markdown/Markdown";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
+const HEADER_HEIGHT_PX = 55;
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -489,7 +490,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </Box>
           )}
           <table className="table gbtable appbox table-hover">
-            <thead>
+            <thead
+              className="sticky-top shadow-sm"
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
+            >
               <tr>
                 <SortableTH field="property">Attribute</SortableTH>
                 <SortableTH field="description">Description</SortableTH>
