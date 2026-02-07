@@ -10,6 +10,7 @@ import {
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Tag from "@/components/Tags/Tag";
 
 export type AttributeWithId = SDKAttribute & {
   id: string;
@@ -52,6 +53,16 @@ const AttributeSearchFilters: FC<
     }));
   }, [attributes]);
 
+  const availableTags = useMemo(() => {
+    const tags: string[] = [];
+    attributes.forEach((attr) => {
+      (attr.tags || []).forEach((tag) => {
+        if (!tags.includes(tag)) tags.push(tag);
+      });
+    });
+    return tags;
+  }, [attributes]);
+
   return (
     <Flex gap="5" align="center">
       {!project && (
@@ -75,6 +86,18 @@ const AttributeSearchFilters: FC<
         open={dropdownFilterOpen}
         setOpen={setDropdownFilterOpen}
         items={availableDatatypes}
+        updateQuery={updateQuery}
+      />
+      <FilterDropdown
+        filter="tag"
+        syntaxFilters={syntaxFilters}
+        open={dropdownFilterOpen}
+        setOpen={setDropdownFilterOpen}
+        items={availableTags.map((t) => ({
+          name: <Tag tag={t} key={t} skipMargin={true} variant="dot" />,
+          id: t,
+          searchValue: t,
+        }))}
         updateQuery={updateQuery}
       />
       <FilterDropdown

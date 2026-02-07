@@ -23,6 +23,7 @@ import Button from "@/ui/Button";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
+import SortedTags from "@/components/Tags/SortedTags";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
@@ -44,11 +45,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const attributesWithComputedFields = useAddComputedFields(
     attributeSchema,
     (attr) => {
-      // Same project names shown in the table (ProjectBadges uses projects.find(p => p.id === pid).name)
       const projectNames = (attr.projects || []).map(
         (pid) => getProjectById(pid)?.name ?? pid,
       );
-      // Everything shown in the Data Type column (datatype, enum, format) for full-text search
       const datatypeSearch = [
         attr.datatype,
         attr.datatype === "enum" && attr.enum ? attr.enum : "",
@@ -60,9 +59,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ...attr,
         id: attr.property,
         projectNames,
-        // Single string for full-text search so typing a project name in the search box matches
         projectNamesSearch: projectNames.filter(Boolean).join(" "),
         datatypeSearch,
+        tagsSearch: (attr.tags || []).join(" "),
       };
     },
     [getProjectById],
@@ -87,6 +86,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       "datatype",
       "datatypeSearch",
       "projectNamesSearch",
+      "tagsSearch",
     ],
     updateSearchQueryOnChange: true,
     searchTermFilters: {
@@ -99,6 +99,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
       project: (item) => item.projectNames || [],
       identifier: (item) =>
         item.hashAttribute ? ["yes", "true"] : ["no", "false"],
+      tag: (item) => item.tags || [],
     },
   });
 
@@ -223,6 +224,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
           />
+        </td>
+        <td>
+          <SortedTags tags={v.tags || []} useFlex={true} />
         </td>
         <td className="text-gray">
           <Tooltip
@@ -393,6 +397,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     enum: v.enum,
                     hashAttribute: v.hashAttribute,
                     archived: !v.archived,
+                    tags: v.tags,
                   };
                   await apiCall<{
                     res: number;
@@ -484,9 +489,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <thead>
               <tr>
                 <SortableTH field="property">Attribute</SortableTH>
-                <th>Description</th>
-                <th>Data Type</th>
+                <SortableTH field="description">Description</SortableTH>
+                <SortableTH field="datatype">Data Type</SortableTH>
                 <th>Projects</th>
+                <th>Tags</th>
                 <th>References</th>
                 <th>
                   Identifier{" "}
@@ -505,7 +511,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   {filteredAttributes.map((v, i) => drawRow(v, i))}
                   {!filteredAttributes.length && isFiltered && (
                     <tr>
-                      <td colSpan={7} className="text-center text-gray">
+                      <td colSpan={8} className="text-center text-gray">
                         No matching attributes found.
                       </td>
                     </tr>
@@ -514,7 +520,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               ) : (
                 <>
                   <tr>
-                    <td colSpan={7} className="text-center text-gray">
+                    <td colSpan={8} className="text-center text-gray">
                       <em>No attributes defined.</em>
                     </td>
                   </tr>
