@@ -41,6 +41,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SortedTags from "@/components/Tags/SortedTags";
+import Tag from "@/components/Tags/Tag";
 
 export function ConditionLabel({
   label,
@@ -459,9 +460,6 @@ function ConditionAndGroupInput({
                       title={o.tooltip}
                     >
                       <Text style={{ flexShrink: 0 }}>{o.label}</Text>
-                      <Text color="gray" style={{ flexShrink: 0 }}>
-                        -
-                      </Text>
                       <Box style={{ minWidth: 0, overflow: "hidden" }}>
                         <SortedTags
                           tags={tags}
@@ -470,6 +468,58 @@ function ConditionAndGroupInput({
                           showEllipsisAtIndex={3}
                         />
                       </Box>
+                    </Flex>
+                  );
+                }
+                if (context === "value" && tags?.length) {
+                  const maxTags = 2;
+                  const showTags = tags.slice(0, maxTags);
+                  const hasMore = tags.length > maxTags;
+                  return (
+                    <Flex
+                      align="center"
+                      gap="2"
+                      wrap="nowrap"
+                      style={{
+                        maxWidth: "100%",
+                        minWidth: 0,
+                        overflow: "hidden",
+                      }}
+                      title={o.tooltip}
+                    >
+                      <Text
+                        style={{
+                          flexShrink: 0,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {o.label}
+                      </Text>
+                      <Flex
+                        align="center"
+                        gap="2"
+                        wrap="nowrap"
+                        style={{
+                          minWidth: 0,
+                          overflow: "hidden",
+                          flexShrink: 1,
+                        }}
+                      >
+                        {showTags.map((tagId) => (
+                          <Tag key={tagId} tag={tagId} skipMargin={true} />
+                        ))}
+                        {hasMore && (
+                          <Text
+                            color="gray"
+                            style={{
+                              flexShrink: 0,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            ...
+                          </Text>
+                        )}
+                      </Flex>
                     </Flex>
                   );
                 }
