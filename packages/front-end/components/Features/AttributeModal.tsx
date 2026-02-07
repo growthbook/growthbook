@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Checkbox from "@/ui/Checkbox";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MinSDKVersionsList from "./MinSDKVersionsList";
 import TagsField from "./FeatureModal/TagsField";
 
@@ -161,15 +162,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         </div>
       ) : null}
       <div className="form-group">
-        <Field
-          className="form-control"
-          label={
-            <>
-              Description <small className="text-muted">(optional)</small>
-            </>
-          }
-          {...form.register("description")}
-          textarea={true}
+        <label>
+          Description <small className="text-muted">(optional)</small>
+        </label>
+        <MarkdownInput
+          value={form.watch("description") || ""}
+          setValue={(value) => form.setValue("description", value)}
         />
       </div>
       <TagsField

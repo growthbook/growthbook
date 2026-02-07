@@ -24,6 +24,7 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
+import Markdown from "@/components/Markdown/Markdown";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
@@ -205,7 +206,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
           )}
         </td>
         <td className="text-gray" style={{ width: "38%" }}>
-          {v.description}
+          {v.description ? (
+            <Markdown className="mb-0">{v.description}</Markdown>
+          ) : null}
         </td>
         <td
           className="text-gray"
