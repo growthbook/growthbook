@@ -40,6 +40,7 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import SortedTags from "@/components/Tags/SortedTags";
 
 export function ConditionLabel({
   label,
@@ -420,6 +421,7 @@ function ConditionAndGroupInput({
                   label: s.property,
                   value: s.property,
                   tooltip: s.description || "",
+                  tags: s.tags,
                 })),
                 ...(props.allowNestedSavedGroups || field === "$savedGroups"
                   ? [
@@ -430,9 +432,35 @@ function ConditionAndGroupInput({
                     ]
                   : []),
               ]}
-              formatOptionLabel={(o) => (
-                <span title={o.tooltip}>{o.label}</span>
-              )}
+              formatOptionLabel={(o, { context }) => {
+                const tags =
+                  "tags" in o ? (o.tags as string[] | undefined) : undefined;
+                if (context === "menu" && tags?.length) {
+                  return (
+                    <Flex
+                      align="center"
+                      gap="2"
+                      wrap="nowrap"
+                      style={{ maxWidth: "100%", minWidth: 0 }}
+                      title={o.tooltip}
+                    >
+                      <Text style={{ flexShrink: 0 }}>{o.label}</Text>
+                      <Text color="gray" style={{ flexShrink: 0 }}>
+                        -
+                      </Text>
+                      <Box style={{ minWidth: 0, overflow: "hidden" }}>
+                        <SortedTags
+                          tags={tags}
+                          useFlex={true}
+                          shouldShowEllipsis={true}
+                          showEllipsisAtIndex={3}
+                        />
+                      </Box>
+                    </Flex>
+                  );
+                }
+                return <span title={o.tooltip}>{o.label}</span>;
+              }}
               name="field"
               onChange={(value) => {
                 const newConds = [...conds];
