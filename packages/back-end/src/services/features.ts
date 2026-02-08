@@ -619,6 +619,7 @@ async function refreshSDKPayloadCache({
     );
 
     // TODO: Remove legacy cache write (SdkPayloadCache collection)
+    // We will remove this call after sunsetting SdkPayloadCache
     if (payloadKeyEnvironments.has(environment)) {
       promises.push(async () => {
         logger.debug(
@@ -1108,6 +1109,7 @@ export async function getFeatureDefinitions({
   );
 
   // TODO: Remove legacy cache write (SdkPayloadCache collection)
+  // We will remove this call after sunsetting SdkPayloadCache
   await updateSDKPayload({
     organization: context.org.id,
     environment,
