@@ -1,12 +1,10 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { Promise as BluebirdPromise } from "bluebird";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+import { getFeatureDefinitionsWithCacheForConnection } from "back-end/src/controllers/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
@@ -22,7 +20,6 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -332,55 +329,10 @@ export async function fireSdkWebhook(
       async (payloads: [string, Record<string, unknown>][], connection) => {
         if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-        // Try to get cached payload from sdkConnectionCache
-        const storageLocation = getSDKPayloadCacheLocation();
-        let defs: Record<string, unknown> | undefined;
-
-        if (storageLocation !== "none") {
-          const cached = await webhookContext.models.sdkConnectionCache.getById(
-            connection.key,
-          );
-          if (cached) {
-            try {
-              defs = JSON.parse(cached.contents);
-            } catch (e) {
-              // Corrupt cache data, treat as cache miss and regenerate
-              logger.warn(
-                e,
-                "Failed to parse cached SDK payload, regenerating",
-              );
-            }
-          }
-        }
-
-        // Generate if cache disabled, cache miss, or corrupt cache
-        if (!defs) {
-          const environmentDoc =
-            webhookContext.org?.settings?.environments?.find(
-              (e) => e.id === connection.environment,
-            );
-          const filteredProjects = filterProjectsByEnvironmentWithNull(
-            connection.projects,
-            environmentDoc,
-            true,
-          );
-
-          defs = await getFeatureDefinitions({
-            context: webhookContext,
-            capabilities: getConnectionSDKCapabilities(connection),
-            environment: connection.environment,
-            projects: filteredProjects,
-            encryptionKey: connection.encryptPayload
-              ? connection.encryptionKey
-              : undefined,
-            includeVisualExperiments: connection.includeVisualExperiments,
-            includeDraftExperiments: connection.includeDraftExperiments,
-            includeExperimentNames: connection.includeExperimentNames,
-            includeRedirectExperiments: connection.includeRedirectExperiments,
-            includeRuleIds: connection.includeRuleIds,
-            hashSecureAttributes: connection.hashSecureAttributes,
-          });
-        }
+        const defs = await getFeatureDefinitionsWithCacheForConnection({
+          context: webhookContext,
+          connection,
+        });
 
         return [[connection.key, defs], ...payloads];
       },
@@ -404,52 +356,10 @@ export async function fireGlobalSdkWebhooks(
   if (!connections.length) return;
 
   for (const connection of connections) {
-    // Try to get cached payload from sdkConnectionCache
-    const storageLocation = getSDKPayloadCacheLocation();
-    let payload: Record<string, unknown> | undefined;
-
-    if (storageLocation !== "none") {
-      const cached = await context.models.sdkConnectionCache.getById(
-        connection.key,
-      );
-      if (cached) {
-        try {
-          payload = JSON.parse(cached.contents);
-        } catch (e) {
-          // Corrupt cache data, treat as cache miss and regenerate
-          logger.warn(e, "Failed to parse cached SDK payload, regenerating");
-        }
-      }
-    }
-
-    // Generate if cache disabled, cache miss, or corrupt cache
-    if (!payload) {
-      const environmentDoc = context.org?.settings?.environments?.find(
-        (e) => e.id === connection.environment,
-      );
-      const filteredProjects = filterProjectsByEnvironmentWithNull(
-        connection.projects,
-        environmentDoc,
-        true,
-      );
-
-      payload = await getFeatureDefinitions({
-        context,
-        capabilities: getConnectionSDKCapabilities(connection),
-        environment: connection.environment,
-        projects: filteredProjects,
-        encryptionKey: connection.encryptPayload
-          ? connection.encryptionKey
-          : undefined,
-
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        includeRedirectExperiments: connection.includeRedirectExperiments,
-        includeRuleIds: connection.includeRuleIds,
-        hashSecureAttributes: connection.hashSecureAttributes,
-      });
-    }
+    const payload = await getFeatureDefinitionsWithCacheForConnection({
+      context,
+      connection,
+    });
 
     WEBHOOKS.forEach((webhook) => {
       const {

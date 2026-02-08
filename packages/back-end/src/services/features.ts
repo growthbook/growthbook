@@ -1018,8 +1018,11 @@ export async function getFeatureDefinitions({
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
-  // JIT generation
-  // When caching, fetch ALL data to reuse across connections. Otherwise, filter by projects.
+  // JIT generation (no cache lookup)
+
+  // By default, we fetch ALL features/experiments/etc since we cache the result
+  // and re-use it across multiple SDK connections with different settings.
+  // If we're not caching the result, we can just fetch what we need right now.
   const filterByProjects = getSDKPayloadCacheLocation() === "none";
 
   let attributes: SDKAttributeSchema | undefined = undefined;

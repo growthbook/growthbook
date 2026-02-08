@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -146,25 +148,29 @@ import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-ro
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 
+const sdkPayloadParamsSchema = z.object({
+  organization: z.string(),
+  capabilities: z.array(z.string()) as z.ZodType<SDKCapability[]>, // infer proper type, passthrough value
+  projects: z.array(z.string()),
+  environment: z.string(),
+  encrypted: z.boolean(),
+  encryptionKey: z.string().optional(),
+  includeVisualExperiments: z.boolean().optional(),
+  includeDraftExperiments: z.boolean().optional(),
+  includeExperimentNames: z.boolean().optional(),
+  includeRedirectExperiments: z.boolean().optional(),
+  includeRuleIds: z.boolean().optional(),
+  hashSecureAttributes: z.boolean().optional(),
+  remoteEvalEnabled: z.boolean().optional(),
+  savedGroupReferencesEnabled: z.boolean().optional(),
+});
+
+export type SDKPayloadParams = z.infer<typeof sdkPayloadParamsSchema>;
+
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-): Promise<{
-  organization: string;
-  capabilities: SDKCapability[];
-  projects: string[];
-  environment: string;
-  encrypted: boolean;
-  encryptionKey?: string;
-  includeVisualExperiments?: boolean;
-  includeDraftExperiments?: boolean;
-  includeExperimentNames?: boolean;
-  includeRedirectExperiments?: boolean;
-  includeRuleIds?: boolean;
-  hashSecureAttributes?: boolean;
-  remoteEvalEnabled?: boolean;
-  savedGroupReferencesEnabled?: boolean;
-}> {
+): Promise<SDKPayloadParams> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
@@ -181,12 +187,11 @@ export async function getPayloadParamsFromApiKey(
       });
     }
 
-    return {
+    // Return connection properties with runtime validation
+    return sdkPayloadParamsSchema.parse({
       organization: connection.organization,
-      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
-      encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
@@ -196,7 +201,9 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-    };
+      capabilities: getConnectionSDKCapabilities(connection),
+      encrypted: connection.encryptPayload,
+    });
   }
   // Old, legacy API Key
   else {
@@ -226,15 +233,140 @@ export async function getPayloadParamsFromApiKey(
       projectFilter = project;
     }
 
-    return {
+    return sdkPayloadParamsSchema.parse({
       organization,
       capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
       encrypted: !!encryptSDK,
       encryptionKey,
-    };
+    });
   }
+}
+
+/**
+ * Get feature definitions with cache-first strategy.
+ * Checks sdkConnectionCache first, falls back to JIT generation on cache miss/corruption.
+ *
+ * Use this when you have individual connection parameters (e.g., from API key lookup).
+ * Used by: getFeaturesPublic, getEvaluatedFeaturesPublic
+ */
+async function getFeatureDefinitionsWithCache({
+  context,
+  key,
+  environmentDoc,
+  params,
+}: {
+  context: ReqContext | ApiReqContext;
+  key: string;
+  environmentDoc: Environment | undefined;
+  params: SDKPayloadParams;
+}): Promise<FeatureDefinitionSDKPayload> {
+  let defs: FeatureDefinitionSDKPayload | undefined;
+  const storageLocation = getSDKPayloadCacheLocation();
+
+  // Try cache first
+  if (storageLocation !== "none") {
+    const cached = await context.models.sdkConnectionCache.getById(key);
+    if (cached) {
+      try {
+        defs = JSON.parse(cached.contents);
+      } catch (e) {
+        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+      }
+    }
+  }
+
+  // Generate if cache disabled, cache miss, or corrupt cache
+  if (!defs) {
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      params.projects,
+      environmentDoc,
+      true,
+    );
+
+    defs = await getFeatureDefinitions({
+      context,
+      capabilities: params.capabilities,
+      environment: params.environment,
+      projects: filteredProjects,
+      encryptionKey: params.encrypted ? params.encryptionKey : "",
+      includeVisualExperiments: params.includeVisualExperiments,
+      includeDraftExperiments: params.includeDraftExperiments,
+      includeExperimentNames: params.includeExperimentNames,
+      includeRedirectExperiments: params.includeRedirectExperiments,
+      includeRuleIds: params.includeRuleIds,
+      hashSecureAttributes: params.hashSecureAttributes,
+      savedGroupReferencesEnabled:
+        params.savedGroupReferencesEnabled !== undefined
+          ? params.savedGroupReferencesEnabled &&
+            params.capabilities.includes("savedGroupReferences")
+          : undefined,
+    });
+  }
+
+  return defs;
+}
+
+/**
+ * Get feature definitions with cache-first strategy for an SDK connection.
+ * Checks sdkConnectionCache first, falls back to JIT generation on cache miss/corruption.
+ *
+ * Used when you already have an SDK Connection (e.g., firing webhooks for a single connection).
+ */
+export async function getFeatureDefinitionsWithCacheForConnection({
+  context,
+  connection,
+}: {
+  context: ReqContext | ApiReqContext;
+  connection: SDKConnectionInterface;
+}): Promise<FeatureDefinitionSDKPayload> {
+  let defs: FeatureDefinitionSDKPayload | undefined;
+  const storageLocation = getSDKPayloadCacheLocation();
+
+  // Try cache first
+  if (storageLocation !== "none") {
+    const cached = await context.models.sdkConnectionCache.getById(
+      connection.key,
+    );
+    if (cached) {
+      try {
+        defs = JSON.parse(cached.contents);
+      } catch (e) {
+        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+      }
+    }
+  }
+
+  // Generate if cache disabled, cache miss, or corrupt cache
+  if (!defs) {
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === connection.environment,
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      connection.projects,
+      environmentDoc,
+      true,
+    );
+
+    defs = await getFeatureDefinitions({
+      context,
+      capabilities: getConnectionSDKCapabilities(connection),
+      environment: connection.environment,
+      projects: filteredProjects,
+      encryptionKey: connection.encryptPayload
+        ? connection.encryptionKey
+        : undefined,
+      includeVisualExperiments: connection.includeVisualExperiments,
+      includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
+      hashSecureAttributes: connection.hashSecureAttributes,
+    });
+  }
+
+  return defs;
 }
 
 export async function getFeatureDefinitionsFilteredByEnvironment({
@@ -302,69 +434,25 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-      savedGroupReferencesEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req);
+    const context = await getContextForAgendaJobByOrgId(params.organization);
 
-    const context = await getContextForAgendaJobByOrgId(organization);
-
-    if (remoteEvalEnabled) {
+    if (params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation required for this connection",
       );
     }
 
-    // Try to get cached payload from sdkConnectionCache
-    let defs: FeatureDefinitionSDKPayload | undefined;
-    const storageLocation = getSDKPayloadCacheLocation();
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === params.environment,
+    );
 
-    if (storageLocation !== "none") {
-      const cached = await context.models.sdkConnectionCache.getById(key);
-      if (cached) {
-        try {
-          defs = JSON.parse(cached.contents);
-        } catch (e) {
-          // Corrupt cache data, treat as cache miss and regenerate
-          logger.warn(e, "Failed to parse cached SDK payload, regenerating");
-        }
-      }
-    }
-
-    // Generate if cache disabled, cache miss, or corrupt cache
-    if (!defs) {
-      const environmentDoc = context.org?.settings?.environments?.find(
-        (e) => e.id === environment,
-      );
-      defs = await getFeatureDefinitionsFilteredByEnvironment({
-        context,
-        projects,
-        environmentDoc,
-        capabilities,
-        encrypted,
-        encryptionKey,
-        includeVisualExperiments,
-        includeDraftExperiments,
-        includeExperimentNames,
-        includeRedirectExperiments,
-        includeRuleIds,
-        hashSecureAttributes,
-        savedGroupReferencesEnabled,
-        environment,
-      });
-    }
+    const defs = await getFeatureDefinitionsWithCache({
+      context,
+      key,
+      environmentDoc,
+      params,
+    });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -376,9 +464,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
       const surrogateKeys = [
-        organization,
+        params.organization,
         key,
-        ...getSurrogateKeysFromEnvironments(organization, [environment]),
+        ...getSurrogateKeysFromEnvironments(params.organization, [
+          params.environment,
+        ]),
       ];
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
@@ -414,25 +504,10 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
+    const params = await getPayloadParamsFromApiKey(key, req);
+    const context = await getContextForAgendaJobByOrgId(params.organization);
 
-    const context = await getContextForAgendaJobByOrgId(organization);
-
-    if (!remoteEvalEnabled) {
+    if (!params.remoteEvalEnabled) {
       throw new UnrecoverableApiError(
         "Remote evaluation disabled for this connection",
       );
@@ -449,47 +524,16 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     );
     const url = req.body?.url;
 
-    // Try to get cached payload from sdkConnectionCache
-    let defs: FeatureDefinitionSDKPayload | undefined;
-    const storageLocation = getSDKPayloadCacheLocation();
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === params.environment,
+    );
 
-    if (storageLocation !== "none") {
-      const cached = await context.models.sdkConnectionCache.getById(key);
-      if (cached) {
-        try {
-          defs = JSON.parse(cached.contents);
-        } catch (e) {
-          // Corrupt cache data, treat as cache miss and regenerate
-          logger.warn(e, "Failed to parse cached SDK payload, regenerating");
-        }
-      }
-    }
-
-    // Generate if cache disabled, cache miss, or corrupt cache
-    if (!defs) {
-      const environmentDoc = context.org?.settings?.environments?.find(
-        (e) => e.id === environment,
-      );
-      const filteredProjects = filterProjectsByEnvironmentWithNull(
-        projects,
-        environmentDoc,
-        true,
-      );
-
-      defs = await getFeatureDefinitions({
-        context,
-        capabilities,
-        environment,
-        projects: filteredProjects,
-        encryptionKey: encrypted ? encryptionKey : "",
-        includeVisualExperiments,
-        includeDraftExperiments,
-        includeExperimentNames,
-        includeRedirectExperiments,
-        includeRuleIds,
-        hashSecureAttributes,
-      });
-    }
+    const defs = await getFeatureDefinitionsWithCache({
+      context,
+      key,
+      environmentDoc,
+      params,
+    });
 
     // This endpoint should never be cached
     res.set("Cache-control", "no-store");

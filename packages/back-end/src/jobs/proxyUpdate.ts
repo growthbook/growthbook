@@ -1,9 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+import { getFeatureDefinitionsWithCacheForConnection } from "back-end/src/controllers/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   clearProxyError,
@@ -15,7 +13,6 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -76,55 +73,12 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
-  // Try to get cached payload from sdkConnectionCache
-  let payload: string | undefined;
-  const storageLocation = getSDKPayloadCacheLocation();
-
-  if (storageLocation !== "none") {
-    const cached = await context.models.sdkConnectionCache.getById(
-      connection.key,
-    );
-    if (cached) {
-      // Validate that it's valid JSON before using it
-      try {
-        JSON.parse(cached.contents);
-        payload = cached.contents;
-      } catch (e) {
-        // Corrupt cache data, treat as cache miss and regenerate
-        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
-      }
-    }
-  }
-
-  // Generate if cache disabled, cache miss, or corrupt cache
-  if (!payload) {
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      connection.projects,
-      environmentDoc,
-      true,
-    );
-
-    const defs = await getFeatureDefinitions({
+  const payload = JSON.stringify(
+    await getFeatureDefinitionsWithCacheForConnection({
       context,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      includeRuleIds: connection.includeRuleIds,
-      hashSecureAttributes: connection.hashSecureAttributes,
-    });
-
-    payload = JSON.stringify(defs);
-  }
+      connection,
+    }),
+  );
 
   // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
   const signature = createHmac("sha256", connection.proxy.signingKey)
