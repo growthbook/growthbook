@@ -76,46 +76,28 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
-  // Try to get cached payload from sdkConnectionCache (new method)
-  let payload: string;
+  // Try to get cached payload from sdkConnectionCache
+  let payload: string | undefined;
   const storageLocation = getSDKPayloadCacheLocation();
+
   if (storageLocation !== "none") {
     const cached = await context.models.sdkConnectionCache.getById(
       connection.key,
     );
     if (cached) {
-      payload = cached.contents;
-    } else {
-      // Fallback to JIT generation if cache miss
-      const environmentDoc = context.org?.settings?.environments?.find(
-        (e) => e.id === connection.environment,
-      );
-      const filteredProjects = filterProjectsByEnvironmentWithNull(
-        connection.projects,
-        environmentDoc,
-        true,
-      );
-
-      const defs = await getFeatureDefinitions({
-        context,
-        capabilities: getConnectionSDKCapabilities(connection),
-        environment: connection.environment,
-        projects: filteredProjects,
-        encryptionKey: connection.encryptPayload
-          ? connection.encryptionKey
-          : undefined,
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        includeRedirectExperiments: connection.includeRedirectExperiments,
-        includeRuleIds: connection.includeRuleIds,
-        hashSecureAttributes: connection.hashSecureAttributes,
-      });
-
-      payload = JSON.stringify(defs);
+      // Validate that it's valid JSON before using it
+      try {
+        JSON.parse(cached.contents);
+        payload = cached.contents;
+      } catch (e) {
+        // Corrupt cache data, treat as cache miss and regenerate
+        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+      }
     }
-  } else {
-    // Cache disabled, use JIT generation
+  }
+
+  // Generate if cache disabled, cache miss, or corrupt cache
+  if (!payload) {
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === connection.environment,
     );

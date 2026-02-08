@@ -332,45 +332,29 @@ export async function fireSdkWebhook(
       async (payloads: [string, Record<string, unknown>][], connection) => {
         if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-        // Try to get cached payload from sdkConnectionCache (new method)
+        // Try to get cached payload from sdkConnectionCache
         const storageLocation = getSDKPayloadCacheLocation();
-        let defs: Record<string, unknown>;
+        let defs: Record<string, unknown> | undefined;
+
         if (storageLocation !== "none") {
           const cached = await webhookContext.models.sdkConnectionCache.getById(
             connection.key,
           );
           if (cached) {
-            defs = JSON.parse(cached.contents);
-          } else {
-            // Fallback to JIT generation if cache miss
-            const environmentDoc =
-              webhookContext.org?.settings?.environments?.find(
-                (e) => e.id === connection.environment,
+            try {
+              defs = JSON.parse(cached.contents);
+            } catch (e) {
+              // Corrupt cache data, treat as cache miss and regenerate
+              logger.warn(
+                e,
+                "Failed to parse cached SDK payload, regenerating",
               );
-            const filteredProjects = filterProjectsByEnvironmentWithNull(
-              connection.projects,
-              environmentDoc,
-              true,
-            );
-
-            defs = await getFeatureDefinitions({
-              context: webhookContext,
-              capabilities: getConnectionSDKCapabilities(connection),
-              environment: connection.environment,
-              projects: filteredProjects,
-              encryptionKey: connection.encryptPayload
-                ? connection.encryptionKey
-                : undefined,
-              includeVisualExperiments: connection.includeVisualExperiments,
-              includeDraftExperiments: connection.includeDraftExperiments,
-              includeExperimentNames: connection.includeExperimentNames,
-              includeRedirectExperiments: connection.includeRedirectExperiments,
-              includeRuleIds: connection.includeRuleIds,
-              hashSecureAttributes: connection.hashSecureAttributes,
-            });
+            }
           }
-        } else {
-          // Cache disabled, use JIT generation
+        }
+
+        // Generate if cache disabled, cache miss, or corrupt cache
+        if (!defs) {
           const environmentDoc =
             webhookContext.org?.settings?.environments?.find(
               (e) => e.id === connection.environment,
@@ -420,45 +404,26 @@ export async function fireGlobalSdkWebhooks(
   if (!connections.length) return;
 
   for (const connection of connections) {
-    // Try to get cached payload from sdkConnectionCache (new method)
+    // Try to get cached payload from sdkConnectionCache
     const storageLocation = getSDKPayloadCacheLocation();
-    let payload: Record<string, unknown>;
+    let payload: Record<string, unknown> | undefined;
+
     if (storageLocation !== "none") {
       const cached = await context.models.sdkConnectionCache.getById(
         connection.key,
       );
       if (cached) {
-        payload = JSON.parse(cached.contents);
-      } else {
-        // Fallback to JIT generation if cache miss
-        const environmentDoc = context.org?.settings?.environments?.find(
-          (e) => e.id === connection.environment,
-        );
-        const filteredProjects = filterProjectsByEnvironmentWithNull(
-          connection.projects,
-          environmentDoc,
-          true,
-        );
-
-        payload = await getFeatureDefinitions({
-          context,
-          capabilities: getConnectionSDKCapabilities(connection),
-          environment: connection.environment,
-          projects: filteredProjects,
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          includeRedirectExperiments: connection.includeRedirectExperiments,
-          includeRuleIds: connection.includeRuleIds,
-          hashSecureAttributes: connection.hashSecureAttributes,
-        });
+        try {
+          payload = JSON.parse(cached.contents);
+        } catch (e) {
+          // Corrupt cache data, treat as cache miss and regenerate
+          logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+        }
       }
-    } else {
-      // Cache disabled, use JIT generation
+    }
+
+    // Generate if cache disabled, cache miss, or corrupt cache
+    if (!payload) {
       const environmentDoc = context.org?.settings?.environments?.find(
         (e) => e.id === connection.environment,
       );

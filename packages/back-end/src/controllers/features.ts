@@ -327,37 +327,24 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       );
     }
 
-    // Try to get cached payload from sdkConnectionCache (new method)
-    let defs: FeatureDefinitionSDKPayload;
+    // Try to get cached payload from sdkConnectionCache
+    let defs: FeatureDefinitionSDKPayload | undefined;
     const storageLocation = getSDKPayloadCacheLocation();
+
     if (storageLocation !== "none") {
       const cached = await context.models.sdkConnectionCache.getById(key);
       if (cached) {
-        defs = JSON.parse(cached.contents);
-      } else {
-        // Fallback to JIT generation if cache miss
-        const environmentDoc = context.org?.settings?.environments?.find(
-          (e) => e.id === environment,
-        );
-        defs = await getFeatureDefinitionsFilteredByEnvironment({
-          context,
-          projects,
-          environmentDoc,
-          capabilities,
-          encrypted,
-          encryptionKey,
-          includeVisualExperiments,
-          includeDraftExperiments,
-          includeExperimentNames,
-          includeRedirectExperiments,
-          includeRuleIds,
-          hashSecureAttributes,
-          savedGroupReferencesEnabled,
-          environment,
-        });
+        try {
+          defs = JSON.parse(cached.contents);
+        } catch (e) {
+          // Corrupt cache data, treat as cache miss and regenerate
+          logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+        }
       }
-    } else {
-      // Cache disabled, use JIT generation
+    }
+
+    // Generate if cache disabled, cache miss, or corrupt cache
+    if (!defs) {
       const environmentDoc = context.org?.settings?.environments?.find(
         (e) => e.id === environment,
       );
@@ -462,40 +449,24 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     );
     const url = req.body?.url;
 
-    // Try to get cached payload from sdkConnectionCache (new method)
-    let defs: FeatureDefinitionSDKPayload;
+    // Try to get cached payload from sdkConnectionCache
+    let defs: FeatureDefinitionSDKPayload | undefined;
     const storageLocation = getSDKPayloadCacheLocation();
+
     if (storageLocation !== "none") {
       const cached = await context.models.sdkConnectionCache.getById(key);
       if (cached) {
-        defs = JSON.parse(cached.contents);
-      } else {
-        // Fallback to JIT generation if cache miss
-        const environmentDoc = context.org?.settings?.environments?.find(
-          (e) => e.id === environment,
-        );
-        const filteredProjects = filterProjectsByEnvironmentWithNull(
-          projects,
-          environmentDoc,
-          true,
-        );
-
-        defs = await getFeatureDefinitions({
-          context,
-          capabilities,
-          environment,
-          projects: filteredProjects,
-          encryptionKey: encrypted ? encryptionKey : "",
-          includeVisualExperiments,
-          includeDraftExperiments,
-          includeExperimentNames,
-          includeRedirectExperiments,
-          includeRuleIds,
-          hashSecureAttributes,
-        });
+        try {
+          defs = JSON.parse(cached.contents);
+        } catch (e) {
+          // Corrupt cache data, treat as cache miss and regenerate
+          logger.warn(e, "Failed to parse cached SDK payload, regenerating");
+        }
       }
-    } else {
-      // Cache disabled, use JIT generation
+    }
+
+    // Generate if cache disabled, cache miss, or corrupt cache
+    if (!defs) {
       const environmentDoc = context.org?.settings?.environments?.find(
         (e) => e.id === environment,
       );
