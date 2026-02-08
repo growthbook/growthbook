@@ -480,7 +480,7 @@ export function queueSDKPayloadRefresh(data: {
 }) {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
-  const stackTrace = rawStack.replace(/^Error\n/, ""); // Remove "Error" since this is informational only
+  const stackTrace = rawStack.replace(/^Error.*?\n/, "");
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });

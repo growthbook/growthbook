@@ -303,6 +303,29 @@ async function getFeatureDefinitionsWithCache({
             params.capabilities.includes("savedGroupReferences")
           : undefined,
     });
+
+    // Write back to cache to populate it for future reads (fire and forget)
+    if (storageLocation !== "none") {
+      const rawStack = new Error().stack || "";
+      const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+      context.models.sdkConnectionCache
+        .upsert(key, JSON.stringify(defs), {
+          dateUpdated: new Date(),
+          event: "cache-miss",
+          model: "sdk-connection",
+          stack: stackTrace,
+          connection: {
+            key,
+            environment: params.environment,
+            projects: params.projects,
+            capabilities: params.capabilities,
+          },
+        })
+        .catch((e) => {
+          logger.warn(e, "Failed to write JIT generated payload to cache");
+        });
+    }
   }
 
   return defs;
@@ -364,64 +387,25 @@ export async function getFeatureDefinitionsWithCacheForConnection({
       includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
+
+    // Write back to cache to populate it for future reads (fire and forget)
+    if (storageLocation !== "none") {
+      const rawStack = new Error().stack || "";
+      const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+      context.models.sdkConnectionCache
+        .upsert(connection.key, JSON.stringify(defs), {
+          dateUpdated: new Date(),
+          event: "cache-miss",
+          model: "sdk-connection",
+          stack: stackTrace,
+          connection: connection as unknown as Record<string, unknown>,
+        })
+        .catch((e) => {
+          logger.warn(e, "Failed to write JIT generated payload to cache");
+        });
+    }
   }
-
-  return defs;
-}
-
-export async function getFeatureDefinitionsFilteredByEnvironment({
-  context,
-  projects,
-  environmentDoc,
-  capabilities,
-  encrypted,
-  encryptionKey,
-  includeVisualExperiments,
-  includeDraftExperiments,
-  includeExperimentNames,
-  includeRedirectExperiments,
-  includeRuleIds,
-  hashSecureAttributes,
-  savedGroupReferencesEnabled,
-  environment,
-}: {
-  context: ReqContext | ApiReqContext;
-  projects: string[];
-  environmentDoc: Environment | undefined;
-  capabilities: SDKCapability[];
-  encrypted: boolean;
-  encryptionKey: string | undefined;
-  includeVisualExperiments: boolean | undefined;
-  includeDraftExperiments: boolean | undefined;
-  includeExperimentNames: boolean | undefined;
-  includeRedirectExperiments: boolean | undefined;
-  includeRuleIds: boolean | undefined;
-  hashSecureAttributes: boolean | undefined;
-  savedGroupReferencesEnabled: boolean | undefined;
-  environment: string;
-}) {
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    projects,
-    environmentDoc,
-    true,
-  );
-
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities,
-    environment,
-    projects: filteredProjects,
-    encryptionKey: encrypted ? encryptionKey : "",
-    includeVisualExperiments,
-    includeDraftExperiments,
-    includeExperimentNames,
-    includeRedirectExperiments,
-    includeRuleIds,
-    hashSecureAttributes,
-    savedGroupReferencesEnabled:
-      savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
-  });
 
   return defs;
 }
