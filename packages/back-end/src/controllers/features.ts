@@ -94,7 +94,10 @@ import {
   getFeatureDefinitions,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
+import {
+  getSDKPayloadCacheLocation,
+  formatLegacyCacheKey,
+} from "back-end/src/models/SdkConnectionCacheModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -238,19 +241,21 @@ export async function getPayloadParamsFromApiKey(
       projectFilter = project;
     }
 
-    // Legacy API keys get special "legacy" marker for capabilities
-    // Synthesize a cache key that includes environment and projects since they vary per request
-    const env = environment || "production";
-    const cacheKey = `legacy:${key}:${env}:${projectFilter || "all"}`;
+    // Synthesize a legacy cache key in lieu of an SDK connection key
+    const cacheKey = formatLegacyCacheKey({
+      apiKey: key,
+      environment,
+      project: projectFilter,
+    });
 
     return {
       key: cacheKey,
       organization,
-      environment: env,
+      environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
       encryptPayload: !!encryptSDK,
       encryptionKey: encryptionKey || "",
-      languages: ["legacy"],
+      languages: ["legacy"], // "legacy" marker for computing basic capabilities (bucketingV2)
       sdkVersion: "0.0.0",
     };
   }

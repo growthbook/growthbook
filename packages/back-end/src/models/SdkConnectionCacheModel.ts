@@ -48,6 +48,34 @@ export class SdkConnectionCacheModel extends BaseClass {
     }
     return this.create({ id, ...updateData });
   }
+
+  // Delete all cache entries for legacy API keys
+  public async deleteAllLegacyCacheEntries() {
+    return await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      id: /^legacy:/,
+    });
+  }
+}
+
+const LEGACY_KEY_PREFIX = "legacy:";
+
+export function formatLegacyCacheKey({
+  apiKey,
+  environment,
+  project,
+}: {
+  apiKey: string;
+  environment?: string;
+  project: string;
+}): string {
+  const env = environment || "production";
+  const parts = [LEGACY_KEY_PREFIX + apiKey, env, project];
+  return parts.join(":");
+}
+
+export function isLegacyCacheKey(key: string): boolean {
+  return key.startsWith(LEGACY_KEY_PREFIX);
 }
 
 // TODO: add support for S3 and GCS storage backends

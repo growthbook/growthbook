@@ -530,6 +530,13 @@ async function refreshSDKPayloadCache({
     return;
   }
 
+  // Clear any cache entries for legacy API keys since they can't be tracked individually
+  try {
+    await context.models.sdkConnectionCache.deleteAllLegacyCacheEntries();
+  } catch (e) {
+    logger.warn(e, "Failed to delete legacy cache entries");
+  }
+
   const experimentMap = await getAllPayloadExperiments(context);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
