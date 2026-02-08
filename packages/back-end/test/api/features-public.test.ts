@@ -149,11 +149,14 @@ describe("getFeaturesPublic test holdout", () => {
 
     // Mock the SDK connection lookup
     (findSDKConnectionByKey as jest.Mock).mockResolvedValue({
+      key: "sdk-test-key",
       organization: "test-org-id",
       environment: "production",
       projects: ["project-1", "project-2"],
       encryptPayload: false,
-      encryptionKey: undefined,
+      encryptionKey: "",
+      languages: ["javascript"],
+      sdkVersion: "1.0.0",
       includeVisualExperiments: false,
       includeDraftExperiments: false,
       includeExperimentNames: true,
@@ -205,12 +208,14 @@ describe("getFeaturesPublic test holdout", () => {
     (
       featuresController.getPayloadParamsFromApiKey as jest.Mock
     ).mockResolvedValue({
+      key: "sdk-test-key",
       organization: "test-org-id",
-      capabilities: ["prerequisites"],
       environment: "production",
-      encrypted: false,
       projects: ["project-1", "project-2"],
-      encryptionKey: undefined,
+      encryptPayload: false,
+      encryptionKey: "",
+      languages: ["javascript"],
+      sdkVersion: "1.0.0",
       includeVisualExperiments: false,
       includeDraftExperiments: false,
       includeExperimentNames: true,
@@ -240,12 +245,14 @@ describe("getFeaturesPublic test holdout", () => {
   it("test getFeaturesPublic that holdouts dont show when feature and holdout dont have the same projects", async () => {
     // Mock the payload parameters - feature is in project-1, holdout is in project-2
     const mockPayloadParams = {
+      key: "sdk-test-key",
       organization: "test-org-id",
-      capabilities: ["prerequisites"],
       environment: "production",
-      encrypted: false,
       projects: ["project-1"],
-      encryptionKey: undefined,
+      encryptPayload: false,
+      encryptionKey: "",
+      languages: ["javascript"],
+      sdkVersion: "1.0.0",
       includeVisualExperiments: false,
       includeDraftExperiments: false,
       includeExperimentNames: true,
