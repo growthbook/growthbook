@@ -149,8 +149,6 @@ import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-ro
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 
-// Subset of SDKConnectionInterface used for payload generation and caching
-// Using Pick to make it explicit this is derived from SDKConnectionInterface
 export type SDKPayloadParams = Pick<
   SDKConnectionInterface,
   | "key"
@@ -193,7 +191,6 @@ export async function getPayloadParamsFromApiKey(
       });
     }
 
-    // Return connection properties as passthrough
     return {
       key: connection.key,
       organization: connection.organization,
@@ -255,14 +252,9 @@ export async function getPayloadParamsFromApiKey(
   }
 }
 
-/**
- * Get feature definitions with cache-first strategy.
- * Checks sdkConnectionCache first, falls back to JIT generation on cache miss/corruption.
- *
- * Accepts either:
- * - Individual connection params (from API key lookup)
- * - Full SDKConnectionInterface (from database)
- */
+// Get feature definitions with cache-first strategy.
+// Falls back to JIT generation on cache miss/corruption, with write-back to populate cache.
+// Accepts: SDKPayloadParams - either a full SDKConnectionInterface object or a subset via API key lookup.
 export async function getFeatureDefinitionsWithCache({
   context,
   params,
