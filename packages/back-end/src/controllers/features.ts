@@ -239,10 +239,14 @@ export async function getPayloadParamsFromApiKey(
     }
 
     // Legacy API keys get special "legacy" marker for capabilities
+    // Synthesize a cache key that includes environment and projects since they vary per request
+    const env = environment || "production";
+    const cacheKey = `legacy:${key}:${env}:${projectFilter || "all"}`;
+
     return {
-      key,
+      key: cacheKey,
       organization,
-      environment: environment || "production",
+      environment: env,
       projects: projectFilter ? [projectFilter] : [],
       encryptPayload: !!encryptSDK,
       encryptionKey: encryptionKey || "",
