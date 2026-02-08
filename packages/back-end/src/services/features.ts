@@ -93,7 +93,6 @@ import {
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
-  getSDKPayload,
   getSDKPayloadCacheLocation,
   updateSDKPayload,
 } from "back-end/src/models/SdkPayloadModel";
@@ -614,8 +613,12 @@ async function refreshSDKPayloadCache({
       (sg) => sg.id in savedGroupsInUse,
     );
 
-    // If we need to generate a new env-level payload cache
-    // TODO: remove this once we are fully transitioned to new per-connection cache
+    // ============================================================================
+    // TODO: LEGACY CACHE WRITE - REMOVE AFTER TRANSITION TO NEW CACHE
+    // This writes to the old org+environment level cache (SdkPayloadCache collection).
+    // The new sdkConnectionCache (per-connection) is the primary cache now.
+    // Once we're confident the new cache has 100% coverage, remove this write.
+    // ============================================================================
     if (payloadKeyEnvironments.has(environment)) {
       promises.push(async () => {
         logger.debug(
@@ -738,11 +741,15 @@ async function refreshSDKPayloadCache({
               }
             : undefined;
 
-        await context.models.sdkConnectionCache.upsert(
-          connection.key,
-          JSON.stringify(contents),
-          auditContext,
-        );
+        // Only write to cache if SDK_PAYLOAD_CACHE is not set to "none"
+        const storageLocation = getSDKPayloadCacheLocation();
+        if (storageLocation !== "none") {
+          await context.models.sdkConnectionCache.upsert(
+            connection.key,
+            JSON.stringify(contents),
+            auditContext,
+          );
+        }
       } catch (e) {
         logger.error(e, "Error updating SDK connection cache");
       }
@@ -1018,61 +1025,7 @@ export async function getFeatureDefinitions({
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
-  // Return cached payload from Mongo if exists
-  try {
-    const cached = await getSDKPayload({
-      organization: context.org.id,
-      environment,
-    });
-    if (cached) {
-      if (projects === null) {
-        // null projects have nothing in the payload. They result from environment project scrubbing.
-        return {
-          features: {},
-          experiments: [],
-          dateUpdated: cached.dateUpdated,
-          savedGroups: {},
-        };
-      }
-      let attributes: SDKAttributeSchema | undefined = undefined;
-      let secureAttributeSalt: string | undefined = undefined;
-      const { features, experiments, savedGroupsInUse, holdouts } =
-        cached.contents;
-      const usedSavedGroups = await context.models.savedGroups.getByIds(
-        savedGroupsInUse || [],
-      );
-      if (hashSecureAttributes) {
-        // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
-        // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
-        // which would expose private data publicly.
-        secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-        attributes = context.org.settings?.attributeSchema;
-      }
-
-      return await getFeatureDefinitionsResponse({
-        features,
-        experiments: experiments || [],
-        holdouts: holdouts || {},
-        dateUpdated: cached.dateUpdated,
-        encryptionKey,
-        includeVisualExperiments,
-        includeDraftExperiments,
-        includeExperimentNames,
-        includeRedirectExperiments,
-        includeRuleIds,
-        attributes,
-        secureAttributeSalt,
-        projects: projects || [],
-        capabilities,
-        usedSavedGroups: usedSavedGroups || [],
-        savedGroupReferencesEnabled,
-        organization: context.org,
-      });
-    }
-  } catch (e) {
-    logger.error(e, "Failed to fetch SDK payload from cache");
-  }
-
+  // JIT generation (no legacy cache read - new cache should handle most requests)
   // By default, we fetch ALL features/experiments/etc since we cache the result
   // and re-use it across multiple SDK connections with different settings.
   // If we're not caching the result, we can just fetch what we need right now.
@@ -1153,7 +1106,12 @@ export async function getFeatureDefinitions({
     (sg) => sg.id in savedGroupsInUse,
   );
 
-  // Cache in Mongo
+  // ============================================================================
+  // TODO: LEGACY CACHE WRITE - REMOVE AFTER TRANSITION TO NEW CACHE
+  // This writes to the old org+environment level cache (SdkPayloadCache collection).
+  // The new sdkConnectionCache (per-connection) is the primary cache now.
+  // Once we're confident the new cache has 100% coverage, remove this write.
+  // ============================================================================
   await updateSDKPayload({
     organization: context.org.id,
     environment,

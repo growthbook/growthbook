@@ -15,6 +15,7 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -75,32 +76,73 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
-  const environmentDoc = context.org?.settings?.environments?.find(
-    (e) => e.id === connection.environment,
-  );
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    connection.projects,
-    environmentDoc,
-    true,
-  );
+  // Try to get cached payload from sdkConnectionCache (new method)
+  let payload: string;
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation !== "none") {
+    const cached = await context.models.sdkConnectionCache.getById(
+      connection.key,
+    );
+    if (cached) {
+      payload = cached.contents;
+    } else {
+      // Fallback to JIT generation if cache miss
+      const environmentDoc = context.org?.settings?.environments?.find(
+        (e) => e.id === connection.environment,
+      );
+      const filteredProjects = filterProjectsByEnvironmentWithNull(
+        connection.projects,
+        environmentDoc,
+        true,
+      );
 
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities: getConnectionSDKCapabilities(connection),
-    environment: connection.environment,
-    projects: filteredProjects,
-    encryptionKey: connection.encryptPayload
-      ? connection.encryptionKey
-      : undefined,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    hashSecureAttributes: connection.hashSecureAttributes,
-  });
+      const defs = await getFeatureDefinitions({
+        context,
+        capabilities: getConnectionSDKCapabilities(connection),
+        environment: connection.environment,
+        projects: filteredProjects,
+        encryptionKey: connection.encryptPayload
+          ? connection.encryptionKey
+          : undefined,
+        includeVisualExperiments: connection.includeVisualExperiments,
+        includeDraftExperiments: connection.includeDraftExperiments,
+        includeExperimentNames: connection.includeExperimentNames,
+        includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
+        hashSecureAttributes: connection.hashSecureAttributes,
+      });
 
-  const payload = JSON.stringify(defs);
+      payload = JSON.stringify(defs);
+    }
+  } else {
+    // Cache disabled, use JIT generation
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === connection.environment,
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      connection.projects,
+      environmentDoc,
+      true,
+    );
+
+    const defs = await getFeatureDefinitions({
+      context,
+      capabilities: getConnectionSDKCapabilities(connection),
+      environment: connection.environment,
+      projects: filteredProjects,
+      encryptionKey: connection.encryptPayload
+        ? connection.encryptionKey
+        : undefined,
+      includeVisualExperiments: connection.includeVisualExperiments,
+      includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
+      hashSecureAttributes: connection.hashSecureAttributes,
+    });
+
+    payload = JSON.stringify(defs);
+  }
 
   // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
   const signature = createHmac("sha256", connection.proxy.signingKey)

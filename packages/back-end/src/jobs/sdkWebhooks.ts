@@ -22,6 +22,7 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -331,30 +332,71 @@ export async function fireSdkWebhook(
       async (payloads: [string, Record<string, unknown>][], connection) => {
         if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-        const environmentDoc = webhookContext.org?.settings?.environments?.find(
-          (e) => e.id === connection.environment,
-        );
-        const filteredProjects = filterProjectsByEnvironmentWithNull(
-          connection.projects,
-          environmentDoc,
-          true,
-        );
+        // Try to get cached payload from sdkConnectionCache (new method)
+        const storageLocation = getSDKPayloadCacheLocation();
+        let defs: Record<string, unknown>;
+        if (storageLocation !== "none") {
+          const cached = await webhookContext.models.sdkConnectionCache.getById(
+            connection.key,
+          );
+          if (cached) {
+            defs = JSON.parse(cached.contents);
+          } else {
+            // Fallback to JIT generation if cache miss
+            const environmentDoc =
+              webhookContext.org?.settings?.environments?.find(
+                (e) => e.id === connection.environment,
+              );
+            const filteredProjects = filterProjectsByEnvironmentWithNull(
+              connection.projects,
+              environmentDoc,
+              true,
+            );
 
-        const defs = await getFeatureDefinitions({
-          context: webhookContext,
-          capabilities: getConnectionSDKCapabilities(connection),
-          environment: connection.environment,
-          projects: filteredProjects,
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          includeRedirectExperiments: connection.includeRedirectExperiments,
-          includeRuleIds: connection.includeRuleIds,
-          hashSecureAttributes: connection.hashSecureAttributes,
-        });
+            defs = await getFeatureDefinitions({
+              context: webhookContext,
+              capabilities: getConnectionSDKCapabilities(connection),
+              environment: connection.environment,
+              projects: filteredProjects,
+              encryptionKey: connection.encryptPayload
+                ? connection.encryptionKey
+                : undefined,
+              includeVisualExperiments: connection.includeVisualExperiments,
+              includeDraftExperiments: connection.includeDraftExperiments,
+              includeExperimentNames: connection.includeExperimentNames,
+              includeRedirectExperiments: connection.includeRedirectExperiments,
+              includeRuleIds: connection.includeRuleIds,
+              hashSecureAttributes: connection.hashSecureAttributes,
+            });
+          }
+        } else {
+          // Cache disabled, use JIT generation
+          const environmentDoc =
+            webhookContext.org?.settings?.environments?.find(
+              (e) => e.id === connection.environment,
+            );
+          const filteredProjects = filterProjectsByEnvironmentWithNull(
+            connection.projects,
+            environmentDoc,
+            true,
+          );
+
+          defs = await getFeatureDefinitions({
+            context: webhookContext,
+            capabilities: getConnectionSDKCapabilities(connection),
+            environment: connection.environment,
+            projects: filteredProjects,
+            encryptionKey: connection.encryptPayload
+              ? connection.encryptionKey
+              : undefined,
+            includeVisualExperiments: connection.includeVisualExperiments,
+            includeDraftExperiments: connection.includeDraftExperiments,
+            includeExperimentNames: connection.includeExperimentNames,
+            includeRedirectExperiments: connection.includeRedirectExperiments,
+            includeRuleIds: connection.includeRuleIds,
+            hashSecureAttributes: connection.hashSecureAttributes,
+          });
+        }
 
         return [[connection.key, defs], ...payloads];
       },
@@ -378,31 +420,71 @@ export async function fireGlobalSdkWebhooks(
   if (!connections.length) return;
 
   for (const connection of connections) {
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      connection.projects,
-      environmentDoc,
-      true,
-    );
+    // Try to get cached payload from sdkConnectionCache (new method)
+    const storageLocation = getSDKPayloadCacheLocation();
+    let payload: Record<string, unknown>;
+    if (storageLocation !== "none") {
+      const cached = await context.models.sdkConnectionCache.getById(
+        connection.key,
+      );
+      if (cached) {
+        payload = JSON.parse(cached.contents);
+      } else {
+        // Fallback to JIT generation if cache miss
+        const environmentDoc = context.org?.settings?.environments?.find(
+          (e) => e.id === connection.environment,
+        );
+        const filteredProjects = filterProjectsByEnvironmentWithNull(
+          connection.projects,
+          environmentDoc,
+          true,
+        );
 
-    const payload = await getFeatureDefinitions({
-      context,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
+        payload = await getFeatureDefinitions({
+          context,
+          capabilities: getConnectionSDKCapabilities(connection),
+          environment: connection.environment,
+          projects: filteredProjects,
+          encryptionKey: connection.encryptPayload
+            ? connection.encryptionKey
+            : undefined,
 
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      includeRuleIds: connection.includeRuleIds,
-      hashSecureAttributes: connection.hashSecureAttributes,
-    });
+          includeVisualExperiments: connection.includeVisualExperiments,
+          includeDraftExperiments: connection.includeDraftExperiments,
+          includeExperimentNames: connection.includeExperimentNames,
+          includeRedirectExperiments: connection.includeRedirectExperiments,
+          includeRuleIds: connection.includeRuleIds,
+          hashSecureAttributes: connection.hashSecureAttributes,
+        });
+      }
+    } else {
+      // Cache disabled, use JIT generation
+      const environmentDoc = context.org?.settings?.environments?.find(
+        (e) => e.id === connection.environment,
+      );
+      const filteredProjects = filterProjectsByEnvironmentWithNull(
+        connection.projects,
+        environmentDoc,
+        true,
+      );
+
+      payload = await getFeatureDefinitions({
+        context,
+        capabilities: getConnectionSDKCapabilities(connection),
+        environment: connection.environment,
+        projects: filteredProjects,
+        encryptionKey: connection.encryptPayload
+          ? connection.encryptionKey
+          : undefined,
+
+        includeVisualExperiments: connection.includeVisualExperiments,
+        includeDraftExperiments: connection.includeDraftExperiments,
+        includeExperimentNames: connection.includeExperimentNames,
+        includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
+        hashSecureAttributes: connection.hashSecureAttributes,
+      });
+    }
 
     WEBHOOKS.forEach((webhook) => {
       const {

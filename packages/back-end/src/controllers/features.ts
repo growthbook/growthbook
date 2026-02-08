@@ -86,10 +86,12 @@ import {
   arrayMove,
   evaluateAllFeatures,
   evaluateFeature,
+  FeatureDefinitionSDKPayload,
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -325,25 +327,57 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       );
     }
 
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment,
-    );
-    const defs = await getFeatureDefinitionsFilteredByEnvironment({
-      context,
-      projects,
-      environmentDoc,
-      capabilities,
-      encrypted,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-      savedGroupReferencesEnabled,
-      environment,
-    });
+    // Try to get cached payload from sdkConnectionCache (new method)
+    let defs: FeatureDefinitionSDKPayload;
+    const storageLocation = getSDKPayloadCacheLocation();
+    if (storageLocation !== "none") {
+      const cached = await context.models.sdkConnectionCache.getById(key);
+      if (cached) {
+        defs = JSON.parse(cached.contents);
+      } else {
+        // Fallback to JIT generation if cache miss
+        const environmentDoc = context.org?.settings?.environments?.find(
+          (e) => e.id === environment,
+        );
+        defs = await getFeatureDefinitionsFilteredByEnvironment({
+          context,
+          projects,
+          environmentDoc,
+          capabilities,
+          encrypted,
+          encryptionKey,
+          includeVisualExperiments,
+          includeDraftExperiments,
+          includeExperimentNames,
+          includeRedirectExperiments,
+          includeRuleIds,
+          hashSecureAttributes,
+          savedGroupReferencesEnabled,
+          environment,
+        });
+      }
+    } else {
+      // Cache disabled, use JIT generation
+      const environmentDoc = context.org?.settings?.environments?.find(
+        (e) => e.id === environment,
+      );
+      defs = await getFeatureDefinitionsFilteredByEnvironment({
+        context,
+        projects,
+        environmentDoc,
+        capabilities,
+        encrypted,
+        encryptionKey,
+        includeVisualExperiments,
+        includeDraftExperiments,
+        includeExperimentNames,
+        includeRedirectExperiments,
+        includeRuleIds,
+        hashSecureAttributes,
+        savedGroupReferencesEnabled,
+        environment,
+      });
+    }
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -417,15 +451,6 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       );
     }
 
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      projects,
-      environmentDoc,
-      true,
-    );
-
     // Evaluate features using provided attributes
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = req.body?.attributes || {};
@@ -437,19 +462,63 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     );
     const url = req.body?.url;
 
-    const defs = await getFeatureDefinitions({
-      context,
-      capabilities,
-      environment,
-      projects: filteredProjects,
-      encryptionKey: encrypted ? encryptionKey : "",
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      hashSecureAttributes,
-    });
+    // Try to get cached payload from sdkConnectionCache (new method)
+    let defs: FeatureDefinitionSDKPayload;
+    const storageLocation = getSDKPayloadCacheLocation();
+    if (storageLocation !== "none") {
+      const cached = await context.models.sdkConnectionCache.getById(key);
+      if (cached) {
+        defs = JSON.parse(cached.contents);
+      } else {
+        // Fallback to JIT generation if cache miss
+        const environmentDoc = context.org?.settings?.environments?.find(
+          (e) => e.id === environment,
+        );
+        const filteredProjects = filterProjectsByEnvironmentWithNull(
+          projects,
+          environmentDoc,
+          true,
+        );
+
+        defs = await getFeatureDefinitions({
+          context,
+          capabilities,
+          environment,
+          projects: filteredProjects,
+          encryptionKey: encrypted ? encryptionKey : "",
+          includeVisualExperiments,
+          includeDraftExperiments,
+          includeExperimentNames,
+          includeRedirectExperiments,
+          includeRuleIds,
+          hashSecureAttributes,
+        });
+      }
+    } else {
+      // Cache disabled, use JIT generation
+      const environmentDoc = context.org?.settings?.environments?.find(
+        (e) => e.id === environment,
+      );
+      const filteredProjects = filterProjectsByEnvironmentWithNull(
+        projects,
+        environmentDoc,
+        true,
+      );
+
+      defs = await getFeatureDefinitions({
+        context,
+        capabilities,
+        environment,
+        projects: filteredProjects,
+        encryptionKey: encrypted ? encryptionKey : "",
+        includeVisualExperiments,
+        includeDraftExperiments,
+        includeExperimentNames,
+        includeRedirectExperiments,
+        includeRuleIds,
+        hashSecureAttributes,
+      });
+    }
 
     // This endpoint should never be cached
     res.set("Cache-control", "no-store");

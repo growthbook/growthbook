@@ -5,6 +5,7 @@ import {
 } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getPayloadParamsFromApiKey } from "back-end/src/controllers/features";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
 
 export const getSdkPayload = createApiRequestHandler()(async (
   req,
@@ -15,6 +16,20 @@ export const getSdkPayload = createApiRequestHandler()(async (
     throw new Error("Missing API key in request");
   }
 
+  // Try to get cached payload from sdkConnectionCache (new method)
+  const storageLocation = getSDKPayloadCacheLocation();
+  if (storageLocation !== "none") {
+    const cached = await req.context.models.sdkConnectionCache.getById(key);
+    if (cached) {
+      const defs: FeatureDefinitionSDKPayload = JSON.parse(cached.contents);
+      return {
+        status: 200,
+        ...defs,
+      };
+    }
+  }
+
+  // Fallback to JIT generation if cache miss or cache disabled
   const {
     capabilities,
     environment,
