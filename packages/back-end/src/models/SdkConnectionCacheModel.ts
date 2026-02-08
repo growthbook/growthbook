@@ -4,11 +4,15 @@ import {
 } from "shared/validators";
 import { MakeModelClass } from "./BaseModel";
 
+// Increment this if we change the payload contents in a backwards-incompatible way
+export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
+
 const BaseClass = MakeModelClass({
   schema: sdkConnectionCacheValidator,
   collectionName: "sdkcache",
   idPrefix: "sdk-",
   globallyUniqueIds: true,
+  additionalIndexes: [{ fields: { id: 1, schemaVersion: 1 }, unique: true }],
 });
 
 export class SdkConnectionCacheModel extends BaseClass {
@@ -28,6 +32,13 @@ export class SdkConnectionCacheModel extends BaseClass {
     return true;
   }
 
+  public async getById(id: string) {
+    return await this._findOne({
+      id,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
+    });
+  }
+
   public async upsert(
     id: string,
     contents: string,
@@ -36,9 +47,11 @@ export class SdkConnectionCacheModel extends BaseClass {
     const existing = await this.getById(id);
     const updateData: {
       contents: string;
+      schemaVersion: number;
       audit?: SdkConnectionCacheAuditContext;
     } = {
       contents,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
     };
     if (auditContext) {
       updateData.audit = auditContext;
@@ -54,6 +67,7 @@ export class SdkConnectionCacheModel extends BaseClass {
     return await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
       id: /^legacy:/,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
     });
   }
 }
