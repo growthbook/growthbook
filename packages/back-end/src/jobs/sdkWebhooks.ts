@@ -4,7 +4,7 @@ import md5 from "md5";
 import { Promise as BluebirdPromise } from "bluebird";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
-import { getFeatureDefinitionsWithCacheForConnection } from "back-end/src/controllers/features";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { WEBHOOKS } from "back-end/src/util/secrets";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
@@ -329,9 +329,9 @@ export async function fireSdkWebhook(
       async (payloads: [string, Record<string, unknown>][], connection) => {
         if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-        const defs = await getFeatureDefinitionsWithCacheForConnection({
+        const defs = await getFeatureDefinitionsWithCache({
           context: webhookContext,
-          connection,
+          params: connection,
         });
 
         return [[connection.key, defs], ...payloads];
@@ -356,9 +356,9 @@ export async function fireGlobalSdkWebhooks(
   if (!connections.length) return;
 
   for (const connection of connections) {
-    const payload = await getFeatureDefinitionsWithCacheForConnection({
+    const payload = await getFeatureDefinitionsWithCache({
       context,
-      connection,
+      params: connection,
     });
 
     WEBHOOKS.forEach((webhook) => {

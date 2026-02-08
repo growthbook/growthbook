@@ -276,7 +276,7 @@ describe("getFeaturesPublic test holdout", () => {
       "project-1",
     ]);
 
-    // Mock getFeatureDefinitions (from services/features) to return test data where holdout is not included
+    // Mock getFeatureDefinitions to return test data where holdout is not included
     (getFeatureDefinitions as jest.Mock).mockResolvedValue({
       features: {
         "cached-feature": {

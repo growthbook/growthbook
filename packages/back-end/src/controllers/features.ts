@@ -2,8 +2,10 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
-import { z } from "zod";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "shared/types/sdk-connection";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -38,7 +40,6 @@ import {
   FeatureUsageDataPoint,
 } from "shared/types/feature";
 import { FeatureUsageRecords } from "shared/types/realtime";
-import { Environment } from "shared/types/organization";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
@@ -148,24 +149,29 @@ import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-ro
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 
-const sdkPayloadParamsSchema = z.object({
-  organization: z.string(),
-  capabilities: z.array(z.string()) as z.ZodType<SDKCapability[]>, // infer proper type, passthrough value
-  projects: z.array(z.string()),
-  environment: z.string(),
-  encrypted: z.boolean(),
-  encryptionKey: z.string().optional(),
-  includeVisualExperiments: z.boolean().optional(),
-  includeDraftExperiments: z.boolean().optional(),
-  includeExperimentNames: z.boolean().optional(),
-  includeRedirectExperiments: z.boolean().optional(),
-  includeRuleIds: z.boolean().optional(),
-  hashSecureAttributes: z.boolean().optional(),
-  remoteEvalEnabled: z.boolean().optional(),
-  savedGroupReferencesEnabled: z.boolean().optional(),
-});
-
-export type SDKPayloadParams = z.infer<typeof sdkPayloadParamsSchema>;
+// Subset of SDKConnectionInterface used for payload generation and caching
+// Using Pick to make it explicit this is derived from SDKConnectionInterface
+export type SDKPayloadParams = Pick<
+  SDKConnectionInterface,
+  | "key"
+  | "environment"
+  | "projects"
+  | "encryptPayload"
+  | "encryptionKey"
+  | "sdkVersion"
+  | "includeVisualExperiments"
+  | "includeDraftExperiments"
+  | "includeExperimentNames"
+  | "includeRedirectExperiments"
+  | "includeRuleIds"
+  | "hashSecureAttributes"
+  | "savedGroupReferencesEnabled"
+  | "remoteEvalEnabled"
+> &
+  Partial<Pick<SDKConnectionInterface, "organization">> & {
+    // Extend languages to allow "legacy" for old API keys
+    languages: SDKLanguage[] | ["legacy"];
+  };
 
 export async function getPayloadParamsFromApiKey(
   key: string,
@@ -187,11 +193,13 @@ export async function getPayloadParamsFromApiKey(
       });
     }
 
-    // Return connection properties with runtime validation
-    return sdkPayloadParamsSchema.parse({
+    // Return connection properties as passthrough
+    return {
+      key: connection.key,
       organization: connection.organization,
       environment: connection.environment,
       projects: connection.projects,
+      encryptPayload: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
@@ -201,9 +209,9 @@ export async function getPayloadParamsFromApiKey(
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-      capabilities: getConnectionSDKCapabilities(connection),
-      encrypted: connection.encryptPayload,
-    });
+      languages: connection.languages,
+      sdkVersion: connection.sdkVersion,
+    };
   }
   // Old, legacy API Key
   else {
@@ -233,14 +241,17 @@ export async function getPayloadParamsFromApiKey(
       projectFilter = project;
     }
 
-    return sdkPayloadParamsSchema.parse({
+    // Legacy API keys get special "legacy" marker for capabilities
+    return {
+      key,
       organization,
-      capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
-      encrypted: !!encryptSDK,
-      encryptionKey,
-    });
+      encryptPayload: !!encryptSDK,
+      encryptionKey: encryptionKey || "",
+      languages: ["legacy"],
+      sdkVersion: "0.0.0",
+    };
   }
 }
 
@@ -248,18 +259,15 @@ export async function getPayloadParamsFromApiKey(
  * Get feature definitions with cache-first strategy.
  * Checks sdkConnectionCache first, falls back to JIT generation on cache miss/corruption.
  *
- * Use this when you have individual connection parameters (e.g., from API key lookup).
- * Used by: getFeaturesPublic, getEvaluatedFeaturesPublic
+ * Accepts either:
+ * - Individual connection params (from API key lookup)
+ * - Full SDKConnectionInterface (from database)
  */
-async function getFeatureDefinitionsWithCache({
+export async function getFeatureDefinitionsWithCache({
   context,
-  key,
-  environmentDoc,
   params,
 }: {
   context: ReqContext | ApiReqContext;
-  key: string;
-  environmentDoc: Environment | undefined;
   params: SDKPayloadParams;
 }): Promise<FeatureDefinitionSDKPayload> {
   let defs: FeatureDefinitionSDKPayload | undefined;
@@ -267,7 +275,7 @@ async function getFeatureDefinitionsWithCache({
 
   // Try cache first
   if (storageLocation !== "none") {
-    const cached = await context.models.sdkConnectionCache.getById(key);
+    const cached = await context.models.sdkConnectionCache.getById(params.key);
     if (cached) {
       try {
         defs = JSON.parse(cached.contents);
@@ -279,6 +287,18 @@ async function getFeatureDefinitionsWithCache({
 
   // Generate if cache disabled, cache miss, or corrupt cache
   if (!defs) {
+    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys)
+    const capabilities =
+      params.languages[0] === "legacy"
+        ? ["bucketingV2" as SDKCapability] // hardcoded for legacy API keys
+        : getConnectionSDKCapabilities({
+            languages: params.languages as SDKLanguage[],
+            sdkVersion: params.sdkVersion,
+          });
+
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === params.environment,
+    );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       params.projects,
       environmentDoc,
@@ -287,10 +307,10 @@ async function getFeatureDefinitionsWithCache({
 
     defs = await getFeatureDefinitions({
       context,
-      capabilities: params.capabilities,
+      capabilities,
       environment: params.environment,
       projects: filteredProjects,
-      encryptionKey: params.encrypted ? params.encryptionKey : "",
+      encryptionKey: params.encryptPayload ? params.encryptionKey : undefined,
       includeVisualExperiments: params.includeVisualExperiments,
       includeDraftExperiments: params.includeDraftExperiments,
       includeExperimentNames: params.includeExperimentNames,
@@ -300,7 +320,7 @@ async function getFeatureDefinitionsWithCache({
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined
           ? params.savedGroupReferencesEnabled &&
-            params.capabilities.includes("savedGroupReferences")
+            capabilities.includes("savedGroupReferences")
           : undefined,
     });
 
@@ -310,96 +330,12 @@ async function getFeatureDefinitionsWithCache({
       const stackTrace = rawStack.replace(/^Error.*?\n/, "");
 
       context.models.sdkConnectionCache
-        .upsert(key, JSON.stringify(defs), {
+        .upsert(params.key, JSON.stringify(defs), {
           dateUpdated: new Date(),
           event: "cache-miss",
           model: "sdk-connection",
           stack: stackTrace,
-          connection: {
-            key,
-            environment: params.environment,
-            projects: params.projects,
-            capabilities: params.capabilities,
-          },
-        })
-        .catch((e) => {
-          logger.warn(e, "Failed to write JIT generated payload to cache");
-        });
-    }
-  }
-
-  return defs;
-}
-
-/**
- * Get feature definitions with cache-first strategy for an SDK connection.
- * Checks sdkConnectionCache first, falls back to JIT generation on cache miss/corruption.
- *
- * Used when you already have an SDK Connection (e.g., firing webhooks for a single connection).
- */
-export async function getFeatureDefinitionsWithCacheForConnection({
-  context,
-  connection,
-}: {
-  context: ReqContext | ApiReqContext;
-  connection: SDKConnectionInterface;
-}): Promise<FeatureDefinitionSDKPayload> {
-  let defs: FeatureDefinitionSDKPayload | undefined;
-  const storageLocation = getSDKPayloadCacheLocation();
-
-  // Try cache first
-  if (storageLocation !== "none") {
-    const cached = await context.models.sdkConnectionCache.getById(
-      connection.key,
-    );
-    if (cached) {
-      try {
-        defs = JSON.parse(cached.contents);
-      } catch (e) {
-        logger.warn(e, "Failed to parse cached SDK payload, regenerating");
-      }
-    }
-  }
-
-  // Generate if cache disabled, cache miss, or corrupt cache
-  if (!defs) {
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment,
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      connection.projects,
-      environmentDoc,
-      true,
-    );
-
-    defs = await getFeatureDefinitions({
-      context,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      includeRuleIds: connection.includeRuleIds,
-      hashSecureAttributes: connection.hashSecureAttributes,
-    });
-
-    // Write back to cache to populate it for future reads (fire and forget)
-    if (storageLocation !== "none") {
-      const rawStack = new Error().stack || "";
-      const stackTrace = rawStack.replace(/^Error.*?\n/, "");
-
-      context.models.sdkConnectionCache
-        .upsert(connection.key, JSON.stringify(defs), {
-          dateUpdated: new Date(),
-          event: "cache-miss",
-          model: "sdk-connection",
-          stack: stackTrace,
-          connection: connection as unknown as Record<string, unknown>,
+          connection: params as unknown as Record<string, unknown>,
         })
         .catch((e) => {
           logger.warn(e, "Failed to write JIT generated payload to cache");
@@ -419,6 +355,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     }
 
     const params = await getPayloadParamsFromApiKey(key, req);
+
+    if (!params.organization) {
+      throw new UnrecoverableApiError("Organization not found for API key");
+    }
+
     const context = await getContextForAgendaJobByOrgId(params.organization);
 
     if (params.remoteEvalEnabled) {
@@ -427,14 +368,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       );
     }
 
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === params.environment,
-    );
-
     const defs = await getFeatureDefinitionsWithCache({
       context,
-      key,
-      environmentDoc,
       params,
     });
 
@@ -489,6 +424,11 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     }
 
     const params = await getPayloadParamsFromApiKey(key, req);
+
+    if (!params.organization) {
+      throw new UnrecoverableApiError("Organization not found for API key");
+    }
+
     const context = await getContextForAgendaJobByOrgId(params.organization);
 
     if (!params.remoteEvalEnabled) {
@@ -508,14 +448,8 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     );
     const url = req.body?.url;
 
-    const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === params.environment,
-    );
-
     const defs = await getFeatureDefinitionsWithCache({
       context,
-      key,
-      environmentDoc,
       params,
     });
 

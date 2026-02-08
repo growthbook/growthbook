@@ -1,7 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getFeatureDefinitionsWithCacheForConnection } from "back-end/src/controllers/features";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   clearProxyError,
@@ -74,9 +74,9 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
   }
 
   const payload = JSON.stringify(
-    await getFeatureDefinitionsWithCacheForConnection({
+    await getFeatureDefinitionsWithCache({
       context,
-      connection,
+      params: connection,
     }),
   );
 
