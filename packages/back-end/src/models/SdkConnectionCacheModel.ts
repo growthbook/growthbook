@@ -49,3 +49,11 @@ export class SdkConnectionCacheModel extends BaseClass {
     return this.create({ id, ...updateData });
   }
 }
+
+// TODO: add support for S3 and GCS storage backends
+export function getSDKPayloadCacheLocation(): "mongo" | "none" {
+  const loc = process.env.SDK_PAYLOAD_CACHE;
+  if (loc === "none") return "none";
+  // Default to mongo
+  return "mongo";
+}
