@@ -3,7 +3,6 @@ import * as util from "shared/util";
 import * as featuresController from "back-end/src/controllers/features";
 const { getFeaturesPublic } = featuresController;
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { getSDKPayload } from "back-end/src/models/SdkPayloadModel";
 import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureDefinitions } from "back-end/src/services/features";
 
@@ -46,13 +45,10 @@ jest.mock("back-end/src/util/logger", () => ({
 jest.mock("back-end/src/controllers/features", () => {
   const actual = jest.requireActual("back-end/src/controllers/features");
   const mockGetPayloadParamsFromApiKey = jest.fn();
-  const mockGetFeatureDefinitionsFilteredByEnvironment = jest.fn();
 
   return {
     ...actual,
     getPayloadParamsFromApiKey: mockGetPayloadParamsFromApiKey,
-    getFeatureDefinitionsFilteredByEnvironment:
-      mockGetFeatureDefinitionsFilteredByEnvironment,
   };
 });
 
@@ -65,17 +61,15 @@ jest.mock("shared/util", () => ({
 jest.mock("back-end/src/services/features", () => ({
   getFeatureDefinitions: jest.fn(),
   getSavedGroupMap: jest.fn(),
-  updateSDKPayload: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/SdkPayloadModel", () => ({
-  getSDKPayload: jest.fn(),
-  updateSDKPayload: jest.fn(),
-  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("mongo"),
+jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
+  getSDKPayloadCacheLocation: jest.fn().mockReturnValue("none"), // Skip cache, use JIT
+  SdkConnectionCacheModel: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -178,7 +172,7 @@ describe("getFeaturesPublic test holdout", () => {
       "project-2",
     ]);
 
-    // Mock getFeatureDefinitions to return test data with holdouts
+    // Mock getFeatureDefinitions (from services/features) to return test data with holdouts
     (getFeatureDefinitions as jest.Mock).mockResolvedValue({
       features: {
         "feature-with-holdout": {
@@ -207,46 +201,25 @@ describe("getFeaturesPublic test holdout", () => {
       savedGroups: {},
     });
 
-    // Mock getSDKPayload to return null (so it doesn't use cached data)
-    (getSDKPayload as jest.Mock).mockResolvedValue(null);
-
-    // Mock cached SDK payload to test the cache path
-    const cachedDate = new Date("2023-01-01");
-    const mockedSDKPayloadData = {
+    // Mock getPayloadParamsFromApiKey
+    (
+      featuresController.getPayloadParamsFromApiKey as jest.Mock
+    ).mockResolvedValue({
       organization: "test-org-id",
+      capabilities: ["prerequisites"],
       environment: "production",
-      dateUpdated: cachedDate,
-      deployed: true,
-      schemaVersion: 1,
-      contents: JSON.stringify({
-        features: {
-          "cached-feature": {
-            defaultValue: "cached_value",
-            rules: [],
-          },
-          "feature-with-holdout": {
-            defaultValue: "default_value",
-            projects: ["project-2"],
-            rules: [
-              {
-                id: "holdout_abc123",
-                parentConditions: [
-                  {
-                    id: "$holdout:hld_test_holdout",
-                    condition: { value: "holdoutcontrol" },
-                  },
-                ],
-                force: "holdout_value",
-              },
-            ],
-          },
-        },
-        experiments: [],
-        savedGroupsInUse: [],
-      }),
-    };
-
-    getSDKPayload.mockResolvedValue(mockedSDKPayloadData);
+      encrypted: false,
+      projects: ["project-1", "project-2"],
+      encryptionKey: undefined,
+      includeVisualExperiments: false,
+      includeDraftExperiments: false,
+      includeExperimentNames: true,
+      includeRedirectExperiments: false,
+      includeRuleIds: true,
+      hashSecureAttributes: false,
+      remoteEvalEnabled: false,
+      savedGroupReferencesEnabled: false,
+    });
 
     // Call the actual getFeaturesPublic function
     // This will call the real getFeatureDefinitions function
@@ -303,7 +276,7 @@ describe("getFeaturesPublic test holdout", () => {
       "project-1",
     ]);
 
-    // Mock getFeatureDefinitions to return test data where holdout is not included
+    // Mock getFeatureDefinitions (from services/features) to return test data where holdout is not included
     (getFeatureDefinitions as jest.Mock).mockResolvedValue({
       features: {
         "cached-feature": {
@@ -331,58 +304,6 @@ describe("getFeaturesPublic test holdout", () => {
       dateUpdated: new Date("2023-01-01"),
       savedGroups: {},
     });
-
-    // Mock cached SDK payload to test the cache path
-    const cachedDate = new Date("2023-01-01");
-    const mockedSDKPayloadData = {
-      organization: "test-org-id",
-      environment: "production",
-      dateUpdated: cachedDate,
-      deployed: true,
-      schemaVersion: 1,
-      contents: JSON.stringify({
-        features: {
-          "cached-feature": {
-            defaultValue: "cached_value",
-            rules: [],
-          },
-          "feature-with-holdout": {
-            defaultValue: "default_value",
-            rules: [
-              {
-                id: "holdout_abc123",
-                parentConditions: [
-                  {
-                    id: "$holdout:hld_test_holdout",
-                    condition: { value: "holdoutcontrol" },
-                  },
-                ],
-                force: "holdout_value",
-              },
-            ],
-          },
-        },
-        experiments: [],
-        savedGroupsInUse: [],
-        holdouts: {
-          "$holdout:hld_test_holdout": {
-            defaultValue: "genpop",
-            projects: ["project-1"],
-            rules: [
-              {
-                id: "holdout_rule",
-                variations: ["holdoutcontrol", "holdouttreatment"],
-                weights: [0.5, 0.5],
-                hashAttribute: "id",
-                coverage: 0.1,
-              },
-            ],
-          },
-        },
-      }),
-    };
-
-    (getSDKPayload as jest.Mock).mockResolvedValue(mockedSDKPayloadData);
 
     // Call the actual getFeaturesPublic function
     // This will call the real getFeatureDefinitions function
