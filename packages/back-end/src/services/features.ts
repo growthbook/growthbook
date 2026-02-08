@@ -92,10 +92,8 @@ import {
   getParsedCondition,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
-import {
-  getSDKPayloadCacheLocation,
-  updateSDKPayload,
-} from "back-end/src/models/SdkPayloadModel";
+import { updateSDKPayload } from "back-end/src/models/SdkPayloadModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
@@ -613,12 +611,7 @@ async function refreshSDKPayloadCache({
       (sg) => sg.id in savedGroupsInUse,
     );
 
-    // ============================================================================
-    // TODO: LEGACY CACHE WRITE - REMOVE AFTER TRANSITION TO NEW CACHE
-    // This writes to the old org+environment level cache (SdkPayloadCache collection).
-    // The new sdkConnectionCache (per-connection) is the primary cache now.
-    // Once we're confident the new cache has 100% coverage, remove this write.
-    // ============================================================================
+    // TODO: Remove legacy cache write (SdkPayloadCache collection)
     if (payloadKeyEnvironments.has(environment)) {
       promises.push(async () => {
         logger.debug(
@@ -1025,10 +1018,8 @@ export async function getFeatureDefinitions({
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
-  // JIT generation (no legacy cache read - new cache should handle most requests)
-  // By default, we fetch ALL features/experiments/etc since we cache the result
-  // and re-use it across multiple SDK connections with different settings.
-  // If we're not caching the result, we can just fetch what we need right now.
+  // JIT generation
+  // When caching, fetch ALL data to reuse across connections. Otherwise, filter by projects.
   const filterByProjects = getSDKPayloadCacheLocation() === "none";
 
   let attributes: SDKAttributeSchema | undefined = undefined;
@@ -1106,12 +1097,7 @@ export async function getFeatureDefinitions({
     (sg) => sg.id in savedGroupsInUse,
   );
 
-  // ============================================================================
-  // TODO: LEGACY CACHE WRITE - REMOVE AFTER TRANSITION TO NEW CACHE
-  // This writes to the old org+environment level cache (SdkPayloadCache collection).
-  // The new sdkConnectionCache (per-connection) is the primary cache now.
-  // Once we're confident the new cache has 100% coverage, remove this write.
-  // ============================================================================
+  // TODO: Remove legacy cache write (SdkPayloadCache collection)
   await updateSDKPayload({
     organization: context.org.id,
     environment,

@@ -22,7 +22,7 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{

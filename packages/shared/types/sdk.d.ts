@@ -9,26 +9,17 @@ export interface FeatureDefinition {
   rules?: FeatureDefinitionRule[];
 }
 
-/**
- * @deprecated Used by legacy SDK payload cache (org + environment level)
- * The new sdkConnectionCache stores fully-processed payloads per connection
- */
+/** @deprecated Legacy type. Use standard FeatureDefinition instead. */
 export type FeatureDefinitionWithProject = FeatureDefinition & {
   project?: string;
 };
 
-/**
- * @deprecated Used by legacy SDK payload cache (org + environment level)
- * The new sdkConnectionCache stores fully-processed payloads per connection
- */
+/** @deprecated Legacy type. Use standard FeatureDefinition instead. */
 export type FeatureDefinitionWithProjects = FeatureDefinition & {
   projects?: string[];
 };
 
-/**
- * @deprecated Used by legacy SDK payload cache (org + environment level)
- * The new sdkConnectionCache stores fully-processed payloads per connection
- */
+/** @deprecated Legacy type. Use standard AutoExperiment instead. */
 export type AutoExperimentWithProject = AutoExperiment & {
   project?: string;
 };

@@ -91,7 +91,7 @@ import {
   getFeatureDefinitions,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,

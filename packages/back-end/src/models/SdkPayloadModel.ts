@@ -1,13 +1,6 @@
 /**
- * @deprecated Legacy SDK payload cache model (org + environment level)
- * This model stores pre-processed feature definitions at the organization + environment level.
- * It still requires post-processing (scrubbing) for each SDK connection.
- *
- * Use the new SdkConnectionCacheModel instead, which stores fully-processed,
- * connection-specific payloads that are ready to serve directly.
- *
- * Collection: SdkPayloadCache
- * Key: { organization, environment, schemaVersion }
+ * @deprecated Legacy cache (org + environment level)
+ * Use SdkConnectionCacheModel instead (connection-specific, fully-processed).
  */
 import mongoose from "mongoose";
 import {
@@ -20,6 +13,7 @@ import {
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
 } from "back-end/types/sdk-payload";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
@@ -60,23 +54,8 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
   }
 }
 
-// TODO: add support for S3 and GCS
 /**
- * @deprecated Legacy cache location check
- * This function checks if the legacy (org + environment) cache should be used.
- * The new sdkConnectionCache (per-connection) also respects this setting.
- */
-export function getSDKPayloadCacheLocation(): "mongo" | "none" {
-  const loc = process.env.SDK_PAYLOAD_CACHE;
-  if (loc === "none") return "none";
-  // Default to mongo
-  return "mongo";
-}
-
-/**
- * @deprecated Legacy SDK payload cache reader (org + environment level)
- * Retrieves pre-processed feature definitions that still require scrubbing per connection.
- * Use sdkConnectionCache.getById() instead for fully-processed payloads.
+ * @deprecated Use sdkConnectionCache.getById() instead.
  */
 export async function getSDKPayload({
   organization,
@@ -99,11 +78,7 @@ export async function getSDKPayload({
   return doc ? toInterface(doc) : null;
 }
 
-/**
- * @deprecated Legacy SDK payload cache writer (org + environment level)
- * Stores pre-processed feature definitions that still require scrubbing per connection.
- * Use sdkConnectionCache.upsert() instead for fully-processed payloads.
- */
+/** @deprecated Use sdkConnectionCache.upsert() instead. */
 export async function updateSDKPayload({
   organization,
   environment,

@@ -5,7 +5,7 @@ import {
 } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getPayloadParamsFromApiKey } from "back-end/src/controllers/features";
-import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkPayloadModel";
+import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 
 export const getSdkPayload = createApiRequestHandler()(async (
   req,
