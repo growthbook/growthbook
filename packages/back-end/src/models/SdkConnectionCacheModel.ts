@@ -74,10 +74,6 @@ export function formatLegacyCacheKey({
   return parts.join(":");
 }
 
-export function isLegacyCacheKey(key: string): boolean {
-  return key.startsWith(LEGACY_KEY_PREFIX);
-}
-
 // TODO: add support for S3 and GCS storage backends
 export function getSDKPayloadCacheLocation(): "mongo" | "none" {
   const loc = process.env.SDK_PAYLOAD_CACHE;
