@@ -227,7 +227,6 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             })
             .filter((v) => {
               if (creatable) return true;
-              // Use the map to check if the value exists in the flattened options
               return map.has(v);
             });
 
