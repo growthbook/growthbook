@@ -16,13 +16,13 @@ import {
 import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import {
   PiCheckCircleFill,
   PiCircleDuotone,
   PiFileX,
   PiInfo,
+  PiPlusCircleBold,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
@@ -33,7 +33,7 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/validators";
 import Button from "@/ui/Button";
-import { GBAddCircle, GBEdit } from "@/components/Icons";
+import { GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
@@ -75,6 +75,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
+import Link from "@/ui/Link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import {
@@ -84,7 +85,7 @@ import {
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
-import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
+import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import { FeatureUsageContainer, useFeatureUsage } from "./FeatureUsageGraph";
@@ -859,10 +860,11 @@ export default function FeaturesOverview({
                 commercialFeature="prerequisites"
                 className="d-inline-flex align-items-center mt-3"
               >
-                <Button
-                  variant="ghost"
-                  disabled={!hasPrerequisitesCommercialFeature}
+                <Link
                   onClick={() => {
+                    if (!hasPrerequisitesCommercialFeature) {
+                      return;
+                    }
                     setPrerequisiteModal({
                       i: getPrerequisites(feature).length,
                     });
@@ -870,12 +872,18 @@ export default function FeaturesOverview({
                       source: "add-prerequisite",
                     });
                   }}
+                  style={{
+                    opacity: !hasPrerequisitesCommercialFeature ? 0.5 : 1,
+                    cursor: !hasPrerequisitesCommercialFeature
+                      ? "not-allowed"
+                      : "pointer",
+                  }}
                 >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBAddCircle />
-                  </span>
-                  Add Prerequisite Feature
-                </Button>
+                  <Text weight="bold">
+                    <PiPlusCircleBold className="mr-1" />
+                    Add prerequisite targeting
+                  </Text>
+                </Link>
               </PremiumTooltip>
             )}
           </Box>
