@@ -115,3 +115,79 @@ export interface ScimGroupPatchRequest extends BaseScimRequest {
     Operations: ScimGroupOperation[];
   };
 }
+
+export interface ScimServiceProviderConfig {
+  schemas: ["urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"];
+  documentationUri?: string;
+  patch: {
+    supported: boolean;
+  };
+  bulk: {
+    supported: boolean;
+    maxOperations: number;
+    maxPayloadSize: number;
+  };
+  filter: {
+    supported: boolean;
+    maxResults: number;
+  };
+  changePassword: {
+    supported: boolean;
+  };
+  sort: {
+    supported: boolean;
+  };
+  etag: {
+    supported: boolean;
+  };
+  authenticationSchemes: Array<{
+    type: string;
+    name: string;
+    description: string;
+    specUri?: string;
+    primary?: boolean;
+  }>;
+  meta?: {
+    resourceType: string;
+    location: string;
+  };
+}
+
+export interface ScimSchemaAttribute {
+  name: string;
+  type:
+    | "string"
+    | "boolean"
+    | "decimal"
+    | "integer"
+    | "dateTime"
+    | "reference"
+    | "complex";
+  multiValued: boolean;
+  description: string;
+  required: boolean;
+  caseExact?: boolean;
+  mutability: "readOnly" | "readWrite" | "immutable" | "writeOnly";
+  returned: "always" | "never" | "default" | "request";
+  uniqueness?: "none" | "server" | "global";
+  subAttributes?: ScimSchemaAttribute[];
+}
+
+export interface ScimSchema {
+  id: string;
+  name: string;
+  description: string;
+  attributes: ScimSchemaAttribute[];
+  meta: {
+    resourceType: "Schema";
+    location: string;
+  };
+}
+
+export interface ScimSchemasResponse {
+  schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"];
+  totalResults: number;
+  itemsPerPage: number;
+  startIndex: number;
+  Resources: ScimSchema[];
+}
