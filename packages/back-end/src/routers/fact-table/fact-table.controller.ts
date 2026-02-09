@@ -242,7 +242,7 @@ export const postFactTable = async (
     }
 
     data.columns = columns;
-    data.columnRefreshPending = needsBackgroundRefresh || undefined;
+    data.columnRefreshPending = needsBackgroundRefresh;
   }
 
   const factTable = await createFactTable(context, data);
@@ -299,7 +299,7 @@ export const putFactTable = async (
 
     data.columns = columns;
     data.columnsError = null;
-    data.columnRefreshPending = needsBackgroundRefresh || undefined;
+    data.columnRefreshPending = needsBackgroundRefresh;
 
     // Check for removed columns and trigger cleanup
     const removedColumns = detectRemovedColumns(originalColumns, data.columns);
