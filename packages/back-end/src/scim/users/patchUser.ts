@@ -26,10 +26,39 @@ export async function removeUserFromOrg(
   }
 
   const userIndex = org.members.findIndex((member) => member.id === user.id);
-
   updatedOrgMembers.splice(userIndex, 1);
 
   await updateOrganization(org.id, { members: updatedOrgMembers });
+}
+
+function parseActiveStatus(operation: {
+  op: string;
+  path?: string;
+  value?: boolean | string | { active?: boolean; [key: string]: unknown };
+}): boolean | null {
+  const { path, value } = operation;
+
+  // Azure format: { op: "replace", path: "active", value: false }
+  if (path?.toLowerCase() === "active") {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      return value.toLowerCase() === "true";
+    }
+  }
+
+  // Okta format: { op: "replace", value: { active: false } }
+  if (typeof value === "object" && value !== null && "active" in value) {
+    return value.active === true;
+  }
+
+  // Some providers send direct boolean (edge case)
+  if (typeof value === "boolean" && !path) {
+    return value;
+  }
+
+  return null; // No active status change in this operation
 }
 
 export async function patchUser(
@@ -38,11 +67,10 @@ export async function patchUser(
 ) {
   const { Operations } = req.body;
   const { id: userId } = req.params;
-
   const org = req.organization;
 
+  // Find user in organization
   const orgUser = org.members.find((member) => member.id === userId);
-
   if (!orgUser) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -51,8 +79,8 @@ export async function patchUser(
     });
   }
 
+  // Verify user is managed by IdP
   const expandedMember = await expandOrgMembers([orgUser]);
-
   if (!expandedMember[0].managedByIdp) {
     return res.status(401).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -61,34 +89,38 @@ export async function patchUser(
     });
   }
 
-  const updatedScimUser: ScimUser = expandedMembertoScimUser(
-    expandedMember[0],
-    false,
-  );
+  let shouldDeactivate = false;
 
   for (const operation of Operations) {
-    const { op, value } = operation;
-    // Okta will only ever use PATCH to activate/deactivate a user or sync a user's password
-    // https://developer.okta.com/docs/reference/scim/scim-20/#update-a-specific-user-patch
-    // Azure sends op and value as title case, so need to normalize
-    if (op.toLowerCase() === "replace") {
-      const setUserInactive =
-        // Okta sends value as a string and Azure sends value as an object
-        typeof value === "string" ? value === "False" : value.active === false;
+    const { op } = operation;
 
-      if (setUserInactive) {
-        try {
-          await removeUserFromOrg(org, orgUser);
-        } catch (e) {
-          return res.status(400).json({
-            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-            status: "400",
-            detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
-          });
-        }
+    if (op.toLowerCase() === "replace") {
+      const activeStatus = parseActiveStatus(operation);
+
+      if (activeStatus !== null) {
+        shouldDeactivate = !activeStatus;
       }
     }
   }
 
-  return res.status(200).json(updatedScimUser);
+  let userWasRemoved = false;
+  if (shouldDeactivate) {
+    try {
+      await removeUserFromOrg(org, orgUser);
+      userWasRemoved = true;
+    } catch (e) {
+      return res.status(400).json({
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        status: "400",
+        detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
+      });
+    }
+  }
+
+  const responseUser = expandedMembertoScimUser(
+    expandedMember[0],
+    !userWasRemoved,
+  );
+
+  return res.status(200).json(responseUser);
 }
