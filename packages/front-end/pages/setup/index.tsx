@@ -205,6 +205,9 @@ export default function SetupFlow() {
               includeRedirectExperiments: canUseUrlRedirects,
               includeRuleIds: true,
               projects: project ? [project] : [],
+              includeProjectId: false,
+              includeCustomFields: [],
+              includeTagsInPayload: false,
             };
 
             const res = await apiCall<{ connection: SDKConnectionInterface }>(

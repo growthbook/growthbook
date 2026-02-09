@@ -17,6 +17,7 @@ export default function ProjectModal({
     defaultValues: {
       name: existing.name || "",
       description: existing.description || "",
+      publicId: existing.publicId || "",
     },
   });
   const { apiCall } = useAuth();
@@ -36,6 +37,13 @@ export default function ProjectModal({
       })}
     >
       <Field label="Name" maxLength={30} required {...form.register("name")} />
+      <Field
+        label="Public ID"
+        maxLength={64}
+        placeholder="Auto-generated from name if left blank"
+        helpText="A URL-safe identifier that can be included in SDK payloads. Uses lowercase letters, numbers, and dashes only."
+        {...form.register("publicId")}
+      />
       <Field
         label="Description"
         maxLength={100}

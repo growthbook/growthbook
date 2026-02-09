@@ -5,7 +5,15 @@ import {
   ProjectSettings,
   projectValidator,
 } from "shared/validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { MakeModelClass } from "./BaseModel";
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 type MigratedProject = Omit<ProjectInterface, "settings"> & {
   settings: Partial<ProjectInterface["settings"]>;
@@ -58,6 +66,50 @@ export class ProjectModel extends BaseClass {
     };
 
     return { ...doc, settings };
+  }
+
+  protected async beforeCreate(data: Partial<ProjectInterface>) {
+    // Auto-generate publicId if not provided
+    if (!data.publicId && data.name) {
+      const baseSlug = slugify(data.name);
+      let publicId = baseSlug;
+      let counter = 1;
+
+      // Check for uniqueness
+      while (true) {
+        const existing = await this._findOne({
+          organization: this.context.org.id,
+          publicId,
+        });
+        if (!existing) break;
+        publicId = `${baseSlug}-${counter}`;
+        counter++;
+      }
+
+      data.publicId = publicId;
+    }
+  }
+
+  protected async afterUpdate(
+    original: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+  ) {
+    // If publicId changed, trigger cache refresh
+    if (
+      updates.publicId !== undefined &&
+      updates.publicId !== original.publicId
+    ) {
+      queueSDKPayloadRefresh({
+        context: this.context,
+        payloadKeys: [],
+        sdkConnections: [],
+        auditContext: {
+          event: "updated",
+          model: "project",
+          id: original.id,
+        },
+      });
+    }
   }
 
   public create(project: CreateProjectProps) {

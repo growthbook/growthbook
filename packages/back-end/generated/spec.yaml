@@ -1613,6 +1613,14 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectId:
+                  type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInPayload:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1701,6 +1709,14 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeProjectId:
+                  type: boolean
+                includeCustomFields:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInPayload:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -12876,6 +12892,14 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeProjectId:
+          type: boolean
+        includeCustomFields:
+          type: array
+          items:
+            type: string
+        includeTagsInPayload:
           type: boolean
         key:
           type: string

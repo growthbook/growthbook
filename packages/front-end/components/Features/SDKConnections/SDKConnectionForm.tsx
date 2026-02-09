@@ -43,6 +43,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import Checkbox from "@/ui/Checkbox";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
@@ -154,6 +155,9 @@ export default function SDKConnectionForm({
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
       savedGroupReferencesEnabled:
         initialValue.savedGroupReferencesEnabled ?? false,
+      includeProjectId: initialValue.includeProjectId ?? false,
+      includeCustomFields: initialValue.includeCustomFields ?? [],
+      includeTagsInPayload: initialValue.includeTagsInPayload ?? false,
     },
   });
 
@@ -1230,6 +1234,84 @@ export default function SDKConnectionForm({
               value={!!form.watch("includeRuleIds")}
               setValue={(val) => form.setValue("includeRuleIds", val)}
             />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label>Metadata</label>
+          <div className="mt-2">
+            <div className="mb-2 d-flex align-items-center">
+              <Checkbox
+                value={form.watch("includeProjectId")}
+                setValue={(val) => form.setValue("includeProjectId", val)}
+                label={
+                  <Tooltip
+                    body={
+                      <>
+                        <p className="mb-0">
+                          When enabled, each feature and experiment in the SDK
+                          payload will include a <code>metadata.projects</code>{" "}
+                          array containing the project's public ID (or internal ID
+                          if no public ID is set).
+                        </p>
+                      </>
+                    }
+                  >
+                    <label
+                      className="mb-0 cursor-pointer"
+                      htmlFor="sdk-connection-include-project-id-toggle"
+                    >
+                      Include project ID in metadata <FaInfoCircle />
+                    </label>
+                  </Tooltip>
+                }
+              />
+            </div>
+            <div className="mb-2">
+              <label className="mb-1">Include custom fields</label>
+              <MultiSelectField
+                placeholder="None selected"
+                containerClassName="w-100"
+                value={form.watch("includeCustomFields") || []}
+                onChange={(fields) => form.setValue("includeCustomFields", fields)}
+                options={(useCustomFields() || []).map((cf) => ({
+                  label: cf.name,
+                  value: cf.id,
+                }))}
+                sort={false}
+                closeMenuOnSelect={true}
+              />
+              <small className="form-text text-muted">
+                Selected custom field values will be included in the{" "}
+                <code>metadata.customFields</code> object for each feature and
+                experiment.
+              </small>
+            </div>
+            <div className="mb-2 d-flex align-items-center">
+              <Checkbox
+                value={form.watch("includeTagsInPayload")}
+                setValue={(val) => form.setValue("includeTagsInPayload", val)}
+                label={
+                  <Tooltip
+                    body={
+                      <>
+                        <p className="mb-0">
+                          When enabled, all feature tags will be included in the{" "}
+                          <code>metadata.tags</code> array for each feature in the
+                          SDK payload.
+                        </p>
+                      </>
+                    }
+                  >
+                    <label
+                      className="mb-0 cursor-pointer"
+                      htmlFor="sdk-connection-include-tags-toggle"
+                    >
+                      Include all tags in metadata <FaInfoCircle />
+                    </label>
+                  </Tooltip>
+                }
+              />
+            </div>
           </div>
         </div>
       </div>

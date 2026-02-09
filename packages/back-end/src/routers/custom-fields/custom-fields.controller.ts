@@ -7,6 +7,91 @@ import {
 } from "shared/types/custom-fields";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { convertCustomFieldValue } from "back-end/src/services/customFieldMigration";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { FeatureModel } from "back-end/src/models/FeatureModel";
+import { ExperimentModel } from "back-end/src/models/ExperimentModel";
+
+/**
+ * Migrate custom field values in features and experiments after a type change
+ */
+async function migrateCustomFieldValues(
+  context: ReqContext | ApiReqContext,
+  fieldId: string,
+  section: CustomFieldSection,
+  fromType: CustomFieldTypes,
+  toType: CustomFieldTypes,
+  fromValues?: string,
+  toValues?: string,
+) {
+  if (section === "feature") {
+    // Migrate feature custom field values
+    const features = await FeatureModel.find({
+      organization: context.org.id,
+      [`customFields.${fieldId}`]: { $exists: true },
+    });
+
+    for (const feature of features) {
+      const oldValue = feature.customFields?.[fieldId];
+      if (oldValue === null || oldValue === undefined) continue;
+
+      const newValue = convertCustomFieldValue(
+        oldValue,
+        fromType,
+        toType,
+        toValues,
+      );
+
+      if (newValue === null) {
+        // Scrub the value
+        await FeatureModel.updateOne(
+          { _id: feature._id },
+          { $unset: { [`customFields.${fieldId}`]: "" } },
+        );
+      } else if (newValue !== oldValue) {
+        // Convert the value
+        await FeatureModel.updateOne(
+          { _id: feature._id },
+          { $set: { [`customFields.${fieldId}`]: newValue } },
+        );
+      }
+    }
+  } else if (section === "experiment") {
+    // Migrate experiment custom field values
+    const experiments = await ExperimentModel.find({
+      organization: context.org.id,
+      [`customFields.${fieldId}`]: { $exists: true },
+    });
+
+    for (const experiment of experiments) {
+      const oldValue = experiment.customFields?.[fieldId];
+      if (oldValue === null || oldValue === undefined) continue;
+
+      const newValue = convertCustomFieldValue(
+        oldValue,
+        fromType,
+        toType,
+        toValues,
+      );
+
+      if (newValue === null) {
+        // Scrub the value
+        await ExperimentModel.updateOne(
+          { _id: experiment._id },
+          { $unset: { [`customFields.${fieldId}`]: "" } },
+        );
+      } else if (newValue !== oldValue) {
+        // Convert the value
+        await ExperimentModel.updateOne(
+          { _id: experiment._id },
+          { $set: { [`customFields.${fieldId}`]: newValue } },
+        );
+      }
+    }
+  }
+}
 
 // region POST /custom-fields
 
@@ -216,6 +301,20 @@ export const putCustomField = async (
 
   req.checkPermissions("manageCustomFields");
 
+  // Get the existing custom field to detect type changes
+  const existingField =
+    await context.models.customFields.getCustomFieldByFieldId(id);
+
+  if (!existingField) {
+    return context.throwNotFoundError("Custom field not found");
+  }
+
+  const typeChanged = existingField.type !== type;
+  const valuesChanged =
+    (existingField.type === "enum" || existingField.type === "multiselect") &&
+    existingField.values !== values;
+
+  // Update the custom field definition
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
     {
@@ -235,6 +334,31 @@ export const putCustomField = async (
   if (!newCustomFields) {
     context.throwInternalServerError("Custom field not updated");
   }
+
+  // If type or enum values changed, migrate existing custom field values
+  if (typeChanged || valuesChanged) {
+    await migrateCustomFieldValues(
+      context,
+      id,
+      section,
+      existingField.type,
+      type,
+      existingField.values,
+      values,
+    );
+  }
+
+  // Trigger cache refresh since custom field definitions changed
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [],
+    auditContext: {
+      event: "updated",
+      model: "custom-field",
+      id,
+    },
+  });
 
   return res.status(200).json({
     status: 200,
@@ -271,6 +395,18 @@ export const deleteCustomField = async (
   if (!customFields) {
     return context.throwNotFoundError("Custom field not found");
   }
+
+  // Trigger cache refresh since custom field deleted
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys: [],
+    sdkConnections: [],
+    auditContext: {
+      event: "deleted",
+      model: "custom-field",
+      id,
+    },
+  });
 
   res.status(200).json({
     status: 200,

@@ -168,6 +168,9 @@ export type SDKPayloadParams = Pick<
   | "hashSecureAttributes"
   | "savedGroupReferencesEnabled"
   | "remoteEvalEnabled"
+  | "includeProjectId"
+  | "includeCustomFields"
+  | "includeTagsInPayload"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -206,6 +209,9 @@ export async function getPayloadParamsFromApiKey(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
+      includeProjectId: connection.includeProjectId,
+      includeCustomFields: connection.includeCustomFields,
+      includeTagsInPayload: connection.includeTagsInPayload,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -257,6 +263,10 @@ export async function getPayloadParamsFromApiKey(
       encryptionKey: encryptionKey || "",
       languages: ["legacy"], // "legacy" marker for computing basic capabilities (bucketingV2)
       sdkVersion: "0.0.0",
+      // Legacy API keys don't include metadata
+      includeProjectId: false,
+      includeCustomFields: [],
+      includeTagsInPayload: false,
     };
   }
 }
@@ -317,6 +327,9 @@ export async function getFeatureDefinitionsWithCache({
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
       includeRuleIds: params.includeRuleIds,
+      includeProjectId: params.includeProjectId,
+      includeCustomFields: params.includeCustomFields,
+      includeTagsInPayload: params.includeTagsInPayload,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined

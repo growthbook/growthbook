@@ -46,6 +46,7 @@ import {
   FeatureDefinitionWithProject,
   FeatureDefinitionWithProjects,
 } from "shared/types/sdk";
+import { ProjectInterface } from "shared/types/project";
 import {
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
@@ -117,6 +118,10 @@ export function generateFeaturesPayload({
   prereqStateCache = {},
   safeRolloutMap,
   holdoutsMap,
+  includeProjectId,
+  includeCustomFields,
+  includeTagsInPayload,
+  projectsMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -128,6 +133,10 @@ export function generateFeaturesPayload({
     string,
     { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
+  includeProjectId?: boolean;
+  includeCustomFields?: string[];
+  includeTagsInPayload?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -148,7 +157,39 @@ export function generateFeaturesPayload({
       holdoutsMap,
     });
     if (def) {
-      defs[feature.id] = def;
+      // Add metadata if any fields are requested
+      const metadata: Record<string, unknown> = {};
+
+      // Project ID
+      if (includeProjectId && feature.project && projectsMap) {
+        const project = projectsMap.get(feature.project);
+        if (project) {
+          metadata.projects = [project.publicId || project.id];
+        }
+      }
+
+      // Custom fields (filtered by whitelist)
+      if (includeCustomFields?.length && feature.customFields) {
+        const filtered: Record<string, unknown> = {};
+        for (const fieldId of includeCustomFields) {
+          if (feature.customFields[fieldId] !== undefined) {
+            filtered[fieldId] = feature.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filtered).length > 0) {
+          metadata.customFields = filtered;
+        }
+      }
+
+      // Tags (ALL tags if enabled - no filtering)
+      if (includeTagsInPayload && feature.tags?.length) {
+        metadata.tags = feature.tags;
+      }
+
+      defs[feature.id] = {
+        ...def,
+        ...(Object.keys(metadata).length > 0 && { metadata }),
+      };
     }
   });
 
@@ -216,6 +257,10 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
+  includeProjectId,
+  includeCustomFields,
+  includeTagsInPayload,
+  projectsMap,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -223,6 +268,10 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
+  includeProjectId?: boolean;
+  includeCustomFields?: string[];
+  includeTagsInPayload?: boolean;
+  projectsMap?: Map<string, ProjectInterface>;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -358,6 +407,40 @@ export function generateAutoExperimentsPayload({
 
       if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
         exp.persistQueryString = true;
+      }
+
+      // Add metadata if any fields are requested
+      const metadata: Record<string, unknown> = {};
+
+      // Project ID
+      if (includeProjectId && e.project && projectsMap) {
+        const project = projectsMap.get(e.project);
+        if (project) {
+          metadata.projects = [project.publicId || project.id];
+        }
+      }
+
+      // Custom fields (filtered by whitelist)
+      if (includeCustomFields?.length && e.customFields) {
+        const filtered: Record<string, unknown> = {};
+        for (const fieldId of includeCustomFields) {
+          if (e.customFields[fieldId] !== undefined) {
+            filtered[fieldId] = e.customFields[fieldId];
+          }
+        }
+        if (Object.keys(filtered).length > 0) {
+          metadata.customFields = filtered;
+        }
+      }
+
+      // Tags (ALL tags if enabled - no filtering)
+      if (includeTagsInPayload && e.tags?.length) {
+        metadata.tags = e.tags;
+      }
+
+      if (Object.keys(metadata).length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (exp as any).metadata = metadata;
       }
 
       return exp;
@@ -998,6 +1081,9 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectId?: boolean;
+  includeCustomFields?: string[];
+  includeTagsInPayload?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -1023,6 +1109,9 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   includeRuleIds,
+  includeProjectId,
+  includeCustomFields,
+  includeTagsInPayload,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -1060,6 +1149,13 @@ export async function getFeatureDefinitions({
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
 
+  // Load projects if metadata is requested
+  let projectsMap: Map<string, ProjectInterface> | undefined;
+  if (includeProjectId) {
+    const allProjects = await context.models.projects.getAll();
+    projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
+
   const prereqStateCache: Record<
     string,
     Record<string, PrerequisiteStateResult>
@@ -1073,6 +1169,10 @@ export async function getFeatureDefinitions({
     prereqStateCache,
     safeRolloutMap,
     holdoutsMap,
+    includeProjectId,
+    includeCustomFields,
+    includeTagsInPayload,
+    projectsMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1096,6 +1196,10 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
+    includeProjectId,
+    includeCustomFields,
+    includeTagsInPayload,
+    projectsMap,
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(

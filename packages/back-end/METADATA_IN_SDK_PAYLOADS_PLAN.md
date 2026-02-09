@@ -488,13 +488,7 @@ The metadata PR will build on this foundation!
 
 ## Phase 6: Documentation
 
-- [ ] **`packages/back-end/src/services/SDK_PAYLOAD_FLOW.md`**
-  - Update flow diagram to reflect new simpler approach
-  - Remove references to "union of SDK connection whitelists"
-  - Remove references to intermediate `.project` fields
-  - Update Step 3 to show metadata is generated per-connection
-  - Simplify Step 7 (remove JIT metadata filtering section)
-  - Add examples of metadata in payload
+Update documentation to reflect the metadata feature.
 
 - [ ] **Update SDK documentation** (docs site)
   - Document `metadata` field in feature definitions
@@ -588,23 +582,15 @@ When custom field definitions change (type, projects, enum values), intelligentl
   - date/datetime conversions: safe
   - Others: scrub
 
-- [ ] **Preview API:** `GET /custom-fields/:id/migration-preview`
-  - Shows impact of proposed change
-  - Counts affected entities
-  - Calculates how many will convert vs scrub
-
-- [ ] **Migration Execution:** `PUT /custom-fields/:id?confirmed=true`
-  - Requires confirmation if data loss
-  - Performs smart conversion
-  - Scrubs incompatible values
-  - Triggers cache refresh
+- [ ] **Backend Migration Logic (PUT /custom-fields/:id)**
+  - Automatically perform smart conversion on type/enum changes
+  - Scrub incompatible values based on safety matrix
+  - Trigger cache refresh after migration
 
 - [ ] **Frontend Warning UI**
-  - Show preview before applying change
-  - Require checkbox confirmation for data loss
-  - Display migration statistics
-
-See detailed design in context window discussion.
+  - Show warning message when making potentially destructive changes
+  - Use safety matrix to determine if change is safe/unsafe
+  - No detailed stats or confirmation required - just inform user
 
 ### Future Enhancement: Accept `publicId` in REST API Filters
 
@@ -731,5 +717,4 @@ These items were completed in previous work and provide the foundation for the m
 
 - Original PR: https://github.com/growthbook/growthbook/pull/4877
 - Original branch: `bryce/metadata-projects-in-sdk-payload`
-- New cache system docs: `packages/back-end/src/services/SDK_PAYLOAD_FLOW.md`
 - Context window discussion: [Date: 2025-02-07]
