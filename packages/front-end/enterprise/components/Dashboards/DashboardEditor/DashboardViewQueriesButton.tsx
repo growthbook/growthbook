@@ -1,8 +1,9 @@
 import { useContext } from "react";
-import { Flex, Text, TextProps } from "@radix-ui/themes";
+import { Flex, TextProps } from "@radix-ui/themes";
 import { FaExclamationTriangle } from "react-icons/fa";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import Button, { Props as ButtonProps } from "@/ui/Button";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 

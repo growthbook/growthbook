@@ -5,12 +5,13 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaPlus } from "react-icons/fa";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
@@ -70,7 +71,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
       <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
           <Flex align="center" gap="3" mb="0">
-            <Heading as="h3" size="4" mb="0">
+            <Heading as="h3" size="medium" mb="0">
               Feature Usage Query
             </Heading>
           </Flex>

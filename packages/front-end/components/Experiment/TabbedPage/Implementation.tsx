@@ -5,7 +5,7 @@ import {
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { useState } from "react";
-import { Heading, Text } from "@radix-ui/themes";
+
 import { HoldoutInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
@@ -17,6 +17,8 @@ import VariationsTable from "@/components/Experiment/VariationsTable";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
@@ -106,7 +108,7 @@ export default function Implementation({
         {!isHoldout && (
           <div className="box my-3 mb-4 px-2 py-3">
             <div className="d-flex flex-row align-items-center justify-content-between text-dark px-3 mb-3">
-              <Heading as="h4" size="3" mb="0">
+              <Heading as="h4" size="small" mb="0">
                 Variations
               </Heading>
               <div className="flex-1" />

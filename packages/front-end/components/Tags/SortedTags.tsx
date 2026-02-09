@@ -1,6 +1,6 @@
-import { Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
 import Tag from "./Tag";
 
 export interface Props {

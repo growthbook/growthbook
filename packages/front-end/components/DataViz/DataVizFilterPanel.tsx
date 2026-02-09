@@ -1,10 +1,11 @@
-import { Box, Flex, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { DataVizConfig, FilterConfiguration } from "shared/validators";
 import { useEffect, useState } from "react";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import Button from "@/ui/Button";
@@ -111,7 +112,7 @@ export default function DataVizFilterPanel({
                 borderBottom: "1px solid var(--gray-a3)",
               }}
             >
-              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+              <Text color="text-mid" weight="medium">
                 <Flex justify="between" align="center">
                   <Flex align="center" gap="1">
                     <PiSlidersHorizontal
@@ -234,7 +235,7 @@ export default function DataVizFilterPanel({
                 }}
               >
                 <FaPlusCircle className="mr-1" />
-                <Text as="span" className="font-weight-bold">
+                <Text as="span" weight="semibold">
                   <Tooltip body="Filters can be used to filter the data returned by the query, before it is aggregated and displayed.">
                     Add Filter
                   </Tooltip>

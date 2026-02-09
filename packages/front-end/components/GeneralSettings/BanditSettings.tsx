@@ -2,12 +2,13 @@ import { useFormContext } from "react-hook-form";
 import React from "react";
 import clsx from "clsx";
 import { ScopedSettings } from "shared/settings";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
+import Heading from "@/ui/Heading";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -37,7 +38,7 @@ export default function BanditSettings({
       <Flex gap="4" p="5">
         {page === "org-settings" && (
           <Box width="220px" flexShrink="0">
-            <Heading size="4" as="h4">
+            <Heading size="medium" as="h4">
               Bandit Settings
             </Heading>
           </Box>

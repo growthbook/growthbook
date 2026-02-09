@@ -2,8 +2,9 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
 } from "shared/enterprise";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 

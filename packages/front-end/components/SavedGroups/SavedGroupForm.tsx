@@ -12,7 +12,7 @@ import {
 } from "shared/util";
 import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -28,6 +28,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import Text from "@/ui/Text";
 
 const SavedGroupForm: FC<{
   close: () => void;

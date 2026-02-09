@@ -1,11 +1,12 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
 import { PiCameraSlashLight } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Text from "@/ui/Text";
 import styles from "./ExperimentCarouselModal.module.scss";
 
 const ExperimentCarouselModal: FC<{
@@ -234,7 +235,7 @@ const ExperimentCarouselModal: FC<{
                       color: "var(--slate-a9)",
                     }}
                   >
-                    <Text size="8">
+                    <Text size="large">
                       <PiCameraSlashLight />
                     </Text>
                   </Flex>
@@ -310,7 +311,7 @@ const ExperimentCarouselModal: FC<{
                                   color: "var(--slate-a9)",
                                 }}
                               >
-                                <Text size="8">
+                                <Text size="large">
                                   <PiCameraSlashLight />
                                 </Text>
                               </Flex>

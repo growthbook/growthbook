@@ -13,7 +13,7 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "shared/validators";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
@@ -27,6 +27,7 @@ import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { SelectItem } from "@/ui/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
@@ -1006,10 +1007,7 @@ export default function SqlExplorerModal({
                           <Flex align="center" justify="between">
                             <Flex gap="4" align="center">
                               <Box>
-                                <Text
-                                  weight="bold"
-                                  style={{ color: "var(--color-text-mid)" }}
-                                >
+                                <Text weight="semibold" color="text-mid">
                                   SQL
                                 </Text>
                               </Box>
@@ -1067,7 +1065,7 @@ export default function SqlExplorerModal({
                                       disabled={true}
                                     />
                                     <Text
-                                      size="1"
+                                      size="small"
                                       weight="medium"
                                       style={{ color: "var(--gray-8)" }}
                                       className="cursor-pointer"
@@ -1238,10 +1236,7 @@ export default function SqlExplorerModal({
                       <AreaWithHeader
                         header={
                           <Flex align="center" gap="1">
-                            <Text
-                              weight="bold"
-                              style={{ color: "var(--color-text-mid)" }}
-                            >
+                            <Text weight="semibold" color="text-mid">
                               Data Sources
                             </Text>
                           </Flex>

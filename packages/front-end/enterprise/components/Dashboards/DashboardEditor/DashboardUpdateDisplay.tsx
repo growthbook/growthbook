@@ -1,11 +1,12 @@
 import React, { useContext, useMemo } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -66,7 +67,7 @@ function DashboardStatusSummary({
 
   return (
     <Flex gap="1" align="center">
-      <Text size="1">
+      <Text size="small">
         {enableAutoUpdates && updateSchedule?.type !== "never" && (
           <Tooltip
             tipPosition="top"
@@ -80,7 +81,7 @@ function DashboardStatusSummary({
           </Tooltip>
         )}
       </Text>
-      <Text size="1" color={textColor}>
+      <Text size="small" color={textColor}>
         {content}
       </Text>
       {tooltipBody && (

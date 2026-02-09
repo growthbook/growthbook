@@ -11,12 +11,13 @@ import { FaMarkdown } from "react-icons/fa";
 import ReactTextareaAutocomplete from "@webscopeio/react-textarea-autocomplete";
 import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -322,7 +323,7 @@ const MarkdownInput: FC<{
             {aiSuggestionText && (
               <div className="mt-2">
                 <Flex align="center" justify="between" my="4">
-                  <Heading size="2" weight="medium">
+                  <Heading size="small" as="h3" weight="medium">
                     {aiSuggestionHeader}:
                   </Heading>
                   <Flex gap="2">

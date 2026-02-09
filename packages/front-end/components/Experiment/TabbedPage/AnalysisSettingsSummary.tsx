@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { Box, Flex, Text, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -24,6 +24,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { startCase } from "lodash";
+import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { trackSnapshot } from "@/services/track";
@@ -835,7 +836,7 @@ export default function AnalysisSettingsSummary({
           </Callout>
           {isExperimentIncludedInIncrementalRefresh && (
             <Box mt="2" mb="2" style={{ color: "var(--color-text-low)" }}>
-              <Text size="1">
+              <Text size="small">
                 If this error persists, you can try disabling Incremental
                 Refresh for this experiment by{" "}
                 <Link onClick={handleDisableIncrementalRefresh}>

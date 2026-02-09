@@ -1,4 +1,4 @@
-import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
@@ -16,6 +16,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { experimentDate } from "@/services/experiments";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
@@ -188,7 +190,7 @@ const CompletedExperimentList = ({
               <Box key={e.trackingKey} className="appbox" mb="4" p="6" pt="5">
                 <Flex align="center" mb="4">
                   <Box flexGrow="1">
-                    <Heading as="h2" size="5" mb="0">
+                    <Heading as="h2" size="large" mb="0">
                       <Link
                         href={`/experiment/${e.id}`}
                         className="w-100 no-link-color text-dark"
@@ -198,7 +200,7 @@ const CompletedExperimentList = ({
                     </Heading>
                   </Box>
                   <Box>
-                    <Text size="1" weight="bold">
+                    <Text size="small" weight="semibold">
                       <Link href={`/experiment/${e.id}`}>
                         View experiment <PiArrowSquareOutBold />
                       </Link>

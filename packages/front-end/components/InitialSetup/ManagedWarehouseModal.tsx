@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { Box, Separator, Text } from "@radix-ui/themes";
+import { Box, Separator } from "@radix-ui/themes";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -15,6 +15,7 @@ import {
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
 
@@ -188,7 +189,7 @@ export default function ManagedWarehouseModal({
             required
           />
           <Box mt="2">
-            <Text size="1" mb="2">
+            <Text size="small" mb="2">
               Do not include any sensitive or regulated personal data in your
               analytics events unless it is properly de-identified in accordance
               with applicable legal standards.

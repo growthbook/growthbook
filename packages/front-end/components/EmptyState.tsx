@@ -1,5 +1,6 @@
 import { FC } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 
 const EmptyState: FC<{
   title: string;
@@ -12,12 +13,12 @@ const EmptyState: FC<{
     <Box p="60px" pb="70px" className={`box text-center`}>
       <Flex direction="column" align="center" gap="8px">
         <Text
-          size="6"
+          size="large"
           style={{ fontWeight: 500, color: "var(--color-text-high)" }}
         >
           {title}
         </Text>
-        <Text size="3" style={{ color: "var(--color-text-mid)" }}>
+        <Text size="large" color="text-mid">
           {description}
         </Text>
 

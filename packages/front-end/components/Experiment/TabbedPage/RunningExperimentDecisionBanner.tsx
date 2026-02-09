@@ -1,4 +1,4 @@
-import { Text, Flex, Box } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -11,6 +11,7 @@ import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 
 interface Props {
@@ -72,21 +73,21 @@ export default function RunningExperimentDecisionBanner({
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-success" />
-        <Text weight="bold">Ship now:</Text>
+        <Text weight="semibold">Ship now:</Text>
       </>
     );
   } else if (runningExperimentStatus.status === "ready-for-review") {
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-warning" />
-        <Text weight="bold">Ready for review:</Text>
+        <Text weight="semibold">Ready for review:</Text>
       </>
     );
   } else if (runningExperimentStatus.status === "rollback-now") {
     decisionContent = (
       <>
         <BsLightningFill className="mx-1 text-danger" />
-        <Text weight="bold">Rollback now:</Text>
+        <Text weight="semibold">Rollback now:</Text>
       </>
     );
   }

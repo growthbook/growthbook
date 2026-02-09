@@ -1,4 +1,4 @@
-import { Box, Flex, Text, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   AddressElement,
   PaymentElement,
@@ -19,6 +19,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 
 export const taxIdTypeOptions: { label: string; value: TaxIdType }[] = [

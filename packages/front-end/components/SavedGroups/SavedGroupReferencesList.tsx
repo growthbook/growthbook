@@ -2,10 +2,11 @@ import { FC } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Link from "@/ui/Link";
+import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 
 interface SavedGroupReferencesListProps {
@@ -34,7 +35,7 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
             trigger={
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
-                <Heading size="2" mb="0">
+                <Heading size="small" as="h3" mb="0">
                   Features
                 </Heading>
                 <Badge radius="full" label={features.length.toString()} />
@@ -74,7 +75,7 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
             trigger={
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
-                <Heading size="2" mb="0">
+                <Heading size="small" as="h3" mb="0">
                   Experiments
                 </Heading>
                 <Badge radius="full" label={experiments.length.toString()} />
@@ -114,7 +115,7 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
             trigger={
               <Flex align="center" gap="1">
                 <PiCaretRightFill className="chevron" />
-                <Heading size="2" mb="0">
+                <Heading size="small" as="h3" mb="0">
                   Saved Groups
                 </Heading>
                 <Badge radius="full" label={savedGroups.length.toString()} />

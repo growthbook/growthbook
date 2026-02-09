@@ -5,7 +5,7 @@ import {
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "shared/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -13,6 +13,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -116,7 +117,7 @@ export const ExperimentAssignmentQueries: FC<
       <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
           <Flex align="center" gap="3" mb="0">
-            <Heading as="h3" size="4" mb="0">
+            <Heading as="h3" size="medium" mb="0">
               Experiment Assignment Queries
             </Heading>
             <Badge
@@ -159,7 +160,7 @@ export const ExperimentAssignmentQueries: FC<
               {/* region Title Bar */}
               <Box width="100%">
                 <Flex>
-                  <Heading as="h4" size="3" mb="1">
+                  <Heading as="h4" size="small" mb="1">
                     {query.name}
                   </Heading>
                   {query.description && (

@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { useMemo, useState } from "react";
-import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
@@ -27,6 +27,8 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -135,7 +137,7 @@ export default function FeaturesHeader({
 
           <Flex align="center" justify="between">
             <Flex align="center" mb="2">
-              <Heading size="7" as="h1" mb="0">
+              <Heading size="2x-large" as="h1" mb="0">
                 {feature.id}
               </Heading>
               {stale && (

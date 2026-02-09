@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -20,6 +20,7 @@ import {
 } from "@/components/FactTables/NewMetricModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -89,7 +90,7 @@ export default function DataSourceMetrics({
       <Flex align="center" justify="between" mb="3">
         <Box>
           <Flex align="center" gap="3" mb="0">
-            <Heading as="h4" size="4" mb="0">
+            <Heading as="h4" size="medium" mb="0">
               Metrics
             </Heading>
             <Badge
@@ -149,7 +150,8 @@ export default function DataSourceMetrics({
                       <div className="pr-3">
                         <div className="mr-5 w-100">
                           <Heading
-                            size="3"
+                            size="small"
+                            as="h3"
                             mb="1"
                             className={metric.archived ? "text-muted" : ""}
                           >

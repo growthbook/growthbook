@@ -15,8 +15,10 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
-import { Box, Card, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -349,7 +351,7 @@ export default function EditSavedGroupPage() {
       />
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
-          <Heading size="7" as="h1">
+          <Heading size="2x-large" as="h1">
             {savedGroup.groupName}
           </Heading>
           <DropdownMenu
@@ -471,7 +473,7 @@ export default function EditSavedGroupPage() {
         )}
         {savedGroup.type === "condition" ? (
           <>
-            <Heading size="4" mb="3">
+            <Heading size="medium" as="h3" mb="3">
               Condition
             </Heading>
             <Text as="p" mb="3">

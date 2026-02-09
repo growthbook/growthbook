@@ -9,10 +9,11 @@ import { QueryStatus, Queries } from "shared/types/query";
 import clsx from "clsx";
 import { PiPlay, PiArrowClockwise, PiXBold } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
-import { IconButton, Progress, Text } from "@radix-ui/themes";
+import { IconButton, Progress } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 function getTimeDisplay(seconds: number): string {

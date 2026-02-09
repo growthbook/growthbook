@@ -3,13 +3,14 @@ import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { useMemo, useState } from "react";
 import { JSONColumnFields } from "shared/types/fact-table";
-import { Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { PiArrowClockwise, PiSpinner } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 
 interface BaseProps {
   existingColumnNames: string[];

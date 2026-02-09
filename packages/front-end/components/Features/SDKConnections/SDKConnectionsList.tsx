@@ -12,7 +12,7 @@ import {
 import clsx from "clsx";
 import type { SDKLanguage } from "shared/types/sdk-connection";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -25,6 +25,8 @@ import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
@@ -108,10 +110,10 @@ export default function SDKConnectionsList() {
       style={{ backgroundColor: "var(--color-panel-solid)" }}
     >
       <Flex direction="column" align="center">
-        <Heading as="h2" size="6" align="center">
+        <Heading as="h2" size="x-large" align="center">
           Easily integrate GrowthBook into your app or website
         </Heading>
-        <Text size="3" align="center">
+        <Text size="large" align="center">
           Select one of our SDKs to connect your front-end, back-end or mobile
           app.
         </Text>

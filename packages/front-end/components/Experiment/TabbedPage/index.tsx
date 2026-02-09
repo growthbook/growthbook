@@ -14,7 +14,6 @@ import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -47,6 +46,7 @@ import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";

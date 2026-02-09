@@ -1,7 +1,7 @@
 import { FeatureInterface } from "shared/types/feature";
 import React, { forwardRef } from "react";
 import Link from "next/link";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
@@ -10,6 +10,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -86,7 +87,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                     mr="3"
                     align="center"
                   >
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+                    <Heading as="h4" size="small" weight="medium" mb="0">
                       <Flex gap="3" align="center">
                         <div>Holdout: </div>
                         <Link href={`/holdout/${feature.holdout?.id}`}>

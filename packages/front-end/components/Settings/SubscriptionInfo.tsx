@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
@@ -9,6 +9,7 @@ import { planNameFromAccountPlan } from "@/services/utils";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
+import Text from "@/ui/Text";
 import UpgradeModal from "./UpgradeModal";
 import UpdateOrbSubscriptionModal from "./UpdateOrbSubscriptionModal";
 
@@ -73,7 +74,7 @@ export default function SubscriptionInfo() {
           showHeaderCloseButton={false}
         >
           <Box mr="5">
-            <Text as="p" size="3" weight="medium">
+            <Text as="p" size="large" weight="medium">
               How can we improve?
             </Text>
             <Text as="span">

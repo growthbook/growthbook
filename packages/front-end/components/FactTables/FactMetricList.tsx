@@ -5,7 +5,7 @@ import {
 import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
-import { Text } from "@radix-ui/themes";
+
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
@@ -289,7 +290,7 @@ export default function FactMetricList({
                                 >
                                   <Text
                                     weight="medium"
-                                    size="1"
+                                    size="small"
                                     color={hasNoLevels ? "red" : undefined}
                                   >
                                     {column?.name || slice}
@@ -307,7 +308,7 @@ export default function FactMetricList({
                               color: "var(--color-text-low)",
                               fontStyle: "italic",
                             }}
-                            size="1"
+                            size="small"
                           >
                             No auto slices
                           </Text>

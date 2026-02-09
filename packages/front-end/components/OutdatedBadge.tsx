@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { PiInfo } from "react-icons/pi";
-import { Text } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 
 const OutdatedBadge: FC<{
   label?: string;

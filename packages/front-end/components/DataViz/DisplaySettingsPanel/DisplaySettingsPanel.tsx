@@ -1,8 +1,9 @@
 import React, { ReactNode } from "react";
-import { Box, Text, Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { PiPalette } from "react-icons/pi";
+import Text from "@/ui/Text";
 
 export default function DisplaySettingsPanel({
   children,
@@ -33,7 +34,7 @@ export default function DisplaySettingsPanel({
                 borderBottom: "1px solid var(--gray-a3)",
               }}
             >
-              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+              <Text color="text-mid" weight="medium">
                 <Flex justify="between" align="center">
                   <Flex align="center" gap="1">
                     <PiPalette

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { AgreementType } from "shared/validators";
 import { PiCaretRight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -7,6 +7,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 
 // hard coded agreements for now:
 const agreements: Record<
@@ -196,11 +197,7 @@ const OptInModal = ({
         useRadixButton={true}
       >
         <>
-          <Text
-            size="5"
-            weight="bold"
-            style={{ color: "var(--color-text-high)" }}
-          >
+          <Text size="large" weight="semibold" color="text-high">
             {isAdmin ? title : noPermissionTitle}
           </Text>
           {isAdmin ? (
@@ -212,11 +209,7 @@ const OptInModal = ({
             >
               {subtitle !== "" && (
                 <Box mb="3">
-                  <Text
-                    size="3"
-                    weight="regular"
-                    style={{ color: "var(--color-text-mid)" }}
-                  >
+                  <Text size="large" weight="regular" color="text-mid">
                     {subtitle}
                   </Text>
                 </Box>
@@ -238,7 +231,7 @@ const OptInModal = ({
             </Box>
           ) : (
             <Box mb="3" mt="5">
-              <Text size="3" style={{ color: "var(--color-text-high)" }}>
+              <Text size="large" color="text-high">
                 {noPermission}
               </Text>
             </Box>

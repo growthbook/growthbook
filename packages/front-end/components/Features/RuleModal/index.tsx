@@ -18,7 +18,7 @@ import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
-import { Text } from "@radix-ui/themes";
+
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
@@ -50,6 +50,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
+import Text from "@/ui/Text";
 import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
 import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
@@ -734,7 +735,7 @@ export default function RuleModal({
         autoCloseOnSubmit={false}
       >
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="4" weight="bold" as="div" mb="4">
+          <Text size="large" weight="semibold" as="div" mb="4">
             Select Implementation
           </Text>
           <Text>MANUAL</Text>

@@ -7,12 +7,13 @@ import { ParentSizeModern } from "@visx/responsive";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { curveLinear } from "@visx/curve";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { MetricTimeSeries } from "shared/validators";
 import { datetime, getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
 import { RadixTheme } from "@/services/RadixTheme";
 import Table, { TableBody, TableRow, TableRowHeaderCell } from "@/ui/Table";
+import Text from "@/ui/Text";
 import {
   getExperimentMetricFormatter,
   getMetricFormatter,
@@ -446,7 +447,7 @@ function getTooltipContent(
           </Text>
         </Flex>
         <Text
-          size="1"
+          size="small"
           style={{ color: "var(--color-text-medium)", maxWidth: 325 }}
         >
           {statusInfo.description}

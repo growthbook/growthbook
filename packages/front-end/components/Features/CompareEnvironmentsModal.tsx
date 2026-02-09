@@ -1,13 +1,14 @@
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { Flex, useThemeContext, Text } from "@radix-ui/themes";
+import { Flex, useThemeContext } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 
 export interface Props {
   feature: FeatureInterface;

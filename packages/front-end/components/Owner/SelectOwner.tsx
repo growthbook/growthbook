@@ -1,8 +1,8 @@
-import { Text } from "@radix-ui/themes";
 import useMembers from "@/hooks/useMembers";
 import metaDataStyles from "@/ui/Metadata.module.scss";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import SelectField from "@/components/Forms/SelectField";
+import Text from "@/ui/Text";
 
 interface Props {
   value: string;

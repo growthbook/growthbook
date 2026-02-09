@@ -1,7 +1,8 @@
 import { DataSourceType } from "shared/types/datasource";
-import { Text } from "@radix-ui/themes";
+
 import { dataSourceConnections } from "@/services/eventSchema";
 import RadioCards from "@/ui/RadioCards";
+import Text from "@/ui/Text";
 
 export interface Props {
   value: DataSourceType | "";

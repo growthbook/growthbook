@@ -7,10 +7,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Heading from "@/ui/Heading";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -139,7 +140,7 @@ export const FilterDropdown: FC<{
       }}
     >
       <Box px="2" py="1" mb="1">
-        <Heading as="h4" size="2" weight="bold" mb="0">
+        <Heading as="h4" size="small" weight="semibold" mb="0">
           Filter by {heading ?? filter}
         </Heading>
         {showSearchFilter && (

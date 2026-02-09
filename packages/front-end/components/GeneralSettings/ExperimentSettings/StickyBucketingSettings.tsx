@@ -1,5 +1,5 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import React from "react";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -11,6 +11,8 @@ import {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 
@@ -25,7 +27,7 @@ export default function StickyBucketingSettings() {
     <ConnectSettingsForm>
       {({ watch, setValue }) => (
         <>
-          <Heading mb="4" as="h3" size="3">
+          <Heading mb="4" as="h3" size="small">
             Sticky Bucketing Settings
           </Heading>
 
@@ -101,7 +103,7 @@ export default function StickyBucketingSettings() {
             </Flex>
           )}
           <Callout status="info" mt="3" contentsAs="div">
-            <Text size="2">
+            <Text size="medium">
               <StickyBucketingToggleWarning
                 showIcon={false}
                 skipMargin={true}

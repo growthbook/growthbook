@@ -1,7 +1,7 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { useEffect, useRef, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/ui/LinkButton";

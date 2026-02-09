@@ -4,7 +4,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -27,6 +27,8 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -168,7 +170,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="7" mb="0">
+          <Heading as="h1" size="2x-large" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -357,7 +359,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
             {isManagedWarehouse ? (
               <>
                 <Frame>
-                  <Heading as="h3" size="4" mb="2">
+                  <Heading as="h3" size="medium" mb="2">
                     Sending Events
                   </Heading>
                   <Text>

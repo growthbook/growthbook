@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { PiPencilSimpleFill, PiStackBold, PiX } from "react-icons/pi";
-import { Text, IconButton } from "@radix-ui/themes";
+import { IconButton } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import track from "@/services/track";
 
@@ -86,7 +87,7 @@ export default function FactTableAutoSliceSelector({
           <Text
             as="span"
             style={{ color: "var(--color-text-low)", fontStyle: "italic" }}
-            size="1"
+            size="small"
           >
             No slices available. Configure your fact table to enable auto
             slices.
@@ -179,7 +180,7 @@ export default function FactTableAutoSliceSelector({
           <Text
             as="span"
             style={{ color: "var(--color-text-low)", fontStyle: "italic" }}
-            size="1"
+            size="small"
           >
             No auto slices
           </Text>

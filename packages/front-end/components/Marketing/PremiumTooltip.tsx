@@ -1,12 +1,13 @@
 import { CommercialFeature } from "shared/enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
 import { planNameFromAccountPlan } from "@/services/utils";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import Text from "@/ui/Text";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature?: CommercialFeature;

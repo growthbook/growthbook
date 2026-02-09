@@ -3,11 +3,13 @@ import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { FeatureValueType } from "shared/types/feature";
 import Link from "next/link";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -71,7 +73,7 @@ export default function LinkedChange({
                     >
                       <Heading
                         as="h4"
-                        size="3"
+                        size="small"
                         weight="medium"
                         mb="0"
                         className="d-inline-flex align-items-center"
@@ -91,7 +93,7 @@ export default function LinkedChange({
                   <Flex gap="1" direction="column" flexGrow="1">
                     <Heading
                       as="h4"
-                      size="3"
+                      size="small"
                       weight="medium"
                       mb="0"
                       className="d-inline-flex align-items-center"

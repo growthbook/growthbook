@@ -1,8 +1,9 @@
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { ConnectSettingsForm } from "@/pages/settings";
 import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 
 export default function NorthStarMetricSettings() {
   return (
@@ -11,7 +12,7 @@ export default function NorthStarMetricSettings() {
         <Frame>
           <Flex gap="4">
             <Box width="220px" flexShrink="0">
-              <Heading size="4" as="h4">
+              <Heading size="medium" as="h4">
                 North Star Metrics
               </Heading>
             </Box>

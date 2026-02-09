@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   DecisionFrameworkMetricOverrides,
   ExperimentInterfaceStringDates,
@@ -9,6 +9,7 @@ import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Exp
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 
 interface TargetMDEModalProps {
   goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[];
@@ -103,7 +104,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
             <Box key={metric.id} className="p-3">
               <Flex direction="column" gap="2">
                 <Flex direction="row" gap="2" justify="between">
-                  <Text weight="bold">{metric.name}</Text>
+                  <Text weight="semibold">{metric.name}</Text>
                   <Flex align="center" gap="2">
                     <Checkbox
                       value={isOverridden}

@@ -1,9 +1,10 @@
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOutFill } from "react-icons/pi";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
 

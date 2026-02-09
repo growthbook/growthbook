@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
@@ -14,6 +14,8 @@ import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -110,7 +112,7 @@ export default function SavedGroupsPage() {
   return (
     <div className="p-3 container-fluid pagecontents">
       <Flex align="center" justify="between" mb="3">
-        <Heading size="7" as="h1">
+        <Heading size="2x-large" as="h1">
           Saved Groups
         </Heading>
         <Box>

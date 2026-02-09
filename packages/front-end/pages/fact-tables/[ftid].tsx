@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   FactTableInterface,
   FactMetricInterface,
@@ -31,6 +31,7 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";

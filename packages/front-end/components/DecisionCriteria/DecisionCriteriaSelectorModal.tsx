@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -8,6 +8,7 @@ import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
@@ -84,7 +85,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
       <Flex direction="column" gap="4">
         <Box mb="2">
           <Flex justify="between" align="center" mb="2">
-            <Text as="label" weight="bold">
+            <Text as="label" weight="semibold">
               Select Decision Criteria
             </Text>
           </Flex>
@@ -101,7 +102,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
           >
             {decisionCriterias.map((criteria) => (
               <SelectItem key={criteria.id} value={criteria.id}>
-                <Text weight="bold">{criteria.name}</Text>
+                <Text weight="semibold">{criteria.name}</Text>
                 {criteria.description ? (
                   <Text color="gray">{`: ${criteria.description}`}</Text>
                 ) : null}

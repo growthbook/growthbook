@@ -5,7 +5,7 @@ import {
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
 } from "shared/enterprise";
-import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretUp,
@@ -27,6 +27,7 @@ import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
+import Text from "@/ui/Text";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,

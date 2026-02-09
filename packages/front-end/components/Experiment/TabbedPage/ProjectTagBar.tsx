@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
@@ -10,6 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import Metadata from "@/ui/Metadata";
+import Text from "@/ui/Text";
 import metaDataStyles from "@/ui/Metadata.module.scss";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

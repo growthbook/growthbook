@@ -8,7 +8,7 @@ import {
   CREATE_BLOCK_TYPE,
   getBlockData,
 } from "shared/enterprise";
-import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Container, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
   PiCaretDoubleRight,
@@ -20,6 +20,7 @@ import { cloneDeep, pick } from "lodash";
 import { isDefined } from "shared/util";
 
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -299,19 +300,19 @@ export default function DashboardWorkspace({
             {dashboard.id === "new" ? null : saveError ? (
               <Tooltip body={saveError} delay={0}>
                 <PiX color="red" />
-                <Text color="red" ml="1" size="1">
+                <Text color="red" ml="1" size="small">
                   Error saving dashboard
                 </Text>
               </Tooltip>
             ) : saving ? (
               <>
                 <LoadingSpinner />
-                <Text size="1">Saving...</Text>
+                <Text size="small">Saving...</Text>
               </>
             ) : (
               <>
                 <PiCheckCircle style={{ color: "var(--violet-11)" }} />
-                <Text size="1">Edits are saved automatically</Text>
+                <Text size="small">Edits are saved automatically</Text>
               </>
             )}
           </Flex>

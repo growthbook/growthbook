@@ -1,11 +1,13 @@
 import React from "react";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import format from "date-fns/format";
 import RateDial from "@/components/ExecReports/RateDial";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentWinRateByProject from "@/components/ExecReports/ExperimentWinRateByProject";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 
 interface ExperimentWinRateProps {
   experiments: ExperimentInterfaceStringDates[];
@@ -48,7 +50,7 @@ const ExperimentWinRate: React.FC<ExperimentWinRateProps> = ({
       <Flex align="start" justify="between">
         <Box flexBasis="100%" flexShrink="1">
           <Flex justify="between">
-            <Heading as="h3" size="3">
+            <Heading as="h3" size="small">
               Win percentage{" "}
               <Tooltip
                 body={`This shows percentage of experiments that were won vs lost or inconclusive.`}

@@ -2,7 +2,7 @@ import React, { FC, useMemo } from "react";
 import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
@@ -17,6 +17,7 @@ import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import Table, {
   TableRow,
   TableHeader,
@@ -169,7 +170,7 @@ const getTooltipContents = (
                     >
                       {i}
                     </span>
-                    <Text weight="bold">{v}</Text>
+                    <Text weight="semibold">{v}</Text>
                   </Flex>
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
@@ -238,7 +239,7 @@ const getTooltipContents = (
       </Table>
       {showAdjustmentNote ? (
         <Box>
-          <Text size="1" my="2">
+          <Text size="small" my="2">
             * P-values and CIs not adjusted for multiple comparisons.
           </Text>
         </Box>

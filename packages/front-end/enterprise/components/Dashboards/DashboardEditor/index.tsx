@@ -29,10 +29,12 @@ import {
   DashboardUpdateSchedule,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Container, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -171,9 +173,7 @@ function AddBlockDropdown({
           <Fragment key={`${subgroup}-${i}`}>
             {!isGeneralDashboard && (
               <DropdownMenuLabel className="font-weight-bold">
-                <Text style={{ color: "var(--color-text-high)" }}>
-                  {subgroup}
-                </Text>
+                <Text color="text-high">{subgroup}</Text>
               </DropdownMenuLabel>
             )}
             {allowedBlockTypes.map((bType) => (
@@ -516,7 +516,7 @@ function DashboardEditor({
           ) : (
             <Text
               weight="medium"
-              size="5"
+              size="large"
               style={{
                 overflow: "hidden",
                 textOverflow: "ellipsis",

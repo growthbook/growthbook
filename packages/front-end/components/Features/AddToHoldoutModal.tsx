@@ -1,9 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useForm } from "react-hook-form";
-import { Text } from "@radix-ui/themes";
+
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 
