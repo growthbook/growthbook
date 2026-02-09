@@ -227,7 +227,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             })
             .filter((v) => {
               if (creatable) return true;
-              return options.some((o) => "value" in o && o.value === v);
+              return map.has(v);
             });
 
           // Remove duplicates within pasted values AND against existing values
