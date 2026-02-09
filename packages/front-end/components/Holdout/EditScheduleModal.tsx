@@ -2,44 +2,9 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
 import { Box, Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import ScheduleStatusChangeInputs from "./ScheduleStatusChangeInputs";
-
-const validateSchedule = (
-  startDate: string | undefined,
-  startAnalysisPeriodDate: string | undefined,
-  stopDate: string | undefined,
-) => {
-  // Check dependencies
-  if (stopDate && (!startDate || !startAnalysisPeriodDate)) {
-    return "To set a stop date, you must also set a start date and an analysis start date";
-  }
-
-  if (startAnalysisPeriodDate && !startDate) {
-    return "To set an analysis start date, you must first set a start date";
-  }
-
-  return "";
-};
-
-const checkConsecutiveDates = (
-  startDate: string | undefined,
-  startAnalysisPeriodDate: string | undefined,
-  stopDate: string | undefined,
-) => {
-  const dateError =
-    (startDate &&
-      startAnalysisPeriodDate &&
-      startDate > startAnalysisPeriodDate) ||
-    (startDate && stopDate && startDate > stopDate) ||
-    (startAnalysisPeriodDate && stopDate && startAnalysisPeriodDate > stopDate);
-  if (dateError) {
-    return "Dates must be consecutive";
-  }
-  return "";
-};
 
 const EditScheduleModal = ({
   holdout,
@@ -53,7 +18,6 @@ const EditScheduleModal = ({
   mutate: () => void;
 }) => {
   const { apiCall } = useAuth();
-  const [errors, setErrors] = useState<string>("");
 
   const form = useForm<
     Pick<HoldoutInterfaceStringDates, "scheduledStatusUpdates">
@@ -69,19 +33,6 @@ const EditScheduleModal = ({
   });
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
-    setErrors("");
-    const validationError = validateSchedule(
-      rawValue.scheduledStatusUpdates?.startAt || experiment.status !== "draft"
-        ? experiment.phases[0].dateStarted
-        : undefined,
-      rawValue.scheduledStatusUpdates?.startAnalysisPeriodAt ||
-        holdout.analysisStartDate,
-      rawValue.scheduledStatusUpdates?.stopAt,
-    );
-    if (validationError) {
-      setErrors(validationError);
-      return;
-    }
     // Convert Date objects to ISO strings for API
     const scheduledStatusUpdates = rawValue.scheduledStatusUpdates
       ? {
@@ -99,16 +50,6 @@ const EditScheduleModal = ({
             : undefined,
         }
       : undefined;
-
-    const consecutiveDatesError = checkConsecutiveDates(
-      scheduledStatusUpdates?.startAt,
-      scheduledStatusUpdates?.startAnalysisPeriodAt,
-      scheduledStatusUpdates?.stopAt,
-    );
-    if (consecutiveDatesError) {
-      setErrors(consecutiveDatesError);
-      return;
-    }
 
     await apiCall<{
       holdout: HoldoutInterfaceStringDates;
@@ -130,7 +71,6 @@ const EditScheduleModal = ({
       close={close}
       submit={onSubmit}
       size="lg"
-      error={errors}
       autoCloseOnSubmit={false}
     >
       <div className="px-2">

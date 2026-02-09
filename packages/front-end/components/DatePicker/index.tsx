@@ -2,7 +2,7 @@ import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
 import { format } from "date-fns";
-import React, { ReactNode, useMemo, useRef, useState } from "react";
+import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -72,6 +72,16 @@ export default function DatePicker({
     ),
   );
   const [open, setOpen] = useState(false);
+
+  // TODO: Check why date is buffered
+  // Sync buffered values when parent clears or changes date/date2 (e.g. setDate(undefined))
+  useEffect(() => {
+    setBufferedDate(date ? format(getValidDate(date), dateFormat) : "");
+  }, [date, dateFormat]);
+  useEffect(() => {
+    setBufferedDate2(date2 ? format(getValidDate(date2), dateFormat) : "");
+  }, [date2, dateFormat]);
+
   const fieldClickedTime = useRef(new Date());
 
   const disabledMatchers: Matcher[] = [];

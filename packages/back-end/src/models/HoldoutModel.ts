@@ -41,6 +41,88 @@ export class HoldoutModel extends BaseClass {
     return this.context.hasPremiumFeature("holdouts");
   }
 
+  protected async customValidation(data: HoldoutInterface) {
+    const holdoutExperiment = await getExperimentById(
+      this.context,
+      data.experimentId,
+    );
+    if (!holdoutExperiment) {
+      throw new Error("Holdout experiment not found");
+    }
+
+    const now = new Date();
+
+    // Check if one of the scheduled dates is in the past
+    if (
+      data.scheduledStatusUpdates?.startAt &&
+      new Date(data.scheduledStatusUpdates.startAt) < now
+    ) {
+      throw new Error("Scheduled start date cannot be in the past");
+    }
+    if (
+      data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      new Date(data.scheduledStatusUpdates.startAnalysisPeriodAt) < now
+    ) {
+      throw new Error("Scheduled analysis start date cannot be in the past");
+    }
+    if (
+      data.scheduledStatusUpdates?.stopAt &&
+      new Date(data.scheduledStatusUpdates.stopAt) < now
+    ) {
+      throw new Error("Scheduled stop date cannot be in the past");
+    }
+
+    // Check date dependencies
+    if (
+      holdoutExperiment.status === "draft" &&
+      data.scheduledStatusUpdates?.stopAt &&
+      (!data.scheduledStatusUpdates?.startAt ||
+        !data.scheduledStatusUpdates?.startAnalysisPeriodAt)
+    ) {
+      throw new Error(
+        "To set a stop date, you must also set a start date and an analysis start date",
+      );
+    }
+    if (
+      holdoutExperiment.status === "draft" &&
+      data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      !data.scheduledStatusUpdates?.startAt
+    ) {
+      throw new Error(
+        "To set an analysis start date, you must first set a start date",
+      );
+    }
+
+    if (
+      holdoutExperiment.status === "running" &&
+      !data.analysisStartDate &&
+      data.scheduledStatusUpdates?.stopAt &&
+      !data.scheduledStatusUpdates?.startAnalysisPeriodAt
+    ) {
+      throw new Error(
+        "To set a stop date, you must first set an analysis start date",
+      );
+    }
+
+    // Check if the dates are consecutive
+    const dateError =
+      (data.scheduledStatusUpdates?.startAt &&
+        data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+        data.scheduledStatusUpdates?.startAt >
+          data.scheduledStatusUpdates?.startAnalysisPeriodAt) ||
+      (data.scheduledStatusUpdates?.startAt &&
+        data.scheduledStatusUpdates?.stopAt &&
+        data.scheduledStatusUpdates?.startAt >
+          data.scheduledStatusUpdates?.stopAt) ||
+      (data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+        data.scheduledStatusUpdates?.stopAt &&
+        data.scheduledStatusUpdates?.startAnalysisPeriodAt >
+          data.scheduledStatusUpdates?.stopAt);
+    if (dateError) {
+      throw new Error("Scheduled dates must be consecutive");
+    }
+  }
+
   public static async getAllHoldoutsToUpdate(): Promise<
     { id: string; organization: string }[]
   > {

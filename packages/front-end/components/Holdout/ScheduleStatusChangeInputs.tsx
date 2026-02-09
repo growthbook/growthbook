@@ -1,6 +1,6 @@
 import React from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
+import Button from "@/ui/Button";
 
 interface Props {
   form: UseFormReturn<
@@ -52,19 +53,33 @@ export default function ScheduleStatusChangeInputs({
       </Box>
 
       {!isRunning && !isStopped && !isArchived ? (
-        <DatePicker
-          date={form.watch("scheduledStatusUpdates.startAt")}
-          setDate={(d) => {
-            form.setValue(
-              "scheduledStatusUpdates.startAt",
-              d ? datetime(d) : "",
-            );
-          }}
-          disableBefore={new Date()}
-          scheduleEndDate={form.watch(
-            "scheduledStatusUpdates.startAnalysisPeriodAt",
-          )}
-        />
+        <Flex direction="row" gap="2" align="baseline">
+          <Box flexGrow="1">
+            <DatePicker
+              date={form.watch("scheduledStatusUpdates.startAt")}
+              setDate={(d) => {
+                form.setValue(
+                  "scheduledStatusUpdates.startAt",
+                  d ? datetime(d) : undefined,
+                );
+              }}
+              scheduleEndDate={form.watch(
+                "scheduledStatusUpdates.startAnalysisPeriodAt",
+              )}
+            />
+          </Box>
+          <Button
+            color="red"
+            disabled={!startDate}
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              form.setValue("scheduledStatusUpdates.startAt", undefined);
+            }}
+          >
+            Clear
+          </Button>
+        </Flex>
       ) : (
         <Box mb="4">
           <Tooltip content="The Holdout has already started—this date cannot be edited">
@@ -92,17 +107,34 @@ export default function ScheduleStatusChangeInputs({
       </Box>
 
       {!isStopped && holdoutStatus !== "analysis-period" && !isArchived ? (
-        <DatePicker
-          date={form.watch("scheduledStatusUpdates.startAnalysisPeriodAt")}
-          setDate={(d) => {
-            form.setValue(
-              "scheduledStatusUpdates.startAnalysisPeriodAt",
-              d ? datetime(d) : "",
-            );
-          }}
-          disableBefore={new Date()}
-          scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
-        />
+        <Flex direction="row" gap="2" align="baseline">
+          <Box flexGrow="1">
+            <DatePicker
+              date={form.watch("scheduledStatusUpdates.startAnalysisPeriodAt")}
+              setDate={(d) => {
+                form.setValue(
+                  "scheduledStatusUpdates.startAnalysisPeriodAt",
+                  d ? datetime(d) : undefined,
+                );
+              }}
+              scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
+            />
+          </Box>
+          <Button
+            color="red"
+            disabled={!startAnalysisPeriodDate}
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              form.setValue(
+                "scheduledStatusUpdates.startAnalysisPeriodAt",
+                undefined,
+              );
+            }}
+          >
+            Clear
+          </Button>
+        </Flex>
       ) : (
         <Box mb="4">
           <Tooltip content="The Analysis Phase has already started—this date cannot be edited">
@@ -126,19 +158,33 @@ export default function ScheduleStatusChangeInputs({
         </Text>
       </Box>
       {!isStopped && !isArchived ? (
-        <DatePicker
-          date={form.watch("scheduledStatusUpdates.stopAt")}
-          setDate={(d) => {
-            form.setValue(
-              "scheduledStatusUpdates.stopAt",
-              d ? datetime(d) : "",
-            );
-          }}
-          disableBefore={new Date()}
-          scheduleStartDate={form.watch(
-            "scheduledStatusUpdates.startAnalysisPeriodAt",
-          )}
-        />
+        <Flex direction="row" gap="2" align="baseline">
+          <Box flexGrow="1">
+            <DatePicker
+              date={form.watch("scheduledStatusUpdates.stopAt")}
+              setDate={(d) => {
+                form.setValue(
+                  "scheduledStatusUpdates.stopAt",
+                  d ? datetime(d) : undefined,
+                );
+              }}
+              scheduleStartDate={form.watch(
+                "scheduledStatusUpdates.startAnalysisPeriodAt",
+              )}
+            />
+          </Box>
+          <Button
+            color="red"
+            disabled={!stopDate}
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              form.setValue("scheduledStatusUpdates.stopAt", undefined);
+            }}
+          >
+            Clear
+          </Button>
+        </Flex>
       ) : (
         <Box mb="4">
           <Tooltip content="The Analysis Phase has already ended—this date cannot be edited">
