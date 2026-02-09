@@ -21,7 +21,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import ConditionInput from "@/components//Features/ConditionInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
@@ -281,7 +281,7 @@ export default function EditTargetingModal({
       }
     >
       <Page display="Type of Changes">
-        <div className="px-3 py-2">
+        <div className="py-2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
@@ -306,7 +306,7 @@ export default function EditTargetingModal({
 
       {changeType !== "phase" && (
         <Page display="Make Changes">
-          <div className="px-2">
+          <div>
             <TargetingForm
               experiment={experiment}
               form={form}
@@ -322,7 +322,7 @@ export default function EditTargetingModal({
       )}
 
       <Page display="Review & Deploy">
-        <div className="px-3 mt-2">
+        <div className="mt-2">
           <ReleaseChangesForm
             experiment={experiment}
             form={form}
@@ -444,7 +444,7 @@ function TargetingForm({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <div className="px-2 pt-2">
+    <div className="pt-2">
       {safeToEdit && (
         <>
           <Field
@@ -528,7 +528,7 @@ function TargetingForm({
             project={experiment.project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
               form.setValue("prerequisites", prerequisites)
