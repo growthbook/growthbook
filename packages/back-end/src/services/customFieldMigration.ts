@@ -21,14 +21,23 @@ export function convertCustomFieldValue(
     return null;
   }
 
+  // String-like types
+  const stringLikeTypes: CustomFieldTypes[] = [
+    "text",
+    "textarea",
+    "markdown",
+    "url",
+  ];
+
   // No conversion needed
   if (fromType === toType) {
     // For enum/multiselect, validate against new options
     if ((toType === "enum" || toType === "multiselect") && toValues) {
       const validOptions = toValues.split(",").map((v) => v.trim());
 
-      if (toType === "enum" && typeof value === "string") {
-        return validOptions.includes(value) ? value : null;
+      if (toType === "enum") {
+        const strValue = String(value);
+        return validOptions.includes(strValue) ? strValue : null;
       }
 
       if (toType === "multiselect" && Array.isArray(value)) {
@@ -39,13 +48,29 @@ export function convertCustomFieldValue(
     return value;
   }
 
-  // String-like conversions
-  const stringLikeTypes: CustomFieldTypes[] = [
-    "text",
-    "textarea",
-    "markdown",
-    "url",
-  ];
+  // enum ↔ multiselect conversions
+  if (fromType === "enum" && toType === "multiselect") {
+    // "Option A" → ["Option A"]
+    const strValue = String(value);
+    if (toValues) {
+      const validOptions = toValues.split(",").map((v) => v.trim());
+      return validOptions.includes(strValue) ? [strValue] : null;
+    }
+    return [strValue];
+  }
+
+  if (fromType === "multiselect" && toType === "enum") {
+    // ["Option A"] → "Option A" (take first item if single, scrub if multiple)
+    if (Array.isArray(value) && value.length === 1) {
+      const strValue = String(value[0]);
+      if (toValues) {
+        const validOptions = toValues.split(",").map((v) => v.trim());
+        return validOptions.includes(strValue) ? strValue : null;
+      }
+      return strValue;
+    }
+    return null; // Scrub if multiple values
+  }
 
   // enum → string-like
   if (fromType === "enum" && stringLikeTypes.includes(toType)) {
@@ -60,14 +85,40 @@ export function convertCustomFieldValue(
     return String(value);
   }
 
-  // boolean → string
+  // boolean → string-like
   if (fromType === "boolean" && stringLikeTypes.includes(toType)) {
     return value ? "true" : "false";
   }
 
-  // number → string
+  // boolean → number
+  if (fromType === "boolean" && toType === "number") {
+    return value ? 1 : 0;
+  }
+
+  // number → string-like
   if (fromType === "number" && stringLikeTypes.includes(toType)) {
     return String(value);
+  }
+
+  // number → boolean
+  if (fromType === "number" && toType === "boolean") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+    return null; // Scrub if not 0 or 1
+  }
+
+  // string-like → boolean (conditional)
+  if (stringLikeTypes.includes(fromType) && toType === "boolean") {
+    const strValue = String(value).toLowerCase().trim();
+    if (["true", "1", "yes", "on"].includes(strValue)) return true;
+    if (["false", "0", "no", "off", ""].includes(strValue)) return false;
+    return null; // Scrub if ambiguous
+  }
+
+  // string-like → number (conditional)
+  if (stringLikeTypes.includes(fromType) && toType === "number") {
+    const num = Number(value);
+    return isNaN(num) ? null : num; // Scrub if not a valid number
   }
 
   // date/datetime conversions
@@ -91,11 +142,18 @@ export function convertCustomFieldValue(
     return String(value);
   }
 
-  // string → enum: conditional (keep if in enum list, scrub otherwise)
+  // string-like → enum: conditional (keep if in enum list, scrub otherwise)
   if (stringLikeTypes.includes(fromType) && toType === "enum" && toValues) {
     const validOptions = toValues.split(",").map((v) => v.trim());
     const strValue = String(value);
     return validOptions.includes(strValue) ? strValue : null;
+  }
+
+  // string-like → multiselect: conditional (convert to array if in options, scrub otherwise)
+  if (stringLikeTypes.includes(fromType) && toType === "multiselect" && toValues) {
+    const validOptions = toValues.split(",").map((v) => v.trim());
+    const strValue = String(value);
+    return validOptions.includes(strValue) ? [strValue] : null;
   }
 
   // Unsafe conversion - scrub

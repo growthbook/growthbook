@@ -5,7 +5,7 @@ import {
   CustomFieldTypes,
 } from "shared/types/custom-fields";
 import React, { useMemo, useState } from "react";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   getCustomFieldChangeWarning,
   getCustomFieldProjectChangeWarning,
@@ -27,6 +27,8 @@ import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import DatePicker from "@/components/DatePicker";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 
 export default function CustomFieldModal({
   existing,
@@ -55,7 +57,7 @@ export default function CustomFieldModal({
         : existing.type === "boolean"
           ? (existing.defaultValue ?? false)
           : "",
-      section: existing.section || section,
+      section: existing.section ?? section,
       projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
       index: true,
@@ -71,29 +73,56 @@ export default function CustomFieldModal({
   const currentValues = form.watch("values");
   const currentProjects = form.watch("projects");
 
-  const warnings = useMemo(() => {
-    if (!existing.id) return []; // Only show for edits
-
-    const typeWarning = getCustomFieldChangeWarning(
+  const typeWarning = useMemo(() => {
+    if (!existing.id) return null; // Only show for edits
+    if (existing.type === currentType) return null; // Only for type changes
+    
+    return getCustomFieldChangeWarning(
       existing.type || "text",
       currentType,
       existing.values,
       currentValues,
     );
-
-    const projectWarning = getCustomFieldProjectChangeWarning(
-      existing.projects,
-      currentProjects,
-    );
-
-    return [typeWarning, projectWarning].filter(Boolean) as string[];
   }, [
     existing.id,
     existing.type,
     existing.values,
-    existing.projects,
     currentType,
     currentValues,
+  ]);
+
+  const valueWarning = useMemo(() => {
+    if (!existing.id) return null; // Only show for edits
+    if (existing.type !== currentType) return null; // Only for same type
+    if (currentType !== "enum" && currentType !== "multiselect") return null;
+    if (!existing.values || !currentValues) return null;
+    if (existing.values === currentValues) return null;
+
+    const oldOptions = existing.values.split(",").map((v) => v.trim());
+    const newOptions = currentValues.split(",").map((v) => v.trim());
+    const removedOptions = oldOptions.filter((opt) => !newOptions.includes(opt));
+    
+    if (removedOptions.length > 0) {
+      return `Removing options may result in data loss. Existing values that are no longer in the options list will be removed.`;
+    }
+    return null;
+  }, [
+    existing.id,
+    existing.type,
+    existing.values,
+    currentType,
+    currentValues,
+  ]);
+
+  const projectWarning = useMemo(() => {
+    if (!existing.id) return null; // Only show for edits
+    return getCustomFieldProjectChangeWarning(
+      existing.projects,
+      currentProjects,
+    );
+  }, [
+    existing.id,
+    existing.projects,
     currentProjects,
   ]);
 
@@ -105,7 +134,9 @@ export default function CustomFieldModal({
     "multiselect",
     "boolean",
     "url",
+    "number",
     "date",
+    "datetime",
   ];
 
   const availableProjects: (SingleValue | GroupedValue)[] = projects
@@ -196,71 +227,77 @@ export default function CustomFieldModal({
         }
       })}
     >
-      <Field
-        label="Name"
-        {...form.register("name")}
-        placeholder=""
-        required={true}
-        onChange={async (e) => {
-          form.setValue("name", e.target.value);
-          // Auto-generate key from name if still linked
-          if (!existing.id && linkNameWithKey && e.target.value) {
-            const key = await generateTrackingKey<CustomField>(
-              { name: e.target.value } as Partial<CustomField> & {
-                name: string;
-              },
-              async (key: string) =>
-                customFields.find((cf) => cf.id === key) ?? null,
-            );
-            form.setValue("id", key);
-          }
-        }}
-      />
-      <Field
-        label="Key"
-        {...form.register("id")}
-        pattern="^[a-z0-9_-]+$"
-        placeholder=""
-        required={true}
-        title="Only lowercase letters, digits, underscores, and hyphens allowed. No spaces."
-        helpText={
-          <>
-            Only lowercase letters, digits, underscores, and hyphens allowed. No
-            spaces. <strong>Cannot be changed later!</strong>
-          </>
-        }
-        disabled={!!existing.id}
-        onChange={async (e) => {
-          form.setValue("id", e.target.value);
-          // Break the link if user manually edits the key
-          if (linkNameWithKey) {
-            const expectedKey = await generateTrackingKey<CustomField>(
-              { name: form.watch("name") } as Partial<CustomField> & {
-                name: string;
-              },
-              async (key: string) =>
-                customFields.find((cf) => cf.id === key) ?? null,
-            );
-            if (e.target.value !== expectedKey) {
-              setLinkNameWithKey(false);
+      <Flex direction="column" gap="5">
+        <Field
+          label="Name"
+          {...form.register("name")}
+          placeholder=""
+          required={true}
+          onChange={async (e) => {
+            form.setValue("name", e.target.value);
+            // Auto-generate key from name if still linked
+            if (!existing.id && linkNameWithKey && e.target.value) {
+              const key = await generateTrackingKey(
+                { name: e.target.value },
+                async (key: string) =>
+                  customFields.find((cf) => cf.id === key) ?? null,
+              );
+              form.setValue("id", key);
             }
-          }
-        }}
-      />
-      <Box mb="3">
-        <Text as="label" mb="2" weight="medium">
-          Applies to
-        </Text>
-        <RadioGroup
-          value={form.watch("section") ?? section}
-          setValue={(v) => form.setValue("section", v as CustomFieldSection)}
-          options={[
-            { value: "feature", label: "Features" },
-            { value: "experiment", label: "Experiments" },
-          ]}
+          }}
+          containerClassName="mb-0"
         />
-      </Box>
-      <Box my="3">
+        <Field
+          label="Key"
+          {...form.register("id")}
+          pattern="^[a-z0-9_-]+$"
+          placeholder=""
+          required={true}
+          helpText={
+            !existing.id ? (
+              <>
+                Lowercase letters, numbers, _ and - only. <strong>Cannot be changed later!</strong>
+              </>
+            ) : undefined
+          }
+          disabled={!!existing.id}
+          onChange={async (e) => {
+            form.setValue("id", e.target.value);
+            // Break the link if user manually edits the key
+            if (linkNameWithKey) {
+              const expectedKey = await generateTrackingKey(
+                { name: form.watch("name") },
+                async (key: string) =>
+                  customFields.find((cf) => cf.id === key) ?? null,
+              );
+              if (e.target.value !== expectedKey) {
+                setLinkNameWithKey(false);
+              }
+            }
+          }}
+          containerClassName="mb-0"
+        />
+        <Field
+          label="Description"
+          textarea={true}
+          minRows={1}
+          maxRows={3}
+          {...form.register("description")}
+          containerClassName="mb-0"
+        />
+        <Box>
+          <Text as="label" mb="2" weight="medium">
+            Applies to
+          </Text>
+          <RadioGroup
+            value={form.watch("section") ?? section}
+            setValue={(v) => form.setValue("section", v as CustomFieldSection)}
+            options={[
+              { value: "feature", label: "Features" },
+              { value: "experiment", label: "Experiments" },
+            ]}
+          />
+        </Box>
         {projects?.length > 0 && (
           <Box>
             <MultiSelectField
@@ -273,106 +310,139 @@ export default function CustomFieldModal({
               }}
               className="label-overflow-ellipsis"
               helpText="Restrict this field to specific projects"
+              containerClassName="mb-0"
+            />
+            {projectWarning && (
+              <Callout status="warning" mt="2">
+                {projectWarning}
+              </Callout>
+            )}
+          </Box>
+        )}
+        <Field
+          label="Description"
+          {...form.register("description")}
+          helpText="Shown as a tool tip to users entering this field value"
+          containerClassName="mb-0"
+        />
+        <Box>
+          <SelectField
+            label="Value type"
+            value={form.watch("type") ?? "text"}
+            options={fieldOptions.map((o) => ({ label: o, value: o }))}
+            onChange={(v: CustomFieldTypes) => {
+              form.setValue("type", v);
+            }}
+            containerClassName="mb-0"
+          />
+          {typeWarning && (
+            <Callout status="warning" mt="2">
+              {typeWarning}
+            </Callout>
+          )}
+        </Box>
+        {(form.watch("type") === "enum" ||
+          form.watch("type") === "multiselect") && (
+          <Box>
+            <StringArrayField
+              label="Values"
+              value={
+                form
+                  .watch("values")
+                  ?.split(",")
+                  .map((v) => v.trim())
+                  .filter(Boolean) || []
+              }
+              onChange={(values) => form.setValue("values", values.join(","))}
+              helpText="List of possible values"
+              placeholder="Add value..."
+              containerClassName="mb-0"
+            />
+            {valueWarning && (
+              <Callout status="warning" mt="2">
+                {valueWarning}
+              </Callout>
+            )}
+          </Box>
+        )}
+        {form.watch("type") !== "boolean" ? (
+          <>
+            {form.watch("type") === "date" || form.watch("type") === "datetime" ? (
+              <DatePicker
+                date={form.watch("defaultValue") as string | undefined}
+                setDate={(d) => {
+                  form.setValue("defaultValue", d?.toISOString() ?? "");
+                }}
+                label="Default value"
+                precision={form.watch("type") === "datetime" ? "datetime" : "date"}
+                containerClassName="mb-0"
+              />
+            ) : form.watch("type") === "enum" ||
+              form.watch("type") === "multiselect" ? (
+              <SelectField
+                label="Default value"
+                value={(form.watch("defaultValue") as string) || ""}
+                onChange={(v) => form.setValue("defaultValue", v)}
+                options={
+                  form
+                    .watch("values")
+                    ?.split(",")
+                    .map((v) => v.trim())
+                    .filter(Boolean)
+                    .map((v) => ({ label: v, value: v })) || []
+                }
+                isClearable
+                placeholder="Select a default value..."
+                containerClassName="mb-0"
+              />
+            ) : form.watch("type") === "markdown" ? (
+              <Box>
+                <Text as="label" mb="2" weight="medium">
+                  Default value
+                </Text>
+                <MarkdownInput
+                  value={(form.watch("defaultValue") as string) || ""}
+                  setValue={(v) => form.setValue("defaultValue", v)}
+                  placeholder="Enter default markdown content..."
+                  maxRows={3}
+                />
+              </Box>
+            ) : (
+              <Field
+                label="Default value"
+                type={form.watch("type") === "url" ? "url" : "text"}
+                {...form.register("defaultValue")}
+                containerClassName="mb-0"
+              />
+            )}
+            {form.watch("type") !== "multiselect" &&
+              form.watch("type") !== "enum" &&
+              form.watch("type") !== "textarea" &&
+              form.watch("type") !== "date" &&
+              form.watch("type") !== "datetime" && (
+                <Field
+                  label="Placeholder"
+                  {...form.register("placeholder")}
+                  containerClassName="mb-0"
+                  helpText="Shown inside empty input fields as placeholder text"
+                />
+              )}
+          </>
+        ) : (
+          <Box>
+            <Text as="label" mb="2" weight="medium">
+              Default value
+            </Text>
+            <RadioGroup
+              value={form.watch("defaultValue") ? "true" : "false"}
+              setValue={(v) => form.setValue("defaultValue", v === "true")}
+              options={[
+                { value: "true", label: "True" },
+                { value: "false", label: "False" },
+              ]}
             />
           </Box>
         )}
-      </Box>
-      <Field
-        label="Description"
-        {...form.register("description")}
-        helpText="Shown as a tool tip to users entering this field value"
-      />
-      <Box mb="3">
-        <SelectField
-          label="Value type"
-          value={form.watch("type") ?? "text"}
-          options={fieldOptions.map((o) => ({ label: o, value: o }))}
-          onChange={(v: CustomFieldTypes) => {
-            form.setValue("type", v);
-          }}
-        />
-      </Box>
-      {warnings.length > 0 && (
-        <Callout status="warning" mb="3">
-          {warnings.length === 1 ? (
-            warnings[0]
-          ) : (
-            <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
-              {warnings.map((warning, i) => (
-                <li key={i}>{warning}</li>
-              ))}
-            </ul>
-          )}
-        </Callout>
-      )}
-      {(form.watch("type") === "enum" ||
-        form.watch("type") === "multiselect") && (
-        <Box mb="3">
-          <StringArrayField
-            label="Values"
-            value={
-              form
-                .watch("values")
-                ?.split(",")
-                .map((v) => v.trim())
-                .filter(Boolean) || []
-            }
-            onChange={(values) => form.setValue("values", values.join(","))}
-            helpText="List of possible values"
-            placeholder="Add value..."
-          />
-        </Box>
-      )}
-      {form.watch("type") !== "boolean" ? (
-        <>
-          {form.watch("type") !== "date" && (
-            <>
-              {form.watch("type") === "enum" ||
-              form.watch("type") === "multiselect" ? (
-                <Box mb="3">
-                  <SelectField
-                    label="Default value"
-                    value={(form.watch("defaultValue") as string) || ""}
-                    onChange={(v) => form.setValue("defaultValue", v)}
-                    options={
-                      form
-                        .watch("values")
-                        ?.split(",")
-                        .map((v) => v.trim())
-                        .filter(Boolean)
-                        .map((v) => ({ label: v, value: v })) || []
-                    }
-                    isClearable
-                    placeholder="Select a default value..."
-                  />
-                </Box>
-              ) : (
-                <Field
-                  label="Default value"
-                  type={form.watch("type") === "url" ? "url" : "text"}
-                  {...form.register("defaultValue")}
-                />
-              )}
-            </>
-          )}
-          {form.watch("type") !== "multiselect" &&
-            form.watch("type") !== "enum" &&
-            form.watch("type") !== "textarea" && (
-              <Field label="Placeholder" {...form.register("placeholder")} />
-            )}
-        </>
-      ) : (
-        <Checkbox
-          id={"defaultValue"}
-          label="Default value"
-          description="If checked, it defaults to true. Otherwise, it defaults to false."
-          value={!!form.watch("defaultValue")}
-          setValue={(value) => {
-            form.setValue("defaultValue", value);
-          }}
-        />
-      )}
-      <Box my="3">
         <Checkbox
           id={"required"}
           label="Required"
@@ -382,18 +452,18 @@ export default function CustomFieldModal({
             form.setValue("required", value);
           }}
         />
-      </Box>
-      {showSearchableToggle && (
-        <Checkbox
-          id="index"
-          label="Searchable"
-          description="Make the custom field searchable."
-          value={!!form.watch("index")}
-          setValue={(value) => {
-            form.setValue("index", value);
-          }}
-        />
-      )}
+        {showSearchableToggle && (
+          <Checkbox
+            id="index"
+            label="Searchable"
+            description="Make the custom field searchable."
+            value={!!form.watch("index")}
+            setValue={(value) => {
+              form.setValue("index", value);
+            }}
+          />
+        )}
+      </Flex>
     </Modal>
   );
 }

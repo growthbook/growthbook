@@ -89,6 +89,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
           opacity: 1,
         }),
   };
+  const tdStyle: React.CSSProperties = { verticalAlign: "top" };
   const handleStyle = {
     fontSize: 20,
     color: "var(--slate-a6)",
@@ -99,9 +100,10 @@ export function SortableCustomFieldRow(props: SortableProps) {
     <tr ref={setNodeRef} style={style}>
       <td
         style={{
+          ...tdStyle,
           width: WIDTHS.dragHandle,
           minWidth: WIDTHS.dragHandle,
-          padding: "0.4rem 0",
+          padding: "0.65rem 0",
           textAlign: "center",
         }}
       >
@@ -111,28 +113,28 @@ export function SortableCustomFieldRow(props: SortableProps) {
           </div>
         </div>
       </td>
-      <td style={{ width: WIDTHS.name }} className="text-gray font-weight-bold">
+      <td style={{ ...tdStyle, width: WIDTHS.name }} className="text-gray font-weight-bold">
         {customField.name}
       </td>
-      <td style={{ width: WIDTHS.key }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.key }} className="text-gray">
         <code className="small">{customField.id}</code>
       </td>
-      <td style={{ width: WIDTHS.description }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.description }} className="text-gray">
         {customField.description ?? ""}
       </td>
       {showAppliesTo && (
-        <td style={{ width: WIDTHS.appliesTo }} className="text-gray">
+        <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
           {customField.section === "feature" ? "Feature" : "Experiment"}
         </td>
       )}
-      <td style={{ width: WIDTHS.valueType }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.valueType }} className="text-gray">
         {customField.type}
         {(customField.type === "enum" ||
           customField.type === "multiselect") && (
           <EnumValuesDisplay valuesStr={customField.values} />
         )}
       </td>
-      <td style={{ width: WIDTHS.projects }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.projects }} className="text-gray">
         <ProjectBadges
           resourceType="custom field"
           projectIds={
@@ -141,15 +143,16 @@ export function SortableCustomFieldRow(props: SortableProps) {
         />
       </td>
       {showRequired && (
-        <td style={{ width: WIDTHS.required }} className="text-gray">
+        <td style={{ ...tdStyle, width: WIDTHS.required }} className="text-gray">
           {customField.required ? <>yes</> : ""}
         </td>
       )}
       <td
         style={{
+          ...tdStyle,
           width: WIDTHS.menu,
           minWidth: WIDTHS.menu,
-          padding: "0.4rem 0",
+          padding: "0.5rem 0",
           textAlign: "center",
         }}
       >
@@ -179,6 +182,7 @@ export function StaticCustomFieldRow({
 }) {
   const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
   const style = { opacity: 0.6 };
+  const tdStyle: React.CSSProperties = { verticalAlign: "top" };
   const handleStyle = {
     fontSize: 20,
     color: "rgba(0,0,0,0.2)",
@@ -191,6 +195,7 @@ export function StaticCustomFieldRow({
     <tr style={style}>
       <td
         style={{
+          ...tdStyle,
           width: WIDTHS.dragHandle,
           minWidth: WIDTHS.dragHandle,
           padding: "0.5rem 0",
@@ -203,28 +208,28 @@ export function StaticCustomFieldRow({
           </div>
         </div>
       </td>
-      <td style={{ width: WIDTHS.name }} className="text-gray font-weight-bold">
+      <td style={{ ...tdStyle, width: WIDTHS.name }} className="text-gray font-weight-bold">
         {customField.name}
       </td>
-      <td style={{ width: WIDTHS.key }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.key }} className="text-gray">
         <code className="small">{customField.id}</code>
       </td>
-      <td style={{ width: WIDTHS.description }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.description }} className="text-gray">
         {customField.description ?? ""}
       </td>
       {showAppliesTo && (
-        <td style={{ width: WIDTHS.appliesTo }} className="text-gray">
+        <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
           {sectionLabel}
         </td>
       )}
-      <td style={{ width: WIDTHS.valueType }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.valueType }} className="text-gray">
         {customField.type}
         {(customField.type === "enum" ||
           customField.type === "multiselect") && (
           <EnumValuesDisplay valuesStr={customField.values} />
         )}
       </td>
-      <td style={{ width: WIDTHS.projects }} className="text-gray">
+      <td style={{ ...tdStyle, width: WIDTHS.projects }} className="text-gray">
         {(customField.projects?.length || 0) > 0 ? (
           <ProjectBadges
             resourceType="custom field"
@@ -235,12 +240,13 @@ export function StaticCustomFieldRow({
         )}
       </td>
       {showRequired && (
-        <td style={{ width: WIDTHS.required }} className="text-gray">
+        <td style={{ ...tdStyle, width: WIDTHS.required }} className="text-gray">
           {customField.required ? <>yes</> : ""}
         </td>
       )}
       <td
         style={{
+          ...tdStyle,
           width: WIDTHS.menu,
           minWidth: WIDTHS.menu,
           padding: "1rem 0.5rem",
