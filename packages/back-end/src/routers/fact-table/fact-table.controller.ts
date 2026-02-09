@@ -280,7 +280,6 @@ export const putFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-
   const forceColumnRefresh = !!req.query?.forceColumnRefresh;
 
   // Update the columns
