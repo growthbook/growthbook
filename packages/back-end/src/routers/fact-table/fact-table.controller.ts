@@ -103,7 +103,7 @@ async function testFilterQuery(
 // Helper to merge existing columns with new type map from LIMIT 0
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
-  typeMap: Map<string, FactTableColumnType>
+  typeMap: Map<string, FactTableColumnType>,
 ): ColumnInterface[] {
   const columns = cloneDeep(existingColumns);
 
@@ -145,14 +145,11 @@ function mergeColumnsWithTypeMap(
   return columns;
 }
 
-
-
 // Result type for the unified refreshColumns function
 export type RefreshColumnsResult = {
   columns: ColumnInterface[];
   needsBackgroundRefresh: boolean; // True if LIMIT 0 was used and background job needed
 };
-
 
 /**
  * Unified function to refresh columns that handles both LIMIT 0 (fast) and LIMIT 20 (full) paths.
@@ -166,7 +163,7 @@ export async function refreshColumns(
     FactTableInterface,
     "sql" | "eventName" | "columns" | "userIdTypes"
   >,
-  forceColumnRefresh?: boolean
+  forceColumnRefresh?: boolean,
 ): Promise<RefreshColumnsResult> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -179,7 +176,10 @@ export async function refreshColumns(
   }
 
   // Check if datasource supports LIMIT 0 for fast column metadata
-  if (!forceColumnRefresh && integration.supportsLimitZeroColumnValidation?.()) {
+  if (
+    !forceColumnRefresh &&
+    integration.supportsLimitZeroColumnValidation?.()
+  ) {
     // Fast path: LIMIT 0 query
     const sql = integration.getTestQuery({
       query: factTable.sql,
@@ -206,11 +206,14 @@ export async function refreshColumns(
     return { columns, needsBackgroundRefresh: true };
   } else {
     // Slow path: Full LIMIT 20 query (existing behavior)
-    const columns = await runRefreshColumnsQuery(context, datasource, factTable);
+    const columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      factTable,
+    );
     return { columns, needsBackgroundRefresh: false };
   }
 }
-
 
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
@@ -231,7 +234,7 @@ export const postFactTable = async (
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
-      data as FactTableInterface
+      data as FactTableInterface,
     );
 
     if (!columns.length) {
@@ -281,13 +284,13 @@ export const putFactTable = async (
   const forceColumnRefresh = req.query?.forceColumnRefresh === "true";
 
   // Update the columns
-  if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
+  if (forceColumnRefresh || needsColumnRefresh(data)) {
     const originalColumns = cloneDeep(factTable.columns || []);
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
       { ...factTable, ...data } as FactTableInterface,
-      forceColumnRefresh
+      forceColumnRefresh,
     );
 
     if (!columns.some((col) => !col.deleted)) {
