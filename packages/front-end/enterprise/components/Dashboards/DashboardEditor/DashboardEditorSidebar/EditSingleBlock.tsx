@@ -31,13 +31,13 @@ import {
   getMetricOptions,
   getSliceOptions,
   formatSliceOptionLabel,
-  formatMetricTagOptionLabel,
   formatMetricOptionLabel,
 } from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import TagsInput from "@/components/Tags/TagsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -194,6 +194,7 @@ export default function EditSingleBlock({
     getMetricGroupById,
     getDatasourceById,
     getFactTableById,
+    getTagById,
     factMetrics,
     factTables,
   } = useDefinitions();
@@ -514,7 +515,6 @@ export default function EditSingleBlock({
   const metricTagOptions = useMemo(() => {
     const blockMetricTagFilter =
       block && "metricTagFilter" in block ? block.metricTagFilter || [] : [];
-    const availableTagSet = new Set(availableMetricTags);
     const allTagIds = Array.from(
       new Set([...availableMetricTags, ...blockMetricTagFilter]),
     );
@@ -522,7 +522,6 @@ export default function EditSingleBlock({
     return allTagIds.map((tag) => ({
       value: tag,
       label: tag,
-      isOrphaned: !availableTagSet.has(tag),
     }));
   }, [availableMetricTags, block]);
 
@@ -1074,23 +1073,25 @@ export default function EditSingleBlock({
                         {(block.metricTagFilter?.length || 0) > 0 ||
                         showMetricTags ? (
                           <Box>
-                            <MultiSelectField
-                              label="Tags"
-                              containerClassName="mb-0"
-                              labelClassName="font-weight-bold"
-                              placeholder="Type to search..."
-                              value={block.metricTagFilter}
+                            <Text weight="bold" mb="2" as="label">
+                              Tags
+                            </Text>
+                            <TagsInput
+                              value={block.metricTagFilter || []}
                               onChange={(value) =>
                                 setBlock({ ...block, metricTagFilter: value })
                               }
-                              options={metricTagOptions.map((tag) => ({
-                                label: tag.label,
-                                value: tag.value,
-                                isOrphaned: tag.isOrphaned,
+                              prompt="Type to search..."
+                              closeMenuOnSelect={false}
+                              autoFocus={false}
+                              creatable={false}
+                              customClassName="multiselect-unfixed"
+                              tagOptions={metricTagOptions.map((tag) => ({
+                                id: tag.value,
+                                description: "",
+                                color:
+                                  getTagById(tag.value)?.color || "#029dd1",
                               }))}
-                              formatOptionLabel={(option) =>
-                                formatMetricTagOptionLabel(option)
-                              }
                             />
                             {shouldShowEditorField(
                               block,
