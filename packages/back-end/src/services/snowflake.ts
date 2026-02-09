@@ -126,7 +126,10 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     });
   });
 
-  const res = await new Promise<T[]>((resolve, reject) => {
+  const res = await new Promise<{
+    rows: T[];
+    columns: { name: string }[];
+  }>((resolve, reject) => {
     connection.execute({
       sqlText: sql,
       complete: async (err, stmt, rows) => {
@@ -139,7 +142,14 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
         if (err) {
           reject(err);
         } else {
-          resolve(rows || []);
+          // Extract column metadata from the statement
+          const stmtColumns = stmt.getColumns();
+          const columns = stmtColumns
+            ? stmtColumns.map((col) => ({
+                name: col.getName().toLowerCase(),
+              }))
+            : [];
+          resolve({ rows: rows || [], columns });
         }
       },
     });
@@ -147,11 +157,11 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
   // Annoyingly, Snowflake turns all column names into all caps
   // Need to lowercase them here so they match other data sources
-  const lowercase = res.map((row) => {
+  const lowercase = res.rows.map((row) => {
     return Object.fromEntries(
       Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
     ) as T;
   });
 
-  return { rows: lowercase };
+  return { rows: lowercase, columns: res.columns };
 }

@@ -3,7 +3,7 @@ import { ReactNode, useMemo } from "react";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
@@ -11,8 +11,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -57,9 +57,13 @@ function operatorToText({
     case "$notExists":
       return isPrerequisite ? `is not live` : `is NULL`;
     case "$in":
-      return `is in the list`;
+      return `is any of`;
     case "$nin":
-      return `is not in the list`;
+      return `is none of`;
+    case "$ini":
+      return `is any of (case insensitive)`;
+    case "$nini":
+      return `is none of (case insensitive)`;
     case "$inGroup":
       return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
@@ -84,7 +88,7 @@ function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
 function hasMultiValues(operator: string) {
-  return ["$in", "$nin"].includes(operator);
+  return ["$in", "$nin", "$ini", "$nini"].includes(operator);
 }
 function getValue(
   operator: string,
@@ -126,16 +130,36 @@ export function MultiValuesDisplay({
             ? displayMap?.[v] || group.groupName
             : displayMap?.[v] || v;
         return isSavedGroup && group ? (
-          <Link
+          <Badge
             key={i}
-            href={`/saved-groups/${group.id}`}
-            target="_blank"
-            size="1"
-            color="violet"
-            title="Manage Saved Group"
-          >
-            <Badge color="gray" label={displayValue} /> <PiArrowSquareOut />
-          </Link>
+            color="gray"
+            label={
+              <Link
+                href={`/saved-groups/${group.id}`}
+                target="_blank"
+                color="violet"
+                title={`Manage Saved Group: ${displayValue}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  overflow: "hidden",
+                }}
+              >
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: "400px",
+                  }}
+                >
+                  {displayValue}
+                </span>
+                <PiArrowSquareOut style={{ flexShrink: 0 }} />
+              </Link>
+            }
+          />
         ) : (
           <Badge
             key={i}
@@ -144,7 +168,9 @@ export function MultiValuesDisplay({
             style={{ maxWidth: 300 }}
             title={displayValue}
             label={
-              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
+              <Text size="inherit" whiteSpace="pre" color="text-high">
+                {displayValue}
+              </Text>
             }
           />
         );
@@ -156,11 +182,13 @@ export function MultiValuesDisplay({
               {values.slice(MULTI_VALUE_LIMIT).map((v, i) => {
                 const isSavedGroup = savedGroupIds?.has(v);
                 const group = isSavedGroup ? getSavedGroupById(v) : null;
+                const isLast = i === values.slice(MULTI_VALUE_LIMIT).length - 1;
                 return (
-                  <span key={i} className={`${styles.Tooltip} ml-1`}>
+                  <span key={i}>
                     {isSavedGroup && group
                       ? group.groupName
                       : displayMap?.[v] || v}
+                    {!isLast && ", "}
                   </span>
                 );
               })}
@@ -197,21 +225,21 @@ function MultiValueDisplay({
 
   if (!parts.length) {
     return (
-      <span className="mr-1">
+      <Text>
         <em>empty list</em>
-      </span>
+      </Text>
     );
   }
   return (
-    <>
-      {!skipParens && <span>(</span>}
+    <Flex wrap="wrap" gap="2">
+      {!skipParens && <Text weight="medium">(</Text>}
       <MultiValuesDisplay
         values={parts}
         displayMap={displayMap}
         savedGroupIds={savedGroupIds}
       />
-      {!skipParens && <span>)</span>}
-    </>
+      {!skipParens && <Text weight="medium">)</Text>}
+    </Flex>
   );
 }
 
@@ -221,12 +249,14 @@ function getConditionOrParts({
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
+  prefix,
 }: {
   conditions: ConditionWithParentId[][];
   savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
+  prefix?: ReactNode;
 }) {
   if (conditions.length === 0) return [];
   if (conditions.length === 1) {
@@ -236,38 +266,64 @@ function getConditionOrParts({
       initialAnd,
       renderPrerequisite,
       keyPrefix,
+      prefix,
     });
   }
 
   const parts: ReactNode[] = [];
 
+  // Add prefix before OR groups if present and not initialAnd
+  if (prefix && !initialAnd) {
+    parts.push(<div key={keyPrefix + "prefix"}>{prefix}</div>);
+  }
+
   if (initialAnd) {
-    parts.push(<div key={keyPrefix + "and-start"}>AND {"["}</div>);
+    parts.push(
+      <div key={keyPrefix + "and-start"}>
+        {prefix}
+        <Text weight="medium">AND {"["}</Text>
+      </div>,
+    );
   }
 
   conditions.forEach((condGroup, i) => {
     if (i > 0) {
       parts.push(
-        <div key={keyPrefix + "or-sep-" + i}>
-          <Text weight="medium">OR</Text>
-        </div>,
+        <Text weight="medium" key={keyPrefix + "or-sep-" + i}>
+          OR
+        </Text>,
       );
     }
-    parts.push(<div key={keyPrefix + "or-start-" + i}>{"("}</div>);
+
+    const groupContent = getConditionParts({
+      conditions: condGroup,
+      savedGroups,
+      initialAnd: false,
+      renderPrerequisite,
+      keyPrefix: `${keyPrefix}or-${i}-`,
+    });
+
     parts.push(
-      ...getConditionParts({
-        conditions: condGroup,
-        savedGroups,
-        initialAnd: false,
-        renderPrerequisite,
-        keyPrefix: `${keyPrefix}or-${i}-`,
-      }),
+      <Box
+        key={keyPrefix + "or-group-" + i}
+        pl="3"
+        style={{
+          borderLeft: "2px solid var(--gray-6)",
+        }}
+      >
+        <Flex direction="column" gap="2">
+          {groupContent}
+        </Flex>
+      </Box>,
     );
-    parts.push(<div key={keyPrefix + "or-end-" + i}>{")"}</div>);
   });
 
   if (initialAnd) {
-    parts.push(<div key={keyPrefix + "and-end"}>{"]"}</div>);
+    parts.push(
+      <div key={keyPrefix + "and-end"}>
+        <Text weight="medium">{"]"}</Text>
+      </div>,
+    );
   }
 
   return parts;
@@ -279,12 +335,14 @@ function getConditionParts({
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
+  prefix,
 }: {
   conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupWithoutValues[];
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
+  prefix?: ReactNode;
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
     let fieldEl: ReactNode = (
@@ -293,7 +351,11 @@ function getConditionParts({
         className="text-ellipsis d-inline-block"
         style={{ maxWidth: 300 }}
         title={field}
-        label={<Text style={{ color: "var(--slate-12)" }}>{field}</Text>}
+        label={
+          <Text size="inherit" whiteSpace="pre" color="text-high">
+            {field}
+          </Text>
+        }
       />
     );
     let parentIdEl: ReactNode = null;
@@ -309,7 +371,9 @@ function getConditionParts({
             style={{ maxWidth: 300 }}
             title={displayValue}
             label={
-              <Text style={{ color: "var(--slate-12)" }}>{displayValue}</Text>
+              <Text size="inherit" whiteSpace="pre" color="text-high">
+                {displayValue}
+              </Text>
             }
           />
         );
@@ -366,16 +430,17 @@ function getConditionParts({
 
     return (
       <Flex wrap="wrap" key={keyPrefix + i} gap="2">
+        {i === 0 && prefix}
         {(i > 0 || initialAnd) && <Text weight="medium">AND</Text>}
         {parentIdEl}
         {fieldEl}
-        <span className="mr-1">
+        <Text>
           {operatorToText({
             operator,
             isPrerequisite: renderPrerequisite,
             hasMultipleSavedGroups,
           })}
-        </span>
+        </Text>
         {field === "$savedGroups" ? (
           <MultiValueDisplay
             value={value}
@@ -398,16 +463,35 @@ function getConditionParts({
           (operator === "$inGroup" || operator === "$notInGroup") &&
           savedGroups ? (
             group ? (
-              <Link
-                href={`/saved-groups/${group.id}`}
-                target="_blank"
-                size="1"
-                color="violet"
-                title="Manage Saved Group"
-              >
-                <Badge color="gray" label={group.groupName} />{" "}
-                <PiArrowSquareOut />
-              </Link>
+              <Badge
+                color="gray"
+                label={
+                  <Link
+                    href={`/saved-groups/${group.id}`}
+                    target="_blank"
+                    color="violet"
+                    title={`Manage Saved Group: ${group.groupName}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: "400px",
+                      }}
+                    >
+                      {group.groupName}
+                    </span>
+                    <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                  </Link>
+                }
+              />
             ) : (
               <Badge
                 color="gray"
@@ -415,7 +499,7 @@ function getConditionParts({
                 style={{ maxWidth: 300 }}
                 title={displayValue}
                 label={
-                  <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                  <Text size="inherit" whiteSpace="pre" color="text-high">
                     {displayValue}
                   </Text>
                 }
@@ -428,7 +512,7 @@ function getConditionParts({
               style={{ maxWidth: 300 }}
               title={displayValue}
               label={
-                <Text style={{ color: "var(--slate-12)", whiteSpace: "pre" }}>
+                <Text size="inherit" whiteSpace="pre" color="text-high">
                   {displayValue}
                 </Text>
               }
@@ -452,12 +536,27 @@ function ParentIdLink({ parentId }: { parentId: string }) {
       label={
         <Link
           href={`/features/${parentId}`}
-          title="Manage Feature"
-          size="1"
+          title={`Manage Feature: ${parentId}`}
           target="_blank"
           color="violet"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            overflow: "hidden",
+          }}
         >
-          {parentId}
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "400px",
+            }}
+          >
+            {parentId}
+          </span>
+          <PiArrowSquareOut style={{ flexShrink: 0 }} />
         </Link>
       }
     />
@@ -468,16 +567,19 @@ export default function ConditionDisplay({
   condition,
   savedGroups: savedGroupTargeting,
   prerequisites,
+  prefix,
 }: {
   condition?: string;
   savedGroups?: SavedGroupTargeting[];
   prerequisites?: FeaturePrerequisite[];
+  prefix?: ReactNode;
 }) {
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
 
   const parts: ReactNode[] = [];
   let partId = 0;
+  let prefixUsed = false;
 
   const jsonFormattedCondition = useMemo(() => {
     if (!condition) return;
@@ -495,10 +597,12 @@ export default function ConditionDisplay({
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
         groupClassName="col-auto"
-        initialAnd={parts.length > 0}
+        initialAnd={false}
         key={`${partId++}-saved-group-targeting`}
+        prefix={!prefixUsed ? prefix : undefined}
       />,
     );
+    prefixUsed = true;
   }
 
   if (prerequisites) {
@@ -515,12 +619,14 @@ export default function ConditionDisplay({
           }
           parts.push(
             <Flex wrap="wrap" gap="2" key={partId++} className="w-100 col-auto">
-              {parts.length > 0 && <Text weight="medium">AND</Text>}
+              {!prefixUsed && prefix}
+              {prefixUsed && <Text weight="medium">AND</Text>}
               <Text>prerequisite</Text>
               <ParentIdLink parentId={p.id} />
               <InlineCode language="json" code={jsonFormattedCondition} />
             </Flex>,
           );
+          prefixUsed = true;
           return;
         }
         return cond[0]?.map(({ field, operator, value }) => {
@@ -544,10 +650,12 @@ export default function ConditionDisplay({
       conditions: prereqConds,
       savedGroups,
       renderPrerequisite: true,
-      initialAnd: parts.length > 0,
+      initialAnd: prefixUsed,
       keyPrefix: `${partId++}-prereq-`,
+      prefix: !prefixUsed ? prefix : undefined,
     });
     parts.push(...prereqParts);
+    if (prereqParts.length > 0) prefixUsed = true;
   }
 
   if (condition && jsonFormattedCondition) {
@@ -556,22 +664,26 @@ export default function ConditionDisplay({
     if (conds === null || !attributes.size) {
       parts.push(
         <div className="w-100" key={partId++}>
+          {!prefixUsed && prefix}
           <InlineCode language="json" code={jsonFormattedCondition} />
         </div>,
       );
+      prefixUsed = true;
     } else {
       const conditionParts = getConditionOrParts({
         conditions: conds,
         savedGroups,
         keyPrefix: `${partId++}-condition-`,
-        initialAnd: parts.length > 0,
+        initialAnd: prefixUsed,
+        prefix: !prefixUsed ? prefix : undefined,
       });
       parts.push(...conditionParts);
+      if (conditionParts.length > 0) prefixUsed = true;
     }
   }
 
   return (
-    <Flex gapX="3" gapY="2" wrap="wrap">
+    <Flex direction="column" gap="2">
       {parts}
     </Flex>
   );

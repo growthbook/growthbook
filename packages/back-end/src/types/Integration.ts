@@ -98,6 +98,7 @@ export interface SourceIntegrationInterface {
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
+  supportsLimitZeroColumnValidation?(): boolean;
   getTestValidityQuery?(
     query: string,
     testDays?: number,
@@ -236,8 +237,8 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<PastExperimentQueryResponse>;
-  runColumnTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
-  getColumnTopValuesQuery?: (params: ColumnTopValuesParams) => string;
+  runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
     schemaFormat: AutoFactTableSchemas,
     schema?: string,

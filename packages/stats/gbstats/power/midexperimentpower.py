@@ -82,8 +82,8 @@ class MidExperimentPower:
         )
 
     def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
-        if self.test_result.error_message:
-            return self._default_output(self.test_result.error_message, "unsuccessful")
+        if self.test_result.errorMessage:
+            return self._default_output(self.test_result.errorMessage, "unsuccessful")
 
         scaling_factor_result = self.calculate_scaling_factor()
         if scaling_factor_result.scaling_factor:
@@ -148,7 +148,7 @@ class MidExperimentPower:
 
     @property
     def sigmahat_2_delta(self) -> float:
-        if self.test_result.error_message is not None:
+        if self.test_result.errorMessage is not None:
             return 0
         return self.effect_moments.standard_error**2
 

@@ -236,8 +236,8 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "1mb" }));
+// increase max payload json size to 2mb
+app.use(bodyParser.json({ limit: "2mb" }));
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -809,6 +809,15 @@ app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
 app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
 app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);
+app.get(
+  "/feature/:id/prerequisite-states",
+  featuresController.getPrerequisiteStates,
+);
+app.post(
+  "/features/batch-prerequisite-states",
+  featuresController.postBatchPrerequisiteStates,
+);
+app.get("/features/names", featuresController.getFeatureNames);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

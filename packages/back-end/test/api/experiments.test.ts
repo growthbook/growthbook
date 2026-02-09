@@ -59,6 +59,7 @@ describe("experiments API", () => {
         },
         projects: {
           getById: jest.fn().mockResolvedValue(null),
+          getByIds: jest.fn().mockResolvedValue([]),
           ensureProjectsExist: jest.fn().mockResolvedValue(undefined),
         },
         dataSources: {

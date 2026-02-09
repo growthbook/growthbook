@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+// Unsure why eslint is complaining, but the script runs fine.
+// eslint-disable-next-line import/default
 import prettier from "prettier";
 import {
   getLatestSDKVersion,
@@ -223,7 +225,7 @@ const baseSDKInfo = {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.0.3",
+    version: getLatestSDKVersion("rust"),
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {

@@ -79,16 +79,8 @@ const baseRowResults: RowResults = {
   suspiciousThreshold: 0.25,
   suspiciousChangeReason: "",
   belowMinChange: false,
-  risk: 0.01,
-  relativeRisk: 0.01,
-  riskMeta: {
-    riskStatus: "ok",
-    showRisk: false,
-    riskFormatted: "1%",
-    relativeRiskFormatted: "1%",
-    riskReason: "",
-  },
-  guardrailWarning: "",
+  minPercentChange: 0.05,
+  currentMetricTotal: 1000,
   directionalStatus: "winning",
   resultsStatus: "won",
   resultsReason: "",
@@ -385,28 +377,6 @@ export default function AnalysisResultSummaryStories() {
                     regressionAdjustmentAvailable: true,
                     regressionAdjustmentDays: 14,
                   },
-                })}
-              />
-            </Frame>
-          </Flex>
-        </div>
-
-        <div>
-          <b>Guardrail Metric with Warning</b>
-          <Flex gap="3" mt="2">
-            <Frame py="2" px="2">
-              <AnalysisResultSummary
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsLose,
-                  baseline: baselineMetric,
-                  rowResults: {
-                    ...rowResultsLose,
-                    guardrailWarning: "Upward trend in bounce rate",
-                  },
-                  statsEngine: "frequentist",
-                  isGuardrail: true,
                 })}
               />
             </Frame>

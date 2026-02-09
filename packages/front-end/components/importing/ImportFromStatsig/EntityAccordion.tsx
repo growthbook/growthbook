@@ -15,7 +15,8 @@ export const EntityAccordion: React.FC<EntityAccordionProps> = ({
   isExpanded,
   onToggle,
 }) => {
-  const toggleExpanded = () => {
+  const toggleExpanded = (e: React.MouseEvent) => {
+    e.stopPropagation();
     onToggle(entityId);
   };
 
@@ -165,8 +166,6 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
               <h6 className="mb-2">Changes</h6>
               <div
                 style={{
-                  maxHeight: "400px",
-                  overflowY: "auto",
                   fontSize: "11px",
                 }}
                 className="diff-viewer-wrapper"
@@ -204,8 +203,6 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
           )}
           <div
             style={{
-              maxHeight: "300px",
-              overflowY: "auto",
               width: "100%",
               padding: "12px",
               margin: 0,

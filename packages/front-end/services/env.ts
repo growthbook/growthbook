@@ -24,6 +24,7 @@ const env: EnvironmentInitValue = {
   ingestorOverride: "",
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
+  autoSliceUpdateFrequencyHours: 168, // Default: 7 days
   hasOpenAIKey: false,
   hasAnthropicKey: false,
   hasXaiKey: false,
@@ -141,6 +142,10 @@ export function hasGoogleAIKey() {
 
 export function getExperimentRefreshFrequency() {
   return env.experimentRefreshFrequency;
+}
+
+export function getAutoSliceUpdateFrequencyHours() {
+  return env.autoSliceUpdateFrequencyHours;
 }
 
 export function getUploadMethod(): "local" | "s3" | "google-cloud" {

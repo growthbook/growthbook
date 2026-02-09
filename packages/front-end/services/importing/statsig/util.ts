@@ -206,6 +206,10 @@ export function transformPayloadForDiffDisplay(
         "datasource",
         "columns",
       ]) as Record<string, unknown>;
+      // Provide default values if missing
+      if (!("filters" in scrubbed)) {
+        scrubbed.filters = [];
+      }
       break;
   }
 
@@ -278,7 +282,32 @@ export function transformPayloadForDiffDisplay(
     }
   }
 
-  // Sort nested objects (if they are present)
+  // Helper function to recursively sort all keys in nested objects and arrays
+  const deepSortKeys = (obj: unknown): unknown => {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      // For arrays, recursively sort each item
+      return obj.map((item) => deepSortKeys(item));
+    }
+
+    if (typeof obj === "object") {
+      // For objects, sort keys and recursively sort values
+      const sorted: Record<string, unknown> = {};
+      const keys = Object.keys(obj).sort();
+      for (const key of keys) {
+        sorted[key] = deepSortKeys((obj as Record<string, unknown>)[key]);
+      }
+      return sorted;
+    }
+
+    // For primitives, return as-is
+    return obj;
+  };
+
+  // Sort nested objects recursively (especially important for numerator/denominator with rowFilters)
   const subObjectKeysToSort = [
     "numerator",
     "denominator",
@@ -288,18 +317,8 @@ export function transformPayloadForDiffDisplay(
     "quantileSettings",
   ];
   for (const subKey of subObjectKeysToSort) {
-    if (
-      subKey in transformed &&
-      transformed[subKey] &&
-      typeof transformed[subKey] === "object"
-    ) {
-      const subObj = transformed[subKey] as Record<string, unknown>;
-      const sortedSubObj: Record<string, unknown> = {};
-      const sortedSubKeys = Object.keys(subObj).sort();
-      for (const key of sortedSubKeys) {
-        sortedSubObj[key] = subObj[key];
-      }
-      transformed[subKey] = sortedSubObj;
+    if (subKey in transformed && transformed[subKey]) {
+      transformed[subKey] = deepSortKeys(transformed[subKey]);
     }
   }
 

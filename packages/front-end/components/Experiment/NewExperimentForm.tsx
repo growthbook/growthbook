@@ -52,7 +52,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -506,7 +506,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         keepDefaultValues: true,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // If a holdout is set for a new experiment, use the hash attribute of the holdout experiment
@@ -1226,7 +1225,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!(isNewExperiment || duplicate) ? (
           <Page display="Targeting">
-            <div className="px-2">
+            <div>
               {isNewExperiment && (
                 <>
                   <div className="d-flex" style={{ gap: "2rem" }}>
@@ -1281,7 +1280,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                   />
                   <hr />
-                  <PrerequisiteTargetingField
+                  <PrerequisiteInput
                     value={form.watch("phases.0.prerequisites") || []}
                     setValue={(prerequisites) =>
                       form.setValue("phases.0.prerequisites", prerequisites)
@@ -1363,7 +1362,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {!(isNewExperiment || duplicate) ? (
           <Page display="Metrics">
-            <div className="px-2" style={{ minHeight: 350 }}>
+            <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
                   label="Data Source"

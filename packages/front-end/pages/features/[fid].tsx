@@ -53,9 +53,6 @@ export default function FeaturePage() {
 
   const { apiCall } = useAuth();
 
-  const { features } = useFeaturesList(false);
-  const allEnvironments = useEnvironments();
-
   const [data, setData] = useState<{
     feature: FeatureInterface | null;
     revisionList: MinimalFeatureRevisionInterface[];
@@ -82,6 +79,13 @@ export default function FeaturePage() {
   const holdout = data?.holdout;
   const [error, setError] = useState<string | null>(null);
   const { experiments: allExperiments } = useExperiments();
+
+  // Scope stale detection to the current feature's project
+  const { features } = useFeaturesList({
+    project: baseFeature?.project,
+    skipFetch: !baseFeature,
+  });
+  const allEnvironments = useEnvironments();
 
   const fetchData = useCallback(
     async (queryString = "") => {
@@ -283,6 +287,7 @@ export default function FeaturePage() {
       : baseFeature;
   }, [baseFeature, revision, environments]);
 
+  // note: project-scoped dependents by default
   const dependentFeatures = useMemo(() => {
     if (!feature || !features) return [];
     return getDependentFeatures(feature, features, envs);
@@ -319,7 +324,6 @@ export default function FeaturePage() {
         tab={tab}
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
-        dependents={dependents}
         holdout={holdout}
         dependentExperiments={dependentExperiments}
       />
@@ -340,9 +344,6 @@ export default function FeaturePage() {
           setEditProjectModal={setEditProjectModal}
           version={version}
           setVersion={setVersion}
-          dependents={dependents}
-          dependentFeatures={dependentFeatures}
-          dependentExperiments={dependentExperiments}
         />
       )}
 

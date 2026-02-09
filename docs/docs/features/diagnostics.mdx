@@ -1,0 +1,64 @@
+---
+title: Feature Evaluation Diagnostics
+description: Validate feature evaluations with diagnostics
+sidebar_label: Feature Diagnostics
+slug: features/diagnostics
+---
+
+# Feature Evaluation Diagnostics
+
+Feature Evaluation Diagnostics let you inspect recent feature evaluations by querying SDK evaluation events stored in your data warehouse. Use this to verify that any rule (targeting conditions, rollouts, or experiments) is behaving as expected in production.
+
+## Setup
+
+To use Feature Diagnostics, you need to send feature evaluation events to your data warehouse. The only columns we require are `feature_key` and `timestamp`, but you can include any additional metadata that would be useful for your diagnostics, such as `unit_id`, `value`, `reason`, etc.
+
+Set up your SDK to send feature evaluation events to your data warehouse using our built in `onFeatureUsage` callback, as shown in the example snippet below:
+
+```javascript
+const gb = new GrowthBookClient({
+  onFeatureUsage: (featureKey, result) => {
+    // Example using Segment
+    analytics.track("Feature Evaluated", {
+      featureKey: featureKey,
+      value: result.value,
+      // Add any additional metadata you want to track
+      reason: result.source,
+      ruleId: result.ruleId,
+    });
+  }
+});
+```
+
+Once you have Feature Evaluation data in your data warehouse, you can set up your feature usage query in GrowthBook. Navigate to the data source you're using and scroll down to **Feature Usage Query** and add the SQL query for your feature evaluation events.
+
+![datasource-usage-query-block.png](/images/features/feature-diagnostics/datasource-usage-query-block.png)
+
+## Feature Diagnostics Tab
+
+View diagnostic events for your feature flag within the **Diagnostics** tab on any feature. Select your data source and click **View recent feature evaluations** to see the latest 100 feature evaluation events.
+
+![diagnostics-tab.png](/images/features/feature-diagnostics/diagnostics-tab.png)
+
+:::tip Query Results Are Not Cached
+Re-run the query whenever you navigate away from the feature page.
+:::
+
+## Troubleshooting
+
+If you're not seeing evaluation events in the **Diagnostics** tab, here are some things to check:
+
+### Verify your `onFeatureUsage` callback is firing
+
+Make sure your SDK is correctly configured with the `onFeatureUsage` callback and that events are being sent to your analytics pipeline. You can add a `console.log` statement inside the callback to verify it's being triggered when features are evaluated.
+
+### Check your data pipeline
+
+Ensure that events from your analytics tool (e.g., Segment) are flowing correctly into your data warehouse tables. There may be a delay between when events are sent and when they appear in your warehouse.
+
+### Optimize for large tables
+
+If you have a high volume of feature evaluations, query performance can degrade over time. For optimal performance:
+
+- **Partition your table by timestamp** — This allows queries to scan only recent data instead of the entire table.
+- **Cluster by `feature_key`** — This is especially important for BigQuery users, as it helps queries filter efficiently when looking up evaluations for a specific feature.

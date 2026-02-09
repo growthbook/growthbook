@@ -6,7 +6,6 @@ import {
   SavedGroupTargeting,
 } from "shared/types/feature";
 import React from "react";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -27,7 +26,7 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
@@ -58,8 +57,6 @@ export default function ExperimentRefNewFields({
   project,
   environments,
   defaultValues,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -93,8 +90,6 @@ export default function ExperimentRefNewFields({
   project?: string;
   environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -382,12 +377,10 @@ export default function ExperimentRefNewFields({
             project={project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
             feature={feature}
-            revisions={revisions}
-            version={version}
             environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
@@ -552,7 +545,10 @@ export default function ExperimentRefNewFields({
                   label={
                     <>
                       Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true} />
+                      <MetricsSelectorTooltip
+                        onlyBinomial={true}
+                        isSingular={true}
+                      />
                     </>
                   }
                   initialOption="None"

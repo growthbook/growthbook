@@ -6,6 +6,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getMetricLink,
+  isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -53,6 +54,7 @@ export default function AnalysisSettings({
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getMetricById,
     getSegmentById,
     metricGroups,
   } = useDefinitions();
@@ -115,10 +117,16 @@ export default function AnalysisSettings({
     const metric =
       ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
     if (metric) {
+      // For legacy metrics with a denominator, look up the denominator metric
+      const denominatorMetric =
+        !isFactMetric(metric) && metric.denominator
+          ? getMetricById(metric.denominator)
+          : undefined;
       const { settings: scopedSettings } = getScopedSettings({
         organization,
         experiment,
         metric,
+        denominatorMetric: denominatorMetric ?? undefined,
       });
       goalsWithTargetMDE.push({
         ...metric,

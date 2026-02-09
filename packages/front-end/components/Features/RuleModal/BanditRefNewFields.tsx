@@ -6,7 +6,6 @@ import {
 } from "shared/types/feature";
 import React, { useEffect } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
@@ -23,7 +22,7 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,8 +42,6 @@ export default function BanditRefNewFields({
   feature,
   project,
   environments,
-  revisions,
-  version,
   prerequisiteValue,
   setPrerequisiteValue,
   setPrerequisiteTargetingSdkIssues,
@@ -68,8 +65,6 @@ export default function BanditRefNewFields({
   feature?: FeatureInterface;
   project?: string;
   environments: string[];
-  revisions?: FeatureRevisionInterface[];
-  version?: number;
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -230,16 +225,10 @@ export default function BanditRefNewFields({
             project={project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
-            // value={form.watch("prerequisites") || []}
-            // setValue={(prerequisites) =>
-            //   form.setValue("prerequisites", prerequisites)
-            // }
             feature={feature}
-            revisions={revisions}
-            version={version}
             environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues

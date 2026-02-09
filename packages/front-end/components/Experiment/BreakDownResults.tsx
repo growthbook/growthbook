@@ -23,10 +23,13 @@ import {
   ExperimentMetricInterface,
   ExperimentSortBy,
   SetExperimentSortBy,
+  formatDimensionValueForDisplay,
 } from "shared/experiments";
+import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { FaCaretRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { ExperimentTableRow } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
 } from "@/components/Experiment/ResultsTable";
@@ -35,6 +38,7 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
 import UsersTable from "./UsersTable";
 
@@ -82,7 +86,6 @@ const BreakDownResults: FC<{
   metricsFilter?: string[];
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
-  hideDetails?: boolean;
   renderMetricName?: (
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
@@ -101,7 +104,7 @@ const BreakDownResults: FC<{
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  mutate?: () => void;
+  mutate?: () => Promise<unknown>;
   setDifferenceType?: (differenceType: DifferenceType) => void;
 }> = ({
   experimentId,
@@ -136,7 +139,6 @@ const BreakDownResults: FC<{
   metricsFilter,
   experimentType,
   ssrPolyfills,
-  hideDetails,
   renderMetricName,
   noStickyHeader,
   sortBy,
@@ -156,6 +158,9 @@ const BreakDownResults: FC<{
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
+
+  // Detect drilldown context for automatic row click handling
+  const drilldownContext = useMetricDrilldownContext();
 
   const dimension =
     ssrPolyfills?.getDimensionById?.(dimensionId)?.name ||
@@ -190,6 +195,19 @@ const BreakDownResults: FC<{
 
   const isBandit = experimentType === "multi-armed-bandit";
   const isHoldout = experimentType === "holdout";
+
+  // Wrap drilldown to include dimension info
+  const handleRowClick = drilldownContext
+    ? (row: ExperimentTableRow) => {
+        const value =
+          typeof row.label === "string"
+            ? formatDimensionValueForDisplay(row.label)
+            : "";
+        drilldownContext.openDrilldown(row, {
+          dimensionInfo: { name: dimension, value },
+        });
+      }
+    : undefined;
 
   return (
     <div className="mb-3">
@@ -256,6 +274,7 @@ const BreakDownResults: FC<{
               baselineRow={baselineRow}
               columnsFilter={columnsFilter}
               rows={table.rows}
+              onRowClick={handleRowClick}
               dimension={dimension}
               id={(idPrefix ? `${idPrefix}_` : "") + table.metric.id}
               tableRowAxis="dimension" // todo: dynamic grouping?
@@ -264,10 +283,7 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn({
-                      statsEngine,
-                      hideDetails,
-                    })({
+                    {getRenderLabelColumn({})({
                       label: table.metric.name,
                       metric: table.metric,
                       row: table.rows[0],
@@ -293,8 +309,8 @@ const BreakDownResults: FC<{
                   }}
                 >
                   {label ? (
-                    label === "__NULL_DIMENSION" ? (
-                      <em>NULL (unset)</em>
+                    label === NULL_DIMENSION_VALUE ? (
+                      <em>{formatDimensionValueForDisplay(label)}</em>
                     ) : (
                       label
                     )
