@@ -23,6 +23,7 @@ import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import MetricName from "@/components/Metrics/MetricName";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import TagsInput from "@/components/Tags/TagsInput";
 
 export type SliceChunk = {
   column: string;
@@ -160,20 +161,6 @@ export function isSliceCoveredBySelectAll(
     const selectAllTag = generateSelectAllSliceString(column);
     return selectAllTags.includes(selectAllTag);
   });
-}
-
-export function formatMetricTagOptionLabel(option: {
-  value: string;
-  label: string;
-  isOrphaned?: boolean;
-}) {
-  return (
-    <span
-      style={option.isOrphaned ? { textDecoration: "line-through" } : undefined}
-    >
-      {option.label}
-    </span>
-  );
 }
 
 export function formatMetricOptionLabel(
@@ -366,7 +353,8 @@ export default function ResultsFilter({
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const hasMetricGroupsFeature = hasCommercialFeature("metric-groups");
-  const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
+  const { getExperimentMetricById, getMetricGroupById, getTagById } =
+    useDefinitions();
 
   const filteringApplied =
     metricTagFilter?.length > 0 ||
@@ -411,7 +399,6 @@ export default function ResultsFilter({
   );
 
   const metricTagOptions = useMemo(() => {
-    const availableTagSet = new Set(availableMetricTags);
     const allTagIds = Array.from(
       new Set([...availableMetricTags, ...(metricTagFilter || [])]),
     );
@@ -419,7 +406,6 @@ export default function ResultsFilter({
     return allTagIds.map((tag) => ({
       value: tag,
       label: tag,
-      isOrphaned: !availableTagSet.has(tag),
     }));
   }, [availableMetricTags, metricTagFilter]);
 
@@ -609,24 +595,24 @@ export default function ResultsFilter({
                   >
                     Tags
                   </Heading>
-                  <MultiSelectField
-                    customClassName="multiselect-unfixed"
-                    containerClassName="w-100"
-                    placeholder="Type to search..."
-                    value={metricTagFilter || []}
-                    options={metricTagOptions.map((tag) => ({
-                      label: tag.label,
-                      value: tag.value,
-                      isOrphaned: tag.isOrphaned,
-                    }))}
-                    formatOptionLabel={(option) =>
-                      formatMetricTagOptionLabel(option)
-                    }
-                    onChange={(v) => {
-                      setMetricTagFilter?.(v);
-                      return;
-                    }}
-                  />
+                  <Box className="w-100">
+                    <TagsInput
+                      value={metricTagFilter || []}
+                      onChange={(v) => {
+                        setMetricTagFilter?.(v);
+                      }}
+                      prompt="Type to search..."
+                      closeMenuOnSelect={false}
+                      autoFocus={false}
+                      creatable={false}
+                      customClassName="multiselect-unfixed"
+                      tagOptions={metricTagOptions.map((tag) => ({
+                        id: tag.value,
+                        description: "",
+                        color: getTagById(tag.value)?.color || "#029dd1",
+                      }))}
+                    />
+                  </Box>
                 </Flex>
               )}
             </Box>

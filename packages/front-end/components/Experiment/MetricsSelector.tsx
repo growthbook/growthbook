@@ -16,7 +16,6 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
@@ -396,26 +395,6 @@ const MetricsSelector: FC<{
           label
         );
       }}
-      onPaste={(e) => {
-        try {
-          const clipboard = e.clipboardData;
-          const data = JSON.parse(clipboard.getData("Text"));
-          if (
-            data.every(
-              (d) =>
-                d.startsWith("met_") ||
-                d.startsWith("mg_") ||
-                d.startsWith("fact__"),
-            )
-          ) {
-            e.preventDefault();
-            e.stopPropagation();
-            onChange(data);
-          }
-        } catch (e) {
-          // fail silently
-        }
-      }}
       disabled={disabled}
       helpText={
         <>
@@ -533,18 +512,7 @@ const MetricsSelector: FC<{
     />
   );
 
-  return (
-    <div className="position-relative">
-      {!forceSingleMetric && selected.length > 0 && (
-        <div className="position-absolute" style={{ right: 0, top: -25 }}>
-          <Tooltip body="Copy metrics" tipPosition="top" tipMinWidth="90">
-            <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
-          </Tooltip>
-        </div>
-      )}
-      {selector}
-    </div>
-  );
+  return selector;
 };
 
 export default MetricsSelector;

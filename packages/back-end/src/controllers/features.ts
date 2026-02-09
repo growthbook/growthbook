@@ -3372,25 +3372,23 @@ export async function getPrerequisiteStates(
   });
 }
 
-// Batch evaluate prerequisite states and cyclic checks for multiple features
+// Batch evaluate prerequisite states with optional base feature (for cyclic checks)
 export async function postBatchPrerequisiteStates(
-  req: AuthRequest<
-    {
-      featureIds: string[];
-      environments: string[];
-      checkPrerequisite?: {
-        id: string;
-        condition: string;
-        prerequisiteIndex?: number;
-      };
-      checkRulePrerequisites?: {
-        environment: string;
-        ruleIndex: number;
-        prerequisites: FeaturePrerequisite[];
-      };
-    },
-    { id: string }
-  >,
+  req: AuthRequest<{
+    featureIds: string[];
+    environments: string[];
+    baseFeatureId?: string;
+    checkPrerequisite?: {
+      id: string;
+      condition: string;
+      prerequisiteIndex?: number;
+    };
+    checkRulePrerequisites?: {
+      environment: string;
+      ruleIndex: number;
+      prerequisites: FeaturePrerequisite[];
+    };
+  }>,
   res: Response<
     {
       status: 200;
@@ -3417,10 +3415,10 @@ export async function postBatchPrerequisiteStates(
   const {
     featureIds,
     environments,
+    baseFeatureId,
     checkPrerequisite,
     checkRulePrerequisites,
   } = req.body;
-  const { id: targetFeatureId } = req.params;
 
   // featureIds is required unless we're only doing cycle checks
   if (
@@ -3434,18 +3432,65 @@ export async function postBatchPrerequisiteStates(
     throw new Error("Must provide environments");
   }
 
-  const targetFeature = await getFeature(context, targetFeatureId);
-  if (!targetFeature) {
-    throw new Error("Could not find target feature");
+  // If baseFeatureId provided, fetch the feature and perform cyclic checks
+  let baseFeature: FeatureInterface | null = null;
+  let revision: FeatureRevisionInterface | null = null;
+
+  if (baseFeatureId) {
+    baseFeature = await getFeature(context, baseFeatureId);
+
+    if (!baseFeature) {
+      throw new Error("Could not find base feature");
+    }
+
+    revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: baseFeatureId,
+      version: baseFeature.version,
+    });
   }
 
-  const revision = await getRevision({
+  return await evaluateBatchPrerequisiteStates({
     context,
-    organization: context.org.id,
-    featureId: targetFeatureId,
-    version: targetFeature.version,
+    featureIds,
+    environments,
+    baseFeature,
+    revision,
+    checkPrerequisite,
+    checkRulePrerequisites,
+    res,
   });
+}
 
+// Shared logic for evaluating batch prerequisite states
+async function evaluateBatchPrerequisiteStates({
+  context,
+  featureIds,
+  environments,
+  baseFeature,
+  revision,
+  checkPrerequisite,
+  checkRulePrerequisites,
+  res,
+}: {
+  context: ReqContext;
+  featureIds: string[];
+  environments: string[];
+  baseFeature: FeatureInterface | null;
+  revision: FeatureRevisionInterface | null;
+  checkPrerequisite?: {
+    id: string;
+    condition: string;
+    prerequisiteIndex?: number;
+  };
+  checkRulePrerequisites?: {
+    environment: string;
+    ruleIndex: number;
+    prerequisites: FeaturePrerequisite[];
+  };
+  res: Response;
+}) {
   const optionFeatures = featureIds.length
     ? await getFeaturesByIds(context, featureIds)
     : [];
@@ -3476,77 +3521,85 @@ export async function postBatchPrerequisiteStates(
       );
     }
 
-    const testFeature = cloneDeep(targetFeature);
-    if (revision) {
-      for (const env of Object.keys(testFeature.environmentSettings || {})) {
-        testFeature.environmentSettings[env].rules =
-          revision?.rules?.[env] || [];
+    // Skip cyclic check if no baseFeature
+    let wouldBeCyclic = false;
+    if (baseFeature) {
+      const testFeature = cloneDeep(baseFeature);
+      if (revision) {
+        for (const env of Object.keys(testFeature.environmentSettings || {})) {
+          testFeature.environmentSettings[env].rules =
+            revision?.rules?.[env] || [];
+        }
       }
-    }
-    testFeature.prerequisites = [
-      ...(testFeature.prerequisites || []),
-      {
-        id: featureId,
-        condition: getDefaultPrerequisiteCondition(),
-      },
-    ];
+      testFeature.prerequisites = [
+        ...(testFeature.prerequisites || []),
+        {
+          id: featureId,
+          condition: getDefaultPrerequisiteCondition(),
+        },
+      ];
 
-    const cyclicCheckMap = new Map<string, FeatureInterface>();
-    cyclicCheckMap.set(targetFeature.id, targetFeature);
-    optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
+      const cyclicCheckMap = new Map<string, FeatureInterface>();
+      cyclicCheckMap.set(baseFeature.id, baseFeature);
+      optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
 
-    const checkCyclicAsync = async (f: FeatureInterface): Promise<boolean> => {
-      const visited = new Set<string>();
-      const visiting = new Set<string>();
-
-      const visit = async (
-        feature: FeatureInterface,
-        depth: number = 0,
+      const checkCyclicAsync = async (
+        f: FeatureInterface,
       ): Promise<boolean> => {
-        if (depth >= PREREQUISITE_MAX_DEPTH) return true;
-        if (visiting.has(feature.id)) return true;
-        if (visited.has(feature.id)) return false;
+        const visited = new Set<string>();
+        const visiting = new Set<string>();
 
-        visiting.add(feature.id);
+        const visit = async (
+          feature: FeatureInterface,
+          depth: number = 0,
+        ): Promise<boolean> => {
+          if (depth >= PREREQUISITE_MAX_DEPTH) return true;
+          if (visiting.has(feature.id)) return true;
+          if (visited.has(feature.id)) return false;
 
-        const prerequisiteIds: string[] = (feature.prerequisites || []).map(
-          (p) => p.id,
-        );
-        for (const eid in feature.environmentSettings || {}) {
-          if (!environments.includes(eid)) continue;
-          const env = feature.environmentSettings?.[eid];
-          if (!env?.rules) continue;
-          for (const rule of env.rules || []) {
-            if (rule?.prerequisites?.length) {
-              const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
-              prerequisiteIds.push(...rulePrerequisiteIds);
+          visiting.add(feature.id);
+
+          const prerequisiteIds: string[] = (feature.prerequisites || []).map(
+            (p) => p.id,
+          );
+          for (const eid in feature.environmentSettings || {}) {
+            if (!environments.includes(eid)) continue;
+            const env = feature.environmentSettings?.[eid];
+            if (!env?.rules) continue;
+            for (const rule of env.rules || []) {
+              if (rule?.prerequisites?.length) {
+                const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
+                prerequisiteIds.push(...rulePrerequisiteIds);
+              }
             }
           }
-        }
 
-        for (const prerequisiteId of prerequisiteIds) {
-          let prereqFeature = cyclicCheckMap.get(prerequisiteId);
-          if (!prereqFeature) {
-            const features = await getFeaturesByIds(context, [prerequisiteId]);
-            prereqFeature = features[0];
-            if (prereqFeature) {
-              cyclicCheckMap.set(prerequisiteId, prereqFeature);
+          for (const prerequisiteId of prerequisiteIds) {
+            let prereqFeature = cyclicCheckMap.get(prerequisiteId);
+            if (!prereqFeature) {
+              const features = await getFeaturesByIds(context, [
+                prerequisiteId,
+              ]);
+              prereqFeature = features[0];
+              if (prereqFeature) {
+                cyclicCheckMap.set(prerequisiteId, prereqFeature);
+              }
+            }
+            if (prereqFeature && (await visit(prereqFeature, depth + 1))) {
+              return true;
             }
           }
-          if (prereqFeature && (await visit(prereqFeature, depth + 1))) {
-            return true;
-          }
-        }
 
-        visiting.delete(feature.id);
-        visited.add(feature.id);
-        return false;
+          visiting.delete(feature.id);
+          visited.add(feature.id);
+          return false;
+        };
+
+        return visit(f, 0);
       };
 
-      return visit(f, 0);
-    };
-
-    const wouldBeCyclic = await checkCyclicAsync(testFeature);
+      wouldBeCyclic = await checkCyclicAsync(testFeature);
+    }
 
     results[featureId] = {
       states,
@@ -3558,8 +3611,13 @@ export async function postBatchPrerequisiteStates(
     testFeature: FeatureInterface,
     testRevision?: FeatureRevisionInterface | null,
   ): Promise<[boolean, string | null]> => {
+    // Skip cyclic check when no base feature is provided (e.g. experiments)
+    if (!baseFeature) {
+      return [false, null];
+    }
+
     const cyclicCheckMap = new Map<string, FeatureInterface>();
-    cyclicCheckMap.set(targetFeature.id, targetFeature);
+    cyclicCheckMap.set(baseFeature.id, baseFeature);
     optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
 
     const visited = new Set<string>();
@@ -3632,8 +3690,8 @@ export async function postBatchPrerequisiteStates(
   let checkPrerequisiteCyclic:
     | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
     | undefined;
-  if (checkPrerequisite) {
-    const testFeature = cloneDeep(targetFeature);
+  if (checkPrerequisite && baseFeature) {
+    const testFeature = cloneDeep(baseFeature);
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {
@@ -3672,8 +3730,8 @@ export async function postBatchPrerequisiteStates(
   let checkRulePrerequisitesCyclic:
     | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
     | undefined;
-  if (checkRulePrerequisites) {
-    const testFeature = cloneDeep(targetFeature);
+  if (checkRulePrerequisites && baseFeature) {
+    const testFeature = cloneDeep(baseFeature);
     const testRevision = revision ? cloneDeep(revision) : null;
 
     if (testRevision) {

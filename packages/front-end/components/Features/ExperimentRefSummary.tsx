@@ -47,7 +47,7 @@ export default function ExperimentRefSummary({
   const { variations } = rule;
   const type = feature.valueType;
 
-  const { namespaces } = useOrgSettings();
+  const { namespaces, useStickyBucketing } = useOrgSettings();
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
@@ -215,7 +215,16 @@ export default function ExperimentRefSummary({
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
         <>
-          <Text weight="medium">SERVE</Text>
+          <Flex gap="2">
+            <Text weight="medium">SERVE</Text>
+            {useStickyBucketing ? (
+              <Text>
+                (Sticky Bucketing{" "}
+                {experiment.disableStickyBucketing ? "disabled" : "enabled"})
+              </Text>
+            ) : null}
+          </Flex>
+
           <Box
             mt="3"
             px="3"

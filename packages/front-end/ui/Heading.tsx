@@ -45,7 +45,7 @@ export default function Heading({
   size = "medium",
   weight = "medium",
   as,
-  color = "text-mid",
+  color,
   align = "left",
   title,
   m,

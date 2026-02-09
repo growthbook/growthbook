@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, ReactNode } from "react";
 import { SavedGroupTargeting, FeaturePrerequisite } from "shared/types/feature";
-import { Text } from "@radix-ui/themes";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 interface TruncatedConditionDisplayProps {
   condition?: string;
@@ -11,6 +11,7 @@ interface TruncatedConditionDisplayProps {
   maxLength?: number;
   project?: string;
   showAttributeTooltip?: boolean;
+  prefix?: ReactNode;
 }
 
 export default function TruncatedConditionDisplay({
@@ -20,6 +21,7 @@ export default function TruncatedConditionDisplay({
   maxLength = 200,
   project,
   showAttributeTooltip = false,
+  prefix,
 }: TruncatedConditionDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -43,6 +45,7 @@ export default function TruncatedConditionDisplay({
           prerequisites={prerequisites}
           project={project}
           showAttributeTooltip={showAttributeTooltip}
+          prefix={prefix}
         />
         {isExpanded && (
           <Link onClick={() => setIsExpanded(false)} mt="1">
@@ -57,8 +60,8 @@ export default function TruncatedConditionDisplay({
   return (
     <>
       <div>
-        <Text color="gray" weight="bold" style={{ fontStyle: "italic" }}>
-          Large Condition
+        <Text color="text-mid" weight="semibold">
+          <em>Large Condition</em>
         </Text>
       </div>
       <Link onClick={() => setIsExpanded(true)} mt="1">
