@@ -213,39 +213,61 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const handlePaste =
     userOnPaste ??
     ((event: React.ClipboardEvent<HTMLInputElement>) => {
+      const clipboard = event.clipboardData;
+      const pastedText = clipboard.getData("text").trim();
+      let parsed: unknown;
+
+      // Normalize to have brackets, then try JSON parse
+      let normalizedText = pastedText;
+      if (!normalizedText.startsWith("["))
+        normalizedText = "[" + normalizedText;
+      if (!normalizedText.endsWith("]")) normalizedText = normalizedText + "]";
+
       try {
-        const clipboard = event.clipboardData;
-        const parsed = JSON.parse(clipboard.getData("text"));
+        parsed = JSON.parse(normalizedText);
+      } catch {
+        // do nothing
+      }
 
-        if (Array.isArray(parsed)) {
-          let newValues = parsed
-            .map((v) => String(v))
-            .filter(Boolean)
-            .filter((v) => {
-              if (!pattern) return true;
-              return new RegExp(pattern).test(v);
-            })
-            .filter((v) => {
-              if (creatable) return true;
-              return map.has(v);
-            });
+      // If JSON parsing failed, try splitting by delimiters
+      if (!Array.isArray(parsed)) {
+        // Split by comma, tab, or newline
+        const items = pastedText
+          .split(/[\t\n,]+/)
+          .map((s) => s.trim().replace(/^["'[]|["'\]]$/g, "")) // Remove quotes and brackets
+          .filter(Boolean);
 
-          // Remove duplicates within pasted values AND against existing values
-          const seen = new Set(value);
-          newValues = newValues.filter((v) => {
-            if (seen.has(v)) return false;
-            seen.add(v);
-            return true;
+        if (items.length > 0) {
+          parsed = items;
+        }
+      }
+
+      if (Array.isArray(parsed)) {
+        let newValues = parsed
+          .map((v) => String(v))
+          .filter(Boolean)
+          .filter((v) => {
+            if (!pattern) return true;
+            return new RegExp(pattern).test(v);
+          })
+          .filter((v) => {
+            if (creatable) return true;
+            return map.has(v);
           });
 
-          if (newValues.length > 0) {
-            event.preventDefault();
-            event.stopPropagation();
-            onChange([...value, ...newValues]);
-          }
+        // Remove duplicates within pasted values AND against existing values
+        const seen = new Set(value);
+        newValues = newValues.filter((v) => {
+          if (seen.has(v)) return false;
+          seen.add(v);
+          return true;
+        });
+
+        if (newValues.length > 0) {
+          event.preventDefault();
+          event.stopPropagation();
+          onChange([...value, ...newValues]);
         }
-      } catch {
-        // fail silently
       }
     });
 
