@@ -1,9 +1,10 @@
-import { Text, Flex, Box } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
 import clsx from "clsx";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { format, differenceInDays } from "date-fns";
 import { ProgressBar } from "@/ui/ProgressBar";
+import { Text } from "@/ui/Text";
 
 function pickEarlierDate(
   date1: string | undefined,
@@ -107,7 +108,7 @@ export const HoldoutSchedule = ({
       <ProgressBar segments={segments} />
       <Flex justify="between">
         <Box>
-          <Text weight="medium">Start: </Text>
+          <Text>Start: </Text>
           <Text
             className={clsx({
               "text-muted": !startDate,
@@ -118,7 +119,7 @@ export const HoldoutSchedule = ({
               : "Not scheduled"}
           </Text>
         </Box>
-        <Box>
+        {/* <Box>
           <Text weight="medium">Start Analysis: </Text>
           <Text
             className={clsx({
@@ -141,6 +142,9 @@ export const HoldoutSchedule = ({
               ? format(stopDate, "MMM d, yyyy 'at' h:mm a")
               : "Not scheduled"}
           </Text>
+        </Box> */}
+        <Box>
+          <Text weight="medium"></Text>
         </Box>
       </Flex>
     </>

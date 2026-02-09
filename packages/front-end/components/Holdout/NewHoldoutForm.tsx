@@ -552,7 +552,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         </Page>
 
         <Page display="Targeting">
-          <div className="px-2">
+          <div>
             {prerequisiteAlert}
 
             <SavedGroupTargetingField

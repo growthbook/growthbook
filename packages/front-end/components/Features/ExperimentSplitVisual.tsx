@@ -144,8 +144,10 @@ export default function ExperimentSplitVisual({
                 {showPercentages && (
                   <div className={`${styles.percentMarker}`}>
                     <span>
-                      {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
-                        "%"}
+                      <span className="nowrap">
+                        {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
+                          "%"}
+                      </span>
                       {showValues && (
                         <>
                           {" "}
