@@ -224,9 +224,13 @@ export default function StringArrayField({
 
   const handlePaste = (event: React.ClipboardEvent) => {
     const pastedText = event.clipboardData.getData("text");
-    
+
     // Try to CSV parse if we detect a delimiter
-    if (pastedText.includes(",") || pastedText.includes("\t") || pastedText.includes("\n")) {
+    if (
+      pastedText.includes(",") ||
+      pastedText.includes("\t") ||
+      pastedText.includes("\n")
+    ) {
       event.preventDefault();
 
       let newValues = pastedText
