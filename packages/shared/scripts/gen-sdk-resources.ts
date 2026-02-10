@@ -513,7 +513,7 @@ const baseSDKInfo = {
       {
         url: "https://www.npmjs.com/package/growthbook-roku",
         name: "npm package",
-      }
+      },
     ],
     packageRepos: [],
     capabilities: [
