@@ -1,0 +1,663 @@
+import { MetricInterface, MetricType, Condition } from "shared/types/metric";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+  ColumnInterface,
+  ColumnRef,
+} from "shared/types/fact-table";
+import { ParsedSelect, SelectItem, parseSelect } from "./sql-parser";
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export interface MigrationResult {
+  factTables: FactTableInterface[];
+  factMetrics: FactMetricInterface[];
+  unconverted: { metric: MetricInterface; reason: string }[];
+}
+
+export interface MigrationOptions {
+  generateFactTableId: () => string;
+  generateFactMetricId: () => string;
+  now?: Date;
+}
+
+interface ParsedMetricCandidate {
+  metric: MetricInterface;
+  parsed: ParsedSelect;
+  fingerprint: string;
+}
+
+// ─── Phase 1: Filter & Parse ─────────────────────────────────────────────────
+
+function isNumericLiteral(s: string): boolean {
+  return /^\d+$/.test(s.trim());
+}
+
+function isUnsupportedAggregation(agg: string | undefined): string | false {
+  if (agg === undefined || agg === "") return false;
+  if (agg === "sum" || agg === "max" || agg === "count distinct") return false;
+  if (isNumericLiteral(agg)) return `Unsupported custom aggregation: ${agg}`;
+  // Anything containing COUNT(*) or complex expressions
+  return `Unsupported custom aggregation: ${agg}`;
+}
+
+function mapAggregation(
+  agg: string | undefined,
+): "sum" | "max" | "count distinct" {
+  if (!agg || agg === "") return "sum";
+  if (agg === "sum" || agg === "max" || agg === "count distinct") return agg;
+  return "sum";
+}
+
+function conditionToSql(c: Condition): string {
+  const col = c.column;
+  const op = c.operator;
+  const val = c.value;
+
+  if (op === "~" || op === "!~") {
+    // Regex operators — use raw value
+    return `${col} ${op} '${val}'`;
+  }
+  return `${col} ${op} '${val}'`;
+}
+
+function buildParsedFromBuilder(
+  metric: MetricInterface,
+): ParsedSelect | string {
+  if (!metric.table) {
+    return "Builder metric missing table";
+  }
+
+  const selectItems: SelectItem[] = [];
+
+  // User ID columns
+  const userIdTypes = metric.userIdTypes || [];
+  const userIdColumns = metric.userIdColumns || {};
+  for (const uid of userIdTypes) {
+    const col = userIdColumns[uid] || uid;
+    selectItems.push({ expr: col, alias: uid });
+  }
+
+  // Timestamp
+  const tsCol = metric.timestampColumn || "timestamp";
+  selectItems.push({ expr: tsCol, alias: "timestamp" });
+
+  // Value column (non-binomial only)
+  if (metric.type !== "binomial") {
+    const valCol = metric.column || "value";
+    selectItems.push({ expr: valCol, alias: "value" });
+  }
+
+  // WHERE from conditions
+  let where: string | null = null;
+  if (metric.conditions && metric.conditions.length > 0) {
+    where = metric.conditions.map(conditionToSql).join(" AND ");
+  }
+
+  return {
+    ctes: [],
+    select: selectItems,
+    distinct: false,
+    from: { table: metric.table, alias: null },
+    joins: [],
+    where,
+    groupBy: [],
+    having: null,
+    orderBy: [],
+    limit: null,
+    offset: null,
+  };
+}
+
+function filterAndParse(metrics: MetricInterface[]): {
+  candidates: ParsedMetricCandidate[];
+  unconverted: { metric: MetricInterface; reason: string }[];
+} {
+  const candidates: ParsedMetricCandidate[] = [];
+  const unconverted: { metric: MetricInterface; reason: string }[] = [];
+
+  for (const metric of metrics) {
+    // Check denominator
+    if (metric.denominator) {
+      unconverted.push({ metric, reason: "Ratio metrics are not supported" });
+      continue;
+    }
+
+    // Check aggregation
+    const aggCheck = isUnsupportedAggregation(metric.aggregation);
+    if (aggCheck) {
+      unconverted.push({ metric, reason: aggCheck });
+      continue;
+    }
+
+    let parsed: ParsedSelect;
+
+    if (metric.queryFormat === "builder") {
+      const result = buildParsedFromBuilder(metric);
+      if (typeof result === "string") {
+        unconverted.push({ metric, reason: result });
+        continue;
+      }
+      parsed = result;
+    } else {
+      // SQL metric
+      if (!metric.sql || !metric.sql.trim()) {
+        unconverted.push({ metric, reason: "No SQL query defined" });
+        continue;
+      }
+
+      try {
+        parsed = parseSelect(metric.sql);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        unconverted.push({ metric, reason: `Failed to parse SQL: ${msg}` });
+        continue;
+      }
+    }
+
+    // Check for unsupported SQL features
+    if (parsed.ctes.length > 0) {
+      unconverted.push({ metric, reason: "Unsupported SQL feature: CTE" });
+      continue;
+    }
+    if (parsed.groupBy.length > 0) {
+      unconverted.push({
+        metric,
+        reason: "Unsupported SQL feature: GROUP BY",
+      });
+      continue;
+    }
+    if (parsed.having) {
+      unconverted.push({ metric, reason: "Unsupported SQL feature: HAVING" });
+      continue;
+    }
+    if (parsed.limit) {
+      unconverted.push({ metric, reason: "Unsupported SQL feature: LIMIT" });
+      continue;
+    }
+    if (parsed.offset) {
+      unconverted.push({ metric, reason: "Unsupported SQL feature: OFFSET" });
+      continue;
+    }
+    if (parsed.distinct) {
+      unconverted.push({
+        metric,
+        reason: "Unsupported SQL feature: DISTINCT",
+      });
+      continue;
+    }
+    if (!parsed.from) {
+      unconverted.push({ metric, reason: "SQL has no FROM clause" });
+      continue;
+    }
+
+    const fingerprint = buildFingerprint(metric, parsed);
+    candidates.push({ metric, parsed, fingerprint });
+  }
+
+  return { candidates, unconverted };
+}
+
+// ─── Phase 2: Structural Fingerprint ─────────────────────────────────────────
+
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function buildFingerprint(
+  metric: MetricInterface,
+  parsed: ParsedSelect,
+): string {
+  const parts: string[] = [];
+
+  // Datasource
+  parts.push(`ds:${metric.datasource}`);
+
+  // FROM
+  if (parsed.from) {
+    const table = normalize(parsed.from.table);
+    const alias = parsed.from.alias ? normalize(parsed.from.alias) : "";
+    parts.push(`from:${table}:${alias}`);
+  }
+
+  // JOINs sorted alphabetically
+  const joinParts = parsed.joins
+    .map((j) => {
+      const table = normalize(j.table);
+      const alias = j.alias ? normalize(j.alias) : "";
+      const on = j.on ? normalize(j.on) : "";
+      const using = j.using ? j.using.map(normalize).join(",") : "";
+      return `${normalize(j.joinType)}|${table}:${alias}|${on}|${using}`;
+    })
+    .sort();
+
+  for (const jp of joinParts) {
+    parts.push(`join:${jp}`);
+  }
+
+  return parts.join("||");
+}
+
+// ─── Phase 3: Merge Groups ───────────────────────────────────────────────────
+
+interface ClassifiedItems {
+  userIdItems: Map<string, SelectItem>; // key: lowercase alias
+  timestampItem: SelectItem | null;
+  valueItem: SelectItem | null;
+}
+
+function classifySelectItems(
+  metric: MetricInterface,
+  parsed: ParsedSelect,
+): ClassifiedItems {
+  const userIdTypes = new Set(
+    (metric.userIdTypes || []).map((u) => u.toLowerCase()),
+  );
+  const userIdItems = new Map<string, SelectItem>();
+  let timestampItem: SelectItem | null = null;
+  let valueItem: SelectItem | null = null;
+
+  for (const item of parsed.select) {
+    const alias = (item.alias || "").toLowerCase();
+    if (userIdTypes.has(alias)) {
+      userIdItems.set(alias, item);
+    } else if (alias === "timestamp") {
+      timestampItem = item;
+    } else if (alias === "value") {
+      valueItem = item;
+    }
+  }
+
+  return { userIdItems, timestampItem, valueItem };
+}
+
+interface MergedGroup {
+  candidates: ParsedMetricCandidate[];
+  mergedSelect: SelectItem[];
+  mergedFrom: ParsedSelect["from"];
+  mergedJoins: ParsedSelect["joins"];
+  sharedWhere: string | null;
+  perMetricWhere: Map<MetricInterface, string>;
+  valueAliases: Map<MetricInterface, string>;
+  allUserIdTypes: string[];
+  conflicted: boolean;
+}
+
+function mergeGroup(candidates: ParsedMetricCandidate[]): MergedGroup {
+  const first = candidates[0];
+  const mergedFrom = first.parsed.from;
+  const mergedJoins = first.parsed.joins;
+
+  // Classify all items
+  const allClassified = candidates.map((c) => ({
+    candidate: c,
+    classified: classifySelectItems(c.metric, c.parsed),
+  }));
+
+  // Check for conflicting shared columns (user IDs and timestamp)
+  let conflicted = false;
+
+  // Merge user ID items
+  const mergedUserIds = new Map<string, SelectItem>();
+  for (const { classified } of allClassified) {
+    for (const [key, item] of classified.userIdItems) {
+      if (mergedUserIds.has(key)) {
+        const existing = mergedUserIds.get(key)!;
+        if (normalize(existing.expr) !== normalize(item.expr)) {
+          conflicted = true;
+        }
+      } else {
+        mergedUserIds.set(key, item);
+      }
+    }
+  }
+
+  // Merge timestamp
+  let mergedTimestamp: SelectItem | null = null;
+  for (const { classified } of allClassified) {
+    if (classified.timestampItem) {
+      if (mergedTimestamp) {
+        if (
+          normalize(mergedTimestamp.expr) !==
+          normalize(classified.timestampItem.expr)
+        ) {
+          conflicted = true;
+        }
+      } else {
+        mergedTimestamp = classified.timestampItem;
+      }
+    }
+  }
+
+  // Determine WHERE handling
+  const whereValues = candidates.map((c) => c.parsed.where);
+  const allSameWhere =
+    whereValues.every((w) => w === null) ||
+    whereValues.every(
+      (w) => w !== null && normalize(w) === normalize(whereValues[0] || ""),
+    );
+
+  let sharedWhere: string | null = null;
+  const perMetricWhere = new Map<MetricInterface, string>();
+
+  if (allSameWhere) {
+    sharedWhere = whereValues[0] || null;
+  } else {
+    for (const c of candidates) {
+      if (c.parsed.where) {
+        perMetricWhere.set(c.metric, c.parsed.where);
+      }
+    }
+  }
+
+  // Value columns
+  const valueAliases = new Map<MetricInterface, string>();
+  const metricsWithValue = allClassified.filter(
+    (x) => x.classified.valueItem !== null,
+  );
+
+  const mergedSelect: SelectItem[] = [];
+
+  // Add user ID items
+  for (const [, item] of mergedUserIds) {
+    mergedSelect.push(item);
+  }
+
+  // Add timestamp
+  if (mergedTimestamp) {
+    mergedSelect.push(mergedTimestamp);
+  }
+
+  // Add value columns
+  if (metricsWithValue.length <= 1) {
+    // Single value column keeps alias "value"
+    for (const { candidate, classified } of metricsWithValue) {
+      const item = classified.valueItem!;
+      mergedSelect.push({ expr: item.expr, alias: "value" });
+      valueAliases.set(candidate.metric, "value");
+    }
+  } else {
+    // Multiple value columns: value_0, value_1, etc.
+    metricsWithValue.forEach(({ candidate, classified }, idx) => {
+      const item = classified.valueItem!;
+      const alias = `value_${idx}`;
+      mergedSelect.push({ expr: item.expr, alias });
+      valueAliases.set(candidate.metric, alias);
+    });
+  }
+
+  // Collect all user ID types
+  const allUserIdTypesSet = new Set<string>();
+  for (const c of candidates) {
+    for (const uid of c.metric.userIdTypes || []) {
+      allUserIdTypesSet.add(uid);
+    }
+  }
+
+  return {
+    candidates,
+    mergedSelect,
+    mergedFrom,
+    mergedJoins,
+    sharedWhere,
+    perMetricWhere,
+    valueAliases,
+    allUserIdTypes: [...allUserIdTypesSet],
+    conflicted,
+  };
+}
+
+// ─── Phase 4: Build Output Objects ───────────────────────────────────────────
+
+function reconstructSql(
+  select: SelectItem[],
+  from: ParsedSelect["from"],
+  joins: ParsedSelect["joins"],
+  where: string | null,
+): string {
+  const parts: string[] = [];
+
+  // SELECT
+  const selectStr = select
+    .map((item) => {
+      if (item.alias) {
+        return `${item.expr} AS ${item.alias}`;
+      }
+      return item.expr;
+    })
+    .join(", ");
+  parts.push(`SELECT ${selectStr}`);
+
+  // FROM
+  if (from) {
+    const fromStr = from.alias ? `${from.table} ${from.alias}` : from.table;
+    parts.push(`FROM ${fromStr}`);
+  }
+
+  // JOINs
+  for (const j of joins) {
+    let joinStr = `${j.joinType} ${j.table}`;
+    if (j.alias) joinStr += ` ${j.alias}`;
+    if (j.on) joinStr += ` ON ${j.on}`;
+    if (j.using) joinStr += ` USING (${j.using.join(", ")})`;
+    parts.push(joinStr);
+  }
+
+  // WHERE
+  if (where) {
+    parts.push(`WHERE ${where}`);
+  }
+
+  return parts.join("\n");
+}
+
+function numberFormatForType(
+  metricType: MetricType,
+): "" | "currency" | "time:seconds" {
+  switch (metricType) {
+    case "revenue":
+      return "currency";
+    case "duration":
+      return "time:seconds";
+    default:
+      return "";
+  }
+}
+
+function metricTypeToFactMetricType(t: MetricType): "proportion" | "mean" {
+  if (t === "binomial") return "proportion";
+  return "mean";
+}
+
+function buildFactTable(
+  group: MergedGroup,
+  factTableId: string,
+  now: Date,
+): FactTableInterface {
+  const first = group.candidates[0].metric;
+  const tableName = group.mergedFrom?.table || "unknown";
+
+  // Merge owner, projects, tags from all metrics
+  const owners = new Set<string>();
+  const projects = new Set<string>();
+  const tags = new Set<string>();
+
+  for (const c of group.candidates) {
+    if (c.metric.owner) owners.add(c.metric.owner);
+    for (const p of c.metric.projects || []) projects.add(p);
+    for (const t of c.metric.tags || []) tags.add(t);
+  }
+
+  // Build columns
+  const columns: ColumnInterface[] = [];
+  const userIdTypes = new Set(group.allUserIdTypes.map((u) => u.toLowerCase()));
+
+  for (const item of group.mergedSelect) {
+    const alias = (item.alias || item.expr).toLowerCase();
+    let datatype: ColumnInterface["datatype"] = "string";
+    let numberFormat: ColumnInterface["numberFormat"] = "";
+
+    if (userIdTypes.has(alias)) {
+      datatype = "string";
+    } else if (alias === "timestamp") {
+      datatype = "date";
+    } else if (alias.startsWith("value")) {
+      datatype = "number";
+      // Determine number format from the metric that owns this value column
+      for (const c of group.candidates) {
+        const valAlias = group.valueAliases.get(c.metric);
+        if (valAlias && valAlias.toLowerCase() === alias) {
+          numberFormat = numberFormatForType(c.metric.type);
+          break;
+        }
+      }
+    }
+
+    columns.push({
+      dateCreated: now,
+      dateUpdated: now,
+      name: item.alias || item.expr,
+      description: "",
+      column: item.alias || item.expr,
+      datatype,
+      numberFormat,
+      deleted: false,
+    });
+  }
+
+  return {
+    id: factTableId,
+    organization: first.organization,
+    dateCreated: now,
+    dateUpdated: now,
+    name: `Fact Table - ${tableName}`,
+    description: "",
+    owner: [...owners][0] || "",
+    projects: [...projects],
+    tags: [...tags],
+    datasource: first.datasource,
+    userIdTypes: group.allUserIdTypes,
+    sql: reconstructSql(
+      group.mergedSelect,
+      group.mergedFrom,
+      group.mergedJoins,
+      group.sharedWhere,
+    ),
+    eventName: "",
+    columns,
+    filters: [],
+  };
+}
+
+function buildFactMetric(
+  candidate: ParsedMetricCandidate,
+  factTableId: string,
+  valueAlias: string | undefined,
+  perMetricWhere: string | undefined,
+  factMetricId: string,
+  now: Date,
+): FactMetricInterface {
+  const m = candidate.metric;
+  const mType = metricTypeToFactMetricType(m.type);
+
+  const rowFilters: ColumnRef["rowFilters"] = [];
+  if (perMetricWhere) {
+    rowFilters.push({ operator: "sql_expr", values: [perMetricWhere] });
+  }
+
+  const numerator: ColumnRef = {
+    factTableId,
+    column: mType === "proportion" ? "$$distinctUsers" : valueAlias || "value",
+    ...(mType === "mean" ? { aggregation: mapAggregation(m.aggregation) } : {}),
+    ...(rowFilters.length > 0 ? { rowFilters } : {}),
+  };
+
+  return {
+    id: factMetricId,
+    organization: m.organization,
+    owner: m.owner || "",
+    datasource: m.datasource,
+    dateCreated: now,
+    dateUpdated: now,
+    name: m.name,
+    description: m.description || "",
+    tags: m.tags || [],
+    projects: m.projects || [],
+    inverse: m.inverse,
+    metricType: mType,
+    numerator,
+    denominator: null,
+    cappingSettings: m.cappingSettings,
+    windowSettings: m.windowSettings,
+    priorSettings: m.priorSettings,
+    maxPercentChange: m.maxPercentChange ?? 0.5,
+    minPercentChange: m.minPercentChange ?? 0.005,
+    minSampleSize: m.minSampleSize ?? 150,
+    winRisk: m.winRisk ?? 0.0025,
+    loseRisk: m.loseRisk ?? 0.0125,
+    regressionAdjustmentOverride: m.regressionAdjustmentOverride ?? false,
+    regressionAdjustmentEnabled: m.regressionAdjustmentEnabled ?? false,
+    regressionAdjustmentDays: m.regressionAdjustmentDays ?? 14,
+    quantileSettings: null,
+  };
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+export function migrateMetrics(
+  metrics: MetricInterface[],
+  options: MigrationOptions,
+): MigrationResult {
+  const now = options.now ?? new Date();
+
+  // Phase 1: Filter & Parse
+  const { candidates, unconverted } = filterAndParse(metrics);
+
+  // Phase 2: Group by fingerprint
+  const groups = new Map<string, ParsedMetricCandidate[]>();
+  for (const c of candidates) {
+    const existing = groups.get(c.fingerprint) || [];
+    existing.push(c);
+    groups.set(c.fingerprint, existing);
+  }
+
+  // Phase 3 & 4: Merge and build
+  const factTables: FactTableInterface[] = [];
+  const factMetrics: FactMetricInterface[] = [];
+
+  for (const [, groupCandidates] of groups) {
+    const merged = mergeGroup(groupCandidates);
+
+    if (merged.conflicted) {
+      // Fall back to individual fact tables per metric
+      for (const c of groupCandidates) {
+        const individualMerged = mergeGroup([c]);
+        const factTableId = options.generateFactTableId();
+        const ft = buildFactTable(individualMerged, factTableId, now);
+        factTables.push(ft);
+
+        const factMetricId = options.generateFactMetricId();
+        const valAlias = individualMerged.valueAliases.get(c.metric);
+        const pmw = individualMerged.perMetricWhere.get(c.metric);
+        factMetrics.push(
+          buildFactMetric(c, factTableId, valAlias, pmw, factMetricId, now),
+        );
+      }
+    } else {
+      const factTableId = options.generateFactTableId();
+      const ft = buildFactTable(merged, factTableId, now);
+      factTables.push(ft);
+
+      for (const c of groupCandidates) {
+        const factMetricId = options.generateFactMetricId();
+        const valAlias = merged.valueAliases.get(c.metric);
+        const pmw = merged.perMetricWhere.get(c.metric);
+        factMetrics.push(
+          buildFactMetric(c, factTableId, valAlias, pmw, factMetricId, now),
+        );
+      }
+    }
+  }
+
+  return { factTables, factMetrics, unconverted };
+}
