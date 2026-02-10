@@ -40,21 +40,20 @@ const EditScheduleModal = ({
           ...(experiment.status === "draft" && {
             startAt: rawValue.scheduledStatusUpdates.startAt
               ? new Date(rawValue.scheduledStatusUpdates.startAt).toISOString()
-              : undefined,
+              : "",
           }),
-          ...(experiment.status !== "running" &&
-            !holdout.analysisStartDate && {
-              startAnalysisPeriodAt: rawValue.scheduledStatusUpdates
-                .startAnalysisPeriodAt
-                ? new Date(
-                    rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
-                  ).toISOString()
-                : undefined,
-            }),
+          ...(!holdout.analysisStartDate && {
+            startAnalysisPeriodAt: rawValue.scheduledStatusUpdates
+              .startAnalysisPeriodAt
+              ? new Date(
+                  rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
+                ).toISOString()
+              : "",
+          }),
           ...(experiment.status !== "stopped" && {
             stopAt: rawValue.scheduledStatusUpdates.stopAt
               ? new Date(rawValue.scheduledStatusUpdates.stopAt).toISOString()
-              : undefined,
+              : "",
           }),
         }
       : undefined;

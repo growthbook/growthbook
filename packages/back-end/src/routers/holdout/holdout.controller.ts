@@ -377,6 +377,7 @@ export const updateHoldout = async (
   }
 
   // Convert string dates to Date objects for scheduledStatusUpdates
+  // Only add keys that are present in the request so partial updates preserve existing values
   const updates = { ...req.body };
   if (updates.scheduledStatusUpdates) {
     const scheduledUpdates = updates.scheduledStatusUpdates as {
@@ -384,16 +385,24 @@ export const updateHoldout = async (
       startAnalysisPeriodAt?: string | Date;
       stopAt?: string | Date;
     };
+    const existing = holdout.scheduledStatusUpdates ?? {};
     updates.scheduledStatusUpdates = {
-      startAt: scheduledUpdates.startAt
-        ? getValidDate(scheduledUpdates.startAt)
-        : undefined,
-      startAnalysisPeriodAt: scheduledUpdates.startAnalysisPeriodAt
-        ? getValidDate(scheduledUpdates.startAnalysisPeriodAt)
-        : undefined,
-      stopAt: scheduledUpdates.stopAt
-        ? getValidDate(scheduledUpdates.stopAt)
-        : undefined,
+      ...existing,
+      ...(scheduledUpdates.startAt !== undefined && {
+        startAt: scheduledUpdates.startAt
+          ? getValidDate(scheduledUpdates.startAt)
+          : undefined,
+      }),
+      ...(scheduledUpdates.startAnalysisPeriodAt !== undefined && {
+        startAnalysisPeriodAt: scheduledUpdates.startAnalysisPeriodAt
+          ? getValidDate(scheduledUpdates.startAnalysisPeriodAt)
+          : undefined,
+      }),
+      ...(scheduledUpdates.stopAt !== undefined && {
+        stopAt: scheduledUpdates.stopAt
+          ? getValidDate(scheduledUpdates.stopAt)
+          : undefined,
+      }),
     };
 
     // Compute next scheduled update and next scheduled update type
@@ -404,19 +413,29 @@ export const updateHoldout = async (
       type: "start" | "startAnalysisPeriod" | "stop";
     }> = [];
 
-    if (updates.scheduledStatusUpdates.startAt) {
+    if (
+      updates.scheduledStatusUpdates.startAt &&
+      experiment.status === "draft"
+    ) {
       potentialUpdates.push({
         date: updates.scheduledStatusUpdates.startAt,
         type: "start",
       });
     }
-    if (updates.scheduledStatusUpdates.startAnalysisPeriodAt) {
+    if (
+      updates.scheduledStatusUpdates.startAnalysisPeriodAt &&
+      experiment.status === "running" &&
+      !holdout.analysisStartDate
+    ) {
       potentialUpdates.push({
         date: updates.scheduledStatusUpdates.startAnalysisPeriodAt,
         type: "startAnalysisPeriod",
       });
     }
-    if (updates.scheduledStatusUpdates.stopAt) {
+    if (
+      updates.scheduledStatusUpdates.stopAt &&
+      experiment.status !== "stopped"
+    ) {
       potentialUpdates.push({
         date: updates.scheduledStatusUpdates.stopAt,
         type: "stop",

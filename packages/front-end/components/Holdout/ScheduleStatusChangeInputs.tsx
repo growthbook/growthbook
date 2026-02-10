@@ -73,7 +73,7 @@ export default function ScheduleStatusChangeInputs({
             variant="ghost"
             size="sm"
             onClick={() => {
-              form.setValue("scheduledStatusUpdates.startAt", undefined);
+              form.setValue("scheduledStatusUpdates.startAt", "");
             }}
           >
             Clear
@@ -123,10 +123,7 @@ export default function ScheduleStatusChangeInputs({
             variant="ghost"
             size="sm"
             onClick={() => {
-              form.setValue(
-                "scheduledStatusUpdates.startAnalysisPeriodAt",
-                undefined,
-              );
+              form.setValue("scheduledStatusUpdates.startAnalysisPeriodAt", "");
             }}
           >
             Clear
@@ -174,7 +171,7 @@ export default function ScheduleStatusChangeInputs({
             variant="ghost"
             size="sm"
             onClick={() => {
-              form.setValue("scheduledStatusUpdates.stopAt", undefined);
+              form.setValue("scheduledStatusUpdates.stopAt", "");
             }}
           >
             Clear

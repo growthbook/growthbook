@@ -111,14 +111,17 @@ export class HoldoutModel extends BaseClass {
     const dateError =
       (updates.scheduledStatusUpdates?.startAt &&
         updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+        holdoutExperiment.status === "draft" &&
         updates.scheduledStatusUpdates?.startAt >
           updates.scheduledStatusUpdates?.startAnalysisPeriodAt) ||
       (updates.scheduledStatusUpdates?.startAt &&
         updates.scheduledStatusUpdates?.stopAt &&
+        holdoutExperiment.status === "draft" &&
         updates.scheduledStatusUpdates?.startAt >
           updates.scheduledStatusUpdates?.stopAt) ||
       (updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
         updates.scheduledStatusUpdates?.stopAt &&
+        !existing.analysisStartDate &&
         updates.scheduledStatusUpdates?.startAnalysisPeriodAt >
           updates.scheduledStatusUpdates?.stopAt);
     if (dateError) {
