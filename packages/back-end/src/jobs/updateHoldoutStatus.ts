@@ -107,7 +107,6 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
         }
 
         await context.models.holdout.update(holdout, {
-          analysisStartDate: undefined,
           nextScheduledUpdateType: newNextScheduledUpdateType,
           nextScheduledUpdate: newNextScheduledUpdate,
         });
