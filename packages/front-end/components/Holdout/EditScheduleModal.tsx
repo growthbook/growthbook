@@ -1,9 +1,10 @@
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { useForm } from "react-hook-form";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
+import Text from "@/ui/Text";
 import ScheduleStatusChangeInputs from "./ScheduleStatusChangeInputs";
 
 const EditScheduleModal = ({
@@ -36,23 +37,25 @@ const EditScheduleModal = ({
     // Convert Date objects to ISO strings for API
     const scheduledStatusUpdates = rawValue.scheduledStatusUpdates
       ? {
-          startAt:
-            rawValue.scheduledStatusUpdates.startAt &&
-            experiment.status !== "running"
+          ...(experiment.status === "draft" && {
+            startAt: rawValue.scheduledStatusUpdates.startAt
               ? new Date(rawValue.scheduledStatusUpdates.startAt).toISOString()
-              : holdout.scheduledStatusUpdates?.startAt,
-          startAnalysisPeriodAt:
-            rawValue.scheduledStatusUpdates.startAnalysisPeriodAt &&
-            !(experiment.status === "running" && holdout.analysisStartDate)
-              ? new Date(
-                  rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
-                ).toISOString()
-              : holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
-          stopAt:
-            rawValue.scheduledStatusUpdates.stopAt &&
-            experiment.status !== "stopped"
+              : undefined,
+          }),
+          ...(experiment.status !== "running" &&
+            !holdout.analysisStartDate && {
+              startAnalysisPeriodAt: rawValue.scheduledStatusUpdates
+                .startAnalysisPeriodAt
+                ? new Date(
+                    rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
+                  ).toISOString()
+                : undefined,
+            }),
+          ...(experiment.status !== "stopped" && {
+            stopAt: rawValue.scheduledStatusUpdates.stopAt
               ? new Date(rawValue.scheduledStatusUpdates.stopAt).toISOString()
-              : holdout.scheduledStatusUpdates?.stopAt,
+              : undefined,
+          }),
         }
       : undefined;
 
@@ -81,7 +84,7 @@ const EditScheduleModal = ({
     >
       <div className="px-2">
         <Box mb="4">
-          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+          <Text color="text-mid">
             Schedule the Holdout to start, transition to analysis, and end
             analysis.
           </Text>

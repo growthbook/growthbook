@@ -7,7 +7,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
+import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -31,6 +31,7 @@ import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
+import Heading from "@/ui/Heading";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -162,7 +163,13 @@ export default function SetupTabOverview({
         {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
-              <Heading mb="0" as="h4" size="3">
+              <Heading
+                color="text-high"
+                mb="0"
+                as="h4"
+                size="small"
+                weight="semibold"
+              >
                 Holdout Schedule
               </Heading>
               <Flex align="center" gap="2">
@@ -212,7 +219,13 @@ export default function SetupTabOverview({
                 }}
               >
                 <Flex align="center" justify="between" className="text-dark">
-                  <Heading mb="0" as="h4" size="3">
+                  <Heading
+                    color="text-high"
+                    mb="0"
+                    as="h4"
+                    size="small"
+                    weight="semibold"
+                  >
                     Description
                   </Heading>
                   <Flex align="center" gap="2">
@@ -289,7 +302,7 @@ export default function SetupTabOverview({
         {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
-              <Heading as="h4" size="3">
+              <Heading color="text-high" as="h4" size="small" weight="semibold">
                 Hypothesis
               </Heading>
               {canEditExperiment && (

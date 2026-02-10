@@ -98,7 +98,7 @@ export class HoldoutModel extends BaseClass {
 
     if (
       holdoutExperiment.status === "running" &&
-      !updates.analysisStartDate &&
+      !existing.analysisStartDate &&
       updates.scheduledStatusUpdates?.stopAt &&
       !updates.scheduledStatusUpdates?.startAnalysisPeriodAt
     ) {

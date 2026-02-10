@@ -4,6 +4,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { format, differenceInMinutes } from "date-fns";
 import { ProgressBar, Segment } from "@/ui/ProgressBar";
 import Text from "@/ui/Text";
+import styles from "./HoldoutSchedule.module.scss";
 
 const COMPLETED_HOLDOUT_SEGMENT: Segment = {
   id: "1",
@@ -131,10 +132,33 @@ export const HoldoutSchedule = ({
               </Text>
             </>
           ) : experiment.status === "running" ? (
-            <Text weight="semibold" color="text-high">
-              {/* TODO: Use keyframes to animate the text */}
-              {holdout.analysisStartDate ? "Analyzing..." : "Running..."}
-            </Text>
+            <Box
+              height="20px"
+              minWidth="500px"
+              overflow="hidden"
+              position="relative"
+            >
+              <Box
+                className={styles.animateTextA}
+                inset="0"
+                position="absolute"
+              >
+                <Text weight="semibold" color="text-high">
+                  {holdout.analysisStartDate ? "Analyzing..." : "Running..."}
+                </Text>
+              </Box>
+              <Box
+                className={styles.animateTextB}
+                inset="0"
+                position="absolute"
+              >
+                <Text color="text-high" weight="regular">
+                  {holdout.analysisStartDate
+                    ? "No new experiments or features can be added to Holdout"
+                    : "Experiments and features are being added to this Holdout"}
+                </Text>
+              </Box>
+            </Box>
           ) : (
             <Text weight="semibold" color="text-high">
               Holdout stopped

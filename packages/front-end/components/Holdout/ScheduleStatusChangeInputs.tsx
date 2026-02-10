@@ -1,6 +1,6 @@
 import React from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { UseFormReturn } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { datetime } from "shared/dates";
@@ -9,6 +9,7 @@ import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 
 interface Props {
   form: UseFormReturn<
@@ -47,9 +48,7 @@ export default function ScheduleStatusChangeInputs({
   return (
     <Box my="4">
       <Box mb="2">
-        <Text size="2" weight="medium">
-          Start Holdout
-        </Text>
+        <Text weight="medium">Start Holdout</Text>
       </Box>
 
       {!isRunning && !isStopped && !isArchived ? (
@@ -101,9 +100,7 @@ export default function ScheduleStatusChangeInputs({
       )}
 
       <Box my="2">
-        <Text size="2" weight="medium">
-          Stop Holdout & Start Analysis
-        </Text>
+        <Text weight="medium">Stop Holdout & Start Analysis</Text>
       </Box>
 
       {!isStopped && holdoutStatus !== "analysis-period" && !isArchived ? (
@@ -153,9 +150,7 @@ export default function ScheduleStatusChangeInputs({
       )}
 
       <Box my="2">
-        <Text size="2" weight="medium">
-          Stop Analysis
-        </Text>
+        <Text weight="medium">Stop Analysis</Text>
       </Box>
       {!isStopped && !isArchived ? (
         <Flex direction="row" gap="2" align="baseline">

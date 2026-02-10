@@ -1,0 +1,35 @@
+@keyframes textA {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  45%,
+  95% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes textB {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  45%,
+  95% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animateTextA {
+  animation: textA 7s ease-in-out infinite;
+}
+
+.animateTextB {
+  animation: textB 7s ease-in-out infinite;
+}

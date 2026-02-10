@@ -254,11 +254,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/SetupTabOverview.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/TargetMDEModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -574,11 +569,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Holdout/EditScheduleModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Holdout/HoldoutSelect.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -595,11 +585,6 @@
     }
   },
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/ScheduleStatusChangeInputs.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
