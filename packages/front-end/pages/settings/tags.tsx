@@ -90,7 +90,11 @@ const TagsPage: FC = () => {
                       >
                         {t.id}
                       </td>
-                      <td>{t.description}</td>
+                      <td>
+                        {t.description && t.description.length > 80
+                          ? t.description.substring(0, 80).trim() + "..."
+                          : t.description}
+                      </td>
                       <td>
                         <Tag tag={t.id} skipMargin={true} />
                       </td>

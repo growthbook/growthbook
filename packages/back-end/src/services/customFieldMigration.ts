@@ -150,7 +150,11 @@ export function convertCustomFieldValue(
   }
 
   // string-like → multiselect: conditional (convert to array if in options, scrub otherwise)
-  if (stringLikeTypes.includes(fromType) && toType === "multiselect" && toValues) {
+  if (
+    stringLikeTypes.includes(fromType) &&
+    toType === "multiselect" &&
+    toValues
+  ) {
     const validOptions = toValues.split(",").map((v) => v.trim());
     const strValue = String(value);
     return validOptions.includes(strValue) ? [strValue] : null;

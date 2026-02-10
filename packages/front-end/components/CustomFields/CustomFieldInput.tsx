@@ -1,6 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -8,6 +8,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
@@ -114,9 +115,7 @@ const CustomFieldInput: FC<{
                         )}
                       </>
                     }
-                    value={
-                      currentCustomFields?.[v.id] ?? v?.defaultValue ?? ""
-                    }
+                    value={currentCustomFields?.[v.id] ?? v?.defaultValue ?? ""}
                     options={
                       v.values
                         ? v.values
@@ -200,7 +199,8 @@ const CustomFieldInput: FC<{
                       precision={v.type === "datetime" ? "datetime" : "date"}
                       containerClassName="mb-0"
                     />
-                    {(v.description || (!v.required && currentCustomFields?.[v.id])) && (
+                    {(v.description ||
+                      (!v.required && currentCustomFields?.[v.id])) && (
                       <Flex justify="between" align="start" mt="1">
                         {v.description ? (
                           <Text size="1" color="gray">

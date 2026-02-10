@@ -120,7 +120,9 @@ export function SortableCustomFieldRow(props: SortableProps) {
         <code className="small">{customField.id}</code>
       </td>
       <td style={{ ...tdStyle, width: WIDTHS.description }} className="text-gray">
-        {customField.description ?? ""}
+        {customField.description && customField.description.length > 80
+          ? customField.description.substring(0, 80).trim() + "..."
+          : customField.description ?? ""}
       </td>
       {showAppliesTo && (
         <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
@@ -215,7 +217,9 @@ export function StaticCustomFieldRow({
         <code className="small">{customField.id}</code>
       </td>
       <td style={{ ...tdStyle, width: WIDTHS.description }} className="text-gray">
-        {customField.description ?? ""}
+        {customField.description && customField.description.length > 100
+          ? customField.description.substring(0, 100).trim() + "..."
+          : customField.description ?? ""}
       </td>
       {showAppliesTo && (
         <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">

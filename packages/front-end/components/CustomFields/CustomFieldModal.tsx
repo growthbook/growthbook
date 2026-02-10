@@ -281,7 +281,7 @@ export default function CustomFieldModal({
           label="Description"
           textarea={true}
           minRows={1}
-          maxRows={3}
+          maxRows={4}
           {...form.register("description")}
           containerClassName="mb-0"
         />

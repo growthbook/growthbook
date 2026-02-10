@@ -19,7 +19,12 @@ export function isCustomFieldTypeChangeSafe(
   }
 
   // Safe conversions (automatic, no data loss)
-  const stringLikeTypes: CustomFieldTypes[] = ["text", "textarea", "markdown", "url"];
+  const stringLikeTypes: CustomFieldTypes[] = [
+    "text",
+    "textarea",
+    "markdown",
+    "url",
+  ];
   const safeConversions: Record<CustomFieldTypes, CustomFieldTypes[]> = {
     enum: [...stringLikeTypes, "multiselect"],
     multiselect: ["text", "textarea", "markdown"],
@@ -27,10 +32,10 @@ export function isCustomFieldTypeChangeSafe(
     number: stringLikeTypes,
     date: [...stringLikeTypes, "datetime"],
     datetime: [...stringLikeTypes, "date"],
-    text: stringLikeTypes.filter(t => t !== "text"),
-    textarea: stringLikeTypes.filter(t => t !== "textarea"),
-    markdown: stringLikeTypes.filter(t => t !== "markdown"),
-    url: stringLikeTypes.filter(t => t !== "url"),
+    text: stringLikeTypes.filter((t) => t !== "text"),
+    textarea: stringLikeTypes.filter((t) => t !== "textarea"),
+    markdown: stringLikeTypes.filter((t) => t !== "markdown"),
+    url: stringLikeTypes.filter((t) => t !== "url"),
   };
 
   return safeConversions[fromType]?.includes(toType) ?? false;
@@ -63,8 +68,10 @@ export function getCustomFieldChangeWarning(
   ) {
     const oldOptions = fromValues.split(",").map((v) => v.trim());
     const newOptions = toValues.split(",").map((v) => v.trim());
-    const removedOptions = oldOptions.filter((opt) => !newOptions.includes(opt));
-    
+    const removedOptions = oldOptions.filter(
+      (opt) => !newOptions.includes(opt),
+    );
+
     if (removedOptions.length > 0) {
       return `Removing options may result in data loss. Existing values that are no longer in the options list will be removed.`;
     }

@@ -139,7 +139,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
           )}
         </td>
         <td className="text-gray" style={{ width: "38%" }}>
-          {v.description}
+          {v.description && v.description.length > 80
+            ? v.description.substring(0, 80).trim() + "..."
+            : v.description}
         </td>
         <td
           className="text-gray"
