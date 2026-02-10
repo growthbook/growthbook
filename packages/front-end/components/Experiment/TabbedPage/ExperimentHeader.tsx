@@ -12,7 +12,7 @@ import Collapsible from "react-collapsible";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
-import { Text, Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
@@ -47,6 +47,7 @@ import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -1163,7 +1164,7 @@ export default function ExperimentHeader({
                     {hasMultiplePhases ? (
                       <>
                         <div className="flex-1" />
-                        <Text size="2" weight="medium">
+                        <Text size="medium" weight="medium">
                           <PhaseSelector
                             phase={phase}
                             phases={experiment.phases}

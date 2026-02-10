@@ -224,11 +224,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/Implementation.tsx": {
     "no-restricted-imports": {
       "count": 2

@@ -134,7 +134,7 @@ export const HoldoutSchedule = ({
           ) : experiment.status === "running" ? (
             <Box
               height="20px"
-              minWidth="500px"
+              minWidth="400px"
               overflow="hidden"
               position="relative"
             >
