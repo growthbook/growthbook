@@ -10,9 +10,10 @@ ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 
+# Don't write bytecode to disk
+ENV PYTHONDONTWRITEBYTECODE=1
 # Setup python virtual environment
-ENV VIRTUAL_ENV=/opt/venv \
-    PYTHONDONTWRITEBYTECODE=1
+ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
 
@@ -52,7 +53,7 @@ RUN apt-get update && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-# Fetch packages into pnpm store (only invalidated when lockfile changes)
+# Fetch packages into pnpm store
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm fetch
 # Copy over minimum files to install dependencies
@@ -104,13 +105,14 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/* && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3
 
-# Copy Python virtualenv from build stage
-ENV VIRTUAL_ENV=/opt/venv \
-    PYTHONDONTWRITEBYTECODE=1 \
+# Recommended settings for Python runtime in docker
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
+# Copy Python virtualenv from build stage
+ENV VIRTUAL_ENV=/opt/venv
 COPY --from=pybuild $VIRTUAL_ENV $VIRTUAL_ENV
 
-# Copy static config files (rarely change, good for cache)
+# Copy static config files
 COPY ecosystem.config.js ./ecosystem.config.js
 COPY bin/yarn ./bin/yarn
 RUN chmod +x ./bin/yarn
