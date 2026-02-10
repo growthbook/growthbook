@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, Text, Separator } from "@radix-ui/themes";
 import { PiTable, PiPlus } from "react-icons/pi";
 import type { FactTableValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
@@ -51,6 +51,12 @@ export default function FactTableTabContent() {
         direction="column"
         gap="2"
         px="4"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-3)",
+          padding: "var(--space-3)",
+          backgroundColor: "var(--color-panel-translucent)",
+        }}
       >
         <PiTable size={18} />
         <Text size="2" weight="medium" align="center">
@@ -60,27 +66,21 @@ export default function FactTableTabContent() {
     );
 
   return (
-    <Flex direction="column" gap="3">
-      <Flex justify="between" align="center">
-        <Text size="2" weight="medium">
-          Values
-        </Text>
-        <Button
-          size="xs"
-          variant="ghost"
-          onClick={() => addValueToDataset("fact_table")}
-        >
-          <Flex align="center" gap="2">
-            <PiPlus size={14} />
-            Add value
-          </Flex>
-        </Button>
-      </Flex>
+    <Flex direction="column">
       <Flex direction="column" gap="2">
         {!values.length && (
-          <Text size="1" color="gray">
-            Add at least one value to chart
-          </Text>
+          <Flex justify="center" align="center" height="100%" style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-3)",
+            padding: "var(--space-3)",
+            backgroundColor: "var(--color-panel-translucent)",
+            height: "100%",
+            width: "100%",
+          }}>
+            <Text size="1" color="gray">
+              Add at least one value to chart
+            </Text>
+          </Flex>
         )}
       </Flex>
       <Flex direction="column" gap="2">
@@ -106,8 +106,9 @@ export default function FactTableTabContent() {
             columns={allColumns}
           >
             <Flex direction="column" gap="2">
+              <Separator style={{ width: "100%" }} />
+              <Text size="2" weight="medium" mt="2">Value type</Text>
               <SelectField
-                label="Value type"
                 value={v.valueType}
                 onChange={(val) =>
                   updateValueInDataset(idx, {
@@ -126,8 +127,9 @@ export default function FactTableTabContent() {
                 placeholder="Select..."
               />
               {v.valueType === "sum" && (
+                <>
+                <Text size="2" weight="medium" mt="2">Value column</Text>
                 <SelectField
-                  label="Value column"
                   value={v.valueColumn ?? ""}
                   onChange={(val) =>
                     updateValueInDataset(idx, {
@@ -142,10 +144,17 @@ export default function FactTableTabContent() {
                   placeholder="Select column..."
                   forceUndefinedValueToNull
                 />
+                </>
               )}
             </Flex>
           </ValueCard>
         ))}
+        <Button size="sm" variant="outline" onClick={() => addValueToDataset("fact_table")}>
+          <Flex align="center" gap="2">
+            <PiPlus size={14} />
+            Add value
+          </Flex>
+        </Button>
       </Flex>
     </Flex>
   );

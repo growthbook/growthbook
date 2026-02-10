@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
@@ -25,21 +25,6 @@ export default function MetricTabContent() {
 
   return (
     <Flex direction="column" gap="3">
-      <Flex justify="between" align="center">
-        <Text size="2" weight="medium">
-          Metrics
-        </Text>
-        <Button
-          size="xs"
-          variant="ghost"
-          onClick={() => addValueToDataset("metric")}
-        >
-          <Flex align="center" gap="2">
-            <PiPlus size={14} />
-            Add metric
-          </Flex>
-        </Button>
-      </Flex>
       <Flex direction="column" gap="2">
         {!values.length && (
           <Text size="1" color="gray">
@@ -78,7 +63,6 @@ export default function MetricTabContent() {
             >
               <Flex direction="column">
                 <SelectField
-                  label="Metric"
                   value={v.metricId}
                   onChange={(val) => {
                     const newMetric = factMetrics.find((m) => m.id === val);
@@ -97,9 +81,9 @@ export default function MetricTabContent() {
                       unit,
                       name: newMetric?.name
                         ? generateUniqueValueName(
-                            newMetric.name,
-                            draftExploreState.dataset.values,
-                          )
+                          newMetric.name,
+                          draftExploreState.dataset.values,
+                        )
                         : v.name,
                     } as MetricValue;
 
@@ -112,27 +96,16 @@ export default function MetricTabContent() {
                   placeholder="Select metric..."
                   forceUndefinedValueToNull
                 />
-                <SelectField
-                  label="Unit"
-                  value={v.unit ?? ""}
-                  onChange={(val) =>
-                    updateValueInDataset(idx, {
-                      ...v,
-                      unit: val || null,
-                    } as MetricValue)
-                  }
-                  options={
-                    factTable?.userIdTypes.map((t) => ({
-                      label: t,
-                      value: t,
-                    })) ?? []
-                  }
-                  placeholder="Select..."
-                />
               </Flex>
             </ValueCard>
           );
         })}
+        <Button size="sm" variant="outline" onClick={() => addValueToDataset("metric")}>
+          <Flex align="center" gap="2">
+            <PiPlus size={14} />
+            Add metric
+          </Flex>
+        </Button>
       </Flex>
     </Flex>
   );

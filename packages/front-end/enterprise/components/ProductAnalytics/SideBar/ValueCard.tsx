@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Flex, Box, Text, TextField, Separator } from "@radix-ui/themes";
-import { PiX, PiPencilSimple } from "react-icons/pi";
+import { PiX, PiPencilSimple, PiPlus, PiCaretDown, PiCaretUp } from "react-icons/pi";
+import Collapsible from "react-collapsible";
 import Button from "@/ui/Button";
 import { z } from "zod";
 import { rowFilterValidator } from "shared/validators";
@@ -8,6 +9,8 @@ import { useExplorerContext } from "../ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { FactTableInterface } from "shared/types/fact-table";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import styles from "./ValueCard.module.scss";
 
 type RowFilter = z.infer<typeof rowFilterValidator>;
 
@@ -32,8 +35,10 @@ export default function ValueCard({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(name ?? "");
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const { draftExploreState } = useExplorerContext();
+  const { draftExploreState, updateValueInDataset } = useExplorerContext();
   const { getFactTableById, getFactMetricById } = useDefinitions();
 
   let factTable: FactTableInterface | null = null;
@@ -77,8 +82,8 @@ export default function ValueCard({
         backgroundColor: "var(--color-panel-translucent)",
       }}
     >
-      <Flex justify="between" align="center" mb="2">
-        <Flex align="center" gap="2" style={{ minWidth: 0, flex: 1 }}>
+      <Flex justify="between" align="center">
+        <Flex align="center" gap="2" className={styles.titleGroup} style={{ minWidth: 0, flex: 1 }}>
           {isEditing ? (
             <TextField.Root
               size="1"
@@ -91,37 +96,105 @@ export default function ValueCard({
               style={{ flex: 1, minWidth: 0 }}
             />
           ) : (
-            <Text size="2" weight="medium" truncate style={{ flex: 1 }}>
-              {displayName}
-            </Text>
+            <>
+              <Text size="2" weight="medium" truncate style={{ flex: 1 }}>
+                {displayName}
+              </Text>
+              <Button
+                className={styles.editBtn}
+                variant="ghost"
+                size="xs"
+                onClick={handleStartEdit}
+                title="Edit name"
+              >
+                <PiPencilSimple size={14} />
+              </Button>
+            </>
           )}
         </Flex>
-        <Flex align="center" gap="1" style={{ flexShrink: 0 }}>
+        <Flex align="center" style={{ flexShrink: 0 }}>
           <Button
             variant="ghost"
-            size="sm"
-            onClick={handleStartEdit}
-            style={{ padding: "2px 6px" }}
-            title="Edit name"
+            size="xs"
+            onClick={() => setIsCollapsed((prev) => !prev)}
+            title={isCollapsed ? "Expand" : "Collapse"}
           >
-            <PiPencilSimple size={14} />
+            {isCollapsed ? (
+              <PiCaretDown size={14} />
+            ) : (
+              <PiCaretUp size={14} />
+            )}
           </Button>
           {<Button
             variant="ghost"
             disabled={draftExploreState.dataset.values.length === 1}
-            size="sm"
+            size="xs"
             onClick={onDelete}
-            style={{ padding: "2px 6px" }}
           >
             <PiX size={14} />
           </Button>}
         </Flex>
       </Flex>
-      <Separator style={{ width: "100%" }} mb="2" />
-      {children}
-      {factTable && (
-        <RowFilterInput factTable={factTable} value={filters} setValue={onFiltersChange} variant="compact"/>
-      )}
+      <Collapsible
+        open={!isCollapsed}
+        trigger=""
+        triggerDisabled
+        transitionTime={100}
+      >
+        <Box mt="2">
+          {children}
+          {factTable && (
+            <Box mt="2">
+            <RowFilterInput factTable={factTable} value={filters} setValue={onFiltersChange} variant="compact" hideAddButton />
+            </Box>
+          )}
+        </Box>
+        {draftExploreState.dataset.type !== "database" && <Flex justify="between" align="center" mt="2">
+          <Button
+            size="xs"
+            variant="ghost"
+            style={{ maxWidth: "fit-content" }}
+            onClick={() => {
+              onFiltersChange([
+                ...filters,
+                { column: "", operator: "=", values: [] },
+              ]);
+            }}
+            disabled={!factTable}
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Add Filter
+            </Flex>
+          </Button>
+
+          {factTable && <DropdownMenu
+            open={unitDropdownOpen}
+            onOpenChange={setUnitDropdownOpen}
+            trigger={
+              <Button size="xs" variant="ghost">
+                <Flex align="center" gap="2">
+                  {draftExploreState.dataset.values[index].unit ?? ""}
+                </Flex>
+              </Button>
+            }
+          >
+            {factTable?.userIdTypes.map((t) => (
+              <DropdownMenuItem key={t} onClick={() => {
+                updateValueInDataset(index, {
+                  ...draftExploreState.dataset.values[index],
+                  unit: t || null,
+                })
+                setUnitDropdownOpen(false);
+              }}>
+                <Text>{t}</Text>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenu>
+          }
+        </Flex>
+}
+      </Collapsible>
     </Box>
   );
 }

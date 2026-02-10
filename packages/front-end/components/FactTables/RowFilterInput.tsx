@@ -62,18 +62,15 @@ export function RowFilterInput({
   setValue,
   factTable,
   variant = "default",
-  // hideTitle = false,
-  // addButtonText = "Add",
+  hideAddButton = false,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   /** "default" renders horizontal rows with AND labels. "compact" renders vertical stacked filters with headers. */
   variant?: RowFilterInputVariant;
-  // /** Hide the "Row Filter" title */
-  // hideTitle?: boolean;
-  // /** Custom text for the add button */
-  // addButtonText?: string;
+  /** Hide the add filter button (useful when rendering the button externally) */
+  hideAddButton?: boolean;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
   const [collapsedFilters, setCollapsedFilters] = useState<Set<number>>(
@@ -96,11 +93,10 @@ export function RowFilterInput({
   return (
     <Flex direction="column" gap="2" width={isCompact ? "100%" : undefined}>
       {isCompact ? (
-        <Text size="2" weight="medium">Filters</Text>
+        value.length > 0 ? <Text size="2" weight="medium">Filters</Text> : null
       ) : (
         <strong>Row Filter</strong>
       )}
-      {isCompact && value.length > 0 && <Separator style={{ width: "100%" }} />}
       {value.map((filter, i) => {
         const columnOptions: SingleValue[] = [];
 
@@ -146,13 +142,13 @@ export function RowFilterInput({
                 value: "$$sql_expr",
               },
               ...(factTable.filters.length > 0 ||
-              filter.operator === "saved_filter"
+                filter.operator === "saved_filter"
                 ? [
-                    {
-                      label: "Saved Filter",
-                      value: "$$saved_filter",
-                    },
-                  ]
+                  {
+                    label: "Saved Filter",
+                    value: "$$saved_filter",
+                  },
+                ]
                 : []),
             ],
           },
@@ -503,7 +499,14 @@ export function RowFilterInput({
           };
 
           return (
-            <Flex key={`${rowDeleted}-${i}`} direction="column" gap="2">
+            <Flex key={`${rowDeleted}-${i}`} direction="column"
+              style={{ 
+                border: "1px solid var(--gray-a3)", 
+                borderRadius: "var(--radius-3)", 
+                padding: "var(--space-2)", 
+                backgroundColor: "var(--color-panel-translucent)",
+                // marginBottom: "var(--space-2)",
+              }}>
               <Flex justify="between" align="center" width="100%" gap="2">
                 <Text
                   size="1"
@@ -546,13 +549,12 @@ export function RowFilterInput({
                 triggerDisabled
                 transitionTime={100}
               >
-                <Flex direction="column" gap="2">
+                <Flex direction="column" gap="2" mt="2">
                   {columnSelect}
                   {operatorSelect}
                   {valueInput}
                 </Flex>
               </Collapsible>
-              <Separator style={{ width: "100%" }} />
             </Flex>
           );
         }
@@ -579,7 +581,7 @@ export function RowFilterInput({
           </Flex>
         );
       })}
-      {isCompact ? (
+      {!hideAddButton && (isCompact ? (
         <Button
           size="xs"
           variant="ghost"
@@ -617,7 +619,7 @@ export function RowFilterInput({
             <PiPlus /> Add
           </a>
         </div>
-      )}
+      ))}
     </Flex>
   );
 }
