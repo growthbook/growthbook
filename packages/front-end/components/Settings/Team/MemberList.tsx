@@ -300,15 +300,15 @@ const MemberList: FC<{
                                     <Callout status="warning">
                                       <Flex direction="column" gap="2">
                                         <span>
-                                          This user should deprovisioned the
-                                          user from your external identity
-                                          provider instead.
+                                          We suggest deprovisioning this user
+                                          from your external identity provider
+                                          directly.
                                         </span>
                                         <span>
-                                          If you delete the user here, but
+                                          If you deprovision this user here, and
                                           they&apos;re still provisioned in your
                                           external identity provider, they will
-                                          be added back automatically.
+                                          be automatically re-provisioned.
                                         </span>
                                       </Flex>
                                     </Callout>
