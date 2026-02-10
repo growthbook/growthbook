@@ -23,6 +23,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -290,15 +291,14 @@ const MemberList: FC<{
                                 text="Remove User"
                                 useIcon={false}
                                 className="dropdown-item"
-                                deleteMessage={
-                                  member.managedByIdp
-                                    ? "This user is managed by an external identity provider."
-                                    : null
-                                }
                                 additionalMessage={
                                   member.managedByIdp ? (
                                     <Callout status="warning">
                                       <Flex direction="column" gap="2">
+                                        <Text weight="semibold" size="medium">
+                                          This user is managed by an external
+                                          identity provider.
+                                        </Text>
                                         <span>
                                           We suggest deprovisioning this user
                                           from your external identity provider
