@@ -10,8 +10,6 @@ ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 
-# Don't write bytecode to disk
-ENV PYTHONDONTWRITEBYTECODE=1
 # Setup python virtual environment
 ENV VIRTUAL_ENV=/opt/venv
 RUN python -m venv $VIRTUAL_ENV
@@ -107,9 +105,6 @@ RUN apt-get update && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python
 
-# Recommended settings for Python runtime in docker
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
 # Copy Python virtualenv from build stage
 ENV VIRTUAL_ENV=/opt/venv
 COPY --from=pybuild $VIRTUAL_ENV $VIRTUAL_ENV
@@ -137,9 +132,9 @@ COPY buildinfo* ./buildinfo
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
 ARG DD_VERSION=""
-ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA
-ENV DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL
-ENV DD_VERSION=$DD_VERSION
+ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA \
+    DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL \
+    DD_VERSION=$DD_VERSION
 
 EXPOSE 3000
 EXPOSE 3100
