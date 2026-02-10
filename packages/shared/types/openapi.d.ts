@@ -11152,9 +11152,9 @@ export interface operations {
      * all experiments.
      */
     parameters: {
-        /** @description Array of metric IDs (both fact and legacy) to get usage for. Pass multiple values as repeated query params, e.g. metricIds=id1&metricIds=id2 */
+        /** @description List of comma-separated metric IDs (both fact and legacy) to get usage for, e.g. ids=met_123,fact_456 */
       query: {
-        metricIds: (string)[];
+        ids: string;
       };
     };
     responses: {

@@ -1,5 +1,5 @@
 import { ApiMetricUsage, GetMetricUsageResponse } from "shared/types/openapi";
-import { getMetricUsageValidator } from "shared/validators";
+import { ExperimentStatus, getMetricUsageValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentsUsingMetrics } from "back-end/src/models/ExperimentModel";
 
@@ -7,7 +7,7 @@ export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
   async (req): Promise<GetMetricUsageResponse> => {
     const context = req.context;
 
-    const metricIds = req.query.metricIds;
+    const metricIds = req.query.ids.split(",");
 
     // Fetch all metric groups once and build a map from metric ID to group IDs
     // This is needed to match experiments that use metric groups containing our metrics
@@ -56,7 +56,7 @@ export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
       // Build the experiments array for the response
       const experimentList = matchingExperiments.map((exp) => ({
         experimentId: exp.id,
-        experimentStatus: exp.status as "draft" | "running" | "stopped",
+        experimentStatus: exp.status as ExperimentStatus,
         lastSnapshotAttempt: exp.lastSnapshotAttempt
           ? exp.lastSnapshotAttempt.toISOString()
           : null,

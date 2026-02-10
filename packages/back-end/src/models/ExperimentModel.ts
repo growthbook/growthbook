@@ -797,7 +797,7 @@ export async function getExperimentsUsingMetric({
  *
  * Returns a flat array of experiments that use any of the given metrics
  * (directly or via a metric group). The caller is responsible for filtering
- * the results to determine which experiments use which specific metrics.
+ * the results to determine which experiments use which buific metrics.
  */
 export async function getExperimentsUsingMetrics({
   context,
