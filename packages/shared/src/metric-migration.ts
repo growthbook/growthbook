@@ -1,3 +1,5 @@
+import snakeCase from "lodash/snakeCase";
+import { format } from "shared/sql";
 import { MetricInterface, MetricType, Condition } from "shared/types/metric";
 import {
   FactTableInterface,
@@ -21,8 +23,6 @@ export interface MigrationResult {
 }
 
 export interface MigrationOptions {
-  generateFactTableId: () => string;
-  generateFactMetricId: () => string;
   now?: Date;
 }
 
@@ -35,6 +35,8 @@ interface ParsedMetricCandidate {
 // ─── Phase 1: Filter & Parse ─────────────────────────────────────────────────
 const customAggregationMap: Record<string, "sum" | "max" | "count distinct"> = {
   "count(distinct value)": "count distinct",
+  "count(*)": "sum",
+  "count(value)": "sum",
   "sum(value)": "sum",
   "max(value)": "max",
 };
@@ -50,6 +52,12 @@ function mapAggregation(
 ): "sum" | "max" | "count distinct" {
   if (!agg) return "sum";
   return customAggregationMap[agg.toLocaleLowerCase()] || "sum";
+}
+
+function isCountAggregation(agg: string | undefined): boolean {
+  if (!agg) return false;
+  const lower = agg.toLowerCase();
+  return lower === "count(*)" || lower === "count(value)";
 }
 
 function conditionToSql(c: Condition): string {
@@ -135,7 +143,10 @@ function filterAndParse(metrics: MetricInterface[]): {
 
     let parsed: ParsedSelect;
 
-    if (metric.queryFormat === "builder") {
+    if (
+      metric.queryFormat === "builder" ||
+      (!metric.queryFormat && !metric.sql)
+    ) {
       const result = buildParsedFromBuilder(metric);
       if (typeof result === "string") {
         unconverted.push({ metric, reason: result });
@@ -149,8 +160,22 @@ function filterAndParse(metrics: MetricInterface[]): {
         continue;
       }
 
+      const sql = metric.sql
+        .replace(
+          /{{\s*valueColumn\s*}}/g,
+          metric.templateVariables?.valueColumn || "value",
+        )
+        .replace(
+          /{{\s*eventName\s*}}/g,
+          metric.templateVariables?.eventName || "eventName",
+        )
+        .replace(
+          /{{\s*snakecase\s+eventName\s*}}/g,
+          snakeCase(metric.templateVariables?.eventName || "eventName"),
+        );
+
       try {
-        parsed = parseSelect(metric.sql);
+        parsed = parseSelect(sql);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         unconverted.push({ metric, reason: `Failed to parse SQL: ${msg}` });
@@ -161,13 +186,6 @@ function filterAndParse(metrics: MetricInterface[]): {
     // Check for unsupported SQL features
     if (parsed.ctes.length > 0) {
       unconverted.push({ metric, reason: "Unsupported SQL feature: CTE" });
-      continue;
-    }
-    if (parsed.groupBy.length > 0) {
-      unconverted.push({
-        metric,
-        reason: "Unsupported SQL feature: GROUP BY",
-      });
       continue;
     }
     if (parsed.having) {
@@ -238,6 +256,12 @@ function buildFingerprint(
     parts.push(`join:${jp}`);
   }
 
+  // GROUP BY
+  if (parsed.groupBy.length > 0) {
+    const groupByStr = parsed.groupBy.map(normalize).join(",");
+    parts.push(`groupby:${groupByStr}`);
+  }
+
   return parts.join("||");
 }
 
@@ -261,7 +285,7 @@ function classifySelectItems(
   let valueItem: SelectItem | null = null;
 
   for (const item of parsed.select) {
-    const alias = (item.alias || "").toLowerCase();
+    const alias = (item.alias || item.expr).toLowerCase();
     if (userIdTypes.has(alias)) {
       userIdItems.set(alias, item);
     } else if (alias === "timestamp") {
@@ -279,6 +303,7 @@ interface MergedGroup {
   mergedSelect: SelectItem[];
   mergedFrom: ParsedSelect["from"];
   mergedJoins: ParsedSelect["joins"];
+  mergedGroupBy: string[];
   sharedWhere: string | null;
   perMetricWhere: Map<MetricInterface, string>;
   valueAliases: Map<MetricInterface, string>;
@@ -290,6 +315,7 @@ function mergeGroup(candidates: ParsedMetricCandidate[]): MergedGroup {
   const first = candidates[0];
   const mergedFrom = first.parsed.from;
   const mergedJoins = first.parsed.joins;
+  const mergedGroupBy = first.parsed.groupBy;
 
   // Classify all items
   const allClassified = candidates.map((c) => ({
@@ -359,6 +385,16 @@ function mergeGroup(candidates: ParsedMetricCandidate[]): MergedGroup {
     (x) => x.classified.valueItem !== null,
   );
 
+  // Separate hardcoded-1 metrics (use $$count) from real value metrics
+  const realValueMetrics = metricsWithValue.filter(
+    (x) => x.classified.valueItem!.expr.trim() !== "1",
+  );
+  for (const { candidate } of metricsWithValue.filter(
+    (x) => x.classified.valueItem!.expr.trim() === "1",
+  )) {
+    valueAliases.set(candidate.metric, "$$count");
+  }
+
   const mergedSelect: SelectItem[] = [];
 
   // Add user ID items
@@ -372,16 +408,16 @@ function mergeGroup(candidates: ParsedMetricCandidate[]): MergedGroup {
   }
 
   // Add value columns
-  if (metricsWithValue.length <= 1) {
+  if (realValueMetrics.length <= 1) {
     // Single value column keeps alias "value"
-    for (const { candidate, classified } of metricsWithValue) {
+    for (const { candidate, classified } of realValueMetrics) {
       const item = classified.valueItem!;
       mergedSelect.push({ expr: item.expr, alias: "value" });
       valueAliases.set(candidate.metric, "value");
     }
   } else {
     // Multiple value columns: value_0, value_1, etc.
-    metricsWithValue.forEach(({ candidate, classified }, idx) => {
+    realValueMetrics.forEach(({ candidate, classified }, idx) => {
       const item = classified.valueItem!;
       const alias = `value_${idx}`;
       mergedSelect.push({ expr: item.expr, alias });
@@ -402,6 +438,7 @@ function mergeGroup(candidates: ParsedMetricCandidate[]): MergedGroup {
     mergedSelect,
     mergedFrom,
     mergedJoins,
+    mergedGroupBy,
     sharedWhere,
     perMetricWhere,
     valueAliases,
@@ -417,13 +454,14 @@ function reconstructSql(
   from: ParsedSelect["from"],
   joins: ParsedSelect["joins"],
   where: string | null,
+  groupBy: string[],
 ): string {
   const parts: string[] = [];
 
   // SELECT
   const selectStr = select
     .map((item) => {
-      if (item.alias) {
+      if (item.alias && item.alias !== item.expr) {
         return `${item.expr} AS ${item.alias}`;
       }
       return item.expr;
@@ -451,7 +489,12 @@ function reconstructSql(
     parts.push(`WHERE ${where}`);
   }
 
-  return parts.join("\n");
+  // GROUP BY
+  if (groupBy.length > 0) {
+    parts.push(`GROUP BY ${groupBy.join(", ")}`);
+  }
+
+  return format(parts.join("\n"), "postgresql");
 }
 
 function numberFormatForType(
@@ -533,7 +576,7 @@ function buildFactTable(
     organization: first.organization,
     dateCreated: now,
     dateUpdated: now,
-    name: `Fact Table - ${tableName}`,
+    name: tableName,
     description: "",
     owner: [...owners][0] || "",
     projects: [...projects],
@@ -545,6 +588,7 @@ function buildFactTable(
       group.mergedFrom,
       group.mergedJoins,
       group.sharedWhere,
+      group.mergedGroupBy,
     ),
     eventName: "",
     columns,
@@ -569,7 +613,12 @@ function buildFactMetric(
 
   const numerator: ColumnRef = {
     factTableId,
-    column: mType === "proportion" ? "$$distinctUsers" : valueAlias || "value",
+    column:
+      mType === "proportion"
+        ? "$$distinctUsers"
+        : isCountAggregation(m.aggregation)
+          ? "$$count"
+          : valueAlias || "value",
     ...(mType === "mean" ? { aggregation: mapAggregation(m.aggregation) } : {}),
     ...(rowFilters.length > 0 ? { rowFilters } : {}),
   };
@@ -634,11 +683,11 @@ export function migrateMetrics(
       // Fall back to individual fact tables per metric
       for (const c of groupCandidates) {
         const individualMerged = mergeGroup([c]);
-        const factTableId = options.generateFactTableId();
+        const factTableId = `ft_${c.metric.id}`;
         const ft = buildFactTable(individualMerged, factTableId, now);
         factTables.push(ft);
 
-        const factMetricId = options.generateFactMetricId();
+        const factMetricId = `fact__${c.metric.id}`;
         const valAlias = individualMerged.valueAliases.get(c.metric);
         const pmw = individualMerged.perMetricWhere.get(c.metric);
         factMetrics.push(
@@ -646,12 +695,12 @@ export function migrateMetrics(
         );
       }
     } else {
-      const factTableId = options.generateFactTableId();
+      const factTableId = `ft_${groupCandidates[0].metric.id}`;
       const ft = buildFactTable(merged, factTableId, now);
       factTables.push(ft);
 
       for (const c of groupCandidates) {
-        const factMetricId = options.generateFactMetricId();
+        const factMetricId = `fact__${c.metric.id}`;
         const valAlias = merged.valueAliases.get(c.metric);
         const pmw = merged.perMetricWhere.get(c.metric);
         factMetrics.push(

@@ -3,15 +3,8 @@ import { migrateMetrics, MigrationOptions } from "../src/metric-migration";
 
 const NOW = new Date("2024-01-01T00:00:00Z");
 
-let ftCounter = 0;
-let fmCounter = 0;
-
 function makeOptions(): MigrationOptions {
-  ftCounter = 0;
-  fmCounter = 0;
   return {
-    generateFactTableId: () => `ft_${++ftCounter}`,
-    generateFactMetricId: () => `fm_${++fmCounter}`,
     now: NOW,
   };
 }
@@ -63,8 +56,8 @@ describe("Single binomial metric", () => {
     expect(result.factMetrics).toHaveLength(1);
 
     const ft = result.factTables[0];
-    expect(ft.id).toBe("ft_1");
-    expect(ft.name).toBe("Fact Table - events");
+    expect(ft.id).toBe("ft_m1");
+    expect(ft.name).toBe("events");
     expect(ft.datasource).toBe("ds_1");
     expect(ft.userIdTypes).toEqual(["user_id"]);
     expect(ft.columns).toHaveLength(2); // user_id, timestamp
@@ -72,10 +65,10 @@ describe("Single binomial metric", () => {
     expect(ft.columns[1].datatype).toBe("date");
 
     const fm = result.factMetrics[0];
-    expect(fm.id).toBe("fm_1");
+    expect(fm.id).toBe("fact__m1");
     expect(fm.metricType).toBe("proportion");
     expect(fm.numerator.column).toBe("$$distinctUsers");
-    expect(fm.numerator.factTableId).toBe("ft_1");
+    expect(fm.numerator.factTableId).toBe("ft_m1");
     expect(fm.denominator).toBeNull();
   });
 });
@@ -83,7 +76,7 @@ describe("Single binomial metric", () => {
 // ─── 2. Single count/duration/revenue → mean metrics ────────────────────────
 
 describe("Non-binomial metric types", () => {
-  it("converts count metric to mean", () => {
+  it("converts count metric with hardcoded 1 to $$count", () => {
     const m = makeMetric({
       type: "count",
       sql: "SELECT user_id AS user_id, created_at AS timestamp, 1 AS value FROM events",
@@ -92,8 +85,13 @@ describe("Non-binomial metric types", () => {
 
     expect(result.factMetrics).toHaveLength(1);
     expect(result.factMetrics[0].metricType).toBe("mean");
-    expect(result.factMetrics[0].numerator.column).toBe("value");
+    expect(result.factMetrics[0].numerator.column).toBe("$$count");
     expect(result.factMetrics[0].numerator.aggregation).toBe("sum");
+
+    // 1 AS value should be removed from the fact table SQL
+    const ft = result.factTables[0];
+    expect(ft.sql).not.toContain("1 AS value");
+    expect(ft.columns.find((c) => c.column === "value")).toBeUndefined();
   });
 
   it("converts duration metric to mean with time:seconds format", () => {
@@ -176,8 +174,8 @@ describe("Different FROM tables", () => {
     const result = migrateMetrics([m1, m2], makeOptions());
 
     expect(result.factTables).toHaveLength(2);
-    expect(result.factTables[0].name).toBe("Fact Table - events");
-    expect(result.factTables[1].name).toBe("Fact Table - purchases");
+    expect(result.factTables[0].name).toBe("events");
+    expect(result.factTables[1].name).toBe("purchases");
   });
 });
 
@@ -239,7 +237,7 @@ describe("Builder metrics", () => {
     expect(result.factMetrics).toHaveLength(1);
 
     const ft = result.factTables[0];
-    expect(ft.name).toBe("Fact Table - events");
+    expect(ft.name).toBe("events");
     expect(ft.sql).toContain("events");
     expect(ft.sql).toContain("u.id AS user_id");
     expect(ft.sql).toContain("amount AS value");
@@ -328,20 +326,9 @@ describe("Same WHERE clauses", () => {
   });
 });
 
-// ─── 10. GROUP BY / CTE / DISTINCT / LIMIT → unconverted ───────────────────
+// ─── 10. CTE / DISTINCT / LIMIT → unconverted; GROUP BY supported ───────────
 
 describe("Unsupported SQL features", () => {
-  it("marks GROUP BY as unconverted", () => {
-    const m = makeMetric({
-      sql: "SELECT user_id AS user_id, COUNT(*) AS value FROM events GROUP BY user_id",
-    });
-    const result = migrateMetrics([m], makeOptions());
-    expect(result.unconverted).toHaveLength(1);
-    expect(result.unconverted[0].reason).toBe(
-      "Unsupported SQL feature: GROUP BY",
-    );
-  });
-
   it("marks CTE as unconverted", () => {
     const m = makeMetric({
       sql: "WITH cte AS (SELECT * FROM events) SELECT user_id AS user_id, ts AS timestamp FROM cte",
@@ -387,8 +374,76 @@ describe("Unsupported SQL features", () => {
     });
     const result = migrateMetrics([m], makeOptions());
     expect(result.unconverted).toHaveLength(1);
-    // GROUP BY is checked before HAVING
-    expect(result.unconverted[0].reason).toMatch(/Unsupported SQL feature/);
+    expect(result.unconverted[0].reason).toBe(
+      "Unsupported SQL feature: HAVING",
+    );
+  });
+});
+
+// ─── GROUP BY support ────────────────────────────────────────────────────────
+
+describe("GROUP BY support", () => {
+  it("includes GROUP BY in fact table SQL", () => {
+    const m = makeMetric({
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, COUNT(*) AS value FROM events GROUP BY user_id, ts",
+    });
+    const result = migrateMetrics([m], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factTables).toHaveLength(1);
+    expect(result.factTables[0].sql).toContain("GROUP BY");
+    expect(result.factTables[0].sql).toContain("user_id");
+    expect(result.factMetrics).toHaveLength(1);
+  });
+
+  it("groups metrics with same GROUP BY into one fact table", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      name: "Metric 1",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, COUNT(*) AS value FROM events GROUP BY user_id, ts",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      name: "Metric 2",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, SUM(amount) AS value FROM events GROUP BY user_id, ts",
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    expect(result.factTables).toHaveLength(1);
+    expect(result.factMetrics).toHaveLength(2);
+    expect(result.factTables[0].sql).toContain("GROUP BY");
+  });
+
+  it("separates metrics with different GROUP BY clauses", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, COUNT(*) AS value FROM events GROUP BY user_id, ts",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, COUNT(*) AS value FROM events GROUP BY user_id",
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    expect(result.factTables).toHaveLength(2);
+  });
+
+  it("separates metrics where one has GROUP BY and the other does not", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      sql: "SELECT user_id AS user_id, ts AS timestamp FROM events",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, COUNT(*) AS value FROM events GROUP BY user_id, ts",
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    expect(result.factTables).toHaveLength(2);
   });
 });
 
@@ -480,7 +535,7 @@ describe("Unparseable SQL", () => {
   });
 
   it("marks empty SQL as unconverted", () => {
-    const m = makeMetric({ sql: "" });
+    const m = makeMetric({ queryFormat: "sql", sql: "" });
     const result = migrateMetrics([m], makeOptions());
 
     expect(result.unconverted).toHaveLength(1);
@@ -488,7 +543,7 @@ describe("Unparseable SQL", () => {
   });
 
   it("marks undefined SQL as unconverted", () => {
-    const m = makeMetric({ sql: undefined });
+    const m = makeMetric({ queryFormat: "sql", sql: undefined });
     const result = migrateMetrics([m], makeOptions());
 
     expect(result.unconverted).toHaveLength(1);
@@ -553,6 +608,43 @@ describe("JOINs and merged value columns", () => {
   });
 });
 
+// ─── Dotted column references without explicit aliases ──────────────────────
+
+describe("Dotted column references", () => {
+  it("detects user_id and timestamp from dotted references without AS", () => {
+    const m = makeMetric({
+      type: "count",
+      sql: "SELECT t.user_id, t.created_at AS timestamp, t.amount AS value FROM events t",
+    });
+    const result = migrateMetrics([m], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factTables).toHaveLength(1);
+    expect(result.factMetrics).toHaveLength(1);
+
+    const ft = result.factTables[0];
+    expect(ft.userIdTypes).toEqual(["user_id"]);
+    expect(ft.columns.find((c) => c.column === "user_id")).toBeDefined();
+    expect(ft.columns.find((c) => c.column === "timestamp")).toBeDefined();
+    expect(ft.columns.find((c) => c.column === "value")).toBeDefined();
+  });
+
+  it("detects timestamp from dotted reference without AS", () => {
+    const m = makeMetric({
+      sql: "SELECT t.user_id AS user_id, t.timestamp FROM events t",
+    });
+    const result = migrateMetrics([m], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factTables).toHaveLength(1);
+
+    const ft = result.factTables[0];
+    const tsCol = ft.columns.find((c) => c.column === "timestamp");
+    expect(tsCol).toBeDefined();
+    expect(tsCol?.datatype).toBe("date");
+  });
+});
+
 // ─── Aggregation mapping ────────────────────────────────────────────────────
 
 describe("Aggregation mapping", () => {
@@ -599,17 +691,28 @@ describe("Aggregation mapping", () => {
     );
   });
 
-  it("rejects complex aggregation expressions", () => {
+  it("maps COUNT(*) aggregation to $$count with sum", () => {
     const m = makeMetric({
       type: "count",
       aggregation: "COUNT(*)",
       sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events",
     });
     const result = migrateMetrics([m], makeOptions());
-    expect(result.unconverted).toHaveLength(1);
-    expect(result.unconverted[0].reason).toBe(
-      "Unsupported custom aggregation: COUNT(*)",
-    );
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factMetrics[0].numerator.column).toBe("$$count");
+    expect(result.factMetrics[0].numerator.aggregation).toBe("sum");
+  });
+
+  it("maps COUNT(value) aggregation to $$count with sum", () => {
+    const m = makeMetric({
+      type: "count",
+      aggregation: "COUNT(value)",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events",
+    });
+    const result = migrateMetrics([m], makeOptions());
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factMetrics[0].numerator.column).toBe("$$count");
+    expect(result.factMetrics[0].numerator.aggregation).toBe("sum");
   });
 });
 

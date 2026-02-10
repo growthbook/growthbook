@@ -315,7 +315,9 @@ export function tokenize(sql: string): Token[] {
         two === ">=" ||
         two === "<=" ||
         two === "||" ||
-        two === "::"
+        two === "::" ||
+        two === "{{" ||
+        two === "}}"
       ) {
         tokens.push({ type: "operator", value: two, raw: two, position: i });
         i += 2;
@@ -901,6 +903,25 @@ function parseSelectClause(clause: RawClause): {
         items.push({
           expr: tokensToString(exprTokens),
           alias: last.raw,
+        });
+        continue;
+      }
+    }
+
+    // Check if expression is a dotted column reference (e.g., t.user_id, schema.table.col)
+    // In SQL, the implicit alias for such references is the last identifier
+    if (group.length >= 3 && group.length % 2 === 1) {
+      const isDottedRef = group.every((t, idx) =>
+        idx % 2 === 0
+          ? t.type === "identifier" ||
+            t.type === "quoted_identifier" ||
+            t.type === "keyword"
+          : t.type === "punctuation" && t.value === ".",
+      );
+      if (isDottedRef) {
+        items.push({
+          expr: tokensToString(group),
+          alias: group[group.length - 1].raw,
         });
         continue;
       }

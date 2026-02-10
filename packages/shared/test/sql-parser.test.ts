@@ -69,6 +69,15 @@ describe("Basic SELECT", () => {
     const r = parseSelect("SELECT t.* FROM users t");
     expect(r.select[0]).toEqual({ expr: "t.*", alias: null });
   });
+
+  it("uses last part as implicit alias for dotted column references", () => {
+    const r = parseSelect(
+      "SELECT t.user_id, t.created_at, s.table.col FROM events t",
+    );
+    expect(r.select[0]).toEqual({ expr: "t.user_id", alias: "user_id" });
+    expect(r.select[1]).toEqual({ expr: "t.created_at", alias: "created_at" });
+    expect(r.select[2]).toEqual({ expr: "s.table.col", alias: "col" });
+  });
 });
 
 // ─── 2. FROM clause ──────────────────────────────────────────────────────────
@@ -731,7 +740,7 @@ describe("Complex real-world queries", () => {
     const r = parseSelect(sql);
 
     expect(r.select).toHaveLength(4);
-    expect(r.select[0]).toEqual({ expr: "u.id", alias: null });
+    expect(r.select[0]).toEqual({ expr: "u.id", alias: "id" });
     expect(r.select[1]).toEqual({ expr: "u.name", alias: "user_name" });
     expect(r.select[2]).toEqual({
       expr: "COUNT ( o.id )",
