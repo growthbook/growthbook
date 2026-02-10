@@ -75,7 +75,6 @@ export default function DatePicker({
     ),
   );
   const [open, setOpen] = useState(false);
-
   const fieldClickedTime = useRef(new Date());
 
   const disabledMatchers: Matcher[] = [];
