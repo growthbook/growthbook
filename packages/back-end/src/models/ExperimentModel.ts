@@ -803,14 +803,15 @@ export async function getExperimentsUsingMetric({
 export async function getExperimentsUsingMetrics({
   context,
   metricIds,
-  // Optional, skips second DB call if already fetched
   allMetricGroups,
   excludeMetricGroupIds,
   limit,
 }: {
   context: ReqContext | ApiReqContext;
   metricIds: string[];
-  allMetricGroups?: MetricGroupInterface[];
+  allMetricGroups: MetricGroupInterface[];
+  // If true, only looks for experiments where the metric is directly used,
+  // not via a metric group
   excludeMetricGroupIds?: boolean;
   limit?: number;
 }): Promise<ExperimentInterface[]> {
@@ -825,9 +826,6 @@ export async function getExperimentsUsingMetrics({
   }
 
   if (!excludeMetricGroupIds) {
-    if (!allMetricGroups) {
-      allMetricGroups = await context.models.metricGroups.getAll();
-    }
     for (const group of allMetricGroups) {
       for (const metricId of group.metrics || []) {
         const groupIds = metricToGroupIds.get(metricId);

@@ -2,8 +2,6 @@ type: object
 required:
   - metricId
   - experiments
-  - nRunningExperiments
-  - nTotalExperiments
   - lastSnapshotAttempt
 properties:
   metricId:
@@ -34,12 +32,6 @@ properties:
           format: date-time
           nullable: true
           description: The last time a snapshot was attempted for this experiment
-  nRunningExperiments:
-    type: integer
-    description: Number of running experiments using this metric
-  nTotalExperiments:
-    type: integer
-    description: Total number of experiments using this metric
   lastSnapshotAttempt:
     type: string
     format: date-time

@@ -112,7 +112,7 @@ router.use("/experiments", experimentsRouter);
 router.get("/experiment-names", getExperimentNames);
 router.use("/snapshots", snapshotsRouter);
 router.use("/metrics", metricsRouter);
-router.use("/metric-usage", metricUsageRouter);
+router.use("/usage", metricUsageRouter);
 router.use("/segments", segmentsRouter);
 router.use("/dimensions", dimensionsRouter);
 router.use("/projects", projectsRouter);

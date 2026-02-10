@@ -195,15 +195,16 @@ export interface paths {
     /** Deletes a metric */
     delete: operations["deleteMetric"];
   };
-  "/metric-usage": {
+  "/usage/metrics": {
     /**
      * Get metric usage across experiments 
-     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
-     * and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric
+     * and some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as
+     * usage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin
      * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
      * all experiments.
      */
-    post: operations["postMetricUsage"];
+    get: operations["getMetricUsage"];
   };
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
@@ -3898,10 +3899,6 @@ export interface components {
            */
           lastSnapshotAttempt: string | null;
         })[];
-      /** @description Number of running experiments using this metric */
-      nRunningExperiments: number;
-      /** @description Total number of experiments using this metric */
-      nTotalExperiments: number;
       /**
        * Format: date-time 
        * @description The most recent snapshot attempt across all experiments using this metric
@@ -11145,20 +11142,19 @@ export interface operations {
       };
     };
   };
-  postMetricUsage: {
+  getMetricUsage: {
     /**
      * Get metric usage across experiments 
-     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric 
-     * and some usage statistics. Warning: only includes experiments that you have access to! If you do not have admin
+     * @description Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric
+     * and some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as
+     * usage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin
      * access or read access to experiments across all projects, this endpoint may not return the latest usage data across
      * all experiments.
      */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description Array of metric IDs (both fact and legacy) to get usage for */
-          metricIds: (string)[];
-        };
+    parameters: {
+        /** @description Array of metric IDs (both fact and legacy) to get usage for. Pass multiple values as repeated query params, e.g. metricIds=id1&metricIds=id2 */
+      query: {
+        metricIds: (string)[];
       };
     };
     responses: {
@@ -11183,10 +11179,6 @@ export interface operations {
                      */
                     lastSnapshotAttempt: string | null;
                   })[];
-                /** @description Number of running experiments using this metric */
-                nRunningExperiments: number;
-                /** @description Total number of experiments using this metric */
-                nTotalExperiments: number;
                 /**
                  * Format: date-time 
                  * @description The most recent snapshot attempt across all experiments using this metric
@@ -16103,7 +16095,7 @@ export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["c
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
-export type PostMetricUsageResponse = operations["postMetricUsage"]["responses"]["200"]["content"]["application/json"];
+export type GetMetricUsageResponse = operations["getMetricUsage"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];

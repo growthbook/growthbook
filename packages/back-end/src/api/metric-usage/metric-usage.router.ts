@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { postMetricUsage } from "./postMetricUsage";
+import { getMetricUsage } from "./getMetricUsage";
 
 const router = Router();
 
 // Metric Usage Endpoints
-// Mounted at /api/v1/metric-usage
-router.post("/", postMetricUsage);
+// Mounted at /api/v1/usage
+router.get("/metrics", getMetricUsage);
 
 export default router;
