@@ -147,7 +147,7 @@ export default function ScheduleStatusChangeInputs({
       )}
 
       <Box my="2">
-        <Text weight="medium">Stop Analysis</Text>
+        <Text weight="medium">Stop Analysis & Release Holdout</Text>
       </Box>
       {!isStopped && !isArchived ? (
         <Flex direction="row" gap="2" align="baseline">
