@@ -1,10 +1,19 @@
 import { Flex, Box } from "@radix-ui/themes";
-import clsx from "clsx";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { format, differenceInDays } from "date-fns";
-import { ProgressBar } from "@/ui/ProgressBar";
-import { Text } from "@/ui/Text";
+import { format, differenceInMinutes } from "date-fns";
+import { ProgressBar, Segment } from "@/ui/ProgressBar";
+import Text from "@/ui/Text";
+
+const COMPLETED_HOLDOUT_SEGMENT: Segment = {
+  id: "1",
+  weight: 100,
+  completion: 100,
+  color: "disabled",
+};
+
+const NO_STOP_DATE_WEIGHT = 90.5;
+const NO_START_ANALYSIS_DATE_WEIGHT = 87;
 
 function pickEarlierDate(
   date1: string | undefined,
@@ -18,32 +27,6 @@ function pickEarlierDate(
   return new Date(date1) < new Date(date2) ? new Date(date1) : new Date(date2);
 }
 
-function getSegmentWeights(
-  startDate: Date | null,
-  startAnalysisPeriodDate: Date | null,
-  stopDate: Date | null,
-): [number, number] {
-  if (!startDate) return [0, 0]; // Empty Schedule - 100% of the way through
-  if (startDate && !startAnalysisPeriodDate) return [50, 0]; // Only Start Date - 50% of the way through since we don't know the end date
-  if (startDate && startAnalysisPeriodDate && !stopDate) return [40, 40]; // Start Date and Start Analysis Period Date - 40% of the way through for the first segment and 40% of the way through for the second segment since we don't know the end date
-
-  // By this point we should have all three dates, so we can calculate the weights
-  if (startDate && startAnalysisPeriodDate && stopDate) {
-    const firstSegmentWeight =
-      (differenceInDays(startAnalysisPeriodDate, startDate) /
-        differenceInDays(stopDate, startDate)) *
-      100;
-    const secondSegmentWeight =
-      (differenceInDays(stopDate, startAnalysisPeriodDate) /
-        differenceInDays(stopDate, startDate)) *
-      100;
-
-    return [firstSegmentWeight, secondSegmentWeight];
-  }
-
-  return [0, 0]; // This should never happen
-}
-
 function getCompletion(startDate: Date | null, endDate: Date | null): number {
   const now = new Date();
 
@@ -52,7 +35,8 @@ function getCompletion(startDate: Date | null, endDate: Date | null): number {
   if (now > endDate) return 100;
 
   return (
-    (differenceInDays(now, startDate) / differenceInDays(endDate, startDate)) *
+    (differenceInMinutes(now, startDate) /
+      differenceInMinutes(endDate, startDate)) *
     100
   );
 }
@@ -82,69 +66,151 @@ export const HoldoutSchedule = ({
     experiment.phases[1]?.dateEnded,
   );
 
-  const [firstSegmentWeight, secondSegmentWeight] = getSegmentWeights(
+  const isDraft = experiment.status === "draft";
+  const isRunning = experiment.status === "running";
+  const showUnscheduledSegment =
+    (isDraft && (!startAnalysisPeriodDate || !stopDate)) ||
+    (isRunning && !startAnalysisPeriodDate);
+  const isInAnalysisPeriod = isRunning && holdout.analysisStartDate;
+
+  const holdoutSegmentCompletion = getCompletion(
     startDate,
     startAnalysisPeriodDate,
-    stopDate,
   );
 
-  const segments = [
+  const segments: Segment[] = [
     {
-      id: "1",
-      weight: firstSegmentWeight,
-      completion: getCompletion(startDate, startAnalysisPeriodDate),
-      color: "indigo",
+      id: "holdout",
+      weight: showUnscheduledSegment
+        ? !startAnalysisPeriodDate
+          ? NO_START_ANALYSIS_DATE_WEIGHT
+          : NO_STOP_DATE_WEIGHT
+        : 68,
+      completion: holdoutSegmentCompletion,
+      color: isDraft ? "slate" : "indigo",
+      endBorder: isDraft ? false : true,
+      tooltip:
+        holdoutSegmentCompletion === 100
+          ? "Holdout has stopped—no new Experiments or Features can be added"
+          : undefined,
     },
     {
-      id: "2",
-      weight: secondSegmentWeight,
+      id: "analysis",
+      weight: showUnscheduledSegment ? 0 : 32,
       completion: getCompletion(startAnalysisPeriodDate, stopDate),
-      color: "amber",
+      color: isInAnalysisPeriod ? "amber" : isDraft ? "slate" : "indigo",
     },
   ];
 
+  const dateRangeColor =
+    experiment.status === "draft" ? "text-mid" : "text-low";
+
   return (
     <>
-      <ProgressBar segments={segments} />
+      <ProgressBar
+        segments={
+          experiment.status !== "stopped"
+            ? segments
+            : [COMPLETED_HOLDOUT_SEGMENT]
+        }
+      />
       <Flex justify="between">
         <Box>
-          <Text>Start: </Text>
-          <Text
-            className={clsx({
-              "text-muted": !startDate,
-            })}
-          >
-            {startDate
-              ? format(startDate, "MMM d, yyyy 'at' h:mm a")
-              : "Not scheduled"}
-          </Text>
-        </Box>
-        {/* <Box>
-          <Text weight="medium">Start Analysis: </Text>
-          <Text
-            className={clsx({
-              "text-muted": !startAnalysisPeriodDate,
-            })}
-          >
-            {startAnalysisPeriodDate
-              ? format(startAnalysisPeriodDate, "MMM d, yyyy 'at' h:mm a")
-              : "Not scheduled"}
-          </Text>
+          {experiment.status === "draft" ? (
+            <>
+              <Text weight="medium" color="text-high">
+                Start:{" "}
+              </Text>
+              <Text
+                color={startDate ? "text-high" : "text-disabled"}
+                weight="regular"
+              >
+                {startDate
+                  ? format(startDate, "MMM d, yyyy 'at' h:mm a")
+                  : "Not scheduled"}
+              </Text>
+            </>
+          ) : experiment.status === "running" ? (
+            <Text weight="semibold" color="text-high">
+              {/* TODO: Use keyframes to animate the text */}
+              {holdout.analysisStartDate ? "Analyzing..." : "Running..."}
+            </Text>
+          ) : (
+            <Text weight="semibold" color="text-high">
+              Holdout stopped
+            </Text>
+          )}
         </Box>
         <Box>
-          <Text weight="medium">Stop Analysis: </Text>
-          <Text
-            className={clsx({
-              "text-muted": !stopDate,
-            })}
-          >
-            {stopDate
-              ? format(stopDate, "MMM d, yyyy 'at' h:mm a")
-              : "Not scheduled"}
-          </Text>
-        </Box> */}
-        <Box>
-          <Text weight="medium"></Text>
+          {experiment.status === "draft" ||
+          (experiment.status === "running" && !holdout.analysisStartDate) ? (
+            <>
+              <Text
+                weight="medium"
+                color={experiment.status === "draft" ? "text-high" : "text-low"}
+              >
+                Analysis:{" "}
+              </Text>
+              {startAnalysisPeriodDate ? (
+                <>
+                  <Text color={dateRangeColor} weight="regular">
+                    {format(startAnalysisPeriodDate, "MMM d, yyyy 'at' h:mm a")}{" "}
+                    -{" "}
+                  </Text>
+                  <Text
+                    weight="regular"
+                    color={
+                      experiment.status === "draft" && !stopDate
+                        ? "text-disabled"
+                        : dateRangeColor
+                    }
+                  >
+                    {stopDate
+                      ? format(stopDate, "MMM d, yyyy 'at' h:mm a")
+                      : "No end scheduled"}
+                  </Text>
+                </>
+              ) : (
+                <Text weight="regular" color="text-disabled">
+                  Not scheduled
+                </Text>
+              )}
+            </>
+          ) : experiment.status === "running" && holdout.analysisStartDate ? (
+            <>
+              <Text weight="medium" color="text-low">
+                Analysis ends:{" "}
+              </Text>
+              {stopDate ? (
+                <>
+                  <Text color="text-low" weight="regular">
+                    {format(stopDate, "MMM d, yyyy 'at' h:mm a")}
+                  </Text>
+                </>
+              ) : (
+                <Text weight="regular" color="text-disabled">
+                  Not scheduled
+                </Text>
+              )}
+            </>
+          ) : (
+            <>
+              <Text weight="medium" color="text-low">
+                Analysis ended:{" "}
+              </Text>
+              {stopDate ? (
+                <>
+                  <Text color="text-low" weight="regular">
+                    {format(stopDate, "MMM d, yyyy 'at' h:mm a")}
+                  </Text>
+                </>
+              ) : (
+                <Text weight="regular" color="text-disabled">
+                  Not scheduled
+                </Text>
+              )}
+            </>
+          )}
         </Box>
       </Flex>
     </>

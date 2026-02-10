@@ -41,10 +41,13 @@ export class HoldoutModel extends BaseClass {
     return this.context.hasPremiumFeature("holdouts");
   }
 
-  protected async customValidation(data: HoldoutInterface) {
+  protected async beforeUpdate(
+    existing: HoldoutInterface,
+    updates: Partial<HoldoutInterface>,
+  ) {
     const holdoutExperiment = await getExperimentById(
       this.context,
-      data.experimentId,
+      existing.experimentId,
     );
     if (!holdoutExperiment) {
       throw new Error("Holdout experiment not found");
@@ -54,20 +57,20 @@ export class HoldoutModel extends BaseClass {
 
     // Check if one of the scheduled dates is in the past
     if (
-      data.scheduledStatusUpdates?.startAt &&
-      new Date(data.scheduledStatusUpdates.startAt) < now
+      updates.scheduledStatusUpdates?.startAt &&
+      new Date(updates.scheduledStatusUpdates.startAt) < now
     ) {
       throw new Error("Scheduled start date cannot be in the past");
     }
     if (
-      data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
-      new Date(data.scheduledStatusUpdates.startAnalysisPeriodAt) < now
+      updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      new Date(updates.scheduledStatusUpdates.startAnalysisPeriodAt) < now
     ) {
       throw new Error("Scheduled analysis start date cannot be in the past");
     }
     if (
-      data.scheduledStatusUpdates?.stopAt &&
-      new Date(data.scheduledStatusUpdates.stopAt) < now
+      updates.scheduledStatusUpdates?.stopAt &&
+      new Date(updates.scheduledStatusUpdates.stopAt) < now
     ) {
       throw new Error("Scheduled stop date cannot be in the past");
     }
@@ -75,9 +78,9 @@ export class HoldoutModel extends BaseClass {
     // Check date dependencies
     if (
       holdoutExperiment.status === "draft" &&
-      data.scheduledStatusUpdates?.stopAt &&
-      (!data.scheduledStatusUpdates?.startAt ||
-        !data.scheduledStatusUpdates?.startAnalysisPeriodAt)
+      updates.scheduledStatusUpdates?.stopAt &&
+      (!updates.scheduledStatusUpdates?.startAt ||
+        !updates.scheduledStatusUpdates?.startAnalysisPeriodAt)
     ) {
       throw new Error(
         "To set a stop date, you must also set a start date and an analysis start date",
@@ -85,8 +88,8 @@ export class HoldoutModel extends BaseClass {
     }
     if (
       holdoutExperiment.status === "draft" &&
-      data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
-      !data.scheduledStatusUpdates?.startAt
+      updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      !updates.scheduledStatusUpdates?.startAt
     ) {
       throw new Error(
         "To set an analysis start date, you must first set a start date",
@@ -95,9 +98,9 @@ export class HoldoutModel extends BaseClass {
 
     if (
       holdoutExperiment.status === "running" &&
-      !data.analysisStartDate &&
-      data.scheduledStatusUpdates?.stopAt &&
-      !data.scheduledStatusUpdates?.startAnalysisPeriodAt
+      !updates.analysisStartDate &&
+      updates.scheduledStatusUpdates?.stopAt &&
+      !updates.scheduledStatusUpdates?.startAnalysisPeriodAt
     ) {
       throw new Error(
         "To set a stop date, you must first set an analysis start date",
@@ -106,18 +109,18 @@ export class HoldoutModel extends BaseClass {
 
     // Check if the dates are consecutive
     const dateError =
-      (data.scheduledStatusUpdates?.startAt &&
-        data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
-        data.scheduledStatusUpdates?.startAt >
-          data.scheduledStatusUpdates?.startAnalysisPeriodAt) ||
-      (data.scheduledStatusUpdates?.startAt &&
-        data.scheduledStatusUpdates?.stopAt &&
-        data.scheduledStatusUpdates?.startAt >
-          data.scheduledStatusUpdates?.stopAt) ||
-      (data.scheduledStatusUpdates?.startAnalysisPeriodAt &&
-        data.scheduledStatusUpdates?.stopAt &&
-        data.scheduledStatusUpdates?.startAnalysisPeriodAt >
-          data.scheduledStatusUpdates?.stopAt);
+      (updates.scheduledStatusUpdates?.startAt &&
+        updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+        updates.scheduledStatusUpdates?.startAt >
+          updates.scheduledStatusUpdates?.startAnalysisPeriodAt) ||
+      (updates.scheduledStatusUpdates?.startAt &&
+        updates.scheduledStatusUpdates?.stopAt &&
+        updates.scheduledStatusUpdates?.startAt >
+          updates.scheduledStatusUpdates?.stopAt) ||
+      (updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+        updates.scheduledStatusUpdates?.stopAt &&
+        updates.scheduledStatusUpdates?.startAnalysisPeriodAt >
+          updates.scheduledStatusUpdates?.stopAt);
     if (dateError) {
       throw new Error("Scheduled dates must be consecutive");
     }

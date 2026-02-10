@@ -36,18 +36,23 @@ const EditScheduleModal = ({
     // Convert Date objects to ISO strings for API
     const scheduledStatusUpdates = rawValue.scheduledStatusUpdates
       ? {
-          startAt: rawValue.scheduledStatusUpdates.startAt
-            ? new Date(rawValue.scheduledStatusUpdates.startAt).toISOString()
-            : undefined,
-          startAnalysisPeriodAt: rawValue.scheduledStatusUpdates
-            .startAnalysisPeriodAt
-            ? new Date(
-                rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
-              ).toISOString()
-            : undefined,
-          stopAt: rawValue.scheduledStatusUpdates.stopAt
-            ? new Date(rawValue.scheduledStatusUpdates.stopAt).toISOString()
-            : undefined,
+          startAt:
+            rawValue.scheduledStatusUpdates.startAt &&
+            experiment.status !== "running"
+              ? new Date(rawValue.scheduledStatusUpdates.startAt).toISOString()
+              : holdout.scheduledStatusUpdates?.startAt,
+          startAnalysisPeriodAt:
+            rawValue.scheduledStatusUpdates.startAnalysisPeriodAt &&
+            !(experiment.status === "running" && holdout.analysisStartDate)
+              ? new Date(
+                  rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
+                ).toISOString()
+              : holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
+          stopAt:
+            rawValue.scheduledStatusUpdates.stopAt &&
+            experiment.status !== "stopped"
+              ? new Date(rawValue.scheduledStatusUpdates.stopAt).toISOString()
+              : holdout.scheduledStatusUpdates?.stopAt,
         }
       : undefined;
 
@@ -66,6 +71,7 @@ const EditScheduleModal = ({
   return (
     <Modal
       open={true}
+      ctaEnabled={experiment.status !== "stopped" && !experiment.archived}
       trackingEventModalType=""
       header="Edit Holdout Schedule"
       close={close}

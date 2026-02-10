@@ -1,11 +1,26 @@
 import * as React from "react";
 import { Box, Flex } from "@radix-ui/themes";
+import Tooltip from "@/ui/Tooltip";
+import { RadixColor } from "./HelperText";
 
 export type Segment = {
   id: string;
-  weight: number; // 0-100, segment weights should sum to 100
-  completion: number; // 0-100, completion of the segment
-  color: string;
+  /**
+   * The weight of the segment.
+   *
+   * The weight of the segment should be a number between 0 and 100.
+   * If the weights do not sum to 100, a filler segment will be added to make up the difference.
+   */
+  weight: number;
+  /**
+   * The completion of the segment.
+   *
+   * The completion of the segment should be a number between 0 and 100.
+   */
+  completion: number;
+  color: "slate" | RadixColor | "disabled";
+  endBorder?: boolean;
+  tooltip?: string;
 };
 
 type ProgressBarProps = {
@@ -13,20 +28,11 @@ type ProgressBarProps = {
 };
 
 export function ProgressBar({ segments }: ProgressBarProps) {
-  const firstSegment = segments[0];
-  const firstCompletionPct =
-    firstSegment &&
-    (firstSegment.completion <= 1
-      ? firstSegment.completion
-      : firstSegment.completion / 100);
-  const isFirstSegmentComplete =
-    firstSegment != null && firstCompletionPct >= 1;
-
   const remainingWeight =
     100 - segments.reduce((acc, segment) => acc + segment.weight, 0);
   if (remainingWeight > 0) {
     segments.push({
-      id: "3",
+      id: "filler",
       weight: remainingWeight,
       completion: 0,
       color: "slate",
@@ -40,61 +46,37 @@ export function ProgressBar({ segments }: ProgressBarProps) {
       overflow="hidden"
       my="4"
     >
-      {!isFirstSegmentComplete && firstSegment ? (
-        <>
-          {firstCompletionPct > 0 && (
-            <Box
-              className="h-full shrink-0 transition-all"
-              style={{
-                height: "24px",
-                flex: `0 0 ${firstSegment.weight * firstCompletionPct}%`,
-                minWidth: 0,
-                borderRadius: "4px 0 0 4px",
-                backgroundColor: `var(--${firstSegment.color}-9)`,
-              }}
-            />
-          )}
-          {1 - firstCompletionPct > 0 && (
-            <Box
-              className="h-full shrink-0 progress-bar-striped transition-all"
-              style={{
-                height: "24px",
-                flex: `0 0 ${firstSegment.weight * (1 - firstCompletionPct)}%`,
-                minWidth: 0,
-                borderRadius: segments.length === 1 ? "0 4px 4px 0" : "0",
-                backgroundColor: `var(--${firstSegment.color}-a4)`,
-              }}
-            />
-          )}
-          {segments.length > 1 && (
-            <Box
-              className="h-full min-w-0 flex-1 progress-bar-striped transition-all"
-              style={{
-                height: "24px",
-                borderRadius: "0 4px 4px 0",
-                backgroundColor: "var(--slate-a3)",
-              }}
-            />
-          )}
-        </>
-      ) : (
-        segments.map((segment, i) => {
-          const isFirst = i === 0;
-          const isLast = i === segments.length - 1;
-          const completionPct =
-            segment.completion <= 1
-              ? segment.completion
-              : segment.completion / 100;
-          const completedWidth = completionPct * 100;
-          const remainingWidth = 100 - completedWidth;
+      {segments.map((segment, i) => {
+        const isFirst = i === 0;
+        const isLast = i === segments.length - 1;
+        const completionPct =
+          segment.completion <= 1
+            ? segment.completion
+            : segment.completion / 100;
+        const completedWidth = completionPct * 100;
+        const remainingWidth = 100 - completedWidth;
 
-          const segmentStyle = {
-            height: "24px",
-            flex: `0 0 ${segment.weight}%`,
-            minWidth: 0,
-          };
+        const inProgressColor =
+          segment.color === "disabled"
+            ? "var(--color-text-disabled)"
+            : `var(--${segment.color}-a4)`;
+        const completedColor =
+          segment.color === "disabled"
+            ? "var(--color-text-disabled)"
+            : `var(--${segment.color}-9)`;
 
-          return (
+        const segmentStyle = {
+          height: "24px",
+          flex: `0 0 ${segment.weight}%`,
+          minWidth: "0",
+        };
+
+        return (
+          <Tooltip
+            content={segment.tooltip}
+            enabled={!!segment.tooltip}
+            key={i}
+          >
             <Flex
               key={i}
               wrap="nowrap"
@@ -119,8 +101,9 @@ export function ProgressBar({ segments }: ProgressBarProps) {
                         : isFirst
                           ? "4px 0 0 4px"
                           : "0",
-                    backgroundColor: `var(--${segment.color}-9)`,
+                    backgroundColor: completedColor,
                   }}
+                  id={`${segment.id}-completed`}
                 />
               )}
               {remainingWidth > 0 && (
@@ -143,14 +126,18 @@ export function ProgressBar({ segments }: ProgressBarProps) {
                     backgroundColor:
                       isLast && remainingWeight > 0
                         ? "var(--slate-a2)"
-                        : `var(--${segment.color}-a4)`,
+                        : inProgressColor,
+                    borderRight: segment.endBorder
+                      ? `1px solid var(--${segment.color}-9)`
+                      : "none",
                   }}
+                  id={`${segment.id}-in-progress`}
                 />
               )}
             </Flex>
-          );
-        })
-      )}
+          </Tooltip>
+        );
+      })}
     </Flex>
   );
 }
