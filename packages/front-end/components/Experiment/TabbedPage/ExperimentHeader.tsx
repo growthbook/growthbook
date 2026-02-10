@@ -1169,6 +1169,7 @@ export default function ExperimentHeader({
                             phases={experiment.phases}
                             isBandit={experiment.type === "multi-armed-bandit"}
                             isHoldout={experiment.type === "holdout"}
+                            holdout={holdout}
                           />
                         </Text>
                       </>
