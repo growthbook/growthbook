@@ -703,6 +703,9 @@ export default {
         experimentation: "All versions",
       },
       {
+        savedGroupReferences: "≥ v1.0.58",
+      },
+      {
         remoteEval: "≥ v1.0.50",
       },
       {
