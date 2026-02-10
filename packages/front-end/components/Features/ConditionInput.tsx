@@ -42,7 +42,7 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SortedTags from "@/components/Tags/SortedTags";
-import Tag from "@/components/Tags/Tag";
+import TooltipWithBody from "@/components/Tooltip/Tooltip";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -553,75 +553,33 @@ function ConditionAndGroupInput({
               const tags =
                 "tags" in o ? (o.tags as string[] | undefined) : undefined;
               if (context === "menu" && tags?.length) {
+                const tagCountText =
+                  tags.length === 1 ? "1 tag" : `${tags.length} tags`;
                 return (
                   <Flex
                     align="center"
-                    gap="2"
+                    justify="between"
                     wrap="nowrap"
                     style={{ maxWidth: "100%", minWidth: 0 }}
-                    title={o.tooltip}
                   >
-                    <Text style={{ flexShrink: 0 }}>{o.label}</Text>
-                    <Box style={{ minWidth: 0, overflow: "hidden" }}>
-                      <SortedTags
-                        tags={tags}
-                        useFlex={true}
-                        shouldShowEllipsis={true}
-                        showEllipsisAtIndex={3}
-                      />
-                    </Box>
-                  </Flex>
-                );
-              }
-              if (context === "value" && tags?.length) {
-                const maxTags = 2;
-                const showTags = tags.slice(0, maxTags);
-                const hasMore = tags.length > maxTags;
-                return (
-                  <Flex
-                    align="center"
-                    gap="2"
-                    wrap="nowrap"
-                    style={{
-                      maxWidth: "100%",
-                      minWidth: 0,
-                      overflow: "hidden",
-                    }}
-                    title={o.tooltip}
-                  >
-                    <Text
-                      style={{
-                        flexShrink: 0,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                    <Text style={{ flexShrink: 0 }} title={o.tooltip}>
                       {o.label}
                     </Text>
-                    <Flex
-                      align="center"
-                      gap="2"
-                      wrap="nowrap"
-                      style={{
-                        minWidth: 0,
-                        overflow: "hidden",
-                        flexShrink: 1,
-                      }}
+                    <TooltipWithBody
+                      body={<SortedTags tags={tags} useFlex={true} />}
+                      tipPosition="right"
                     >
-                      {showTags.map((tagId) => (
-                        <Tag key={tagId} tag={tagId} skipMargin={true} />
-                      ))}
-                      {hasMore && (
-                        <Text
-                          color="gray"
-                          style={{
-                            flexShrink: 0,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          ...
-                        </Text>
-                      )}
-                    </Flex>
+                      <Text
+                        size="1"
+                        style={{
+                          flexShrink: 0,
+                          marginLeft: "var(--space-2)",
+                          color: "var(--color-text-mid)",
+                        }}
+                      >
+                        {tagCountText}
+                      </Text>
+                    </TooltipWithBody>
                   </Flex>
                 );
               }
