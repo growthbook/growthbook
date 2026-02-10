@@ -30,6 +30,7 @@ The GrowthBook SDK supports all modern Roku devices and OS versions:
 - **Tested on:** Roku OS 9.0 - 12.x
 
 **Device Compatibility:**
+
 - ✅ Roku Ultra (all versions)
 - ✅ Roku Streaming Stick (all versions)
 - ✅ Roku Express
@@ -40,7 +41,7 @@ The GrowthBook SDK supports all modern Roku devices and OS versions:
 </TabItem>
 <TabItem value="js" label="js">
 
-The SDK is written in pure js and requires:
+The SDK is written in pure JS and requires:
 
 - **js 1.0+** - Core language features
 - **SceneGraph Support** - For modern Roku channel development
@@ -58,6 +59,7 @@ The SDK is written in pure js and requires:
 - **Network Calls:** One-time feature load on init (cached for instance lifetime)
 
 **Performance Tested On:**
+
 - Roku Ultra 2023 (high-end reference)
 - Roku Express 2022 (low-end reference)
 - Roku Streaming Stick 4K
@@ -98,7 +100,7 @@ Initialize GrowthBook once when your channel starts. Use a **singleton pattern**
 sub Main()
     ' Create global field for GrowthBook instance
     m.global.addFields({ gb: invalid })
-    
+
     ' Initialize GrowthBook once
     m.global.gb = GrowthBook({
         apiHost: "https://cdn.growthbook.io",
@@ -109,14 +111,14 @@ sub Main()
             appVersion: "1.0.0"
         }
     })
-    
+
     ' Load features
     if m.global.gb.init()
         print "GrowthBook ready!"
     else
         print "GrowthBook failed to initialize"
     end if
-    
+
     ' Start your app
     ShowHomeScreen()
 end sub
@@ -174,11 +176,13 @@ end if
 ```
 
 **How It Works:**
+
 1. When `init()` is called, the SDK makes an HTTP request to `{apiHost}/api/features/{clientKey}`
 2. Features are cached in memory for the lifetime of the instance
 3. All subsequent feature evaluations use the cached data (no additional network calls)
 
 **Feature Refresh Frequency:**
+
 - Features are loaded **once** when `init()` is called
 - **No automatic background refresh** is supported for now.
 - **Roku Limitation:** Unlike web SDKs, Roku does not support Server-Sent Events (SSE) for real-time streaming updates
@@ -189,14 +193,14 @@ end if
 ' Manual refresh example (requires creating new instance)
 sub RefreshFeatures()
     oldAttributes = m.global.gb.attributes
-    
+
     ' Create new instance with same config
     m.global.gb = GrowthBook({
         apiHost: "https://cdn.growthbook.io",
         clientKey: "sdk_abc123",
         attributes: oldAttributes
     })
-    
+
     ' Reload from API
     if m.global.gb.init() then
         print "Features refreshed successfully"
@@ -244,6 +248,7 @@ gb.init()
 ```
 
 **When to Use Offline Mode:**
+
 - ✅ Testing and development without GrowthBook account
 - ✅ Regions with unreliable or no network connectivity
 - ✅ Regulatory requirements preventing external API calls
@@ -252,10 +257,10 @@ gb.init()
 - ✅ Kiosk or offline-first applications
 
 **Limitations:**
+
 - ❌ Features must be updated via channel deployment (sideload or store update)
 - ❌ Cannot change feature values remotely without app update
 - ❌ No real-time experimentation updates
-
 
 ## Configuration Options
 
@@ -284,7 +289,7 @@ gb = GrowthBook({
     ' API Configuration
     apiHost: "https://cdn.growthbook.io",      ' API endpoint
     clientKey: "sdk_abc123",                    ' SDK client key
-    
+
     ' User Context
     attributes: {                               ' User attributes for targeting
         id: GetDeviceId(),
@@ -292,16 +297,16 @@ gb = GrowthBook({
         country: "US",
         subscription: "premium"
     },
-    
+
     ' Callbacks
     trackingCallback: sub(experiment, result)   ' Experiment exposure tracking
         SendAnalyticsEvent(experiment, result)
     end sub,
-    
+
     onFeatureUsage: sub(featureKey, result)     ' All feature evaluations
         LogFeatureUsage(featureKey, result)
     end sub,
-    
+
     ' Advanced
     enableDevMode: true,                        ' Debug logging
     features: defaultFeatures,                  ' Offline/fallback features
@@ -323,15 +328,15 @@ gb = GrowthBook({
 sub Main()
     ' Create global field once
     m.global.addFields({ gb: invalid })
-    
+
     ' Initialize once
     m.global.gb = GrowthBook({
         clientKey: "sdk_YOUR_KEY",
         attributes: { id: GetDeviceId() }
     })
-    
+
     m.global.gb.init()
-    
+
     ' Now use throughout app
     ShowApp()
 end sub
@@ -347,11 +352,11 @@ end function
 
 Creating multiple GrowthBook instances causes problems:
 
-| Problem | Impact |
-|---------|--------|
+| Problem             | Impact                                                 |
+| ------------------- | ------------------------------------------------------ |
 | Redundant API calls | Every `init()` call fetches features again (expensive) |
-| Memory usage | Each instance consumes ~150KB of memory |
-| Poor performance | Network latency on every feature evaluation |
+| Memory usage        | Each instance consumes ~150KB of memory                |
+| Poor performance    | Network latency on every feature evaluation            |
 
 ### Updating Attributes
 
@@ -424,14 +429,12 @@ m.player.quality = playerSettings.quality
 m.player.subtitles = playerSettings.subtitles
 ```
 
-
-
 ## Experimentation (A/B Testing)
 
 There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
 
 ```js
-result = m.global.gb.evalFeature("pricing-experiment")
+result = m.global.gb.getFeatureValue("pricing-experiment")
 
 print "Feature key: " + result.key
 print "Value: " + Str(result.value)
@@ -472,6 +475,7 @@ gb = GrowthBook({
 **Callback Parameters:**
 
 **`experiment` object:**
+
 - `key` (string) - Experiment identifier
 - `variations` (array) - List of possible variations
 - `weights` (array) - Traffic allocation weights
@@ -479,6 +483,7 @@ gb = GrowthBook({
 - `namespace` (array) - Namespace for traffic allocation
 
 **`result` object:**
+
 - `experimentId` (string) - Experiment key
 - `variationId` (integer) - Assigned variation index (0-based)
 - `value` (dynamic) - Actual variation value
@@ -488,13 +493,15 @@ gb = GrowthBook({
 - `key` (string) - Feature key
 
 **When It Fires:**
+
 - User enters an experiment (assigned to a variation)
 - Only fires ONCE per unique experiment + user combination (de-duplicated)
 
 **Does NOT fire for:**
-  - Features with no experiments
-  - Users excluded from experiments
-  - Forced variations
+
+- Features with no experiments
+- Users excluded from experiments
+- Forced variations
 
 #### Feature Usage Callback
 
@@ -508,7 +515,7 @@ gb = GrowthBook({
         print "Feature evaluated: " + featureKey
         print "Value: " + Str(result.value)
         print "Source: " + result.source
-        
+
         ' Optional: Send to analytics for all feature usage
         if result.source = "experiment" then
             TrackExperimentUsage(featureKey, result)
@@ -523,26 +530,19 @@ gb = GrowthBook({
 - `result` (object) - Complete evaluation result (same structure as `evalFeature()`)
 
 **When It Fires:**
+
 - Every call to `isOn()`, `getFeatureValue()`, or `evalFeature()`
 - Includes all sources: `"defaultValue"`, `"force"`, `"experiment"`, `"unknownFeature"`
 
 #### Comparison
 
-| | `trackingCallback` | `onFeatureUsage` |
-|---|---|---|
-| **Purpose** | Track experiment exposures | Track all feature evaluations |
-| **Frequency** | Once per experiment + user | Every feature check |
-| **Use Case** | Send to analytics for A/B testing | Debugging, usage monitoring |
-| **Fires For** | Experiments only | All features |
-| **De-duplication** | Yes (automatic) | No |
-
-
-
-**What Happens:**
-1. User is hashed based on their `id` attribute
-2. Hash determines which variation they see (0, 1, 2, etc.)
-3. Same user always sees same variation (consistent bucketing)
-4. `trackingCallback` fires once per user/experiment combination
+|                    | `trackingCallback`                | `onFeatureUsage`              |
+| ------------------ | --------------------------------- | ----------------------------- |
+| **Purpose**        | Track experiment exposures        | Track all feature evaluations |
+| **Frequency**      | Once per experiment + user        | Every feature check           |
+| **Use Case**       | Send to analytics for A/B testing | Debugging, usage monitoring   |
+| **Fires For**      | Experiments only                  | All features                  |
+| **De-duplication** | Yes (automatic)                   | No                            |
 
 ### Hashing and Consistent Assignment
 
@@ -551,6 +551,7 @@ GrowthBook uses deterministic hashing to ensure users get consistent variation a
 #### How Hashing Works
 
 When a user is evaluated for an experiment:
+
 1. **Hash Input:** The SDK combines the user's `id` attribute with the experiment key
 2. **Generate Hash:** Uses FNV-1a hashing algorithm to produce a number between 0 and 1
 3. **Map to Bucket:** The hash maps to a specific variation based on traffic weights
@@ -614,13 +615,13 @@ color = gb.getFeatureValue("button_color", "blue")
 
 Use custom hash attributes when:
 
-| Use Case | Hash Attribute | Reason |
-|----------|---------------|---------|
-| **Device-level experiments** | `deviceId` | Same variation across all users on that device |
-| **Household experiments** | `accountId` | Same variation for all family members |
-| **Company-level B2B** | `companyId` | Consistent experience for all employees |
-| **Anonymous users** | `sessionId` | Consistent during session only |
-| **Cross-platform sync** | `userId` | Same variation on web, mobile, Roku |
+| Use Case                     | Hash Attribute | Reason                                         |
+| ---------------------------- | -------------- | ---------------------------------------------- |
+| **Device-level experiments** | `deviceId`     | Same variation across all users on that device |
+| **Household experiments**    | `accountId`    | Same variation for all family members          |
+| **Company-level B2B**        | `companyId`    | Consistent experience for all employees        |
+| **Anonymous users**          | `sessionId`    | Consistent during session only                 |
+| **Cross-platform sync**      | `userId`       | Same variation on web, mobile, Roku            |
 
 **Example: Device-Level Experiment**
 
@@ -659,161 +660,6 @@ gb = GrowthBook({
 ' [GrowthBook] Assigned to variation 1 (red)
 ```
 
-#### Hash Versions
-
-GrowthBook supports multiple hash versions for different bucketing algorithms:
-
-- **Version 1** (legacy): `hash % 1000 / 1000` (3 decimal precision)
-- **Version 2** (default): `hash % 10000 / 10000` (4 decimal precision)
-
-Version 2 provides more granular traffic allocation (e.g., 12.34% instead of 12.3%).
-
-```js
-' Hash version is set in the experiment rule (dashboard)
-' SDK automatically uses the correct version
-' No code changes needed
-```
-
-## Targeting & Advanced Features
-
-### Target by App Version
-
-Roll out features to specific app versions using semantic versioning:
-
-```js
-' In your code, set appVersion attribute
-gb = GrowthBook({
-    clientKey: "sdk_key",
-    attributes: {
-        id: GetDeviceId(),
-        appVersion: "2.1.0"  // Semantic version
-    }
-})
-
-' In GrowthBook dashboard, create targeting rule:
-' appVersion >= "2.0.0"
-
-' Only users on v2.0.0+ see this feature
-if gb.isOn("new-search") then
-    ShowNewSearch()
-end if
-```
-
-**Supported Version Operators:**
-- `$vgt`: Greater than
-- `$vgte`: Greater than or equal
-- `$vlt`: Less than
-- `$vlte`: Less than or equal
-- `$veq`: Equals
-- `$vne`: Not equals
-
-### Target by User Attributes
-
-Create complex targeting rules based on user properties:
-
-```js
-gb = GrowthBook({
-    attributes: {
-        id: GetDeviceId(),
-        subscription: "premium",
-        country: "US",
-        accountAge: 365,
-        watchTime: 50000
-    }
-})
-
-' Premium users only
-if gb.isOn("premium-content") then
-    ShowPremiumContent()
-end if
-
-' US users only
-if gb.isOn("us-only-feature") then
-    ShowUSContent()
-end if
-
-' Combine multiple conditions (AND logic)
-' Dashboard: premium = true AND country IN ["US", "CA"]
-if gb.isOn("premium-us-ca") then
-    ShowRegionalPremiumContent()
-end if
-```
-
-### Array Targeting
-
-Target users by array attributes (tags, roles, categories):
-
-```js
-gb = GrowthBook({
-    attributes: {
-        id: GetDeviceId(),
-        tags: ["premium", "beta", "early-adopter"]
-    }
-})
-
-' In dashboard, use $in operator:
-' tags $in ["beta", "qa"]
-
-' Matches if user has ANY of the tags
-if gb.isOn("beta-feature") then
-    ShowBetaFeature()
-end if
-```
-
-**Array Operators:**
-- `$in`: User attribute contains ANY of the values
-- `$nin`: User attribute contains NONE of the values
-- `$all`: User attribute contains ALL of the values
-- `$elemMatch`: Array element matches complex condition
-
-### Saved Groups
-
-**New in v1.2.0** - Target users based on saved group membership:
-
-```js
-gb = GrowthBook({
-    clientKey: "sdk_key",
-    attributes: {
-        id: "user_12345"
-    },
-    savedGroups: {
-        "beta_testers": ["user_12345", "user_67890"],
-        "vip_customers": ["user_99999"],
-        "employees": ["emp_001", "emp_002"]
-    }
-})
-
-' In dashboard, use $inGroup operator:
-' id $inGroup "beta_testers"
-
-if gb.isOn("beta-only-feature") then
-    ShowBetaFeature()
-end if
-```
-
-### Element Match
-
-**New in v1.2.0** - Match elements within array attributes:
-
-```js
-gb = GrowthBook({
-    attributes: {
-        id: GetDeviceId(),
-        devices: [
-            { type: "roku", model: "ultra", year: 2024 },
-            { type: "mobile", model: "iphone", year: 2023 }
-        ]
-    }
-})
-
-' In dashboard, use $elemMatch:
-' devices $elemMatch { type: "roku", year: { $gte: 2024 } }
-
-if gb.isOn("roku-2024-feature") then
-    ShowNewFeature()
-end if
-```
-
 ## Production Best Practices
 
 ### Error Handling
@@ -840,26 +686,6 @@ function SafeFeatureCheck(key as string, default as dynamic) as dynamic
 end function
 ```
 
-### Fallback Features for Offline Mode
-
-Provide embedded features as fallback:
-
-```js
-function GetDefaultFeatures() as object
-    return {
-        "enable-4k": { defaultValue: true },
-        "videos-per-page": { defaultValue: 12 },
-        "api-endpoint": { defaultValue: "https://api.example.com" }
-    }
-end function
-
-gb = GrowthBook({
-    clientKey: "sdk_key",
-    attributes: { id: GetDeviceId() },
-    features: GetDefaultFeatures()  ' Used if API fails
-})
-```
-
 ### Performance Optimization
 
 Avoid calling feature checks in tight loops:
@@ -878,131 +704,49 @@ for each video in videos
 end for
 ```
 
-### Development Mode
-
-Enable dev mode for debugging during development:
-
-```js
-gb = GrowthBook({
-    clientKey: "sdk_key",
-    attributes: { id: GetDeviceId() },
-    enableDevMode: true  ' Verbose logging
-})
-
-' Console output:
-' [GrowthBook] Loading features from: https://cdn.growthbook.io/...
-' [GrowthBook] Features loaded successfully: 42 features
-' [GrowthBook] Evaluating feature: new-ui
-' [GrowthBook] Condition matched: premium = true
-' [GrowthBook] Result: on = true, value = true, source = force
-```
-
-## Examples
-
-### Basic Feature Flag
-
-```js
-if gb.isOn("enable-4k") then
-    Enable4KStreaming()
-end if
-```
-
-### Experiment with Tracking
-
-```js
-gb = GrowthBook({
-    clientKey: "sdk_key",
-    attributes: { id: GetDeviceId() },
-    trackingCallback: sub(experiment, result)
-        SendToAnalytics("experiment_viewed", {
-            experimentId: result.experimentId,
-            variationId: result.variationId
-        })
-    end sub
-})
-
-ctaColor = gb.getFeatureValue("button-color-test", "blue")
-m.ctaButton.color = ctaColor
-```
-
-### Progressive Rollout
-
-```js
-' In dashboard: 10% rollout rule
-' SDK automatically assigns 10% of users
-
-if gb.isOn("new-feature-rollout") then
-    ' Only 10% of users see this
-    ShowNewFeature()
-else
-    ShowOldFeature()
-end if
-```
-
-### Multi-variant Test
-
-```js
-' Dashboard: 3 variations ["A", "B", "C"] with weights [0.5, 0.3, 0.2]
-
-layout = gb.getFeatureValue("homepage-layout", "A")
-
-if layout = "A" then
-    ShowLayoutA()  ' 50% of users
-else if layout = "B" then
-    ShowLayoutB()  ' 30% of users
-else if layout = "C" then
-    ShowLayoutC()  ' 20% of users
-end if
-```
-
 ## Troubleshooting
 
-### Issue: SDK Not Loading
+### 1) SDK Not Loading
 
 `GrowthBook()` returns `invalid`
 
-**Try the below:**
 1. Verify `GrowthBook.brs` is in `source/` directory
 2. Check file name is exactly `GrowthBook.brs` (case-sensitive)
 3. Ensure no syntax errors in the file
 4. Try compiling channel to see errors
 
-### Issue: Features Not Loading
+### 2) Features Not Loading
 
 `init()` returns `false`
 
-**Try the below:**
 1. Check `clientKey` is correct
 2. Verify network connectivity
 3. Test API endpoint: `https://cdn.growthbook.io/api/features/YOUR_KEY`
 4. Enable dev mode: `enableDevMode: true` to see error logs
 5. Provide fallback features for offline resilience
 
-### Issue: Version Targeting Not Working
+### 3) Version Targeting Not Working
 
 Version-based rules don't match
 
-**Try the below:**
 1. Use semantic versioning: `"2.1.0"` not `"2.1"` or `"v2.1.0"`
 2. Verify `appVersion` attribute is set correctly
 3. Test version operators in GrowthBook dashboard preview
 4. Enable dev mode to see evaluation logs
 
-### Issue: Inconsistent Variations
+### 4) Inconsistent Variations
 
 User sees different variations across sessions
 
-**Try the below:**
 1. Ensure `id` attribute is stable (use device ID, not random)
 2. Don't use `Rnd()` or random values for `id`
 3. Verify `id` is set before evaluating features
 4. Check that you're not creating multiple GrowthBook instances
 
-### Issue: Experiments Show Wrong Traffic Split
+### 5) Experiments Show Wrong Traffic Split
 
 50/50 split when expecting 70/30
 
-**Try the below:**
 1. Verify weights in GrowthBook dashboard match expectations
 2. Ensure weights array length matches variations count
 3. Test with multiple user IDs to verify distribution
