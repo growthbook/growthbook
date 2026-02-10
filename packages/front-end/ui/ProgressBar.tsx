@@ -49,10 +49,7 @@ export function ProgressBar({ segments }: ProgressBarProps) {
       {segments.map((segment, i) => {
         const isFirst = i === 0;
         const isLast = i === segments.length - 1;
-        const completionPct =
-          segment.completion <= 1
-            ? segment.completion
-            : segment.completion / 100;
+        const completionPct = segment.completion / 100;
         const completedWidth = completionPct * 100;
         const remainingWidth = 100 - completedWidth;
 
