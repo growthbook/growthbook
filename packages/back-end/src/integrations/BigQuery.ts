@@ -179,6 +179,9 @@ export default class BigQuery extends SqlIntegration {
   hasCountDistinctHLL(): boolean {
     return true;
   }
+  supportsLimitZeroColumnValidation(): boolean {
+    return true;
+  }
   hllAggregate(col: string): string {
     return `HLL_COUNT.INIT(${col})`;
   }
