@@ -8,7 +8,6 @@ import { format } from "date-fns";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/ui/Tooltip";
-import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 
 interface Props {
@@ -65,19 +64,9 @@ export default function ScheduleStatusChangeInputs({
               scheduleEndDate={form.watch(
                 "scheduledStatusUpdates.startAnalysisPeriodAt",
               )}
+              clearButton={true}
             />
           </Box>
-          <Button
-            color="red"
-            disabled={!startDate}
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              form.setValue("scheduledStatusUpdates.startAt", "");
-            }}
-          >
-            Clear
-          </Button>
         </Flex>
       ) : (
         <Box mb="4">
@@ -115,19 +104,9 @@ export default function ScheduleStatusChangeInputs({
                 );
               }}
               scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
+              clearButton={true}
             />
           </Box>
-          <Button
-            color="red"
-            disabled={!startAnalysisPeriodDate}
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              form.setValue("scheduledStatusUpdates.startAnalysisPeriodAt", "");
-            }}
-          >
-            Clear
-          </Button>
         </Flex>
       ) : (
         <Box mb="4">
@@ -163,19 +142,9 @@ export default function ScheduleStatusChangeInputs({
               scheduleStartDate={form.watch(
                 "scheduledStatusUpdates.startAnalysisPeriodAt",
               )}
+              clearButton={true}
             />
           </Box>
-          <Button
-            color="red"
-            disabled={!stopDate}
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              form.setValue("scheduledStatusUpdates.stopAt", "");
-            }}
-          >
-            Clear
-          </Button>
         </Flex>
       ) : (
         <Box mb="4">
