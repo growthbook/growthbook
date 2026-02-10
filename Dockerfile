@@ -5,11 +5,12 @@ ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG PYPI_MIRROR_URL
 ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
-# TODO: The preview environment is having network connectivity issues Feb 4, 2026. 
+# TODO: The preview environment is having network connectivity issues Feb 4, 2026.
 # Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
 # as there is probably no need to have this conditional logic long term.
 RUN \
@@ -17,32 +18,30 @@ RUN \
   && if [ -n "$PYPI_MIRROR_URL" ]; then \
     export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
     && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
-    && pip3 install poetry==1.8.5 \
+    && pip3 install --no-cache-dir poetry==1.8.5 \
     && poetry source add --priority=primary mirror "$PYPI_MIRROR_URL" \
     && poetry lock --no-update \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
     && poetry build \
-    && poetry export -f requirements.txt --output requirements.txt; \
+    && poetry export -f requirements.txt --output requirements.txt \
+    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt \
+    && pip3 install --no-cache-dir --target=/python-packages dist/*.whl ddtrace==4.3.2; \
   else \
-    pip3 install poetry==1.8.5 \
+    pip3 install --no-cache-dir poetry==1.8.5 \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
     && poetry build \
-    && poetry export -f requirements.txt --output requirements.txt; \
+    && poetry export -f requirements.txt --output requirements.txt \
+    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt \
+    && pip3 install --no-cache-dir --target=/python-packages dist/*.whl ddtrace==4.3.2; \
   fi
 
 # Build the nodejs app
-FROM python:${PYTHON_MAJOR}-slim AS nodebuild
-ARG NODE_MAJOR
+FROM node:${NODE_MAJOR}-slim AS nodebuild
 WORKDIR /usr/local/src/app
-# Set node max memory
+# Set node max memory for build
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
-  mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
-  apt-get update && \
-  apt-get install -yqq nodejs && \
+  apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
@@ -87,30 +86,16 @@ RUN pnpm postinstall
 
 
 # Package the full app together
-FROM python:${PYTHON_MAJOR}-slim
-ARG NODE_MAJOR
-ARG PYPI_MIRROR_URL
-ARG UPGRADE_PIP
+FROM node:${NODE_MAJOR}-slim
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
-  mkdir -p /etc/apt/keyrings && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
-  apt-get update && \
-  apt-get install -yqq nodejs && \
+  apt-get install -y --no-install-recommends python3 ca-certificates libkrb5-3 && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-RUN if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi
-COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
-RUN if [ -n "$PYPI_MIRROR_URL" ]; then \
-      export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
-      && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
-      && pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip; \
-    else \
-      pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip; \
-    fi
+
+# Copy Python packages from build stage
+COPY --from=pybuild /python-packages /usr/lib/python3/dist-packages/
 
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
@@ -132,8 +117,6 @@ ENV PATH="/usr/local/src/app/bin:${PATH}"
 # wildcard used to act as 'copy if exists'
 COPY buildinfo* ./buildinfo
 
-COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
-RUN pip3 install /usr/local/src/gbstats/*.whl ddtrace
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
 ARG DD_VERSION=""
