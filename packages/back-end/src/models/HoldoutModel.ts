@@ -136,7 +136,11 @@ export class HoldoutModel extends BaseClass {
 
     const holdouts = await getCollection<HoldoutInterface>(COLLECTION_NAME)
       .find({
-        nextScheduledUpdate: { $lte: now, $exists: true },
+        nextScheduledUpdate: {
+          $lte: now,
+          $exists: true,
+          $ne: null,
+        },
       })
       .project({
         id: true,
