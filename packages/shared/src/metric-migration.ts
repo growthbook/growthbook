@@ -128,12 +128,6 @@ function filterAndParse(metrics: MetricInterface[]): {
   const unconverted: { metric: MetricInterface; reason: string }[] = [];
 
   for (const metric of metrics) {
-    // Check denominator
-    if (metric.denominator) {
-      unconverted.push({ metric, reason: "Ratio metrics are not supported" });
-      continue;
-    }
-
     // Check aggregation
     const aggCheck = isUnsupportedAggregation(metric.aggregation);
     if (aggCheck) {
@@ -407,22 +401,42 @@ function mergeGroup(candidates: ParsedMetricCandidate[]): MergedGroup {
     mergedSelect.push(mergedTimestamp);
   }
 
-  // Add value columns
-  if (realValueMetrics.length <= 1) {
-    // Single value column keeps alias "value"
+  // Add value columns — de-duplicate by normalized expression
+  const uniqueValueExprs = new Map<
+    string,
+    { expr: string; alias: string | null }
+  >();
+  for (const { classified } of realValueMetrics) {
+    const item = classified.valueItem!;
+    const key = normalize(item.expr);
+    if (!uniqueValueExprs.has(key)) {
+      uniqueValueExprs.set(key, { expr: item.expr, alias: null });
+    }
+  }
+
+  if (uniqueValueExprs.size <= 1) {
+    // Single unique value expression keeps alias "value"
+    for (const entry of uniqueValueExprs.values()) {
+      entry.alias = "value";
+      mergedSelect.push({ expr: entry.expr, alias: "value" });
+    }
     for (const { candidate, classified } of realValueMetrics) {
-      const item = classified.valueItem!;
-      mergedSelect.push({ expr: item.expr, alias: "value" });
-      valueAliases.set(candidate.metric, "value");
+      const key = normalize(classified.valueItem!.expr);
+      valueAliases.set(candidate.metric, uniqueValueExprs.get(key)!.alias!);
     }
   } else {
-    // Multiple value columns: value_0, value_1, etc.
-    realValueMetrics.forEach(({ candidate, classified }, idx) => {
-      const item = classified.valueItem!;
+    // Multiple distinct expressions: value_0, value_1, etc.
+    let idx = 0;
+    for (const entry of uniqueValueExprs.values()) {
       const alias = `value_${idx}`;
-      mergedSelect.push({ expr: item.expr, alias });
-      valueAliases.set(candidate.metric, alias);
-    });
+      entry.alias = alias;
+      mergedSelect.push({ expr: entry.expr, alias });
+      idx++;
+    }
+    for (const { candidate, classified } of realValueMetrics) {
+      const key = normalize(classified.valueItem!.expr);
+      valueAliases.set(candidate.metric, uniqueValueExprs.get(key)!.alias!);
+    }
   }
 
   // Collect all user ID types
@@ -510,7 +524,11 @@ function numberFormatForType(
   }
 }
 
-function metricTypeToFactMetricType(t: MetricType): "proportion" | "mean" {
+function metricTypeToFactMetricType(
+  t: MetricType,
+  hasDenominator: boolean,
+): "proportion" | "mean" | "ratio" {
+  if (hasDenominator) return "ratio";
   if (t === "binomial") return "proportion";
   return "mean";
 }
@@ -605,7 +623,7 @@ function buildFactMetric(
   now: Date,
 ): FactMetricInterface {
   const m = candidate.metric;
-  const mType = metricTypeToFactMetricType(m.type);
+  const mType = metricTypeToFactMetricType(m.type, !!m.denominator);
 
   const rowFilters: ColumnRef["rowFilters"] = perMetricWhere
     ? parseWhereToRowFilters(perMetricWhere)
@@ -660,9 +678,40 @@ export function migrateMetrics(
   options: MigrationOptions,
 ): MigrationResult {
   const now = options.now ?? new Date();
+  const unconverted: { metric: MetricInterface; reason: string }[] = [];
+
+  // Pre-validation: validate denominator references before parsing
+  const metricsById = new Map<string, MetricInterface>();
+  for (const m of metrics) {
+    metricsById.set(m.id, m);
+  }
+
+  const validMetrics: MetricInterface[] = [];
+  for (const m of metrics) {
+    if (m.denominator) {
+      const denom = metricsById.get(m.denominator);
+      if (!denom) {
+        unconverted.push({
+          metric: m,
+          reason: "Denominator metric not found in input",
+        });
+        continue;
+      }
+      if (denom.denominator) {
+        unconverted.push({
+          metric: m,
+          reason: "Nested ratio metrics are not supported",
+        });
+        continue;
+      }
+    }
+    validMetrics.push(m);
+  }
 
   // Phase 1: Filter & Parse
-  const { candidates, unconverted } = filterAndParse(metrics);
+  const { candidates, unconverted: parseUnconverted } =
+    filterAndParse(validMetrics);
+  unconverted.push(...parseUnconverted);
 
   // Phase 2: Group by fingerprint
   const groups = new Map<string, ParsedMetricCandidate[]>();
@@ -672,9 +721,11 @@ export function migrateMetrics(
     groups.set(c.fingerprint, existing);
   }
 
-  // Phase 3 & 4: Merge and build
+  // Phase 3 & 4: Merge and build (Pass 1)
   const factTables: FactTableInterface[] = [];
   const factMetrics: FactMetricInterface[] = [];
+  const metricIdToColumnRef = new Map<string, ColumnRef>();
+  const ratioMetricIndices: { index: number; denominatorId: string }[] = [];
 
   for (const [, groupCandidates] of groups) {
     const merged = mergeGroup(groupCandidates);
@@ -690,9 +741,22 @@ export function migrateMetrics(
         const factMetricId = `fact__${c.metric.id}`;
         const valAlias = individualMerged.valueAliases.get(c.metric);
         const pmw = individualMerged.perMetricWhere.get(c.metric);
-        factMetrics.push(
-          buildFactMetric(c, factTableId, valAlias, pmw, factMetricId, now),
+        const fm = buildFactMetric(
+          c,
+          factTableId,
+          valAlias,
+          pmw,
+          factMetricId,
+          now,
         );
+        factMetrics.push(fm);
+        metricIdToColumnRef.set(c.metric.id, fm.numerator);
+        if (c.metric.denominator) {
+          ratioMetricIndices.push({
+            index: factMetrics.length - 1,
+            denominatorId: c.metric.denominator,
+          });
+        }
       }
     } else {
       const factTableId = `ft_${groupCandidates[0].metric.id}`;
@@ -703,11 +767,50 @@ export function migrateMetrics(
         const factMetricId = `fact__${c.metric.id}`;
         const valAlias = merged.valueAliases.get(c.metric);
         const pmw = merged.perMetricWhere.get(c.metric);
-        factMetrics.push(
-          buildFactMetric(c, factTableId, valAlias, pmw, factMetricId, now),
+        const fm = buildFactMetric(
+          c,
+          factTableId,
+          valAlias,
+          pmw,
+          factMetricId,
+          now,
         );
+        factMetrics.push(fm);
+        metricIdToColumnRef.set(c.metric.id, fm.numerator);
+        if (c.metric.denominator) {
+          ratioMetricIndices.push({
+            index: factMetrics.length - 1,
+            denominatorId: c.metric.denominator,
+          });
+        }
       }
     }
+  }
+
+  // Pass 2: Resolve denominator references
+  const indicesToRemove = new Set<number>();
+  for (const { index, denominatorId } of ratioMetricIndices) {
+    const denomColRef = metricIdToColumnRef.get(denominatorId);
+    if (denomColRef) {
+      factMetrics[index].denominator = { ...denomColRef };
+    } else {
+      // Denominator failed conversion — remove this ratio metric
+      const fm = factMetrics[index];
+      const originalMetric = metricsById.get(fm.id.replace(/^fact__/, ""));
+      if (originalMetric) {
+        unconverted.push({
+          metric: originalMetric,
+          reason: "Denominator metric could not be converted",
+        });
+      }
+      indicesToRemove.add(index);
+    }
+  }
+
+  // Remove failed ratio metrics (iterate in reverse to preserve indices)
+  const sortedIndices = [...indicesToRemove].sort((a, b) => b - a);
+  for (const idx of sortedIndices) {
+    factMetrics.splice(idx, 1);
   }
 
   return { factTables, factMetrics, unconverted };

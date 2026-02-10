@@ -155,6 +155,36 @@ describe("Shared fact table", () => {
     expect(result.factMetrics[0].numerator.column).toBe("value_0");
     expect(result.factMetrics[1].numerator.column).toBe("value_1");
   });
+
+  it("de-duplicates value columns when expressions are identical", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      name: "Metric 1",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM events",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      name: "Metric 2",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM events",
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factTables).toHaveLength(1);
+    expect(result.factMetrics).toHaveLength(2);
+
+    // Single shared value column, not value_0/value_1
+    const ft = result.factTables[0];
+    const valueColumns = ft.columns.filter((c) => c.column.startsWith("value"));
+    expect(valueColumns).toHaveLength(1);
+    expect(valueColumns[0].column).toBe("value");
+    expect(ft.sql).not.toContain("value_0");
+
+    expect(result.factMetrics[0].numerator.column).toBe("value");
+    expect(result.factMetrics[1].numerator.column).toBe("value");
+  });
 });
 
 // ─── 4. Two metrics, different FROM → 2 separate fact tables ────────────────
@@ -199,19 +229,160 @@ describe("Different datasources", () => {
   });
 });
 
-// ─── 6. Denominator metrics → unconverted ───────────────────────────────────
+// ─── 6. Ratio (denominator) metrics ─────────────────────────────────────────
 
-describe("Denominator (ratio) metrics", () => {
-  it("marks metrics with denominator as unconverted", () => {
+describe("Ratio (denominator) metrics", () => {
+  it("marks metrics with denominator not in input as unconverted", () => {
     const m = makeMetric({ denominator: "m_other" });
     const result = migrateMetrics([m], makeOptions());
 
     expect(result.unconverted).toHaveLength(1);
     expect(result.unconverted[0].reason).toBe(
-      "Ratio metrics are not supported",
+      "Denominator metric not found in input",
     );
     expect(result.factTables).toHaveLength(0);
     expect(result.factMetrics).toHaveLength(0);
+  });
+
+  it("converts simple ratio metric on same fact table", () => {
+    const numerator = makeMetric({
+      id: "m_num",
+      name: "Revenue per User",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM events",
+      denominator: "m_denom",
+    });
+    const denominator = makeMetric({
+      id: "m_denom",
+      name: "Users",
+      type: "binomial",
+      sql: "SELECT user_id AS user_id, ts AS timestamp FROM events",
+    });
+    const result = migrateMetrics([numerator, denominator], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+
+    const ratioFm = result.factMetrics.find((fm) => fm.id === "fact__m_num");
+    expect(ratioFm).toBeDefined();
+    expect(ratioFm!.metricType).toBe("ratio");
+    expect(ratioFm!.numerator.factTableId).toBeDefined();
+    expect(ratioFm!.denominator).not.toBeNull();
+    expect(ratioFm!.denominator!.column).toBe("$$distinctUsers");
+  });
+
+  it("converts ratio metric with denominator on different fact table", () => {
+    const numerator = makeMetric({
+      id: "m_num",
+      name: "Revenue per Session",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM purchases",
+      denominator: "m_denom",
+    });
+    const denominator = makeMetric({
+      id: "m_denom",
+      name: "Sessions",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, 1 AS value FROM sessions",
+    });
+    const result = migrateMetrics([numerator, denominator], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+    expect(result.factTables).toHaveLength(2);
+
+    const ratioFm = result.factMetrics.find((fm) => fm.id === "fact__m_num");
+    expect(ratioFm).toBeDefined();
+    expect(ratioFm!.metricType).toBe("ratio");
+    expect(ratioFm!.denominator).not.toBeNull();
+    // Denominator should reference the sessions fact table
+    expect(ratioFm!.denominator!.factTableId).not.toBe(
+      ratioFm!.numerator.factTableId,
+    );
+  });
+
+  it("rejects nested ratio metrics", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      name: "Nested Ratio",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM events",
+      denominator: "m2",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      name: "Inner Ratio",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events",
+      denominator: "m3",
+    });
+    const m3 = makeMetric({
+      id: "m3",
+      name: "Base",
+      type: "binomial",
+      sql: "SELECT user_id AS user_id, ts AS timestamp FROM events",
+    });
+    const result = migrateMetrics([m1, m2, m3], makeOptions());
+
+    const m1Unconverted = result.unconverted.find((u) => u.metric.id === "m1");
+    expect(m1Unconverted).toBeDefined();
+    expect(m1Unconverted!.reason).toBe(
+      "Nested ratio metrics are not supported",
+    );
+  });
+
+  it("marks ratio metric as unconverted when denominator fails conversion", () => {
+    const numerator = makeMetric({
+      id: "m_num",
+      name: "Ratio",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM events",
+      denominator: "m_denom",
+    });
+    const denominator = makeMetric({
+      id: "m_denom",
+      name: "Bad Denom",
+      type: "binomial",
+      sql: "THIS IS NOT VALID SQL %%%",
+    });
+    const result = migrateMetrics([numerator, denominator], makeOptions());
+
+    // Both should be unconverted
+    const denomUnconverted = result.unconverted.find(
+      (u) => u.metric.id === "m_denom",
+    );
+    expect(denomUnconverted).toBeDefined();
+    expect(denomUnconverted!.reason).toMatch(/Failed to parse SQL/);
+
+    const numUnconverted = result.unconverted.find(
+      (u) => u.metric.id === "m_num",
+    );
+    expect(numUnconverted).toBeDefined();
+    expect(numUnconverted!.reason).toBe(
+      "Denominator metric could not be converted",
+    );
+  });
+
+  it("converts ratio with binomial denominator using $$distinctUsers", () => {
+    const numerator = makeMetric({
+      id: "m_num",
+      name: "Revenue per User",
+      type: "revenue",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, amount AS value FROM events",
+      denominator: "m_denom",
+    });
+    const denominator = makeMetric({
+      id: "m_denom",
+      name: "Users",
+      type: "binomial",
+      sql: "SELECT user_id AS user_id, ts AS timestamp FROM events",
+    });
+    const result = migrateMetrics([numerator, denominator], makeOptions());
+
+    expect(result.unconverted).toHaveLength(0);
+
+    const ratioFm = result.factMetrics.find((fm) => fm.id === "fact__m_num");
+    expect(ratioFm).toBeDefined();
+    expect(ratioFm!.denominator).not.toBeNull();
+    expect(ratioFm!.denominator!.column).toBe("$$distinctUsers");
   });
 });
 
