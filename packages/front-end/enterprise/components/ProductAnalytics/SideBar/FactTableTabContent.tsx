@@ -88,22 +88,6 @@ export default function FactTableTabContent() {
           <ValueCard
             key={idx}
             index={idx}
-            name={v.name}
-            onNameChange={(name) =>
-              updateValueInDataset(idx, {
-                ...v,
-                name,
-              } as FactTableValue)
-            }
-            onDelete={() => deleteValueFromDataset(idx)}
-            filters={v.rowFilters ?? []}
-            onFiltersChange={(filters) =>
-              updateValueInDataset(idx, {
-                ...v,
-                rowFilters: filters,
-              } as FactTableValue)
-            }
-            columns={allColumns}
           >
             <Flex direction="column" gap="2">
               <Separator style={{ width: "100%" }} />

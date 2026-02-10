@@ -16,30 +16,23 @@ type RowFilter = z.infer<typeof rowFilterValidator>;
 
 export default function ValueCard({
   index,
-  name,
-  onNameChange,
-  onDelete,
   children,
-  filters,
-  onFiltersChange,
-  columns = [],
 }: {
   index: number;
-  name?: string;
-  onNameChange?: (name: string) => void;
-  onDelete: () => void;
   children: React.ReactNode;
-  filters: RowFilter[];
-  onFiltersChange: (filters: RowFilter[]) => void;
-  columns?: { label: string; value: string }[];
 }) {
+
+  const { draftExploreState, updateValueInDataset, deleteValueFromDataset } = useExplorerContext();
+  const { getFactTableById, getFactMetricById } = useDefinitions();
+
+  const name = draftExploreState.dataset.values[index].name;
+  const filters = draftExploreState.dataset.values[index].rowFilters;
+
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(name ?? "");
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const { draftExploreState, updateValueInDataset } = useExplorerContext();
-  const { getFactTableById, getFactMetricById } = useDefinitions();
 
   let factTable: FactTableInterface | null = null;
   if (draftExploreState.dataset?.type === "fact_table") {
@@ -59,7 +52,10 @@ export default function ValueCard({
   };
 
   const handleCommitEdit = () => {
-    onNameChange?.(editValue.trim());
+    updateValueInDataset(index, {
+      ...draftExploreState.dataset.values[index],
+      name: editValue.trim(),
+    });
     setIsEditing(false);
   };
 
@@ -71,6 +67,13 @@ export default function ValueCard({
       setEditValue(name ?? "");
       setIsEditing(false);
     }
+  };
+
+  const handleFiltersChange = (filters: RowFilter[]) => {
+    updateValueInDataset(index, {
+      ...draftExploreState.dataset.values[index],
+      rowFilters: filters,
+    });
   };
 
   return (
@@ -129,7 +132,7 @@ export default function ValueCard({
             variant="ghost"
             disabled={draftExploreState.dataset.values.length === 1}
             size="xs"
-            onClick={onDelete}
+            onClick={() => deleteValueFromDataset(index)}
           >
             <PiX size={14} />
           </Button>}
@@ -145,7 +148,7 @@ export default function ValueCard({
           {children}
           {factTable && (
             <Box mt="2">
-            <RowFilterInput factTable={factTable} value={filters} setValue={onFiltersChange} variant="compact" hideAddButton />
+            <RowFilterInput factTable={factTable} value={filters} setValue={handleFiltersChange} variant="compact" hideAddButton />
             </Box>
           )}
         </Box>
@@ -155,7 +158,7 @@ export default function ValueCard({
             variant="ghost"
             style={{ maxWidth: "fit-content" }}
             onClick={() => {
-              onFiltersChange([
+              handleFiltersChange([
                 ...filters,
                 { column: "", operator: "=", values: [] },
               ]);

@@ -50,6 +50,12 @@ export default function SqlTabContent() {
         direction="column"
         gap="2"
         px="4"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-3)",
+          padding: "var(--space-3)",
+          backgroundColor: "var(--color-panel-translucent)",
+        }}
       >
         <PiTable size={18} />
         <Text size="2" weight="medium" align="center">
@@ -83,19 +89,6 @@ export default function SqlTabContent() {
                 <ValueCard
                   key={idx}
                   index={idx}
-                  name={v.name}
-                  onNameChange={(name) =>
-                    updateValueInDataset(idx, { ...v, name } as DatabaseValue)
-                  }
-                  onDelete={() => deleteValueFromDataset(idx)}
-                  filters={v.rowFilters ?? []}
-                  onFiltersChange={(filters) =>
-                    updateValueInDataset(idx, {
-                      ...v,
-                      rowFilters: filters,
-                    } as DatabaseValue)
-                  }
-                  columns={[]}
                 >
                   <Flex direction="column" gap="2">
                     <SelectField

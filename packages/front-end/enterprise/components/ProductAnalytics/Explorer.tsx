@@ -1,11 +1,19 @@
 import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
-import { ExplorerProvider } from "./ExplorerContext";
+import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
+import EmptyState from "./EmptyState";
 
 function MetricExplorerContent() {
+
+  const { isEmpty } = useExplorerContext();
+
+  if (isEmpty) {
+    return <EmptyState />;
+  }
+
   return (
     <Flex width="100%">
       {/* Main Section */}

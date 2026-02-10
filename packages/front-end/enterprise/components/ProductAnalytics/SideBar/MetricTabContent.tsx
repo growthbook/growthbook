@@ -47,19 +47,6 @@ export default function MetricTabContent() {
             <ValueCard
               key={idx}
               index={idx}
-              name={v.name}
-              onNameChange={(name) =>
-                updateValueInDataset(idx, { ...v, name } as MetricValue)
-              }
-              onDelete={() => deleteValueFromDataset(idx)}
-              filters={v.rowFilters ?? []}
-              onFiltersChange={(filters) =>
-                updateValueInDataset(idx, {
-                  ...v,
-                  rowFilters: filters,
-                } as MetricValue)
-              }
-              columns={columns}
             >
               <Flex direction="column">
                 <SelectField

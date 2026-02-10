@@ -48,6 +48,10 @@ const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
   },
 };
 
+type ExplorerCache = {
+  [key in DatasetType]: ProductAnalyticsConfig | null;
+};
+
 export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
   draftExploreState: ProductAnalyticsConfig;
@@ -57,6 +61,7 @@ export interface ExplorerContextValue {
   exploreError: string | null;
   loading: boolean;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
+  isEmpty: boolean;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: React.Dispatch<
@@ -88,6 +93,14 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 
   const [submittedExploreState, setSubmittedExploreState] =
     useState<ProductAnalyticsConfig | null>(null);
+
+  const [isEmpty, setIsEmpty] = useState(true);
+
+  const [explorerCache, setExplorerCache] = useState<ExplorerCache>({
+    metric: null,
+    fact_table: null,
+    database: null,
+  });
 
   const hasPendingChanges = useMemo(
     () => !isEqual(draftExploreState, submittedExploreState),
@@ -262,15 +275,34 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 
   const changeDatasetType = useCallback(
     (type: DatasetType) => {
-      const defaultDataset = createEmptyDataset(type, factTables[0]);
       setDraftExploreState((prev) => {
+        const currentType = prev.dataset.type;
+        // if (!isEmpty && currentType === type) return prev;
+
+        // Save the current config to the cache
+        if(!isEmpty) {
+          setExplorerCache((cache) => ({
+            ...cache,
+            [currentType]: prev,
+          }));
+        }
+        // Restore from cache if available, otherwise create a fresh default
+        const cached = explorerCache[type];
+        if (cached) {
+          return cached;
+        }
+
+        const defaultDataset = createEmptyDataset(type, factTables[0]);
         return {
           ...prev,
           dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
         } as ProductAnalyticsConfig;
       });
+      if (isEmpty) {
+        setIsEmpty(false);
+      }
     },
-    [createDefaultValue, factTables],
+    [createDefaultValue, factTables, explorerCache, isEmpty],
   );
 
   const value = useMemo<ExplorerContextValue>(
@@ -290,6 +322,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       changeDatasetType,
       updateTimestampColumn,
       changeChartType,
+      isEmpty,
     }),
     [
       draftExploreState,
@@ -306,6 +339,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       changeDatasetType,
       updateTimestampColumn,
       changeChartType,
+      isEmpty,
     ],
   );
 
