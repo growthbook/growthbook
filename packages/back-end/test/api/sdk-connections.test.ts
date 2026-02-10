@@ -153,7 +153,7 @@ describe("sdk-connections API", () => {
         created.id
       }","name":"my-connection","organization":"org","dateCreated":"${created.dateCreated.toISOString()}","dateUpdated":"${created.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         created.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"includeRuleIds":false,"hashSecureAttributes":false},"context":{}}`,
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"includeRuleIds":false,"includeProjectId":false,"includeCustomFields":[],"includeTagsInPayload":false,"hashSecureAttributes":false},"context":{}}`,
       entity: { id: created.id, object: "sdk-connection" },
       event: "sdk-connection.create",
     });

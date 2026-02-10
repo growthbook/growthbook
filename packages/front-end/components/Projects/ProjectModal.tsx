@@ -40,6 +40,7 @@ export default function ProjectModal({
       <Field
         label="Public ID"
         maxLength={64}
+        pattern="^[a-z0-9-]+$"
         placeholder="Auto-generated from name if left blank"
         helpText="A URL-safe identifier that can be included in SDK payloads. Uses lowercase letters, numbers, and dashes only."
         {...form.register("publicId")}

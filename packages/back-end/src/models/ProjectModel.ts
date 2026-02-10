@@ -12,6 +12,7 @@ function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
@@ -39,6 +40,7 @@ const BaseClass = MakeModelClass({
 interface CreateProjectProps {
   name: string;
   description?: string;
+  publicId?: string;
   id?: string;
   managedBy?: ManagedBy;
 }
@@ -74,9 +76,10 @@ export class ProjectModel extends BaseClass {
       const baseSlug = slugify(data.name);
       let publicId = baseSlug;
       let counter = 1;
+      const MAX_ATTEMPTS = 1000;
 
       // Check for uniqueness
-      while (true) {
+      while (counter <= MAX_ATTEMPTS) {
         const existing = await this._findOne({
           organization: this.context.org.id,
           publicId,
@@ -86,7 +89,60 @@ export class ProjectModel extends BaseClass {
         counter++;
       }
 
+      if (counter > MAX_ATTEMPTS) {
+        throw new Error(
+          `Failed to generate unique publicId for project "${data.name}" after ${MAX_ATTEMPTS} attempts`,
+        );
+      }
+
       data.publicId = publicId;
+    } else if (data.publicId) {
+      // Validate manually provided publicId format
+      if (!/^[a-z0-9-]+$/.test(data.publicId)) {
+        this.context.throwBadRequestError(
+          "publicId must contain only lowercase letters, numbers, and dashes",
+        );
+      }
+
+      // Check for uniqueness
+      const existing = await this._findOne({
+        organization: this.context.org.id,
+        publicId: data.publicId,
+      });
+      if (existing) {
+        this.context.throwBadRequestError(
+          `A project with publicId "${data.publicId}" already exists in this organization`,
+        );
+      }
+    }
+  }
+
+  protected async beforeUpdate(
+    original: ProjectInterface,
+    updates: Partial<ProjectInterface>,
+  ) {
+    // Validate publicId if it's being updated
+    if (
+      updates.publicId !== undefined &&
+      updates.publicId !== original.publicId
+    ) {
+      // Validate format
+      if (!/^[a-z0-9-]+$/.test(updates.publicId)) {
+        this.context.throwBadRequestError(
+          "publicId must contain only lowercase letters, numbers, and dashes",
+        );
+      }
+
+      // Check for uniqueness
+      const existing = await this._findOne({
+        organization: this.context.org.id,
+        publicId: updates.publicId,
+      });
+      if (existing && existing.id !== original.id) {
+        this.context.throwBadRequestError(
+          `A project with publicId "${updates.publicId}" already exists in this organization`,
+        );
+      }
     }
   }
 
