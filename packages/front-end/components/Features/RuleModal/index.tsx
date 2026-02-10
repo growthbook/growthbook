@@ -239,7 +239,7 @@ export default function RuleModal({
   const prerequisites = form.watch("prerequisites") || [];
 
   const { checkRulePrerequisitesCyclic } = useBatchPrerequisiteStates({
-    targetFeatureId: feature.id,
+    baseFeatureId: feature.id,
     featureIds: [],
     environments: [environment],
     enabled: prerequisites.length > 0,
@@ -728,7 +728,6 @@ export default function RuleModal({
           </>
         }
         ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
-        bodyClassName="px-4"
         header={`New Rule`}
         subHeader="You will have a chance to review new rules as a draft before publishing changes."
         submit={submitOverview}
@@ -971,7 +970,6 @@ export default function RuleModal({
         size="lg"
         cta="Save"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
-        bodyClassName="px-4"
         header={headerText}
         docSection={
           ruleType === "experiment-ref-new"
