@@ -13,6 +13,7 @@ const COMPLETED_HOLDOUT_SEGMENT: Segment = {
   color: "disabled",
 };
 
+// These values are hardcoded to line up with the Analysis label
 const NO_STOP_DATE_WEIGHT = 90.5;
 const NO_START_ANALYSIS_DATE_WEIGHT = 87;
 

@@ -379,6 +379,7 @@ export const updateHoldout = async (
   // Convert string dates to Date objects for scheduledStatusUpdates
   // Only add keys that are present in the request so partial updates preserve existing values
   const updates = { ...req.body };
+
   if (updates.scheduledStatusUpdates) {
     const scheduledUpdates = updates.scheduledStatusUpdates as {
       startAt?: string | Date;

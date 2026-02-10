@@ -64,11 +64,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/DeleteButton/DeleteButton.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Dimensions/DimensionChooser.tsx": {
     "no-restricted-imports": {
       "count": 1

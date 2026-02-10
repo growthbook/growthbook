@@ -8,9 +8,10 @@ import {
 } from "react";
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;
@@ -81,7 +82,7 @@ const DeleteButton: FC<{
             ) : isValidElement(deleteMessage) ? (
               deleteMessage
             ) : (
-              <Text as="p" style={{ color: "var(--color-text-mid)" }}>
+              <Text as="p" color="text-mid">
                 {deleteMessage}
               </Text>
             )}
@@ -89,7 +90,7 @@ const DeleteButton: FC<{
               (isValidElement(additionalMessage) ? (
                 additionalMessage
               ) : (
-                <Text as="p" style={{ color: "var(--color-text-mid)" }}>
+                <Text as="p" color="text-mid">
                   {additionalMessage}
                 </Text>
               ))}
