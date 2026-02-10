@@ -79,7 +79,7 @@ export interface ScimListRequest extends BaseScimRequest {
   };
 }
 
-type ScimOperation = {
+export type ScimOperation = {
   op: "add" | "remove" | "replace";
   path?: string; // Path is optional for add & replace, and required for remove operations
   // Support multiple value formats from Okta and Azure

@@ -2,7 +2,12 @@ import { cloneDeep } from "lodash";
 import { Response } from "express";
 import { Member, OrganizationInterface } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { ScimError, ScimPatchRequest, ScimUser } from "back-end/types/scim";
+import {
+  ScimError,
+  ScimOperation,
+  ScimPatchRequest,
+  ScimUser,
+} from "back-end/types/scim";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { expandedMembertoScimUser } from "./getUser";
 
@@ -31,31 +36,17 @@ export async function removeUserFromOrg(
   await updateOrganization(org.id, { members: updatedOrgMembers });
 }
 
-function parseActiveStatus(operation: {
-  op: string;
-  path?: string;
-  value?: boolean | string | { active?: boolean; [key: string]: unknown };
-}): boolean | null {
+function parseActiveStatus(operation: ScimOperation): boolean | null {
   const { path, value } = operation;
 
-  // Azure format: { op: "replace", path: "active", value: false }
+  // Azure format: { op: "Replace", path: "active", value: false } - https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups?utm_source=chatgpt.com#request-14
   if (path?.toLowerCase() === "active") {
-    if (typeof value === "boolean") {
-      return value;
-    }
-    if (typeof value === "string") {
-      return value.toLowerCase() === "true";
-    }
+    return typeof value === "boolean" ? value : null;
   }
 
-  // Okta format: { op: "replace", value: { active: false } }
+  // Okta format: { op: "replace", value: { active: false } } - https://developer.okta.com/docs/api/openapi/okta-scim/guides/scim-20/#update-a-specific-user-patch
   if (typeof value === "object" && value !== null && "active" in value) {
-    return value.active === true;
-  }
-
-  // Some providers send direct boolean (edge case)
-  if (typeof value === "boolean" && !path) {
-    return value;
+    return typeof value.active === "boolean" ? value.active : null;
   }
 
   return null; // No active status change in this operation
