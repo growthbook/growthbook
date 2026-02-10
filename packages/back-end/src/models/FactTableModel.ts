@@ -66,6 +66,7 @@ const factTableSchema = new mongoose.Schema({
   ],
   archived: Boolean,
   autoSliceUpdatesEnabled: Boolean,
+  columnRefreshPending: Boolean,
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -126,6 +127,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
+    columnRefreshPending: props.columnRefreshPending || false,
   };
 }
 
