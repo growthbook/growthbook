@@ -16,7 +16,7 @@ import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";
@@ -106,7 +106,7 @@ export default function SafeRolloutFields({
           project={feature.project || ""}
         />
         <hr />
-        <PrerequisiteTargetingField
+        <PrerequisiteInput
           value={form.watch("prerequisites") || []}
           setValue={(prerequisites) =>
             form.setValue("prerequisites", prerequisites)

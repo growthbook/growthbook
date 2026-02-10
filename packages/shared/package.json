@@ -30,7 +30,6 @@
     "dirty-json": "^0.9.2",
     "json-stringify-pretty-compact": "^3.0.0",
     "lodash": "^4.17.23",
-    "node-gyp": "10.3.1",
     "openid-client": "5.4.3",
     "shared": "workspace:*",
     "sql-formatter": "^11.0.2",
