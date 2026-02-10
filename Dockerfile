@@ -13,26 +13,28 @@ COPY ./packages/stats .
 # TODO: The preview environment is having network connectivity issues Feb 4, 2026.
 # Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
 # as there is probably no need to have this conditional logic long term.
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
 RUN \
-  if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi \
+  if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
   && if [ -n "$PYPI_MIRROR_URL" ]; then \
     export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
     && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
-    && pip3 install --no-cache-dir poetry==1.8.5 \
+    && pip install --no-cache-dir poetry==1.8.5 \
     && poetry source add --priority=primary mirror "$PYPI_MIRROR_URL" \
     && poetry lock --no-update \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
     && poetry build \
     && poetry export -f requirements.txt --output requirements.txt \
-    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt \
-    && pip3 install --no-cache-dir --target=/python-packages dist/*.whl ddtrace==4.3.2; \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2; \
   else \
-    pip3 install --no-cache-dir poetry==1.8.5 \
+    pip install --no-cache-dir poetry==1.8.5 \
     && poetry install --no-root --without dev --no-interaction --no-ansi \
     && poetry build \
     && poetry export -f requirements.txt --output requirements.txt \
-    && pip3 install --no-cache-dir --target=/python-packages -r requirements.txt \
-    && pip3 install --no-cache-dir --target=/python-packages dist/*.whl ddtrace==4.3.2; \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2; \
   fi
 
 # Build the nodejs app
@@ -87,16 +89,29 @@ RUN pnpm postinstall
 
 # Package the full app together
 FROM node:${NODE_MAJOR}-slim
+ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
-  apt-get install -y --no-install-recommends python3 ca-certificates libkrb5-3 && \
+  apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
+  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/bin/python3 && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from build stage
-COPY --from=pybuild /python-packages /usr/lib/python3/dist-packages/
+# Copy Python virtualenv from build stage and retarget its python symlink
+COPY --from=pybuild /opt/venv /opt/venv
+RUN ln -sf /usr/bin/python3 /opt/venv/bin/python3 && \
+  ln -sf /usr/bin/python3 /opt/venv/bin/python
 
+# Copy static config files (rarely change, good for cache)
+COPY ecosystem.config.js ./ecosystem.config.js
+COPY bin/yarn ./bin/yarn
+RUN chmod +x ./bin/yarn
+
+# Set PATH once for venv + yarn shim
+ENV PATH="/opt/venv/bin:/usr/local/src/app/bin:${PATH}"
+
+# Copy app code from node build stage (changes most frequently)
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
@@ -106,27 +121,15 @@ RUN rm -f packages/front-end/tsconfig.json && \
     find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
     find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
-# Copy PM2 config file
-COPY ecosystem.config.js ./ecosystem.config.js
-
-# Copy yarn compatibility shim for users with custom entry points
-COPY bin/yarn ./bin/yarn
-RUN chmod +x ./bin/yarn
-ENV PATH="/usr/local/src/app/bin:${PATH}"
-
-# wildcard used to act as 'copy if exists'
+# Build metadata (changes every build, keep last)
 COPY buildinfo* ./buildinfo
-
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
 ARG DD_VERSION=""
 ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA
 ENV DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL
 ENV DD_VERSION=$DD_VERSION
-# The front-end app (NextJS)
+
 EXPOSE 3000
-# The back-end api (Express)
 EXPOSE 3100
-# Start both front-end and back-end at once
-# Use TRACING_PROVIDER env var to enable tracing (datadog or opentelemetry)
 CMD ["node_modules/.bin/pm2-runtime", "start", "ecosystem.config.js"]
