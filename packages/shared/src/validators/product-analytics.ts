@@ -15,7 +15,7 @@ const metricValueValidator = baseValueValidator.extend({
 });
 export type MetricValue = z.infer<typeof metricValueValidator>;
 
-export type DatasetType = "metric" | "fact_table" | "sql";
+export type DatasetType = "metric" | "fact_table" | "database";
 
 const metricDatasetValidator = z
   .object({
@@ -43,40 +43,41 @@ const factTableDatasetValidator = z
   })
   .strict();
 
-// SQL
-const sqlValueValidator = baseValueValidator.extend({
-  type: z.literal("sql"),
+// Database
+const databaseValueValidator = baseValueValidator.extend({
+  type: z.literal("database"),
   valueType: z.enum(valueType),
   valueColumn: z.string().nullable(),
   unit: z.string().nullable(),
 });
-export type SqlValue = z.infer<typeof sqlValueValidator>;
+export type DatabaseValue = z.infer<typeof databaseValueValidator>;
 
-const sqlDatasetValidator = z
+const databaseDatasetValidator = z
   .object({
-    type: z.literal("sql"),
+    type: z.literal("database"),
     datasource: z.string(),
-    sql: z.string(),
+    table: z.string(),
+    path: z.string(),
     timestampColumn: z.string(),
     columnTypes: z.record(
       z.string(),
       z.enum(["string", "number", "date", "boolean", "other"]),
     ),
-    values: z.array(sqlValueValidator),
+    values: z.array(databaseValueValidator),
   })
   .strict();
 
 const datasetValidator = z.discriminatedUnion("type", [
   metricDatasetValidator,
   factTableDatasetValidator,
-  sqlDatasetValidator,
+  databaseDatasetValidator,
 ]);
 export type ProductAnalyticsDataset = z.infer<typeof datasetValidator>;
 
 const valueValidator = z.discriminatedUnion("type", [
   metricValueValidator,
   factTableValueValidator,
-  sqlValueValidator,
+  databaseValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof valueValidator>;
 
@@ -191,7 +192,7 @@ export type ProductAnalyticsConfig = z.infer<
   typeof productAnalyticsConfigValidator
 >;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
-export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
+export type DatabaseDataset = z.infer<typeof databaseDatasetValidator>;
 export type ProductAnalyticsDimension = z.infer<typeof dimensionValidator>;
 export type ProductAnalyticsDynamicDimension = z.infer<
   typeof dynamicDimensionValidator

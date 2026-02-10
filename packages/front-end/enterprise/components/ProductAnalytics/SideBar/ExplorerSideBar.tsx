@@ -3,21 +3,22 @@ import { Flex, Box, Text } from "@radix-ui/themes";
 import { PiChartBar, PiTable, PiCode } from "react-icons/pi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import SelectField from "@/components/Forms/SelectField";
-import { useExplorerContext } from "../ExplorerContext";
+import Button from "@/ui/Button";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import SqlTabContent from "./SqlTabContent";
 import GroupBySection from "./GroupBySection";
-import Button from "@/ui/Button";
+import DatabaseConfigurator from "./DatabaseConfigurator";
 
-type DatasetType = "metric" | "fact_table" | "sql";
+type DatasetType = "metric" | "fact_table" | "database";
 
 function getDatasetIcon(type: DatasetType, size = 16) {
   const icons: Record<DatasetType, React.ReactNode> = {
     metric: <PiChartBar size={size} />,
     fact_table: <PiTable size={size} />,
-    sql: <PiCode size={size} />,
+    database: <PiCode size={size} />,
   };
   return icons[type];
 }
@@ -37,7 +38,6 @@ export default function ExplorerSideBar() {
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
-  const sqlDatasource = dataset?.type === "sql" ? dataset.datasource : null;
 
   const handleTabChange = useCallback(
     (value: string) => {
@@ -45,7 +45,7 @@ export default function ExplorerSideBar() {
       changeDatasetType(newType);
 
       // If switching to SQL and datasources are available, default to the first one
-      if (newType === "sql" && datasources.length > 0) {
+      if (newType === "database" && datasources.length > 0) {
         setDraftExploreState((prev) => ({
           ...prev,
           dataset: {
@@ -64,9 +64,7 @@ export default function ExplorerSideBar() {
         <Text size="3" weight="medium" mt="2">
           Configuration
         </Text>
-        <Button size="sm">
-          Save to Dashboard
-        </Button>
+        <Button size="sm">Save to Dashboard</Button>
       </Flex>
       <Tabs value={activeType} onValueChange={handleTabChange}>
         <Flex>
@@ -105,10 +103,10 @@ export default function ExplorerSideBar() {
                   <Text size="2">Fact table</Text>
                 </Flex>
               </TabsTrigger>
-              <TabsTrigger value="sql">
+              <TabsTrigger value="database">
                 <Flex align="center" gap="2">
-                  {getDatasetIcon("sql", 14)}
-                  <Text size="2">SQL</Text>
+                  {getDatasetIcon("database", 14)}
+                  <Text size="2">Database</Text>
                 </Flex>
               </TabsTrigger>
             </TabsList>
@@ -137,23 +135,8 @@ export default function ExplorerSideBar() {
                 forceUndefinedValueToNull
               />
             )}
-            {activeType === "sql" && (
-              <SelectField
-                label="Data source"
-                value={sqlDatasource || ""}
-                onChange={(datasource) =>
-                  setDraftExploreState((prev) => ({
-                    ...prev,
-                    dataset: { ...dataset, datasource },
-                  }))
-                }
-                options={datasources.map((d) => ({
-                  label: d.name,
-                  value: d.id,
-                }))}
-                placeholder="Select data source..."
-                forceUndefinedValueToNull
-              />
+            {activeType === "database" && (
+              <DatabaseConfigurator dataset={dataset} />
             )}
           </Flex>
         </Flex>
@@ -177,7 +160,7 @@ export default function ExplorerSideBar() {
               <FactTableTabContent />
             </Box>
           </TabsContent>
-          <TabsContent value="sql">
+          <TabsContent value="database">
             <Box p="3">
               <SqlTabContent />
             </Box>

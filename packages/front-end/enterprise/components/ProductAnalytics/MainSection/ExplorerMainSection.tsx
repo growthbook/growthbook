@@ -1,15 +1,14 @@
 import { Flex, Text } from "@radix-ui/themes";
+import { PiArrowsClockwise, PiCode, PiTable } from "react-icons/pi";
+import { BsFillBarChartLineFill, BsGraphUpArrow } from "react-icons/bs";
 import Button from "@/ui/Button";
-import { useExplorerContext } from "../ExplorerContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import GraphTypeSelector from "./Toolbar/GraphTypeSelector";
 import DateRangePicker from "./Toolbar/DateRangePicker";
 import GranularitySelector from "./Toolbar/GranularitySelector";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { PiArrowsClockwise, PiCode, PiPlus, PiTable } from "react-icons/pi";
-import { BsFillBarChartLineFill, BsGraphUpArrow } from "react-icons/bs";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ExplorerMainSection() {
   const {
@@ -125,7 +124,7 @@ export default function ExplorerMainSection() {
                 width: "160px",
               }}
               onClick={() => {
-                changeDatasetType("sql");
+                changeDatasetType("database");
                 if (datasources.length > 0) {
                   setDraftExploreState((prev) => ({
                     ...prev,
@@ -137,10 +136,10 @@ export default function ExplorerMainSection() {
               <Flex direction="column" align="center" gap="1">
                 <PiCode size={24} />
                 <Text size="2" weight="medium">
-                  SQL
+                  Database
                 </Text>
                 <Text size="1" className="text-muted">
-                  Write SQL queries
+                  Explore a table in your database
                 </Text>
               </Flex>
             </Button>

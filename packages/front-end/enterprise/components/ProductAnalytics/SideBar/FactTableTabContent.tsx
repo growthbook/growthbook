@@ -4,13 +4,13 @@ import { PiTable, PiPlus } from "react-icons/pi";
 import type { FactTableValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
   generateUniqueValueName,
   VALUE_TYPE_OPTIONS,
   getValueTypeLabel,
-} from "../util";
-import { useExplorerContext } from "../ExplorerContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
+} from "@/enterprise/components/ProductAnalytics/util";
 import ValueCard from "./ValueCard";
 
 export default function FactTableTabContent() {

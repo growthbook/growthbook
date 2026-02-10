@@ -18,7 +18,7 @@ import {
   ProductAnalyticsDynamicDimension,
   FactTableDataset,
   ProductAnalyticsConfig,
-  SqlDataset,
+  DatabaseDataset,
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
 } from "../../validators/product-analytics";
@@ -91,7 +91,7 @@ function getMetricAliases(index: number) {
 
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
-  values: FactTableDataset["values"] | SqlDataset["values"],
+  values: FactTableDataset["values"] | DatabaseDataset["values"],
 ): { metrics: MetricWithMetadata[]; units: string[] } {
   const units = new Set<string>();
 
@@ -133,12 +133,12 @@ function getFactTableGroups({
   }
 
   switch (config.dataset.type) {
-    case "sql":
+    case "database":
       return [
         {
           index: 0,
           factTable: createStubFactTable(
-            config.dataset.sql,
+            `SELECT * FROM ${config.dataset.path}`,
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -1044,6 +1044,7 @@ export function generateProductAnalyticsSQL(
       if (!m.useDenominator) orderedMetricIds.push(m.metric.id);
     });
   });
+
   const allMetricsAliases: string[] = allMetrics.map((m) => m.alias);
 
   // Get all dimensions

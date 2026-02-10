@@ -8,59 +8,23 @@ import React, {
   useEffect,
 } from "react";
 import isEqual from "lodash/isEqual";
+import { ColumnInterface } from "shared/types/fact-table";
 import {
-  createEmptyValue,
-  createEmptyDataset,
-  getCommonColumns,
-  generateUniqueValueName,
-  removeIncompleteValues,
-  getMaxDimensions,
-} from "./util";
-import { useExploreData } from "./useExploreData";
-import {
-  DatasetType,
   ProductAnalyticsConfig,
   ProductAnalyticsResult,
   ProductAnalyticsValue,
-} from "shared/validators";
+  DatasetType,
+} from "shared/src/validators/product-analytics";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ColumnInterface } from "shared/types/fact-table";
-
-// Helper function for timestamp detection for sql exploration
-function autoDetectTimestamp(
-  columnTypes: Record<
-    string,
-    "string" | "number" | "date" | "boolean" | "other"
-  >,
-): string | null {
-  //MKTODO: This is a simple version to get us started. Need to improve.
-  // First, try to find a column with "timestamp" in the name
-  let timestampColumn = Object.keys(columnTypes).find((key) =>
-    key.toLowerCase().includes("timestamp"),
-  );
-
-  // If not found, look for other common date column names
-  if (!timestampColumn) {
-    timestampColumn = Object.keys(columnTypes).find((key) => {
-      const lowerKey = key.toLowerCase();
-      return (
-        lowerKey.includes("date") ||
-        lowerKey.includes("time") ||
-        lowerKey === "created_at" ||
-        lowerKey === "updated_at"
-      );
-    });
-  }
-
-  // If still not found, just pick the first date-type column
-  if (!timestampColumn) {
-    timestampColumn = Object.keys(columnTypes).find(
-      (key) => columnTypes[key] === "date",
-    );
-  }
-
-  return timestampColumn || null;
-}
+import {
+  createEmptyDataset,
+  createEmptyValue,
+  generateUniqueValueName,
+  getCommonColumns,
+  getMaxDimensions,
+  removeIncompleteValues,
+} from "@/enterprise/components/ProductAnalytics/util";
+import { useExploreData } from "./useExploreData";
 
 const INITIAL_EXPLORE_STATE: ProductAnalyticsConfig = {
   dataset: {
@@ -103,13 +67,6 @@ export interface ExplorerContextValue {
   updateValueInDataset: (index: number, value: ProductAnalyticsValue) => void;
   deleteValueFromDataset: (index: number) => void;
   changeDatasetType: (type: DatasetType) => void;
-  updateSqlDataset: (
-    sql: string,
-    columnTypes: Record<
-      string,
-      "string" | "number" | "date" | "boolean" | "other"
-    >,
-  ) => void;
   updateTimestampColumn: (column: string) => void;
   changeChartType: (chartType: ProductAnalyticsConfig["chartType"]) => void;
 }
@@ -175,15 +132,23 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         cleanedDataset.factTableId === null
       )
         return;
+
+      if (
+        cleanedDataset.type === "database" &&
+        (!cleanedDataset.datasource ||
+          !cleanedDataset.table ||
+          !cleanedDataset.timestampColumn)
+      )
+        return;
       fetchData({ ...draftExploreState, dataset: cleanedDataset });
       setSubmittedExploreState(draftExploreState);
     }
-  }, [commonColumns, hasPendingChanges, draftExploreState]);
+  }, [commonColumns, hasPendingChanges, draftExploreState, fetchData]);
 
   const handleSubmit = useCallback(async () => {
     await fetchData(draftExploreState);
     setSubmittedExploreState(draftExploreState);
-  }, [draftExploreState]);
+  }, [draftExploreState, fetchData]);
 
   const createDefaultValue = useCallback(
     (datasetType: DatasetType): ProductAnalyticsValue => {
@@ -197,27 +162,30 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     [factMetrics, factTables, getFactTableById],
   );
 
-  const addValueToDataset = useCallback((datasetType: DatasetType) => {
-    setDraftExploreState((prev) => {
-      if (!prev.dataset || prev.dataset.type !== datasetType) {
-        return prev;
-      }
-      const value = createDefaultValue(datasetType);
+  const addValueToDataset = useCallback(
+    (datasetType: DatasetType) => {
+      setDraftExploreState((prev) => {
+        if (!prev.dataset || prev.dataset.type !== datasetType) {
+          return prev;
+        }
+        const value = createDefaultValue(datasetType);
 
-      // Generate unique name
-      if (value.name) {
-        value.name = generateUniqueValueName(value.name, prev.dataset.values);
-      }
+        // Generate unique name
+        if (value.name) {
+          value.name = generateUniqueValueName(value.name, prev.dataset.values);
+        }
 
-      return {
-        ...prev,
-        dataset: {
-          ...prev.dataset,
-          values: [...prev.dataset.values, value],
-        },
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
+        return {
+          ...prev,
+          dataset: {
+            ...prev.dataset,
+            values: [...prev.dataset.values, value],
+          },
+        } as ProductAnalyticsConfig;
+      });
+    },
+    [createDefaultValue],
+  );
 
   const updateValueInDataset = useCallback(
     (index: number, value: ProductAnalyticsValue) => {
@@ -257,48 +225,6 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     });
   }, []);
 
-  const updateSqlDataset = useCallback(
-    (
-      sql: string,
-      columnTypes: Record<
-        string,
-        "string" | "number" | "date" | "boolean" | "other"
-      >,
-    ) => {
-      setDraftExploreState((prev) => {
-        if (!prev.dataset) {
-          return prev;
-        }
-
-        // Auto-detect timestamp column from the new columnTypes
-        const detectedTimestamp = autoDetectTimestamp(columnTypes);
-        const currentTimestamp =
-          prev.dataset.type === "sql" ? prev.dataset.timestampColumn : "";
-
-        // Use detected timestamp if we don't have one, or if the current one is not in the new columns
-        let timestampColumn = currentTimestamp;
-        if (
-          !currentTimestamp ||
-          !Object.keys(columnTypes).includes(currentTimestamp)
-        ) {
-          timestampColumn = detectedTimestamp || "";
-        }
-
-        return {
-          ...prev,
-          dataset: {
-            ...prev.dataset,
-            type: "sql",
-            sql,
-            columnTypes,
-            timestampColumn,
-          },
-        } as ProductAnalyticsConfig;
-      });
-    },
-    [],
-  );
-
   const updateTimestampColumn = useCallback((column: string) => {
     setDraftExploreState((prev) => {
       if (!prev.dataset) {
@@ -334,15 +260,18 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
     [],
   );
 
-  const changeDatasetType = useCallback((type: DatasetType) => {
-    const defaultDataset = createEmptyDataset(type, factTables[0]);
-    setDraftExploreState((prev) => {
-      return {
-        ...prev,
-        dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
-      } as ProductAnalyticsConfig;
-    });
-  }, []);
+  const changeDatasetType = useCallback(
+    (type: DatasetType) => {
+      const defaultDataset = createEmptyDataset(type, factTables[0]);
+      setDraftExploreState((prev) => {
+        return {
+          ...prev,
+          dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
+        } as ProductAnalyticsConfig;
+      });
+    },
+    [createDefaultValue, factTables],
+  );
 
   const value = useMemo<ExplorerContextValue>(
     () => ({
@@ -359,7 +288,6 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       updateValueInDataset,
       deleteValueFromDataset,
       changeDatasetType,
-      updateSqlDataset,
       updateTimestampColumn,
       changeChartType,
     }),
@@ -376,7 +304,6 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       updateValueInDataset,
       deleteValueFromDataset,
       changeDatasetType,
-      updateSqlDataset,
       updateTimestampColumn,
       changeChartType,
     ],

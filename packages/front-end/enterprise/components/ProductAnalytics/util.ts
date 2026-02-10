@@ -6,7 +6,7 @@ import {
 import type {
   MetricValue,
   FactTableValue,
-  SqlValue,
+  DatabaseValue,
   ProductAnalyticsValue,
   DatasetType,
   ProductAnalyticsDataset,
@@ -57,15 +57,15 @@ export function createEmptyValue(
         valueColumn: null,
         unit: factTable?.userIdTypes[0] ?? null,
       } as FactTableValue;
-    case "sql":
+    case "database":
       return {
         ...base,
         name: "Count",
-        type: "sql",
+        type: "database",
         valueType: "count",
         valueColumn: null,
         unit: null,
-      } as SqlValue;
+      } as DatabaseValue;
     default:
       throw new Error(`Invalid dataset type: ${type}`);
   }
@@ -100,13 +100,14 @@ export function createEmptyDataset(
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {
-    return { type, values: [], factTableId: null};
-  } else if (type === "sql") {
+    return { type, values: [], factTableId: null };
+  } else if (type === "database") {
     return {
       type,
       values: [],
       datasource: "",
-      sql: "",
+      table: "",
+      path: "",
       timestampColumn: "",
       columnTypes: {},
     };
@@ -147,7 +148,7 @@ export function getCommonColumns(
         columns = columns.filter((c) => valueColumnNames.has(c.column));
       }
     }
-  } else if (dataset.type === "sql") {
+  } else if (dataset.type === "database") {
     columns = Object.keys(dataset.columnTypes).map((name) => ({
       column: name,
       name,
@@ -171,8 +172,18 @@ export function removeIncompleteValues(
       ...dataset,
       values: dataset.values.filter((v) => v.unit && v.valueType),
     };
-  } else if (dataset.type === "sql") {
-    return { ...dataset, values: dataset.values.filter((v) => v.valueColumn) };
+  } else if (dataset.type === "database") {
+    return {
+      ...dataset,
+      values: dataset.values.filter((v) => {
+        // Count operations don't need a valueColumn
+        if (v.valueType === "count" || v.valueType === "unit_count") {
+          return true;
+        }
+        // Sum operations need a valueColumn
+        return !!v.valueColumn;
+      }),
+    };
   }
   return dataset;
 }
@@ -183,4 +194,44 @@ export function getMaxDimensions(dataset: ProductAnalyticsDataset): number {
     maxDimensions -= 1;
   }
   return maxDimensions;
+}
+
+export function mapDatabaseTypeToEnum(
+  dbType: string,
+): "string" | "number" | "date" | "boolean" | "other" {
+  const lowerType = dbType.toLowerCase();
+
+  // Numbers
+  if (
+    lowerType.includes("int") ||
+    lowerType.includes("numeric") ||
+    lowerType.includes("decimal") ||
+    lowerType.includes("float") ||
+    lowerType.includes("double") ||
+    lowerType.includes("real")
+  ) {
+    return "number";
+  }
+
+  // Dates
+  if (lowerType.includes("date") || lowerType.includes("time")) {
+    return "date";
+  }
+
+  // Booleans
+  if (lowerType.includes("bool")) {
+    return "boolean";
+  }
+
+  // Strings (varchar, char, text, etc.)
+  if (
+    lowerType.includes("char") ||
+    lowerType.includes("text") ||
+    lowerType.includes("string")
+  ) {
+    return "string";
+  }
+
+  // Default to other
+  return "other";
 }

@@ -1,17 +1,15 @@
-import React, { useMemo, useState } from "react";
-import { Flex, Box, Separator, Text, TextField } from "@radix-ui/themes";
-import { PiTable, PiPlus, PiPencilSimple } from "react-icons/pi";
-import type { SqlValue } from "shared/validators";
+import React, { useMemo } from "react";
+import { Flex, Box, Text } from "@radix-ui/themes";
+import { PiTable, PiPlus } from "react-icons/pi";
+import type { DatabaseValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
-import { generateUniqueValueName, getValueTypeLabel } from "../util";
-import { useExplorerContext } from "../ExplorerContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Code from "@/components/SyntaxHighlighting/Code";
-import ProductAnalyticsSqlModal from "front-end/enterprise/components/ProductAnalytics/ProductAnalyticsSqlModal";
+import {
+  generateUniqueValueName,
+  getValueTypeLabel,
+} from "@/enterprise/components/ProductAnalytics/util";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import ValueCard from "./ValueCard";
-
-type DatasetType = "metric" | "fact_table" | "sql";
 
 const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -23,102 +21,47 @@ const VALUE_TYPE_OPTIONS: {
 ];
 
 export default function SqlTabContent() {
-  const [sqlOpen, setSqlOpen] = useState(false);
-  const { datasources } = useDefinitions();
   const {
     draftExploreState,
     addValueToDataset,
     updateValueInDataset,
     deleteValueFromDataset,
-    updateSqlDataset,
-    updateTimestampColumn,
   } = useExplorerContext();
 
   const dataset =
-    draftExploreState.dataset?.type === "sql"
+    draftExploreState.dataset?.type === "database"
       ? draftExploreState.dataset
       : null;
-  const datasource = dataset?.datasource || null;
-  const values: SqlValue[] = dataset?.values || [];
+  const values: DatabaseValue[] = dataset?.values || [];
 
-  const datasourceUserIdTypes = useMemo(() => {
-    const datasourceObject = datasource
-      ? datasources.find((d) => d.id === datasource)
-      : null;
-    return datasourceObject?.settings?.userIdTypes ?? [];
-  }, [datasource, datasources]);
+  const columnOptions = useMemo(() => {
+    return Object.entries(dataset?.columnTypes ?? {}).map(([name]) => ({
+      label: name,
+      value: name,
+    }));
+  }, [dataset?.columnTypes]);
 
-  if (!dataset) return null;
+  if (!dataset?.table)
+    return (
+      <Flex
+        justify="center"
+        align="center"
+        height="100%"
+        direction="column"
+        gap="2"
+        px="4"
+      >
+        <PiTable size={18} />
+        <Text size="2" weight="medium" align="center">
+          Select a table to begin configuring values and filters
+        </Text>
+      </Flex>
+    );
 
   return (
     <>
-      {sqlOpen && datasource && (
-        <ProductAnalyticsSqlModal
-          close={() => {
-            setSqlOpen(false);
-          }}
-          datasourceId={datasource}
-          initialSql={dataset.sql || undefined}
-          onSave={(data) => {
-            updateSqlDataset(data.sql, data.columnTypes);
-          }}
-        />
-      )}
       <Flex direction="column" gap="3">
-        <Box
-          style={{
-            padding: "var(--space-3)",
-            borderRadius: "var(--radius-2)",
-            backgroundColor: "var(--gray-a2)",
-          }}
-        >
-          <Flex direction="column" gap="2">
-            <Text size="2" weight="medium">
-              SQL Query
-            </Text>
-            {dataset.sql && (
-              <Code language="sql" code={dataset.sql} expandable={true} />
-            )}
-            <Button size="sm" onClick={() => setSqlOpen(true)}>
-              <Flex align="center" gap="2">
-                <PiPencilSimple size={14} />
-                {dataset.sql ? "Edit" : "Add"} SQL Query
-              </Flex>
-            </Button>
-            <>
-              {dataset.sql && (
-                <>
-                  <Separator size="4" my="2" />
-                  <Flex direction="column" gap="2">
-                    <Text size="2" weight="medium">
-                      Timestamp Column (Optional)
-                    </Text>
-                    <Text size="2" color="gray">
-                      Select the column that contains the timestamp data for the
-                      query.
-                    </Text>
-                    <SelectField
-                      isClearable={true}
-                      value={dataset.timestampColumn ?? ""}
-                      onChange={(val) => updateTimestampColumn(val)}
-                      options={
-                        dataset.columnTypes
-                          ? Object.entries(dataset.columnTypes).map(
-                              ([name]) => ({
-                                label: name,
-                                value: name,
-                              }),
-                            )
-                          : []
-                      }
-                    />
-                  </Flex>
-                </>
-              )}
-            </>
-          </Flex>
-        </Box>
-        {dataset.sql && (
+        {columnOptions.length > 0 && (
           <Box>
             <Flex justify="between" align="center">
               <Text size="2" weight="medium">
@@ -127,7 +70,7 @@ export default function SqlTabContent() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => addValueToDataset("sql")}
+                onClick={() => addValueToDataset("database")}
               >
                 <Flex align="center" gap="2">
                   <PiPlus size={14} />
@@ -142,7 +85,7 @@ export default function SqlTabContent() {
                   index={idx}
                   name={v.name}
                   onNameChange={(name) =>
-                    updateValueInDataset(idx, { ...v, name } as SqlValue)
+                    updateValueInDataset(idx, { ...v, name } as DatabaseValue)
                   }
                   onDelete={() => deleteValueFromDataset(idx)}
                   filters={v.rowFilters ?? []}
@@ -150,7 +93,7 @@ export default function SqlTabContent() {
                     updateValueInDataset(idx, {
                       ...v,
                       rowFilters: filters,
-                    } as SqlValue)
+                    } as DatabaseValue)
                   }
                   columns={[]}
                 >
@@ -168,7 +111,7 @@ export default function SqlTabContent() {
                             ),
                             draftExploreState.dataset.values,
                           ),
-                        } as SqlValue)
+                        } as DatabaseValue)
                       }
                       options={VALUE_TYPE_OPTIONS.filter(
                         (o) => o.value !== "unit_count",
@@ -186,14 +129,9 @@ export default function SqlTabContent() {
                           updateValueInDataset(idx, {
                             ...v,
                             valueColumn: val,
-                          } as SqlValue)
+                          } as DatabaseValue)
                         }
-                        options={Object.entries(dataset.columnTypes ?? {}).map(
-                          ([name]) => ({
-                            label: name,
-                            value: name,
-                          }),
-                        )}
+                        options={columnOptions}
                         placeholder="Select..."
                       />
                     )}
