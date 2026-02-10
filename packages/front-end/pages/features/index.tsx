@@ -53,15 +53,14 @@ import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useExperiments } from "@/hooks/useExperiments";
-import FeaturesDraftTable from "./FeaturesDraftTable";
-import {
-  Table,
+import Table, {
   TableHeader,
   TableBody,
   TableRow,
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
 const HEADER_HEIGHT_PX = 55;
@@ -144,37 +143,39 @@ export default function FeaturesPage() {
             </Flex>
           </Box>
 
-          <Table variant="standard" className="gb mb-3">
+          <Table mb="3">
             <TableHeader
               className="sticky-top shadow-sm"
               style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
-              <tr>
-                <th></TableColumnHeader>
+              <TableRow>
+                <TableColumnHeader></TableColumnHeader>
                 <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</TableColumnHeader>}
+                {showProjectColumn && (
+                  <TableColumnHeader>Project</TableColumnHeader>
+                )}
                 <SortableTH field="tags">Tags</SortableTH>
                 {toggleEnvs.map((en) => (
                   <TableColumnHeader key={en.id} className="text-center">
                     {en.id}
                   </TableColumnHeader>
                 ))}
-                <th>Prerequisites</TableColumnHeader>
-                <th>Default</TableColumnHeader>
-                <th>Rules</TableColumnHeader>
-                <th>Version</TableColumnHeader>
+                <TableColumnHeader>Prerequisites</TableColumnHeader>
+                <TableColumnHeader>Default</TableColumnHeader>
+                <TableColumnHeader>Rules</TableColumnHeader>
+                <TableColumnHeader>Version</TableColumnHeader>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 {showGraphs && (
-                  <th>
+                  <TableColumnHeader>
                     Recent Usage{" "}
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </TableColumnHeader>
                 )}
-                <th>Stale</TableColumnHeader>
+                <TableColumnHeader>Stale</TableColumnHeader>
                 <TableColumnHeader style={{ width: 30 }}></TableColumnHeader>
               </TableRow>
             </TableHeader>
-            <tbody>
+            <TableBody>
               {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
@@ -212,7 +213,10 @@ export default function FeaturesPage() {
                       "text-muted": feature.archived,
                     })}
                   >
-                    <TableCell data-title="Watching status:" className="watching">
+                    <TableCell
+                      data-title="Watching status:"
+                      className="watching"
+                    >
                       <WatchButton
                         item={feature.id}
                         itemType="feature"
@@ -230,7 +234,7 @@ export default function FeaturesPage() {
                       </Link>
                     </TableCell>
                     {showProjectColumn && (
-                      <td>
+                      <TableCell>
                         {feature.projectIsDeReferenced ? (
                           <Tooltip
                             body={
@@ -255,7 +259,7 @@ export default function FeaturesPage() {
                         )}
                       </TableCell>
                     )}
-                    <td>
+                    <TableCell>
                       <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </TableCell>
                     {toggleEnvs.map((en) => (
@@ -271,7 +275,7 @@ export default function FeaturesPage() {
                         </Flex>
                       </TableCell>
                     ))}
-                    <td>
+                    <TableCell>
                       {totalPrerequisites > 0 && (
                         <div style={{ lineHeight: "16px" }}>
                           <div className="text-dark">
@@ -303,7 +307,7 @@ export default function FeaturesPage() {
                         additionalStyle={{ maxWidth: 120, fontSize: "11px" }}
                       />
                     </TableCell>
-                    <td>
+                    <TableCell>
                       <div style={{ lineHeight: "16px" }}>
                         {firstRule && (
                           <span className="text-dark">{firstRule.type}</span>
@@ -352,7 +356,7 @@ export default function FeaturesPage() {
                         />
                       )}
                     </TableCell>
-                    <td>
+                    <TableCell>
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
                         permissionsUtil.canManageFeatureDrafts({
@@ -374,8 +378,10 @@ export default function FeaturesPage() {
                 );
               })}
               {!items.length && (
-                <tr>
-                  <TableCell colSpan={showGraphs ? 7 : 6}>No matching features</TableCell>
+                <TableRow>
+                  <TableCell colSpan={showGraphs ? 7 : 6}>
+                    No matching features
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>

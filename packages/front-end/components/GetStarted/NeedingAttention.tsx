@@ -385,7 +385,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <Table className="mt-3">
+          <Table mt="3">
             <TableHeader>
               <TableRow>
                 <SortableTHExperiments field="name">Name</SortableTHExperiments>

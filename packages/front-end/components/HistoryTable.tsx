@@ -140,7 +140,9 @@ export function HistoryTableRow({
         </TableCell>
         {showType && <TableCell>{event.entity.object}</TableCell>}
         {showName && (
-          <TableCell>{url ? <Link href={url}>{displayName}</Link> : displayName}</TableCell>
+          <TableCell>
+            {url ? <Link href={url}>{displayName}</Link> : displayName}
+          </TableCell>
         )}
         <TableCell>{userDisplay}</TableCell>
         <TableCell>{event.event}</TableCell>
@@ -217,7 +219,7 @@ const HistoryTable: FC<{
           </Button>
         </div>
       </div>
-      <Table variant="standard" className="appbox">
+      <Table variant="standard">
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Date</TableColumnHeader>

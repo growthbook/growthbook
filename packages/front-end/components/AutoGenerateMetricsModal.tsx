@@ -418,7 +418,7 @@ export default function AutoGenerateMetricsModal({
                 Uncheck All
               </Button>
             </div>
-            <Table className="appbox gbtable" style={{ tableLayout: "fixed" }}>
+            <Table style={{ tableLayout: "fixed" }}>
               <TableHeader>
                 <TableRow>
                   <TableColumnHeader>Event Name</TableColumnHeader>
