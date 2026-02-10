@@ -1,9 +1,0 @@
-type: object
-required:
-  - metricIds
-properties:
-  metricIds:
-    type: array
-    items:
-      type: string
-    description: Array of metric IDs (both fact and legacy) to get usage for
