@@ -81,7 +81,8 @@ RUN \
   && find node_modules -type f -name "CHANGELOG*" -delete \
   && find node_modules -type f -name "LICENSE*" -delete \
   && find node_modules -type f -name "README*" -delete \
-  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
+  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
+  && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
 
