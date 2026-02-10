@@ -15,19 +15,23 @@ const BaseClass = MakeModelClass({
 
 export class WatchModel extends BaseClass {
   protected async migrateModel() {
-    const numNullIds = await this._dangerousCountGlobalDocuments({ id: null });
-    // We need to generate a new ID for each document, so we create N updateOne operations
-    // From mongo docs: updateOne updates a single document in the collection that matches the filter.
-    // If multiple documents match, updateOne will update the first matching document only.
-    await this._dangerousBulkWrite(
-      Array.from({ length: numNullIds }, () => ({
-        updateOne: {
-          filter: { id: null },
-          update: { $set: { id: this._generateId() } },
-        },
-      })),
-      true, // Ordered to prevent the sequential `updateOne`s from running in parallel
+    const nullIdDocuments = await this._find(
+      { id: null },
+      {
+        dangerousCrossOrganization: true,
+        projection: { userId: 1, organization: 1 },
+      },
     );
+    if (nullIdDocuments.length) {
+      await this._dangerousBulkWriteCrossOrganization(
+        nullIdDocuments.map(({ userId, organization }) => ({
+          updateOne: {
+            filter: { userId, organization },
+            update: { $set: { id: this._generateId() } },
+          },
+        })),
+      );
+    }
   }
 
   protected canCreate(): boolean {
@@ -70,13 +74,17 @@ export class WatchModel extends BaseClass {
 
   public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
     const existing = await this.getWatchedByUser(userId);
-    existing
-      ? await this._updateOne(existing, { [type]: [...existing[type], item] })
-      : await this._createOne({
-          userId,
-          experiments: type === "experiments" ? [item] : [],
-          features: type === "features" ? [item] : [],
-        });
+    if (existing) {
+      const itemSet = new Set(existing[type]);
+      itemSet.add(item);
+      await this._updateOne(existing, { [type]: [...itemSet] });
+    } else {
+      await this._createOne({
+        userId,
+        experiments: type === "experiments" ? [item] : [],
+        features: type === "features" ? [item] : [],
+      });
+    }
   }
 
   public async deleteWatchedByEntity({
