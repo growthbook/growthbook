@@ -17,7 +17,6 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -803,37 +802,19 @@ export async function getExperimentsUsingMetric({
 export async function getExperimentsUsingMetrics({
   context,
   metricIds,
-  allMetricGroups,
-  excludeMetricGroupIds,
+  metricToGroupIds,
   limit,
 }: {
   context: ReqContext | ApiReqContext;
   metricIds: string[];
-  allMetricGroups: MetricGroupInterface[];
-  // If true, only looks for experiments where the metric is directly used,
-  // not via a metric group
-  excludeMetricGroupIds?: boolean;
+  // Map from metric ID to group IDs to search for metric usage
+  // by including usage via metric groups. If passed in empty,
+  // this query will ignore metric usage via metric groups.
+  metricToGroupIds: Map<string, string[]>;
   limit?: number;
 }): Promise<ExperimentInterface[]> {
   if (metricIds.length === 0) {
     return [];
-  }
-
-  // Fetch all metric groups once and build a map from metric ID to group IDs
-  const metricToGroupIds = new Map<string, string[]>();
-  for (const metricId of metricIds) {
-    metricToGroupIds.set(metricId, []);
-  }
-
-  if (!excludeMetricGroupIds) {
-    for (const group of allMetricGroups) {
-      for (const metricId of group.metrics || []) {
-        const groupIds = metricToGroupIds.get(metricId);
-        if (groupIds) {
-          groupIds.push(group.id);
-        }
-      }
-    }
   }
 
   // Build the search criteria: for each metric, include the metric itself

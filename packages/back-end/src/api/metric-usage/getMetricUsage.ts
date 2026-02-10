@@ -17,13 +17,21 @@ export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
     }
 
     const allMetricGroups = await context.models.metricGroups.getAll();
+    for (const group of allMetricGroups) {
+      for (const metricId of group.metrics || []) {
+        const groupIds = metricToGroupIds.get(metricId);
+        if (groupIds) {
+          groupIds.push(group.id);
+        }
+      }
+    }
 
     // Fetch experiments for all metrics in a single batch query
     // Only select the fields we need for the response
     const experiments = await getExperimentsUsingMetrics({
       context,
       metricIds,
-      allMetricGroups,
+      metricToGroupIds,
       limit: 10000,
     });
 
