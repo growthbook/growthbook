@@ -182,9 +182,9 @@ export default function ScheduleStatusChangeInputs({
           <Tooltip content="The Analysis Phase has already ended—this date cannot be edited">
             <Field
               value={
-                experiment.phases[1].dateEnded
+                experiment.phases[1]?.dateEnded
                   ? format(
-                      new Date(experiment.phases[1].dateEnded),
+                      new Date(experiment.phases[1]?.dateEnded),
                       DATE_FORMAT,
                     )
                   : stopDate
