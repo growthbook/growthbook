@@ -64,7 +64,6 @@ export default function ProjectTagBar({
   const renderRuntime = () => {
     const phases = experiment.phases || [];
     const numPhases = phases.length;
-    const isHoldout = experiment.type === "holdout";
 
     // If no phases: If experiment start date ? `experiment start date - now` : "not started"
     if (numPhases === 0) {
@@ -74,10 +73,7 @@ export default function ProjectTagBar({
     // If 1 phase: phase start date - {phase end date || now}
     if (numPhases === 1) {
       const phase = phases[0];
-      const startDate =
-        phase?.lookbackStartDate && isHoldout
-          ? date(phase.lookbackStartDate, "UTC")
-          : date(phase?.dateStarted ?? "", "UTC");
+      const startDate = date(phase?.dateStarted ?? "", "UTC");
       const endDate = phase?.dateEnded ? date(phase.dateEnded, "UTC") : "now";
 
       if (!startDate) {
@@ -90,10 +86,7 @@ export default function ProjectTagBar({
     // If multiple phases, phase[0] start date - {phase[last] end date || now}
     const firstPhase = phases[0];
     const lastPhase = phases[phases.length - 1];
-    const startDate =
-      firstPhase?.lookbackStartDate && isHoldout
-        ? date(firstPhase.lookbackStartDate, "UTC")
-        : date(firstPhase?.dateStarted ?? "", "UTC");
+    const startDate = date(firstPhase?.dateStarted ?? "", "UTC");
     const endDate = lastPhase?.dateEnded
       ? date(lastPhase.dateEnded, "UTC")
       : "now";
@@ -302,7 +295,11 @@ export default function ProjectTagBar({
         <Metadata label="Created" value={createdDate} />
         <Tooltip body={renderTotalRuntimeTooltip()}>
           <Metadata
-            label={hasMultiplePhases ? "Latest Phase" : "Runtime"}
+            label={
+              hasMultiplePhases && experiment.type !== "holdout"
+                ? "Latest Phase"
+                : "Runtime"
+            }
             value={renderRuntime()}
           />
         </Tooltip>
