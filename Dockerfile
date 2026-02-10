@@ -1,17 +1,20 @@
 ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=20
 ARG PYPI_MIRROR_URL=""
+ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 ARG PYPI_MIRROR_URL
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 # TODO: The preview environment is having network connectivity issues Feb 4, 2026. 
 # Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
 # as there is probably no need to have this conditional logic long term.
 RUN \
-  if [ -n "$PYPI_MIRROR_URL" ]; then \
+  if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi \
+  && if [ -n "$PYPI_MIRROR_URL" ]; then \
     export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
     && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
     && pip3 install poetry==1.8.5 \
@@ -86,6 +89,7 @@ RUN pnpm postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 ARG PYPI_MIRROR_URL
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
@@ -97,6 +101,7 @@ RUN apt-get update && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+RUN if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN if [ -n "$PYPI_MIRROR_URL" ]; then \
       export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
