@@ -11,7 +11,8 @@ WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 
 # Setup python virtual environment
-ENV VIRTUAL_ENV=/opt/venv
+ENV VIRTUAL_ENV=/opt/venv \
+    PYTHONDONTWRITEBYTECODE=1
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
 
@@ -51,10 +52,12 @@ RUN apt-get update && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+# Fetch packages into pnpm store (only invalidated when lockfile changes)
+COPY pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm fetch
 # Copy over minimum files to install dependencies
 COPY .npmrc ./.npmrc
 COPY package.json ./package.json
-COPY pnpm-lock.yaml ./pnpm-lock.yaml
 COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
@@ -62,8 +65,8 @@ COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY patches ./patches
-# pnpm install with dev dependencies (will be cached as long as dependencies don't change)
-RUN pnpm install --frozen-lockfile
+# Install dependencies using cached store
+RUN pnpm install --frozen-lockfile --offline
 # Apply patches
 RUN pnpm postinstall
 # Build the app and do a clean install with only production dependencies
@@ -102,7 +105,9 @@ RUN apt-get update && \
   ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3
 
 # Copy Python virtualenv from build stage
-ENV VIRTUAL_ENV=/opt/venv
+ENV VIRTUAL_ENV=/opt/venv \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 COPY --from=pybuild $VIRTUAL_ENV $VIRTUAL_ENV
 
 # Copy static config files (rarely change, good for cache)
