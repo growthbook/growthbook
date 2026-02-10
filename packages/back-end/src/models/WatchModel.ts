@@ -10,7 +10,10 @@ const BaseClass = MakeModelClass({
   collectionName: "watches",
   idPrefix: "watch_",
   readonlyFields: [],
-  additionalIndexes: [{ unique: true, fields: { userId: 1, organization: 1 } }],
+  additionalIndexes: [
+    { unique: true, fields: { userId: 1, organization: 1 } },
+    { fields: { organization: 1, experiments: 1 } },
+  ],
 });
 
 export class WatchModel extends BaseClass {
