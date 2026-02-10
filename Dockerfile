@@ -54,6 +54,8 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Fetch packages into pnpm store
+# NB: patches must be present for pnpm fetch to work
+COPY patches ./patches
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm fetch
 # Copy over minimum files to install dependencies
@@ -65,7 +67,6 @@ COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
-COPY patches ./patches
 # Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
 # Apply patches
@@ -103,7 +104,8 @@ RUN apt-get update && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
-  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3
+  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3 && \
+  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python
 
 # Recommended settings for Python runtime in docker
 ENV PYTHONDONTWRITEBYTECODE=1 \
