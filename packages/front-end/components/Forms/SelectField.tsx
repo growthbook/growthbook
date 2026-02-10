@@ -141,6 +141,11 @@ export const ReactSelectProps = {
       return {
         ...styles,
         color: "var(--text-color-main)",
+        // react-select auto-sizer grid column is "0 min-content" by default,
+        // this makes the input grow beyond the container pushing the content to the left.
+        // So we force it to grow up to the full width of the container, and allow the input
+        // to scroll horizontally if needed.
+        gridTemplateColumns: "0 minmax(2px, 1fr)",
       };
     },
     singleValue: (styles) => {

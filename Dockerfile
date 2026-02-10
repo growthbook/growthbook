@@ -1,18 +1,21 @@
 ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=20
 ARG PYPI_MIRROR_URL=""
+ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG PYPI_MIRROR_URL
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 # TODO: The preview environment is having network connectivity issues Feb 4, 2026.
 # Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
 # as there is probably no need to have this conditional logic long term.
 RUN \
-  if [ -n "$PYPI_MIRROR_URL" ]; then \
+  if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi \
+  && if [ -n "$PYPI_MIRROR_URL" ]; then \
     export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
     && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
     && pip3 install --no-cache-dir poetry==1.8.5 \
@@ -77,7 +80,8 @@ RUN \
   && find node_modules -type f -name "CHANGELOG*" -delete \
   && find node_modules -type f -name "LICENSE*" -delete \
   && find node_modules -type f -name "README*" -delete \
-  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
+  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
+  && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
 
