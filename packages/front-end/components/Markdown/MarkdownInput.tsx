@@ -28,6 +28,14 @@ import Markdown from "./Markdown";
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
+function getLinkLabelFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || "Link";
+  } catch {
+    return "Link";
+  }
+}
+
 const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;
@@ -82,6 +90,32 @@ const MarkdownInput: FC<{
       textareaRef.current.focus();
     }
   }, [autofocus, textareaRef.current]);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = e.clipboardData.getData("text/plain").trim();
+    if (!pasted || !/^https?:\/\/\S+$/i.test(pasted)) return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    e.preventDefault();
+
+    const linkLabel = getLinkLabelFromUrl(pasted);
+    const markdownLink = `[${linkLabel}](${pasted})`;
+
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    const newValue = value.slice(0, start) + markdownLink + value.slice(end);
+    setValue(newValue);
+
+    const cursorAfterInsert = start + markdownLink.length;
+    // Defer so React can commit the new value to the DOM first; otherwise
+    // setSelectionRange runs against the old value and may be overwritten.
+    setTimeout(() => {
+      textarea.setSelectionRange(cursorAfterInsert, cursorAfterInsert);
+      textarea.focus();
+    }, 0);
+  };
 
   const onDrop = (files: File[]) => {
     if (blockFileUploads) return;
@@ -198,6 +232,7 @@ const MarkdownInput: FC<{
                 onChange={(e) => {
                   setValue(e.target.value);
                 }}
+                onPaste={handlePaste}
                 placeholder={placeholder}
                 trigger={{
                   ":": {
