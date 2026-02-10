@@ -5,7 +5,12 @@ import {
   ColumnInterface,
   ColumnRef,
 } from "shared/types/fact-table";
-import { ParsedSelect, SelectItem, parseSelect } from "./sql-parser";
+import {
+  ParsedSelect,
+  SelectItem,
+  parseSelect,
+  parseWhereToRowFilters,
+} from "./sql-parser";
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -28,25 +33,23 @@ interface ParsedMetricCandidate {
 }
 
 // ─── Phase 1: Filter & Parse ─────────────────────────────────────────────────
-
-function isNumericLiteral(s: string): boolean {
-  return /^\d+$/.test(s.trim());
-}
+const customAggregationMap: Record<string, "sum" | "max" | "count distinct"> = {
+  "count(distinct value)": "count distinct",
+  "sum(value)": "sum",
+  "max(value)": "max",
+};
 
 function isUnsupportedAggregation(agg: string | undefined): string | false {
-  if (agg === undefined || agg === "") return false;
-  if (agg === "sum" || agg === "max" || agg === "count distinct") return false;
-  if (isNumericLiteral(agg)) return `Unsupported custom aggregation: ${agg}`;
-  // Anything containing COUNT(*) or complex expressions
+  if (!agg) return false;
+  if (customAggregationMap[agg.toLocaleLowerCase()]) return false;
   return `Unsupported custom aggregation: ${agg}`;
 }
 
 function mapAggregation(
   agg: string | undefined,
 ): "sum" | "max" | "count distinct" {
-  if (!agg || agg === "") return "sum";
-  if (agg === "sum" || agg === "max" || agg === "count distinct") return agg;
-  return "sum";
+  if (!agg) return "sum";
+  return customAggregationMap[agg.toLocaleLowerCase()] || "sum";
 }
 
 function conditionToSql(c: Condition): string {
@@ -560,10 +563,9 @@ function buildFactMetric(
   const m = candidate.metric;
   const mType = metricTypeToFactMetricType(m.type);
 
-  const rowFilters: ColumnRef["rowFilters"] = [];
-  if (perMetricWhere) {
-    rowFilters.push({ operator: "sql_expr", values: [perMetricWhere] });
-  }
+  const rowFilters: ColumnRef["rowFilters"] = perMetricWhere
+    ? parseWhereToRowFilters(perMetricWhere)
+    : [];
 
   const numerator: ColumnRef = {
     factTableId,

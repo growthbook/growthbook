@@ -1,3 +1,5 @@
+import { RowFilter } from "shared/types/fact-table";
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export class SqlParseError extends Error {
@@ -1386,4 +1388,268 @@ export function parseSelect(sql: string): ParsedSelect {
   }
 
   return result;
+}
+
+// ─── WHERE → RowFilter parsing ───────────────────────────────────────────────
+
+function splitByAnd(tokens: Token[]): Token[][] {
+  const groups: Token[][] = [];
+  let current: Token[] = [];
+  let depth = 0;
+  let afterBetween = false;
+
+  for (const t of tokens) {
+    if (t.type === "punctuation" && t.value === "(") depth++;
+    if (t.type === "punctuation" && t.value === ")") depth--;
+
+    if (
+      depth === 0 &&
+      t.type === "keyword" &&
+      t.value.toUpperCase() === "BETWEEN"
+    ) {
+      afterBetween = true;
+      current.push(t);
+      continue;
+    }
+
+    if (
+      depth === 0 &&
+      t.type === "keyword" &&
+      t.value.toUpperCase() === "AND"
+    ) {
+      if (afterBetween) {
+        // This AND is part of BETWEEN...AND, keep it in current conjunct
+        afterBetween = false;
+        current.push(t);
+      } else {
+        if (current.length > 0) groups.push(current);
+        current = [];
+      }
+    } else {
+      current.push(t);
+    }
+  }
+  if (current.length > 0) groups.push(current);
+  return groups;
+}
+
+function extractColumnFromTokens(
+  tokens: Token[],
+): { column: string; rest: Token[] } | null {
+  if (tokens.length === 0) return null;
+  const first = tokens[0];
+  if (
+    first.type !== "identifier" &&
+    first.type !== "quoted_identifier" &&
+    first.type !== "keyword"
+  )
+    return null;
+
+  let i = 0;
+  const parts: string[] = [first.value];
+  i++;
+
+  while (
+    i + 1 < tokens.length &&
+    tokens[i].type === "punctuation" &&
+    tokens[i].value === "." &&
+    (tokens[i + 1].type === "identifier" ||
+      tokens[i + 1].type === "quoted_identifier" ||
+      tokens[i + 1].type === "keyword")
+  ) {
+    parts.push(tokens[i + 1].value);
+    i += 2;
+  }
+
+  return { column: parts.join("."), rest: tokens.slice(i) };
+}
+
+function extractStringValuesFromParens(tokens: Token[]): string[] | null {
+  if (
+    tokens.length < 3 ||
+    tokens[0].type !== "punctuation" ||
+    tokens[0].value !== "("
+  )
+    return null;
+
+  const values: string[] = [];
+  let i = 1;
+  while (i < tokens.length) {
+    if (tokens[i].type === "punctuation" && tokens[i].value === ")") {
+      return values;
+    }
+    if (tokens[i].type === "string" || tokens[i].type === "number") {
+      values.push(tokens[i].value);
+      i++;
+      if (
+        i < tokens.length &&
+        tokens[i].type === "punctuation" &&
+        tokens[i].value === ","
+      ) {
+        i++;
+      }
+    } else if (tokens[i].type === "punctuation" && tokens[i].value === ",") {
+      i++;
+    } else {
+      return null;
+    }
+  }
+  return null; // no closing paren
+}
+
+function parseSingleCondition(tokens: Token[]): RowFilter | null {
+  const colResult = extractColumnFromTokens(tokens);
+  if (!colResult) return null;
+
+  const { column, rest } = colResult;
+  if (rest.length === 0) return null;
+
+  const first = rest[0];
+
+  // IS NULL / IS NOT NULL / IS TRUE / IS FALSE
+  if (first.type === "keyword" && first.value.toUpperCase() === "IS") {
+    if (rest.length === 2 && rest[1].type === "keyword") {
+      const kw = rest[1].value.toUpperCase();
+      if (kw === "NULL") return { operator: "is_null", column };
+      if (kw === "TRUE") return { operator: "is_true", column };
+      if (kw === "FALSE") return { operator: "is_false", column };
+    }
+    if (
+      rest.length === 3 &&
+      rest[1].type === "keyword" &&
+      rest[1].value.toUpperCase() === "NOT" &&
+      rest[2].type === "keyword" &&
+      rest[2].value.toUpperCase() === "NULL"
+    ) {
+      return { operator: "not_null", column };
+    }
+    return null;
+  }
+
+  // NOT IN / NOT LIKE
+  if (first.type === "keyword" && first.value.toUpperCase() === "NOT") {
+    if (rest.length >= 2 && rest[1].type === "keyword") {
+      const kw = rest[1].value.toUpperCase();
+      if (kw === "IN") {
+        const values = extractStringValuesFromParens(rest.slice(2));
+        if (values) return { operator: "not_in", column, values };
+      }
+      if (kw === "LIKE" && rest.length === 3 && rest[2].type === "string") {
+        const pattern = rest[2].value;
+        if (pattern.startsWith("%") && pattern.endsWith("%")) {
+          return {
+            operator: "not_contains",
+            column,
+            values: [pattern.slice(1, -1)],
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  // IN
+  if (first.type === "keyword" && first.value.toUpperCase() === "IN") {
+    const values = extractStringValuesFromParens(rest.slice(1));
+    if (values) return { operator: "in", column, values };
+    return null;
+  }
+
+  // LIKE
+  if (first.type === "keyword" && first.value.toUpperCase() === "LIKE") {
+    if (rest.length === 2 && rest[1].type === "string") {
+      const pattern = rest[1].value;
+      if (pattern.startsWith("%") && pattern.endsWith("%")) {
+        return {
+          operator: "contains",
+          column,
+          values: [pattern.slice(1, -1)],
+        };
+      }
+      if (pattern.endsWith("%")) {
+        return {
+          operator: "starts_with",
+          column,
+          values: [pattern.slice(0, -1)],
+        };
+      }
+      if (pattern.startsWith("%")) {
+        return {
+          operator: "ends_with",
+          column,
+          values: [pattern.slice(1)],
+        };
+      }
+    }
+    return null;
+  }
+
+  // Simple comparison: =, !=, <>, <, <=, >, >=
+  if (first.type === "operator") {
+    let op = first.value;
+    if (op === "<>") op = "!=";
+    if (["=", "!=", "<", "<=", ">", ">="].includes(op) && rest.length === 2) {
+      if (rest[1].type === "string" || rest[1].type === "number") {
+        return {
+          operator: op as RowFilter["operator"],
+          column,
+          values: [rest[1].value],
+        };
+      }
+      if (rest[1].type === "keyword") {
+        const upper = rest[1].value.toUpperCase();
+        if (upper === "TRUE" || upper === "FALSE") {
+          return {
+            operator: op as RowFilter["operator"],
+            column,
+            values: [upper.toLowerCase()],
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Parse a SQL WHERE clause string into structured RowFilter objects.
+ * Falls back to a single `sql_expr` filter for complex/unparseable expressions.
+ */
+export function parseWhereToRowFilters(where: string): RowFilter[] {
+  try {
+    const tokens = tokenize(where);
+
+    // If OR exists at depth 0, fall back to sql_expr
+    let depth = 0;
+    for (const t of tokens) {
+      if (t.type === "punctuation" && t.value === "(") depth++;
+      if (t.type === "punctuation" && t.value === ")") depth--;
+      if (
+        depth === 0 &&
+        t.type === "keyword" &&
+        t.value.toUpperCase() === "OR"
+      ) {
+        return [{ operator: "sql_expr", values: [where] }];
+      }
+    }
+
+    const conjuncts = splitByAnd(tokens);
+    const filters: RowFilter[] = [];
+
+    for (const conj of conjuncts) {
+      const filter = parseSingleCondition(conj);
+      if (!filter) {
+        return [{ operator: "sql_expr", values: [where] }];
+      }
+      filters.push(filter);
+    }
+
+    return filters.length > 0
+      ? filters
+      : [{ operator: "sql_expr", values: [where] }];
+  } catch {
+    return [{ operator: "sql_expr", values: [where] }];
+  }
 }

@@ -31,7 +31,7 @@ function makeMetric(overrides: Partial<MetricInterface>): MetricInterface {
     ignoreNulls: false,
     cappingSettings: { type: "", value: 0 },
     windowSettings: {
-      type: "none",
+      type: "",
       delayValue: 0,
       delayUnit: "hours",
       windowValue: 72,
@@ -289,14 +289,14 @@ describe("Different WHERE clauses", () => {
     const fm2 = result.factMetrics[1];
 
     expect(fm1.numerator.rowFilters).toHaveLength(1);
-    expect(fm1.numerator.rowFilters![0].operator).toBe("sql_expr");
-    expect(fm1.numerator.rowFilters![0].values).toEqual(["status = 'active'"]);
+    expect(fm1.numerator.rowFilters![0].operator).toBe("=");
+    expect(fm1.numerator.rowFilters![0].column).toBe("status");
+    expect(fm1.numerator.rowFilters![0].values).toEqual(["active"]);
 
     expect(fm2.numerator.rowFilters).toHaveLength(1);
-    expect(fm2.numerator.rowFilters![0].operator).toBe("sql_expr");
-    expect(fm2.numerator.rowFilters![0].values).toEqual([
-      "status = 'completed'",
-    ]);
+    expect(fm2.numerator.rowFilters![0].operator).toBe("=");
+    expect(fm2.numerator.rowFilters![0].column).toBe("status");
+    expect(fm2.numerator.rowFilters![0].values).toEqual(["completed"]);
   });
 });
 
@@ -579,7 +579,7 @@ describe("Aggregation mapping", () => {
   it("preserves max aggregation", () => {
     const m = makeMetric({
       type: "count",
-      aggregation: "max",
+      aggregation: "MAX(value)",
       sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events",
     });
     const result = migrateMetrics([m], makeOptions());
@@ -589,13 +589,13 @@ describe("Aggregation mapping", () => {
   it("rejects numeric literal aggregation", () => {
     const m = makeMetric({
       type: "count",
-      aggregation: "1",
+      aggregation: "AVG(value)",
       sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events",
     });
     const result = migrateMetrics([m], makeOptions());
     expect(result.unconverted).toHaveLength(1);
     expect(result.unconverted[0].reason).toBe(
-      "Unsupported custom aggregation: 1",
+      "Unsupported custom aggregation: AVG(value)",
     );
   });
 
@@ -687,5 +687,123 @@ describe("Date handling", () => {
     expect(result.factTables[0].dateUpdated).toEqual(NOW);
     expect(result.factMetrics[0].dateCreated).toEqual(NOW);
     expect(result.factMetrics[0].dateUpdated).toEqual(NOW);
+  });
+});
+
+// ─── WHERE parsing integration with migrateMetrics ──────────────────────────
+
+describe("WHERE parsing integration", () => {
+  it("produces structured filters for simple per-metric WHERE", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      name: "Active",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events WHERE status = 'active' AND region = 'us'",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      name: "Deleted",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events WHERE status = 'deleted'",
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    expect(result.factTables).toHaveLength(1);
+    expect(result.factTables[0].sql).not.toContain("WHERE");
+
+    const fm1 = result.factMetrics[0];
+    expect(fm1.numerator.rowFilters).toHaveLength(2);
+    expect(fm1.numerator.rowFilters![0]).toEqual({
+      operator: "=",
+      column: "status",
+      values: ["active"],
+    });
+    expect(fm1.numerator.rowFilters![1]).toEqual({
+      operator: "=",
+      column: "region",
+      values: ["us"],
+    });
+
+    const fm2 = result.factMetrics[1];
+    expect(fm2.numerator.rowFilters).toHaveLength(1);
+    expect(fm2.numerator.rowFilters![0]).toEqual({
+      operator: "=",
+      column: "status",
+      values: ["deleted"],
+    });
+  });
+
+  it("falls back to sql_expr for complex per-metric WHERE", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      name: "Complex",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events WHERE status = 'active' OR status = 'pending'",
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      name: "Simple",
+      type: "count",
+      sql: "SELECT user_id AS user_id, ts AS timestamp, cnt AS value FROM events WHERE status = 'deleted'",
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    const fm1 = result.factMetrics[0];
+    expect(fm1.numerator.rowFilters).toHaveLength(1);
+    expect(fm1.numerator.rowFilters![0].operator).toBe("sql_expr");
+    expect(fm1.numerator.rowFilters![0].values).toEqual([
+      "status = 'active' OR status = 'pending'",
+    ]);
+
+    // m2 should still get structured filters
+    const fm2 = result.factMetrics[1];
+    expect(fm2.numerator.rowFilters).toHaveLength(1);
+    expect(fm2.numerator.rowFilters![0].operator).toBe("=");
+  });
+
+  it("parses builder metric conditions into structured filters", () => {
+    const m1 = makeMetric({
+      id: "m1",
+      queryFormat: "builder",
+      table: "events",
+      column: "amount",
+      timestampColumn: "ts",
+      type: "revenue",
+      sql: undefined,
+      userIdTypes: ["user_id"],
+      userIdColumns: { user_id: "uid" },
+      conditions: [{ column: "status", operator: "=", value: "active" }],
+    });
+    const m2 = makeMetric({
+      id: "m2",
+      queryFormat: "builder",
+      table: "events",
+      column: "clicks",
+      timestampColumn: "ts",
+      type: "count",
+      sql: undefined,
+      userIdTypes: ["user_id"],
+      userIdColumns: { user_id: "uid" },
+      conditions: [{ column: "status", operator: "!=", value: "deleted" }],
+    });
+    const result = migrateMetrics([m1, m2], makeOptions());
+
+    expect(result.factTables).toHaveLength(1);
+
+    const fm1 = result.factMetrics[0];
+    expect(fm1.numerator.rowFilters).toHaveLength(1);
+    expect(fm1.numerator.rowFilters![0]).toEqual({
+      operator: "=",
+      column: "status",
+      values: ["active"],
+    });
+
+    const fm2 = result.factMetrics[1];
+    expect(fm2.numerator.rowFilters).toHaveLength(1);
+    expect(fm2.numerator.rowFilters![0]).toEqual({
+      operator: "!=",
+      column: "status",
+      values: ["deleted"],
+    });
   });
 });

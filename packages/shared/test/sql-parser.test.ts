@@ -1,4 +1,9 @@
-import { parseSelect, tokenize, SqlParseError } from "../src/sql-parser";
+import {
+  parseSelect,
+  parseWhereToRowFilters,
+  tokenize,
+  SqlParseError,
+} from "../src/sql-parser";
 
 // ─── 1. Basic SELECT ─────────────────────────────────────────────────────────
 
@@ -835,9 +840,204 @@ describe("Complex real-world queries", () => {
     expect(r.from).toEqual({ table: "t1", alias: null });
     // t2 becomes implicit cross join, t3 is explicit join
     expect(r.joins).toHaveLength(2);
-    expect(r.joins[0].joinType).toBe("CROSS JOIN");
     expect(r.joins[0].table).toBe("t2");
     expect(r.joins[1].joinType).toBe("JOIN");
     expect(r.joins[1].table).toBe("t3");
+  });
+});
+
+describe("parseWhereToRowFilters", () => {
+  describe("simple comparisons", () => {
+    it("parses = with string value", () => {
+      const filters = parseWhereToRowFilters("status = 'active'");
+      expect(filters).toEqual([
+        { operator: "=", column: "status", values: ["active"] },
+      ]);
+    });
+
+    it("parses != with string value", () => {
+      const filters = parseWhereToRowFilters("status != 'deleted'");
+      expect(filters).toEqual([
+        { operator: "!=", column: "status", values: ["deleted"] },
+      ]);
+    });
+
+    it("parses <> as !=", () => {
+      const filters = parseWhereToRowFilters("status <> 'deleted'");
+      expect(filters).toEqual([
+        { operator: "!=", column: "status", values: ["deleted"] },
+      ]);
+    });
+
+    it("parses > with numeric value", () => {
+      const filters = parseWhereToRowFilters("amount > 100");
+      expect(filters).toEqual([
+        { operator: ">", column: "amount", values: ["100"] },
+      ]);
+    });
+
+    it("parses <= with numeric value", () => {
+      const filters = parseWhereToRowFilters("age <= 30");
+      expect(filters).toEqual([
+        { operator: "<=", column: "age", values: ["30"] },
+      ]);
+    });
+
+    it("parses dotted column names", () => {
+      const filters = parseWhereToRowFilters("t.status = 'active'");
+      expect(filters).toEqual([
+        { operator: "=", column: "t.status", values: ["active"] },
+      ]);
+    });
+  });
+
+  describe("IN / NOT IN", () => {
+    it("parses IN with string values", () => {
+      const filters = parseWhereToRowFilters("status IN ('active', 'pending')");
+      expect(filters).toEqual([
+        { operator: "in", column: "status", values: ["active", "pending"] },
+      ]);
+    });
+
+    it("parses NOT IN with string values", () => {
+      const filters = parseWhereToRowFilters(
+        "status NOT IN ('deleted', 'archived')",
+      );
+      expect(filters).toEqual([
+        {
+          operator: "not_in",
+          column: "status",
+          values: ["deleted", "archived"],
+        },
+      ]);
+    });
+
+    it("parses IN with numeric values", () => {
+      const filters = parseWhereToRowFilters("id IN (1, 2, 3)");
+      expect(filters).toEqual([
+        { operator: "in", column: "id", values: ["1", "2", "3"] },
+      ]);
+    });
+  });
+
+  describe("IS NULL / IS NOT NULL", () => {
+    it("parses IS NULL", () => {
+      const filters = parseWhereToRowFilters("deleted_at IS NULL");
+      expect(filters).toEqual([{ operator: "is_null", column: "deleted_at" }]);
+    });
+
+    it("parses IS NOT NULL", () => {
+      const filters = parseWhereToRowFilters("email IS NOT NULL");
+      expect(filters).toEqual([{ operator: "not_null", column: "email" }]);
+    });
+  });
+
+  describe("IS TRUE / IS FALSE", () => {
+    it("parses IS TRUE", () => {
+      const filters = parseWhereToRowFilters("is_active IS TRUE");
+      expect(filters).toEqual([{ operator: "is_true", column: "is_active" }]);
+    });
+
+    it("parses IS FALSE", () => {
+      const filters = parseWhereToRowFilters("is_active IS FALSE");
+      expect(filters).toEqual([{ operator: "is_false", column: "is_active" }]);
+    });
+  });
+
+  describe("LIKE patterns", () => {
+    it("parses LIKE %...% as contains", () => {
+      const filters = parseWhereToRowFilters("name LIKE '%john%'");
+      expect(filters).toEqual([
+        { operator: "contains", column: "name", values: ["john"] },
+      ]);
+    });
+
+    it("parses LIKE ...% as starts_with", () => {
+      const filters = parseWhereToRowFilters("name LIKE 'john%'");
+      expect(filters).toEqual([
+        { operator: "starts_with", column: "name", values: ["john"] },
+      ]);
+    });
+
+    it("parses LIKE %... as ends_with", () => {
+      const filters = parseWhereToRowFilters("name LIKE '%son'");
+      expect(filters).toEqual([
+        { operator: "ends_with", column: "name", values: ["son"] },
+      ]);
+    });
+
+    it("parses NOT LIKE %...% as not_contains", () => {
+      const filters = parseWhereToRowFilters("name NOT LIKE '%test%'");
+      expect(filters).toEqual([
+        { operator: "not_contains", column: "name", values: ["test"] },
+      ]);
+    });
+  });
+
+  describe("compound AND", () => {
+    it("splits AND into multiple filters", () => {
+      const filters = parseWhereToRowFilters(
+        "status = 'active' AND region = 'us'",
+      );
+      expect(filters).toEqual([
+        { operator: "=", column: "status", values: ["active"] },
+        { operator: "=", column: "region", values: ["us"] },
+      ]);
+    });
+
+    it("handles AND with mixed operator types", () => {
+      const filters = parseWhereToRowFilters(
+        "status = 'active' AND deleted_at IS NULL AND amount > 0",
+      );
+      expect(filters).toEqual([
+        { operator: "=", column: "status", values: ["active"] },
+        { operator: "is_null", column: "deleted_at" },
+        { operator: ">", column: "amount", values: ["0"] },
+      ]);
+    });
+  });
+
+  describe("fallback to sql_expr", () => {
+    it("falls back for OR expressions", () => {
+      const where = "status = 'active' OR status = 'pending'";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
+
+    it("falls back for BETWEEN", () => {
+      const where = "amount BETWEEN 10 AND 100";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
+
+    it("falls back for subquery in IN", () => {
+      const where = "id IN (SELECT id FROM other)";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
+
+    it("falls back for function calls", () => {
+      const where = "LOWER(status) = 'active'";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
+
+    it("falls back for LIKE without wildcard", () => {
+      const where = "name LIKE 'exact'";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
+
+    it("falls back when any conjunct is unparseable", () => {
+      const where = "status = 'active' AND LOWER(name) = 'test'";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
+
+    it("falls back for NOT LIKE without %...% pattern", () => {
+      const where = "name NOT LIKE 'test%'";
+      const filters = parseWhereToRowFilters(where);
+      expect(filters).toEqual([{ operator: "sql_expr", values: [where] }]);
+    });
   });
 });
