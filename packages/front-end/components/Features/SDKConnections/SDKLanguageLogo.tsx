@@ -84,6 +84,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     packageName: "@growthbook/growthbook-react",
     packageUrl: "https://www.npmjs.com/package/@growthbook/growthbook-react",
   },
+  roku: {
+    Icon: SiRoku,
+    color: "#4F01A3",
+    label: "Roku",
+    docs: "roku",
+    type: "frontend",
+    filters: ["browser"],
+    packageName: "growthbook-roku",
+    packageUrl: "https://www.npmjs.com/package/growthbook-roku",
+  },
   nodejs: {
     Icon: SiNodedotjs,
     color: "#339933",
@@ -214,16 +224,6 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["mobile"],
     packageName: "growthbook_sdk_flutter",
     packageUrl: "https://pub.dev/packages/growthbook_sdk_flutter",
-  },
-  roku: {
-    Icon: SiRoku,
-    color: "#4F01A3",
-    label: "Roku",
-    docs: "roku",
-    type: "nocode",
-    filters: ["browser"],
-    packageName: "growthbook-roku",
-    packageUrl: "https://www.npmjs.com/package/growthbook-roku",
   },
   "edge-cloudflare": {
     Icon: SiCloudflare,
