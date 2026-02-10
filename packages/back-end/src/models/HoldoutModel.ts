@@ -58,18 +58,22 @@ export class HoldoutModel extends BaseClass {
     // Check if one of the scheduled dates is in the past
     if (
       updates.scheduledStatusUpdates?.startAt &&
+      holdoutExperiment.status === "draft" &&
       new Date(updates.scheduledStatusUpdates.startAt) < now
     ) {
       throw new Error("Scheduled start date cannot be in the past");
     }
     if (
       updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      holdoutExperiment.status === "running" &&
+      !existing.analysisStartDate &&
       new Date(updates.scheduledStatusUpdates.startAnalysisPeriodAt) < now
     ) {
       throw new Error("Scheduled analysis start date cannot be in the past");
     }
     if (
       updates.scheduledStatusUpdates?.stopAt &&
+      holdoutExperiment.status !== "stopped" &&
       new Date(updates.scheduledStatusUpdates.stopAt) < now
     ) {
       throw new Error("Scheduled stop date cannot be in the past");
