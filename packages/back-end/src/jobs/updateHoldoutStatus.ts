@@ -104,9 +104,6 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
           newNextScheduledUpdateType = "startAnalysisPeriod";
           newNextScheduledUpdate =
             holdout.scheduledStatusUpdates.startAnalysisPeriodAt;
-        } else if (holdout.scheduledStatusUpdates?.stopAt) {
-          newNextScheduledUpdateType = "stop";
-          newNextScheduledUpdate = holdout.scheduledStatusUpdates.stopAt;
         }
 
         await context.models.holdout.update(holdout, {

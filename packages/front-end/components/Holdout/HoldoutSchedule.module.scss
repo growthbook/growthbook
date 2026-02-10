@@ -1,4 +1,4 @@
-@keyframes textA {
+@keyframes status {
   0%,
   40% {
     opacity: 1;
@@ -12,7 +12,7 @@
   }
 }
 
-@keyframes textB {
+@keyframes statusMessage {
   0%,
   40% {
     opacity: 0;
@@ -26,10 +26,10 @@
   }
 }
 
-.animateTextA {
-  animation: textA 7s ease-in-out infinite;
+.animateStatus {
+  animation: status 7s ease-in-out infinite;
 }
 
-.animateTextB {
-  animation: textB 7s ease-in-out infinite;
+.animateStatusMessage {
+  animation: statusMessage 7s ease-in-out infinite;
 }

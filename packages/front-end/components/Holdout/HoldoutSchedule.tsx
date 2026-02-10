@@ -140,7 +140,7 @@ export const HoldoutSchedule = ({
               position="relative"
             >
               <Box
-                className={styles.animateTextA}
+                className={styles.animateStatus}
                 inset="0"
                 position="absolute"
               >
@@ -149,7 +149,7 @@ export const HoldoutSchedule = ({
                 </Text>
               </Box>
               <Box
-                className={styles.animateTextB}
+                className={styles.animateStatusMessage}
                 inset="0"
                 position="absolute"
               >

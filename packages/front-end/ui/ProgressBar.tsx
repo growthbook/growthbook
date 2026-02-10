@@ -30,14 +30,18 @@ type ProgressBarProps = {
 export function ProgressBar({ segments }: ProgressBarProps) {
   const remainingWeight =
     100 - segments.reduce((acc, segment) => acc + segment.weight, 0);
-  if (remainingWeight > 0) {
-    segments.push({
-      id: "filler",
-      weight: remainingWeight,
-      completion: 0,
-      color: "slate",
-    });
-  }
+  const segmentsWithFiller =
+    remainingWeight > 0
+      ? [
+          ...segments,
+          {
+            id: "filler",
+            weight: remainingWeight,
+            completion: 0,
+            color: "slate" as const,
+          },
+        ]
+      : segments;
   return (
     <Flex
       wrap="nowrap"
@@ -46,13 +50,10 @@ export function ProgressBar({ segments }: ProgressBarProps) {
       overflow="hidden"
       my="4"
     >
-      {segments.map((segment, i) => {
+      {segmentsWithFiller.map((segment, i) => {
         const isFirst = i === 0;
-        const isLast = i === segments.length - 1;
-        const completionPct =
-          segment.completion <= 1
-            ? segment.completion
-            : segment.completion / 100;
+        const isLast = i === segmentsWithFiller.length - 1;
+        const completionPct = segment.completion / 100;
         const completedWidth = completionPct * 100;
         const remainingWidth = 100 - completedWidth;
 

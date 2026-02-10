@@ -163,13 +163,7 @@ export default function SetupTabOverview({
         {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
-              <Heading
-                color="text-high"
-                mb="0"
-                as="h4"
-                size="small"
-                weight="semibold"
-              >
+              <Heading color="text-high" mb="0" as="h4" size="small">
                 Holdout Schedule
               </Heading>
               <Flex align="center" gap="2">
@@ -219,13 +213,7 @@ export default function SetupTabOverview({
                 }}
               >
                 <Flex align="center" justify="between" className="text-dark">
-                  <Heading
-                    color="text-high"
-                    mb="0"
-                    as="h4"
-                    size="small"
-                    weight="semibold"
-                  >
+                  <Heading color="text-high" mb="0" as="h4" size="small">
                     Description
                   </Heading>
                   <Flex align="center" gap="2">
@@ -302,7 +290,7 @@ export default function SetupTabOverview({
         {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
-              <Heading color="text-high" as="h4" size="small" weight="semibold">
+              <Heading color="text-high" as="h4" size="small">
                 Hypothesis
               </Heading>
               {canEditExperiment && (
