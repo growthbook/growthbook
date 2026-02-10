@@ -16,6 +16,7 @@ import {
   SiElixir,
   SiFastly,
   SiNextdotjs,
+  SiRoku,
 } from "react-icons/si";
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
@@ -213,6 +214,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["mobile"],
     packageName: "growthbook_sdk_flutter",
     packageUrl: "https://pub.dev/packages/growthbook_sdk_flutter",
+  },
+  roku: {
+    Icon: SiRoku,
+    color: "#4F01A3",
+    label: "Roku",
+    docs: "roku",
+    type: "nocode",
+    filters: ["browser"],
+    packageName: "growthbook-roku",
+    packageUrl: "https://www.npmjs.com/package/growthbook-roku",
   },
   "edge-cloudflare": {
     Icon: SiCloudflare,
