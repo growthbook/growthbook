@@ -5,16 +5,20 @@ ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG PYPI_MIRROR_URL
 ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
+
+# Setup python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:${PATH}"
+
 # TODO: The preview environment is having network connectivity issues Feb 4, 2026.
 # Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
 # as there is probably no need to have this conditional logic long term.
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}"
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN \
   if [ "$UPGRADE_PIP" = "true" ]; then pip install --upgrade pip; fi \
   && if [ -n "$PYPI_MIRROR_URL" ]; then \
@@ -86,32 +90,30 @@ RUN \
   && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
-
 # Package the full app together
 FROM node:${NODE_MAJOR}-slim
 ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
-  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/bin/python3 && \
   npm install -g pnpm@10.28.2 && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
+  rm -rf /var/lib/apt/lists/* && \
+  ln -sf /usr/bin/python${PYTHON_MAJOR} /usr/local/bin/python3
 
-# Copy Python virtualenv from build stage and retarget its python symlink
-COPY --from=pybuild /opt/venv /opt/venv
-RUN ln -sf /usr/bin/python3 /opt/venv/bin/python3 && \
-  ln -sf /usr/bin/python3 /opt/venv/bin/python
+# Copy Python virtualenv from build stage
+ENV VIRTUAL_ENV=/opt/venv
+COPY --from=pybuild $VIRTUAL_ENV $VIRTUAL_ENV
 
 # Copy static config files (rarely change, good for cache)
 COPY ecosystem.config.js ./ecosystem.config.js
 COPY bin/yarn ./bin/yarn
 RUN chmod +x ./bin/yarn
 
-# Set PATH once for venv + yarn shim
-ENV PATH="/opt/venv/bin:/usr/local/src/app/bin:${PATH}"
+# Set PATH for python venv + yarn shim
+ENV PATH="$VIRTUAL_ENV/bin:/usr/local/src/app/bin:${PATH}"
 
-# Copy app code from node build stage (changes most frequently)
+# Copy app code from node build stage
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
@@ -121,7 +123,7 @@ RUN rm -f packages/front-end/tsconfig.json && \
     find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
     find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
-# Build metadata (changes every build, keep last)
+# Build metadata
 COPY buildinfo* ./buildinfo
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
