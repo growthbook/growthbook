@@ -391,24 +391,16 @@ function getConditionParts({
             style={{ minWidth: 200, maxWidth: 350 }}
           >
             {attributeInfo!.description && (
-              <>
-                <div className="text-muted font-weight-bold mb-1">
-                  Description:
-                </div>
-                <div className="mb-2">
-                  <Markdown className="mb-0">
-                    {attributeInfo!.description}
-                  </Markdown>
-                </div>
-              </>
+              <div className="mb-2">
+                <Markdown className="mb-0">
+                  {attributeInfo!.description}
+                </Markdown>
+              </div>
             )}
             {attributeInfo!.tags && attributeInfo!.tags.length > 0 && (
-              <>
-                <div className="text-muted font-weight-bold mb-1">Tags:</div>
-                <div>
-                  <SortedTags tags={attributeInfo!.tags} useFlex={true} />
-                </div>
-              </>
+              <div>
+                <SortedTags tags={attributeInfo!.tags} useFlex={true} />
+              </div>
             )}
           </div>
         }
