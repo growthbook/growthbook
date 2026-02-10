@@ -563,6 +563,7 @@ const sidebars = {
             { type: "doc", id: "lib/js", label: "Javascript" },
             { type: "doc", id: "lib/react", label: "React" },
             { type: "doc", id: "lib/vue", label: "Vue.js" },
+            { type: "doc", id: "lib/roku", label: "Roku" },
           ],
         },
         {
