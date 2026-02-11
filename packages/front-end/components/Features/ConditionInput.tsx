@@ -561,6 +561,11 @@ function ConditionAndGroupInput({
               if (value === "$savedGroups" || value === "$notSavedGroups") {
                 newConds[i]["operator"] =
                   value === "$savedGroups" ? "$in" : "$nin";
+                // Only preserve value when switching between saved group types
+                // Clear value when switching from a regular attribute to saved groups
+                if (field !== "$savedGroups" && field !== "$notSavedGroups") {
+                  newConds[i]["value"] = "";
+                }
                 setConds(newConds);
                 return;
               }
