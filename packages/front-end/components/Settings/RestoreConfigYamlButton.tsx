@@ -54,7 +54,7 @@ export default function RestoreConfigYamlButton({
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [parsed, setParsed] = useState(null);
+  const [parsed, setParsed] = useState<object | null>(null);
   const [diffHTML, setDiffHTML] = useState("");
 
   const { apiCall } = useAuth();

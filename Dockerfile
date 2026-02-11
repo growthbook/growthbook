@@ -1,17 +1,20 @@
 ARG PYTHON_MAJOR=3.11
-ARG NODE_MAJOR=20
+ARG NODE_MAJOR=24
 ARG PYPI_MIRROR_URL=""
+ARG UPGRADE_PIP="true"
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
 ARG PYPI_MIRROR_URL
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 # TODO: The preview environment is having network connectivity issues Feb 4, 2026. 
 # Revert https://github.com/growthbook/growthbook/pull/5231 once the preview build works without it
 # as there is probably no need to have this conditional logic long term.
 RUN \
-  if [ -n "$PYPI_MIRROR_URL" ]; then \
+  if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi \
+  && if [ -n "$PYPI_MIRROR_URL" ]; then \
     export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
     && export PIP_TRUSTED_HOST=$(echo "$PYPI_MIRROR_URL" | sed -e 's|^[^/]*//||' -e 's|/.*$||') \
     && pip3 install poetry==1.8.5 \
@@ -40,7 +43,7 @@ RUN apt-get update && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
   apt-get install -yqq nodejs && \
-  npm install -g pnpm@9.15.0 && \
+  npm install -g pnpm@10.28.2 node-gyp && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
@@ -58,6 +61,7 @@ COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 # Apply patches
 RUN pnpm postinstall
+
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
@@ -78,7 +82,8 @@ RUN \
   && find node_modules -type f -name "CHANGELOG*" -delete \
   && find node_modules -type f -name "LICENSE*" -delete \
   && find node_modules -type f -name "README*" -delete \
-  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} +
+  && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
+  && rm -f packages/stats/poetry.lock
 RUN pnpm postinstall
 
 
@@ -86,20 +91,19 @@ RUN pnpm postinstall
 FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 ARG PYPI_MIRROR_URL
+ARG UPGRADE_PIP
 WORKDIR /usr/local/src/app
-# TODO: Remove openssl upgrade once base image has version >3.5.4-1~deb13u2
-# Check with: `docker run --rm python:3.11-slim dpkg -l | grep openssl`
 RUN apt-get update && \
-  apt-get install --only-upgrade -y openssl && \
   apt-get install -y wget gnupg2 build-essential ca-certificates libkrb5-dev && \
   mkdir -p /etc/apt/keyrings && \
   wget -qO- https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
   apt-get update && \
   apt-get install -yqq nodejs && \
-  npm install -g pnpm@9.15.0 && \
+  npm install -g pnpm@10.28.2 && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+RUN if [ "$UPGRADE_PIP" = "true" ]; then pip3 install --upgrade pip; fi
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
 RUN if [ -n "$PYPI_MIRROR_URL" ]; then \
       export PIP_INDEX_URL="$PYPI_MIRROR_URL" \
