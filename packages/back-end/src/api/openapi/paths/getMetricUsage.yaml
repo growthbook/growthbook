@@ -1,0 +1,35 @@
+summary: Get metric usage across experiments
+description: |
+  Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric
+  and some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as
+  usage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin
+  access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+  all experiments. 
+tags:
+  - metrics
+operationId: getMetricUsage
+parameters:
+  - name: ids
+    in: query
+    required: true
+    description: List of comma-separated metric IDs (both fact and legacy) to get usage for, e.g. ids=met_123,fact_456
+    schema:
+      type: string
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl "https://api.growthbook.io/api/v1/usage/metrics?ids=met_123,fact_456" \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - metricUsage
+          properties:
+            metricUsage:
+              type: array
+              items:
+                $ref: "../schemas/MetricUsage.yaml"
