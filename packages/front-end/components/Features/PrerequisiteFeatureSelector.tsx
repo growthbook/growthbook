@@ -315,19 +315,6 @@ export default function PrerequisiteFeatureSelector({
           </div>
         );
       }}
-      formatGroupLabel={({ label }) => {
-        return (
-          <div
-            className={clsx("pt-2 pb-1 text-muted", {
-              "border-top":
-                label === "In other projects" &&
-                featureOptionsInProject.length > 0,
-            })}
-          >
-            {label}
-          </div>
-        );
-      }}
     />
   );
 }

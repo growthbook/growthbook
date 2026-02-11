@@ -212,10 +212,8 @@ const SelectField: FC<SelectFieldProps> = ({
 
   const [inputValue, setInputValue] = useState("");
 
-  const fieldProps = otherProps as Omit<
-    FieldProps,
-    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
-  >;
+  // eslint-disable-next-line
+  const fieldProps = otherProps as any;
 
   const selectRef = useRef(null);
 

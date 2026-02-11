@@ -524,7 +524,7 @@ function ConditionAndGroupInput({
               props.allowNestedSavedGroups
                 ? [
                     {
-                      label: "User attributes",
+                      label: "Attributes",
                       options: attributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
@@ -535,48 +535,23 @@ function ConditionAndGroupInput({
                       label: "Saved Groups",
                       options: [
                         {
-                          label: "In the saved groups",
+                          label: "in saved groups",
                           value: "$savedGroups",
                         },
                         {
-                          label: "Not in the saved groups",
+                          label: "not in saved groups",
                           value: "$notSavedGroups",
                         },
                       ],
                     },
                   ]
-                : [
-                    ...attributeSchema.map((s) => ({
-                      label: s.property,
-                      value: s.property,
-                      tooltip: s.description || "",
-                    })),
-                    ...(field === "$savedGroups" || field === "$notSavedGroups"
-                      ? [
-                          {
-                            label: "In the saved groups",
-                            value: "$savedGroups",
-                          },
-                          {
-                            label: "Not in the saved groups",
-                            value: "$notSavedGroups",
-                          },
-                        ]
-                      : []),
-                  ]
+                : attributeSchema.map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    tooltip: s.description || "",
+                  }))
             }
             formatOptionLabel={(o) => <span title={o.tooltip}>{o.label}</span>}
-            formatGroupLabel={({ label }) => {
-              return (
-                <div
-                  className={clsx("pt-2 pb-1 text-muted", {
-                    "border-top": label === "Saved Groups",
-                  })}
-                >
-                  {label}
-                </div>
-              );
-            }}
             name="field"
             onChange={(value) => {
               const newConds = [...conds];
