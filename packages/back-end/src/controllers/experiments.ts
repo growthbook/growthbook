@@ -1890,7 +1890,8 @@ export async function postExperimentStatus(
   if (experiment.type === "holdout") {
     res.status(400).json({
       status: 400,
-      message: "Cannot edit the status of a holdout through this endpoint",
+      message:
+        "Cannot edit the status of a holdout through this endpoint. Use the /holdout/:id/edit-status endpoint instead.",
     });
     return;
   }
