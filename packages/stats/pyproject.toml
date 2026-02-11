@@ -1,57 +1,69 @@
-[tool]
-[tool.poetry]
+[project]
 name = "gbstats"
 version = "0.8.0"
-homepage = "https://github.com/growthbook/growthbook/tree/main/packages/stats"
 description = "Stats engine for GrowthBook, the open source feature flagging and A/B testing platform."
-authors = ["Jeremy Dorn <jeremy@growthbook.io>"]
+authors = [{ name = "Jeremy Dorn", email = "jeremy@growthbook.io" }]
+requires-python = ">=3.9.4,<4.0"
 readme = "README.md"
-license =  "MIT"
-classifiers=[
-    'Development Status :: 2 - Pre-Alpha',
-    'Intended Audience :: Developers',
-    'License :: OSI Approved :: MIT License',
-    'Natural Language :: English',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
+license = "MIT"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
-packages = [
-    { include = "gbstats" },
-    { include = "tests", format = "sdist" },
+dependencies = [
+    "pandas>=2.1.0,<3",
+    "scipy>=1.10.1,<2",
+    "numpy>=1.23.4,<2",
+    "nbformat>=5.10.0,<6",
+    "pydantic>=2.5.3,<3",
+    "packaging>=20.0.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9.4,<4.0"
-pandas = "^2.1.0"
-scipy = "^1.10.1"
-numpy = "^1.23.4"
-nbformat = "^5.10.0"
-pydantic = "^2.5.3"
-packaging = ">=20.0.0"
+[project.urls]
+Homepage = "https://github.com/growthbook/growthbook/tree/main/packages/stats"
 
-[tool.poetry.group.dev.dependencies]
-certifi = "2024.7.4"
-tox = "^3.20.1"
-virtualenv = "^20.2.2"
-twine = "^3.3.0"
-toml = "^0.10.2"
-black = "24.3.0"
-isort = "5.6.4"
-flake8 = "3.8.4"
-flake8-docstrings = "^1.6.0"
-pytest = "6.2.5"
-pytest-cov = "2.10.1"
-pandas-stubs = "^2.0.1.230501"
-pyright = "^1.1.345"
-jupyter = "1.1.1"
-docutils = "!=0.21"
-cryptography = "^44.0.1"
+[dependency-groups]
+dev = [
+    "certifi==2024.7.4",
+    "tox>=3.20.1,<4",
+    "virtualenv>=20.2.2,<21",
+    "twine>=3.3.0,<4",
+    "toml>=0.10.2,<0.11",
+    "black==24.3.0",
+    "isort==5.6.4",
+    "flake8==3.8.4",
+    "flake8-docstrings>=1.6.0,<2",
+    "pytest==6.2.5",
+    "pytest-cov==2.10.1",
+    "pandas-stubs>=2.0.1.230501,<3",
+    "pyright>=1.1.345,<2",
+    "jupyter==1.1.1",
+    "docutils!=0.21",
+    "cryptography>=44.0.1,<45",
+]
+
+[tool.uv]
+
+[tool.uv.build-backend]
+module-name = [
+    "gbstats",
+    "tests",
+]
+module-root = ""
+wheel-exclude = ["tests"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
 
 [tool.black]
 line-length = 88
