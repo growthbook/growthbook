@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -50,7 +51,7 @@ export default function ExplorerSideBar() {
   return (
     <Flex direction="column" gap="4">
       <Flex justify="between" align="center" height="32px" py="2">
-        <Text size="3" weight="medium" mt="2">
+        <Text weight="medium" mt="2">
           Configuration
         </Text>
         <Button size="sm">Save to Dashboard</Button>
@@ -66,7 +67,7 @@ export default function ExplorerSideBar() {
           backgroundColor: "var(--color-panel-translucent)",
         }}
       >
-        <Text size="2" weight="medium">Explorer Type</Text>
+        <Text weight="medium">Explorer Type</Text>
         <SelectField
           value={activeType}
           onChange={handleTabChange}
@@ -78,10 +79,11 @@ export default function ExplorerSideBar() {
           ]}
         />
 
-
         {activeType === "fact_table" && factTableDataset && (
           <>
-            <Text size="2" weight="medium" mt="2">Fact Table</Text>
+            <Text weight="medium" mt="2">
+              Fact Table
+            </Text>
             <SelectField
               value={factTableDataset.factTableId ?? ""}
               onChange={(factTableId) => {
