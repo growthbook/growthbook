@@ -94,13 +94,22 @@ export default function SetupTabOverview({
     new Date(experiment.phases[0].dateStarted) &&
     holdoutExperiments.length > 0 &&
     holdoutExperiments.some((e) => e.status !== "draft");
-  const { hasCommercialFeature } = useUser();
-  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const canEditHoldoutSchedule =
+    isHoldout && holdout && canEditExperiment && editHoldoutSchedule;
   const holdoutHasSchedule =
     isHoldout &&
-    Object.values(holdout?.statusUpdateSchedule ?? {}).some(
+    holdout &&
+    Object.values(holdout.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
+  const showAddHoldoutSchedule =
+    canEditHoldoutSchedule &&
+    !holdoutHasSchedule &&
+    experiment.status !== "stopped" &&
+    !experiment.archived;
+
+  const { hasCommercialFeature } = useUser();
+  const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   return (
     <>
@@ -136,12 +145,7 @@ export default function SetupTabOverview({
       <div>
         <Flex justify="between" align="baseline" mb="3">
           <h2>Overview</h2>
-          {canEditExperiment &&
-          isHoldout &&
-          editHoldoutSchedule &&
-          !holdoutHasSchedule &&
-          experiment.status !== "stopped" &&
-          !experiment.archived ? (
+          {showAddHoldoutSchedule ? (
             <Button variant="ghost" onClick={() => editHoldoutSchedule()}>
               + Add Schedule
             </Button>
@@ -167,7 +171,7 @@ export default function SetupTabOverview({
                 Holdout Schedule
               </Heading>
               <Flex align="center" gap="2">
-                {canEditExperiment ? (
+                {canEditHoldoutSchedule ? (
                   <>
                     <DeleteButton
                       text="Delete"
