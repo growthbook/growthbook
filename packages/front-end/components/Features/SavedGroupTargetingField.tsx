@@ -147,7 +147,6 @@ export default function SavedGroupTargetingField({
                 }
                 attributeSlot={
                   <SelectField
-                    useMultilineLabels={true}
                     value={v.match}
                     onChange={(match) => {
                       const newValue = [...value];
