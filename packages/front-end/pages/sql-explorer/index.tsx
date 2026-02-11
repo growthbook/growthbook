@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { SavedQuery } from "shared/validators";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -10,6 +12,8 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 export default function SqlExplorer() {
   const { datasources, project } = useDefinitions();
@@ -50,9 +54,9 @@ export default function SqlExplorer() {
   return (
     <div className="container pagecontents">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>SQL Explorer</h1>
+        <h1>Custom SQL Reports</h1>
         {hasDatasource && canCreateSavedQueries && (
-          <Button onClick={() => setShowModal(true)}>New SQL Query</Button>
+          <Button onClick={() => setShowModal(true)}>New SQL Report</Button>
         )}
       </div>
 
@@ -68,13 +72,29 @@ export default function SqlExplorer() {
         </PremiumCallout>
       </div>
 
+      <div className="mb-2">
+        <Callout status="info">
+          <Flex direction="row" gap="2">
+            <Text weight="semibold">New Feature!</Text>
+            <Text>
+              Use our{" "}
+              <Link href="/product-analytics/explore/new">
+                Product Analytics Explore
+              </Link>{" "}
+              tool to create visualizations from your data without writing any
+              SQL.
+            </Text>
+          </Flex>
+        </Callout>
+      </div>
+
       {!hasSavedQueries ? (
         <>
           <div className="appbox p-5 text-center">
             <h2>Explore Your Data</h2>
             <p>
-              Write SQL, view results, create visualizations, and share with
-              your team.
+              Write custom SQL queries, create visualizations from the results,
+              and optionally add them to your Product Analytics Dashboards.
             </p>
             <div className="mt-3">
               {!hasDatasource ? (
@@ -99,8 +119,8 @@ export default function SqlExplorer() {
         <div>
           <div className="mb-3">
             <p className="text-muted">
-              Write SQL, view results, create visualizations, and share with
-              your team.
+              Write custom SQL queries, create visualizations from the results,
+              and optionally add them to your Product Analytics Dashboards.
             </p>
           </div>
           <SavedQueriesList savedQueries={savedQueries} mutate={mutate} />
