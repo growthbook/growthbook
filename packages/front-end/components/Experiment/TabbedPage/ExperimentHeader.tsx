@@ -402,7 +402,10 @@ export default function ExperimentHeader({
     canEditExperiment &&
     editHoldoutSchedule &&
     experiment.status !== "stopped" &&
-    !experiment.archived &&
+    !experiment.archived;
+
+  const holdoutHasSchedule =
+    isHoldout &&
     Object.values(holdout?.scheduledStatusUpdates ?? {}).some(
       (value) => value !== null,
     );
@@ -858,7 +861,7 @@ export default function ExperimentHeader({
                       setDropdownOpen(false);
                     }}
                   >
-                    Edit schedule
+                    {holdoutHasSchedule ? "Edit " : "Add "} Schedule
                   </DropdownMenuItem>
                 )}
                 {canEditExperiment &&
