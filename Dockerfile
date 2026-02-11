@@ -127,6 +127,16 @@ RUN rm -f packages/front-end/tsconfig.json && \
     find packages/front-end -maxdepth 1 -name "*.ts" -delete && \
     find packages/front-end -maxdepth 1 -name "*.tsx" -delete
 
+# Verify runtime entrypoints are installed and executable
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN errors=0; \
+    command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 is not installed or not in PATH!"; errors=$((errors+1)); }; \
+    command -v ddtrace-run >/dev/null 2>&1 || { echo "ERROR: ddtrace-run is not installed or not in PATH!"; errors=$((errors+1)); }; \
+    # pm2-runtime is not globally installed — it lives in node_modules/.bin
+    # so we check the file directly instead of using command -v
+    test -x node_modules/.bin/pm2-runtime || { echo "ERROR: pm2-runtime is not installed!"; errors=$((errors+1)); }; \
+    if [ "$errors" -gt 0 ]; then echo "FATAL: $errors runtime entrypoint(s) missing — see errors above" && exit 1; fi
+
 # Build metadata
 COPY buildinfo* ./buildinfo
 ARG DD_GIT_COMMIT_SHA=""
