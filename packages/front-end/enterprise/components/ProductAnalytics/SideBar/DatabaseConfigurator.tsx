@@ -109,19 +109,18 @@ export default function DatabaseConfigurator({
       );
       setTableOptions(newTableOptions);
     }
-    //TODO: Need to support a table not having an info schema, or that info schema being stale
   }, [informationSchemaResponse]);
 
   useEffect(() => {
     if (tableDataResponse && tableDataResponse.table) {
       setTableData(tableDataResponse.table);
 
-      // Build columnTypes - normalize column data types to our enum
       const columnTypes: Record<
         string,
         "string" | "number" | "date" | "boolean" | "other"
       > = {};
       tableDataResponse.table.columns.forEach((column) => {
+        // Map database data types to our enums
         columnTypes[column.columnName] = mapDatabaseTypeToEnum(column.dataType);
       });
 
@@ -135,7 +134,6 @@ export default function DatabaseConfigurator({
           timestampColumn: timestampColumn || "",
         },
       }));
-      //MKTODO: Need to support a table not having an info schema, or that info schema being stale, or just not having columns
     }
   }, [tableDataResponse, setDraftExploreState]);
 
@@ -178,7 +176,13 @@ export default function DatabaseConfigurator({
           onChange={(datasource) =>
             setDraftExploreState((prev) => ({
               ...prev,
-              dataset: { ...dataset, datasource },
+              dataset: {
+                ...dataset,
+                datasource,
+                table: "",
+                path: "",
+                timestampColumn: "",
+              },
             }))
           }
           options={datasources.map((d) => ({
