@@ -17,6 +17,14 @@ const BaseClass = MakeModelClass({
     deleteEvent: "holdout.delete",
   },
   globallyUniqueIds: false,
+  additionalIndexes: [
+    {
+      fields: {
+        organization: 1,
+        nextScheduledUpdate: 1,
+      },
+    },
+  ],
 });
 
 export class HoldoutModel extends BaseClass {
