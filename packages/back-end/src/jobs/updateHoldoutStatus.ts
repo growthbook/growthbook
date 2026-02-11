@@ -76,9 +76,21 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
     holdout.experimentId,
   );
 
-  if (!holdoutExperiment) return;
-  if (holdoutExperiment.archived) return;
-  if (holdoutExperiment.status === "stopped") return;
+  if (!holdoutExperiment) {
+    throw new Error("Holdout experiment not found: " + holdout.id);
+  }
+  if (holdoutExperiment.archived) {
+    logger.info(
+      "Skipping status update: Holdout experiment is archived: " + holdout.id,
+    );
+    return;
+  }
+  if (holdoutExperiment.status === "stopped") {
+    logger.info(
+      "Skipping status update: Holdout experiment is stopped: " + holdout.id,
+    );
+    return;
+  }
 
   const now = new Date();
   const phases = [...holdoutExperiment.phases] as ExperimentPhase[];
