@@ -105,7 +105,6 @@
     "mssql": "^12.2.0",
     "mysql2": "^3.11.3",
     "node-fetch": "^2.6.1",
-    "node-gyp": "^12.2.0",
     "nodemailer": "^7.0.11",
     "number-format.js": "^2.0.9",
     "nunjucks": "^3.2.4",
@@ -172,6 +171,7 @@
     "jest": "^27.1.1",
     "minimist": "^1.2.8",
     "mongodb-memory-server": "^9.2.0",
+    "node-gyp": "^12.2.0",
     "rimraf": "^3.0.2",
     "supertest": "^7.0.0",
     "typescript": "5.7.3"
