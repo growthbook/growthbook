@@ -403,6 +403,20 @@ export interface paths {
     /** Delete a single customField */
     delete: operations["deleteCustomField"];
   };
+  "/metric-groups/{id}": {
+    /** Get a single metricGroup */
+    get: operations["getMetricGroup"];
+    /** Update a single metricGroup */
+    put: operations["updateMetricGroup"];
+    /** Delete a single metricGroup */
+    delete: operations["deleteMetricGroup"];
+  };
+  "/metric-groups": {
+    /** Get all metricGroups */
+    get: operations["listMetricGroups"];
+    /** Create a single metricGroup */
+    post: operations["createMetricGroup"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -597,6 +611,21 @@ export interface components {
       /** @enum {string} */
       section: "feature" | "experiment";
       active?: boolean;
+    };
+    MetricGroup: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      owner: string;
+      name: string;
+      description: string;
+      tags: (string)[];
+      projects: (string)[];
+      metrics: (string)[];
+      datasource: string;
+      archived: boolean;
     };
     PaginationFields: {
       limit: number;
@@ -15912,6 +15941,161 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  getMetricGroup: {
+    /** Get a single metricGroup */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              owner: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              metrics: (string)[];
+              datasource: string;
+              archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateMetricGroup: {
+    /** Update a single metricGroup */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          tags?: (string)[];
+          projects?: (string)[];
+          metrics?: (string)[];
+          datasource?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              owner: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              metrics: (string)[];
+              datasource: string;
+              archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteMetricGroup: {
+    /** Delete a single metricGroup */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listMetricGroups: {
+    /** Get all metricGroups */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroups: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                owner: string;
+                name: string;
+                description: string;
+                tags: (string)[];
+                projects: (string)[];
+                metrics: (string)[];
+                datasource: string;
+                archived: boolean;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createMetricGroup: {
+    /** Create a single metricGroup */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description: string;
+          tags?: (string)[];
+          projects: (string)[];
+          metrics: (string)[];
+          datasource: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              owner: string;
+              name: string;
+              description: string;
+              tags: (string)[];
+              projects: (string)[];
+              metrics: (string)[];
+              datasource: string;
+              archived: boolean;
+            };
           };
         };
       };
