@@ -1038,7 +1038,7 @@ export function jsonToConds(
         const v = notObj["$savedGroups"];
         if (v && Array.isArray(v) && v.every((id) => typeof id === "string")) {
           conds.push({
-            field: "$savedGroups",
+            field: "$notSavedGroups",
             operator: "$nin",
             value: v.join(", "),
           });
@@ -1268,18 +1268,20 @@ export function condToJson(
     const obj = {};
     cond.forEach(({ field, operator, value }) => {
       // Special handling for $savedGroups since it's not a real attribute
-      if (field === "$savedGroups") {
+      if (field === "$savedGroups" || field === "$notSavedGroups") {
         const ids = value
           .split(",")
           .map((x) => x.trim())
           .filter((x) => !!x);
         if (!ids.length) return;
 
-        if (operator === "$nin") {
+        // $notSavedGroups is a shortcut for $not: { $savedGroups: [...] }
+        if (field === "$notSavedGroups") {
           obj["$not"] = obj["$not"] || {};
           obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"] || [];
           obj["$not"]["$savedGroups"] = obj["$not"]["$savedGroups"].concat(ids);
-        } else if (operator === "$in") {
+        } else {
+          // field === "$savedGroups"
           obj["$savedGroups"] = obj["$savedGroups"] || [];
           obj["$savedGroups"] = obj["$savedGroups"].concat(ids);
         }

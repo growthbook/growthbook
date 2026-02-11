@@ -171,7 +171,7 @@ export function ConditionRow({
         <Box
           style={{
             minWidth: 300,
-            flex: "2 1 0",
+            flex: operatorSlot !== undefined ? "2 1 0" : "3 1 0",
           }}
         >
           {valueSlot}

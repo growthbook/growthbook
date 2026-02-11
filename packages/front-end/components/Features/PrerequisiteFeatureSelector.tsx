@@ -96,7 +96,6 @@ export default function PrerequisiteFeatureSelector({
 
   return (
     <SelectField
-      useMultilineLabels={true}
       placeholder="Select feature"
       options={groupedFeatureOptions}
       value={value}
