@@ -20,7 +20,6 @@ const BaseClass = MakeModelClass({
   additionalIndexes: [
     {
       fields: {
-        organization: 1,
         nextScheduledUpdate: 1,
       },
     },
@@ -61,28 +60,31 @@ export class HoldoutModel extends BaseClass {
       throw new Error("Holdout experiment not found");
     }
 
+    const { startAt, startAnalysisPeriodAt, stopAt } =
+      updates.scheduledStatusUpdates ?? {};
+
     const now = new Date();
 
     // Check if one of the scheduled dates is in the past
     if (
-      updates.scheduledStatusUpdates?.startAt &&
+      startAt &&
       holdoutExperiment.status === "draft" &&
-      new Date(updates.scheduledStatusUpdates.startAt) < now
+      new Date(startAt) < now
     ) {
       throw new Error("Scheduled start date cannot be in the past");
     }
     if (
-      updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      startAnalysisPeriodAt &&
       holdoutExperiment.status === "running" &&
       !existing.analysisStartDate &&
-      new Date(updates.scheduledStatusUpdates.startAnalysisPeriodAt) < now
+      new Date(startAnalysisPeriodAt) < now
     ) {
       throw new Error("Scheduled analysis start date cannot be in the past");
     }
     if (
-      updates.scheduledStatusUpdates?.stopAt &&
+      stopAt &&
       holdoutExperiment.status !== "stopped" &&
-      new Date(updates.scheduledStatusUpdates.stopAt) < now
+      new Date(stopAt) < now
     ) {
       throw new Error("Scheduled stop date cannot be in the past");
     }
@@ -90,9 +92,8 @@ export class HoldoutModel extends BaseClass {
     // Check date dependencies
     if (
       holdoutExperiment.status === "draft" &&
-      updates.scheduledStatusUpdates?.stopAt &&
-      (!updates.scheduledStatusUpdates?.startAt ||
-        !updates.scheduledStatusUpdates?.startAnalysisPeriodAt)
+      stopAt &&
+      (!startAt || !startAnalysisPeriodAt)
     ) {
       throw new Error(
         "To set a stop date, you must also set a start date and an analysis start date",
@@ -100,8 +101,8 @@ export class HoldoutModel extends BaseClass {
     }
     if (
       holdoutExperiment.status === "draft" &&
-      updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
-      !updates.scheduledStatusUpdates?.startAt
+      startAnalysisPeriodAt &&
+      !startAt
     ) {
       throw new Error(
         "To set an analysis start date, you must first set a start date",
@@ -111,8 +112,8 @@ export class HoldoutModel extends BaseClass {
     if (
       holdoutExperiment.status === "running" &&
       !existing.analysisStartDate &&
-      updates.scheduledStatusUpdates?.stopAt &&
-      !updates.scheduledStatusUpdates?.startAnalysisPeriodAt
+      stopAt &&
+      !startAnalysisPeriodAt
     ) {
       throw new Error(
         "To set a stop date, you must first set an analysis start date",
@@ -121,21 +122,18 @@ export class HoldoutModel extends BaseClass {
 
     // Check if the dates are consecutive
     const dateError =
-      (updates.scheduledStatusUpdates?.startAt &&
-        updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
+      (startAt &&
+        startAnalysisPeriodAt &&
         holdoutExperiment.status === "draft" &&
-        updates.scheduledStatusUpdates?.startAt >
-          updates.scheduledStatusUpdates?.startAnalysisPeriodAt) ||
-      (updates.scheduledStatusUpdates?.startAt &&
-        updates.scheduledStatusUpdates?.stopAt &&
+        startAt > startAnalysisPeriodAt) ||
+      (startAt &&
+        stopAt &&
         holdoutExperiment.status === "draft" &&
-        updates.scheduledStatusUpdates?.startAt >
-          updates.scheduledStatusUpdates?.stopAt) ||
-      (updates.scheduledStatusUpdates?.startAnalysisPeriodAt &&
-        updates.scheduledStatusUpdates?.stopAt &&
+        startAt > stopAt) ||
+      (startAnalysisPeriodAt &&
+        stopAt &&
         !existing.analysisStartDate &&
-        updates.scheduledStatusUpdates?.startAnalysisPeriodAt >
-          updates.scheduledStatusUpdates?.stopAt);
+        startAnalysisPeriodAt > stopAt);
     if (dateError) {
       throw new Error("Scheduled dates must be consecutive");
     }
