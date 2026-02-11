@@ -45,6 +45,7 @@ export function ProgressBar({ segments }: ProgressBarProps) {
       : segments;
   return (
     <Flex
+      className={styles.progressBarContainer}
       wrap="nowrap"
       height="24px"
       width="100%"
@@ -53,8 +54,6 @@ export function ProgressBar({ segments }: ProgressBarProps) {
       my="4"
     >
       {segmentsWithFiller.map((segment, i) => {
-        const isFirst = i === 0;
-        const isLast = i === segmentsWithFiller.length - 1;
         const completionPct = segment.completion;
         const remainingWidth = 100 - segment.completion;
 
@@ -81,6 +80,7 @@ export function ProgressBar({ segments }: ProgressBarProps) {
           >
             <Flex
               key={segment.id}
+              className={styles.segmentWrapper}
               wrap="nowrap"
               style={segmentStyle}
               flexShrink="0"
@@ -91,18 +91,6 @@ export function ProgressBar({ segments }: ProgressBarProps) {
                   height="100%"
                   style={{
                     width: `${completionPct}%`,
-                    borderRadius:
-                      remainingWidth === 0
-                        ? isFirst && isLast
-                          ? "4px"
-                          : isFirst
-                            ? "4px 0 0 4px"
-                            : isLast
-                              ? "0 4px 4px 0"
-                              : "0"
-                        : isFirst
-                          ? "4px 0 0 4px"
-                          : "0",
                     backgroundColor: completedColor,
                   }}
                   id={`${segment.id}-completed`}
@@ -114,20 +102,8 @@ export function ProgressBar({ segments }: ProgressBarProps) {
                   height="100%"
                   width={`${remainingWidth}%`}
                   style={{
-                    borderRadius:
-                      completionPct === 0
-                        ? isFirst && isLast
-                          ? "4px"
-                          : isFirst
-                            ? "4px 0 0 4px"
-                            : isLast
-                              ? "0 4px 4px 0"
-                              : "0"
-                        : isLast
-                          ? "0 4px 4px 0"
-                          : "0",
                     backgroundColor:
-                      isLast && remainingWeight > 0
+                      i === segmentsWithFiller.length - 1 && remainingWeight > 0
                         ? "var(--slate-a2)"
                         : inProgressColor,
                     borderRight: segment.endBorder
