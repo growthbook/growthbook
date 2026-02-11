@@ -1,5 +1,5 @@
 ARG PYTHON_MAJOR=3.11
-ARG NODE_MAJOR=20
+ARG NODE_MAJOR=24
 ARG PYPI_MIRROR_URL=""
 ARG UPGRADE_PIP="true"
 
@@ -48,7 +48,7 @@ WORKDIR /usr/local/src/app
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
-  npm install -g pnpm@10.28.2 && \
+  npm install -g pnpm@10.28.2 node-gyp && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Fetch packages into pnpm store
@@ -69,6 +69,7 @@ COPY packages/shared/package.json ./packages/shared/package.json
 RUN pnpm install --frozen-lockfile --offline
 # Apply patches
 RUN pnpm postinstall
+
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
