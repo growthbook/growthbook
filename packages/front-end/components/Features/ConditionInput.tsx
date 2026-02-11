@@ -644,7 +644,6 @@ function ConditionAndGroupInput({
               key={i}
               prefixSlot={<ConditionRowLabel label={i === 0 ? "IF" : "AND"} />}
               attributeSlot={fieldSelector}
-              operatorSlot={undefined}
               valueSlot={
                 <MultiSelectField
                   value={ids}
