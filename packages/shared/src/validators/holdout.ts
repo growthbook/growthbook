@@ -28,6 +28,8 @@ export const holdoutValidator = z
     environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
     scheduledStatusUpdates: scheduledUpdatesValidator.optional(),
+    // May be undefined for holdouts created before nextScheduledUpdate was added
+    // Set to null when the schedule is complete or deleted
     nextScheduledUpdate: z.date().optional().nullable(),
     nextScheduledUpdateType: z
       .enum(["start", "startAnalysisPeriod", "stop"])
