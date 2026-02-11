@@ -1267,7 +1267,7 @@ export function condToJson(
   conds.forEach((cond) => {
     const obj = {};
     cond.forEach(({ field, operator, value }) => {
-      // Special handling for $savedGroups since it's not a real attribute
+      // Special handling for $savedGroups, $notSavedGroups since they're not real attributes
       if (field === "$savedGroups" || field === "$notSavedGroups") {
         const ids = value
           .split(",")
