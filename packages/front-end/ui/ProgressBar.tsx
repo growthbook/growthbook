@@ -2,6 +2,7 @@ import * as React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import { RadixColor } from "./HelperText";
+import styles from "./ProgressBar.module.scss";
 
 export type Segment = {
   id: string;
@@ -45,7 +46,8 @@ export function ProgressBar({ segments }: ProgressBarProps) {
   return (
     <Flex
       wrap="nowrap"
-      className="h-2 w-full rounded-full bg-gray-200"
+      height="24px"
+      width="100%"
       style={{ height: "24px", borderRadius: "4px" }}
       overflow="hidden"
       my="4"
@@ -53,9 +55,8 @@ export function ProgressBar({ segments }: ProgressBarProps) {
       {segmentsWithFiller.map((segment, i) => {
         const isFirst = i === 0;
         const isLast = i === segmentsWithFiller.length - 1;
-        const completionPct = segment.completion / 100;
-        const completedWidth = completionPct * 100;
-        const remainingWidth = 100 - completedWidth;
+        const completionPct = segment.completion;
+        const remainingWidth = 100 - segment.completion;
 
         const inProgressColor =
           segment.color === "disabled"
@@ -79,17 +80,17 @@ export function ProgressBar({ segments }: ProgressBarProps) {
             key={i}
           >
             <Flex
-              key={i}
+              key={segment.id}
               wrap="nowrap"
-              className="shrink-0 transition-all"
               style={segmentStyle}
+              flexShrink="0"
               overflow="hidden"
             >
-              {completedWidth > 0 && (
+              {completionPct > 0 && (
                 <Box
-                  className="h-full transition-all"
+                  height="100%"
                   style={{
-                    width: `${completedWidth}%`,
+                    width: `${completionPct}%`,
                     borderRadius:
                       remainingWidth === 0
                         ? isFirst && isLast
@@ -109,11 +110,12 @@ export function ProgressBar({ segments }: ProgressBarProps) {
               )}
               {remainingWidth > 0 && (
                 <Box
-                  className="h-full progress-bar-striped transition-all"
+                  className={styles.progressBarStriped}
+                  height="100%"
+                  width={`${remainingWidth}%`}
                   style={{
-                    width: `${remainingWidth}%`,
                     borderRadius:
-                      completedWidth === 0
+                      completionPct === 0
                         ? isFirst && isLast
                           ? "4px"
                           : isFirst

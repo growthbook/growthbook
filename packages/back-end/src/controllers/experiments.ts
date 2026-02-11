@@ -2064,7 +2064,8 @@ export async function postExperimentStop(
   if (experiment.type === "holdout") {
     res.status(400).json({
       status: 400,
-      message: "Cannot stop a holdout through this endpoint",
+      message:
+        "Cannot stop a holdout through this endpoint. Use the /holdout/:id/edit-status endpoint instead.",
     });
     return;
   }
