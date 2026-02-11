@@ -175,7 +175,7 @@ export function ConditionRow({
               operatorSlot !== undefined
                 ? "2 1 0"
                 : // `2 1 0` would have been grid-aligned, but we need more space for saved group labels ($savedGroups, $notSavedGroups)
-                  "1.67 1 0",
+                  "1.5 1 0",
           }}
         >
           {valueSlot}

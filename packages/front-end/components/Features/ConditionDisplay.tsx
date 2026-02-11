@@ -67,7 +67,7 @@ function operatorToText({
     case "$nini":
       return `is none of (case insensitive)`;
     case "$inGroup":
-      return `${isSavedGroupField ? "user " : ""}is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
+      return `${isSavedGroupField ? "user " : ""}is in ${hasMultipleSavedGroups ? "all" : "the"} saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
       return `${isSavedGroupField ? "user " : ""}is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$true":
