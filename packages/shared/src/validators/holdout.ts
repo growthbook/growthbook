@@ -12,10 +12,6 @@ const statusUpdateScheduleValidator = z.object({
   stopAt: z.date().optional(),
 });
 
-export type HoldoutStatusUpdateSchedule = z.infer<
-  typeof statusUpdateScheduleValidator
->;
-
 const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "startAnalysisPeriod", "stop"]),
   date: z.date(),
@@ -38,8 +34,9 @@ export const holdoutValidator = z
     linkedFeatures: z.record(z.string(), holdoutLinkedItemValidator),
     environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
-    statusUpdateSchedule: statusUpdateScheduleValidator.optional(),
-    // May be undefined for holdouts created before nextScheduledStatusUpdate was added
+    // May be undefined for holdouts created before scheduling was added
+    // Set to null when the schedule is deleted
+    statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
     // Set to null when the schedule is complete or deleted
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()

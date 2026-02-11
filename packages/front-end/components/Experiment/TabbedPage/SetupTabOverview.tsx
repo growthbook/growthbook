@@ -178,9 +178,16 @@ export default function SetupTabOverview({
                       displayName="Schedule"
                       deleteMessage="Deleting the schedule will remove the automatic transition of the Holdout from start, to analysis, to stopped. Manual intervention will be required for each transition if no schedule is set."
                       onClick={async () => {
-                        await apiCall(`/holdout/${holdout.id}/schedule`, {
-                          method: "DELETE",
-                        });
+                        await apiCall<HoldoutInterfaceStringDates>(
+                          `/holdout/${holdout.id}`,
+                          {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              statusUpdateSchedule: null,
+                              nextScheduledStatusUpdate: null,
+                            }),
+                          },
+                        );
                         mutate();
                       }}
                       useRadix={true}

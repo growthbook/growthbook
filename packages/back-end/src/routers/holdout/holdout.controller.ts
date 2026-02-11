@@ -4,7 +4,10 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
 import { omit } from "lodash";
-import { HoldoutInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  HoldoutNextScheduledStatusUpdate,
+} from "shared/validators";
 import {
   Changeset,
   ExperimentInterface,
@@ -410,7 +413,7 @@ export const updateHoldout = async (
     const now = new Date();
     const potentialUpdates: Array<{
       date: Date;
-      type: "start" | "startAnalysisPeriod" | "stop";
+      type: HoldoutNextScheduledStatusUpdate["type"];
     }> = [];
 
     if (updates.statusUpdateSchedule.startAt && experiment.status === "draft") {
@@ -781,31 +784,3 @@ export const deleteHoldoutFeature = async (
 };
 
 // endregion DELETE /holdout/:id/feature/:featureId
-
-// region DELETE /holdout/:id/schedule
-
-export const deleteHoldoutSchedule = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 | 404; message?: string }>,
-) => {
-  const context = getContextFromReq(req);
-
-  const holdout = await context.models.holdout.getById(req.params.id);
-
-  if (!holdout) {
-    return res.status(404).json({ status: 404, message: "Holdout not found" });
-  }
-
-  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
-    context.permissions.throwPermissionError();
-  }
-
-  await context.models.holdout.update(holdout, {
-    statusUpdateSchedule: undefined,
-    nextScheduledStatusUpdate: null,
-  });
-
-  return res.status(200).json({ status: 200 });
-};
-
-// endregion DELETE /holdout/:id/schedule
