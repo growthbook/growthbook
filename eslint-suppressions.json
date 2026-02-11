@@ -939,11 +939,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/design-system/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/experiments/template/[tid].tsx": {
     "no-restricted-imports": {
       "count": 1
