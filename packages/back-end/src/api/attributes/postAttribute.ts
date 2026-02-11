@@ -16,7 +16,7 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     const org = req.context.org;
 
-    const tags = req.body.tags || [];
+    const tags = (req.body as { tags?: string[] }).tags ?? [];
     if (tags.length > 0) {
       await addTags(org.id, tags);
     }

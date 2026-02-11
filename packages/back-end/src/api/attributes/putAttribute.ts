@@ -30,8 +30,9 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     )
       req.context.permissions.throwPermissionError();
 
-    if (req.body.tags !== undefined) {
-      await addTagsDiff(org.id, attribute.tags || [], req.body.tags || []);
+    const bodyTags = (req.body as { tags?: string[] }).tags;
+    if (bodyTags !== undefined) {
+      await addTagsDiff(org.id, attribute.tags || [], bodyTags);
     }
 
     const updates: Partial<OrganizationInterface> = {
