@@ -54,16 +54,14 @@ export default function ScheduleStatusChangeInputs({
         <Flex direction="row" gap="2" align="baseline">
           <Box flexGrow="1">
             <DatePicker
-              date={form.watch("scheduledStatusUpdates.startAt")}
+              date={startDate}
               setDate={(d) => {
                 form.setValue(
                   "scheduledStatusUpdates.startAt",
                   d ? datetime(d) : undefined,
                 );
               }}
-              scheduleEndDate={form.watch(
-                "scheduledStatusUpdates.startAnalysisPeriodAt",
-              )}
+              scheduleEndDate={startAnalysisPeriodDate}
               clearButton={true}
             />
           </Box>
@@ -96,14 +94,14 @@ export default function ScheduleStatusChangeInputs({
         <Flex direction="row" gap="2" align="baseline">
           <Box flexGrow="1">
             <DatePicker
-              date={form.watch("scheduledStatusUpdates.startAnalysisPeriodAt")}
+              date={startAnalysisPeriodDate}
               setDate={(d) => {
                 form.setValue(
                   "scheduledStatusUpdates.startAnalysisPeriodAt",
                   d ? datetime(d) : undefined,
                 );
               }}
-              scheduleStartDate={form.watch("scheduledStatusUpdates.startAt")}
+              scheduleStartDate={startDate}
               clearButton={true}
             />
           </Box>
@@ -132,16 +130,14 @@ export default function ScheduleStatusChangeInputs({
         <Flex direction="row" gap="2" align="baseline">
           <Box flexGrow="1">
             <DatePicker
-              date={form.watch("scheduledStatusUpdates.stopAt")}
+              date={stopDate}
               setDate={(d) => {
                 form.setValue(
                   "scheduledStatusUpdates.stopAt",
                   d ? datetime(d) : undefined,
                 );
               }}
-              scheduleStartDate={form.watch(
-                "scheduledStatusUpdates.startAnalysisPeriodAt",
-              )}
+              scheduleStartDate={startAnalysisPeriodDate}
               clearButton={true}
             />
           </Box>
