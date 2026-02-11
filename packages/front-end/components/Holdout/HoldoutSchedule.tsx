@@ -16,20 +16,29 @@ const COMPLETED_HOLDOUT_SEGMENT: Segment = {
 // These values are hardcoded to line up with the Analysis label
 const NO_STOP_DATE_WEIGHT = 90.5;
 const NO_START_ANALYSIS_DATE_WEIGHT = 87;
+const HOLDOUT_SEGMENT_WEIGHT = 68;
+const ANALYSIS_SEGMENT_WEIGHT = 32;
+const UNSCHEDULED_SEGMENT_WEIGHT = 0;
 
 function pickEarlierDate(
   date1: string | undefined,
   date2: string | undefined,
 ): Date | null {
-  if (!date1 && date2) return new Date(date2);
-  if (date1 && !date2) return new Date(date1);
+  const date1Object = date1 ? new Date(date1) : null;
+  const date2Object = date2 ? new Date(date2) : null;
 
-  if (!date1 || !date2) return null;
+  if (!date1Object && date2Object) return date2Object;
+  if (date1Object && !date2Object) return date1Object;
 
-  return new Date(date1) < new Date(date2) ? new Date(date1) : new Date(date2);
+  if (!date1Object || !date2Object) return null;
+
+  return date1Object < date2Object ? date1Object : date2Object;
 }
 
-function getCompletion(startDate: Date | null, endDate: Date | null): number {
+function getCompletionPercentage(
+  startDate: Date | null,
+  endDate: Date | null,
+): number {
   const now = new Date();
 
   if (!startDate || !endDate) return 0;
@@ -75,7 +84,7 @@ export const HoldoutSchedule = ({
     (isRunning && !startAnalysisPeriodDate);
   const isInAnalysisPeriod = isRunning && holdout.analysisStartDate;
 
-  const holdoutSegmentCompletion = getCompletion(
+  const holdoutSegmentCompletion = getCompletionPercentage(
     startDate,
     startAnalysisPeriodDate,
   );
@@ -87,7 +96,7 @@ export const HoldoutSchedule = ({
         ? !startAnalysisPeriodDate
           ? NO_START_ANALYSIS_DATE_WEIGHT
           : NO_STOP_DATE_WEIGHT
-        : 68,
+        : HOLDOUT_SEGMENT_WEIGHT,
       completion: holdoutSegmentCompletion,
       color: isDraft ? "slate" : "indigo",
       endBorder: isDraft ? false : true,
@@ -98,8 +107,10 @@ export const HoldoutSchedule = ({
     },
     {
       id: "analysis",
-      weight: showUnscheduledSegment ? 0 : 32,
-      completion: getCompletion(startAnalysisPeriodDate, stopDate),
+      weight: showUnscheduledSegment
+        ? UNSCHEDULED_SEGMENT_WEIGHT
+        : ANALYSIS_SEGMENT_WEIGHT,
+      completion: getCompletionPercentage(startAnalysisPeriodDate, stopDate),
       color: isInAnalysisPeriod ? "amber" : isDraft ? "slate" : "indigo",
     },
   ];
@@ -123,10 +134,7 @@ export const HoldoutSchedule = ({
               <Text weight="medium" color="text-high">
                 Start:{" "}
               </Text>
-              <Text
-                color={startDate ? "text-high" : "text-disabled"}
-                weight="regular"
-              >
+              <Text color={startDate ? "text-high" : "text-disabled"}>
                 {startDate
                   ? format(startDate, "MMM d, yyyy 'at' h:mm a")
                   : "Not scheduled"}
