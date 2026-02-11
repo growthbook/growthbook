@@ -47,6 +47,8 @@ export default function ExplorerChart() {
     useExplorerContext();
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const gridLineColor =
+    theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
   const chartsContext = useDashboardCharts();
 
   // Transform ProductAnalyticsResult + exploreState to ECharts format
@@ -191,6 +193,7 @@ export default function ExplorerChart() {
         rotate: isHorizontalBar ? 0 : -45,
         hideOverlap: true,
       },
+      splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
     // Define the value axis (shows the numeric values)
@@ -205,6 +208,7 @@ export default function ExplorerChart() {
         color: textColor,
       },
       axisLabel: { color: textColor, formatter: formatNumber },
+      splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
     };
 
     // Swap axes for horizontal bar
@@ -215,6 +219,7 @@ export default function ExplorerChart() {
       tooltip: {
         appendTo: "body",
         trigger: "axis",
+        padding: [10, 14],
         axisPointer: {
           type:
             chartType === "bar" || chartType === "horizontalBar"
@@ -224,7 +229,8 @@ export default function ExplorerChart() {
       },
       legend: {
         show: seriesConfigs.length > 1,
-        top: chartType === "line" || chartType === "area" ? 16 : 0,
+        top: 16,
+        padding: [8, 0, 8, 0],
         textStyle: { color: textColor },
         type: "scroll",
       },
@@ -232,7 +238,7 @@ export default function ExplorerChart() {
       yAxis,
       series: seriesConfigs,
     };
-  }, [exploreData, submittedExploreState, textColor]);
+  }, [exploreData, submittedExploreState, textColor, gridLineColor]);
 
   const hasEmptyData = useMemo(() => {
     if (!exploreData?.rows?.length) return true;
@@ -296,10 +302,10 @@ export default function ExplorerChart() {
             grid: {
               left:
                 submittedExploreState?.chartType === "horizontalBar"
-                  ? "15%"
-                  : "6%",
+                  ? "10%"
+                  : "8%",
               right: "5%",
-              top: "10%",
+              top: chartConfig.legend?.show ? "13%" : "10%",
               bottom: "10%",
             },
           }}

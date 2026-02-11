@@ -18,8 +18,8 @@ export default function ExplorerMainSection() {
   } = useExplorerContext();
 
   return (
-    <Flex direction="column" px="2" py="3" gap="3">
-      <Flex justify="between" align="center">
+    <Flex direction="column" px="2" py="3" gap="4">
+      <Flex justify="between" align="center" height="32px">
         <Flex align="center" gap="3">
           <GraphTypeSelector />
         </Flex>

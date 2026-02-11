@@ -6,7 +6,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 
 export default function ExplorerDataTable() {
-  const { exploreData, submittedExploreState } = useExplorerContext();
+  const { exploreData, submittedExploreState, loading } = useExplorerContext();
 
   const dimensionColumnHeaders = useMemo(() => {
     const headers: string[] = [];
@@ -31,8 +31,23 @@ export default function ExplorerDataTable() {
   }, [submittedExploreState?.dataset?.values]);
 
   const rowData = useMemo(() => {
+    const rawRows = exploreData?.rows || [];
+    const isTimeseries =
+      submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
+
+    const rowsToProcess = isTimeseries
+      ? [...rawRows].sort((a, b) => {
+          const dateA = a.dimensions[0] || "";
+          const dateB = b.dimensions[0] || "";
+          if (!dateA || !dateB) return 0;
+          return (
+            new Date(dateA).getTime() - new Date(dateB).getTime()
+          );
+        })
+      : rawRows;
+
     const rows: string[][] = [];
-    for (const row of exploreData?.rows || []) {
+    for (const row of rowsToProcess) {
       const tempRow: string[] = [];
       for (let i = 0; i < dimensionColumnHeaders.length; i++) {
         const dimension = row.dimensions[i];
@@ -77,6 +92,7 @@ export default function ExplorerDataTable() {
     dimensionColumnHeaders,
   ]);
 
+  if (loading) return null;
   if (!exploreData?.rows?.length && !exploreData?.sql) return null;
 
   return (
