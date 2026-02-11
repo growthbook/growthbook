@@ -11,6 +11,9 @@ export default function ProgressBarStories() {
         segments={[{ id: "1", weight: 100, completion: 70, color: "indigo" }]}
       />
       <ProgressBar
+        segments={[{ id: "1", weight: 80, completion: 70, color: "indigo" }]}
+      />
+      <ProgressBar
         segments={[
           {
             id: "1",
