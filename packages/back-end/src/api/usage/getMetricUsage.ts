@@ -1,13 +1,29 @@
 import { ApiMetricUsage, GetMetricUsageResponse } from "shared/types/openapi";
 import { ExperimentStatus, getMetricUsageValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getExperimentsUsingMetrics } from "back-end/src/models/ExperimentModel";
+
+const METRIC_NOT_FOUND_OR_NO_PERMISSION =
+  "Metric not found or no permission to read the metric.";
 
 export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
   async (req): Promise<GetMetricUsageResponse> => {
     const context = req.context;
 
-    const metricIds = req.query.ids.split(",");
+    const metricIds = req.query.ids
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+
+    // Check which metrics exist and are readable
+    const readableMetricIds = new Set<string>();
+    for (const metricId of metricIds) {
+      const metric = await getExperimentMetricById(context, metricId);
+      if (metric) {
+        readableMetricIds.add(metricId);
+      }
+    }
 
     // Fetch all metric groups once and build a map from metric ID to group IDs
     // This is needed to match experiments that use metric groups containing our metrics
@@ -26,17 +42,23 @@ export const getMetricUsage = createApiRequestHandler(getMetricUsageValidator)(
       }
     }
 
-    // Fetch experiments for all metrics in a single batch query
-    // Only select the fields we need for the response
+    // Fetch experiments only for readable metrics
     const experiments = await getExperimentsUsingMetrics({
       context,
-      metricIds,
+      metricIds: [...readableMetricIds],
       metricToGroupIds,
       limit: 10000,
     });
 
     // Build the response for each requested metric
-    const metricUsage: ApiMetricUsage[] = metricIds.map((metricId) => {
+    const metricUsage: ApiMetricUsage[] = metricIds.map((metricId: string) => {
+      if (!readableMetricIds.has(metricId)) {
+        return {
+          metricId,
+          error: METRIC_NOT_FOUND_OR_NO_PERMISSION,
+        };
+      }
+
       const groupIds = metricToGroupIds.get(metricId) || [];
       const searchIds = new Set([metricId, ...groupIds]);
 

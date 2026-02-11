@@ -1,12 +1,13 @@
 type: object
 required:
   - metricId
-  - experiments
-  - lastSnapshotAttempt
 properties:
   metricId:
     type: string
     description: The metric ID
+  error:
+    type: string
+    description: Set when the metric does not exist or the caller has no permission to read it.
   experiments:
     type: array
     description: List of experiments using this metric

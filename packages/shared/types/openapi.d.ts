@@ -3884,8 +3884,10 @@ export interface components {
     MetricUsage: {
       /** @description The metric ID */
       metricId: string;
+      /** @description Set when the metric does not exist or the caller has no permission to read it. */
+      error?: string;
       /** @description List of experiments using this metric */
-      experiments: ({
+      experiments?: ({
           /** @description The experiment ID */
           experimentId: string;
           /**
@@ -3903,7 +3905,7 @@ export interface components {
        * Format: date-time 
        * @description The most recent snapshot attempt across all experiments using this metric
        */
-      lastSnapshotAttempt: string | null;
+      lastSnapshotAttempt?: string | null;
     };
     Member: {
       id: string;
@@ -11164,8 +11166,10 @@ export interface operations {
             metricUsage: ({
                 /** @description The metric ID */
                 metricId: string;
+                /** @description Set when the metric does not exist or the caller has no permission to read it. */
+                error?: string;
                 /** @description List of experiments using this metric */
-                experiments: ({
+                experiments?: ({
                     /** @description The experiment ID */
                     experimentId: string;
                     /**
@@ -11183,7 +11187,7 @@ export interface operations {
                  * Format: date-time 
                  * @description The most recent snapshot attempt across all experiments using this metric
                  */
-                lastSnapshotAttempt: string | null;
+                lastSnapshotAttempt?: string | null;
               })[];
           };
         };
