@@ -314,11 +314,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ConditionDisplay.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ConditionInput.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -394,11 +389,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteTargetingField.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -411,7 +401,7 @@
   },
   "packages/front-end/components/Features/Rule.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
@@ -440,11 +430,6 @@
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SavedGroupTargetingDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -725,11 +710,6 @@
     }
   },
   "packages/front-end/components/SavedGroups/SavedGroupReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SavedGroups/TruncatedConditionDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
