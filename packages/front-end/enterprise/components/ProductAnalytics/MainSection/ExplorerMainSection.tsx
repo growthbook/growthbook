@@ -6,6 +6,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import GraphTypeSelector from "./Toolbar/GraphTypeSelector";
 import DateRangePicker from "./Toolbar/DateRangePicker";
 import GranularitySelector from "./Toolbar/GranularitySelector";
+import LastRefreshedIndicator from "./Toolbar/LastRefreshedIndicator";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 
@@ -14,6 +15,7 @@ export default function ExplorerMainSection() {
     draftExploreState,
     submittedExploreState,
     loading,
+    lastRefreshedAt,
     handleSubmit,
   } = useExplorerContext();
 
@@ -37,6 +39,7 @@ export default function ExplorerMainSection() {
           {["line", "area"].includes(draftExploreState.chartType) && (
             <GranularitySelector />
           )}
+          <LastRefreshedIndicator lastRefreshedAt={lastRefreshedAt} />
         </Flex>
       </Flex>
 

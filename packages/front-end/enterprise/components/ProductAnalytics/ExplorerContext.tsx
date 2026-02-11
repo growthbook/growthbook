@@ -60,6 +60,7 @@ export interface ExplorerContextValue {
   exploreData: ProductAnalyticsResult | null;
   exploreError: string | null;
   loading: boolean;
+  lastRefreshedAt: Date | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isEmpty: boolean;
 
@@ -83,7 +84,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({ children }: ExplorerProviderProps) {
-  const { data, loading, fetchData, error } = useExploreData();
+  const { data, loading, fetchData, error, lastRefreshedAt } = useExploreData();
 
   const { getFactTableById, getFactMetricById, factMetrics, factTables } =
     useDefinitions();
@@ -313,6 +314,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       exploreData: data,
       exploreError: error?.message || null,
       loading,
+      lastRefreshedAt,
       commonColumns,
       setDraftExploreState,
       handleSubmit,
@@ -331,6 +333,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
       data,
       loading,
       error,
+      lastRefreshedAt,
       commonColumns,
       handleSubmit,
       addValueToDataset,

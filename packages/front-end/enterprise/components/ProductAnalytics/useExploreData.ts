@@ -10,6 +10,7 @@ export function useExploreData() {
   const [data, setData] = useState<ProductAnalyticsResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const fetchData = useCallback(
     async (config: ProductAnalyticsConfig) => {
@@ -28,6 +29,7 @@ export function useExploreData() {
         );
         console.log("API response", response);
         setData(response);
+        setLastRefreshedAt(new Date());
 
         // For now, use mock data generator
         // await new Promise((resolve) => setTimeout(resolve, 500));
@@ -49,5 +51,6 @@ export function useExploreData() {
     loading,
     error,
     fetchData,
+    lastRefreshedAt,
   };
 }
