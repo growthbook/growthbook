@@ -11158,6 +11158,8 @@ paths:
                     type: string
                 datasource:
                   type: string
+                archived:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':

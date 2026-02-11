@@ -31,4 +31,6 @@ export const apiCreateMetricGroupBody = z.strictObject({
   metrics: z.array(z.string()),
   datasource: z.string(),
 });
-export const apiUpdateMetricGroupBody = apiCreateMetricGroupBody.partial();
+export const apiUpdateMetricGroupBody = apiCreateMetricGroupBody
+  .safeExtend({ archived: z.boolean() })
+  .partial();

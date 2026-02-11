@@ -15993,6 +15993,7 @@ export interface operations {
           projects?: (string)[];
           metrics?: (string)[];
           datasource?: string;
+          archived?: boolean;
         };
       };
     };
