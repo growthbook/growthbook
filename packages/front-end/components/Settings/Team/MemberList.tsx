@@ -4,11 +4,13 @@ import { ExpandedMember } from "shared/types/organization";
 import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
+import { Flex } from "@radix-ui/themes";
 import { getRoleDisplayName } from "shared/permissions";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
 import { useEnvironments } from "@/services/features";
 import InviteModal from "@/components/Settings/Team/InviteModal";
@@ -21,6 +23,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -282,12 +285,35 @@ const MemberList: FC<{
                                 Reset Password
                               </button>
                             )}
-                            {canDeleteMembers && !member.managedByIdp && (
+                            {canDeleteMembers && (
                               <DeleteButton
                                 link={true}
                                 text="Remove User"
                                 useIcon={false}
                                 className="dropdown-item"
+                                additionalMessage={
+                                  member.managedByIdp ? (
+                                    <Callout status="warning">
+                                      <Flex direction="column" gap="2">
+                                        <Text weight="semibold" size="medium">
+                                          This user is managed by an external
+                                          identity provider.
+                                        </Text>
+                                        <span>
+                                          We suggest deprovisioning this user
+                                          from your external identity provider
+                                          directly.
+                                        </span>
+                                        <span>
+                                          If you deprovision this user here, and
+                                          they&apos;re still provisioned in your
+                                          external identity provider, they will
+                                          be automatically re-provisioned.
+                                        </span>
+                                      </Flex>
+                                    </Callout>
+                                  ) : null
+                                }
                                 displayName={member.email}
                                 onClick={async () => {
                                   await apiCall(`/member/${member.id}`, {
