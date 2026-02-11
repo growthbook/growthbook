@@ -1081,4 +1081,40 @@ export default {
       },
     ],
   },
+  roku: {
+    name: "Roku SDK",
+    version: "1.3.1",
+    github: "https://github.com/growthbook/growthbook-roku",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-roku/tree/main/examples",
+        name: "Roku examples",
+      },
+      {
+        url: "https://www.npmjs.com/package/growthbook-roku",
+        name: "npm package",
+      },
+    ],
+    packageRepos: [],
+    capabilities: [
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        looseUnmarshalling: "≥ v1.3.0",
+      },
+      {
+        prerequisites: "≥ v1.3.0",
+      },
+      {
+        bucketingV2: "≥ v1.3.0",
+      },
+      {
+        semverTargeting: "≥ v1.3.0",
+      },
+    ],
+  },
 };
