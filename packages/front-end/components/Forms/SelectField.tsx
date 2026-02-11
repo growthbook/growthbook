@@ -141,6 +141,11 @@ export const ReactSelectProps = {
       return {
         ...styles,
         color: "var(--text-color-main)",
+        // react-select auto-sizer grid column is "0 min-content" by default,
+        // this makes the input grow beyond the container pushing the content to the left.
+        // So we force it to grow up to the full width of the container, and allow the input
+        // to scroll horizontally if needed.
+        gridTemplateColumns: "0 minmax(2px, 1fr)",
       };
     },
     singleValue: (styles) => {
@@ -162,7 +167,7 @@ const multilineStyles = {
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
-    lineHeight: "1.1",
+    lineHeight: "1.2",
   }),
 };
 
@@ -300,6 +305,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
@@ -331,6 +337,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 onPaste={onPaste}
                 components={{
                   Input,
+                  IndicatorSeparator: () => null,
                 }}
                 isOptionDisabled={isOptionDisabled}
               />

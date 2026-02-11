@@ -67,6 +67,7 @@ const docSections = {
   fastly: "/lib/edge/fastly",
   lambda: "/lib/edge/lambda",
   edge: "/lib/edge/other",
+  roku: "/lib/roku",
   //Other
   user_guide: "/app",
   config: "/self-host/config",

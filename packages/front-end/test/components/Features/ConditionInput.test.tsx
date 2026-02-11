@@ -63,7 +63,7 @@ describe("ConditionInput", () => {
     const addButton = screen.getByText("Add attribute targeting");
     fireEvent.click(addButton);
     await waitFor(() => {
-      expect(screen.getByText("IF")).toBeInTheDocument();
+      expect(screen.getByText("INCLUDE")).toBeInTheDocument();
     });
 
     // 0 is attribute, 1 is operator
@@ -170,7 +170,7 @@ describe("ConditionInput", () => {
     const addButton = screen.getByText("Add attribute targeting");
     fireEvent.click(addButton);
     await waitFor(() => {
-      expect(screen.getByText("IF")).toBeInTheDocument();
+      expect(screen.getByText("INCLUDE")).toBeInTheDocument();
     });
 
     // 0 is attribute, 1 is operator
@@ -258,7 +258,7 @@ describe("ConditionInput", () => {
     const addButton = screen.getByText("Add attribute targeting");
     fireEvent.click(addButton);
     await waitFor(() => {
-      expect(screen.getByText("IF")).toBeInTheDocument();
+      expect(screen.getByText("INCLUDE")).toBeInTheDocument();
     });
 
     // Click the + OR button

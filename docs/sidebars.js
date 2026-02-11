@@ -500,7 +500,114 @@ export default {
       label: "Product Analytics",
       className: "pill-new",
     },
-
+    {
+      type: "category",
+      label: "SDKs",
+      collapsed: false,
+      link: {
+        type: "doc",
+        id: "lib/index",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "lib/quickstart",
+          label: "Quickstart",
+        },
+        {
+          type: "category",
+          label: "Back-end",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/nextjs", label: "Next.js" },
+            { type: "doc", id: "lib/php", label: "PHP" },
+            { type: "doc", id: "lib/ruby", label: "Ruby" },
+            { type: "doc", id: "lib/python", label: "Python" },
+            {
+              type: "doc",
+              id: "lib/java",
+              label: "Java",
+            },
+            {
+              type: "doc",
+              id: "lib/kotlin-jvm",
+              label: "Kotlin (JVM)",
+            },
+            {
+              type: "doc",
+              id: "lib/csharp",
+              label: "C#",
+            },
+            { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/rust",
+              label: "Rust",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
+              id: "lib/elixir",
+              label: "Elixir",
+              className: "pill-new",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Front-end",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/script-tag", label: "HTML Script Tag" },
+            { type: "doc", id: "lib/js", label: "Javascript" },
+            { type: "doc", id: "lib/react", label: "React" },
+            { type: "doc", id: "lib/vue", label: "Vue.js" },
+            {
+              type: "doc",
+              id: "lib/roku",
+              label: "Roku",
+              className: "pill-new",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Mobile",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
+            { type: "doc", id: "lib/flutter", label: "Flutter" },
+            { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
+            { type: "doc", id: "lib/react-native", label: "React Native" },
+          ],
+        },
+        {
+          type: "category",
+          label: "Edge",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "lib/edge/cloudflare",
+              label: "Cloudflare Workers",
+            },
+            {
+              type: "doc",
+              id: "lib/edge/fastly",
+              label: "Fastly Compute",
+            },
+            { type: "doc", id: "lib/edge/lambda", label: "Lambda@Edge" },
+            {
+              type: "doc",
+              id: "lib/edge/other",
+              label: "Other edge providers",
+            },
+          ],
+        },
+        { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
+      ],
+    },
     {
       type: "category",
       label: "Self-Hosting",
