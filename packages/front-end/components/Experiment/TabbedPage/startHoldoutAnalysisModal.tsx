@@ -1,5 +1,6 @@
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
+import Text from "@/ui/Text";
 
 export interface Props {
   close: () => void;
@@ -22,7 +23,7 @@ export default function StartAnalysisModal({ close, startAnalysis }: Props) {
       header="Start Analysis Phase"
     >
       <Box p="2">
-        <Text style={{ color: "var(--color-text-mid)" }}>
+        <Text size="medium" color="text-mid">
           Once you start the Analysis Phase:
           <ul className="pl-4">
             <li>No new features or experiments can be added to the holdout</li>

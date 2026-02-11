@@ -129,11 +129,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/EditStatusModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/EditTargetingModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -245,11 +240,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/startHoldoutAnalysisModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

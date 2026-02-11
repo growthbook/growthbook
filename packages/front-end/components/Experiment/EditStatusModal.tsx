@@ -5,13 +5,14 @@ import {
 import { useForm } from "react-hook-form";
 import { datetime } from "shared/dates";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -120,7 +121,7 @@ export default function EditStatusModal({
     >
       {isHoldout && (
         <Box mb="5">
-          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+          <Text size="medium" color="text-mid">
             <strong>Warning: </strong>Changing the status of a Holdout will
             delete the existing schedule and could change the behavior of
             associated Feature Flags and Metrics.
