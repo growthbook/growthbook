@@ -801,7 +801,7 @@ export default {
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.2.6",
+    version: "0.2.7",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -822,6 +822,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         savedGroupReferences: "≥ v0.1.12",
@@ -863,7 +869,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.2.6",
+    version: "0.2.7",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -884,6 +890,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         savedGroupReferences: "≥ v0.1.6",
@@ -925,7 +937,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.0.26",
+    version: "0.0.27",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -941,6 +953,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.0.27",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.0.27",
       },
       {
         savedGroupReferences: "≥ v0.0.7",
@@ -998,6 +1016,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         savedGroupReferences: "≥ v0.1.5",
