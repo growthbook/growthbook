@@ -54,7 +54,6 @@ fi
 sdkchanged=$(has_changes "shared/src/sdk-versioning|shared/scripts/gen-sdk-resources.ts")
 if [ -n "$sdkchanged" ]; then
   echo "#### sdk-versioning or gen-sdk-resources.ts changed, running gen-sdk-resources"
-  pnpm --filter shared build
   pnpm --filter shared gen-sdk-resources-for-docs
   git add docs
 fi
