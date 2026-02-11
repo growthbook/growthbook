@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
@@ -97,65 +97,72 @@ export default function DatabaseConfigurator({
   }, [tableDataResponse, setDraftExploreState]);
 
   return (
-    <Flex direction="column">
-      <SelectField
-        label="Data source"
-        value={datasource || ""}
-        onChange={(datasource) =>
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dataset: { ...dataset, datasource },
-          }))
-        }
-        options={datasources.map((d) => ({
-          label: d.name,
-          value: d.id,
-        }))}
-        placeholder="Select data source..."
-        forceUndefinedValueToNull
-      />
-      {tableOptions.length > 0 && (
+    <Flex direction="column" gap="2">
+      <>
+        <Text size="2" weight="medium" mt="2">Data source</Text>
         <SelectField
-          label="Table"
-          value={databaseDataset?.table || ""}
-          onChange={(value) => {
-            const selectedTable = tableOptions.find((t) => t.tableId === value);
+          value={datasource || ""}
+          onChange={(datasource) =>
             setDraftExploreState((prev) => ({
               ...prev,
-              dataset: {
-                ...prev.dataset,
-                table: value,
-                path: selectedTable?.tablePath || "",
-              },
-            }));
-          }}
-          options={tableOptions.map((t) => ({
-            label: t.tableName,
-            value: t.tableId,
+              dataset: { ...dataset, datasource },
+            }))
+          }
+          options={datasources.map((d) => ({
+            label: d.name,
+            value: d.id,
           }))}
-          placeholder="Select table..."
+          placeholder="Select data source..."
           forceUndefinedValueToNull
         />
+      </>
+      {tableOptions.length > 0 && (
+        <>
+          <Text size="2" weight="medium" mt="2">Table</Text>
+          <SelectField
+            value={databaseDataset?.table || ""}
+            onChange={(value) => {
+              const selectedTable = tableOptions.find((t) => t.tableId === value);
+              setDraftExploreState((prev) => ({
+                ...prev,
+                dataset: {
+                  ...prev.dataset,
+                  table: value,
+                  path: selectedTable?.tablePath || "",
+                },
+              }));
+            }}
+            options={tableOptions.map((t) => ({
+              label: t.tableName,
+              value: t.tableId,
+            }))}
+            placeholder="Select table..."
+            forceUndefinedValueToNull
+          />
+        </>
       )}
-      <SelectField
-        label="Timestamp column"
-        disabled={!tableData}
-        value={databaseDataset?.timestampColumn || ""}
-        onChange={(timestampColumn) =>
-          setDraftExploreState((prev) => ({
-            ...prev,
-            dataset: { ...dataset, timestampColumn },
-          }))
-        }
-        options={
-          tableData?.columns.map((c) => ({
-            label: c.columnName,
-            value: c.columnName,
-          })) || []
-        }
-        placeholder="Select timestamp column..."
-        forceUndefinedValueToNull
-      />
+
+      <>
+        <Text size="2" weight="medium" mt="2">Timestamp column</Text>
+        <SelectField
+          disabled={!tableData}
+          value={databaseDataset?.timestampColumn || ""}
+          onChange={(timestampColumn) =>
+            setDraftExploreState((prev) => ({
+              ...prev,
+              dataset: { ...dataset, timestampColumn },
+            }))
+          }
+          options={
+            tableData?.columns.map((c) => ({
+              label: c.columnName,
+              value: c.columnName,
+            })) || []
+          }
+          placeholder="Select timestamp column..."
+          forceUndefinedValueToNull
+        />
+      </>
     </Flex>
   );
 }

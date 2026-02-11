@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { Flex, Text, Separator } from "@radix-ui/themes";
 import { PiTable, PiPlus } from "react-icons/pi";
 import type { DatabaseValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
@@ -65,76 +65,92 @@ export default function SqlTabContent() {
     );
 
   return (
-    <>
-      <Flex direction="column" gap="3">
-        {columnOptions.length > 0 && (
-          <Box>
-            <Flex justify="between" align="center">
-              <Text size="2" weight="medium">
-                Values
-              </Text>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => addValueToDataset("database")}
-              >
-                <Flex align="center" gap="2">
-                  <PiPlus size={14} />
-                  Add value
-                </Flex>
-              </Button>
-            </Flex>
-            <Flex direction="column" gap="2">
-              {values.map((v, idx) => (
-                <ValueCard
-                  key={idx}
-                  index={idx}
-                >
-                  <Flex direction="column" gap="2">
+    <Flex direction="column">
+      <Flex direction="column" gap="4">
+        {columnOptions.length > 0 && !values.length && (
+          <Flex
+            justify="center"
+            align="center"
+            height="100%"
+            style={{
+              border: "1px solid var(--gray-a3)",
+              borderRadius: "var(--radius-3)",
+              padding: "var(--space-3)",
+              backgroundColor: "var(--color-panel-translucent)",
+              height: "100%",
+              width: "100%",
+            }}
+          >
+            <Text size="1" color="gray">
+              Add at least one value to chart
+            </Text>
+          </Flex>
+        )}
+      </Flex>
+      {columnOptions.length > 0 && (
+        <Flex direction="column" gap="4">
+          {values.map((v, idx) => (
+            <ValueCard key={idx} index={idx}>
+              <Flex direction="column" gap="2">
+                <Separator style={{ width: "100%" }} />
+                <Text size="2" weight="medium" mt="2">
+                  Value type
+                </Text>
+                <SelectField
+                  value={v.valueType}
+                  onChange={(val) =>
+                    updateValueInDataset(idx, {
+                      ...v,
+                      valueType: val as "count" | "unit_count" | "sum",
+                      name: generateUniqueValueName(
+                        getValueTypeLabel(
+                          val as "count" | "unit_count" | "sum",
+                        ),
+                        draftExploreState.dataset.values,
+                      ),
+                    } as DatabaseValue)
+                  }
+                  options={VALUE_TYPE_OPTIONS.filter(
+                    (o) => o.value !== "unit_count",
+                  ).map((o) => ({
+                    label: o.label,
+                    value: o.value,
+                  }))}
+                  placeholder="Select..."
+                />
+                {v.valueType === "sum" && (
+                  <>
+                    <Text size="2" weight="medium" mt="2">
+                      Value column
+                    </Text>
                     <SelectField
-                      label="Value type"
-                      value={v.valueType}
+                      value={v.valueColumn ?? ""}
                       onChange={(val) =>
                         updateValueInDataset(idx, {
                           ...v,
-                          valueType: val as "count" | "unit_count" | "sum",
-                          name: generateUniqueValueName(
-                            getValueTypeLabel(
-                              val as "count" | "unit_count" | "sum",
-                            ),
-                            draftExploreState.dataset.values,
-                          ),
+                          valueColumn: val,
                         } as DatabaseValue)
                       }
-                      options={VALUE_TYPE_OPTIONS.filter(
-                        (o) => o.value !== "unit_count",
-                      ).map((o) => ({
-                        label: o.label,
-                        value: o.value,
-                      }))}
-                      placeholder="Select..."
+                      options={columnOptions}
+                      placeholder="Select column..."
                     />
-                    {v.valueType === "sum" && (
-                      <SelectField
-                        label="Value column"
-                        value={v.valueColumn ?? ""}
-                        onChange={(val) =>
-                          updateValueInDataset(idx, {
-                            ...v,
-                            valueColumn: val,
-                          } as DatabaseValue)
-                        }
-                        options={columnOptions}
-                        placeholder="Select..."
-                      />
-                    )}
-                  </Flex>
-                </ValueCard>
-              ))}
+                  </>
+                )}
+              </Flex>
+            </ValueCard>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => addValueToDataset("database")}
+          >
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Add value
             </Flex>
-          </Box>
-        )}
-      </Flex>
-    </>
+          </Button>
+        </Flex>
+      )}
+    </Flex>
   );
 }

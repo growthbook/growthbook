@@ -66,52 +66,49 @@ export default function FactTableTabContent() {
     );
 
   return (
-    <Flex direction="column">
-      <Flex direction="column" gap="2">
-        {!values.length && (
-          <Flex justify="center" align="center" height="100%" style={{
-            border: "1px solid var(--gray-a3)",
-            borderRadius: "var(--radius-3)",
-            padding: "var(--space-3)",
-            backgroundColor: "var(--color-panel-translucent)",
-            height: "100%",
-            width: "100%",
-          }}>
-            <Text size="1" color="gray">
-              Add at least one value to chart
-            </Text>
-          </Flex>
-        )}
-      </Flex>
-      <Flex direction="column" gap="2">
-        {dataset.values.map((v, idx) => (
-          <ValueCard
-            key={idx}
-            index={idx}
-          >
-            <Flex direction="column" gap="2">
-              <Separator style={{ width: "100%" }} />
-              <Text size="2" weight="medium" mt="2">Value type</Text>
-              <SelectField
-                value={v.valueType}
-                onChange={(val) =>
-                  updateValueInDataset(idx, {
-                    ...v,
-                    valueType: val as "count" | "unit_count" | "sum",
-                    name: generateUniqueValueName(
-                      getValueTypeLabel(val as "count" | "unit_count" | "sum"),
-                      draftExploreState.dataset.values,
-                    ),
-                  } as FactTableValue)
-                }
-                options={VALUE_TYPE_OPTIONS.map((o) => ({
-                  label: o.label,
-                  value: o.value,
-                }))}
-                placeholder="Select..."
-              />
-              {v.valueType === "sum" && (
-                <>
+    <Flex direction="column" gap="4">
+      {!values.length && (
+        <Flex justify="center" align="center" height="100%" style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-3)",
+          padding: "var(--space-3)",
+          backgroundColor: "var(--color-panel-translucent)",
+          height: "100%",
+          width: "100%",
+        }}>
+          <Text size="1" color="gray">
+            Add at least one value to chart
+          </Text>
+        </Flex>
+      )}
+      {dataset.values.map((v, idx) => (
+        <ValueCard
+          key={idx}
+          index={idx}
+        >
+          <Flex direction="column" gap="2">
+            <Separator style={{ width: "100%" }} />
+            <Text size="2" weight="medium" mt="2">Value type</Text>
+            <SelectField
+              value={v.valueType}
+              onChange={(val) =>
+                updateValueInDataset(idx, {
+                  ...v,
+                  valueType: val as "count" | "unit_count" | "sum",
+                  name: generateUniqueValueName(
+                    getValueTypeLabel(val as "count" | "unit_count" | "sum"),
+                    draftExploreState.dataset.values,
+                  ),
+                } as FactTableValue)
+              }
+              options={VALUE_TYPE_OPTIONS.map((o) => ({
+                label: o.label,
+                value: o.value,
+              }))}
+              placeholder="Select..."
+            />
+            {v.valueType === "sum" && (
+              <>
                 <Text size="2" weight="medium" mt="2">Value column</Text>
                 <SelectField
                   value={v.valueColumn ?? ""}
@@ -128,18 +125,17 @@ export default function FactTableTabContent() {
                   placeholder="Select column..."
                   forceUndefinedValueToNull
                 />
-                </>
-              )}
-            </Flex>
-          </ValueCard>
-        ))}
-        <Button size="sm" variant="outline" onClick={() => addValueToDataset("fact_table")}>
-          <Flex align="center" gap="2">
-            <PiPlus size={14} />
-            Add value
+              </>
+            )}
           </Flex>
-        </Button>
-      </Flex>
+        </ValueCard>
+      ))}
+      <Button size="sm" variant="outline" onClick={() => addValueToDataset("fact_table")}>
+        <Flex align="center" gap="2">
+          <PiPlus size={14} />
+          Add value
+        </Flex>
+      </Button>
     </Flex>
   );
 }

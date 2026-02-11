@@ -48,7 +48,7 @@ export default function ExplorerSideBar() {
   );
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" gap="4">
       <Flex justify="between" align="center">
         <Text size="3" weight="medium" mt="2">
           Configuration
