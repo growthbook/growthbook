@@ -7,7 +7,7 @@ If you just want to contribute a client library in a new language and not make c
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) 18.x or above
+- [NodeJS](https://nodejs.org/en/download/package-manager/) 24.x or above
   - Check version by running `node -v` on terminal
 - [pnpm](https://pnpm.io/installation)
 - [Python](https://www.python.org/downloads/) 3.9+ (for the stats engine)

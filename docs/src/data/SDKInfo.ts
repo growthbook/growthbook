@@ -1000,7 +1000,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.7",
+    version: "0.2.5",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -1128,16 +1128,16 @@ export default {
         experimentation: "All versions",
       },
       {
-        looseUnmarshalling: "≥ v1.3.0",
-      },
-      {
         prerequisites: "≥ v1.3.0",
       },
       {
-        bucketingV2: "≥ v1.3.0",
+        looseUnmarshalling: "≥ v1.3.0",
       },
       {
         semverTargeting: "≥ v1.3.0",
+      },
+      {
+        bucketingV2: "≥ v1.3.0",
       },
     ],
   },
