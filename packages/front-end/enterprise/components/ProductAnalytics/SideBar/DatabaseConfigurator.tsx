@@ -6,7 +6,10 @@ import {
 } from "shared/types/integrations";
 import { ProductAnalyticsDataset } from "shared/src/validators/product-analytics";
 import SelectField from "@/components/Forms/SelectField";
-import { mapDatabaseTypeToEnum } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getInferredTimestampColumn,
+  mapDatabaseTypeToEnum,
+} from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
@@ -80,9 +83,7 @@ export default function DatabaseConfigurator({
         columnTypes[column.columnName] = mapDatabaseTypeToEnum(column.dataType);
       });
 
-      const timestampColumn = Object.keys(columnTypes).find(
-        (key) => columnTypes[key] === "date",
-      );
+      const timestampColumn = getInferredTimestampColumn(columnTypes);
 
       setDraftExploreState((prev) => ({
         ...prev,

@@ -281,7 +281,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         // if (!isEmpty && currentType === type) return prev;
 
         // Save the current config to the cache
-        if(!isEmpty) {
+        if (!isEmpty) {
           setExplorerCache((cache) => ({
             ...cache,
             [currentType]: prev,

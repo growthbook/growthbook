@@ -21,6 +21,19 @@ export const VALUE_TYPE_OPTIONS: {
   { value: "sum", label: "Sum" },
 ];
 
+const COMMON_TIMESTAMP_COLUMNS = new Set([
+  "timestamp",
+  "created_at",
+  "updated_at",
+  "event_time",
+  "time",
+  "datetime",
+  "date",
+  "event_timestamp",
+  "ts",
+  "event_date",
+]);
+
 export function getValueTypeLabel(
   valueType: "count" | "unit_count" | "sum",
 ): string {
@@ -234,4 +247,24 @@ export function mapDatabaseTypeToEnum(
 
   // Default to other
   return "other";
+}
+
+export function getInferredTimestampColumn(
+  columnTypes: Record<string, string>,
+): string | null {
+  // First priority: Find column with type "date"
+  const dateTypedColumn = Object.keys(columnTypes).find(
+    (key) => columnTypes[key] === "date",
+  );
+
+  if (dateTypedColumn) {
+    return dateTypedColumn;
+  }
+
+  // Second priority: Check common timestamp column names (case-insensitive)
+  const commonNameColumn = Object.keys(columnTypes).find((key) =>
+    COMMON_TIMESTAMP_COLUMNS.has(key.toLowerCase()),
+  );
+
+  return commonNameColumn || null;
 }
