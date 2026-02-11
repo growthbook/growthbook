@@ -79,15 +79,14 @@ export default function SingleRoleSelector({
     }
   });
 
-  const groupedOptions: GroupedValue[] = [];
-
-  if (standardOptions.length) {
-    groupedOptions.push({ label: "Standard", options: standardOptions });
-  }
-
-  if (customOptions.length) {
-    groupedOptions.push({ label: "Custom", options: customOptions });
-  }
+  // Only group if we have both standard and custom options
+  const options: SingleValue[] | GroupedValue[] =
+    standardOptions.length && customOptions.length
+      ? [
+          { label: "Standard", options: standardOptions },
+          { label: "Custom", options: customOptions },
+        ]
+      : [...standardOptions, ...customOptions];
 
   const activeEnvs = useEnvironments();
 
@@ -120,17 +119,6 @@ export default function SingleRoleSelector({
 
   const id = useMemo(() => uniqid(), []);
 
-  const formatGroupLabel = (data) => {
-    // if we don't have both Standard & Custom options, don't return anything
-    if (groupedOptions.length < 2) {
-      return;
-    }
-
-    return (
-      <div className={data.label === "Custom" ? "border-top my-1" : ""}></div>
-    );
-  };
-
   return (
     <div>
       <SelectField
@@ -142,9 +130,8 @@ export default function SingleRoleSelector({
             role,
           });
         }}
-        options={groupedOptions}
+        options={options}
         sort={false}
-        formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.value);
           if (!r) return <span>{value.label}</span>;

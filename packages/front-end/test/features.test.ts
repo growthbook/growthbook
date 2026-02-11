@@ -257,9 +257,17 @@ describe("json <-> conds", () => {
   it("$savedGroups $nin", () => {
     const json = stringify({ $not: { $savedGroups: ["sg_1", "sg_2"] } });
     const conds = [
-      [{ field: "$savedGroups", operator: "$nin", value: "sg_1, sg_2" }],
+      [{ field: "$notSavedGroups", operator: "$nin", value: "sg_1, sg_2" }],
     ];
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("$notSavedGroups operator directly", () => {
+    // Test that $notSavedGroups field with $nin operator generates correct JSON
+    const json = stringify({ $not: { $savedGroups: ["sg_1"] } });
+    const conds = [
+      [{ field: "$notSavedGroups", operator: "$nin", value: "sg_1" }],
+    ];
     expect(condToJson(conds, attributeMap)).toEqual(json);
   });
   it("$savedGroups merging", () => {
@@ -271,8 +279,19 @@ describe("json <-> conds", () => {
       [
         { field: "$savedGroups", operator: "$in", value: "sg_1" },
         { field: "$savedGroups", operator: "$in", value: "sg_2" },
-        { field: "$savedGroups", operator: "$nin", value: "sg_3" },
-        { field: "$savedGroups", operator: "$nin", value: "sg_4" },
+        { field: "$notSavedGroups", operator: "$nin", value: "sg_3" },
+        { field: "$notSavedGroups", operator: "$nin", value: "sg_4" },
+      ],
+    ];
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("multiple $notSavedGroups conditions merge correctly", () => {
+    // Test that multiple $notSavedGroups with $nin operator merge into one $not: { $savedGroups: [...] }
+    const json = stringify({ $not: { $savedGroups: ["sg_1", "sg_2"] } });
+    const conds = [
+      [
+        { field: "$notSavedGroups", operator: "$nin", value: "sg_1" },
+        { field: "$notSavedGroups", operator: "$nin", value: "sg_2" },
       ],
     ];
     expect(condToJson(conds, attributeMap)).toEqual(json);
