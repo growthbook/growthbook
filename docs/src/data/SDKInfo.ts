@@ -1000,7 +1000,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.5",
+    version: "0.2.7",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
