@@ -535,11 +535,11 @@ function ConditionAndGroupInput({
                       label: "Saved Groups",
                       options: [
                         {
-                          label: "in saved groups",
+                          label: "user is in saved groups",
                           value: "$savedGroups",
                         },
                         {
-                          label: "not in saved groups",
+                          label: "user is not in saved groups",
                           value: "$notSavedGroups",
                         },
                       ],
