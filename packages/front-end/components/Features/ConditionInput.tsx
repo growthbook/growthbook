@@ -558,16 +558,22 @@ function ConditionAndGroupInput({
               newConds[i] = { ...newConds[i] };
               newConds[i]["field"] = value;
 
-              if (value === "$savedGroups" || value === "$notSavedGroups") {
+              const isNewFieldSavedGroup =
+                value === "$savedGroups" || value === "$notSavedGroups";
+              const isOldFieldSavedGroup =
+                field === "$savedGroups" || field === "$notSavedGroups";
+
+              if (isNewFieldSavedGroup) {
                 newConds[i]["operator"] =
                   value === "$savedGroups" ? "$in" : "$nin";
-                // Only preserve value when switching between saved group types
-                // Clear value when switching from a regular attribute to saved groups
-                if (field !== "$savedGroups" && field !== "$notSavedGroups") {
+                if (!isOldFieldSavedGroup) {
                   newConds[i]["value"] = "";
                 }
                 setConds(newConds);
                 return;
+              }
+              if (isOldFieldSavedGroup) {
+                newConds[i]["value"] = "";
               }
 
               const newAttribute = attributes.get(value);
