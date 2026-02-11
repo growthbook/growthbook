@@ -98,7 +98,7 @@ export default function SetupTabOverview({
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const holdoutHasSchedule =
     isHoldout &&
-    Object.values(holdout?.scheduledStatusUpdates ?? {}).some(
+    Object.values(holdout?.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
 

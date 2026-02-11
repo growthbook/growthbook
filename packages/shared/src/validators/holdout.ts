@@ -6,13 +6,24 @@ export const holdoutLinkedItemValidator = z.object({
   id: z.string(),
 });
 
-const scheduledUpdatesValidator = z.object({
+const statusUpdateScheduleValidator = z.object({
   startAt: z.date().optional(),
   startAnalysisPeriodAt: z.date().optional(),
   stopAt: z.date().optional(),
 });
 
-export type HoldoutUpdateSchedule = z.infer<typeof scheduledUpdatesValidator>;
+export type HoldoutStatusUpdateSchedule = z.infer<
+  typeof statusUpdateScheduleValidator
+>;
+
+const nextScheduledStatusUpdateValidator = z.object({
+  type: z.enum(["start", "startAnalysisPeriod", "stop"]),
+  date: z.date(),
+});
+
+export type HoldoutNextScheduledStatusUpdate = z.infer<
+  typeof nextScheduledStatusUpdateValidator
+>;
 
 export const holdoutValidator = z
   .object({
@@ -27,12 +38,10 @@ export const holdoutValidator = z
     linkedFeatures: z.record(z.string(), holdoutLinkedItemValidator),
     environmentSettings: z.record(z.string(), featureEnvironment),
     analysisStartDate: z.date().optional(),
-    scheduledStatusUpdates: scheduledUpdatesValidator.optional(),
-    // May be undefined for holdouts created before nextScheduledUpdate was added
+    statusUpdateSchedule: statusUpdateScheduleValidator.optional(),
+    // May be undefined for holdouts created before nextScheduledStatusUpdate was added
     // Set to null when the schedule is complete or deleted
-    nextScheduledUpdate: z.date().optional().nullable(),
-    nextScheduledUpdateType: z
-      .enum(["start", "startAnalysisPeriod", "stop"])
+    nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
       .nullable(),
   })
@@ -43,8 +52,8 @@ const _holdoutStringDatesValidator = holdoutValidator
     dateCreated: true,
     dateUpdated: true,
     analysisStartDate: true,
-    scheduledStatusUpdates: true,
-    nextScheduledUpdate: true,
+    statusUpdateSchedule: true,
+    nextScheduledStatusUpdate: true,
     linkedExperiments: true,
     linkedFeatures: true,
   })
@@ -52,14 +61,20 @@ const _holdoutStringDatesValidator = holdoutValidator
     dateCreated: z.string(),
     dateUpdated: z.string(),
     analysisStartDate: z.string().optional(),
-    scheduledStatusUpdates: z
+    statusUpdateSchedule: z
       .object({
         startAt: z.string().optional(),
         startAnalysisPeriodAt: z.string().optional(),
         stopAt: z.string().optional(),
       })
       .optional(),
-    nextScheduledUpdate: z.string().optional().nullable(),
+    nextScheduledStatusUpdate: z
+      .object({
+        type: z.enum(["start", "startAnalysisPeriod", "stop"]),
+        date: z.string(),
+      })
+      .optional()
+      .nullable(),
     linkedExperiments: z.record(
       z.string(),
       holdoutLinkedItemValidator

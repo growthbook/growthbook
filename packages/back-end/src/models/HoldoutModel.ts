@@ -19,9 +19,7 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
   additionalIndexes: [
     {
-      fields: {
-        nextScheduledUpdate: 1,
-      },
+      fields: { "nextScheduledStatusUpdate.date": 1 },
     },
   ],
 });
@@ -61,7 +59,7 @@ export class HoldoutModel extends BaseClass {
     }
 
     const { startAt, startAnalysisPeriodAt, stopAt } =
-      updates.scheduledStatusUpdates ?? {};
+      updates.statusUpdateSchedule ?? {};
 
     const now = new Date();
 
@@ -146,7 +144,7 @@ export class HoldoutModel extends BaseClass {
 
     const holdouts = await getCollection<HoldoutInterface>(COLLECTION_NAME)
       .find({
-        nextScheduledUpdate: {
+        "nextScheduledStatusUpdate.date": {
           $lte: now,
           $exists: true,
           $ne: null,
@@ -157,7 +155,7 @@ export class HoldoutModel extends BaseClass {
         organization: true,
       })
       .limit(100)
-      .sort({ nextScheduledUpdate: 1 })
+      .sort({ "nextScheduledStatusUpdate.date": 1 })
       .toArray();
 
     return holdouts.map((h) => ({ id: h.id, organization: h.organization }));

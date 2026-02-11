@@ -21,38 +21,38 @@ const EditScheduleModal = ({
   const { apiCall } = useAuth();
 
   const form = useForm<
-    Pick<HoldoutInterfaceStringDates, "scheduledStatusUpdates">
+    Pick<HoldoutInterfaceStringDates, "statusUpdateSchedule">
   >({
     defaultValues: {
-      scheduledStatusUpdates: {
-        startAt: holdout.scheduledStatusUpdates?.startAt,
+      statusUpdateSchedule: {
+        startAt: holdout.statusUpdateSchedule?.startAt,
         startAnalysisPeriodAt:
-          holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
-        stopAt: holdout.scheduledStatusUpdates?.stopAt,
+          holdout.statusUpdateSchedule?.startAnalysisPeriodAt,
+        stopAt: holdout.statusUpdateSchedule?.stopAt,
       },
     },
   });
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     // Convert Date objects to ISO strings for API
-    const scheduledStatusUpdates = rawValue.scheduledStatusUpdates
+    const statusUpdateSchedule = rawValue.statusUpdateSchedule
       ? {
           ...(experiment.status === "draft" && {
-            startAt: rawValue.scheduledStatusUpdates.startAt
-              ? new Date(rawValue.scheduledStatusUpdates.startAt).toISOString()
+            startAt: rawValue.statusUpdateSchedule.startAt
+              ? new Date(rawValue.statusUpdateSchedule.startAt).toISOString()
               : "",
           }),
           ...(!holdout.analysisStartDate && {
-            startAnalysisPeriodAt: rawValue.scheduledStatusUpdates
+            startAnalysisPeriodAt: rawValue.statusUpdateSchedule
               .startAnalysisPeriodAt
               ? new Date(
-                  rawValue.scheduledStatusUpdates.startAnalysisPeriodAt,
+                  rawValue.statusUpdateSchedule.startAnalysisPeriodAt,
                 ).toISOString()
               : "",
           }),
           ...(experiment.status !== "stopped" && {
-            stopAt: rawValue.scheduledStatusUpdates.stopAt
-              ? new Date(rawValue.scheduledStatusUpdates.stopAt).toISOString()
+            stopAt: rawValue.statusUpdateSchedule.stopAt
+              ? new Date(rawValue.statusUpdateSchedule.stopAt).toISOString()
               : "",
           }),
         }
@@ -63,7 +63,7 @@ const EditScheduleModal = ({
     }>(`/holdout/${holdout.id}`, {
       method: "PUT",
       body: JSON.stringify({
-        scheduledStatusUpdates,
+        statusUpdateSchedule,
       }),
     });
     mutate();

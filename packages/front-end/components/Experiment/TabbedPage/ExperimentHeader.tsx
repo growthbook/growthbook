@@ -406,7 +406,7 @@ export default function ExperimentHeader({
 
   const holdoutHasSchedule =
     isHoldout &&
-    Object.values(holdout?.scheduledStatusUpdates ?? {}).some(
+    Object.values(holdout?.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
 
@@ -731,20 +731,18 @@ export default function ExperimentHeader({
           </Box>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
-            {isHoldout &&
-            holdout?.nextScheduledUpdate &&
-            holdout.nextScheduledUpdateType ? (
+            {isHoldout && holdout?.nextScheduledStatusUpdate ? (
               <Button
                 variant="ghost"
                 onClick={() => setTab("overview", "holdout-schedule")}
               >
                 {
                   HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
-                    holdout.nextScheduledUpdateType
+                    holdout.nextScheduledStatusUpdate.type
                   ]
                 }
                 {format(
-                  new Date(holdout.nextScheduledUpdate),
+                  new Date(holdout.nextScheduledStatusUpdate.date),
                   "MMM d, yyyy 'at' h:mm a",
                 )}
               </Button>
@@ -881,11 +879,11 @@ export default function ExperimentHeader({
               </DropdownMenuGroup>
               {isHoldout && canRunExperiment && (
                 <>
-                  {(holdout?.nextScheduledUpdate ||
+                  {(holdout?.nextScheduledStatusUpdate ||
                     experiment.status !== "draft" ||
                     hasResults) && <DropdownMenuSeparator />}
                   <DropdownMenuGroup>
-                    {holdout?.nextScheduledUpdate &&
+                    {holdout?.nextScheduledStatusUpdate &&
                       (experiment.status === "running" && editResult ? (
                         <DropdownMenuItem
                           onClick={() => {

@@ -95,32 +95,30 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
   const now = new Date();
   const phases = [...holdoutExperiment.phases] as ExperimentPhase[];
 
-  let newNextScheduledUpdateType:
-    | "start"
-    | "startAnalysisPeriod"
-    | "stop"
-    | null = null;
-  let newNextScheduledUpdate: Date | null = null;
+  let newNextScheduledStatusUpdate: {
+    type: "start" | "startAnalysisPeriod" | "stop";
+    date: Date;
+  } | null = null;
 
   try {
     logger.info("Start Updating Status for holdout " + holdout.id);
 
-    switch (holdout.nextScheduledUpdateType) {
+    switch (holdout.nextScheduledStatusUpdate?.type) {
       case "start": {
         const changes: Changeset = await getChangesToStartExperiment(
           context,
           holdoutExperiment,
         );
 
-        if (holdout.scheduledStatusUpdates?.startAnalysisPeriodAt) {
-          newNextScheduledUpdateType = "startAnalysisPeriod";
-          newNextScheduledUpdate =
-            holdout.scheduledStatusUpdates.startAnalysisPeriodAt;
+        if (holdout.statusUpdateSchedule?.startAnalysisPeriodAt) {
+          newNextScheduledStatusUpdate = {
+            type: "startAnalysisPeriod",
+            date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
+          };
         }
 
         await context.models.holdout.update(holdout, {
-          nextScheduledUpdateType: newNextScheduledUpdateType,
-          nextScheduledUpdate: newNextScheduledUpdate,
+          nextScheduledStatusUpdate: newNextScheduledStatusUpdate,
         });
         await updateExperiment({
           context,
@@ -144,15 +142,16 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
           name: "Analysis Period",
         };
 
-        if (holdout.scheduledStatusUpdates?.stopAt) {
-          newNextScheduledUpdateType = "stop";
-          newNextScheduledUpdate = holdout.scheduledStatusUpdates.stopAt;
+        if (holdout.statusUpdateSchedule?.stopAt) {
+          newNextScheduledStatusUpdate = {
+            type: "stop",
+            date: holdout.statusUpdateSchedule.stopAt,
+          };
         }
 
         await context.models.holdout.update(holdout, {
           analysisStartDate: now,
-          nextScheduledUpdateType: newNextScheduledUpdateType,
-          nextScheduledUpdate: newNextScheduledUpdate,
+          nextScheduledStatusUpdate: newNextScheduledStatusUpdate,
         });
         await updateExperiment({
           context,
@@ -176,10 +175,9 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
         if (phases[1]) {
           phases[1].dateEnded = new Date();
         }
-        // Set the next scheduled update to null to exclude from holdoutsToUpdate query
+        // Set the next scheduled status update to null to exclude from holdoutsToUpdate query
         await context.models.holdout.update(holdout, {
-          nextScheduledUpdateType: null,
-          nextScheduledUpdate: null,
+          nextScheduledStatusUpdate: null,
         });
         // set the status to stopped for the experiment
         await updateExperiment({

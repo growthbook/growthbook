@@ -12,7 +12,7 @@ import Text from "@/ui/Text";
 
 interface Props {
   form: UseFormReturn<
-    Pick<HoldoutInterfaceStringDates, "scheduledStatusUpdates">
+    Pick<HoldoutInterfaceStringDates, "statusUpdateSchedule">
   >;
   holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
@@ -38,11 +38,11 @@ export default function ScheduleStatusChangeInputs({
           ? "analysis-period"
           : "stopped";
 
-  const startDate = form.watch("scheduledStatusUpdates.startAt");
+  const startDate = form.watch("statusUpdateSchedule.startAt");
   const startAnalysisPeriodDate = form.watch(
-    "scheduledStatusUpdates.startAnalysisPeriodAt",
+    "statusUpdateSchedule.startAnalysisPeriodAt",
   );
-  const stopDate = form.watch("scheduledStatusUpdates.stopAt");
+  const stopDate = form.watch("statusUpdateSchedule.stopAt");
 
   return (
     <Box my="4">
@@ -57,7 +57,7 @@ export default function ScheduleStatusChangeInputs({
               date={startDate}
               setDate={(d) => {
                 form.setValue(
-                  "scheduledStatusUpdates.startAt",
+                  "statusUpdateSchedule.startAt",
                   d ? datetime(d) : undefined,
                 );
               }}
@@ -97,7 +97,7 @@ export default function ScheduleStatusChangeInputs({
               date={startAnalysisPeriodDate}
               setDate={(d) => {
                 form.setValue(
-                  "scheduledStatusUpdates.startAnalysisPeriodAt",
+                  "statusUpdateSchedule.startAnalysisPeriodAt",
                   d ? datetime(d) : undefined,
                 );
               }}
@@ -133,7 +133,7 @@ export default function ScheduleStatusChangeInputs({
               date={stopDate}
               setDate={(d) => {
                 form.setValue(
-                  "scheduledStatusUpdates.stopAt",
+                  "statusUpdateSchedule.stopAt",
                   d ? datetime(d) : undefined,
                 );
               }}

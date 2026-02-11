@@ -376,69 +376,65 @@ export const updateHoldout = async (
     });
   }
 
-  // Convert string dates to Date objects for scheduledStatusUpdates
+  // Convert string dates to Date objects for statusUpdateSchedule
   // Only add keys that are present in the request so partial updates preserve existing values
   const updates = { ...req.body };
 
-  if (updates.scheduledStatusUpdates) {
-    const scheduledUpdates = updates.scheduledStatusUpdates as {
+  if (updates.statusUpdateSchedule) {
+    const scheduleUpdates = updates.statusUpdateSchedule as {
       startAt?: string | Date;
       startAnalysisPeriodAt?: string | Date;
       stopAt?: string | Date;
     };
-    const existing = holdout.scheduledStatusUpdates ?? {};
-    updates.scheduledStatusUpdates = {
+    const existing = holdout.statusUpdateSchedule ?? {};
+    updates.statusUpdateSchedule = {
       ...existing,
-      ...(scheduledUpdates.startAt !== undefined && {
-        startAt: scheduledUpdates.startAt
-          ? getValidDate(scheduledUpdates.startAt)
+      ...(scheduleUpdates.startAt !== undefined && {
+        startAt: scheduleUpdates.startAt
+          ? getValidDate(scheduleUpdates.startAt)
           : undefined,
       }),
-      ...(scheduledUpdates.startAnalysisPeriodAt !== undefined && {
-        startAnalysisPeriodAt: scheduledUpdates.startAnalysisPeriodAt
-          ? getValidDate(scheduledUpdates.startAnalysisPeriodAt)
+      ...(scheduleUpdates.startAnalysisPeriodAt !== undefined && {
+        startAnalysisPeriodAt: scheduleUpdates.startAnalysisPeriodAt
+          ? getValidDate(scheduleUpdates.startAnalysisPeriodAt)
           : undefined,
       }),
-      ...(scheduledUpdates.stopAt !== undefined && {
-        stopAt: scheduledUpdates.stopAt
-          ? getValidDate(scheduledUpdates.stopAt)
+      ...(scheduleUpdates.stopAt !== undefined && {
+        stopAt: scheduleUpdates.stopAt
+          ? getValidDate(scheduleUpdates.stopAt)
           : undefined,
       }),
     };
 
-    // Compute next scheduled update and next scheduled update type
-    // Next scheduled update should be the earliest date among startAt, startAnalysisPeriodAt, and stopAt that is in the future
+    // Compute next scheduled event: earliest date among startAt, startAnalysisPeriodAt, and stopAt that is in the future
     const now = new Date();
     const potentialUpdates: Array<{
       date: Date;
       type: "start" | "startAnalysisPeriod" | "stop";
     }> = [];
 
-    if (
-      updates.scheduledStatusUpdates.startAt &&
-      experiment.status === "draft"
-    ) {
+    if (updates.statusUpdateSchedule.startAt && experiment.status === "draft") {
       potentialUpdates.push({
-        date: updates.scheduledStatusUpdates.startAt,
+        date: updates.statusUpdateSchedule.startAt,
         type: "start",
       });
     }
     if (
-      updates.scheduledStatusUpdates.startAnalysisPeriodAt &&
+      updates.statusUpdateSchedule.startAnalysisPeriodAt &&
       experiment.status === "running" &&
       !holdout.analysisStartDate
     ) {
       potentialUpdates.push({
-        date: updates.scheduledStatusUpdates.startAnalysisPeriodAt,
+        date: updates.statusUpdateSchedule.startAnalysisPeriodAt,
         type: "startAnalysisPeriod",
       });
     }
     if (
-      updates.scheduledStatusUpdates.stopAt &&
+      updates.statusUpdateSchedule.stopAt &&
       experiment.status !== "stopped"
     ) {
       potentialUpdates.push({
-        date: updates.scheduledStatusUpdates.stopAt,
+        date: updates.statusUpdateSchedule.stopAt,
         type: "stop",
       });
     }
@@ -452,12 +448,12 @@ export const updateHoldout = async (
       const nextUpdate = futureUpdates.reduce((earliest, current) =>
         current.date < earliest.date ? current : earliest,
       );
-      updates.nextScheduledUpdate = nextUpdate.date;
-      updates.nextScheduledUpdateType = nextUpdate.type;
+      updates.nextScheduledStatusUpdate = {
+        type: nextUpdate.type,
+        date: nextUpdate.date,
+      };
     } else {
-      // No future dates, set to null
-      updates.nextScheduledUpdate = null;
-      updates.nextScheduledUpdateType = null;
+      updates.nextScheduledStatusUpdate = null;
     }
   }
 
@@ -520,10 +516,9 @@ export const editStatus = async (
         status: "stopped",
       },
     });
-    // Clear next scheduled update
+    // Clear next scheduled status update
     await context.models.holdout.update(holdout, {
-      nextScheduledUpdateType: null,
-      nextScheduledUpdate: null,
+      nextScheduledStatusUpdate: null,
     });
 
     queueSDKPayloadRefresh({
@@ -553,12 +548,13 @@ export const editStatus = async (
     });
     await context.models.holdout.update(holdout, {
       analysisStartDate: undefined,
-      nextScheduledUpdateType: holdout.scheduledStatusUpdates
+      nextScheduledStatusUpdate: holdout.statusUpdateSchedule
         ?.startAnalysisPeriodAt
-        ? "startAnalysisPeriod"
+        ? {
+            type: "startAnalysisPeriod",
+            date: holdout.statusUpdateSchedule.startAnalysisPeriodAt,
+          }
         : null,
-      nextScheduledUpdate:
-        holdout.scheduledStatusUpdates?.startAnalysisPeriodAt ?? null,
     });
 
     queueSDKPayloadRefresh({
@@ -592,10 +588,9 @@ export const editStatus = async (
       };
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),
-        nextScheduledUpdateType: holdout.scheduledStatusUpdates?.stopAt
-          ? "stop"
+        nextScheduledStatusUpdate: holdout.statusUpdateSchedule?.stopAt
+          ? { type: "stop", date: holdout.statusUpdateSchedule.stopAt }
           : null,
-        nextScheduledUpdate: holdout.scheduledStatusUpdates?.stopAt ?? null,
       });
       // check to see if we already are in the running phase
     } else if (
@@ -806,9 +801,8 @@ export const deleteHoldoutSchedule = async (
   }
 
   await context.models.holdout.update(holdout, {
-    scheduledStatusUpdates: undefined,
-    nextScheduledUpdate: null,
-    nextScheduledUpdateType: null,
+    statusUpdateSchedule: undefined,
+    nextScheduledStatusUpdate: null,
   });
 
   return res.status(200).json({ status: 200 });

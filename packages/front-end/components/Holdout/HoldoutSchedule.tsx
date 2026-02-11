@@ -62,18 +62,18 @@ export const HoldoutSchedule = ({
   const startDate =
     experiment.status !== "draft"
       ? pickEarlierDate(
-          holdout.scheduledStatusUpdates?.startAt,
+          holdout.statusUpdateSchedule?.startAt,
           experiment.phases[0]?.dateStarted,
         )
-      : holdout.scheduledStatusUpdates?.startAt
-        ? new Date(holdout.scheduledStatusUpdates?.startAt)
+      : holdout.statusUpdateSchedule?.startAt
+        ? new Date(holdout.statusUpdateSchedule?.startAt)
         : null;
   const startAnalysisPeriodDate = pickEarlierDate(
-    holdout.scheduledStatusUpdates?.startAnalysisPeriodAt,
+    holdout.statusUpdateSchedule?.startAnalysisPeriodAt,
     holdout.analysisStartDate,
   );
   const stopDate = pickEarlierDate(
-    holdout.scheduledStatusUpdates?.stopAt,
+    holdout.statusUpdateSchedule?.stopAt,
     experiment.phases[1]?.dateEnded,
   );
 
