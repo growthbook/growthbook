@@ -892,11 +892,15 @@ export default function ExperimentHeader({
                             editResult();
                             setDropdownOpen(false);
                           }}
-                          tooltip={`Override Holdout schedule and manually ${!holdout?.analysisStartDate ? "start next phase" : "stop Holdout"} now`}
                         >
-                          {!holdout?.analysisStartDate
-                            ? "Start Analysis Phase"
-                            : "Stop Holdout"}
+                          <Tooltip
+                            body={`Override Holdout schedule and manually ${!holdout?.analysisStartDate ? "start next phase" : "stop Holdout"} now`}
+                            tipPosition="left"
+                          >
+                            {!holdout?.analysisStartDate
+                              ? "Start Analysis Phase"
+                              : "Stop Holdout"}
+                          </Tooltip>
                         </DropdownMenuItem>
                       ) : experiment.status === "draft" ? (
                         <DropdownMenuItem
@@ -904,9 +908,13 @@ export default function ExperimentHeader({
                             setShowStartExperiment(true);
                             setDropdownOpen(false);
                           }}
-                          tooltip="Override Holdout schedule and manually start Holdout now"
                         >
-                          Start Holdout
+                          <Tooltip
+                            body="Override Holdout schedule and manually start Holdout now"
+                            tipPosition="left"
+                          >
+                            Start Holdout
+                          </Tooltip>
                         </DropdownMenuItem>
                       ) : null)}
                     {(experiment.status !== "draft" || hasResults) && (
