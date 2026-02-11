@@ -39,14 +39,11 @@
   }
 }
 
-.gb-multi-select__group,
-.gb-select__group {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-
 .gb-select__group,
 .gb-multi-select__group {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+
   .gb-multi-select__group-heading,
   .gb-select__group-heading {
     margin-top: var(--space-4) !important;
