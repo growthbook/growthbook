@@ -20,6 +20,7 @@ export type Props = {
   allowDownload?: boolean;
   showSampleHeader?: boolean;
   renderedSQLLabel?: string;
+  showDuration?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -32,6 +33,7 @@ export default function DisplayTestQueryResults({
   allowDownload,
   showSampleHeader = true,
   renderedSQLLabel = "Rendered SQL",
+  showDuration = true,
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = Object.keys(results?.[0] || {});
@@ -119,9 +121,11 @@ export default function DisplayTestQueryResults({
               ) : null}
               <Flex align="center" gap="4">
                 <Flex align="center" flexGrow={"1"}>
-                  <span className="font-weight-light pl-2">
-                    Succeeded in {duration}ms
-                  </span>
+                  {showDuration && (
+                    <span className="font-weight-light pl-2">
+                      Succeeded in {duration}ms
+                    </span>
+                  )}
                 </Flex>
                 {totalPages > 1 ? (
                   <Flex align="center">
