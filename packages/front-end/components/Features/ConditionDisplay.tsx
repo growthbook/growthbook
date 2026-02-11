@@ -314,7 +314,6 @@ function getConditionOrParts({
       renderPrerequisite,
       keyPrefix: `${keyPrefix}or-${i}-`,
       attributeInfoMap,
-      prefix,
     });
 
     parts.push(

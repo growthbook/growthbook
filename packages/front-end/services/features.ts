@@ -3,7 +3,6 @@ import {
   Environment,
   NamespaceUsage,
   OrganizationSettings,
-  SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
@@ -567,13 +566,6 @@ export function useAttributeSchema(
     }
     return filteredAttributeSchema;
   }, [attributeSchema, showArchived, projectFilter]);
-}
-
-export function getAttributeDisplayLabel(attr: SDKAttribute): string {
-  if (attr.tags?.length) {
-    return `${attr.property} (${attr.tags.join(", ")})`;
-  }
-  return attr.property;
 }
 
 export function validateFeatureRule(
