@@ -68,7 +68,11 @@ export default function FactTableModal({
       tags: existing?.tags || [],
       eventName: existing?.eventName || "",
       managedBy: existing?.managedBy || "",
-      projects: existing?.projects || [],
+      projects: existing?.projects
+        ? existing.projects
+        : project
+          ? [project]
+          : [],
       autoSliceUpdatesEnabled: existing?.autoSliceUpdatesEnabled ?? false,
     },
   });
@@ -165,7 +169,6 @@ export default function FactTableModal({
             const ds = getDatasourceById(value.datasource);
             if (!ds) throw new Error("Must select a valid data source");
 
-            value.projects = ds.projects || [];
             value.columns = [];
 
             const { factTable, error } = await apiCall<{
