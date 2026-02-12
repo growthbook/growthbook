@@ -34,9 +34,12 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   expandAllSliceMetricsInMap,
+  getActiveVariationsForPhase,
+  getActiveVariationWeightsForPhase,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
+  getVariationWeightsForPhase,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
@@ -440,13 +443,16 @@ export function getSnapshotSettings({
     !!exposureQuery.dimensionMetadata &&
     !orgDisabledPrecomputedDimensions;
 
+  const activeVariations = getActiveVariationsForPhase(experiment, phase);
+  const activeWeights = getActiveVariationWeightsForPhase(experiment, phase);
+
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
   if (precomputeDimensions) {
     const { eligibleDimensionsWithSlicesUnderMaxCells } =
       getExposureQueryEligibleDimensions({
         exposureQuery,
         incrementalRefreshModel,
-        nVariations: experiment.variations.length,
+        nVariations: activeVariations.length,
       });
     dimensions =
       eligibleDimensionsWithSlicesUnderMaxCells.map((d) => ({
@@ -562,8 +568,12 @@ export function getSnapshotSettings({
     logger.warn(
       "JIT initializing banditEvents in memory (getSnapshotSettings)",
     );
+    // just skip getting fullWeights?
+    const fullWeights = getVariationWeightsForPhase(experiment, phase);
     const weights =
-      phase.variationWeights || getEqualWeights(experiment.variations.length);
+      phase.variationWeights?.length === fullWeights.length
+        ? phase.variationWeights
+        : fullWeights;
     const initialBanditEvent = {
       date: phase.dateStarted || new Date(),
       banditResult: {
@@ -584,8 +594,7 @@ export function getSnapshotSettings({
           currentWeights:
             phase?.banditEvents?.[phase.banditEvents.length - 1]?.banditResult
               ?.updatedWeights ??
-            phase?.variationWeights ??
-            [],
+            getVariationWeightsForPhase(experiment, phase),
           historicalWeights:
             phase?.banditEvents
               ?.filter(
@@ -627,9 +636,9 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings,
-    variations: experiment.variations.map((v, i) => ({
+    variations: activeVariations.map((v, i) => ({
       id: v.key || i + "",
-      weight: phase.variationWeights[i] || 0,
+      weight: activeWeights[i] || 0,
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,

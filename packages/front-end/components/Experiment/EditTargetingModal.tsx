@@ -8,12 +8,23 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import {
+  getActiveVariationWeightsForPhase,
+  getActiveVariationsForPhase,
+  getEqualWeights,
+  getVariationWeightsForPhase,
+  getVariationsForPhase,
+} from "shared/experiments";
+import { PiArrowCounterClockwise, PiTrash } from "react-icons/pi";
+import { Flex, Box, Text, IconButton } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema, useEnvironments } from "@/services/features";
+import {
+  useAttributeSchema,
+  useEnvironments,
+  getVariationColor,
+} from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -23,6 +34,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
+import { formatTrafficSplit } from "@/services/utils";
+import styles from "@/components/Features/VariationsInput.module.scss";
 import ConditionInput from "@/components//Features/ConditionInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
 import SelectField from "@/components//Forms/SelectField";
@@ -34,6 +47,7 @@ import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -44,6 +58,7 @@ export type ChangeType =
   | "traffic"
   | "weights"
   | "namespace"
+  | "remove-variation"
   | "advanced"
   | "phase";
 
@@ -93,6 +108,11 @@ export default function EditTargetingModal({
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
+  const variations = getActiveVariationsForPhase(experiment, lastPhase ?? null);
+  const variationWeights = getActiveVariationWeightsForPhase(
+    experiment,
+    lastPhase ?? null,
+  );
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
     savedGroups: lastPhase?.savedGroups ?? [],
@@ -111,9 +131,8 @@ export default function EditTargetingModal({
     },
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
-    variationWeights:
-      lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+    variations: variations,
+    variationWeights: variationWeights,
     newPhase: false,
     reseed: true,
   };
@@ -336,6 +355,133 @@ export default function EditTargetingModal({
   );
 }
 
+function RemoveVariationInput({
+  experiment,
+  form,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  form: UseFormReturn<ExperimentTargetingData>;
+}) {
+  const lastPhase = experiment.phases[experiment.phases.length - 1] ?? null;
+  const variations = getVariationsForPhase(experiment, lastPhase);
+  const originalWeights = getVariationWeightsForPhase(experiment, lastPhase);
+  const weights = form.watch("variationWeights") ?? originalWeights;
+
+  const activeCount = weights.filter((w) => w > 0).length;
+  const hasChanges = !isEqual(weights, originalWeights);
+
+  const handleRemove = (index: number) => {
+    const newWeights = [...weights];
+    newWeights[index] = 0;
+    const remainingIndices = newWeights
+      .map((w, i) => (w > 0 ? i : -1))
+      .filter((i) => i >= 0);
+    const equalWeights = getEqualWeights(remainingIndices.length);
+    remainingIndices.forEach((i, j) => {
+      newWeights[i] = equalWeights[j];
+    });
+    form.setValue("variationWeights", newWeights);
+  };
+
+  const handleReset = () => {
+    form.setValue("variationWeights", originalWeights);
+  };
+
+  return (
+    <div className="form-group">
+      <Flex direction="column" gap="2">
+        <Text weight="bold">Variation Weights</Text>
+        <Text size="1" color="gray">
+          Remove a variation to re-allocate its traffic equally among the
+          remaining variations.
+        </Text>
+      </Flex>
+      <div className="px-3 pt-3 mb-3">
+        <Flex justify="between" align="center" gap="2" mb="2">
+          <Text size="2">New phase split</Text>
+          <Text weight="medium">
+            {formatTrafficSplit(
+              weights.filter((w) => w > 0),
+              1,
+            )}
+          </Text>
+        </Flex>
+        <table className="table table-borderless mb-0">
+          <thead className={styles.thead}>
+            <tr>
+              <th className="pl-3 pr-0">Id</th>
+              <th>Variation Name</th>
+              <th>Split</th>
+            </tr>
+          </thead>
+          <tbody>
+            {variations.map((v, i) => (
+              <tr key={v.id} className={styles.tr}>
+                <td
+                  style={{ width: 45 }}
+                  className="position-relative pl-3 pr-0"
+                >
+                  <div
+                    className={styles.colorMarker}
+                    style={{
+                      backgroundColor: getVariationColor(i, true),
+                    }}
+                  />
+                  <span style={{ position: "relative", top: 6 }}>{i}</span>
+                </td>
+                <td>
+                  <Text as="span" style={{ position: "relative", top: 6 }}>
+                    {v.name}
+                  </Text>
+                </td>
+                <td style={{ width: 180 }}>
+                  <div className="row align-items-center">
+                    <div className="col d-flex flex-row">
+                      <span style={{ position: "relative", top: 6 }}>
+                        {weights[i] ? (weights[i] * 100).toFixed(1) : 0} %
+                      </span>
+                    </div>
+                    {activeCount > 2 && weights[i] > 0 && (
+                      <div
+                        className="col-auto"
+                        style={{ position: "relative", top: 4 }}
+                      >
+                        <IconButton
+                          variant="ghost"
+                          color="red"
+                          size="1"
+                          title="Remove variation"
+                          onClick={() => handleRemove(i)}
+                        >
+                          <PiTrash />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {hasChanges && (
+        <Flex justify="end" mt="2">
+          <Button
+            size="xs"
+            variant="ghost"
+            color="red"
+            icon={<PiArrowCounterClockwise />}
+            iconPosition="left"
+            onClick={handleReset}
+          >
+            Reset
+          </Button>
+        </Flex>
+      )}
+    </div>
+  );
+}
+
 function ChangeTypeSelector({
   experiment,
   changeType,
@@ -347,6 +493,10 @@ function ChangeTypeSelector({
 }) {
   const { namespaces } = useOrgSettings();
 
+  const variations = getActiveVariationsForPhase(
+    experiment,
+    experiment.phases[experiment.phases.length - 1] ?? null,
+  );
   const options: RadioOptions = [
     { label: "Start a New Phase", value: "phase" },
     {
@@ -359,6 +509,9 @@ function ChangeTypeSelector({
       disabled: !namespaces?.length,
     },
     { label: "Traffic Percent", value: "traffic" },
+    ...(experiment.type !== "multi-armed-bandit" && variations.length > 2
+      ? [{ label: "Remove Variation", value: "remove-variation" }]
+      : []),
     ...(experiment.type !== "multi-armed-bandit"
       ? [{ label: "Variation Weights", value: "weights" }]
       : []),
@@ -554,6 +707,9 @@ function TargetingForm({
         </>
       )}
 
+      {["remove-variation"].includes(changeType) && (
+        <RemoveVariationInput experiment={experiment} form={form} />
+      )}
       {["traffic", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
@@ -564,14 +720,15 @@ function TargetingForm({
           }
           valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
-              return {
-                value: v.key || i + "",
-                name: v.name,
-                weight: form.watch(`variationWeights.${i}`),
-                id: v.id,
-              };
-            }) || []
+            getVariationsForPhase(
+              experiment,
+              experiment.phases[experiment.phases.length - 1] ?? null,
+            ).map((v, i) => ({
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
+            })) || []
           }
           showPreview={false}
           disableCoverage={changeType === "weights"}

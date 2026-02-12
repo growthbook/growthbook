@@ -14,6 +14,8 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  getEqualWeights,
+  getVariationsForPhase,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -2437,11 +2439,39 @@ export async function postExperimentTargeting(
       };
     }
   } else {
-    // If we had a previous phase, mark it as ended
+    // If we had a previous phase, snapshot its variations and mark it as ended
     if (phases.length) {
-      phases[phases.length - 1].dateEnded = new Date();
+      const lastPhaseIndex = phases.length - 1;
+      const lastPhase = phases[lastPhaseIndex];
+      if (!lastPhase.variations) {
+        lastPhase.variations = [
+          ...getVariationsForPhase(experiment, lastPhase),
+        ];
+      }
+      lastPhase.dateEnded = new Date();
     }
 
+    // Build new phase with full list, disabled on removed (weight 0)
+    const effectiveVariations = getVariationsForPhase(
+      experiment,
+      phases.length ? (phases[phases.length - 1] ?? null) : null,
+    );
+    const weights =
+      variationWeights?.length === effectiveVariations.length
+        ? variationWeights
+        : getEqualWeights(effectiveVariations.length);
+    const hasActive = weights.some((w) => w > 0);
+    if (!hasActive) {
+      res.status(400).json({
+        status: 400,
+        message: "At least one variation must have weight > 0",
+      });
+      return;
+    }
+    const newPhaseVariations = effectiveVariations.map((v, i) => ({
+      ...v,
+      disabled: weights[i] === 0,
+    }));
     phases.push({
       condition,
       savedGroups,
@@ -2451,7 +2481,8 @@ export async function postExperimentTargeting(
       name: "Main",
       namespace,
       reason: "",
-      variationWeights,
+      variationWeights: weights,
+      variations: newPhaseVariations,
       seed: phases.length && reseed ? uuidv4() : seed,
     });
   }
@@ -2565,13 +2596,18 @@ export async function postExperimentPhase(
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
   const phases = [...experiment.phases];
-  // Already has phases
+  // Already has phases - snapshot last phase's variations and end it
   if (phases.length) {
+    const lastPhaseIndex = phases.length - 1;
+    const lastPhase = phases[lastPhaseIndex];
+    if (!lastPhase.variations) {
+      lastPhase.variations = [...getVariationsForPhase(experiment, lastPhase)];
+    }
     if (experiment.type === "holdout") {
       phases[0].dateEnded = date;
     }
-    phases[phases.length - 1] = {
-      ...phases[phases.length - 1],
+    phases[lastPhaseIndex] = {
+      ...lastPhase,
       dateEnded: date,
       reason,
     };
@@ -2584,11 +2620,26 @@ export async function postExperimentPhase(
     isStarting = true;
   }
 
+  const effectiveVariations = getVariationsForPhase(
+    experiment,
+    phases.length ? (phases[phases.length - 1] ?? null) : null,
+  );
+  const weights =
+    data.variationWeights?.length === effectiveVariations.length
+      ? data.variationWeights
+      : getEqualWeights(effectiveVariations.length);
+  const newPhaseVariations = effectiveVariations.map((v) => ({
+    ...v,
+    disabled: false,
+  }));
+
   phases.push({
     ...data,
     dateStarted: date,
     dateEnded: undefined,
     reason: "",
+    variationWeights: weights,
+    variations: newPhaseVariations,
   });
 
   // TODO: validation

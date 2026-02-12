@@ -1,4 +1,8 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  getActiveVariationsForPhase,
+  getActiveVariationWeightsForPhase,
+} from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
@@ -248,15 +252,15 @@ export default function HealthTab({
 
   const traffic = snapshot.health.traffic;
 
-  const phaseObj = experiment.phases?.[phase];
+  const phaseObj = experiment.phases?.[phase] ?? null;
 
-  const variations = experiment.variations.map((v, i) => {
-    return {
-      id: v.key || i + "",
-      name: v.name,
-      weight: phaseObj?.variationWeights?.[i] || 0,
-    };
-  });
+  const activeVariations = getActiveVariationsForPhase(experiment, phaseObj);
+  const activeWeights = getActiveVariationWeightsForPhase(experiment, phaseObj);
+  const variations = activeVariations.map((v, i) => ({
+    id: v.key || i + "",
+    name: v.name,
+    weight: activeWeights[i] || 0,
+  }));
 
   return (
     <div className="mt-2">
