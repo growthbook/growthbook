@@ -73,10 +73,10 @@ function conditionToSql(c: Condition): string {
 }
 
 function buildParsedFromBuilder(
-  metric: MetricInterface,
-): ParsedSelect | string {
+  metric: Partial<MetricInterface>,
+): ParsedSelect {
   if (!metric.table) {
-    return "Builder metric missing table";
+    throw new Error("Builder metric missing table");
   }
 
   const selectItems: SelectItem[] = [];
@@ -824,18 +824,22 @@ export function migrateMetrics(
   return { factTables, factMetrics, unconverted };
 }
 
-export function getLegacyMetricSQL(metric: MetricInterface): string {
+export function getLegacyMetricSQL(metric: Partial<MetricInterface>): string {
   if (metric.sql || metric.queryFormat === "sql") {
-    return metric.sql;
+    return metric.sql || "";
   }
 
-  const parsed = buildParsedFromBuilder(metric);
+  try {
+    const parsed = buildParsedFromBuilder(metric);
 
-  return reconstructSql(
-    parsed.select,
-    parsed.from,
-    parsed.joins,
-    parsed.where,
-    parsed.groupBy,
-  );
+    return reconstructSql(
+      parsed.select,
+      parsed.from,
+      parsed.joins,
+      parsed.where,
+      parsed.groupBy,
+    );
+  } catch (e) {
+    return "";
+  }
 }

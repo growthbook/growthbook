@@ -233,13 +233,13 @@ function JsonDiffModal({
       ...commonKeys,
       ...Object.keys(legacyMetric).filter((key) => !commonKeys.has(key)),
     ].map((key) => [key, legacyMetric[key]]),
-  );
+  ) as Partial<MetricInterface>;
   const sortedFactMetric = Object.fromEntries(
     [
       ...commonKeys,
       ...Object.keys(factMetric).filter((key) => !commonKeys.has(key)),
     ].map((key) => [key, factMetric[key]]),
-  );
+  ) as Partial<FactMetricInterface>;
 
   const legacySQL = getLegacyMetricSQL(sortedLegacyMetric);
   const factSQL = factTable.sql;
