@@ -28,6 +28,7 @@ import Markdown from "./Markdown";
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
+//Extracts a human-readable link label from a URL for Markdown link shorthand.
 function getLinkLabelFromUrl(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "") || "Link";
