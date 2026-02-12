@@ -586,7 +586,7 @@ export default function TabbedPage({
                 onClick={() => setPhase(experiment.phases.length - 1)}
               >
                 {isHoldout
-                  ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
+                  ? "Switch to the analysis phase to view results with a lookback based on the analysis phase start date."
                   : "Switch to the latest phase"}
               </Link>
             </Callout>

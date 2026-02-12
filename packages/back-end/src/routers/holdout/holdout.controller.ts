@@ -573,7 +573,7 @@ export const editStatus = async (
       },
     });
   } else if (req.body.status === "running") {
-    // check to see if already in analysis period
+    // check to see if already in analysis phase
     if (!phases[0]) {
       throw new Error("Holdout does not have a phase");
     }
@@ -587,7 +587,7 @@ export const editStatus = async (
         ...phases[0],
         lookbackStartDate: new Date(),
         dateEnded: undefined,
-        name: "Analysis Period",
+        name: "Analysis",
       };
       await context.models.holdout.update(holdout, {
         analysisStartDate: new Date(),

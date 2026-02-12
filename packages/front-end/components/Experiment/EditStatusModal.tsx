@@ -63,7 +63,7 @@ export default function EditStatusModal({
       ? [
           {
             value: "analysis",
-            label: "Analysis Period",
+            label: "Analysis Phase",
           },
         ]
       : []),

@@ -26,7 +26,7 @@ export default function ExperimentActionButtons({
   const displayCTAText = () => {
     if (holdout) {
       return !holdout?.analysisStartDate
-        ? "Start Analysis Period"
+        ? "Start Analysis Phase"
         : "Stop Holdout";
     }
     if (readyForDecision) {

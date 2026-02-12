@@ -219,7 +219,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           coverage: initialExperiment?.phases?.[0]?.coverage || 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
           dateEnded: new Date().toISOString().substr(0, 16),
-          name: "Full Holdout",
+          name: "Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
           savedGroups: initialExperiment?.phases?.[0]?.savedGroups || [],

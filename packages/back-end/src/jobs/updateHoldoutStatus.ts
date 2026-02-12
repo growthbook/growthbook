@@ -139,7 +139,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
           ...phases[0],
           lookbackStartDate: now,
           dateEnded: undefined,
-          name: "Analysis Period",
+          name: "Analysis",
         };
 
         if (holdout.statusUpdateSchedule?.stopAt) {
