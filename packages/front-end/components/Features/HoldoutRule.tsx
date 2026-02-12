@@ -179,7 +179,6 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                               holdoutExperiment.phases[0].prerequisites
                             }
                             maxLength={500}
-                            showAttributeTooltip
                           />
                         </Box>
                       </Flex>

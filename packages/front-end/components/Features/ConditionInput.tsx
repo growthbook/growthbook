@@ -41,8 +41,6 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SortedTags from "@/components/Tags/SortedTags";
-import TooltipWithBody from "@/components/Tooltip/Tooltip";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -523,8 +521,6 @@ function ConditionAndGroupInput({
               ...attributeSchema.map((s) => ({
                 label: s.property,
                 value: s.property,
-                tooltip: s.description || "",
-                tags: s.tags,
               })),
               ...(props.allowNestedSavedGroups || field === "$savedGroups"
                 ? [
@@ -535,56 +531,6 @@ function ConditionAndGroupInput({
                   ]
                 : []),
             ]}
-            filterOption={(option, inputValue) => {
-              const search = inputValue.trim().toLowerCase();
-              if (!search) return true;
-              const label = (option.label || "").toLowerCase();
-              if (label.includes(search)) return true;
-              const opt = option as {
-                data?: { tags?: string[] };
-                tags?: string[];
-              };
-              const tags = opt.tags ?? opt.data?.tags;
-              if (tags?.some((t) => t.toLowerCase().includes(search)))
-                return true;
-              return false;
-            }}
-            formatOptionLabel={(o, { context }) => {
-              const tags =
-                "tags" in o ? (o.tags as string[] | undefined) : undefined;
-              if (context === "menu" && tags?.length) {
-                const tagCountText =
-                  tags.length === 1 ? "1 tag" : `${tags.length} tags`;
-                return (
-                  <Flex
-                    align="center"
-                    justify="between"
-                    wrap="nowrap"
-                    style={{ maxWidth: "100%", minWidth: 0 }}
-                  >
-                    <Text style={{ flexShrink: 0 }} title={o.tooltip}>
-                      {o.label}
-                    </Text>
-                    <TooltipWithBody
-                      body={<SortedTags tags={tags} useFlex={true} />}
-                      tipPosition="right"
-                    >
-                      <Text
-                        size="1"
-                        style={{
-                          flexShrink: 0,
-                          marginLeft: "var(--space-2)",
-                          color: "var(--color-text-mid)",
-                        }}
-                      >
-                        {tagCountText}
-                      </Text>
-                    </TooltipWithBody>
-                  </Flex>
-                );
-              }
-              return <span title={o.tooltip}>{o.label}</span>;
-            }}
             name="field"
             onChange={(value) => {
               const newConds = [...conds];

@@ -487,7 +487,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         prerequisites={rule.prerequisites}
                         maxLength={500}
                         project={feature.project}
-                        showAttributeTooltip
                         prefix={<Text weight="medium">IF</Text>}
                       />
                     </Box>

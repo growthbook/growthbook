@@ -135,7 +135,6 @@ export default function ExperimentRefSummary({
               savedGroups={phase.savedGroups}
               prerequisites={phase.prerequisites}
               project={experiment?.project ?? feature.project}
-              showAttributeTooltip
             />
           </Box>
         </Flex>

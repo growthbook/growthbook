@@ -10,7 +10,6 @@ interface TruncatedConditionDisplayProps {
   prerequisites?: FeaturePrerequisite[];
   maxLength?: number;
   project?: string;
-  showAttributeTooltip?: boolean;
   prefix?: ReactNode;
 }
 
@@ -20,7 +19,6 @@ export default function TruncatedConditionDisplay({
   prerequisites,
   maxLength = 200,
   project,
-  showAttributeTooltip = false,
   prefix,
 }: TruncatedConditionDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -44,7 +42,6 @@ export default function TruncatedConditionDisplay({
           savedGroups={savedGroups}
           prerequisites={prerequisites}
           project={project}
-          showAttributeTooltip={showAttributeTooltip}
           prefix={prefix}
         />
         {isExpanded && (
