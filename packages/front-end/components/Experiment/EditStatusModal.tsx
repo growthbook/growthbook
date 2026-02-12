@@ -102,8 +102,12 @@ export default function EditStatusModal({
               method: "POST",
               body: JSON.stringify(value),
             });
-            await apiCall(`/holdout/${holdout.id}/schedule`, {
-              method: "DELETE",
+            await apiCall(`/holdout/${holdout.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                statusUpdateSchedule: null,
+                nextScheduledStatusUpdate: null,
+              }),
             });
             mutate();
           } else {
