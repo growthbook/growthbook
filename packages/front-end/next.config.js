@@ -15,6 +15,16 @@ const nextConfig = {
   },
   // Enable Turbopack with empty config to silence migration warning
   turbopack: {},
+  sassOptions: {
+    silenceDeprecations: [
+      "legacy-js-api",
+      "import",
+      "slash-div",
+      "color-functions",
+      "global-builtin",
+      "abs-percent",
+    ],
+  },
   headers: () => [
     {
       source: "/(.*)",
