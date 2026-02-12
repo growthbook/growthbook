@@ -80,19 +80,29 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
     throw new Error("Holdout experiment not found: " + holdout.id);
   }
   if (holdoutExperiment.archived) {
-    logger.info(
-      "Skipping status update: Holdout experiment is archived: " + holdout.id,
-    );
+    logger.info(`Skipping status update: Holdout ${holdout.id} is archived`);
     return;
   }
   if (holdoutExperiment.status === "stopped") {
-    logger.info(
-      "Skipping status update: Holdout experiment is stopped: " + holdout.id,
-    );
+    logger.info(`Skipping status update: Holdout ${holdout.id} is stopped`);
     return;
   }
 
   const now = new Date();
+  const scheduled = holdout.nextScheduledStatusUpdate;
+  if (!scheduled?.date) {
+    logger.info(
+      `Skipping status update: Holdout ${holdout.id} has no scheduled update`,
+    );
+    return;
+  }
+  if (scheduled.date > now) {
+    logger.info(
+      `Skipping status update: Holdout ${holdout.id} scheduled update is in the future (possibly rescheduled).`,
+    );
+    return;
+  }
+
   const phases = [...holdoutExperiment.phases] as ExperimentPhase[];
 
   let newNextScheduledStatusUpdate: {
@@ -103,7 +113,7 @@ const updateSingleHoldout = async (job: UpdateSingleHoldoutJob) => {
   try {
     logger.info("Start Updating Status for holdout " + holdout.id);
 
-    switch (holdout.nextScheduledStatusUpdate?.type) {
+    switch (scheduled.type) {
       case "start": {
         const changes: Changeset = await getChangesToStartExperiment(
           context,
