@@ -179,11 +179,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/PhaseSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/RefreshSnapshotButton.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -219,11 +214,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/Implementation.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -240,11 +230,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/SetupTabOverview.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -952,11 +937,6 @@
   "packages/front-end/pages/datasources/[did].tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/design-system/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/experiments/template/[tid].tsx": {

@@ -43,7 +43,7 @@ export interface HeadingProps {
 export default function Heading({
   children,
   size = "medium",
-  weight = "medium",
+  weight = "semibold",
   as,
   color,
   align = "left",
