@@ -11158,6 +11158,9 @@ paths:
                     type: string
                 datasource:
                   type: string
+                owner:
+                  description: Will default to the current user
+                  type: string
                 archived:
                   type: boolean
               additionalProperties: false
@@ -11256,6 +11259,11 @@ paths:
                     type: string
                 datasource:
                   type: string
+                owner:
+                  description: Will default to the current user
+                  type: string
+                archived:
+                  type: boolean
               required:
                 - name
                 - description

@@ -30,7 +30,7 @@ export const apiCreateMetricGroupBody = z.strictObject({
   projects: z.array(z.string()),
   metrics: z.array(z.string()),
   datasource: z.string(),
+  owner: z.string().optional().describe("Will default to the current user"),
+  archived: z.boolean().optional(),
 });
-export const apiUpdateMetricGroupBody = apiCreateMetricGroupBody
-  .safeExtend({ archived: z.boolean() })
-  .partial();
+export const apiUpdateMetricGroupBody = apiCreateMetricGroupBody.partial();

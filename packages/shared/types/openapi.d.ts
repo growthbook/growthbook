@@ -15993,6 +15993,8 @@ export interface operations {
           projects?: (string)[];
           metrics?: (string)[];
           datasource?: string;
+          /** @description Will default to the current user */
+          owner?: string;
           archived?: boolean;
         };
       };
@@ -16075,6 +16077,9 @@ export interface operations {
           projects: (string)[];
           metrics: (string)[];
           datasource: string;
+          /** @description Will default to the current user */
+          owner?: string;
+          archived?: boolean;
         };
       };
     };
