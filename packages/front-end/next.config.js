@@ -10,12 +10,11 @@ const cspHeader = `
 const nextConfig = {
   // We already run eslint and typescript in CI/CD
   // Disable here to speed up production builds
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Enable Turbopack with empty config to silence migration warning
+  turbopack: {},
   headers: () => [
     {
       source: "/(.*)",
@@ -55,9 +54,6 @@ const nextConfig = {
     return config;
   },
   productionBrowserSourceMaps: true,
-  experimental: {
-    instrumentationHook: true,
-  },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);
