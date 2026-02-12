@@ -4,9 +4,9 @@ import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { generateUniqueValueName } from "../util";
 import { useExplorerContext } from "../ExplorerContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import ValueCard from "./ValueCard";
 
 export default function MetricTabContent() {
@@ -43,10 +43,7 @@ export default function MetricTabContent() {
           })) ?? [];
 
         return (
-          <ValueCard
-            key={idx}
-            index={idx}
-          >
+          <ValueCard key={idx} index={idx}>
             <Flex direction="column">
               <SelectField
                 value={v.metricId}
@@ -67,9 +64,9 @@ export default function MetricTabContent() {
                     unit,
                     name: newMetric?.name
                       ? generateUniqueValueName(
-                        newMetric.name,
-                        draftExploreState.dataset.values,
-                      )
+                          newMetric.name,
+                          draftExploreState.dataset.values,
+                        )
                       : v.name,
                   } as MetricValue;
 
@@ -86,7 +83,11 @@ export default function MetricTabContent() {
           </ValueCard>
         );
       })}
-      <Button size="sm" variant="outline" onClick={() => addValueToDataset("metric")}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => addValueToDataset("metric")}
+      >
         <Flex align="center" gap="2">
           <PiPlus size={14} />
           Add metric

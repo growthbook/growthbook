@@ -6,9 +6,9 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
-import { useExplorerContext } from "../ExplorerContext";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useExplorerContext } from "../ExplorerContext";
 
 const CHART_ID = "explorer-chart";
 

@@ -1,8 +1,8 @@
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
-import { Box } from "@radix-ui/themes";
 
 export default function NewExplorePage() {
   const { hasCommercialFeature } = useUser();

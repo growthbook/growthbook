@@ -1,14 +1,5 @@
 import React, { ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
-import {
-  Select,
-  SelectItem,
-  SelectGroup,
-  SelectLabel,
-  SelectSeparator,
-} from "@/ui/Select";
-import { useExplorerContext } from "../../ExplorerContext";
-import { AreaChartIcon } from "@/components/Icons";
 import { chartTypes as chartTypeValues } from "shared/validators";
 import {
   PiChartBar,
@@ -17,6 +8,15 @@ import {
   PiHash,
   PiTable,
 } from "react-icons/pi";
+import {
+  Select,
+  SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
+} from "@/ui/Select";
+import { AreaChartIcon } from "@/components/Icons";
+import { useExplorerContext } from "../../ExplorerContext";
 
 const chartTypes: {
   groupLabel: string;

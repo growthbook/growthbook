@@ -68,27 +68,31 @@ export default function FactTableTabContent() {
   return (
     <Flex direction="column" gap="4">
       {!values.length && (
-        <Flex justify="center" align="center" height="100%" style={{
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-3)",
-          padding: "var(--space-3)",
-          backgroundColor: "var(--color-panel-translucent)",
-          height: "100%",
-          width: "100%",
-        }}>
+        <Flex
+          justify="center"
+          align="center"
+          height="100%"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-3)",
+            padding: "var(--space-3)",
+            backgroundColor: "var(--color-panel-translucent)",
+            height: "100%",
+            width: "100%",
+          }}
+        >
           <Text size="1" color="gray">
             Add at least one value to chart
           </Text>
         </Flex>
       )}
       {dataset.values.map((v, idx) => (
-        <ValueCard
-          key={idx}
-          index={idx}
-        >
+        <ValueCard key={idx} index={idx}>
           <Flex direction="column" gap="2">
             <Separator style={{ width: "100%" }} />
-            <Text size="2" weight="medium" mt="2">Value type</Text>
+            <Text size="2" weight="medium" mt="2">
+              Value type
+            </Text>
             <SelectField
               value={v.valueType}
               onChange={(val) =>
@@ -109,7 +113,9 @@ export default function FactTableTabContent() {
             />
             {v.valueType === "sum" && (
               <>
-                <Text size="2" weight="medium" mt="2">Value column</Text>
+                <Text size="2" weight="medium" mt="2">
+                  Value column
+                </Text>
                 <SelectField
                   value={v.valueColumn ?? ""}
                   onChange={(val) =>
@@ -130,7 +136,11 @@ export default function FactTableTabContent() {
           </Flex>
         </ValueCard>
       ))}
-      <Button size="sm" variant="outline" onClick={() => addValueToDataset("fact_table")}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => addValueToDataset("fact_table")}
+      >
         <Flex align="center" gap="2">
           <PiPlus size={14} />
           Add value

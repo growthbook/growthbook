@@ -100,24 +100,22 @@ export const SelectSeparator = forwardRef<HTMLDivElement>(
   },
 );
 
-export const SelectGroup = forwardRef<
-  HTMLDivElement,
-  { children: ReactNode }
->(function SelectGroup({ children, ...props }, ref) {
-  return (
-    <RadixSelect.Group {...props} ref={ref}>
-      {children}
-    </RadixSelect.Group>
-  );
-});
+export const SelectGroup = forwardRef<HTMLDivElement, { children: ReactNode }>(
+  function SelectGroup({ children, ...props }, ref) {
+    return (
+      <RadixSelect.Group {...props} ref={ref}>
+        {children}
+      </RadixSelect.Group>
+    );
+  },
+);
 
-export const SelectLabel = forwardRef<
-  HTMLDivElement,
-  { children: ReactNode }
->(function SelectLabel({ children, ...props }, ref) {
-  return (
-    <RadixSelect.Label {...props} ref={ref}>
-      {children}
-    </RadixSelect.Label>
-  );
-});
+export const SelectLabel = forwardRef<HTMLDivElement, { children: ReactNode }>(
+  function SelectLabel({ children, ...props }, ref) {
+    return (
+      <RadixSelect.Label {...props} ref={ref}>
+        {children}
+      </RadixSelect.Label>
+    );
+  },
+);

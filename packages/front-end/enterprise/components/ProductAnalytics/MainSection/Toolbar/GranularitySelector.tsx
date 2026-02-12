@@ -1,21 +1,24 @@
 import React from "react";
+import { dateGranularity } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
 import { useExplorerContext } from "../../ExplorerContext";
-import { dateGranularity } from "shared/validators";
 
-const dateGranularityLabels: Record<typeof dateGranularity[number], string> = {
-  auto: "Auto",
-  hour: "Hourly",
-  day: "Daily",
-  week: "Weekly",
-  month: "Monthly",
-  year: "Yearly",
-};
+const dateGranularityLabels: Record<(typeof dateGranularity)[number], string> =
+  {
+    auto: "Auto",
+    hour: "Hourly",
+    day: "Daily",
+    week: "Weekly",
+    month: "Monthly",
+    year: "Yearly",
+  };
 
 export default function GranularitySelector() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
-  
-  const dateDimension = draftExploreState.dimensions.find((d) => d.dimensionType === "date");
+
+  const dateDimension = draftExploreState.dimensions.find(
+    (d) => d.dimensionType === "date",
+  );
   const granularity = dateDimension?.dateGranularity || "day";
 
   return (
@@ -26,7 +29,14 @@ export default function GranularitySelector() {
       setValue={(v) => {
         setDraftExploreState((prev) => ({
           ...prev,
-          dimensions: prev.dimensions.map((d) => d.dimensionType === "date" ? { ...d, dateGranularity: v as "day" | "week" | "month" | "year" } : d),
+          dimensions: prev.dimensions.map((d) =>
+            d.dimensionType === "date"
+              ? {
+                  ...d,
+                  dateGranularity: v as "day" | "week" | "month" | "year",
+                }
+              : d,
+          ),
         }));
       }}
     >

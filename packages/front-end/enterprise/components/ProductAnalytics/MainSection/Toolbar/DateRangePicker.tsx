@@ -6,23 +6,23 @@ import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "../../ExplorerContext";
 
-const PREDEFINED_LABELS: Record<
-  (typeof dateRangePredefined)[number],
-  string
-> = {
-  today: "Today",
-  last7Days: "7d",
-  last30Days: "30d",
-  last90Days: "90d",
-  customLookback: "Custom Lookback",
-  customDateRange: "Custom Date Range",
-};
+const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
+  {
+    today: "Today",
+    last7Days: "7d",
+    last30Days: "30d",
+    last90Days: "90d",
+    customLookback: "Custom Lookback",
+    customDateRange: "Custom Date Range",
+  };
 
 export default function DateRangePicker() {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
-  const handleCustomLookbackValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomLookbackValueChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const value = e.target.value ? parseInt(e.target.value) : null;
     console.log("value", value);
     if ((value !== null && value < 1) || (value !== null && isNaN(value))) {
@@ -31,7 +31,7 @@ export default function DateRangePicker() {
     setDraftExploreState((prev) => ({
       ...prev,
       dateRange: { ...prev.dateRange, lookbackValue: value },
-    }));  
+    }));
   };
 
   return (
@@ -59,9 +59,13 @@ export default function DateRangePicker() {
 
       {dateRange.predefined === "customLookback" && (
         <>
-
           <Field
-            style={{ width: "55px", paddingTop: "0px", paddingBottom: "0px", height: "32px"}}
+            style={{
+              width: "55px",
+              paddingTop: "0px",
+              paddingBottom: "0px",
+              height: "32px",
+            }}
             placeholder="#"
             min="1"
             value={dateRange.lookbackValue?.toString() || ""}

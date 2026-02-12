@@ -4,7 +4,13 @@ import {
   FactTableInterface,
   RowFilter,
 } from "shared/types/fact-table";
-import { PiCaretDown, PiCaretRight, PiCaretUp, PiPlus, PiX } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiCaretUp,
+  PiPlus,
+  PiX,
+} from "react-icons/pi";
 import { useState } from "react";
 import Collapsible from "react-collapsible";
 import Field from "@/components/Forms/Field";
@@ -74,7 +80,7 @@ export function RowFilterInput({
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
   const [collapsedFilters, setCollapsedFilters] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const isCompact = variant === "compact";
 
@@ -93,7 +99,11 @@ export function RowFilterInput({
   return (
     <Flex direction="column" gap="2" width={isCompact ? "100%" : undefined}>
       {isCompact ? (
-        value.length > 0 ? <Text size="2" weight="medium">Filters</Text> : null
+        value.length > 0 ? (
+          <Text size="2" weight="medium">
+            Filters
+          </Text>
+        ) : null
       ) : (
         <strong>Row Filter</strong>
       )}
@@ -142,13 +152,13 @@ export function RowFilterInput({
                 value: "$$sql_expr",
               },
               ...(factTable.filters.length > 0 ||
-                filter.operator === "saved_filter"
+              filter.operator === "saved_filter"
                 ? [
-                  {
-                    label: "Saved Filter",
-                    value: "$$saved_filter",
-                  },
-                ]
+                    {
+                      label: "Saved Filter",
+                      value: "$$saved_filter",
+                    },
+                  ]
                 : []),
             ],
           },
@@ -360,31 +370,32 @@ export function RowFilterInput({
           />
         );
 
-        const operatorSelect = operatorInputRequired && firstSelectCompleted && (
-          <SelectField
-            value={filter.operator}
-            onChange={(v: RowFilter["operator"]) => {
-              let newValues = filter.values || [];
+        const operatorSelect = operatorInputRequired &&
+          firstSelectCompleted && (
+            <SelectField
+              value={filter.operator}
+              onChange={(v: RowFilter["operator"]) => {
+                let newValues = filter.values || [];
 
-              // If changing from a single-value to multi-value operator, remove empty strings
-              if (
-                ["in", "not_in"].includes(v) &&
-                !["in", "not_in"].includes(filter.operator)
-              ) {
-                newValues = newValues.filter((val) => val !== "");
-              }
+                // If changing from a single-value to multi-value operator, remove empty strings
+                if (
+                  ["in", "not_in"].includes(v) &&
+                  !["in", "not_in"].includes(filter.operator)
+                ) {
+                  newValues = newValues.filter((val) => val !== "");
+                }
 
-              updateRowFilter({
-                operator: v,
-                values: newValues,
-              });
-            }}
-            options={operatorOptions}
-            sort={false}
-            placeholder={isCompact ? "Select operator..." : undefined}
-            required
-          />
-        );
+                updateRowFilter({
+                  operator: v,
+                  values: newValues,
+                });
+              }}
+              options={operatorOptions}
+              sort={false}
+              placeholder={isCompact ? "Select operator..." : undefined}
+              required
+            />
+          );
 
         const valueInput = valueInputRequired && firstSelectCompleted && (
           <>
@@ -400,9 +411,7 @@ export function RowFilterInput({
                 creatable={allowCreatingNewOptions}
                 sort={false}
                 autoFocus={autoFocus}
-                pattern={
-                  inputType === "number" ? NUMBER_PATTERN : undefined
-                }
+                pattern={inputType === "number" ? NUMBER_PATTERN : undefined}
                 placeholder={isCompact ? "Select values..." : undefined}
                 required
               />
@@ -416,9 +425,7 @@ export function RowFilterInput({
                 }}
                 delimiters={["Enter", "Tab"]}
                 autoFocus={autoFocus}
-                pattern={
-                  inputType === "number" ? NUMBER_PATTERN : undefined
-                }
+                pattern={inputType === "number" ? NUMBER_PATTERN : undefined}
                 required
               />
             ) : useValueOptions ? (
@@ -433,9 +440,7 @@ export function RowFilterInput({
                 createable={allowCreatingNewOptions}
                 sort={false}
                 autoFocus={autoFocus}
-                pattern={
-                  inputType === "number" ? NUMBER_PATTERN : undefined
-                }
+                pattern={inputType === "number" ? NUMBER_PATTERN : undefined}
                 placeholder={isCompact ? "Select value..." : undefined}
                 required
               />
@@ -448,7 +453,7 @@ export function RowFilterInput({
                   if (inputType === "number" && newValue !== "") {
                     // Allow partial valid inputs like "-", ".", "-.", or valid numbers
                     const isPartialValid = /^-?\.?$|^-?\d*\.?\d*$/.test(
-                      newValue
+                      newValue,
                     );
                     if (!isPartialValid) {
                       return;
@@ -484,7 +489,7 @@ export function RowFilterInput({
             }
             if (filter.operator === "saved_filter") {
               const savedFilter = factTable.filters.find(
-                (f) => f.id === filter.values?.[0]
+                (f) => f.id === filter.values?.[0],
               );
               return savedFilter ? savedFilter.name : "Saved Filter";
             }
@@ -492,21 +497,24 @@ export function RowFilterInput({
               return `Filter ${i + 1}`;
             }
             const col = factTable.columns.find(
-              (c) => c.column === filter.column
+              (c) => c.column === filter.column,
             );
             const colName = col?.name || filter.column;
             return `${colName} ${filter.operator} ${filter.values?.join(", ") || ""}`;
           };
 
           return (
-            <Flex key={`${rowDeleted}-${i}`} direction="column"
-              style={{ 
-                border: "1px solid var(--gray-a3)", 
-                borderRadius: "var(--radius-3)", 
-                padding: "var(--space-2)", 
+            <Flex
+              key={`${rowDeleted}-${i}`}
+              direction="column"
+              style={{
+                border: "1px solid var(--gray-a3)",
+                borderRadius: "var(--radius-3)",
+                padding: "var(--space-2)",
                 backgroundColor: "var(--color-panel-translucent)",
                 // marginBottom: "var(--space-2)",
-              }}>
+              }}
+            >
               <Flex justify="between" align="center" width="100%" gap="2">
                 <Text
                   size="1"
@@ -571,55 +579,52 @@ export function RowFilterInput({
             {columnSelect}
             {operatorSelect}
             {valueInput}
-            <Button
-              variant="ghost"
-              color="red"
-              onClick={handleDeleteFilter}
-            >
+            <Button variant="ghost" color="red" onClick={handleDeleteFilter}>
               <PiX />
             </Button>
           </Flex>
         );
       })}
-      {!hideAddButton && (isCompact ? (
-        <Button
-          size="xs"
-          variant="ghost"
-          style={{ maxWidth: "fit-content" }}
-          onClick={() => {
-            const newFilters = [...value];
-            newFilters.push({
-              column: "",
-              operator: "=",
-              values: [],
-            });
-            setValue(newFilters);
-          }}
-        >
-          <Flex align="center" gap="2">
-            <PiPlus size={14} />
-            Add Filter
-          </Flex>
-        </Button>
-      ) : (
-        <div>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+      {!hideAddButton &&
+        (isCompact ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            style={{ maxWidth: "fit-content" }}
+            onClick={() => {
               const newFilters = [...value];
               newFilters.push({
                 column: "",
                 operator: "=",
-                values: [""],
+                values: [],
               });
               setValue(newFilters);
             }}
           >
-            <PiPlus /> Add
-          </a>
-        </div>
-      ))}
+            <Flex align="center" gap="2">
+              <PiPlus size={14} />
+              Add Filter
+            </Flex>
+          </Button>
+        ) : (
+          <div>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                const newFilters = [...value];
+                newFilters.push({
+                  column: "",
+                  operator: "=",
+                  values: [""],
+                });
+                setValue(newFilters);
+              }}
+            >
+              <PiPlus /> Add
+            </a>
+          </div>
+        ))}
     </Flex>
   );
 }
