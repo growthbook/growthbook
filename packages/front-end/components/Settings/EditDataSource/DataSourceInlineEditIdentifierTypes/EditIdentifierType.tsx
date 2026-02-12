@@ -1,8 +1,8 @@
-import React, { FC, useMemo } from "react";
+import React, { FC, ReactNode, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import Dialog from "@/ui/Dialog";
 
 type EditIdentifierTypeProps = {
   dataSource: DataSourceInterfaceWithParams;
@@ -11,6 +11,7 @@ type EditIdentifierTypeProps = {
   userIdType: string;
   description: string;
   onSave: (name: string, description: string) => Promise<void>;
+  trigger: ReactNode;
 };
 
 export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
@@ -20,6 +21,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   description,
   onSave,
   onCancel,
+  trigger,
 }) => {
   const existingIds = (dataSource.settings?.userIdTypes || []).map(
     (item) => item.userIdType,
@@ -62,42 +64,37 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
     : "";
 
   return (
-    <Modal
-      trackingEventModalType=""
+    <Dialog
       open={true}
+      subheader="Define all the different units you use to split traffic in an
+    experiment. Some examples: user_id, device_id, ip_address."
       submit={handleSubmit}
       close={onCancel}
-      size="lg"
+      size="md"
       header={`${mode === "edit" ? "Edit" : "Add"} Identifier Type`}
       cta="Save"
       ctaEnabled={saveEnabled}
-      autoFocusSelector="#id-modal-identifier-type"
+      trackingEventModalType=""
     >
-      <>
-        <h4 id="id-modal-identifier-type">Identifier Type</h4>
-        <div>
-          Define all the different units you use to split traffic in an
-          experiment. Some examples: user_id, device_id, ip_address.
-        </div>
-
-        <Field
-          label="Identifier Type"
-          {...form.register("idType")}
-          pattern="^[a-z_]+$"
-          title="Only lowercase letters and underscores allowed"
-          readOnly={mode === "edit"}
-          required
-          error={fieldError}
-          helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
-        />
-        <Field
-          label="Description (optional)"
-          {...form.register("description")}
-          minRows={1}
-          maxRows={5}
-          textarea
-        />
-      </>
-    </Modal>
+      <Field
+        label="Identifier Type"
+        {...form.register("idType")}
+        pattern="^[a-z_]+$"
+        title="Only lowercase letters and underscores allowed"
+        readOnly={mode === "edit"}
+        required
+        error={fieldError}
+        helpText="Only lowercase letters and underscores allowed. For example, 'user_id' or 'device_cookie'."
+        labelClassName="font-weight-bold"
+      />
+      <Field
+        label="Description (optional)"
+        {...form.register("description")}
+        minRows={1}
+        maxRows={5}
+        textarea
+        labelClassName="font-weight-bold"
+      />
+    </Dialog>
   );
 };

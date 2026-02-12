@@ -13,7 +13,6 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import track from "@/services/track";
-import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
@@ -23,6 +22,8 @@ import { usesEventName } from "@/components/Metrics/MetricForm";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
+import Dialog from "@/ui/Dialog";
+import Callout from "@/ui/Callout";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 
 export interface Props {
@@ -122,7 +123,8 @@ export default function FactTableModal({
           }}
         />
       )}
-      <Modal
+      <Dialog
+        size="lg"
         trackingEventModalType=""
         open={true}
         close={close}
@@ -223,10 +225,10 @@ export default function FactTableModal({
           <div className="form-group">
             <label>Query</label>
             {showAdditionalColumnMessage && (
-              <div className="alert alert-info">
+              <Callout status="info">
                 We auto-generated some basic SQL for you below. Add any
                 additional columns that would be useful for building metrics.
-              </div>
+              </Callout>
             )}
             {form.watch("sql") && (
               <Code language="sql" code={form.watch("sql")} expandable={true} />
@@ -301,7 +303,6 @@ export default function FactTableModal({
             />
           </div>
         ) : null}
-
         {hasCommercialFeature("metric-slices") && (
           <div className="mt-4">
             <Checkbox
@@ -314,7 +315,7 @@ export default function FactTableModal({
             />
           </div>
         )}
-      </Modal>
+      </Dialog>
     </>
   );
 }

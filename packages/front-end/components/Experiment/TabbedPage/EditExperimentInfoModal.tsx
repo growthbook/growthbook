@@ -10,6 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
+import Dialog from "@/ui/Dialog";
 
 export type FocusSelector = "project" | "tags" | "name" | "projects";
 
@@ -43,15 +44,22 @@ export default function EditExperimentInfoModal({
   });
 
   return (
-    <Modal
-      open={true}
-      close={() => setShowEditInfoModal(false)}
-      trackingEventModalType="edit-experiment-info"
+    // <Modal
+    //   open={true}
+    //   close={() => setShowEditInfoModal(false)}
+    //   trackingEventModalType="edit-experiment-info"
+    //   size="lg"
+    //   trackingEventModalSource="experiment-more-menu"
+    //   // if this is undefined, the Modal component sets the value to the first enabled input field
+    //   autoFocusSelector=""
+    //   header="Edit Info"
+    <Dialog
+      open
       size="lg"
-      trackingEventModalSource="experiment-more-menu"
-      // if this is undefined, the Modal component sets the value to the first enabled input field
-      autoFocusSelector=""
       header="Edit Info"
+      trackingEventModalType="edit-experiment-info"
+      trackingEventModalSource="experiment-more-menu"
+      close={() => setShowEditInfoModal(false)}
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -78,7 +86,7 @@ export default function EditExperimentInfoModal({
         onChange={(v) => form.setValue("owner", v)}
       />
       <div className="form-group">
-        <label>Tags</label>
+        <label className="font-weight-bold">Tags</label>
         <TagsInput
           autoFocus={focusSelector === "tags"}
           value={form.watch("tags") ?? []}
@@ -113,6 +121,7 @@ export default function EditExperimentInfoModal({
           restrict use of some Data Sources and Metrics.
         </Callout>
       ) : null}
-    </Modal>
+      {/* </Modal> */}
+    </Dialog>
   );
 }

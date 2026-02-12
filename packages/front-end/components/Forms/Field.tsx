@@ -224,7 +224,10 @@ const Field = forwardRef(
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (
-            <label htmlFor={fieldId} className={clsx(labelClassName)}>
+            <label
+              htmlFor={fieldId}
+              className={clsx(labelClassName ?? "font-weight-bold")}
+            >
               {label}
               {markRequired && <span className="text-danger ml-1">*</span>}
             </label>
