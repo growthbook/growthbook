@@ -41,16 +41,17 @@ const nextConfig = {
       test: /ace-builds.*\/worker-.*$/,
       type: "asset/resource",
     });
-    
+
     // Suppress OpenTelemetry dynamic require warnings from Sentry
     config.ignoreWarnings = [
       ...(config.ignoreWarnings || []),
       {
         module: /@opentelemetry\/instrumentation/,
-        message: /Critical dependency: the request of a dependency is an expression/,
+        message:
+          /Critical dependency: the request of a dependency is an expression/,
       },
     ];
-    
+
     return config;
   },
   productionBrowserSourceMaps: true,
