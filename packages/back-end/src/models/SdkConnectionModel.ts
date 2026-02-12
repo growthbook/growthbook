@@ -24,7 +24,15 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+
+const audit = createModelAuditLogger({
+  entity: "sdk-connection",
+  createEvent: "sdk-connection.create",
+  updateEvent: "sdk-connection.update",
+  deleteEvent: "sdk-connection.delete",
+});
 
 const sdkConnectionSchema = new mongoose.Schema({
   id: {
@@ -265,7 +273,9 @@ export async function createSDKConnection(
     },
   });
 
-  return toInterface(doc);
+  const created = toInterface(doc);
+  await audit.logCreate(context, created);
+  return created;
 }
 
 export const editSDKConnectionValidator = z
@@ -388,7 +398,9 @@ export async function editSDKConnection(
     });
   }
 
-  return { ...connection, ...fullChanges };
+  const updated = { ...connection, ...fullChanges };
+  await audit.logUpdate(context, connection, updated);
+  return updated;
 }
 
 export const updateSdkConnectionsRemoveManagedBy = async (
@@ -408,14 +420,16 @@ export const updateSdkConnectionsRemoveManagedBy = async (
   );
 };
 
-export async function deleteSDKConnectionById(
-  organization: string,
-  id: string,
+export async function deleteSDKConnectionModel(
+  context: ReqContext,
+  sdkConnection: SDKConnectionInterface,
 ) {
   await SDKConnectionModel.deleteOne({
-    organization,
-    id,
+    organization: sdkConnection.organization,
+    id: sdkConnection.id,
   });
+
+  await audit.logDelete(context, sdkConnection);
 }
 
 export async function markSDKConnectionUsed(key: string) {
