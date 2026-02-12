@@ -1,14 +1,23 @@
-import { FC } from "react";
-import { Flex } from "@radix-ui/themes";
+import { FC, useState } from "react";
+import { Flex, Box } from "@radix-ui/themes";
 import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { MetricInterface } from "shared/types/metric";
-import { FactMetricInterface, ColumnRef } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  ColumnRef,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import { getLegacyMetricSQL } from "shared/src/metric-migration";
 import Checkbox from "@/ui/Checkbox";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Modal from "@/components/Modal";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 interface Props {
   factMetric: FactMetricInterface;
   legacyMetric: MetricInterface;
+  factTable: FactTableInterface;
   enabled: boolean;
   disabled: boolean;
   onToggle: () => void;
@@ -17,14 +26,24 @@ interface Props {
 const MetricComparisonRow: FC<Props> = ({
   factMetric,
   legacyMetric,
+  factTable,
   enabled,
   disabled,
   onToggle,
 }) => {
   const isActive = enabled && !disabled;
+  const [JsonDiffModalOpen, setJsonDiffModalOpen] = useState(false);
 
   return (
     <div style={{ opacity: isActive ? 1 : 0.5 }} className="appbox p-3">
+      {JsonDiffModalOpen && (
+        <JsonDiffModal
+          legacyMetric={legacyMetric}
+          factMetric={factMetric}
+          factTable={factTable}
+          close={() => setJsonDiffModalOpen(false)}
+        />
+      )}
       <Flex gap="4">
         <div style={{ minWidth: 20 }}>
           <Checkbox
@@ -104,6 +123,16 @@ const MetricComparisonRow: FC<Props> = ({
             )}
           </div>
         </Flex>
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setJsonDiffModalOpen(true);
+          }}
+          style={{ fontSize: 12, alignSelf: "start", whiteSpace: "nowrap" }}
+        >
+          View Diff
+        </a>
       </Flex>
     </div>
   );
@@ -176,6 +205,107 @@ function BuilderDetails({ metric }: { metric: MetricInterface }) {
         </div>
       )}
     </div>
+  );
+}
+
+function JsonDiffModal({
+  legacyMetric,
+  factMetric,
+  factTable,
+  close,
+}: {
+  legacyMetric: MetricInterface;
+  factMetric: FactMetricInterface;
+  factTable: FactTableInterface;
+  close: () => void;
+}) {
+  const { theme } = useAppearanceUITheme();
+
+  // Keys in common, bring to the top
+  const commonKeys = new Set(
+    Object.keys(legacyMetric).filter((key) => key in factMetric),
+  );
+
+  // Sort keys so they can be compared easily
+  // Bring common keys to the top
+  const sortedLegacyMetric = Object.fromEntries(
+    [
+      ...commonKeys,
+      ...Object.keys(legacyMetric).filter((key) => !commonKeys.has(key)),
+    ].map((key) => [key, legacyMetric[key]]),
+  );
+  const sortedFactMetric = Object.fromEntries(
+    [
+      ...commonKeys,
+      ...Object.keys(factMetric).filter((key) => !commonKeys.has(key)),
+    ].map((key) => [key, factMetric[key]]),
+  );
+
+  const legacySQL = getLegacyMetricSQL(sortedLegacyMetric);
+  const factSQL = factTable.sql;
+
+  // Delete SQL fields from legacy metric
+  delete sortedLegacyMetric.sql;
+  delete sortedLegacyMetric.queryFormat;
+  delete sortedLegacyMetric.table;
+  delete sortedLegacyMetric.column;
+  delete sortedLegacyMetric.timestampColumn;
+  delete sortedLegacyMetric.userIdColumns;
+  delete sortedLegacyMetric.conditions;
+  delete sortedLegacyMetric.userIdTypes;
+  delete sortedLegacyMetric.queries;
+  delete sortedLegacyMetric.runStarted;
+  delete sortedLegacyMetric.analysis;
+  delete sortedLegacyMetric.analysisError;
+
+  // Delete date fields and ids
+  delete sortedLegacyMetric.id;
+  delete sortedLegacyMetric.dateCreated;
+  delete sortedLegacyMetric.dateUpdated;
+  delete sortedFactMetric.id;
+  delete sortedFactMetric.dateCreated;
+  delete sortedFactMetric.dateUpdated;
+
+  return (
+    <Modal
+      open
+      close={close}
+      onBackdropClick={close}
+      header={`JSON Diff: ${legacyMetric.name}`}
+      size="max"
+      hideCta
+      trackingEventModalType=""
+    >
+      {legacySQL !== factSQL && (
+        <Box mb="4">
+          <h3>Fact Table SQL</h3>
+          <ReactDiffViewer
+            oldValue={legacySQL}
+            newValue={factSQL}
+            compareMethod={DiffMethod.LINES}
+            useDarkTheme={theme === "dark"}
+            styles={{
+              contentText: {
+                wordBreak: "break-all",
+              },
+            }}
+          />
+        </Box>
+      )}
+
+      <h3>Metric Definition</h3>
+      <ReactDiffViewer
+        oldValue={JSON.stringify(sortedLegacyMetric, null, 2)}
+        newValue={JSON.stringify(sortedFactMetric, null, 2)}
+        compareMethod={DiffMethod.LINES}
+        useDarkTheme={theme === "dark"}
+        styles={{
+          contentText: {
+            wordBreak: "break-all",
+          },
+        }}
+      />
+    </Modal>
   );
 }
 

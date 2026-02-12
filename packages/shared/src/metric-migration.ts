@@ -543,11 +543,14 @@ function buildFactTable(
 
   // Merge owner, projects, tags from all metrics
   const owners = new Set<string>();
+  let isAllProjects = false;
   const projects = new Set<string>();
   const tags = new Set<string>();
 
   for (const c of group.candidates) {
     if (c.metric.owner) owners.add(c.metric.owner);
+    if (!c.metric.projects?.length) isAllProjects = true;
+
     for (const p of c.metric.projects || []) projects.add(p);
     for (const t of c.metric.tags || []) tags.add(t);
   }
@@ -571,7 +574,12 @@ function buildFactTable(
       for (const c of group.candidates) {
         const valAlias = group.valueAliases.get(c.metric);
         if (valAlias && valAlias.toLowerCase() === alias) {
-          numberFormat = numberFormatForType(c.metric.type);
+          // If the metric's aggregation is count distinct, the data type should be string
+          if (c.metric.aggregation?.match(/count.+distinct/i)) {
+            datatype = "string";
+          } else {
+            numberFormat = numberFormatForType(c.metric.type);
+          }
           break;
         }
       }
@@ -594,10 +602,10 @@ function buildFactTable(
     organization: first.organization,
     dateCreated: now,
     dateUpdated: now,
-    name: tableName,
+    name: group.candidates.length > 1 ? tableName : first.name,
     description: "",
     owner: [...owners][0] || "",
-    projects: [...projects],
+    projects: isAllProjects ? [] : [...projects],
     tags: [...tags],
     datasource: first.datasource,
     userIdTypes: group.allUserIdTypes,
@@ -814,4 +822,20 @@ export function migrateMetrics(
   }
 
   return { factTables, factMetrics, unconverted };
+}
+
+export function getLegacyMetricSQL(metric: MetricInterface): string {
+  if (metric.sql || metric.queryFormat === "sql") {
+    return metric.sql;
+  }
+
+  const parsed = buildParsedFromBuilder(metric);
+
+  return reconstructSql(
+    parsed.select,
+    parsed.from,
+    parsed.joins,
+    parsed.where,
+    parsed.groupBy,
+  );
 }
