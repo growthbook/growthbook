@@ -10,7 +10,7 @@ import {
   createSDKConnection,
   findSDKConnectionById,
   editSDKConnection,
-  deleteSDKConnectionById,
+  deleteSDKConnectionModel,
 } from "back-end/src/models/SdkConnectionModel";
 import {
   validatePutPayload,
@@ -38,7 +38,7 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   editSDKConnection: jest.fn(),
   findSDKConnectionById: jest.fn(),
   findSDKConnectionsByOrganization: jest.fn(),
-  deleteSDKConnectionById: jest.fn(),
+  deleteSDKConnectionModel: jest.fn(),
 }));
 
 jest.mock("shared/sdk-versioning", () => ({
@@ -487,7 +487,7 @@ describe("sdk-connections API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(200);
-    expect(deleteSDKConnectionById).toHaveBeenCalledWith("org", existing.id);
+    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
     expect(response.body).toEqual({ deletedId: existing.id });
   });
 
@@ -515,7 +515,7 @@ describe("sdk-connections API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(deleteSDKConnectionById).not.toHaveBeenCalledWith();
+    expect(deleteSDKConnectionModel).not.toHaveBeenCalledWith();
     expect(response.body).toEqual({ message: "permission error" });
   });
 });
