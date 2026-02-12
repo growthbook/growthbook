@@ -71,7 +71,6 @@ export function shouldRecalculateNextUpdate(
   ) {
     return true;
   }
-
   return false;
 }
 
