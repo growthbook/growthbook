@@ -347,7 +347,7 @@ function getConditionParts({
   prefix?: ReactNode;
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
-    const attributeBadge = (
+    let fieldEl: ReactNode = (
       <Badge
         color="gray"
         className="text-ellipsis d-inline-block"
@@ -360,8 +360,6 @@ function getConditionParts({
         }
       />
     );
-
-    let fieldEl: ReactNode = attributeBadge;
     let parentIdEl: ReactNode = null;
     if (renderPrerequisite) {
       if (field === "value") {
