@@ -110,15 +110,16 @@ export default function ExperimentSplitVisual({
                   </Tooltip>
                   {showPercentages && (
                     <div className={`${styles.percentMarker}`}>
-                      <span>
-                        {parseFloat(percentVal.toPrecision(4)) + "%"}
-                        {showValues && (
-                          <>
-                            {" "}
-                            - <strong>{valueDisplay}</strong>
-                          </>
-                        )}
+                      <span className="nowrap">
+                        {parseFloat(percentVal.toPrecision(4)) +
+                          "%"}
                       </span>
+                      {showValues && (
+                        <>
+                          {" "}
+                          - <strong>{valueDisplay}</strong>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -143,18 +144,16 @@ export default function ExperimentSplitVisual({
                 </Tooltip>
                 {showPercentages && (
                   <div className={`${styles.percentMarker}`}>
-                    <span>
-                      <span className="nowrap">
-                        {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
-                          "%"}
-                      </span>
-                      {showValues && (
-                        <>
-                          {" "}
-                          - <strong>unallocated</strong>
-                        </>
-                      )}
+                    <span className="nowrap">
+                      {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
+                        "%"}
                     </span>
+                    {showValues && (
+                      <>
+                        {" "}
+                        - <strong>unallocated</strong>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

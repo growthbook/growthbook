@@ -258,7 +258,6 @@ type PutCustomFieldRequest = AuthRequest<
     type: CustomFieldTypes;
     values?: string;
     required: boolean;
-    index?: boolean;
     projects?: string[];
     section: CustomFieldSection;
   },
@@ -289,7 +288,6 @@ export const putCustomField = async (
     type,
     values,
     required,
-    index,
     projects,
     section,
   } = req.body;
@@ -325,7 +323,6 @@ export const putCustomField = async (
       type,
       values,
       required,
-      index: !!index,
       projects,
       section,
     },

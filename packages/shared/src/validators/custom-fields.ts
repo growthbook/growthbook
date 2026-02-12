@@ -25,7 +25,6 @@ export const customFieldsPropsValidator = z.object({
   type: customFieldTypes,
   values: z.string().optional(),
   required: z.boolean(),
-  index: z.boolean().optional(),
   creator: z.string().optional(),
   projects: z.array(z.string()).optional(),
   section: customFieldSectionTypes,
@@ -85,7 +84,6 @@ export const apiCustomFieldInterface = apiBaseSchema.safeExtend({
   type: customFieldTypes,
   values: z.string().optional(),
   required: z.boolean(),
-  index: z.boolean().optional(),
   creator: z.string().optional(),
   projects: z.array(z.string()).optional(),
   section: customFieldSectionTypes,
@@ -105,7 +103,6 @@ export const apiCreateCustomFieldBody = z.strictObject({
   ),
   values: z.string().optional(),
   required: z.boolean(),
-  index: z.boolean().optional(),
   projects: z.array(z.string()).optional(),
   section: customFieldSectionTypes.describe(
     "What type of objects this custom field is applicable to",

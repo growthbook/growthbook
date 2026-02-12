@@ -60,7 +60,6 @@ export default function CustomFieldModal({
       section: existing.section ?? section,
       projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
-      index: true,
     },
   });
   const customFields = useCustomFields();
@@ -144,7 +143,6 @@ export default function CustomFieldModal({
     .sort((a, b) => (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : -1))
     .map((p) => ({ value: p.id, label: p.name }));
 
-  const showSearchableToggle = false;
   return (
     <Modal
       trackingEventModalType="custom-field"
@@ -446,23 +444,12 @@ export default function CustomFieldModal({
         <Checkbox
           id={"required"}
           label="Required"
-          description="Make the custom field required when creating or editing features or experiments."
+          description="Make the custom field mandatory when creating or editing."
           value={!!form.watch("required")}
           setValue={(value) => {
             form.setValue("required", value);
           }}
         />
-        {showSearchableToggle && (
-          <Checkbox
-            id="index"
-            label="Searchable"
-            description="Make the custom field searchable."
-            value={!!form.watch("index")}
-            setValue={(value) => {
-              form.setValue("index", value);
-            }}
-          />
-        )}
       </Flex>
     </Modal>
   );
