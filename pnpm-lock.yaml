@@ -868,6 +868,9 @@ importers:
       spectacle:
         specifier: ^9.7.2
         version: 9.7.2(@babel/core@7.28.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      styled-jsx:
+        specifier: ^5.1.7
+        version: 5.1.7(@babel/core@7.28.5)(react@18.2.0)
       swr:
         specifier: ^2.2.5
         version: 2.2.5(react@18.2.0)
@@ -1053,7 +1056,7 @@ importers:
         version: 7.0.2(rollup@4.53.3)
       ts-jest:
         specifier: ^27.0.5
-        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3)
+        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -1120,7 +1123,7 @@ importers:
         version: 4.53.3
       ts-jest:
         specifier: ^27.0.5
-        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3)
+        version: 27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3)
       typescript:
         specifier: 5.7.3
         version: 5.7.3
@@ -12959,6 +12962,19 @@ packages:
 
   styled-jsx@5.1.6:
     resolution: {integrity: sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA==}
+    engines: {node: '>= 12.0.0'}
+    peerDependencies:
+      '@babel/core': '*'
+      babel-plugin-macros: '*'
+      react: '>= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      babel-plugin-macros:
+        optional: true
+
+  styled-jsx@5.1.7:
+    resolution: {integrity: sha512-HPLmEIYprxCeWDMLYiaaAhsV3yGfIlCqzuVOybE6fjF3SUJmH67nCoMDO+nAvHNHo46OfvpCNu4Rcue82dMNFg==}
     engines: {node: '>= 12.0.0'}
     peerDependencies:
       '@babel/core': '*'
@@ -29733,6 +29749,13 @@ snapshots:
     optionalDependencies:
       '@babel/core': 7.28.5
 
+  styled-jsx@5.1.7(@babel/core@7.28.5)(react@18.2.0):
+    dependencies:
+      client-only: 0.0.1
+      react: 18.2.0
+    optionalDependencies:
+      '@babel/core': 7.28.5
+
   styled-system@5.1.5:
     dependencies:
       '@styled-system/background': 5.1.2
@@ -30035,7 +30058,7 @@ snapshots:
     dependencies:
       typescript: 5.7.3
 
-  ts-jest@27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3)))(typescript@5.7.3):
+  ts-jest@27.1.5(@babel/core@7.28.5)(@types/jest@27.0.1)(babel-jest@27.5.1(@babel/core@7.28.5))(jest@27.5.1)(typescript@5.7.3):
     dependencies:
       bs-logger: 0.2.6
       fast-json-stable-stringify: 2.1.0
