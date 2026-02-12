@@ -517,31 +517,63 @@ function ConditionAndGroupInput({
           <SelectField
             useMultilineLabels={true}
             value={field}
-            options={[
-              ...attributeSchema.map((s) => ({
-                label: s.property,
-                value: s.property,
-              })),
-              ...(props.allowNestedSavedGroups || field === "$savedGroups"
+            containerStyles={{
+              control: (base) => ({ ...base, minHeight: 38, maxHeight: 38 }),
+            }}
+            options={
+              props.allowNestedSavedGroups
                 ? [
                     {
-                      label: "Saved Group",
-                      value: "$savedGroups",
+                      label: "Attributes",
+                      options: attributeSchema.map((s) => ({
+                        label: s.property,
+                        value: s.property,
+                        tooltip: s.description || "",
+                      })),
+                    },
+                    {
+                      label: "Saved Groups",
+                      options: [
+                        {
+                          label: "user is in all saved groups",
+                          value: "$savedGroups",
+                        },
+                        {
+                          label: "user is not in the saved groups",
+                          value: "$notSavedGroups",
+                        },
+                      ],
                     },
                   ]
-                : []),
-            ]}
+                : attributeSchema.map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    tooltip: s.description || "",
+                  }))
+            }
+            formatOptionLabel={(o) => <span title={o.tooltip}>{o.label}</span>}
             name="field"
             onChange={(value) => {
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
               newConds[i]["field"] = value;
 
-              if (value === "$savedGroups") {
-                newConds[i]["operator"] = "$in";
-                newConds[i]["value"] = "";
+              const isNewFieldSavedGroup =
+                value === "$savedGroups" || value === "$notSavedGroups";
+              const isOldFieldSavedGroup =
+                field === "$savedGroups" || field === "$notSavedGroups";
+
+              if (isNewFieldSavedGroup) {
+                newConds[i]["operator"] =
+                  value === "$savedGroups" ? "$in" : "$nin";
+                if (!isOldFieldSavedGroup) {
+                  newConds[i]["value"] = "";
+                }
                 setConds(newConds);
                 return;
+              }
+              if (isOldFieldSavedGroup) {
+                newConds[i]["value"] = "";
               }
 
               const newAttribute = attributes.get(value);
@@ -575,7 +607,7 @@ function ConditionAndGroupInput({
           />
         );
 
-        if (field === "$savedGroups") {
+        if (field === "$savedGroups" || field === "$notSavedGroups") {
           const groupOptions = savedGroups
             .filter((g) => g.id !== props.excludeSavedGroupId)
             .map((g) => ({
@@ -597,25 +629,21 @@ function ConditionAndGroupInput({
           });
 
           return [
+            ...(i > 0
+              ? [
+                  <Separator
+                    key={`sep-${i}`}
+                    style={{
+                      width: "100%",
+                      backgroundColor: "var(--slate-a3)",
+                    }}
+                  />,
+                ]
+              : []),
             <ConditionRow
               key={i}
               prefixSlot={<ConditionRowLabel label={i === 0 ? "IF" : "AND"} />}
               attributeSlot={fieldSelector}
-              operatorSlot={
-                <SelectField
-                  useMultilineLabels={true}
-                  value={operator}
-                  name="operator"
-                  options={[
-                    { label: "in", value: "$in" },
-                    { label: "not in", value: "$nin" },
-                  ]}
-                  sort={false}
-                  onChange={(v) => {
-                    handleCondsChange(v, "operator");
-                  }}
-                />
-              }
               valueSlot={
                 <MultiSelectField
                   value={ids}
@@ -854,6 +882,13 @@ function ConditionAndGroupInput({
               <Flex gap="3" align="start">
                 <Box flexGrow="1">
                   <SelectField
+                    containerStyles={{
+                      control: (base) => ({
+                        ...base,
+                        minHeight: 38,
+                        maxHeight: 38,
+                      }),
+                    }}
                     useMultilineLabels={true}
                     value={getDisplayOperator(operator)}
                     name="operator"
@@ -907,7 +942,6 @@ function ConditionAndGroupInput({
                   savedGroupOptions.length > 0 ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <SelectField
-                        useMultilineLabels={true}
                         options={savedGroupOptions.map((o) => ({
                           label: o.label,
                           value: o.value,
@@ -999,6 +1033,13 @@ function ConditionAndGroupInput({
                       ) : (
                         <SelectField
                           useMultilineLabels={true}
+                          containerStyles={{
+                            control: (base) => ({
+                              ...base,
+                              minHeight: 38,
+                              maxHeight: 38,
+                            }),
+                          }}
                           options={attribute.enum.map((v) => ({
                             label: v,
                             value: v,

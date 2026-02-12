@@ -544,9 +544,6 @@ function ColumnRefSelector({
                 setValue({ ...value, column, aggregation });
               }}
               sort={false}
-              formatGroupLabel={({ label }) => (
-                <div className="pt-2 pb-1 border-bottom">{label}</div>
-              )}
               options={columnOptions}
               placeholder="Value..."
               required

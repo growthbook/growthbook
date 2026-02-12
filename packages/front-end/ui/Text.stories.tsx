@@ -51,6 +51,7 @@ export default function TextStories() {
           <SelectItem value="text-high">Text High</SelectItem>
           <SelectItem value="text-mid">Text Mid</SelectItem>
           <SelectItem value="text-low">Text Low</SelectItem>
+          <SelectItem value="text-disabled">Text Disabled</SelectItem>
         </Select>
       </Flex>
     </Flex>

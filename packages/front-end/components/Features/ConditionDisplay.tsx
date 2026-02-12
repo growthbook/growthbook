@@ -20,10 +20,12 @@ function operatorToText({
   operator,
   isPrerequisite,
   hasMultipleSavedGroups,
+  isSavedGroupField,
 }: {
   operator: string;
   isPrerequisite?: boolean;
   hasMultipleSavedGroups?: boolean;
+  isSavedGroupField?: boolean;
 }): string {
   switch (operator) {
     case "$eq":
@@ -65,9 +67,9 @@ function operatorToText({
     case "$nini":
       return `is none of (case insensitive)`;
     case "$inGroup":
-      return `is in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
+      return `${isSavedGroupField ? "user " : ""}is in ${hasMultipleSavedGroups ? "all" : "the"} saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$notInGroup":
-      return `is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
+      return `${isSavedGroupField ? "user " : ""}is not in the saved group${hasMultipleSavedGroups ? "s" : ""}`;
     case "$true":
       return "is";
     case "$false":
@@ -405,17 +407,17 @@ function getConditionParts({
     }
 
     // For saved groups, hide the "field" element and tweak the operator
-    if (field === "$savedGroups") {
+    if (field === "$savedGroups" || field === "$notSavedGroups") {
       fieldEl = null;
-      if (operator === "$in") {
+      if (field === "$savedGroups" && operator === "$in") {
         operator = "$inGroup";
-      } else if (operator === "$nin") {
+      } else if (field === "$notSavedGroups" && operator === "$nin") {
         operator = "$notInGroup";
       }
     }
 
     const savedGroupValueParts =
-      field === "$savedGroups"
+      field === "$savedGroups" || field === "$notSavedGroups"
         ? value
             .split(",")
             .map((v) => v.trim())
@@ -441,9 +443,11 @@ function getConditionParts({
             operator,
             isPrerequisite: renderPrerequisite,
             hasMultipleSavedGroups,
+            isSavedGroupField:
+              field === "$savedGroups" || field === "$notSavedGroups",
           })}
         </Text>
-        {field === "$savedGroups" ? (
+        {field === "$savedGroups" || field === "$notSavedGroups" ? (
           <MultiValueDisplay
             value={value}
             displayMap={Object.fromEntries(

@@ -3,6 +3,7 @@ import ReactSelect, {
   components,
   InputProps,
   FormatOptionLabelMeta,
+  StylesConfig,
 } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
@@ -41,10 +42,7 @@ export type SelectFieldProps = Omit<
   isOptionDisabled?: (_: Option) => boolean;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
-  filterOption?: (
-    option: { label: string; value: string; data?: Option },
-    inputValue: string,
-  ) => boolean;
+  containerStyles?: StylesConfig<SingleValue, boolean>;
 };
 
 export function useSelectOptions(
@@ -141,15 +139,15 @@ export const ReactSelectProps = {
           : {}),
       };
     },
-    input: (styles) => {
+    input: (styles, state) => {
+      // When focused, constrain the grid columns to prevent unbounded growth
+      const isFocused = !!state.selectProps.menuIsOpen;
       return {
         ...styles,
         color: "var(--text-color-main)",
-        // react-select auto-sizer grid column is "0 min-content" by default,
-        // this makes the input grow beyond the container pushing the content to the left.
-        // So we force it to grow up to the full width of the container, and allow the input
-        // to scroll horizontally if needed.
-        gridTemplateColumns: "0 minmax(2px, 1fr)",
+        ...(isFocused && {
+          gridTemplateColumns: "0 minmax(2px, 1fr)",
+        }),
       };
     },
     singleValue: (styles) => {
@@ -199,7 +197,7 @@ const SelectField: FC<SelectFieldProps> = ({
   // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
-  filterOption,
+  containerStyles = {},
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -218,6 +216,39 @@ const SelectField: FC<SelectFieldProps> = ({
   const fieldProps = otherProps as any;
 
   const selectRef = useRef(null);
+
+  // chain merge React Select styles
+  const mergedStyles: StylesConfig<SingleValue, false> = useMemo(() => {
+    const baseStyles = {
+      ...ReactSelectProps.styles,
+      ...(useMultilineLabels ? multilineStyles : {}),
+    };
+
+    const merged: StylesConfig<SingleValue, false> = { ...baseStyles };
+
+    // For each key in containerStyles, merge it with the base style function
+    Object.keys(containerStyles).forEach((key) => {
+      const baseStyleFn = baseStyles[key];
+      const containerStyleFn = containerStyles[key];
+
+      if (
+        typeof containerStyleFn === "function" &&
+        typeof baseStyleFn === "function"
+      ) {
+        merged[key] = (base, state) => {
+          const baseResult = baseStyleFn(base, state);
+          const containerResult = containerStyleFn(baseResult, state);
+          return containerResult;
+        };
+      } else if (typeof containerStyleFn === "function") {
+        merged[key] = containerStyleFn;
+      } else {
+        merged[key] = containerStyleFn;
+      }
+    });
+
+    return merged;
+  }, [useMultilineLabels, containerStyles]);
 
   if (!options.length && createable) {
     return (
@@ -253,10 +284,7 @@ const SelectField: FC<SelectFieldProps> = ({
             {createable ? (
               <CreatableSelect
                 {...ReactSelectProps}
-                styles={{
-                  ...ReactSelectProps.styles,
-                  ...(useMultilineLabels ? multilineStyles : {}),
-                }}
+                styles={mergedStyles}
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
@@ -308,7 +336,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
                 onPaste={onPaste}
-                filterOption={filterOption}
                 components={{
                   Input,
                   IndicatorSeparator: () => null,
@@ -318,10 +345,7 @@ const SelectField: FC<SelectFieldProps> = ({
             ) : (
               <ReactSelect
                 {...ReactSelectProps}
-                styles={{
-                  ...ReactSelectProps.styles,
-                  ...(useMultilineLabels ? multilineStyles : {}),
-                }}
+                styles={mergedStyles}
                 id={id}
                 ref={ref}
                 isClearable={isClearable}
@@ -341,7 +365,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
                 onPaste={onPaste}
-                filterOption={filterOption}
                 components={{
                   Input,
                   IndicatorSeparator: () => null,
