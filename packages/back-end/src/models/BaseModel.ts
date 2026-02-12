@@ -31,7 +31,7 @@ import {
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
 import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
-import { safeBulkWrite } from "back-end/src/util/mongo.util";
+import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -833,11 +833,11 @@ export abstract class BaseModel<
   protected async _dangerousBulkWriteCrossOrganization(
     operations: AnyBulkWriteOperation[],
   ) {
-    return safeBulkWrite(this._dangerousGetCollection(), operations);
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
   }
 
   protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
-    return safeBulkWrite(
+    return dbSafeBulkWrite(
       this._dangerousGetCollection(),
       operations.map((op) => {
         if ("insertOne" in op) {

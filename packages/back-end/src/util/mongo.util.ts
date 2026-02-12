@@ -165,10 +165,11 @@ export function getCollection<T extends Document>(name: string) {
 }
 
 /**
- * Attempts to perform a bulkWrite operation if supported by the collection. If not, falls back to chunked individual operations.
+ * Attempts to perform a bulkWrite operation if supported by the database driver.
+ * If not, falls back to chunked individual operations.
  * Supports updateOne and insertOne operations. Extend as needed for other op types.
  */
-export async function safeBulkWrite(
+export async function dbSafeBulkWrite(
   collection: Collection<Document>,
   ops: AnyBulkWriteOperation<Document>[],
   options?: BulkWriteOptions,
@@ -216,7 +217,7 @@ export async function safeBulkWrite(
         }
       } else {
         throw new Error(
-          "Unsupported bulkWrite operation type in safeBulkWrite",
+          "Unsupported bulkWrite operation type in dbSafeBulkWrite",
         );
       }
     }),

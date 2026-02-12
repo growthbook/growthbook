@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { setupApp } from "back-end/test/api/api.setup";
 import {
   getConnectionStringWithDeprecatedKeysMigratedForV3to4,
-  safeBulkWrite,
+  dbSafeBulkWrite,
 } from "back-end/src/util/mongo.util";
 
 describe("mongo utils", () => {
@@ -127,7 +127,7 @@ describe("mongo utils", () => {
     });
   });
 
-  describe("safeBulkWrite", () => {
+  describe("dbSafeBulkWrite", () => {
     setupApp();
     const collectionName = "bulkWriteTests";
     const _model = mongoose.model(
@@ -143,7 +143,7 @@ describe("mongo utils", () => {
     describe.each([true, false])("db has bulkWrite: %s", (useBulkWrite) => {
       const coll = useBulkWrite ? collection : collectionWithoutBulkWrite;
       it("handles bulk insertOne operations", async () => {
-        await safeBulkWrite(
+        await dbSafeBulkWrite(
           coll,
           Array.from({ length: 1000 }, (_, i) => ({
             insertOne: { document: { id: i.toString(), number: i } },
@@ -164,7 +164,7 @@ describe("mongo utils", () => {
       });
 
       it("handles bulk updateOne operations", async () => {
-        await safeBulkWrite(
+        await dbSafeBulkWrite(
           coll,
           Array.from({ length: 1000 }, (_, i) => ({
             insertOne: { document: { id: i.toString(), number: 1 } },
@@ -181,7 +181,7 @@ describe("mongo utils", () => {
           ])
           .toArray();
         expect(grouped).toStrictEqual([{ _id: { number: 1 }, count: 1000 }]);
-        await safeBulkWrite(
+        await dbSafeBulkWrite(
           coll,
           Array.from({ length: 10 }, (_, i) => ({
             updateOne: {
