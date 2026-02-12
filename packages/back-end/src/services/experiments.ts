@@ -393,6 +393,7 @@ export function getSnapshotSettings({
   incrementalRefreshModel,
   reweight,
   datasource,
+  useStickyBucketing,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -409,6 +410,7 @@ export function getSnapshotSettings({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   reweight?: boolean;
   datasource?: DataSourceInterface;
+  useStickyBucketing?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -633,6 +635,7 @@ export function getSnapshotSettings({
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
+    useStickyBucketing,
   };
 }
 
@@ -1057,6 +1060,7 @@ export async function createSnapshot({
     reweight,
     datasource,
     incrementalRefreshModel,
+    useStickyBucketing: organization.settings?.useStickyBucketing,
   });
 
   const data: ExperimentSnapshotInterface = {

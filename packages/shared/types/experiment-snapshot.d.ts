@@ -199,6 +199,7 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
+  useStickyBucketing?: boolean;
   /** @deprecated */
   manual?: boolean;
 }

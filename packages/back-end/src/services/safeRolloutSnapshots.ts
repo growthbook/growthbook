@@ -173,6 +173,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     coverage: settings.coverage,
     customFields: settings.customFields,
     phase: settings.phase,
+    useStickyBucketing: settings.useStickyBucketing,
   };
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(

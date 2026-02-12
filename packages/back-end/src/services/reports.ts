@@ -530,6 +530,7 @@ export async function createReportSnapshot({
     metricGroups,
     datasource,
     experiment,
+    useStickyBucketing: organization.settings?.useStickyBucketing,
   });
 
   const snapshotType = "report";
@@ -606,6 +607,7 @@ export function getReportSnapshotSettings({
   metricGroups,
   datasource,
   experiment,
+  useStickyBucketing,
 }: {
   report: ExperimentSnapshotReportInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -617,6 +619,7 @@ export function getReportSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | null;
+  useStickyBucketing?: boolean;
 }): ExperimentSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -719,6 +722,7 @@ export function getReportSnapshotSettings({
       weight: phase?.variationWeights?.[i] || 0,
     })),
     coverage: phase?.coverage ?? 1,
+    useStickyBucketing,
   };
 }
 
