@@ -1,8 +1,9 @@
 import { useForm } from "react-hook-form";
-import { Text } from "@radix-ui/themes";
+
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 

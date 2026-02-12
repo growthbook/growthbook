@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardEditLevel,
   DashboardShareLevel,
@@ -10,6 +10,7 @@ import {
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";

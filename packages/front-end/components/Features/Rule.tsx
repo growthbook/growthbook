@@ -5,7 +5,7 @@ import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
@@ -14,6 +14,7 @@ import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import track from "@/services/track";
 import {
   getRules,
@@ -273,7 +274,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   >
                     <Heading
                       as="h4"
-                      size="3"
+                      size="small"
                       weight="medium"
                       mb="0"
                       className="w-100"

@@ -9,7 +9,7 @@ import {
 import { getValidDate, date } from "shared/dates";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   TooltipWithBounds,
   useTooltip,
@@ -17,6 +17,7 @@ import {
 } from "@visx/tooltip";
 import { format } from "date-fns";
 import { GridColumns } from "@visx/grid";
+import Text from "@/ui/Text";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import { formatPercent } from "@/services/metrics";
 import EmptyState from "@/components/EmptyState";
@@ -262,7 +263,7 @@ const ExperimentTimeline: React.FC<{
                 )}
                 {tooltipData.estimate && (
                   <Box>
-                    <Text size="1">
+                    <Text size="small">
                       This experiment is running and the end date is unknown.
                     </Text>
                   </Box>

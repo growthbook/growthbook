@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { useForm } from "react-hook-form";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Link from "next/link";
 import { getValidDate } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
@@ -17,6 +17,8 @@ import {
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
@@ -301,7 +303,7 @@ export default function ExecExperimentImpact({
     <>
       <Flex justify="between" align="start" mb="2">
         <Box>
-          <Heading as="h3" size="3">
+          <Heading as="h3" size="small">
             Scaled Impact{" "}
             <Tooltip
               body={
@@ -309,7 +311,7 @@ export default function ExecExperimentImpact({
               }
             />
           </Heading>
-          <Heading as="h4" size="2" weight="regular" mb="0">
+          <Heading as="h4" size="small" weight="regular" mb="0">
             {projects.length > 0
               ? projects.map((p) => getProjectById(p)?.name).join(", ")
               : "All Projects"}

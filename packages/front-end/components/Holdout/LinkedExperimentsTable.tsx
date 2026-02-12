@@ -1,12 +1,13 @@
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {

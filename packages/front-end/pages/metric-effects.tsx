@@ -1,5 +1,7 @@
-import { Box, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import MetricEffects from "@/enterprise/components/Insights/MetricEffects";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 
 const MetricEffectsPage = (): React.ReactElement => {
   return (

@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -20,6 +20,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Text from "@/ui/Text";
 import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {

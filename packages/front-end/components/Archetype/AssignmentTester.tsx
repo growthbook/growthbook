@@ -3,7 +3,7 @@ import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -19,6 +19,8 @@ import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import DatePicker from "@/components/DatePicker";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Frame from "@/ui/Frame";
 import Switch from "@/ui/Switch";
@@ -282,7 +284,7 @@ export default function AssignmentTester({
   return (
     <>
       <Box>
-        <Heading mb="1" size="5" as="h2">
+        <Heading mb="1" size="large" as="h2">
           Simulate Feature Rules
         </Heading>
         <Text mb="0">
@@ -366,7 +368,7 @@ export default function AssignmentTester({
       <Frame>
         <Box>
           <Flex align="center" justify="between">
-            <Heading as="h4" size="3" mb="0">
+            <Heading as="h4" size="small" mb="0">
               Ad hoc attributes
             </Heading>
             <Button variant="ghost" onClick={() => setOpen(!open)}>

@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -14,6 +14,7 @@ import {
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/ui/DataList";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import CustomFieldInput from "./CustomFieldInput";
@@ -165,7 +166,7 @@ const CustomFieldDisplay: FC<{
         <Frame className={className} my="3">
           <Box>
             <Flex justify="between" align="center">
-              <Heading as="h4" size="3">
+              <Heading as="h4" size="small">
                 {label ? label : ""}
               </Heading>
               <div className="flex-1" />

@@ -5,13 +5,14 @@ import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "shared/types/datasource";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/AddEditIdentityJoinModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 
 type DataSourceInlineEditIdentityJoinsProps =
@@ -106,7 +107,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
         <>
           <Flex align="center" gap="2" justify="between" mb="3">
             <Flex align="center" gap="3" mb="0">
-              <Heading as="h3" size="4" mb="0">
+              <Heading as="h3" size="medium" mb="0">
                 Join Tables
               </Heading>
               <Badge
@@ -144,7 +145,7 @@ export const DataSourceInlineEditIdentityJoins: FC<
               <Card mt="3" key={"identity-join-" + idx}>
                 <Flex align="center" justify="between" py="2" px="3" gap="3">
                   {/* Title */}
-                  <Heading mb="0" as="h4" size="3">
+                  <Heading mb="0" as="h4" size="small">
                     {identityJoin.ids.join(" ↔ ")}
                   </Heading>
 

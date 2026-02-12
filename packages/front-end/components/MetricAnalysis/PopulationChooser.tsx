@@ -1,5 +1,5 @@
 import React from "react";
-import { Text } from "@radix-ui/themes";
+
 import { FaQuestionCircle } from "react-icons/fa";
 import { MetricAnalysisPopulationType } from "shared/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
@@ -7,6 +7,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
 
 export interface Props {
   value: string;
@@ -71,7 +72,7 @@ export default function PopulationChooser({
       <SelectField
         label={
           newStyle ? (
-            <Text as="label" size="3" weight="medium">
+            <Text as="label" size="large" weight="medium">
               Population
             </Text>
           ) : undefined

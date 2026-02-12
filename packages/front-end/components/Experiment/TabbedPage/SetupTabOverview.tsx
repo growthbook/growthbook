@@ -7,7 +7,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
+import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -17,6 +17,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -152,7 +153,7 @@ export default function SetupTabOverview({
                 }}
               >
                 <Flex align="center" justify="between" className="text-dark">
-                  <Heading mb="0" as="h4" size="3">
+                  <Heading mb="0" as="h4" size="small">
                     Description
                   </Heading>
                   <Flex align="center" gap="2">
@@ -229,7 +230,7 @@ export default function SetupTabOverview({
         {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
-              <Heading as="h4" size="3">
+              <Heading as="h4" size="small">
                 Hypothesis
               </Heading>
               {canEditExperiment && (

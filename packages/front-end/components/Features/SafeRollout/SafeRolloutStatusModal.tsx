@@ -5,7 +5,7 @@ import {
   SafeRolloutRule,
 } from "shared/validators";
 import { useForm } from "react-hook-form";
-import { Text } from "@radix-ui/themes";
+
 import {
   getHealthSettings,
   getSafeRolloutDaysLeft,
@@ -19,6 +19,7 @@ import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 
@@ -167,7 +168,7 @@ export default function SafeRolloutStatusModal({
       allowlistedTrackingEventProps={{ status }}
     >
       {text ? (
-        <Text as="div" size="2" mb="4">
+        <Text as="div" size="medium" mb="4">
           {text}
         </Text>
       ) : null}

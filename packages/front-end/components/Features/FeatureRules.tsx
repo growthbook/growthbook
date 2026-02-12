@@ -7,7 +7,7 @@ import {
   HoldoutInterface,
 } from "shared/validators";
 import { Environment } from "shared/types/organization";
-import { Box, Container, Flex, Text } from "@radix-ui/themes";
+import { Box, Container, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
@@ -17,6 +17,7 @@ import track from "@/services/track";
 import { getRules, useEnvironmentState } from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
@@ -239,7 +240,7 @@ export default function FeatureRules({
                 {canEditDrafts && !isLocked && (
                   <>
                     <Flex pt="4" justify="between" align="center">
-                      <Text weight="bold" size="3">
+                      <Text weight="semibold" size="large">
                         Add rule to {env}
                       </Text>
                       <Button

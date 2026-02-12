@@ -1,11 +1,12 @@
 import { HoldoutInterface } from "shared/validators";
 import { useForm } from "react-hook-form";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import Modal from "@/components/Modal";
 import { genEnvironmentSettings } from "./NewHoldoutForm";
@@ -62,7 +63,7 @@ const EditEnvironmentsModal = ({
     >
       <div className="px-2">
         <Box mb="4">
-          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+          <Text size="medium" color="text-mid">
             Review all environment selections before starting a Holdout. Changes
             made while a Holdout is running can render results inconclusive.
           </Text>

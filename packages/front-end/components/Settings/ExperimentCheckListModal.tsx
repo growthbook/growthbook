@@ -4,12 +4,14 @@ import {
 } from "shared/types/experimentLaunchChecklist";
 import { useEffect, useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
-import { Box, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import SortableExperimentChecklist from "./SortableExperimentChecklist";
 import NewExperimentChecklistItem from "./NewExperimentChecklistItem";
 
@@ -86,7 +88,7 @@ export default function ExperimentCheckListModal({
         <LoadingSpinner />
       ) : (
         <Box mx="2">
-          <Heading as="h4" size="4">
+          <Heading as="h4" size="medium">
             {checklist?.id ? "Edit" : "Add"} Experiment Pre-Launch Checklist
             {projectParams?.projectName
               ? ` for ${projectParams.projectName}`
@@ -101,7 +103,7 @@ export default function ExperimentCheckListModal({
             </div>
             <Box mb="2">
               {!experimentLaunchChecklist?.length ? (
-                <Text as="span" className="text-muted font-italic">
+                <Text as="span" color="text-low">
                   No tasks have been added yet.
                 </Text>
               ) : (

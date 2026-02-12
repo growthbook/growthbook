@@ -1,9 +1,10 @@
 import React, { Fragment, ReactElement } from "react";
 import { ExperimentMetadataBlockInterface } from "shared/enterprise";
-import { ScrollArea, Separator, Text } from "@radix-ui/themes";
+import { ScrollArea, Separator } from "@radix-ui/themes";
 import { Box } from "spectacle";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
+import Text from "@/ui/Text";
 import { BlockProps } from ".";
 
 export default function ExperimentMetadataBlock({
@@ -20,7 +21,7 @@ export default function ExperimentMetadataBlock({
   if (showDescription) {
     blockParts.push(
       <>
-        <Text weight="medium" size="3">
+        <Text weight="medium" size="large">
           Description
         </Text>
         {experiment.description ? (
@@ -44,7 +45,7 @@ export default function ExperimentMetadataBlock({
   if (showHypothesis) {
     blockParts.push(
       <>
-        <Text weight="medium" size="3">
+        <Text weight="medium" size="large">
           Hypothesis
         </Text>
         {experiment.hypothesis ? (
@@ -62,7 +63,7 @@ export default function ExperimentMetadataBlock({
   if (showVariationImages) {
     blockParts.push(
       <>
-        <Text weight="medium" size="3" mb="2">
+        <Text weight="medium" size="large" mb="2">
           Variations
         </Text>
         <div className="variation-image-block">

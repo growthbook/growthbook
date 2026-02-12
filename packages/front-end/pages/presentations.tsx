@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PresentationInterface } from "shared/types/presentation";
 import { FaPlus } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ShareModal from "@/components/Share/ShareModal";
@@ -14,6 +14,7 @@ import CopyToClipboard from "@/components/CopyToClipboard";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] =
@@ -241,7 +242,7 @@ const PresentationPage = (): React.ReactElement => {
       <Box className="container-fluid pagecontents pt-4 shares learnings">
         <Box mb="4" mt="3">
           <Flex justify="between" mb="3">
-            <Heading as="h1" size="6">
+            <Heading as="h1" size="x-large">
               Presentations
             </Heading>
             {canCreatePresentation && (

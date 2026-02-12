@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Container, Flex, Grid, Text } from "@radix-ui/themes";
+import { Container, Flex, Grid } from "@radix-ui/themes";
 import {
   PiFlag,
   PiFlagBold,
@@ -22,6 +22,7 @@ import { Box } from "spectacle";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/ui/RadioCards";
+import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Pagination from "@/ui/Pagination";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -306,7 +307,7 @@ const NeedingAttention = (): React.ReactElement | null => {
 
     return recentFeatures.length > 0 ? (
       <Container className="recent-items-container">
-        <Text size="4" weight="medium" as="div">
+        <Text size="large" weight="medium" as="div">
           Recent
         </Text>
         <Grid
@@ -367,7 +368,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     return (
       <Container className="mt-5">
         <Flex direction="row" align="center">
-          <Text size="4" weight="medium">
+          <Text size="large" weight="medium">
             Experiments requiring attention
           </Text>
           <Badge
@@ -490,7 +491,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     return (
       <Container mt="6">
         <Flex direction="row" align="center">
-          <Text size="4" weight="medium">
+          <Text size="large" weight="medium">
             Feature flags requiring attention
           </Text>
           <Badge

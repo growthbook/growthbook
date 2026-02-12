@@ -3,8 +3,9 @@ import type {
   PipelineValidationResult,
   PipelineValidationResults,
 } from "shared/enterprise";
-import { Flex, Text, Blockquote, Box } from "@radix-ui/themes";
+import { Flex, Blockquote, Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import { capitalizeFirstLetter } from "@/services/utils";
 

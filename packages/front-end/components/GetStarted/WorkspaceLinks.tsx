@@ -9,9 +9,10 @@ import {
 } from "react-icons/pi";
 import { IconType } from "react-icons";
 import Link from "next/link";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useMemo } from "react";
 import { FaFirefoxBrowser } from "react-icons/fa";
+import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -117,7 +118,7 @@ function StyledLink({
             marginRight: "var(--space-2)",
           }}
         />
-        <Text size="3" weight="medium">
+        <Text size="large" weight="medium">
           {text}
           {external && (
             <PiArrowSquareOut

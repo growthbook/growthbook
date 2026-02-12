@@ -6,7 +6,7 @@ import {
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiInfoFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -20,6 +20,7 @@ import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 type MetricOption = {
   id: string;

@@ -4,7 +4,7 @@ import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useMemo, useState } from "react";
 import { PiEye } from "react-icons/pi";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
@@ -12,6 +12,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import Metadata from "@/ui/Metadata";
@@ -195,10 +196,7 @@ export default function ReportAnalysisSettingsBar({
           <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
               <Box style={{ lineHeight: 1.2, fontSize: "12px" }}>
-                <Text
-                  weight="medium"
-                  style={{ color: "var(--color-text-mid)" }}
-                >
+                <Text weight="medium" color="text-mid">
                   Updated {ago(snapshot.runStarted ?? "")}
                 </Text>
               </Box>

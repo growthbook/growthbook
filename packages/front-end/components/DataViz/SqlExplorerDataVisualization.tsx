@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
 import {
@@ -10,6 +10,7 @@ import {
   dimensionAxisConfiguration,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
+import Text from "@/ui/Text";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
@@ -903,7 +904,7 @@ export function SqlExplorerDataVisualization({
       >
         <AreaWithHeader
           header={
-            <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+            <Text color="text-mid" weight="medium">
               {graphTitle}
             </Text>
           }

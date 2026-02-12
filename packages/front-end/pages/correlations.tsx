@@ -1,5 +1,7 @@
-import { Box, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import MetricCorrelations from "@/enterprise/components/Insights/MetricCorrelations";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 
 const MetricCorrelationsPage = (): React.ReactElement => {
   return (

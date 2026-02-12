@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { CiCreditCard1 } from "react-icons/ci";
 import { PaymentMethod } from "shared/types/subscriptions";
 import { FaCreditCard } from "react-icons/fa";
@@ -12,6 +12,7 @@ import { growthbook } from "@/services/utils";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { GBAddCircle } from "@/components/Icons";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";

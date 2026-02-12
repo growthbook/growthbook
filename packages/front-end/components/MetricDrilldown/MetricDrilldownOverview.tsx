@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import {
   DifferenceType,
@@ -9,6 +9,7 @@ import {
 import { ExperimentStatus } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { isRatioMetric } from "shared/experiments";
+import Text from "@/ui/Text";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -117,7 +118,7 @@ function MetricDrilldownOverview({
         tableRowAxis="metric"
         labelHeader={labelHeader}
         renderLabelColumn={({ label }) => (
-          <Text weight="bold" ml="4">
+          <Text weight="semibold" ml="4">
             {label}
           </Text>
         )}
@@ -149,11 +150,7 @@ function MetricDrilldownOverview({
             ) : (
               <FaCaretRight style={{ color: "var(--accent-a10)" }} />
             )}
-            <Text
-              size="3"
-              weight="medium"
-              style={{ color: "var(--color-text-high)" }}
-            >
+            <Text size="large" weight="medium" color="text-high">
               Variation statistics
             </Text>
           </Flex>
@@ -167,7 +164,7 @@ function MetricDrilldownOverview({
       </Box>
 
       <Flex direction="column" gap="2">
-        <Text size="4" weight="medium">
+        <Text size="large" weight="medium">
           Metric definition
         </Text>
         <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />

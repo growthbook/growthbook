@@ -6,7 +6,7 @@ import {
   DashboardBlockInterfaceOrData,
   getBlockData,
 } from "shared/enterprise";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "next/link";
@@ -19,6 +19,7 @@ import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import {

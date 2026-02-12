@@ -2,7 +2,6 @@ import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { Text } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
 import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -10,6 +9,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
+import Text from "@/ui/Text";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;

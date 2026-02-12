@@ -4,7 +4,7 @@ import {
 } from "shared/enterprise";
 import { useMemo } from "react";
 import { getValidDate } from "shared/dates";
-import { Box, Text, Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { isString } from "shared/util";
@@ -13,6 +13,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";

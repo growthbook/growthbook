@@ -1,4 +1,4 @@
-import { Flex, Box, Heading } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
 import {
   GrowthbookClickhouseDataSourceWithParams,
   MaterializedColumn,
@@ -8,6 +8,7 @@ import { FaPlus } from "react-icons/fa";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Table, {
@@ -120,7 +121,7 @@ export default function ClickhouseMaterializedColumns({
         <Flex align="center" gap="2" mb="3" justify="between">
           <Box>
             <Flex align="center" gap="3" mb="0">
-              <Heading as="h3" size="4" mb="0">
+              <Heading as="h3" size="medium" mb="0">
                 Key Attributes
               </Heading>
               <Badge

@@ -10,8 +10,8 @@ import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 
 type ConditionWithParentId = Condition & { parentId?: string };

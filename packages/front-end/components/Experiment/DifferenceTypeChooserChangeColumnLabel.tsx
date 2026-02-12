@@ -9,7 +9,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiCaretDownFill, PiCheck } from "react-icons/pi";
 import { getSnapshotAnalysis } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Text from "@/ui/Text";
 import { analysisUpdate } from "@/services/snapshots";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

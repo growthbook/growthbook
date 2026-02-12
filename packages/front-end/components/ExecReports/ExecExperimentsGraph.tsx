@@ -5,13 +5,14 @@ import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { green, red, amber, slate } from "@radix-ui/colors";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { localPoint } from "@visx/event";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import format from "date-fns/format";
 import { GridRows } from "@visx/grid";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import styles from "@/components/Experiment/ExperimentGraph.module.scss";
+import Heading from "@/ui/Heading";
 
 export default function ExecExperimentsGraph({
   experiments,
@@ -154,7 +155,9 @@ export default function ExecExperimentsGraph({
       style={{ width: "100%", height: "100%" }}
     >
       <Box flexGrow="1">
-        <Heading size="3">Experiment Status</Heading>
+        <Heading size="small" as="h3">
+          Experiment Status
+        </Heading>
         <ParentSizeModern>
           {({ width }) => {
             // Vertical Stacked Bar Graph

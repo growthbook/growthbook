@@ -10,10 +10,11 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
@@ -236,7 +237,7 @@ const Modal: FC<ModalProps> = ({
                 }}
                 aria-label="Close"
               >
-                <Text aria-hidden="true" size="6">
+                <Text aria-hidden="true" size="large">
                   &times;
                 </Text>
               </button>

@@ -1,11 +1,13 @@
 import { useForm } from "react-hook-form";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -174,7 +176,7 @@ export default function EditHypothesisModal({
           {(loading || aiResponse) && (
             <Box my="4">
               <Flex align="center" justify="between" my="4">
-                <Heading size="2" weight="medium">
+                <Heading size="small" as="h3" weight="medium">
                   Suggested Hypothesis:
                 </Heading>
                 <Flex gap="2">

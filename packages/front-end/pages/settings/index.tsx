@@ -20,13 +20,14 @@ import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -403,7 +404,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <FormProvider {...form}>
       <Box className="container-fluid pagecontents" mb="4">
-        <Heading as="h1" size="5" mb="3">
+        <Heading as="h1" size="large" mb="3">
           General Settings
         </Heading>
         <Box mb="5">

@@ -14,7 +14,7 @@ import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Text } from "@radix-ui/themes";
+
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -38,6 +38,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { DocLink } from "@/components/DocLink";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import { isCloud } from "@/services/env";

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   AddressElement,
   useElements,
@@ -18,6 +18,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 
 interface StripeCustomerData {

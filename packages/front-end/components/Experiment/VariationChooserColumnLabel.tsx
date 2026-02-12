@@ -1,7 +1,7 @@
 import { Variation, VariationWithIndex } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useState } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Text from "@/ui/Text";
 
 export interface VariationChooserColumnLabelProps {
   variations: Variation[] | ExperimentReportVariation[];
@@ -209,10 +210,7 @@ export default function VariationChooserColumnLabel({
         >
           {selectedVariation.index}
         </span>
-        <OverflowText
-          maxWidth={75}
-          style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
-        >
+        <OverflowText maxWidth={75} color="text-mid" size="small">
           {selectedVariation.name}
         </OverflowText>
       </Flex>
@@ -220,7 +218,7 @@ export default function VariationChooserColumnLabel({
   } else {
     // Multiple selected or all selected - show plain "Variation" text
     triggerContent = (
-      <Text style={{ color: "var(--color-text-mid)", fontSize: "13px" }}>
+      <Text color="text-mid" size="small">
         Variation
       </Text>
     );

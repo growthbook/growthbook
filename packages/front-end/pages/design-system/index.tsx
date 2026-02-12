@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 
 import AnalysisResultSummaryStories from "@/ui/AnalysisResultSummary.stories";
@@ -103,7 +104,7 @@ export default function DesignSystemPage() {
             minWidth: 220,
           }}
         >
-          <Text as="div" weight="bold" className="mb-2">
+          <Text as="div" weight="semibold" mb="2">
             Components
           </Text>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>

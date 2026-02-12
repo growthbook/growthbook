@@ -3,12 +3,13 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import React from "react";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 
 type Props = {
@@ -44,7 +45,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
         <Flex width="100%" gap="4">
           {info.state !== "locked" && info.state !== "discarded" && (
             <Box width="33%">
-              <Heading weight="bold" as="h4" size="3">
+              <Heading weight="semibold" as="h4" size="small">
                 Environments
               </Heading>
               <Flex direction="column" gap="2">
@@ -88,7 +89,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
           )}
           {info.state !== "discarded" && (
             <Box flexGrow="1">
-              <Heading weight="bold" as="h4" size="3">
+              <Heading weight="semibold" as="h4" size="small">
                 Feature values
               </Heading>
               <Box>

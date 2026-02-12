@@ -1,5 +1,6 @@
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Link from "@/ui/Link";
 

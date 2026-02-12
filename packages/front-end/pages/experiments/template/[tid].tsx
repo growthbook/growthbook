@@ -1,11 +1,12 @@
 import { useRouter } from "next/router";
 import { FC, useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { useTemplates } from "@/hooks/useTemplates";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import PageHead from "@/components/Layout/PageHead";
 import { useSearch } from "@/services/search";
 import Button from "@/ui/Button";
@@ -150,7 +151,7 @@ const TemplatePage: FC = () => {
             )}
             <div className="appbox p-5 text-center">
               <h1>Create an Experiment from this Template</h1>
-              <Text size="3">
+              <Text size="large">
                 Save time configuring experiment details, and ensure consistency
                 across your team and projects.
               </Text>

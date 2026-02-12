@@ -1,5 +1,5 @@
-import { Heading } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import Modal from "./Modal";
 
 type ResourceType =
@@ -33,7 +33,7 @@ export default function OfficialResourceModal({
       cta="Confirm"
     >
       <div className="mr-4 pb-2">
-        <Heading as="h4" size="3">
+        <Heading as="h4" size="small">
           Convert to Official {resourceType}?
         </Heading>
         <Callout status="info" icon={null} mt="4">

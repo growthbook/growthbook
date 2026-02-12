@@ -4,8 +4,8 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { ReactNode } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];

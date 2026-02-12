@@ -1,10 +1,11 @@
 import { FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
-import { Box, Grid, Text } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 
 const EnvironmentSelect: FC<{
   environmentSettings: Record<string, Pick<FeatureEnvironment, "enabled">>;
@@ -29,7 +30,7 @@ const EnvironmentSelect: FC<{
 
   return (
     <div className="form-group">
-      <Text as="label" weight="bold" mb="2">
+      <Text as="label" weight="semibold" mb="2">
         {label || "Enabled Environments"}
       </Text>
       <Box

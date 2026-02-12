@@ -1,8 +1,9 @@
 import { FC } from "react";
 import { PiLightning, PiLightningSlash, PiWarningFill } from "react-icons/pi";
 import { ago, datetime, getValidDate, abbreviateAgo } from "shared/dates";
-import { Text, Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { QueryStatus } from "shared/types/query";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const FAILED_STRING = `The most recent update failed. Click to view queries.`;

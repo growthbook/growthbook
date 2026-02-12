@@ -8,9 +8,11 @@ import {
   DashboardBlockData,
   getBlockData,
 } from "shared/enterprise";
-import { Flex, Heading, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";

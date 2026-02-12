@@ -11,7 +11,7 @@ import {
   ExperimentWithSnapshot,
 } from "shared/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DifferenceType } from "shared/types/stats";
 import { useRouter } from "next/router";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
@@ -37,6 +37,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 

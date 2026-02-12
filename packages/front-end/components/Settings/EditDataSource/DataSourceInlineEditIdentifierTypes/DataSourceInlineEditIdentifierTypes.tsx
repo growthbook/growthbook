@@ -5,12 +5,13 @@ import {
   UserIdType,
 } from "shared/types/datasource";
 import { FaPlus } from "react-icons/fa";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 
 type DataSourceInlineEditIdentifierTypesProps =
@@ -87,7 +88,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     <Box>
       <Flex align="center" gap="2" justify="between" mb="3">
         <Flex align="center" gap="3" mb="0">
-          <Heading as="h3" size="4" mb="0">
+          <Heading as="h3" size="medium" mb="0">
             Identifier Types
           </Heading>
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
@@ -107,7 +108,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           <Flex align="start" justify="between" py="2" px="3" gap="3">
             {/* region Identity Type text */}
             <Box>
-              <Heading size="3" as="h3">
+              <Heading size="small" as="h3">
                 {userIdType}
               </Heading>
               <span className="text-muted">

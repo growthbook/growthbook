@@ -1,12 +1,13 @@
 import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";

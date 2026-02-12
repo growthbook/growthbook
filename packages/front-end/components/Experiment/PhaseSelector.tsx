@@ -1,9 +1,10 @@
 import { date } from "shared/dates";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
+import Text from "@/ui/Text";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {

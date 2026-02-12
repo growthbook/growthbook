@@ -7,7 +7,7 @@ import {
 } from "shared/types/feature";
 import React from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip, Text } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -32,6 +32,7 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -222,7 +223,7 @@ export default function ExperimentRefNewFields({
                   return (
                     <Flex as="div" align="baseline">
                       <Text>{value.label}</Text>
-                      <Text size="1" className="text-muted" ml="auto">
+                      <Text size="small" color="text-low" ml="auto">
                         Created {date(t.dateCreated)}
                       </Text>
                     </Flex>

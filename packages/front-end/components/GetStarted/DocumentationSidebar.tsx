@@ -1,7 +1,9 @@
 import { PiSealQuestion } from "react-icons/pi";
-import { Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import { Card, Flex, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
@@ -69,7 +71,7 @@ const DocumentationSidebar = ({
 
 function SidebarHeading({ children }: { children: string }) {
   return (
-    <Heading as="h6" size="1" mb="2">
+    <Heading as="h6" size="small" mb="2">
       {children}
     </Heading>
   );

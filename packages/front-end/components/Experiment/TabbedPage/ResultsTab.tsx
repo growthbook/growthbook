@@ -12,7 +12,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -27,6 +27,7 @@ import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 

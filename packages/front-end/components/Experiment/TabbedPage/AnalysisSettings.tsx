@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useMemo, useState } from "react";
-import { Text } from "@radix-ui/themes";
+
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
@@ -16,6 +16,7 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";

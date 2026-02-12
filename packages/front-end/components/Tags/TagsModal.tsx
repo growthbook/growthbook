@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
 import React from "react";
 import { TagInterface } from "shared/types/tag";
-import { Text, Container } from "@radix-ui/themes";
+import { Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import { Select, SelectItem } from "@/ui/Select";
 import Tag from "./Tag";
 
@@ -62,7 +63,7 @@ export default function TagsModal({
       <div>
         {!existing?.id && (
           <Container mb="3">
-            <Text as="label" size="3" weight="medium">
+            <Text as="label" size="large" weight="medium">
               Name
             </Text>
             <Field
@@ -88,14 +89,14 @@ export default function TagsModal({
         </Select>
 
         <Container mb="3">
-          <Text as="label" size="3" weight="medium">
+          <Text as="label" size="large" weight="medium">
             Description
           </Text>
           <Field textarea maxLength={256} {...form.register("description")} />
         </Container>
 
         <Container>
-          <Text as="label" size="3" weight="medium">
+          <Text as="label" size="large" weight="medium">
             Preview
           </Text>
           <div>

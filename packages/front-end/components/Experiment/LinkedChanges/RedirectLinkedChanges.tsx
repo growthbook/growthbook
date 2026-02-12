@@ -2,13 +2,14 @@ import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal?: (boolean) => void;

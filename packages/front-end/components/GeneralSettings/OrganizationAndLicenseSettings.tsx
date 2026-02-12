@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 
 export default function OrganizationAndLicenseSettings({
@@ -42,7 +44,7 @@ export default function OrganizationAndLicenseSettings({
       <Box className="appbox" p="5">
         <Flex justify="start" gap="4">
           <Box width="220px" flexShrink="0">
-            <Heading as="h4" size="4">
+            <Heading as="h4" size="medium">
               Organization Settings
             </Heading>
           </Box>

@@ -1,9 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
 import { PiInfo } from "react-icons/pi";
 import { useForm } from "react-hook-form";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "./FeatureValueField";

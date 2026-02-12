@@ -1,10 +1,11 @@
 import React, { FC, useState } from "react";
 import { ExposureQuery } from "shared/types/datasource";
 import { DimensionSlicesInterface } from "shared/types/dimension";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import {
   CustomDimensionMetadata,
   DimensionSlicesRunner,

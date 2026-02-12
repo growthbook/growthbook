@@ -12,7 +12,7 @@ import Collapsible from "react-collapsible";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
-import { Text, Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
@@ -22,6 +22,7 @@ import { HoldoutInterface } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
+import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Tooltip from "@/components/Tooltip/Tooltip";

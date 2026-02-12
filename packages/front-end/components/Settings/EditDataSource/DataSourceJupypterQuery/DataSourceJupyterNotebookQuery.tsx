@@ -1,11 +1,12 @@
 import React, { FC, useCallback, useState } from "react";
 import { FaPlus } from "react-icons/fa";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
@@ -29,7 +30,7 @@ export const DataSourceJupyterNotebookQuery: FC<
     <Box>
       <Flex align="start" justify="between" mb="2">
         <Box>
-          <Heading size="4" mb="0">
+          <Heading size="medium" as="h3" mb="0">
             Jupyter Notebook Query Runner
           </Heading>
         </Box>
