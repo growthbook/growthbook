@@ -1,18 +1,13 @@
-import { Flex, Text, Separator } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import {
   ColumnInterface,
   FactTableInterface,
   RowFilter,
 } from "shared/types/fact-table";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiCaretUp,
-  PiPlus,
-  PiX,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretUp, PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Collapsible from "react-collapsible";
+import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -73,9 +68,7 @@ export function RowFilterInput({
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
-  /** "default" renders horizontal rows with AND labels. "compact" renders vertical stacked filters with headers. */
   variant?: RowFilterInputVariant;
-  /** Hide the add filter button (useful when rendering the button externally) */
   hideAddButton?: boolean;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
@@ -100,9 +93,7 @@ export function RowFilterInput({
     <Flex direction="column" gap="2" width={isCompact ? "100%" : undefined}>
       {isCompact ? (
         value.length > 0 ? (
-          <Text size="2" weight="medium">
-            Filters
-          </Text>
+          <Text weight="medium">Filters</Text>
         ) : null
       ) : (
         <strong>Row Filter</strong>
@@ -517,14 +508,9 @@ export function RowFilterInput({
             >
               <Flex justify="between" align="center" width="100%" gap="2">
                 <Text
-                  size="1"
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    flex: 1,
-                    minWidth: 0,
-                  }}
+                  size="small"
+                  truncate
+                  whiteSpace="nowrap"
                   title={getFilterSummary()}
                 >
                   {getFilterSummary()}

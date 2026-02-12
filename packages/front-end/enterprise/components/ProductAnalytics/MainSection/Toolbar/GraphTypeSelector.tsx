@@ -1,4 +1,4 @@
-import React, { ReactElement } from "react";
+import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { chartTypes as chartTypeValues } from "shared/validators";
 import {
@@ -16,7 +16,7 @@ import {
   SelectSeparator,
 } from "@/ui/Select";
 import { AreaChartIcon } from "@/components/Icons";
-import { useExplorerContext } from "../../ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
 const chartTypes: {
   groupLabel: string;

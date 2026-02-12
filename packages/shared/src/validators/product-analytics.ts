@@ -74,12 +74,12 @@ const datasetValidator = z.discriminatedUnion("type", [
 ]);
 export type ProductAnalyticsDataset = z.infer<typeof datasetValidator>;
 
-const valueValidator = z.discriminatedUnion("type", [
+const _valueValidator = z.discriminatedUnion("type", [
   metricValueValidator,
   factTableValueValidator,
   databaseValueValidator,
 ]);
-export type ProductAnalyticsValue = z.infer<typeof valueValidator>;
+export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
 export const dateGranularity = [
   "auto",
@@ -148,7 +148,7 @@ export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 // The config defined in the UI
 export const productAnalyticsConfigValidator = z
   .object({
-    dataset: datasetValidator.default({ type: "metric", values: [] }),
+    dataset: datasetValidator,
     dimensions: z.array(dimensionValidator),
     chartType: z.enum(chartTypes),
     dateRange: z.object({

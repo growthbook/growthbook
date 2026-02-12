@@ -1,8 +1,9 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { BsGraphUpArrow } from "react-icons/bs";
 import Button from "@/ui/Button";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Text from "@/ui/Text";
 import GraphTypeSelector from "./Toolbar/GraphTypeSelector";
 import DateRangePicker from "./Toolbar/DateRangePicker";
 import GranularitySelector from "./Toolbar/GranularitySelector";
@@ -63,7 +64,7 @@ export default function ExplorerMainSection() {
           }}
         >
           <BsGraphUpArrow size={48} className="text-muted" />
-          <Text size="3" weight="medium">
+          <Text size="large" weight="medium">
             Configure your explorer to visualize data
           </Text>
         </Flex>

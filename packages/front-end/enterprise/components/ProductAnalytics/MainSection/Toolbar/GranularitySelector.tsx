@@ -1,7 +1,7 @@
 import React from "react";
 import { dateGranularity } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
-import { useExplorerContext } from "../../ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
 const dateGranularityLabels: Record<(typeof dateGranularity)[number], string> =
   {

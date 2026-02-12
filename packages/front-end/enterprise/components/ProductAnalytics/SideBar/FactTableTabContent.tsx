@@ -1,5 +1,5 @@
 import React from "react";
-import { Flex, Text, Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { PiTable, PiPlus } from "react-icons/pi";
 import type { FactTableValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
@@ -11,15 +11,12 @@ import {
   VALUE_TYPE_OPTIONS,
   getValueTypeLabel,
 } from "@/enterprise/components/ProductAnalytics/util";
-import ValueCard from "./ValueCard";
+import ValueCard from "@/enterprise/components/ProductAnalytics/SideBar/ValueCard";
+import Text from "@/ui/Text";
 
 export default function FactTableTabContent() {
-  const {
-    draftExploreState,
-    addValueToDataset,
-    updateValueInDataset,
-    deleteValueFromDataset,
-  } = useExplorerContext();
+  const { draftExploreState, addValueToDataset, updateValueInDataset } =
+    useExplorerContext();
   const { getFactTableById } = useDefinitions();
 
   const dataset =
@@ -32,9 +29,7 @@ export default function FactTableTabContent() {
 
   const numericColumns =
     factTable?.columns?.filter((c) => c.datatype === "number") ?? [];
-  const allColumns =
-    factTable?.columns?.map((c) => ({ label: c.column, value: c.column })) ??
-    [];
+
   const values: FactTableValue[] =
     draftExploreState.dataset?.type === "fact_table"
       ? draftExploreState.dataset.values
@@ -59,7 +54,7 @@ export default function FactTableTabContent() {
         }}
       >
         <PiTable size={18} />
-        <Text size="2" weight="medium" align="center">
+        <Text weight="medium" align="center">
           Select a fact table to begin configuring values and filters
         </Text>
       </Flex>
@@ -81,7 +76,7 @@ export default function FactTableTabContent() {
             width: "100%",
           }}
         >
-          <Text size="1" color="gray">
+          <Text size="small" color="text-low">
             Add at least one value to chart
           </Text>
         </Flex>
@@ -90,7 +85,7 @@ export default function FactTableTabContent() {
         <ValueCard key={idx} index={idx}>
           <Flex direction="column" gap="2">
             <Separator style={{ width: "100%" }} />
-            <Text size="2" weight="medium" mt="2">
+            <Text weight="medium" mt="2">
               Value type
             </Text>
             <SelectField
@@ -113,7 +108,7 @@ export default function FactTableTabContent() {
             />
             {v.valueType === "sum" && (
               <>
-                <Text size="2" weight="medium" mt="2">
+                <Text weight="medium" mt="2">
                   Value column
                 </Text>
                 <SelectField

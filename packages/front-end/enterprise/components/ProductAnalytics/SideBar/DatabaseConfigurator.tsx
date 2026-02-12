@@ -168,7 +168,7 @@ export default function DatabaseConfigurator({
   return (
     <Flex direction="column" gap="2">
       <>
-        <Text size="2" weight="medium" mt="2">
+        <Text weight="medium" mt="2">
           Data source
         </Text>
         <SelectField
@@ -204,7 +204,7 @@ export default function DatabaseConfigurator({
         <PendingTablesCard mutate={mutate} />
       ) : tableOptions.length > 0 ? (
         <>
-          <Text size="2" weight="medium" mt="2">
+          <Text weight="medium" mt="2">
             Table
           </Text>
           <SelectField
@@ -230,7 +230,7 @@ export default function DatabaseConfigurator({
             forceUndefinedValueToNull
           />
           <>
-            <Text size="2" weight="medium" mt="2">
+            <Text weight="medium" mt="2">
               Timestamp column
             </Text>
             <SelectField

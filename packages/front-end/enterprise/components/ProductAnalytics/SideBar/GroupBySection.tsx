@@ -1,10 +1,11 @@
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useMemo, useState } from "react";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { getMaxDimensions } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Text from "@/ui/Text";
 
 export default function GroupBySection() {
   const { draftExploreState, setDraftExploreState, commonColumns } =
@@ -55,9 +56,7 @@ export default function GroupBySection() {
       }}
     >
       <Flex justify="between" align="center">
-        <Text size="2" weight="medium">
-          Group by
-        </Text>
+        <Text weight="medium">Group by</Text>
         <DropdownMenu
           open={dropdownOpen}
           onOpenChange={setDropdownOpen}

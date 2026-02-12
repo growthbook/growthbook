@@ -45,7 +45,6 @@ export function getValueTypeLabel(
 export function createEmptyValue(
   type: DatasetType,
   factTable: FactTableInterface | null,
-  factMetric: FactMetricInterface | null,
 ): ProductAnalyticsValue {
   const base = {
     name: "",
@@ -106,10 +105,7 @@ export function generateUniqueValueName(
   return `${baseName} ${i}`;
 }
 
-export function createEmptyDataset(
-  type: DatasetType,
-  factTable?: FactTableInterface,
-): ProductAnalyticsDataset {
+export function createEmptyDataset(type: DatasetType): ProductAnalyticsDataset {
   if (type === "metric") {
     return { type, values: [] };
   } else if (type === "fact_table") {

@@ -184,7 +184,6 @@ export async function runFreeFormQuery(
 
     // Build a type map from SQL engine metadata
     const typeMap = new Map<string, FactTableColumnType>();
-    console.log("initial type map", typeMap);
     columns?.forEach((col) => {
       if (col.dataType !== undefined && col.dataType !== "json") {
         typeMap.set(col.name, col.dataType);
@@ -193,7 +192,6 @@ export async function runFreeFormQuery(
 
     // Enhance with inferred types from actual data
     const detectedColumns = determineColumnTypes(results, typeMap);
-    console.log("detected columns", detectedColumns);
     detectedColumns.forEach((col) => {
       typeMap.set(col.column, col.datatype);
     });

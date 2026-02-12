@@ -1,21 +1,18 @@
-import React, { useMemo, useState } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import React from "react";
+import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { generateUniqueValueName } from "../util";
-import { useExplorerContext } from "../ExplorerContext";
+import { generateUniqueValueName } from "@/enterprise/components/ProductAnalytics/util";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Text from "@/ui/Text";
 import ValueCard from "./ValueCard";
 
 export default function MetricTabContent() {
-  const {
-    draftExploreState,
-    addValueToDataset,
-    updateValueInDataset,
-    deleteValueFromDataset,
-  } = useExplorerContext();
+  const { draftExploreState, addValueToDataset, updateValueInDataset } =
+    useExplorerContext();
   const { factMetrics, getFactTableById } = useDefinitions();
 
   const values: MetricValue[] =
@@ -26,22 +23,12 @@ export default function MetricTabContent() {
   return (
     <Flex direction="column" gap="4">
       {!values.length && (
-        <Text size="1" color="gray">
+        <Text size="small" color="text-low">
           Add at least one metric to chart
         </Text>
       )}
 
       {values.map((v, idx) => {
-        const metric = factMetrics.find((m) => m.id === v.metricId);
-        const factTable = metric
-          ? getFactTableById(metric.numerator.factTableId)
-          : null;
-        const columns =
-          factTable?.columns.map((c) => ({
-            label: c.column,
-            value: c.column,
-          })) ?? [];
-
         return (
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">

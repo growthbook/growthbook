@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Flex, Text, Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { PiTable, PiPlus } from "react-icons/pi";
 import type { DatabaseValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
@@ -9,6 +9,7 @@ import {
   getValueTypeLabel,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Text from "@/ui/Text";
 import ValueCard from "./ValueCard";
 
 const VALUE_TYPE_OPTIONS: {
@@ -21,12 +22,8 @@ const VALUE_TYPE_OPTIONS: {
 ];
 
 export default function SqlTabContent() {
-  const {
-    draftExploreState,
-    addValueToDataset,
-    updateValueInDataset,
-    deleteValueFromDataset,
-  } = useExplorerContext();
+  const { draftExploreState, addValueToDataset, updateValueInDataset } =
+    useExplorerContext();
 
   const dataset =
     draftExploreState.dataset?.type === "database"
@@ -58,7 +55,7 @@ export default function SqlTabContent() {
         }}
       >
         <PiTable size={18} />
-        <Text size="2" weight="medium" align="center">
+        <Text weight="medium" align="center">
           Select a table to begin configuring values and filters
         </Text>
       </Flex>
@@ -81,7 +78,7 @@ export default function SqlTabContent() {
               width: "100%",
             }}
           >
-            <Text size="1" color="gray">
+            <Text size="small" color="text-low">
               Add at least one value to chart
             </Text>
           </Flex>
@@ -93,7 +90,7 @@ export default function SqlTabContent() {
             <ValueCard key={idx} index={idx}>
               <Flex direction="column" gap="2">
                 <Separator style={{ width: "100%" }} />
-                <Text size="2" weight="medium" mt="2">
+                <Text weight="medium" mt="2">
                   Value type
                 </Text>
                 <SelectField
@@ -120,7 +117,7 @@ export default function SqlTabContent() {
                 />
                 {v.valueType === "sum" && (
                   <>
-                    <Text size="2" weight="medium" mt="2">
+                    <Text weight="medium" mt="2">
                       Value column
                     </Text>
                     <SelectField

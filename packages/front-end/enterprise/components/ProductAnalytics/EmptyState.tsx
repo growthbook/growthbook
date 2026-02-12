@@ -1,10 +1,12 @@
 import React from "react";
-import { Flex, Box, Text } from "@radix-ui/themes";
-import { BsFillBarChartLineFill, BsGraphUpArrow } from "react-icons/bs";
+import { Flex, Box } from "@radix-ui/themes";
+import { BsFillBarChartLineFill } from "react-icons/bs";
 import { PiCode, PiTable } from "react-icons/pi";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useExplorerContext } from "./ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Heading from "@/ui/Heading";
 
 export default function EmptyState() {
   const { changeDatasetType, setDraftExploreState } = useExplorerContext();
@@ -12,9 +14,9 @@ export default function EmptyState() {
 
   return (
     <Box m="7">
-      <Text size="7" weight="medium">
+      <Heading as="h1" size="2x-large" weight="medium">
         Product Analytics
-      </Text>
+      </Heading>
       <Flex
         align="center"
         justify="center"
@@ -28,14 +30,10 @@ export default function EmptyState() {
           borderRadius: "var(--radius-4)",
         }}
       >
-        <Text size="6" weight="medium">
+        <Heading as="h2" size="x-large" weight="medium">
           Select an Explorer Type
-        </Text>
-        <Text
-          size="2"
-          style={{ maxWidth: 350, textAlign: "center" }}
-          className="text-muted"
-        >
+        </Heading>
+        <Text color="text-low" align="center">
           Choose how you want to explore your data
         </Text>
         <Flex gap="3" mt="3">
@@ -51,10 +49,8 @@ export default function EmptyState() {
           >
             <Flex direction="column" align="center" gap="1">
               <BsFillBarChartLineFill size={24} />
-              <Text size="2" weight="medium">
-                Metrics
-              </Text>
-              <Text size="1" className="text-muted">
+              <Text weight="medium">Metrics</Text>
+              <Text size="small" color="text-low" align="center">
                 Pre-built metrics
               </Text>
             </Flex>
@@ -71,10 +67,8 @@ export default function EmptyState() {
           >
             <Flex direction="column" align="center" gap="1">
               <PiTable size={24} />
-              <Text size="2" weight="medium">
-                Fact Table
-              </Text>
-              <Text size="1" className="text-muted">
+              <Text weight="medium">Fact Table</Text>
+              <Text size="small" color="text-low" align="center">
                 Build custom queries
               </Text>
             </Flex>
@@ -99,10 +93,8 @@ export default function EmptyState() {
           >
             <Flex direction="column" align="center" gap="1">
               <PiCode size={24} />
-              <Text size="2" weight="medium">
-                Database
-              </Text>
-              <Text size="1" className="text-muted">
+              <Text weight="medium">Database</Text>
+              <Text size="small" color="text-low" align="center">
                 Explore a table in your database
               </Text>
             </Flex>

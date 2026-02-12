@@ -4,7 +4,7 @@ import { dateRangePredefined, lookbackUnit } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
-import { useExplorerContext } from "../../ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
 const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
   {

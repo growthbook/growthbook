@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Flex, Box, Text, TextField, Separator } from "@radix-ui/themes";
+import { Flex, Box, TextField } from "@radix-ui/themes";
 import {
   PiX,
   PiPencilSimple,
@@ -15,7 +15,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { useExplorerContext } from "../ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Text from "@/ui/Text";
 import styles from "./ValueCard.module.scss";
 
 type RowFilter = z.infer<typeof rowFilterValidator>;
@@ -112,9 +113,11 @@ export default function ValueCard({
             />
           ) : (
             <>
-              <Text size="2" weight="medium" truncate style={{ flex: 1 }}>
-                {displayName}
-              </Text>
+              <Box style={{ flex: 1 }}>
+                <Text weight="medium" truncate>
+                  {displayName}
+                </Text>
+              </Box>
               <Button
                 className={styles.editBtn}
                 variant="ghost"

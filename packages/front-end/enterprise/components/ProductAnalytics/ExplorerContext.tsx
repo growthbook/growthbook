@@ -171,7 +171,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         datasetType === "metric" && factMetric?.numerator.factTableId
           ? getFactTableById(factMetric.numerator.factTableId)
           : factTables[0];
-      return createEmptyValue(datasetType, factTable, factMetric);
+      return createEmptyValue(datasetType, factTable);
     },
     [factMetrics, factTables, getFactTableById],
   );
@@ -293,7 +293,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
           return cached;
         }
 
-        const defaultDataset = createEmptyDataset(type, factTables[0]);
+        const defaultDataset = createEmptyDataset(type);
         return {
           ...prev,
           dataset: { ...defaultDataset, values: [createDefaultValue(type)] },
@@ -303,7 +303,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
         setIsEmpty(false);
       }
     },
-    [createDefaultValue, factTables, explorerCache, isEmpty],
+    [createDefaultValue, explorerCache, isEmpty],
   );
 
   const value = useMemo<ExplorerContextValue>(

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiClockClockwise } from "react-icons/pi";
+import Text from "@/ui/Text";
 
 const UPDATE_INTERVAL_MS = 10_000;
 
@@ -35,7 +36,7 @@ export default function LastRefreshedIndicator({
   return (
     <Flex align="center" gap="1">
       <PiClockClockwise style={{ color: "var(--gray-11)", flexShrink: 0 }} />
-      <Text size="1" color="gray">
+      <Text size="small" color="text-low">
         {formatShortAgo(lastRefreshedAt)}
       </Text>
     </Flex>

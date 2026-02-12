@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import type { ProductAnalyticsConfig } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -8,7 +8,8 @@ import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useExplorerContext } from "../ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Text from "@/ui/Text";
 
 const CHART_ID = "explorer-chart";
 
@@ -269,7 +270,7 @@ export default function ExplorerChart() {
           justify="center"
           minHeight="500px"
         >
-          <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+          <Text color="text-mid" weight="medium">
             No data available. Select a metric to see results.
           </Text>
         </Flex>
@@ -281,7 +282,7 @@ export default function ExplorerChart() {
           align="center"
           justify="center"
         >
-          <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+          <Text color="text-mid" weight="medium">
             The query ran successfully, but no data was returned.
           </Text>
         </Flex>

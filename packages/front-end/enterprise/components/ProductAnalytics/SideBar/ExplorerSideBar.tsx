@@ -14,12 +14,8 @@ import DatabaseConfigurator from "./DatabaseConfigurator";
 type DatasetType = "metric" | "fact_table" | "database";
 
 export default function ExplorerSideBar() {
-  const {
-    draftExploreState,
-    setDraftExploreState,
-    changeDatasetType,
-    addValueToDataset,
-  } = useExplorerContext();
+  const { draftExploreState, setDraftExploreState, changeDatasetType } =
+    useExplorerContext();
   const { factTables, datasources } = useDefinitions();
 
   const dataset = draftExploreState.dataset;
