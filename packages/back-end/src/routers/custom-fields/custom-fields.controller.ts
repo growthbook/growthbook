@@ -126,7 +126,6 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index,
     projects,
     section,
   } = req.body;
@@ -168,7 +167,6 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index: !!index,
     projects,
     section,
   });
