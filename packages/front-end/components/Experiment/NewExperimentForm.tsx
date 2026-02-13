@@ -1486,7 +1486,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   size="lg"
                   label={
                     <Link
-                      href={docUrl("stickyBucketing")}
+                      href={docUrl("bandits")}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
