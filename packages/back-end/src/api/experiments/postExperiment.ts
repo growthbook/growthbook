@@ -54,14 +54,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // check if tracking key is unique
-    const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.context,
-      req.body.trackingKey,
-    );
-    if (existingByTrackingKey) {
-      throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+    if (!req.body.allowDuplicateTrackingKey) {
+      const existingByTrackingKey = await getExperimentByTrackingKey(
+        req.context,
+        req.body.trackingKey,
       );
+      if (existingByTrackingKey) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}`,
+        );
+      }
     }
 
     // check if the custom fields are valid
