@@ -92,6 +92,17 @@ type DeepPartial<T> = T extends object
     }
   : T;
 
+/**
+ * Type-safe index field paths: top-level keys only, or dotted paths whose first
+ * segment is a top-level key (e.g. "nextScheduledStatusUpdate.date").
+ * Avoids deep recursion that would occur with fully recursive path types.
+ */
+export type IndexableFieldPath<T> = T extends object
+  ? keyof T extends string
+    ? keyof T | `${keyof T}.${string}`
+    : keyof T
+  : never;
+
 export interface ModelConfig<
   T extends BaseSchema,
   Entity extends EntityType,
@@ -105,9 +116,7 @@ export interface ModelConfig<
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
-    fields: Partial<{
-      [key in keyof z.infer<T>]: 1 | -1;
-    }>;
+    fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
   }[];
   // NB: Names of indexes to remove
