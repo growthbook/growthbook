@@ -30,7 +30,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     )
       req.context.permissions.throwPermissionError();
 
-    const bodyTags = (req.body as { tags?: string[] }).tags;
+    const bodyTags = req.body.tags;
     if (bodyTags !== undefined) {
       await addTagsDiff(org.id, attribute.tags || [], bodyTags);
     }

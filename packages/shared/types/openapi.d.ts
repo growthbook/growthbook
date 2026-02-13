@@ -11862,6 +11862,7 @@ export interface operations {
            */
           format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
+          tags?: (string)[];
         };
       };
     };
@@ -11916,6 +11917,7 @@ export interface operations {
            */
           format?: "" | "version" | "date" | "isoCountryCode";
           projects?: (string)[];
+          tags?: (string)[];
         };
       };
     };
