@@ -469,10 +469,11 @@ describe("sdk-connections API", () => {
   });
 
   it("can delete sdk-connections", async () => {
-    setReqContext({
+    const context = {
       org,
       permissions: { canDeleteSDKConnection: () => true },
-    });
+    };
+    setReqContext(context);
 
     const existing = sdkConnectionFactory.build({
       name: "my-connection",
