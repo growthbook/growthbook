@@ -18,7 +18,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "safeRollout.update",
     deleteEvent: "safeRollout.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   defaultValues: {
     autoSnapshots: true,
   },

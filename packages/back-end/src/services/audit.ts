@@ -117,17 +117,16 @@ export type AuditLogConfig<Entity extends EntityType> = {
 
 export function createModelAuditLogger<E extends EntityType>(
   config: AuditLogConfig<E>,
+  getIdFromDoc: (doc: object) => string = (doc) =>
+    (doc as { id: string; name?: string }).id,
 ) {
   return {
-    async logCreate(
-      context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-    ) {
+    async logCreate(context: ReqContext | ApiReqContext, doc: object) {
       try {
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in doc && typeof doc.name === "string" && doc.name) || "",
           },
@@ -144,8 +143,8 @@ export function createModelAuditLogger<E extends EntityType>(
 
     async logUpdate(
       context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-      newDoc: { id: string; name?: string },
+      doc: object,
+      newDoc: object,
       overrideEvent?: EventType,
     ) {
       const event = overrideEvent || config.updateEvent;
@@ -153,7 +152,7 @@ export function createModelAuditLogger<E extends EntityType>(
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in newDoc &&
                 typeof newDoc.name === "string" &&
@@ -168,15 +167,12 @@ export function createModelAuditLogger<E extends EntityType>(
       }
     },
 
-    async logDelete(
-      context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-    ) {
+    async logDelete(context: ReqContext | ApiReqContext, doc: object) {
       try {
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in doc && typeof doc.name === "string" && doc.name) || "",
           },
@@ -191,16 +187,13 @@ export function createModelAuditLogger<E extends EntityType>(
       }
     },
 
-    async logAutocreate(
-      context: ReqContext | ApiReqContext,
-      doc: { id: string; name?: string },
-    ) {
+    async logAutocreate(context: ReqContext | ApiReqContext, doc: object) {
       if (!config.autocreateEvent) return;
       try {
         await context.auditLog({
           entity: {
             object: config.entity,
-            id: doc.id,
+            id: getIdFromDoc(doc),
             name:
               ("name" in doc && typeof doc.name === "string" && doc.name) || "",
           },

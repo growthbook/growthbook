@@ -135,7 +135,7 @@ const BaseClass = MakeModelClass({
   },
   // If true, `id` is globally unique across all orgs
   // If false (default), the `organization`/`id` combo is unique.
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: [],
 });
 

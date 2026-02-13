@@ -51,7 +51,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "vercelNativeIntegration.update",
     deleteEvent: "vercelNativeIntegration.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [{ fields: { installationId: 1 }, unique: true }],
 });
 

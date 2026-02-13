@@ -19,7 +19,7 @@ const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
   idPrefix: "srsnp_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
       fields: {
