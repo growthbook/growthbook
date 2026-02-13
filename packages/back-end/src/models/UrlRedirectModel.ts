@@ -31,7 +31,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "urlRedirect.update",
     deleteEvent: "urlRedirect.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: ["experiment"],
 });
 
