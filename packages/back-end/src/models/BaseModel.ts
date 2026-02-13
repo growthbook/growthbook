@@ -3,7 +3,7 @@
 import { v4 as uuidv4 } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
-import { Collection } from "mongodb";
+import { AnyBulkWriteOperation, Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
@@ -31,6 +31,7 @@ import {
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
 import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
+import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -355,6 +356,11 @@ export abstract class BaseModel<
     return rawBody as UpdateProps<z.infer<T>>;
   }
 
+  // To be used if a legacy model is missing fields like id that are needed for indices
+  protected async migrateModel(): Promise<void> {
+    // Do nothing by default
+  }
+
   /***************
    * These methods are implemented by the MakeModelClass helper function
    ***************/
@@ -521,6 +527,7 @@ export abstract class BaseModel<
       skip,
       bypassReadPermissionChecks,
       projection,
+      dangerousCrossOrganization,
     }: {
       sort?: Partial<{
         [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
@@ -530,13 +537,10 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
       // Note: projection does not work when using config.yml
       projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
+      dangerousCrossOrganization?: boolean;
     } = {},
   ) {
-    const fullQuery = {
-      ...this.getBaseQuery(),
-      ...query,
-      organization: this.context.org.id,
-    };
+    const fullQuery = this.applyBaseQuery(query, dangerousCrossOrganization);
     let rawDocs;
 
     if (this.useConfigFile()) {
@@ -587,11 +591,7 @@ export abstract class BaseModel<
   }
 
   protected async _findOne(query: ScopedFilterQuery<T>) {
-    const fullQuery = {
-      ...this.getBaseQuery(),
-      ...query,
-      organization: this.context.org.id,
-    };
+    const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
       : await this._dangerousGetCollection().findOne(fullQuery);
@@ -819,6 +819,52 @@ export abstract class BaseModel<
     return newDoc;
   }
 
+  protected async _dangerousCountDocumentsCrossOrganization(
+    filter: ScopedFilterQuery<T>,
+  ) {
+    return this._dangerousGetCollection().countDocuments(filter);
+  }
+
+  protected async _countDocuments(filter: ScopedFilterQuery<T>) {
+    const query = this.applyBaseQuery(filter);
+    return this._dangerousGetCollection().countDocuments(query);
+  }
+
+  protected async _dangerousBulkWriteCrossOrganization(
+    operations: AnyBulkWriteOperation[],
+  ) {
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+  }
+
+  protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
+    return dbSafeBulkWrite(
+      this._dangerousGetCollection(),
+      operations.map((op) => {
+        if ("insertOne" in op) {
+          return {
+            insertOne: {
+              ...op.insertOne,
+              document: {
+                ...op.insertOne.document,
+                organization: this.context.org.id,
+              },
+            },
+          };
+        } else if ("updateOne" in op) {
+          return {
+            updateOne: {
+              ...op.updateOne,
+              filter: this.applyBaseQuery(op.updateOne.filter),
+            },
+          };
+        }
+        return this.context.throwInternalServerError(
+          "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
+        );
+      }),
+    );
+  }
+
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
@@ -935,45 +981,53 @@ export abstract class BaseModel<
     if (indexesUpdated.has(this.config.collectionName)) return;
     indexesUpdated.add(this.config.collectionName);
 
+    const migrationPromise = this.migrateModel(); // Compatibility for initial migration to baseModel
+
     const promises = [];
 
     // Always create a unique index for organization and id
     promises.push(
-      this._dangerousGetCollection()
-        .createIndex({ id: 1, organization: 1 }, { unique: true })
-        .catch((err) => {
-          logger.error(
-            err,
-            `Error creating org/id unique index for ${this.config.collectionName}`,
-          );
-        }),
+      migrationPromise.then(() => {
+        this._dangerousGetCollection()
+          .createIndex({ id: 1, organization: 1 }, { unique: true })
+          .catch((err) => {
+            logger.error(
+              err,
+              `Error creating org/id unique index for ${this.config.collectionName}`,
+            );
+          });
+      }),
     );
 
     // If id is globally unique, create an index for that
     if (this.config.globallyUniqueIds) {
       promises.push(
-        this._dangerousGetCollection()
-          .createIndex({ id: 1 }, { unique: true })
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error creating id unique index for ${this.config.collectionName}`,
-            );
-          }),
+        migrationPromise.then(() => {
+          this._dangerousGetCollection()
+            .createIndex({ id: 1 }, { unique: true })
+            .catch((err) => {
+              logger.error(
+                err,
+                `Error creating id unique index for ${this.config.collectionName}`,
+              );
+            });
+        }),
       );
     }
 
     // If schema uses uid, create a globally unique index
     if ("uid" in this.config.schema.shape) {
       promises.push(
-        this._dangerousGetCollection()
-          .createIndex({ uid: 1 }, { unique: true })
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error creating uid unique index for ${this.config.collectionName}`,
-            );
-          }),
+        migrationPromise.then(() => {
+          this._dangerousGetCollection()
+            .createIndex({ uid: 1 }, { unique: true })
+            .catch((err) => {
+              logger.error(
+                err,
+                `Error creating uid unique index for ${this.config.collectionName}`,
+              );
+            });
+        }),
       );
     }
 
@@ -983,20 +1037,22 @@ export abstract class BaseModel<
       // Drop each index that needs to be removed
       indexesToRemove.forEach((indexName) => {
         promises.push(
-          this._dangerousGetCollection()
-            .dropIndex(indexName)
-            .catch((err) => {
-              // Ignore errors if the index or namespace doesn't exist
-              if (
-                err.codeName !== "IndexNotFound" &&
-                err.codeName !== "NamespaceNotFound"
-              ) {
-                logger.error(
-                  err,
-                  `Error dropping index ${indexName} for ${this.config.collectionName}`,
-                );
-              }
-            }),
+          migrationPromise.then(() => {
+            this._dangerousGetCollection()
+              .dropIndex(indexName)
+              .catch((err) => {
+                // Ignore errors if the index or namespace doesn't exist
+                if (
+                  err.codeName !== "IndexNotFound" &&
+                  err.codeName !== "NamespaceNotFound"
+                ) {
+                  logger.error(
+                    err,
+                    `Error dropping index ${indexName} for ${this.config.collectionName}`,
+                  );
+                }
+              });
+          }),
         );
       });
     }
@@ -1004,18 +1060,20 @@ export abstract class BaseModel<
     // Create any additional indexes
     this.config.additionalIndexes?.forEach((index) => {
       promises.push(
-        this._dangerousGetCollection()
-          .createIndex(index.fields as { [key: string]: number }, {
-            unique: !!index.unique,
-          })
-          .catch((err) => {
-            logger.error(
-              err,
-              `Error creating ${Object.keys(index.fields).join("/")} ${
-                index.unique ? "unique " : ""
-              }index for ${this.config.collectionName}`,
-            );
-          }),
+        migrationPromise.then(() => {
+          this._dangerousGetCollection()
+            .createIndex(index.fields as { [key: string]: number }, {
+              unique: !!index.unique,
+            })
+            .catch((err) => {
+              logger.error(
+                err,
+                `Error creating ${Object.keys(index.fields).join("/")} ${
+                  index.unique ? "unique " : ""
+                }index for ${this.config.collectionName}`,
+              );
+            });
+        }),
       );
     });
 
@@ -1052,6 +1110,20 @@ export abstract class BaseModel<
 
   private getBaseQuery(): ScopedFilterQuery<T> {
     return this.config.baseQuery ?? {};
+  }
+
+  private applyBaseQuery(
+    filter: object,
+    dangerousCrossOrganization: boolean = false,
+  ): FilterQuery<z.infer<T>> {
+    const fullQuery: FilterQuery<z.infer<T>> = {
+      ...this.getBaseQuery(),
+      ...filter,
+    };
+    if (!dangerousCrossOrganization) {
+      fullQuery.organization = this.context.org.id;
+    }
+    return fullQuery;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
