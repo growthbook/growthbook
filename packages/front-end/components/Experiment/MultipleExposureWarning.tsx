@@ -32,7 +32,6 @@ export default function MultipleExposureWarning({
     experiment?.type === "multi-armed-bandit" ||
     experimentType === "multi-armed-bandit";
   if (isBandit) {
-    // Only check sticky bucketing if we have the experiment object
     if (experiment) {
       const orgStickyBucketing = !!settings?.useStickyBucketing;
       const usingStickyBucketing =
