@@ -8,6 +8,7 @@ import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -21,16 +22,34 @@ export default function BanditSettings({
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
+  const orgSettings = useOrgSettings();
+  const orgStickyBucketing = !!orgSettings?.useStickyBucketing;
+  const disableStickyBucketing = form.watch("disableStickyBucketing");
+  const usingStickyBucketing = orgStickyBucketing && !disableStickyBucketing;
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
     (form.watch("banditScheduleUnit") === "days" ? 24 : 1);
+
+  // Get conversion window in hours
+  const conversionWindowValue = form.watch("banditConversionWindowValue");
+  const conversionWindowUnit = form.watch("banditConversionWindowUnit");
+  const conversionWindowHours =
+    conversionWindowValue && conversionWindowUnit
+      ? parseFloat(String(conversionWindowValue)) *
+        (conversionWindowUnit === "days" ? 24 : 1)
+      : null;
+
   const scheduleWarning =
     scheduleHours < 1
       ? "Update cadence should be at least 15 minutes longer than it takes to run your data warehouse query"
       : scheduleHours > 24 * 3
         ? "Update cadences longer than 3 days can result in slow learning"
-        : null;
+        : !usingStickyBucketing &&
+            conversionWindowHours &&
+            scheduleHours < conversionWindowHours * 10
+          ? "We strongly encourage short conversion windows to prevent counting conversions after a unit may have switched assignment. We recommend conversion windows that are no longer than 10% of the update cadence"
+          : null;
 
   return (
     <Box>

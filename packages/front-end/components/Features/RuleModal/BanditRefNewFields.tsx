@@ -4,7 +4,8 @@ import {
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import { getMetricWindowHours } from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -35,6 +36,9 @@ import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
 
 export default function BanditRefNewFields({
   step,
@@ -89,7 +93,8 @@ export default function BanditRefNewFields({
     "regression-adjustment",
   );
 
-  const { datasources, getDatasourceById } = useDefinitions();
+  const { datasources, getDatasourceById, getExperimentMetricById } =
+    useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -116,6 +121,57 @@ export default function BanditRefNewFields({
 
   const settings = useOrgSettings();
   const { namespaces } = useOrgSettings();
+
+  // Calculate default conversion window from goal metric
+  const goalMetricId = form.watch("goalMetrics")?.[0];
+  const goalMetric = goalMetricId
+    ? getExperimentMetricById(goalMetricId)
+    : null;
+  const defaultConversionWindowHours = useMemo(() => {
+    if (goalMetric?.windowSettings) {
+      return getMetricWindowHours(goalMetric.windowSettings);
+    }
+    return 1; // Default to 1 hour if no metric
+  }, [goalMetric]);
+
+  // Track the last goalMetricId we processed to avoid infinite loops
+  const lastProcessedGoalMetricId = useRef<string | undefined>(undefined);
+  const lastProcessedDefaultHours = useRef<number | undefined>(undefined);
+
+  // Set default conversion window when goal metric changes
+  useEffect(() => {
+    // Only process if goalMetricId or defaultConversionWindowHours actually changed
+    if (
+      lastProcessedGoalMetricId.current === goalMetricId &&
+      lastProcessedDefaultHours.current === defaultConversionWindowHours
+    ) {
+      return;
+    }
+
+    lastProcessedGoalMetricId.current = goalMetricId;
+    lastProcessedDefaultHours.current = defaultConversionWindowHours;
+
+    if (goalMetricId) {
+      // Always update to match the metric's conversion window when metric changes
+      if (defaultConversionWindowHours >= 24) {
+        form.setValue(
+          "banditConversionWindowValue",
+          defaultConversionWindowHours / 24,
+        );
+        form.setValue("banditConversionWindowUnit", "days");
+      } else {
+        form.setValue(
+          "banditConversionWindowValue",
+          defaultConversionWindowHours,
+        );
+        form.setValue("banditConversionWindowUnit", "hours");
+      }
+    } else {
+      // If no goal metric, set to 1 hour
+      form.setValue("banditConversionWindowValue", 1);
+      form.setValue("banditConversionWindowUnit", "hours");
+    }
+  }, [goalMetricId, defaultConversionWindowHours, form]);
 
   return (
     <>
@@ -306,6 +362,27 @@ export default function BanditRefNewFields({
             ) : null}
           </div>
 
+          {settings?.useStickyBucketing && (
+            <Checkbox
+              mt="4"
+              mb="2"
+              size="lg"
+              label={
+                <Link
+                  href={docUrl("stickyBucketing")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Sticky bucketing enabled
+                </Link>
+              }
+              value={!form.watch("disableStickyBucketing")}
+              setValue={(v) => {
+                form.setValue("disableStickyBucketing", !v);
+              }}
+            />
+          )}
+
           <ExperimentMetricsSelector
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
@@ -319,6 +396,48 @@ export default function BanditRefNewFields({
               form.setValue("goalMetrics", goalMetrics)
             }
           />
+
+          <div className="form-group mt-3">
+            <label className="font-weight-bold mb-1">
+              Conversion window length
+            </label>
+            <div className="row align-items-center">
+              <div className="col-auto">
+                <Field
+                  {...form.register("banditConversionWindowValue", {
+                    valueAsNumber: true,
+                  })}
+                  type="number"
+                  min={0}
+                  max={999}
+                  step={"any"}
+                  style={{ width: 70 }}
+                />
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  value={form.watch("banditConversionWindowUnit") || "hours"}
+                  onChange={(value) => {
+                    form.setValue(
+                      "banditConversionWindowUnit",
+                      value as "hours" | "days",
+                    );
+                  }}
+                  sort={false}
+                  options={[
+                    {
+                      label: "Hour(s)",
+                      value: "hours",
+                    },
+                    {
+                      label: "Day(s)",
+                      value: "days",
+                    },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
 
           <div className="mt-2 mb-3">
             <BanditSettings page="experiment-settings" />

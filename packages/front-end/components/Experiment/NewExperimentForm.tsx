@@ -15,7 +15,11 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getEqualWeights,
+  getMetricWindowHours,
+} from "shared/experiments";
 import { kebabCase, debounce } from "lodash";
 import { Box, Flex, Text, Heading, Separator } from "@radix-ui/themes";
 import {
@@ -78,6 +82,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import Link from "@/ui/Link";
+import { docUrl } from "@/components/DocLink";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
@@ -243,7 +248,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
 
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<
+    Partial<ExperimentInterfaceStringDates> & {
+      banditConversionWindowValue?: number;
+      banditConversionWindowUnit?: "hours" | "days";
+    }
+  >({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
@@ -326,11 +336,57 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
+      banditConversionWindowValue: undefined,
+      banditConversionWindowUnit: "hours" as "hours" | "days",
       templateId: initialValue?.templateId || "",
       holdoutId: initialValue?.holdoutId || undefined,
       customMetricSlices: initialValue?.customMetricSlices || [],
     },
   });
+
+  // Calculate default conversion window from goal metric for bandits
+  const goalMetricId = form.watch("goalMetrics")?.[0] as string | undefined;
+  const { getExperimentMetricById } = useDefinitions();
+  const goalMetric = goalMetricId
+    ? getExperimentMetricById(goalMetricId)
+    : null;
+  const defaultConversionWindowHours = useMemo(() => {
+    if (goalMetric?.windowSettings) {
+      return getMetricWindowHours(goalMetric.windowSettings);
+    }
+    return 1; // Default to 1 hour if no metric
+  }, [goalMetric]);
+
+  // Set default conversion window when goal metric changes
+  useEffect(() => {
+    const type = form.watch("type");
+    const isBandit = type === "multi-armed-bandit";
+    if (isBandit && goalMetricId) {
+      // Always update to match the metric's conversion window when metric changes
+      if (defaultConversionWindowHours >= 24) {
+        form.setValue(
+          "banditConversionWindowValue",
+          defaultConversionWindowHours / 24,
+        );
+        form.setValue("banditConversionWindowUnit", "days");
+      } else {
+        form.setValue(
+          "banditConversionWindowValue",
+          defaultConversionWindowHours,
+        );
+        form.setValue("banditConversionWindowUnit", "hours");
+      }
+    } else if (isBandit && !goalMetricId) {
+      // If no goal metric, set to 1 hour
+      form.setValue("banditConversionWindowValue", 1);
+      form.setValue("banditConversionWindowUnit", "hours");
+    }
+  }, [
+    goalMetricId,
+    defaultConversionWindowHours,
+    form,
+    getExperimentMetricById,
+  ]);
 
   const selectedProject = form.watch("project");
   const customFields = filterCustomFieldsForSectionAndProject(
@@ -1423,6 +1479,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
               )}
 
+              {isBandit && settings?.useStickyBucketing && (
+                <Checkbox
+                  mt="4"
+                  mb="2"
+                  size="lg"
+                  label={
+                    <Link
+                      href={docUrl("stickyBucketing")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Sticky bucketing enabled
+                    </Link>
+                  }
+                  value={!form.watch("disableStickyBucketing")}
+                  setValue={(v) => {
+                    form.setValue("disableStickyBucketing", !v);
+                  }}
+                />
+              )}
+
               <ExperimentMetricsSelector
                 datasource={datasource?.id}
                 noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
@@ -1443,6 +1520,52 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }
                 experimentId={initialValue?.id}
               />
+
+              {isBandit && (
+                <div className="form-group mt-3">
+                  <label className="font-weight-bold mb-1">
+                    Conversion window length
+                  </label>
+                  <div className="row align-items-center">
+                    <div className="col-auto">
+                      <Field
+                        {...form.register("banditConversionWindowValue", {
+                          valueAsNumber: true,
+                        })}
+                        type="number"
+                        min={0}
+                        max={999}
+                        step={"any"}
+                        style={{ width: 70 }}
+                      />
+                    </div>
+                    <div className="col-auto">
+                      <SelectField
+                        value={
+                          form.watch("banditConversionWindowUnit") || "hours"
+                        }
+                        onChange={(value) => {
+                          form.setValue(
+                            "banditConversionWindowUnit",
+                            value as "hours" | "days",
+                          );
+                        }}
+                        sort={false}
+                        options={[
+                          {
+                            label: "Hour(s)",
+                            value: "hours",
+                          },
+                          {
+                            label: "Day(s)",
+                            value: "days",
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {isImport && (

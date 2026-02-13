@@ -7,17 +7,21 @@ import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 Bandits are run similarly to Experiments in GrowthBook. There are three key differences:
 
-1. We require you use **Sticky Bucketing** in your SDK to ensure consistent user assignment
-2. We require you to select a **Decision Metric** to optimize towards
+1. We require you to select a **Decision Metric** to optimize towards
+2. You have to specify a conversion window for your Decision Metric
 3. You have to decide the exploration window and update cadence for your Bandits
 
-## Prerequisite: Sticky Bucketing
+## Sticky Bucketing
 
-All GrowthBook Bandits (at least while in Beta) require you to enable [Sticky Bucketing](/app/sticky-bucketing). This ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
+[Sticky Bucketing](/app/sticky-bucketing) ensures that users are consistently assigned to the same variation even if they return to the experiment later and the variation weights have changed. Variation weights change frequently in a Bandit, so Sticky Bucketing is important to ensure consistent user experiences.
+
+If you have Sticky Bucketing enabled, we generally advise using it in your Bandits. Sticky bucketing helps keep user experiences fixed over time. For example, if your bandit arms represent different promotional values, it may be a bad user experience if a user returns to your website and sees a different promotional value. Sticky bucketing also permits you to learn from longer term outcomes, though bandits are generally not designed for this purpose.
 
 Furthermore, you should set up your Sticky Bucketing service to store variations in the same place that you store and track your user identities. For example, if you plan on running a bandit using cookie-based identifiers, we strongly recommend using a cookie-based Sticky Bucketing approach to ensure that both the hash attribute and the sticky bucketing identifiers are kept in sync.
 
 Follow the instructions in the [Sticky Bucketing](/app/sticky-bucketing) guide to set up Sticky Bucketing in your SDK and enable it in GrowthBook.
+
+However, there are use cases where sticky bucketing is suboptimal. Sticky bucketing keeps users locked into their first exposure, which can hurt the reward of the bandit from switching users into better performing variations. If exposures within a user can be considered independent, then the bandit may learn faster and have higher reward if sticky bucketing is disabled.
 
 ## Prerequisite: Double check SDK cache settings
 
@@ -66,7 +70,12 @@ An ideal decision metric has the following properties:
   ![Configuring Bandit Decision Metric and Exploration Window](/images/bandits/bandit-config-2.png)
 </MaxWidthImage>
 
-### 4. Set the exploration window and update cadence
+### 4. Specify the conversion window length
+
+If sticky bucketing is not enabled, short conversion windows are preferred.
+Long conversion windows can result in double counting metric outcomes (if the randomization unit has multiple exposures) or attributing metric outcomes to the wrong variation (if the exposure window straddles two bandit periods).
+
+### 5. Set the exploration window and update cadence
 
 The Bandit needs to know how long it should collect data for before beginning to update variation weights. This is called the **Exploration Window**. After the Exploration Window, the bandit will begin to update variation weights at a set **Update Cadence**.
 
