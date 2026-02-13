@@ -22,7 +22,7 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "../validators/holdout";
+import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
@@ -228,7 +228,7 @@ export function includeExperimentInPayload(
 }
 
 export function includeHoldoutInPayload(
-  holdout: HoldoutInterface,
+  holdout: HoldoutInterfaceStringDates,
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   // Archived experiments are always excluded

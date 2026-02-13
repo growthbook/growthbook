@@ -568,9 +568,6 @@ export default function ResultsFilter({
                         meta?.context !== "menu",
                       );
                     }}
-                    formatGroupLabel={(group) => (
-                      <div className="pb-1 pt-2">{group.label}</div>
-                    )}
                     onChange={(v) => {
                       setMetricsFilter?.(v);
                       return;

@@ -78,6 +78,8 @@ export const apiFactMetricValidator = z.object({ "id": z.string(), "name": z.str
 
 export const apiMetricAnalysisValidator = z.object({ "id": z.string().describe("The ID of the created metric analysis"), "status": z.string().describe("The status of the analysis (e.g., \"running\", \"completed\", \"error\")"), "settings": z.record(z.string(), z.any()).optional() }).strict()
 
+export const apiMetricUsageValidator = z.object({ "metricId": z.string().describe("The metric ID"), "error": z.string().describe("Set when the metric does not exist or the caller has no permission to read it.").optional(), "experiments": z.array(z.object({ "experimentId": z.string().describe("The experiment ID"), "experimentStatus": z.enum(["draft","running","stopped"]).describe("The current status of the experiment"), "lastSnapshotAttempt": z.string().nullable().describe("The last time a snapshot was attempted for this experiment") })).describe("List of experiments using this metric").optional(), "lastSnapshotAttempt": z.string().nullable().describe("The most recent snapshot attempt across all experiments using this metric").optional() }).strict()
+
 export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string().optional(), "email": z.string(), "globalRole": z.string(), "environments": z.array(z.string()).optional(), "limitAccessByEnvironment": z.boolean().optional(), "managedbyIdp": z.boolean().optional(), "teams": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional(), "lastLoginDate": z.string().optional(), "dateCreated": z.string().optional(), "dateUpdated": z.string().optional() }).strict()
 
 export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
@@ -362,6 +364,12 @@ export const deleteMetricValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getMetricUsageValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "ids": z.string() }).strict(),
+  paramsSchema: z.never(),
 };
 
 export const getVisualChangesetValidator = {

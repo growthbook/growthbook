@@ -210,6 +210,9 @@ tags:
   - name: MetricAnalysis_model
     x-displayName: MetricAnalysis
     description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
+  - name: MetricUsage_model
+    x-displayName: MetricUsage
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricUsage" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -249,6 +252,9 @@ tags:
   - name: CustomField_model
     x-displayName: CustomField
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
+  - name: MetricGroup_model
+    x-displayName: MetricGroup
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricGroup" />
 paths:
   /features:
     get:
@@ -3350,6 +3356,43 @@ paths:
                 properties:
                   deletedId:
                     type: string
+  /usage/metrics:
+    get:
+      summary: Get metric usage across experiments
+      description: |
+        Returns usage information for one or more legacy or fact metrics, showing which experiments use each metric
+        and some usage statistics. If a metric is part of a metric group, then usage of that metric group counts as
+        usage of all metrics in the group. Warning: only includes experiments that you have access to! If you do not have admin
+        access or read access to experiments across all projects, this endpoint may not return the latest usage data across
+        all experiments. 
+      tags:
+        - metrics
+      operationId: getMetricUsage
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: 'List of comma-separated metric IDs (both fact and legacy) to get usage for, e.g. ids=met_123,fact_456'
+          schema:
+            type: string
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl "https://api.growthbook.io/api/v1/usage/metrics?ids=met_123,fact_456" \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricUsage
+                properties:
+                  metricUsage:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MetricUsage'
   '/visual-changesets/{id}':
     get:
       parameters:
@@ -11030,6 +11073,388 @@ paths:
                       - required
                       - section
                     additionalProperties: false
+  '/metric-groups/{id}':
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - MetricGroups
+      summary: Get a single metricGroup
+      operationId: getMetricGroup
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/metric-groups/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  metricGroup:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      owner:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        type: array
+                        items:
+                          type: string
+                      metrics:
+                        type: array
+                        items:
+                          type: string
+                      datasource:
+                        type: string
+                      archived:
+                        type: boolean
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - name
+                      - description
+                      - tags
+                      - projects
+                      - metrics
+                      - datasource
+                      - archived
+                    additionalProperties: false
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - MetricGroups
+      summary: Delete a single metricGroup
+      operationId: deleteMetricGroup
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/metric-groups/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+    put:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - MetricGroups
+      summary: Update a single metricGroup
+      operationId: updateMetricGroup
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X PUT https://api.growthbook.io/api/v1/metric-groups/{id} -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                datasource:
+                  type: string
+                owner:
+                  description: Will default to the current user
+                  type: string
+                archived:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  metricGroup:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      owner:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        type: array
+                        items:
+                          type: string
+                      metrics:
+                        type: array
+                        items:
+                          type: string
+                      datasource:
+                        type: string
+                      archived:
+                        type: boolean
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - name
+                      - description
+                      - tags
+                      - projects
+                      - metrics
+                      - datasource
+                      - archived
+                    additionalProperties: false
+  /metric-groups:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - MetricGroups
+      summary: Create a single metricGroup
+      operationId: createMetricGroup
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/metric-groups -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                datasource:
+                  type: string
+                owner:
+                  description: Will default to the current user
+                  type: string
+                archived:
+                  type: boolean
+              required:
+                - name
+                - description
+                - projects
+                - metrics
+                - datasource
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroup
+                properties:
+                  metricGroup:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      owner:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      projects:
+                        type: array
+                        items:
+                          type: string
+                      metrics:
+                        type: array
+                        items:
+                          type: string
+                      datasource:
+                        type: string
+                      archived:
+                        type: boolean
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - name
+                      - description
+                      - tags
+                      - projects
+                      - metrics
+                      - datasource
+                      - archived
+                    additionalProperties: false
+    get:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - MetricGroups
+      summary: Get all metricGroups
+      operationId: listMetricGroups
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/metric-groups -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricGroups
+                properties:
+                  metricGroups:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        dateCreated:
+                          type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        dateUpdated:
+                          type: string
+                          format: date-time
+                          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                        owner:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+                        projects:
+                          type: array
+                          items:
+                            type: string
+                        metrics:
+                          type: array
+                          items:
+                            type: string
+                        datasource:
+                          type: string
+                        archived:
+                          type: boolean
+                      required:
+                        - id
+                        - dateCreated
+                        - dateUpdated
+                        - owner
+                        - name
+                        - description
+                        - tags
+                        - projects
+                        - metrics
+                        - datasource
+                        - archived
+                      additionalProperties: false
 components:
   parameters:
     id:
@@ -11807,6 +12232,56 @@ components:
         - type
         - required
         - section
+      additionalProperties: false
+      $skipValidatorGeneration: true
+    MetricGroup:
+      $schema: 'https://json-schema.org/draft/2020-12/schema'
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+        owner:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        metrics:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
+        archived:
+          type: boolean
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - name
+        - description
+        - tags
+        - projects
+        - metrics
+        - datasource
+        - archived
       additionalProperties: false
       $skipValidatorGeneration: true
     PaginationFields:
@@ -14210,6 +14685,47 @@ components:
           description: 'The status of the analysis (e.g., "running", "completed", "error")'
         settings:
           type: object
+    MetricUsage:
+      type: object
+      required:
+        - metricId
+      properties:
+        metricId:
+          type: string
+          description: The metric ID
+        error:
+          type: string
+          description: Set when the metric does not exist or the caller has no permission to read it.
+        experiments:
+          type: array
+          description: List of experiments using this metric
+          items:
+            type: object
+            required:
+              - experimentId
+              - experimentStatus
+              - lastSnapshotAttempt
+            properties:
+              experimentId:
+                type: string
+                description: The experiment ID
+              experimentStatus:
+                type: string
+                enum:
+                  - draft
+                  - running
+                  - stopped
+                description: The current status of the experiment
+              lastSnapshotAttempt:
+                type: string
+                format: date-time
+                nullable: true
+                description: The last time a snapshot was attempted for this experiment
+        lastSnapshotAttempt:
+          type: string
+          format: date-time
+          nullable: true
+          description: The most recent snapshot attempt across all experiments using this metric
     Member:
       type: object
       required:
@@ -14645,6 +15161,7 @@ x-tagGroups:
       - attributes
       - Dashboards
       - CustomFields
+      - MetricGroups
   - name: Models
     tags:
       - Archetype_model
@@ -14677,6 +15194,7 @@ x-tagGroups:
       - Member_model
       - Metric_model
       - MetricAnalysis_model
+      - MetricUsage_model
       - Organization_model
       - PaginationFields_model
       - Project_model
@@ -14690,3 +15208,4 @@ x-tagGroups:
       - VisualChangeset_model
       - Dashboard_model
       - CustomField_model
+      - MetricGroup_model
