@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "experimentTemplate.update",
     deleteEvent: "experimentTemplate.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   defaultValues: {
     targeting: {
       condition: "{}",

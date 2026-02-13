@@ -21,7 +21,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "customField.update",
     deleteEvent: "customField.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   apiConfig: {
     modelKey: "customFields",
     modelSingular: "customField",

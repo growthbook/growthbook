@@ -21,7 +21,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "metricAnalysis.update",
     deleteEvent: "metricAnalysis.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {
