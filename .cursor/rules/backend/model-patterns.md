@@ -32,7 +32,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "myResource.update",
     deleteEvent: "myResource.delete",
   },
-  globallyUniqueIds: true, // IDs unique across all orgs
+  globallyUniquePrimaryKeys: true, // IDs unique across all orgs
   defaultValues: {
     // Default field values
     description: "",
@@ -79,17 +79,17 @@ const resource = req.context.myResources.getById("abc123");
 
 ### MakeModelClass Config
 
-| Option                  | Type       | Required | Description                                                |
-| ----------------------- | ---------- | -------- | ---------------------------------------------------------- |
-| `schema`                | Zod schema | Yes      | Validator from `shared/validators`                         |
-| `collectionName`        | string     | Yes      | MongoDB collection name                                    |
-| `idPrefix`              | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_")              |
-| `auditLog`              | object     | No       | Audit event configuration                                  |
-| `globallyUniqueIds`     | boolean    | No       | Create unique index on `id` only (not `id + organization`) |
-| `defaultValues`         | object     | No       | Default values applied on creation                         |
-| `readonlyFields`        | string[]   | No       | Fields that cannot be updated after creation               |
-| `skipDateUpdatedFields` | string[]   | No       | Fields that don't trigger `dateUpdated` when changed       |
-| `additionalIndexes`     | array      | No       | Extra MongoDB indexes to create                            |
+| Option                      | Type       | Required | Description                                                |
+| --------------------------- | ---------- | -------- | ---------------------------------------------------------- |
+| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                         |
+| `collectionName`            | string     | Yes      | MongoDB collection name                                    |
+| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_")              |
+| `auditLog`                  | object     | No       | Audit event configuration                                  |
+| `globallyUniquePrimaryKeys` | boolean    | No       | Create unique index on `id` only (not `id + organization`) |
+| `defaultValues`             | object     | No       | Default values applied on creation                         |
+| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation               |
+| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed       |
+| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                            |
 
 ### Audit Log Config
 
@@ -295,7 +295,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "widget.update",
     deleteEvent: "widget.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   defaultValues: {
     description: "",
     enabled: false,

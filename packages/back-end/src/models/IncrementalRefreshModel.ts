@@ -11,7 +11,7 @@ const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
   collectionName: COLLECTION_NAME,
   idPrefix: "ir_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
       fields: { organization: 1, experimentId: 1 },
