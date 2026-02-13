@@ -31,11 +31,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
 export type AppliesToFilter = "all" | CustomFieldSection;
+export { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants";
+
+/** FE-only: array index for delete disambiguation (legacy duplicate ids) */
+export type CustomFieldWithArrayIndex = CustomField & { arrayIndex: number };
 
 function CustomFieldsTable({
   filter,
   items,
-  showAppliesTo,
   showRequired,
   deleteCustomField,
   setModalOpen,
@@ -44,26 +47,25 @@ function CustomFieldsTable({
   canManage,
 }: {
   filter: AppliesToFilter;
-  items: CustomField[];
-  showAppliesTo: boolean;
+  items: CustomFieldWithArrayIndex[];
   showRequired: boolean;
-  deleteCustomField: (cf: CustomField) => Promise<void>;
+  deleteCustomField: (cf: CustomFieldWithArrayIndex) => Promise<void>;
   setModalOpen: (v: Partial<CustomField> | null) => void;
   handleMoveUp: (moveId: string, aboveId: string) => void;
   handleMoveDown: (moveId: string, belowId: string) => void;
   canManage: boolean;
 }) {
   const W = CUSTOM_FIELD_TABLE_WIDTHS;
-  const colSpan = 7 + (showAppliesTo ? 1 : 0) + (showRequired ? 1 : 0);
+  const colSpan = 7 + 1 + (showRequired ? 1 : 0); // appliesTo always shown
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return items;
-    return items.filter((cf) => cf.section === filter);
+    return items.filter((cf) => cf.sections?.includes(filter));
   }, [items, filter]);
 
   const openAddModal = () =>
     setModalOpen(
-      filter === "all" ? {} : { section: filter as CustomFieldSection },
+      filter === "all" ? {} : { sections: [filter as CustomFieldSection] },
     );
 
   return (
@@ -76,7 +78,7 @@ function CustomFieldsTable({
         <col style={{ width: W.name }} />
         <col style={{ width: W.key }} />
         <col style={{ width: W.description }} />
-        {showAppliesTo && <col style={{ width: W.appliesTo }} />}
+        <col style={{ width: W.appliesTo }} />
         <col style={{ width: W.valueType }} />
         <col style={{ width: W.projects }} />
         {showRequired && <col style={{ width: W.required }} />}
@@ -88,7 +90,7 @@ function CustomFieldsTable({
           <th>Field Name</th>
           <th>Field Key</th>
           <th>Description</th>
-          {showAppliesTo && <th>Applies To</th>}
+          <th>Applies To</th>
           <th>Value Type</th>
           <th>Projects</th>
           {showRequired && <th>Required</th>}
@@ -101,22 +103,21 @@ function CustomFieldsTable({
             items={filteredItems}
             strategy={verticalListSortingStrategy}
           >
-            {filteredItems.map((v, index) => (
+            {filteredItems.map((v, filteredIndex) => (
               <SortableCustomFieldRow
-                key={v.id}
+                key={`${v.id}-${v.arrayIndex}`}
                 customField={v}
                 deleteCustomField={deleteCustomField}
                 setEditModal={setModalOpen}
-                canMoveUp={index > 0}
-                canMoveDown={index < filteredItems.length - 1}
+                canMoveUp={filteredIndex > 0}
+                canMoveDown={filteredIndex < filteredItems.length - 1}
                 onMoveUp={() =>
-                  handleMoveUp(v.id, filteredItems[index - 1]!.id)
+                  handleMoveUp(v.id, filteredItems[filteredIndex - 1]!.id)
                 }
                 onMoveDown={() =>
-                  handleMoveDown(v.id, filteredItems[index + 1]!.id)
+                  handleMoveDown(v.id, filteredItems[filteredIndex + 1]!.id)
                 }
                 canManage={canManage}
-                showAppliesTo={showAppliesTo}
                 showRequired={showRequired}
               />
             ))}
@@ -154,11 +155,13 @@ const CustomFields: FC = () => {
   const { customFields, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | undefined>();
-  const [items, setItems] = useState<CustomField[]>(customFields ?? []);
+  const [items, setItems] = useState<CustomFieldWithArrayIndex[]>(() =>
+    (customFields ?? []).map((cf, i) => ({ ...cf, arrayIndex: i })),
+  );
   const permissionsUtils = usePermissionsUtil();
 
   useEffect(() => {
-    setItems(customFields ?? []);
+    setItems((customFields ?? []).map((cf, i) => ({ ...cf, arrayIndex: i })));
   }, [customFields]);
 
   const selectedRow = useMemo(() => {
@@ -166,10 +169,13 @@ const CustomFields: FC = () => {
     return items?.find((cf) => cf.id === activeId) ?? null;
   }, [activeId, items]);
 
-  const deleteCustomField = async (customField: CustomField) => {
-    await apiCall(`/custom-fields/${customField.id}`, {
-      method: "DELETE",
-    }).then(() => {
+  const deleteCustomField = async (customField: CustomFieldWithArrayIndex) => {
+    await apiCall(
+      `/custom-fields/${customField.id}?index=${customField.arrayIndex}`,
+      {
+        method: "DELETE",
+      },
+    ).then(() => {
       track("Delete Custom Field", { type: customField.type });
       mutateDefinitions();
     });
@@ -205,8 +211,8 @@ const CustomFields: FC = () => {
       const oldIndex = items.findIndex((x) => x.id === active.id);
       const newIndex = items.findIndex((x) => x.id === over.id);
       if (oldIndex >= 0 && newIndex >= 0) {
-        const newItems = arrayMove(items, oldIndex, newIndex);
-        setItems(newItems);
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        setItems(reordered.map((cf, i) => ({ ...cf, arrayIndex: i })));
         await reorderFields(String(active.id), String(over.id));
       }
     }
@@ -272,7 +278,6 @@ const CustomFields: FC = () => {
                 <CustomFieldsTable
                   filter="all"
                   items={items}
-                  showAppliesTo={true}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
@@ -287,7 +292,6 @@ const CustomFields: FC = () => {
                 <CustomFieldsTable
                   filter="feature"
                   items={items}
-                  showAppliesTo={false}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
@@ -302,7 +306,6 @@ const CustomFields: FC = () => {
                 <CustomFieldsTable
                   filter="experiment"
                   items={items}
-                  showAppliesTo={false}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
@@ -319,7 +322,6 @@ const CustomFields: FC = () => {
                 <tbody>
                   <StaticCustomFieldRow
                     customField={selectedRow}
-                    showAppliesTo={true}
                     showRequired={true}
                   />
                 </tbody>
@@ -331,11 +333,11 @@ const CustomFields: FC = () => {
       {modalOpen !== null && (
         <CustomFieldModal
           existing={modalOpen}
-          section={
-            modalOpen.section ??
+          defaultSections={
+            modalOpen.sections ??
             (activeFilter === "all"
-              ? "feature"
-              : (activeFilter as CustomFieldSection))
+              ? ["feature"]
+              : [activeFilter as CustomFieldSection])
           }
           close={() => setModalOpen(null)}
           onSuccess={mutateDefinitions}

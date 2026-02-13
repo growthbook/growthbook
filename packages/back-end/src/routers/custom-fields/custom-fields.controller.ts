@@ -7,91 +7,6 @@ import {
 } from "shared/types/custom-fields";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { convertCustomFieldValue } from "back-end/src/services/customFieldMigration";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
-import { FeatureModel } from "back-end/src/models/FeatureModel";
-import { ExperimentModel } from "back-end/src/models/ExperimentModel";
-
-/**
- * Migrate custom field values in features and experiments after a type change
- */
-async function migrateCustomFieldValues(
-  context: ReqContext | ApiReqContext,
-  fieldId: string,
-  section: CustomFieldSection,
-  fromType: CustomFieldTypes,
-  toType: CustomFieldTypes,
-  fromValues?: string,
-  toValues?: string,
-) {
-  if (section === "feature") {
-    // Migrate feature custom field values
-    const features = await FeatureModel.find({
-      organization: context.org.id,
-      [`customFields.${fieldId}`]: { $exists: true },
-    });
-
-    for (const feature of features) {
-      const oldValue = feature.customFields?.[fieldId];
-      if (oldValue === null || oldValue === undefined) continue;
-
-      const newValue = convertCustomFieldValue(
-        oldValue,
-        fromType,
-        toType,
-        toValues,
-      );
-
-      if (newValue === null) {
-        // Scrub the value
-        await FeatureModel.updateOne(
-          { _id: feature._id },
-          { $unset: { [`customFields.${fieldId}`]: "" } },
-        );
-      } else if (newValue !== oldValue) {
-        // Convert the value
-        await FeatureModel.updateOne(
-          { _id: feature._id },
-          { $set: { [`customFields.${fieldId}`]: newValue } },
-        );
-      }
-    }
-  } else if (section === "experiment") {
-    // Migrate experiment custom field values
-    const experiments = await ExperimentModel.find({
-      organization: context.org.id,
-      [`customFields.${fieldId}`]: { $exists: true },
-    });
-
-    for (const experiment of experiments) {
-      const oldValue = experiment.customFields?.[fieldId];
-      if (oldValue === null || oldValue === undefined) continue;
-
-      const newValue = convertCustomFieldValue(
-        oldValue,
-        fromType,
-        toType,
-        toValues,
-      );
-
-      if (newValue === null) {
-        // Scrub the value
-        await ExperimentModel.updateOne(
-          { _id: experiment._id },
-          { $unset: { [`customFields.${fieldId}`]: "" } },
-        );
-      } else if (newValue !== oldValue) {
-        // Convert the value
-        await ExperimentModel.updateOne(
-          { _id: experiment._id },
-          { $set: { [`customFields.${fieldId}`]: newValue } },
-        );
-      }
-    }
-  }
-}
 
 // region POST /custom-fields
 
@@ -127,7 +42,7 @@ export const postCustomField = async (
     values,
     required,
     projects,
-    section,
+    sections,
   } = req.body;
 
   const context = getContextFromReq(req);
@@ -146,14 +61,16 @@ export const postCustomField = async (
   }
   const existingFields = await context.models.customFields.getCustomFields();
 
-  // check if this name already exists:
-  if (existingFields) {
+  // check if this name already exists for any overlapping section:
+  if (existingFields && sections?.length) {
     const existingCustomField = existingFields.fields.find(
-      (field) => field.name === name && field.section === section,
+      (field) =>
+        field.name === name &&
+        field.sections?.some((s) => sections.includes(s)),
     );
     if (existingCustomField) {
       return context.throwBadRequestError(
-        "Custom field name already exists for this section",
+        "Custom field name already exists for one or more of the selected sections",
       );
     }
   }
@@ -168,7 +85,7 @@ export const postCustomField = async (
     values,
     required,
     projects,
-    section,
+    sections: sections ?? ["feature"],
   });
 
   if (!updated) {
@@ -257,7 +174,7 @@ type PutCustomFieldRequest = AuthRequest<
     values?: string;
     required: boolean;
     projects?: string[];
-    section: CustomFieldSection;
+    sections?: CustomFieldSection[];
   },
   { id: string }
 >;
@@ -287,7 +204,7 @@ export const putCustomField = async (
     values,
     required,
     projects,
-    section,
+    sections,
   } = req.body;
   const { id } = req.params;
 
@@ -297,7 +214,6 @@ export const putCustomField = async (
 
   req.checkPermissions("manageCustomFields");
 
-  // Get the existing custom field to detect type changes
   const existingField =
     await context.models.customFields.getCustomFieldByFieldId(id);
 
@@ -305,12 +221,6 @@ export const putCustomField = async (
     return context.throwNotFoundError("Custom field not found");
   }
 
-  const typeChanged = existingField.type !== type;
-  const valuesChanged =
-    (existingField.type === "enum" || existingField.type === "multiselect") &&
-    existingField.values !== values;
-
-  // Update the custom field definition
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
     {
@@ -322,38 +232,13 @@ export const putCustomField = async (
       values,
       required,
       projects,
-      section,
+      sections: sections ?? existingField.sections ?? ["feature"],
     },
   );
 
   if (!newCustomFields) {
     context.throwInternalServerError("Custom field not updated");
   }
-
-  // If type or enum values changed, migrate existing custom field values
-  if (typeChanged || valuesChanged) {
-    await migrateCustomFieldValues(
-      context,
-      id,
-      section,
-      existingField.type,
-      type,
-      existingField.values,
-      values,
-    );
-  }
-
-  // Trigger cache refresh since custom field definitions changed
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: [],
-    sdkConnections: [],
-    auditContext: {
-      event: "updated",
-      model: "custom-field",
-      id,
-    },
-  });
 
   return res.status(200).json({
     status: 200,
@@ -367,12 +252,14 @@ export const putCustomField = async (
 type DeleteCustomFieldRequest = AuthRequest<
   Record<string, never>,
   { id: string },
-  Record<string, never>
+  { index?: number }
 >;
 
 /**
  * DELETE /custom-fields/:id
- * Delete one custom-field resource by ID
+ * Delete one custom-field resource by ID. For legacy data with duplicate ids,
+ * pass ?index=N as tiebreaker; if index doesn't match, the first occurrence
+ * is deleted.
  * @param req
  * @param res
  */
@@ -383,25 +270,17 @@ export const deleteCustomField = async (
   req.checkPermissions("manageCustomFields");
 
   const { id } = req.params;
+  const { index } = req.query;
   const context = getContextFromReq(req);
 
-  const customFields = await context.models.customFields.deleteCustomField(id);
+  const customFields = await context.models.customFields.deleteCustomField(
+    id,
+    index,
+  );
 
   if (!customFields) {
     return context.throwNotFoundError("Custom field not found");
   }
-
-  // Trigger cache refresh since custom field deleted
-  queueSDKPayloadRefresh({
-    context,
-    payloadKeys: [],
-    sdkConnections: [],
-    auditContext: {
-      event: "deleted",
-      model: "custom-field",
-      id,
-    },
-  });
 
   res.status(200).json({
     status: 200,

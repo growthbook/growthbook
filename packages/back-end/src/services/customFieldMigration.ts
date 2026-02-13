@@ -1,11 +1,94 @@
-import { CustomFieldTypes } from "shared/types/custom-fields";
+import {
+  CustomFieldSection,
+  CustomFieldTypes,
+} from "shared/types/custom-fields";
 import {
   isCustomFieldTypeChangeSafe,
   getCustomFieldChangeWarning,
 } from "shared/util";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { FeatureModel } from "back-end/src/models/FeatureModel";
+import { ExperimentModel } from "back-end/src/models/ExperimentModel";
 
 // Re-export shared utilities
 export { isCustomFieldTypeChangeSafe, getCustomFieldChangeWarning };
+
+/**
+ * Migrate custom field values in features and experiments after a type change.
+ * Migrates for each section the field applies to.
+ */
+export async function migrateCustomFieldValues(
+  context: ReqContext | ApiReqContext,
+  fieldId: string,
+  sections: CustomFieldSection[],
+  fromType: CustomFieldTypes,
+  toType: CustomFieldTypes,
+  fromValues?: string,
+  toValues?: string,
+) {
+  for (const section of sections) {
+    if (section === "feature") {
+      const features = await FeatureModel.find({
+        organization: context.org.id,
+        [`customFields.${fieldId}`]: { $exists: true },
+      });
+
+      for (const feature of features) {
+        const oldValue = feature.customFields?.[fieldId];
+        if (oldValue === null || oldValue === undefined) continue;
+
+        const newValue = convertCustomFieldValue(
+          oldValue,
+          fromType,
+          toType,
+          toValues,
+        );
+
+        if (newValue === null) {
+          await FeatureModel.updateOne(
+            { _id: feature._id },
+            { $unset: { [`customFields.${fieldId}`]: "" } },
+          );
+        } else if (newValue !== oldValue) {
+          await FeatureModel.updateOne(
+            { _id: feature._id },
+            { $set: { [`customFields.${fieldId}`]: newValue } },
+          );
+        }
+      }
+    } else if (section === "experiment") {
+      const experiments = await ExperimentModel.find({
+        organization: context.org.id,
+        [`customFields.${fieldId}`]: { $exists: true },
+      });
+
+      for (const experiment of experiments) {
+        const oldValue = experiment.customFields?.[fieldId];
+        if (oldValue === null || oldValue === undefined) continue;
+
+        const newValue = convertCustomFieldValue(
+          oldValue,
+          fromType,
+          toType,
+          toValues,
+        );
+
+        if (newValue === null) {
+          await ExperimentModel.updateOne(
+            { _id: experiment._id },
+            { $unset: { [`customFields.${fieldId}`]: "" } },
+          );
+        } else if (newValue !== oldValue) {
+          await ExperimentModel.updateOne(
+            { _id: experiment._id },
+            { $set: { [`customFields.${fieldId}`]: newValue } },
+          );
+        }
+      }
+    }
+  }
+}
 
 /**
  * Convert a value from one custom field type to another

@@ -29,15 +29,20 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants";
+
+const APPLIES_TO_OPTIONS = Object.entries(CUSTOM_FIELD_SECTION_LABELS).map(
+  ([value, label]) => ({ value: value as CustomFieldSection, label }),
+);
 
 export default function CustomFieldModal({
   existing,
-  section,
+  defaultSections = ["feature"],
   close,
   onSuccess,
 }: {
   existing: Partial<CustomField>;
-  section: CustomFieldSection;
+  defaultSections?: CustomFieldSection[];
   close: () => void;
   onSuccess?: () => void;
 }) {
@@ -57,7 +62,7 @@ export default function CustomFieldModal({
         : existing.type === "boolean"
           ? (existing.defaultValue ?? false)
           : "",
-      section: existing.section ?? section,
+      sections: existing.sections ?? defaultSections,
       projects: existing.projects || (project ? [project] : []),
       required: existing.required ?? false,
     },
@@ -75,20 +80,14 @@ export default function CustomFieldModal({
   const typeWarning = useMemo(() => {
     if (!existing.id) return null; // Only show for edits
     if (existing.type === currentType) return null; // Only for type changes
-    
+
     return getCustomFieldChangeWarning(
       existing.type || "text",
       currentType,
       existing.values,
       currentValues,
     );
-  }, [
-    existing.id,
-    existing.type,
-    existing.values,
-    currentType,
-    currentValues,
-  ]);
+  }, [existing.id, existing.type, existing.values, currentType, currentValues]);
 
   const valueWarning = useMemo(() => {
     if (!existing.id) return null; // Only show for edits
@@ -99,19 +98,15 @@ export default function CustomFieldModal({
 
     const oldOptions = existing.values.split(",").map((v) => v.trim());
     const newOptions = currentValues.split(",").map((v) => v.trim());
-    const removedOptions = oldOptions.filter((opt) => !newOptions.includes(opt));
-    
+    const removedOptions = oldOptions.filter(
+      (opt) => !newOptions.includes(opt),
+    );
+
     if (removedOptions.length > 0) {
       return `Removing options may result in data loss. Existing values that are no longer in the options list will be removed.`;
     }
     return null;
-  }, [
-    existing.id,
-    existing.type,
-    existing.values,
-    currentType,
-    currentValues,
-  ]);
+  }, [existing.id, existing.type, existing.values, currentType, currentValues]);
 
   const projectWarning = useMemo(() => {
     if (!existing.id) return null; // Only show for edits
@@ -119,11 +114,7 @@ export default function CustomFieldModal({
       existing.projects,
       currentProjects,
     );
-  }, [
-    existing.id,
-    existing.projects,
-    currentProjects,
-  ]);
+  }, [existing.id, existing.projects, currentProjects]);
 
   const fieldOptions = [
     "text",
@@ -186,7 +177,7 @@ export default function CustomFieldModal({
           edit.description = value?.description ?? "";
           edit.placeholder = value?.placeholder ?? "";
           edit.projects = value.projects;
-          edit.section = value.section;
+          edit.sections = value.sections;
 
           await apiCall(`/custom-fields/${existing.id}`, {
             method: "PUT",
@@ -207,7 +198,7 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            section: value.section,
+            sections: value.sections ?? ["feature"],
           };
 
           await apiCall(`/custom-fields`, {
@@ -254,7 +245,8 @@ export default function CustomFieldModal({
           helpText={
             !existing.id ? (
               <>
-                Lowercase letters, numbers, _ and - only. <strong>Cannot be changed later!</strong>
+                Lowercase letters, numbers, _ and - only.{" "}
+                <strong>Cannot be changed later!</strong>
               </>
             ) : undefined
           }
@@ -284,16 +276,19 @@ export default function CustomFieldModal({
           containerClassName="mb-0"
         />
         <Box>
-          <Text as="label" mb="2" weight="medium">
-            Applies to
-          </Text>
-          <RadioGroup
-            value={form.watch("section") ?? section}
-            setValue={(v) => form.setValue("section", v as CustomFieldSection)}
-            options={[
-              { value: "feature", label: "Features" },
-              { value: "experiment", label: "Experiments" },
-            ]}
+          <MultiSelectField
+            label="Applies to"
+            value={form.watch("sections") ?? defaultSections}
+            options={APPLIES_TO_OPTIONS}
+            onChange={(v) =>
+              form.setValue(
+                "sections",
+                v.length > 0 ? (v as CustomFieldSection[]) : ["feature"],
+              )
+            }
+            placeholder="Select..."
+            helpText="Choose which resources this field applies to (select at least one)"
+            containerClassName="mb-0"
           />
         </Box>
         {projects?.length > 0 && (
@@ -365,14 +360,17 @@ export default function CustomFieldModal({
         )}
         {form.watch("type") !== "boolean" ? (
           <>
-            {form.watch("type") === "date" || form.watch("type") === "datetime" ? (
+            {form.watch("type") === "date" ||
+            form.watch("type") === "datetime" ? (
               <DatePicker
                 date={form.watch("defaultValue") as string | undefined}
                 setDate={(d) => {
                   form.setValue("defaultValue", d?.toISOString() ?? "");
                 }}
                 label="Default value"
-                precision={form.watch("type") === "datetime" ? "datetime" : "date"}
+                precision={
+                  form.watch("type") === "datetime" ? "datetime" : "date"
+                }
                 containerClassName="mb-0"
               />
             ) : form.watch("type") === "enum" ||

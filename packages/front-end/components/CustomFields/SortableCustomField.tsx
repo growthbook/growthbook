@@ -3,11 +3,28 @@ import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import { CustomField } from "shared/types/custom-fields";
 import { RiDraggable } from "react-icons/ri";
+import { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants";
+import type { CustomFieldWithArrayIndex } from "@/components/CustomFields/CustomFields";
 import CustomFieldRowMenu from "@/components/CustomFields/CustomFieldRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MULTI_VALUE_LIMIT = 3;
+
+function formatSectionsLabel(sections: string[] | undefined): React.ReactNode {
+  if (!sections || sections.length === 0) return <em>none</em>;
+  const ordered = Object.keys(CUSTOM_FIELD_SECTION_LABELS).filter((k) =>
+    sections.includes(k),
+  );
+  return ordered
+    .map(
+      (k) =>
+        CUSTOM_FIELD_SECTION_LABELS[
+          k as keyof typeof CUSTOM_FIELD_SECTION_LABELS
+        ],
+    )
+    .join(", ");
+}
 
 function EnumValuesDisplay({ valuesStr }: { valuesStr: string | undefined }) {
   const parts = (valuesStr ?? "")
@@ -56,15 +73,14 @@ export const CUSTOM_FIELD_TABLE_WIDTHS = {
 } as const;
 
 interface SortableProps {
-  customField: CustomField;
+  customField: CustomFieldWithArrayIndex;
   setEditModal: (cf: CustomField) => void;
-  deleteCustomField: (cf: CustomField) => void;
+  deleteCustomField: (cf: CustomFieldWithArrayIndex) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
   canManage: boolean;
-  showAppliesTo: boolean;
   showRequired: boolean;
 }
 
@@ -78,7 +94,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
     isDragging,
   } = useSortable({ id: props.customField.id });
   const customField = props.customField;
-  const { showAppliesTo, showRequired } = props;
+  const { showRequired } = props;
   const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
   const style: React.CSSProperties = {
     transition,
@@ -113,22 +129,26 @@ export function SortableCustomFieldRow(props: SortableProps) {
           </div>
         </div>
       </td>
-      <td style={{ ...tdStyle, width: WIDTHS.name }} className="text-gray font-weight-bold">
+      <td
+        style={{ ...tdStyle, width: WIDTHS.name }}
+        className="text-gray font-weight-bold"
+      >
         {customField.name}
       </td>
       <td style={{ ...tdStyle, width: WIDTHS.key }} className="text-gray">
         <code className="small">{customField.id}</code>
       </td>
-      <td style={{ ...tdStyle, width: WIDTHS.description }} className="text-gray">
+      <td
+        style={{ ...tdStyle, width: WIDTHS.description }}
+        className="text-gray"
+      >
         {customField.description && customField.description.length > 80
           ? customField.description.substring(0, 80).trim() + "..."
-          : customField.description ?? ""}
+          : (customField.description ?? "")}
       </td>
-      {showAppliesTo && (
-        <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
-          {customField.section === "feature" ? "Feature" : "Experiment"}
-        </td>
-      )}
+      <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
+        {formatSectionsLabel(customField.sections)}
+      </td>
       <td style={{ ...tdStyle, width: WIDTHS.valueType }} className="text-gray">
         {customField.type}
         {(customField.type === "enum" ||
@@ -145,7 +165,10 @@ export function SortableCustomFieldRow(props: SortableProps) {
         />
       </td>
       {showRequired && (
-        <td style={{ ...tdStyle, width: WIDTHS.required }} className="text-gray">
+        <td
+          style={{ ...tdStyle, width: WIDTHS.required }}
+          className="text-gray"
+        >
           {customField.required ? <>yes</> : ""}
         </td>
       )}
@@ -175,11 +198,9 @@ export function SortableCustomFieldRow(props: SortableProps) {
 
 export function StaticCustomFieldRow({
   customField,
-  showAppliesTo = true,
   showRequired = true,
 }: {
   customField: CustomField;
-  showAppliesTo?: boolean;
   showRequired?: boolean;
 }) {
   const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
@@ -190,8 +211,7 @@ export function StaticCustomFieldRow({
     color: "rgba(0,0,0,0.2)",
     cursor: "grabbing",
   };
-  const sectionLabel =
-    customField.section === "feature" ? "Feature" : "Experiment";
+  const sectionLabel = formatSectionsLabel(customField.sections);
 
   return (
     <tr style={style}>
@@ -210,22 +230,26 @@ export function StaticCustomFieldRow({
           </div>
         </div>
       </td>
-      <td style={{ ...tdStyle, width: WIDTHS.name }} className="text-gray font-weight-bold">
+      <td
+        style={{ ...tdStyle, width: WIDTHS.name }}
+        className="text-gray font-weight-bold"
+      >
         {customField.name}
       </td>
       <td style={{ ...tdStyle, width: WIDTHS.key }} className="text-gray">
         <code className="small">{customField.id}</code>
       </td>
-      <td style={{ ...tdStyle, width: WIDTHS.description }} className="text-gray">
+      <td
+        style={{ ...tdStyle, width: WIDTHS.description }}
+        className="text-gray"
+      >
         {customField.description && customField.description.length > 100
           ? customField.description.substring(0, 100).trim() + "..."
-          : customField.description ?? ""}
+          : (customField.description ?? "")}
       </td>
-      {showAppliesTo && (
-        <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
-          {sectionLabel}
-        </td>
-      )}
+      <td style={{ ...tdStyle, width: WIDTHS.appliesTo }} className="text-gray">
+        {sectionLabel}
+      </td>
       <td style={{ ...tdStyle, width: WIDTHS.valueType }} className="text-gray">
         {customField.type}
         {(customField.type === "enum" ||
@@ -244,7 +268,10 @@ export function StaticCustomFieldRow({
         )}
       </td>
       {showRequired && (
-        <td style={{ ...tdStyle, width: WIDTHS.required }} className="text-gray">
+        <td
+          style={{ ...tdStyle, width: WIDTHS.required }}
+          className="text-gray"
+        >
           {customField.required ? <>yes</> : ""}
         </td>
       )}

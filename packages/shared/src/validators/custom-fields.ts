@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { apiBaseSchema } from "./base-model";
 
-export const customFieldSectionTypes = z.enum(["feature", "experiment"]);
+export const customFieldSectionValues = ["feature", "experiment"] as const;
+export const customFieldSectionTypes = z.enum(customFieldSectionValues);
 
 export const customFieldTypes = z.enum([
   "text",
@@ -27,7 +28,7 @@ export const customFieldsPropsValidator = z.object({
   required: z.boolean(),
   creator: z.string().optional(),
   projects: z.array(z.string()).optional(),
-  section: customFieldSectionTypes,
+  sections: z.array(customFieldSectionTypes),
   dateCreated: z.date(),
   dateUpdated: z.date(),
   active: z.boolean().optional(),
@@ -86,7 +87,7 @@ export const apiCustomFieldInterface = apiBaseSchema.safeExtend({
   required: z.boolean(),
   creator: z.string().optional(),
   projects: z.array(z.string()).optional(),
-  section: customFieldSectionTypes,
+  sections: z.array(customFieldSectionTypes),
   active: z.boolean().optional(),
 });
 
@@ -104,9 +105,11 @@ export const apiCreateCustomFieldBody = z.strictObject({
   values: z.string().optional(),
   required: z.boolean(),
   projects: z.array(z.string()).optional(),
-  section: customFieldSectionTypes.describe(
-    "What type of objects this custom field is applicable to",
-  ),
+  sections: z
+    .array(customFieldSectionTypes)
+    .describe(
+      "What types of objects this custom field is applicable to (feature, experiment)",
+    ),
 });
 
 export const apiUpdateCustomFieldBody = apiCreateCustomFieldBody
