@@ -118,7 +118,9 @@ describe("Experiment Significance notifications", () => {
         },
         projects: {},
       }),
-    } as ReqContext;
+      auditLog: jest.fn(),
+      logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
+    } as unknown as ReqContext;
 
     setReqContext(globalContext);
 
