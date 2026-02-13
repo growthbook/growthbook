@@ -18,7 +18,7 @@ import { StatsEngine, PValueCorrection } from "shared/types/stats";
 import { ProjectInterface } from "shared/types/project";
 import { ReportInterface } from "shared/types/report";
 import { MetricWindowSettings } from "shared/types/fact-table";
-import { ExperimentMetricInterface } from "../experiments";
+import { ExperimentMetricInterface } from "../experiments.js";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";

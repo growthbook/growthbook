@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import {
   DataVizConfig,
   SavedQuery,
@@ -42,7 +42,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
   return dataVizConfig.map((config) => ({
     ...config,
-    id: config.id || `data-viz_${uuidv4()}`,
+    id: config.id || `data-viz_${uuid()}`,
   }));
 }
 

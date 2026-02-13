@@ -3,8 +3,8 @@ import { DistributiveOmit } from "shared/util";
 import {
   metricAnalysisSettingsStringDatesValidator,
   metricAnalysisSettingsValidator,
-} from "../../validators/metric-analysis";
-import { differenceTypes, pinSources } from "../dashboards/utils";
+} from "../../validators/metric-analysis.js";
+import { differenceTypes, pinSources } from "../dashboards/utils.js";
 
 const baseBlockInterface = z
   .object({

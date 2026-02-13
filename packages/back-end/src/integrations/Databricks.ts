@@ -4,7 +4,7 @@ import { QueryResponse, DataType } from "shared/types/integrations";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration.js";
 
 export default class Databricks extends SqlIntegration {
   params!: DatabricksConnectionParams;

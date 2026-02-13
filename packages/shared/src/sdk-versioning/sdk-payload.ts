@@ -1,4 +1,5 @@
-import { pick, omit } from "lodash";
+import lodash from "lodash";
+const { pick, omit } = lodash;
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -17,8 +18,8 @@ import {
   getTypedSavedGroupValues,
   NodeHandler,
   recursiveWalk,
-} from "../util";
-import { SDKCapability } from "./types";
+} from "../util/index.js";
+import { SDKCapability } from "./types.js";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
 const strictFeatureRuleKeys = [

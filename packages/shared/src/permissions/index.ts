@@ -1,3 +1,3 @@
-export * from "./permissions.utils";
-export * from "./permissionsClass";
-export * from "./permissions.constants";
+export * from "./permissions.utils.js";
+export * from "./permissionsClass.js";
+export * from "./permissions.constants.js";

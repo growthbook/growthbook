@@ -1,4 +1,4 @@
-import { Promise as BluebirdPromise } from "bluebird";
+import bluebird from "bluebird";
 import { OrganizationInterface } from "shared/types/organization";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -11,6 +11,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { findSDKConnectionsById } from "back-end/src/models/SdkConnectionModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 
+const { Promise: BluebirdPromise } = bluebird;
 export const VERCEL_URL = "https://api.vercel.com";
 
 export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";

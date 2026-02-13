@@ -1,7 +1,10 @@
 // Warning: This is called from init/instrumentation.ts.
 // Careful importing other modules, as they and any dependencies they import won't be instrumented.
 import path from "path";
+import { fileURLToPath } from "node:url";
 import fs from "fs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let build: { sha: string; date: string; lastVersion: string };
 export function getBuild() {

@@ -4,7 +4,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { validatePayload } from "./validations";
+import { validatePayload } from "./validations.js";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
   async (req): Promise<PutAttributeResponse> => {

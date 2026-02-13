@@ -1,6 +1,6 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
-import * as rawSavedQueriesController from "./saved-queries.controller";
+import * as rawSavedQueriesController from "./saved-queries.controller.js";
 
 const router = express.Router();
 

@@ -1,7 +1,7 @@
 import { UpdateProps } from "shared/types/base-model";
 import { SavedQuery, savedQueryValidator } from "shared/validators";
 import { chartTypeSupportsAnchorYAxisToZero } from "shared/enterprise";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: savedQueryValidator,

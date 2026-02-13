@@ -1,9 +1,9 @@
 import type { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import { generateVariationId } from "shared/util";
-import { omit } from "lodash";
+import lodash from "lodash";
 import { HoldoutInterface } from "shared/validators";
 import {
   ExperimentInterface,
@@ -44,6 +44,7 @@ import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
+const { omit } = lodash;
 /**
  * GET /holdout/:id
  * Get the holdout and its accompanying experiment
@@ -181,7 +182,7 @@ export const createHoldout = async (
     dateUpdated: new Date(),
     project: "",
     owner: data.owner || userId,
-    trackingKey: `holdout-${uuidv4()}`,
+    trackingKey: `holdout-${uuid()}`,
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",

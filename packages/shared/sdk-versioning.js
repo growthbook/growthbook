@@ -1,1 +1,1 @@
-module.exports = require("./dist/sdk-versioning");
+export * from "./dist/sdk-versioning/index.js";

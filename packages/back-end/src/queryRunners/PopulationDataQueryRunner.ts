@@ -37,7 +37,7 @@ import {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
-} from "./QueryRunner";
+} from "./QueryRunner.js";
 
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;

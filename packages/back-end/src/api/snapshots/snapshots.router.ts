@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getExperimentSnapshot } from "./getExperimentSnapshot";
+import { getExperimentSnapshot } from "./getExperimentSnapshot.js";
 
 const router = Router();
 

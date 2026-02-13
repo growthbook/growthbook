@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -45,6 +45,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
+const { cloneDeep } = lodash;
 export const getFactTables = async (
   req: AuthRequest,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>,

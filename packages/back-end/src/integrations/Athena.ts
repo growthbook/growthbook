@@ -6,7 +6,7 @@ import {
   cancelAthenaQuery,
   runAthenaQuery,
 } from "back-end/src/services/athena";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration.js";
 
 export default class Athena extends SqlIntegration {
   params!: AthenaConnectionParams;

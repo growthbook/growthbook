@@ -15,8 +15,8 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import { getUserById } from "back-end/src/models/UserModel";
-import { AuthConnection, TokensResponse } from "./AuthConnection";
-import { isNewInstallation } from ".";
+import { AuthConnection, TokensResponse } from "./AuthConnection.js";
+import { isNewInstallation } from "./index.js";
 
 const jwtCheck = expressjwt({
   secret: JWT_SECRET,

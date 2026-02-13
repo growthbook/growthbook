@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
-import { customMetricSlice } from "./experiments";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import { customMetricSlice } from "./experiments.js";
+import { featurePrerequisite, savedGroupTargeting } from "./shared.js";
 
 export const experimentTemplateInterface = z
   .object({

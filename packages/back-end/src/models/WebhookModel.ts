@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { WebhookInterface } from "shared/types/webhook";
@@ -7,8 +7,9 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
+const { omit } = lodash;
 const COLLECTION_NAME = "webhooks";
 const BaseClass = MakeModelClass({
   schema: webhookSchema,

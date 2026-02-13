@@ -1,11 +1,16 @@
-import format from "date-fns/format";
-import formatDistance from "date-fns/formatDistance";
-import differenceInDays from "date-fns/differenceInDays";
-import differenceInHours from "date-fns/differenceInHours";
-import addMonths from "date-fns/addMonths";
-import formatRelative from "date-fns/formatRelative";
-import previousMonday from "date-fns/previousMonday";
-import { formatInTimeZone } from "date-fns-tz";
+import {
+  format,
+  formatDistance,
+  differenceInDays,
+  differenceInHours,
+  addMonths,
+  formatRelative,
+  previousMonday,
+} from "date-fns";
+// ESM interop: date-fns-tz is CommonJS, use default import
+// eslint-disable-next-line import/default -- default exists at runtime for CJS interop
+import dateFnsTz from "date-fns-tz";
+const { formatInTimeZone } = dateFnsTz;
 
 export function date(date: string | Date, inTimezone?: string): string {
   if (!date) return "";

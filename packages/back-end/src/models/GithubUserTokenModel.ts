@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import uniqid from "uniqid";
 import mongoose from "mongoose";
 import { refreshToken } from "@octokit/oauth-methods";
@@ -26,7 +26,7 @@ const GithubUserTokenModel = mongoose.model<GithubUserTokenDocument>(
 );
 
 const toInterface = (doc: GithubUserTokenDocument): GithubUserTokenInterface =>
-  omit(doc.toJSON<GithubUserTokenDocument>(), ["__v", "_id"]);
+  lodash.omit(doc.toJSON<GithubUserTokenDocument>(), ["__v", "_id"]);
 
 export const createGithubUserToken = async (
   token: CreateGithubUserTokenInput,

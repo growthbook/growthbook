@@ -1,8 +1,7 @@
+import lodash from "lodash";
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
-import { isEqual } from "lodash";
-import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
@@ -149,25 +148,27 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { getMetricForSnapshot } from "./reports";
-import { validateIncrementalPipeline } from "./dataPipeline";
+import { getMetricForSnapshot } from "./reports.js";
+import { validateIncrementalPipeline } from "./dataPipeline.js";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
-} from "./datasource";
+} from "./datasource.js";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
   runSnapshotAnalyses,
   writeSnapshotAnalyses,
-} from "./stats";
+} from "./stats.js";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
-} from "./organizations";
+} from "./organizations.js";
+
+const { cloneDeep, isEqual } = lodash;
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 

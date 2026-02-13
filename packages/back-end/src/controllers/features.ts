@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { cloneDeep, isEqual, omit } from "lodash";
-import { v4 as uuidv4 } from "uuid";
+import lodash from "lodash";
+import { v4 as uuid } from "uuid";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -144,6 +144,7 @@ import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-ro
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
 
+const { cloneDeep, isEqual, omit } = lodash;
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
@@ -1312,9 +1313,9 @@ export async function postFeatureRule(
 
     // Set default status for safe rollout rule
     rule.status = "running";
-    rule.seed = rule.seed || uuidv4();
+    rule.seed = rule.seed || uuid();
     rule.trackingKey =
-      rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
+      rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuid()}`;
 
     const safeRollout = await context.models.safeRollout.create({
       ...validatedSafeRolloutFields,

@@ -1,4 +1,4 @@
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { SegmentInterface } from "shared/types/segment";
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
@@ -9,10 +9,11 @@ import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnaly
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
 import { MetricAnalysisParams } from "back-end/src/types/Integration";
-import { getIntegrationFromDatasourceId } from "./datasource";
+import { getIntegrationFromDatasourceId } from "./datasource.js";
 
 // When creating an analysis for metrics via a Dashboard, we sometimes apply adhoc filters to the analysis, that aren't a part of the metric itself (e.g. adding additional row filters)
 // This function takes the metric and applies these adhoc settings before running the analysis
+const { cloneDeep } = lodash;
 export function getMetricWithFiltersApplied(
   params: MetricAnalysisParams,
 ): FactMetricInterface {

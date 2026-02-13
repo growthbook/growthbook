@@ -1,1 +1,1 @@
-module.exports = require("./dist/demo-datasource");
+export * from "./dist/demo-datasource/index.js";

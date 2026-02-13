@@ -13,7 +13,7 @@ import {
   checkAndRollbackSafeRollout,
   updateRampUpSchedule,
 } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,

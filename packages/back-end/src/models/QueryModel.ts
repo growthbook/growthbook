@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { omit } from "lodash";
+import lodash from "lodash";
 import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
@@ -8,6 +8,7 @@ import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
+const { omit } = lodash;
 export const queriesSchema = [
   {
     _id: false,

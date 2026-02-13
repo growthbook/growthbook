@@ -1,1 +1,1 @@
-export * from "./licenseUtil";
+export * from "./licenseUtil.js";

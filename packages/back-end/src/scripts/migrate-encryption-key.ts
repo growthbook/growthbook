@@ -1,7 +1,7 @@
 // We need to import the aliases here to make the imports work.
 // eslint-disable-next-line no-restricted-imports
 import "../init/aliases";
-import { AES, enc } from "crypto-js";
+import CryptoJS from "crypto-js";
 import {
   updateDataSource,
   _dangerousGetAllDatasources,
@@ -46,7 +46,9 @@ async function run() {
     // Try to decrypt and parse using the old key
     try {
       const parsed = JSON.parse(
-        AES.decrypt(params, oldEncryptionKey || "dev").toString(enc.Utf8),
+        CryptoJS.AES.decrypt(params, oldEncryptionKey || "dev").toString(
+          CryptoJS.enc.Utf8,
+        ),
       );
       console.log(
         `- Decrypted '${ds.name}' (${ds.id}), re-encrypting with new key and saving...`,

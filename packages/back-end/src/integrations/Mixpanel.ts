@@ -1,4 +1,4 @@
-import cloneDeep from "lodash/cloneDeep";
+import lodash from "lodash";
 import { getDelayWindowHours, getMetricWindowHours } from "shared/experiments";
 import {
   DimensionSlicesQueryResponse,
@@ -58,6 +58,7 @@ import {
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
+const { cloneDeep } = lodash;
 export default class Mixpanel implements SourceIntegrationInterface {
   context: ReqContext;
   datasource: DataSourceInterface;

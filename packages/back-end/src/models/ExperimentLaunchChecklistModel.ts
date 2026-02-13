@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
+import lodash from "lodash";
 import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
@@ -8,6 +8,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
+const { omit } = lodash;
 const experimentLaunchChecklistSchema = new mongoose.Schema({
   id: String,
   organizationId: String,

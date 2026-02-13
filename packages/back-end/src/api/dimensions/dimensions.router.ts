@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getDimension } from "./getDimension";
-import { postDimension } from "./postDimension";
-import { listDimensions } from "./listDimensions";
-import { updateDimension } from "./updateDimension";
-import { deleteDimension } from "./deleteDimension";
+import { getDimension } from "./getDimension.js";
+import { postDimension } from "./postDimension.js";
+import { listDimensions } from "./listDimensions.js";
+import { updateDimension } from "./updateDimension.js";
+import { deleteDimension } from "./deleteDimension.js";
 
 const router = Router();
 

@@ -1,4 +1,4 @@
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import {
   ALL_PERMISSIONS,
   ENV_SCOPED_PERMISSIONS,
@@ -14,8 +14,9 @@ import {
   UserPermissions,
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
-import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
+import { SUPERADMIN_DEFAULT_ROLE } from "./secrets.js";
 
+const { cloneDeep } = lodash;
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
     (permission) => permission,

@@ -62,8 +62,8 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
-import { getSourceIntegrationObject } from "./datasource";
-import { computeResultsStatus, isJoinableMetric } from "./experiments";
+import { getSourceIntegrationObject } from "./datasource.js";
+import { computeResultsStatus, isJoinableMetric } from "./experiments.js";
 
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,

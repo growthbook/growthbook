@@ -1,7 +1,5 @@
+import lodash from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
-import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
-import isEqual from "lodash/isEqual";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -55,12 +53,12 @@ import {
   hasPreviousObject,
   CreateEventData,
   CreateEventParams,
-} from "./EventModel";
+} from "./EventModel.js";
 import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
-} from "./ExperimentModel";
+} from "./ExperimentModel.js";
 import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
@@ -69,7 +67,9 @@ import {
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
-} from "./FeatureRevisionModel";
+} from "./FeatureRevisionModel.js";
+
+const { cloneDeep, omit, isEqual } = lodash;
 
 const featureSchema = new mongoose.Schema({
   id: String,

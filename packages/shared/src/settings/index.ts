@@ -1,7 +1,7 @@
-import { isFactMetric } from "../../experiments";
-import genDefaultResolver from "./resolvers/genDefaultResolver";
-import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
-import genDefaultSettings from "./resolvers/genDefaultSettings";
+import { isFactMetric } from "../../experiments.js";
+import genDefaultResolver from "./resolvers/genDefaultResolver.js";
+import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver.js";
+import genDefaultSettings from "./resolvers/genDefaultSettings.js";
 import {
   Settings,
   SettingsResolver,
@@ -11,12 +11,12 @@ import {
   ScopeSettingsFn,
   InputSettings,
   ScopedSettingsReturn,
-} from "./types";
-import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
-import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
-import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver";
-export * from "./types";
-export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants";
+} from "./types.js";
+import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver.js";
+import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver.js";
+import postStratificationEnabledResolver from "./resolvers/postStratificationEnabledResolver.js";
+export * from "./types.js";
+export { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "../../constants.js";
 
 export const resolvers: Record<
   keyof Settings,

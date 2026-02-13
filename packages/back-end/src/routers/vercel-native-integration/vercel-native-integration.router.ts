@@ -1,14 +1,14 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawVercelController from "./vercel-native-integration.controller";
+import * as rawVercelController from "./vercel-native-integration.controller.js";
 import {
   upsertInstallationPayloadValidator,
   updateInstallationValidator,
   deleteInstallationPayloadValidator,
   updateResourceValidator,
   provisitionResourceValidator,
-} from "./vercel-native-integration.validators";
+} from "./vercel-native-integration.validators.js";
 
 const router = express.Router();
 

@@ -1,5 +1,5 @@
+import lodash from "lodash";
 import { Response } from "express";
-import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
@@ -77,6 +77,7 @@ import {
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
+const { cloneDeep } = lodash;
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response,

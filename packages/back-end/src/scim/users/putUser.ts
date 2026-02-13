@@ -1,4 +1,4 @@
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { Response } from "express";
 import { isRoleValid } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
@@ -6,6 +6,7 @@ import { ScimError, ScimUser, ScimUserPutRequest } from "back-end/types/scim";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 
+const { cloneDeep } = lodash;
 async function updateUserRole(
   org: OrganizationInterface,
   userId: string,

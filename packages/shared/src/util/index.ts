@@ -1,5 +1,6 @@
 import uniqid from "uniqid";
-import isEqual from "lodash/isEqual";
+import lodash from "lodash";
+const { isEqual } = lodash;
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -21,15 +22,15 @@ import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
-} from "../validators/safe-rollout-snapshot";
-import { HoldoutInterface } from "../validators/holdout";
-import { featureHasEnvironment } from "./features";
+} from "../validators/safe-rollout-snapshot.js";
+import { HoldoutInterface } from "../validators/holdout.js";
+import { featureHasEnvironment } from "./features.js";
 
-export * from "./features";
-export * from "./saved-groups";
-export * from "./metric-time-series";
-export * from "./types";
-export * from "./errors";
+export * from "./features.js";
+export * from "./saved-groups.js";
+export * from "./metric-time-series.js";
+export * from "./types.js";
+export * from "./errors.js";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

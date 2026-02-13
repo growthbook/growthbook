@@ -1,8 +1,11 @@
 import Handlebars, { HelperOptions } from "handlebars";
 
 // Adapted from https://github.com/helpers/handlebars-helpers
-import formatInTimeZone from "date-fns-tz/formatInTimeZone";
-import parseISO from "date-fns/parseISO";
+// ESM interop: date-fns-tz is CommonJS, use default import
+// eslint-disable-next-line import/default -- default exists at runtime for CJS interop
+import dateFnsTz from "date-fns-tz";
+const { formatInTimeZone } = dateFnsTz;
+import { parseISO } from "date-fns";
 export const helpers: Record<string, Handlebars.HelperDelegate> = {};
 
 /**

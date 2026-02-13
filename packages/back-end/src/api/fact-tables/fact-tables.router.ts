@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { getFactTable } from "./getFactTable";
-import { listFactTables } from "./listFactTables";
-import { postFactTable } from "./postFactTable";
-import { updateFactTable } from "./updateFactTable";
-import { deleteFactTable } from "./deleteFactTable";
-import { listFactTableFilters } from "./listFactTableFilters";
-import { postFactTableFilter } from "./postFactTableFilter";
-import { getFactTableFilter } from "./getFactTableFilter";
-import { updateFactTableFilter } from "./updateFactTableFilter";
-import { deleteFactTableFilter } from "./deleteFactTableFilter";
+import { getFactTable } from "./getFactTable.js";
+import { listFactTables } from "./listFactTables.js";
+import { postFactTable } from "./postFactTable.js";
+import { updateFactTable } from "./updateFactTable.js";
+import { deleteFactTable } from "./deleteFactTable.js";
+import { listFactTableFilters } from "./listFactTableFilters.js";
+import { postFactTableFilter } from "./postFactTableFilter.js";
+import { getFactTableFilter } from "./getFactTableFilter.js";
+import { updateFactTableFilter } from "./updateFactTableFilter.js";
+import { deleteFactTableFilter } from "./deleteFactTableFilter.js";
 
 const router = Router();
 

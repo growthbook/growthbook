@@ -4,7 +4,7 @@ import { FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration.js";
 
 export default class Mysql extends SqlIntegration {
   params!: MysqlConnectionParams;

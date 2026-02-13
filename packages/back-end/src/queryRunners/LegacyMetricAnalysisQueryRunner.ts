@@ -8,7 +8,7 @@ import {
 import { LegacyMetricAnalysis, MetricInterface } from "shared/types/metric";
 import { Queries, QueryStatus } from "shared/types/query";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap } from "./QueryRunner.js";
 
 export class LegacyMetricAnalysisQueryRunner extends QueryRunner<
   MetricInterface,

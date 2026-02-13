@@ -1,5 +1,8 @@
 import path from "path";
+import { fileURLToPath } from "node:url";
 import fs from "fs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { load, dump } from "js-yaml";
 import { capitalizeFirstCharacter } from "shared/util";
 import { z } from "zod";
@@ -9,7 +12,8 @@ import {
   getCrudConfig,
   getDefaultCrudActionSummary,
 } from "back-end/src/api/ApiModel";
-import { HttpVerb, apiHttpVerbs } from "back-end/src/api/apiModelHandlers";
+import type { HttpVerb } from "back-end/src/api/apiModelHandlers";
+import { apiHttpVerbs } from "back-end/src/api/apiModelHandlers";
 
 type ApiTag = {
   name: string;

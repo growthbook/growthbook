@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { postOrganization } from "./postOrganization";
-import { listOrganizations } from "./listOrganizations";
-import { putOrganization } from "./putOrganization";
+import { postOrganization } from "./postOrganization.js";
+import { listOrganizations } from "./listOrganizations.js";
+import { putOrganization } from "./putOrganization.js";
 
 const router = Router();
 

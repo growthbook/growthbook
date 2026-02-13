@@ -1,11 +1,11 @@
-import isEqual from "lodash/isEqual";
-import intersection from "lodash/intersection";
+import lodash from "lodash";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "shared/types/events/notification-events";
 import { ApiFeature } from "shared/types/openapi";
 
+const { isEqual, intersection } = lodash;
 export type FilterDataForNotificationEvent = {
   tags: string[];
   projects: string[];

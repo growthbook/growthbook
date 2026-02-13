@@ -1,14 +1,15 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { GeneratedHypothesisInterface } from "shared/types/generated-hypothesis";
 import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
-import { createExperiment } from "./ExperimentModel";
-import { upsertWatch } from "./WatchModel";
-import { createVisualChangeset } from "./VisualChangesetModel";
-import { createFeature } from "./FeatureModel";
+import { createExperiment } from "./ExperimentModel.js";
+import { upsertWatch } from "./WatchModel.js";
+import { createVisualChangeset } from "./VisualChangesetModel.js";
+import { createFeature } from "./FeatureModel.js";
 
+const { omit } = lodash;
 type GeneratedHypothesisDocument = mongoose.Document &
   GeneratedHypothesisInterface;
 

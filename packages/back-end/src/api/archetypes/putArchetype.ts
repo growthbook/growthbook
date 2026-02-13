@@ -7,7 +7,7 @@ import {
   updateArchetypeById,
 } from "back-end/src/models/ArchetypeModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { validatePayload } from "./validations";
+import { validatePayload } from "./validations.js";
 
 export const putArchetype = createApiRequestHandler(putArchetypeValidator)(
   async (req): Promise<PutArchetypeResponse> => {

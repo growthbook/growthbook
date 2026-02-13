@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { pick } from "lodash";
+import lodash from "lodash";
 import {
   SDKConnectionInterface,
   CreateSDKConnectionParams,
@@ -25,6 +25,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
+const { pick } = lodash;
 export const getSDKConnections = async (
   req: AuthRequest,
   res: Response<{

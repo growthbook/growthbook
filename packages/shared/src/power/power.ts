@@ -1,7 +1,8 @@
-import normal from "@stdlib/stats/base/dists/normal";
+// @ts-expect-error - ESM requires full path to index.js
+import normal from "@stdlib/stats/base/dists/normal/lib/index.js";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricPriorSettings } from "shared/types/fact-table";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants.js";
 
 export interface MetricParamsBase {
   name: string;

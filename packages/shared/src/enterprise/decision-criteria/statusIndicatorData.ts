@@ -5,7 +5,7 @@ import {
   ExperimentResultStatusData,
   ExperimentDataForStatus,
 } from "shared/types/experiment";
-import { getExperimentResultStatus } from "./decisionCriteria";
+import { getExperimentResultStatus } from "./decisionCriteria.js";
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";

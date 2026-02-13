@@ -1,4 +1,4 @@
-import cloneDeep from "lodash/cloneDeep";
+import lodash from "lodash";
 import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
 import { logger } from "back-end/src/util/logger";
 import { getSlackIntegrationsForFilters } from "back-end/src/models/SlackIntegrationModel";
@@ -7,7 +7,9 @@ import {
   getSlackDataForNotificationEvent,
   getSlackIntegrationContextBlock,
   sendSlackMessage,
-} from "./slack-event-handler-utils";
+} from "./slack-event-handler-utils.js";
+
+const { cloneDeep } = lodash;
 
 /**
  * handle Slack events. Can be handled individually or with a common handler, depending on needs.

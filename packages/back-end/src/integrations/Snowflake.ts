@@ -9,7 +9,7 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration.js";
 
 export default class Snowflake extends SqlIntegration {
   params!: SnowflakeConnectionParams;

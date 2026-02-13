@@ -3,7 +3,7 @@ import {
   CustomHookType,
   customHookValidator,
 } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: customHookValidator,

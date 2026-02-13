@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { getSdkConnection } from "./getSdkConnection";
-import { listSdkConnections } from "./listSdkConnections";
-import { postSdkConnection } from "./postSdkConnection";
-import { putSdkConnection } from "./putSdkConnection";
-import { deleteSdkConnection } from "./deleteSdkConnection";
-import { lookupSdkConnectionByKey } from "./lookupSdkConnectionByKey";
+import { getSdkConnection } from "./getSdkConnection.js";
+import { listSdkConnections } from "./listSdkConnections.js";
+import { postSdkConnection } from "./postSdkConnection.js";
+import { putSdkConnection } from "./putSdkConnection.js";
+import { deleteSdkConnection } from "./deleteSdkConnection.js";
+import { lookupSdkConnectionByKey } from "./lookupSdkConnectionByKey.js";
 
 const router = Router();
 

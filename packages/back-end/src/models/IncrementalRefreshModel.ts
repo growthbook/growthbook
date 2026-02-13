@@ -3,7 +3,7 @@ import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
 } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 export const COLLECTION_NAME = "incrementalrefresh";
 

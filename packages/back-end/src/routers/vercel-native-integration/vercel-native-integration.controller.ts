@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import { ManagedBy } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -50,7 +50,7 @@ import {
   UpdateResource,
   UpdateInstallation,
   BillingPlan,
-} from "./vercel-native-integration.validators";
+} from "./vercel-native-integration.validators.js";
 
 const STARTER_BILLING_PLAN: BillingPlan = {
   description: "Basic flags and experiments for solo devs and small teams",
@@ -488,7 +488,7 @@ export async function provisionResource(req: Request, res: Response) {
     });
   }
 
-  const resourceId = uuidv4();
+  const resourceId = uuid();
 
   const managedBy = {
     type: "vercel",

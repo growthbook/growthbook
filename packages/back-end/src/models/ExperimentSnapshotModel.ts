@@ -1,5 +1,5 @@
+import lodash from "lodash";
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
-import omit from "lodash/omit";
 import {
   snapshotSatisfiesBlock,
   blockHasFieldOfType,
@@ -19,10 +19,11 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { queriesSchema } from "./QueryModel";
-import { Context } from "./BaseModel";
-import { getExperimentById } from "./ExperimentModel";
+import { queriesSchema } from "./QueryModel.js";
+import { Context } from "./BaseModel.js";
+import { getExperimentById } from "./ExperimentModel.js";
 
+const { omit } = lodash;
 const experimentSnapshotTrafficObject = {
   _id: false,
   name: String,

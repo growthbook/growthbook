@@ -6,7 +6,7 @@ import {
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawSavedGroupController from "./saved-group.controller";
+import * as rawSavedGroupController from "./saved-group.controller.js";
 
 const router = express.Router();
 

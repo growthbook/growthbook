@@ -1,8 +1,6 @@
+import lodash from "lodash";
 import { KnownBlock } from "@slack/types";
 import formatNumber from "number-format.js";
-import omit from "lodash/omit";
-import pick from "lodash/pick";
-import isEqual from "lodash/isEqual";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
@@ -28,6 +26,7 @@ import { logger } from "back-end/src/util/logger";
 
 // region Filtering
 
+const { omit, pick, isEqual } = lodash;
 export type DataForNotificationEvent = {
   filterData: FilterDataForNotificationEvent;
   slackMessage: SlackMessage;

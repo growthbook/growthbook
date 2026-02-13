@@ -16,10 +16,10 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
-import { queriesSchema } from "./QueryModel";
-import { ImpactEstimateModel } from "./ImpactEstimateModel";
-import { removeMetricFromExperiments } from "./ExperimentModel";
-import { addTagsDiff } from "./TagModel";
+import { queriesSchema } from "./QueryModel.js";
+import { ImpactEstimateModel } from "./ImpactEstimateModel.js";
+import { removeMetricFromExperiments } from "./ExperimentModel.js";
+import { addTagsDiff } from "./TagModel.js";
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",

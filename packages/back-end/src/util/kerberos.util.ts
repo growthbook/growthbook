@@ -1,12 +1,10 @@
 import { performance } from "node:perf_hooks";
-import {
-  initializeClient,
-  InitializeClientOptions,
-  GSS_MECH_OID_KRB5,
-} from "kerberos";
-import { logger } from "./logger";
-import { IS_CLOUD } from "./secrets";
+import kerberos from "kerberos";
+import type { InitializeClientOptions } from "kerberos";
+import { logger } from "./logger.js";
+import { IS_CLOUD } from "./secrets.js";
 
+const { initializeClient, GSS_MECH_OID_KRB5 } = kerberos;
 export async function getKerberosHeader(
   servicePrincipal: string,
   clientPrincipal?: string,

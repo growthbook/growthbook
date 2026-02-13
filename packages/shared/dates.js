@@ -1,1 +1,1 @@
-module.exports = require("./dist/dates");
+export * from "./dist/dates.js";

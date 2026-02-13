@@ -1,8 +1,7 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
+import lodash from "lodash";
 import uniqid from "uniqid";
-import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -30,14 +29,11 @@ import {
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
-import cloneDeep from "lodash/cloneDeep";
-import pickBy from "lodash/pickBy";
 import {
   GroupMap,
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/saved-group";
-import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
@@ -110,7 +106,9 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
-} from "./organizations";
+} from "./organizations.js";
+
+const { isEqual, omit, cloneDeep, pickBy, clone } = lodash;
 
 export function generateFeaturesPayload({
   features,

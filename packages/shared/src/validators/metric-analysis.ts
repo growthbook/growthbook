@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryPointerValidator } from "./queries";
+import { queryPointerValidator } from "./queries.js";
 
 export const metricAnalysisPopulationTypeValidator = z.enum([
   "metric",

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSdkPayload } from "./getSdkPayload";
+import { getSdkPayload } from "./getSdkPayload.js";
 
 const router = Router();
 

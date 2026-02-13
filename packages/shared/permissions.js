@@ -1,1 +1,1 @@
-module.exports = require("./dist/permissions");
+export * from "./dist/permissions/index.js";

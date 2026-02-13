@@ -3,7 +3,7 @@ import { QueryResponse } from "shared/types/integrations";
 import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration.js";
 
 export default class Mssql extends SqlIntegration {
   params!: MssqlConnectionParams;

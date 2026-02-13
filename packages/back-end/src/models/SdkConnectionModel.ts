@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { isEqual, omit } from "lodash";
+import lodash from "lodash";
 import { managedByValidator, ManagedBy } from "shared/validators";
 import {
   CreateSDKConnectionParams,
@@ -24,8 +24,9 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
+import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel.js";
 
+const { isEqual, omit } = lodash;
 const sdkConnectionSchema = new mongoose.Schema({
   id: {
     type: String,

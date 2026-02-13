@@ -6,7 +6,7 @@ import {
   ScimListResponse,
   ScimUser,
 } from "back-end/types/scim";
-import { expandedMembertoScimUser } from "./getUser";
+import { expandedMembertoScimUser } from "./getUser.js";
 
 export const START_INDEX_DEFAULT = 0;
 export const COUNT_DEFAULT = 20;

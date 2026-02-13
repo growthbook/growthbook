@@ -1,5 +1,8 @@
 import path from "path";
+import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync } from "fs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
@@ -10,8 +13,8 @@ import * as Sentry from "@sentry/node";
 import { stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
-import { usingFileConfig } from "./init/config";
-import { AuthRequest } from "./types/AuthRequest";
+import { usingFileConfig } from "./init/config.js";
+import { AuthRequest } from "./types/AuthRequest.js";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
@@ -20,111 +23,115 @@ import {
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
-} from "./util/secrets";
+} from "./util/secrets.js";
 import {
   getExperimentConfig,
   getExperimentsScript,
-} from "./controllers/config";
-import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
-import { wrapController } from "./routers/wrapController";
-import apiRouter from "./api/api.router";
-import scimRouter from "./scim/scim.router";
-import { getBuild } from "./util/build";
+} from "./controllers/config.js";
+import {
+  getAuthConnection,
+  processJWT,
+  usingOpenId,
+} from "./services/auth/index.js";
+import { wrapController } from "./routers/wrapController.js";
+import apiRouter from "./api/api.router.js";
+import scimRouter from "./scim/scim.router.js";
+import { getBuild } from "./util/build.js";
 
 // Begin Controllers
-import * as authControllerRaw from "./controllers/auth";
+import * as authControllerRaw from "./controllers/auth.js";
 const authController = wrapController(authControllerRaw);
 
-import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller";
+import * as vercelControllerRaw from "./routers/vercel-native-integration/vercel-native-integration.controller.js";
 const vercelController = wrapController(vercelControllerRaw);
 
-import * as datasourcesControllerRaw from "./controllers/datasources";
+import * as datasourcesControllerRaw from "./controllers/datasources.js";
 const datasourcesController = wrapController(datasourcesControllerRaw);
 
-import * as experimentsControllerRaw from "./controllers/experiments";
+import * as experimentsControllerRaw from "./controllers/experiments.js";
 const experimentsController = wrapController(experimentsControllerRaw);
 
-import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist";
+import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist.js";
 const experimentLaunchChecklistController = wrapController(
   experimentLaunchChecklistControllerRaw,
 );
 
-import * as metricsControllerRaw from "./controllers/metrics";
+import * as metricsControllerRaw from "./controllers/metrics.js";
 const metricsController = wrapController(metricsControllerRaw);
 
-import * as reportsControllerRaw from "./controllers/reports";
+import * as reportsControllerRaw from "./controllers/reports.js";
 const reportsController = wrapController(reportsControllerRaw);
 
-import * as ideasControllerRaw from "./controllers/ideas";
+import * as ideasControllerRaw from "./controllers/ideas.js";
 const ideasController = wrapController(ideasControllerRaw);
 
-import * as presentationControllerRaw from "./controllers/presentations";
+import * as presentationControllerRaw from "./controllers/presentations.js";
 const presentationController = wrapController(presentationControllerRaw);
 
-import * as discussionsControllerRaw from "./controllers/discussions";
+import * as discussionsControllerRaw from "./controllers/discussions.js";
 const discussionsController = wrapController(discussionsControllerRaw);
 
-import * as adminControllerRaw from "./controllers/admin";
+import * as adminControllerRaw from "./controllers/admin.js";
 const adminController = wrapController(adminControllerRaw);
 
-import * as licenseControllerRaw from "./controllers/license";
+import * as licenseControllerRaw from "./controllers/license.js";
 const licenseController = wrapController(licenseControllerRaw);
 
-import * as subscriptionControllerRaw from "./controllers/subscription";
+import * as subscriptionControllerRaw from "./controllers/subscription.js";
 const subscriptionController = wrapController(subscriptionControllerRaw);
 
-import * as featuresControllerRaw from "./controllers/features";
+import * as featuresControllerRaw from "./controllers/features.js";
 const featuresController = wrapController(featuresControllerRaw);
 
-import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
+import * as informationSchemasControllerRaw from "./controllers/informationSchemas.js";
 const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
 );
 
-import * as uploadControllerRaw from "./routers/upload/upload.controller";
+import * as uploadControllerRaw from "./routers/upload/upload.controller.js";
 const uploadController = wrapController(uploadControllerRaw);
 
 // End Controllers
 
-import { isEmailEnabled } from "./services/email";
-import { init } from "./init";
-import { aiRouter } from "./routers/ai/ai.router";
-import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { usersRouter } from "./routers/users/users.router";
-import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { uploadRouter } from "./routers/upload/upload.router";
-import { eventsRouter } from "./routers/events/events.router";
-import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
-import { tagRouter } from "./routers/tag/tag.router";
-import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
-import { ArchetypeRouter } from "./routers/archetype/archetype.router";
-import { AttributeRouter } from "./routers/attributes/attributes.router";
-import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
-import { segmentRouter } from "./routers/segment/segment.router";
-import { dimensionRouter } from "./routers/dimension/dimension.router";
-import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
-import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
-import { projectRouter } from "./routers/project/project.router";
-import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
-import { factTableRouter } from "./routers/fact-table/fact-table.router";
-import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
-import { dataExportRouter } from "./routers/data-export/data-export.router";
-import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
-import { environmentRouter } from "./routers/environment/environment.router";
-import { teamRouter } from "./routers/teams/teams.router";
-import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
-import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
-import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
-import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
-import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
-import { getContextFromReq } from "./services/organizations";
-import { templateRouter } from "./routers/experiment-template/template.router";
-import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
-import { holdoutRouter } from "./routers/holdout/holdout.router";
-import { runStatsEngine } from "./services/stats";
-import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
-import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
-import { importingRouter } from "./routers/importing/importing.router";
+import { isEmailEnabled } from "./services/email.js";
+import { init } from "./init/index.js";
+import { aiRouter } from "./routers/ai/ai.router.js";
+import { getCustomLogProps, httpLogger, logger } from "./util/logger.js";
+import { usersRouter } from "./routers/users/users.router.js";
+import { organizationsRouter } from "./routers/organizations/organizations.router.js";
+import { uploadRouter } from "./routers/upload/upload.router.js";
+import { eventsRouter } from "./routers/events/events.router.js";
+import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router.js";
+import { tagRouter } from "./routers/tag/tag.router.js";
+import { savedGroupRouter } from "./routers/saved-group/saved-group.router.js";
+import { ArchetypeRouter } from "./routers/archetype/archetype.router.js";
+import { AttributeRouter } from "./routers/attributes/attributes.router.js";
+import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router.js";
+import { segmentRouter } from "./routers/segment/segment.router.js";
+import { dimensionRouter } from "./routers/dimension/dimension.router.js";
+import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router.js";
+import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router.js";
+import { projectRouter } from "./routers/project/project.router.js";
+import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router.js";
+import { factTableRouter } from "./routers/fact-table/fact-table.router.js";
+import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router.js";
+import { dataExportRouter } from "./routers/data-export/data-export.router.js";
+import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router.js";
+import { environmentRouter } from "./routers/environment/environment.router.js";
+import { teamRouter } from "./routers/teams/teams.router.js";
+import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router.js";
+import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router.js";
+import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router.js";
+import { metricGroupRouter } from "./routers/metric-group/metric-group.router.js";
+import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis.js";
+import { getContextFromReq } from "./services/organizations.js";
+import { templateRouter } from "./routers/experiment-template/template.router.js";
+import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router.js";
+import { holdoutRouter } from "./routers/holdout/holdout.router.js";
+import { runStatsEngine } from "./services/stats.js";
+import { dashboardsRouter } from "./routers/dashboards/dashboards.router.js";
+import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router.js";
+import { importingRouter } from "./routers/importing/importing.router.js";
 
 const app = express();
 

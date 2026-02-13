@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiBaseSchema } from "./base-model";
+import { apiBaseSchema } from "./base-model.js";
 
 export const customFieldSectionTypes = z.enum(["feature", "experiment"]);
 

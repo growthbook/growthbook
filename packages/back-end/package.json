@@ -2,6 +2,18 @@
   "name": "back-end",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
+  "imports": {
+    "back-end/src/*": "./dist/*.js",
+    "back-end/types/*": "./types/*.js"
+  },
+  "exports": {
+    "./src/enterprise": "./dist/enterprise/index.js",
+    "./src/enterprise/billing": "./dist/enterprise/billing/index.js",
+    "./src/services/auth": "./dist/services/auth/index.js",
+    "./src/*": "./dist/*.js",
+    "./types/*": "./types/*.js"
+  },
   "engines": {
     "node": ">=24"
   },
@@ -24,7 +36,7 @@
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps --no-node-snapshot' --watch dist --watch '../shared/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "GB_STATS_ENGINE_MIN_POOL_SIZE=0 CRON_ENABLED=false ./src/scripts/migrate-encryption-key.sh",
-    "generate-api-models": "ts-node src/scripts/generate-doc-models-for-openapi-schemas.ts",
+    "generate-api-models": "DISABLE_PYTHON_MONITOR=1 GB_STATS_ENGINE_MIN_POOL_SIZE=0 ts-node src/scripts/generate-doc-models-for-openapi-schemas.ts",
     "generate-api-types": "pnpm generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {

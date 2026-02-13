@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { isEqual } from "lodash";
+import lodash from "lodash";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { Environment } from "shared/types/organization";
@@ -28,6 +28,7 @@ import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/envi
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
+const { isEqual } = lodash;
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
 type UpdateEnvironmentProps = z.infer<typeof updateEnvValidator>;

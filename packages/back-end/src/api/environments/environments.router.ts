@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { listEnvironments } from "./listEnvironments";
-import { putEnvironment } from "./putEnvironment";
-import { postEnvironment } from "./postEnvironment";
-import { deleteEnvironment } from "./deleteEnvironment";
+import { listEnvironments } from "./listEnvironments.js";
+import { putEnvironment } from "./putEnvironment.js";
+import { postEnvironment } from "./postEnvironment.js";
+import { deleteEnvironment } from "./deleteEnvironment.js";
 
 const router = Router();
 

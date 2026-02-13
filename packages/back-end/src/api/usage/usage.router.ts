@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getMetricUsage } from "./getMetricUsage";
+import { getMetricUsage } from "./getMetricUsage.js";
 
 const router = Router();
 

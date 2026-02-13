@@ -1,6 +1,6 @@
 import { logger } from "back-end/src/util/logger";
-import mongoInit from "./mongo";
-import { queueInit } from "./queue";
+import mongoInit from "./mongo.js";
+import { queueInit } from "./queue.js";
 
 let initPromise: Promise<void>;
 export async function init() {

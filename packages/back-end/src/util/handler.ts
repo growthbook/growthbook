@@ -5,7 +5,7 @@ import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { IS_MULTI_ORG } from "./secrets";
+import { IS_MULTI_ORG } from "./secrets.js";
 
 export type ApiRequest<
   ResponseType = never,

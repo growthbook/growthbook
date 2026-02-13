@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import uniqid from "uniqid";
 import mongoose from "mongoose";
 import {
@@ -7,8 +7,9 @@ import {
 } from "shared/types/github";
 import { OrganizationInterface } from "shared/types/organization";
 import { fetchRepositories } from "back-end/src/services/github";
-import { doesTokenExist } from "./GithubUserTokenModel";
+import { doesTokenExist } from "./GithubUserTokenModel.js";
 
+const { omit } = lodash;
 type GithubIntegrationDocument = mongoose.Document & GithubIntegrationInterface;
 
 const githubIntegrationSchema = new mongoose.Schema({

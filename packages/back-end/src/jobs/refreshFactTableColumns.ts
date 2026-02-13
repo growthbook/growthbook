@@ -1,5 +1,5 @@
+import lodash from "lodash";
 import Agenda, { Job } from "agenda";
-import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import {
@@ -20,6 +20,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
+const { chunk } = lodash;
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
   organization: string;

@@ -2,8 +2,8 @@ import Ajv from "ajv";
 import { subWeeks } from "date-fns";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
-import cloneDeep from "lodash/cloneDeep";
-import isEqual from "lodash/isEqual";
+import lodash from "lodash";
+const { cloneDeep, isEqual } = lodash;
 import { evalCondition } from "@growthbook/growthbook";
 import {
   FeatureInterface,
@@ -24,17 +24,17 @@ import {
 import { ProjectInterface } from "shared/types/project";
 import { ApiFeature } from "shared/types/openapi";
 import { GroupMap } from "shared/types/saved-group";
-import { getValidDate } from "../dates";
+import { getValidDate } from "../dates.js";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
-} from "../sdk-versioning";
+} from "../sdk-versioning/index.js";
 import {
   getMatchingRules,
   includeExperimentInPayload,
   isDefined,
   recursiveWalk,
-} from ".";
+} from "./index.js";
 
 export const DRAFT_REVISION_STATUSES = [
   "draft",

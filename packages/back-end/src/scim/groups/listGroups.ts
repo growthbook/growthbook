@@ -7,7 +7,7 @@ import {
   COUNT_DEFAULT,
   START_INDEX_DEFAULT,
 } from "back-end/src/scim/users/listUsers";
-import { teamtoScimGroup } from "./getGroup";
+import { teamtoScimGroup } from "./getGroup.js";
 
 export async function listGroups(
   req: ScimListRequest,

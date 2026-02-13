@@ -3,7 +3,7 @@ import {
   validateFeatureValue,
   validateScheduleRules,
 } from "shared/util";
-import { isEqual } from "lodash";
+import lodash from "lodash";
 import { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
@@ -28,9 +28,13 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validation";
+import {
+  parseJsonSchemaForEnterprise,
+  validateEnvKeys,
+} from "./postFeature.js";
+import { validateCustomFields } from "./validation.js";
 
+const { isEqual } = lodash;
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
     const feature = await getFeature(req.context, req.params.id);

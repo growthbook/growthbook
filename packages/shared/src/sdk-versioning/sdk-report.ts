@@ -1,5 +1,6 @@
 import fs from "fs";
-import uniq from "lodash/uniq";
+import lodash from "lodash";
+const { uniq } = lodash;
 
 import { SDKLanguage } from "shared/types/sdk-connection";
 import {

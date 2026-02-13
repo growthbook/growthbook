@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { getDataSource } from "./getDataSource";
-import { listDataSources } from "./listDataSources";
+import { getDataSource } from "./getDataSource.js";
+import { listDataSources } from "./listDataSources.js";
 
 const router = Router();
 

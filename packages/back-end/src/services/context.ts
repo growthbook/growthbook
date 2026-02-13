@@ -3,7 +3,7 @@ import {
   userHasPermission,
   roleToPermissionMap,
 } from "shared/permissions";
-import { uniq } from "lodash";
+import lodash from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -65,8 +65,9 @@ import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
-import { getExperimentMetricsByIds } from "./experiments";
+import { getExperimentMetricsByIds } from "./experiments.js";
 
+const { uniq } = lodash;
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;

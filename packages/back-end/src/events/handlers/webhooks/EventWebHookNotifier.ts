@@ -27,7 +27,7 @@ import {
   EventWebHookResult,
   EventWebHookSuccessResult,
   getEventWebHookSignatureForPayload,
-} from "./event-webhooks-utils";
+} from "./event-webhooks-utils.js";
 
 let jobDefined = false;
 

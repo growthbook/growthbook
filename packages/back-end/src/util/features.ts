@@ -1,4 +1,4 @@
-import isEqual from "lodash/isEqual";
+import lodash from "lodash";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
@@ -10,7 +10,6 @@ import {
   recursiveWalk,
 } from "shared/util";
 import { GroupMap } from "shared/types/saved-group";
-import { cloneDeep, isNil } from "lodash";
 import md5 from "md5";
 import { FeatureDefinitionWithProject } from "shared/types/sdk";
 import { HoldoutInterface } from "shared/validators";
@@ -26,8 +25,9 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { getCurrentEnabledState } from "./scheduleRules";
+import { getCurrentEnabledState } from "./scheduleRules.js";
 
+const { isEqual, cloneDeep, isNil } = lodash;
 function getSavedGroupCondition(
   groupId: string,
   groupMap: GroupMap,

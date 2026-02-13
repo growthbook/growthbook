@@ -1,5 +1,5 @@
 import { createPrivateKey } from "crypto";
-import { createConnection } from "snowflake-sdk";
+import snowflake from "snowflake-sdk";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { QueryMetadata } from "shared/types/query";
@@ -95,7 +95,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     };
   }
 
-  const connection = createConnection({
+  const connection = snowflake.createConnection({
     account,
     username: conn.username,
     ...authenticationDetails,

@@ -14,7 +14,7 @@ import {
   Policy,
   READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
-} from "./permissions.constants";
+} from "./permissions.constants.js";
 
 export function policiesSupportEnvLimit(policies: Policy[]): boolean {
   // If any policies have a permission that is env scoped, return true

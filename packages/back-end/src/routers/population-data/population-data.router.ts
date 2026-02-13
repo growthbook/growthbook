@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createPopulationDataPropsValidator } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawPopulationDataController from "./population-data.controller";
+import * as rawPopulationDataController from "./population-data.controller.js";
 
 const router = express.Router();
 

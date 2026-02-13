@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
-import { getExperimentResults } from "./getExperimentResults";
-import { getExperiment } from "./getExperiment";
-import { listExperiments } from "./listExperiments";
-import { updateExperiment } from "./updateExperiment";
-import { postExperiment } from "./postExperiment";
-import { postExperimentSnapshot } from "./postExperimentSnapshot";
+import { getExperimentResults } from "./getExperimentResults.js";
+import { getExperiment } from "./getExperiment.js";
+import { listExperiments } from "./listExperiments.js";
+import { updateExperiment } from "./updateExperiment.js";
+import { postExperiment } from "./postExperiment.js";
+import { postExperimentSnapshot } from "./postExperimentSnapshot.js";
 
 const router = Router();
 

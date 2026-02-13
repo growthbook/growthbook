@@ -1,7 +1,7 @@
 import Handlebars from "handlebars";
 import { SQLVars } from "shared/types/sql";
 import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
-import { helpers } from "./handlebarsHelpers";
+import { helpers } from "./handlebarsHelpers.js";
 
 // Register all the helpers from handlebarsHelpers
 Object.keys(helpers).forEach((helperName) => {

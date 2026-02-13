@@ -14,7 +14,9 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   // Enable Turbopack with empty config to silence migration warning
-  turbopack: {},
+  turbopack: {
+    root: "../../",
+  },
   sassOptions: {
     silenceDeprecations: [
       "legacy-js-api",

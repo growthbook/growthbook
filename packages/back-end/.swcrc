@@ -6,14 +6,10 @@
       "decorators": false,
       "dynamicImport": true
     },
-    "target": "es2020",
-    "paths": {
-      "back-end/*": ["./*"]
-    },
-    "baseUrl": "./"
+    "target": "es2020"
   },
   "module": {
-    "type": "commonjs"
+    "type": "es6"
   },
   "sourceMaps": true,
   "inlineSourcesContent": true

@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import omit from "lodash/omit";
+import lodash from "lodash";
 import mongoose from "mongoose";
 import {
   EventWebHookLegacyLogInterface,
@@ -8,6 +8,7 @@ import {
 import { EventWebHookMethod } from "shared/types/event-webhook";
 import { NotificationEventName } from "shared/types/events/event";
 
+const { omit } = lodash;
 const eventWebHookLogSchema = new mongoose.Schema({
   id: {
     type: String,

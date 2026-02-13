@@ -1,7 +1,7 @@
 import nodeFetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
-import { logger } from "./logger";
-import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import { logger } from "./logger.js";
+import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets.js";
 
 let useWebhookProxy = true;
 

@@ -1,7 +1,8 @@
+import lodash from "lodash";
 import bs58 from "bs58";
-import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
-import normal from "@stdlib/stats/base/dists/normal";
+// @ts-expect-error - @stdlib package has no TypeScript type definitions
+import normal from "@stdlib/stats/base/dists/normal/lib/index.js";
 import { format as formatDate, subDays } from "date-fns";
 import {
   getMetricWindowHours,
@@ -167,6 +168,8 @@ import {
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
 } from "back-end/src/services/experimentQueries/constants";
+
+const { cloneDeep } = lodash;
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;

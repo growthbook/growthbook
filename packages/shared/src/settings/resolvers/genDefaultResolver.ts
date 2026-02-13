@@ -1,5 +1,6 @@
-import { get } from "lodash";
-import { Settings, ScopeDefinition, SettingsResolver } from "../types";
+import lodash from "lodash";
+const { get } = lodash;
+import { Settings, ScopeDefinition, SettingsResolver } from "../types.js";
 
 const scopeOrder: Array<keyof ScopeDefinition> = [
   "project",

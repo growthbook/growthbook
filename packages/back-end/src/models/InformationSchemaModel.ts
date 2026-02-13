@@ -1,7 +1,7 @@
+import lodash from "lodash";
 import mongoose from "mongoose";
 import { z } from "zod";
 import uniqid from "uniqid";
-import omit from "lodash/omit";
 import {
   InformationSchema,
   InformationSchemaInterface,
@@ -9,6 +9,7 @@ import {
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 
+const { omit } = lodash;
 const informationSchema = new mongoose.Schema({
   id: String,
   organization: {

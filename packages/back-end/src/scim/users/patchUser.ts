@@ -1,11 +1,12 @@
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { Response } from "express";
 import { Member, OrganizationInterface } from "shared/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { ScimError, ScimPatchRequest, ScimUser } from "back-end/types/scim";
 import { expandOrgMembers } from "back-end/src/services/organizations";
-import { expandedMembertoScimUser } from "./getUser";
+import { expandedMembertoScimUser } from "./getUser.js";
 
+const { cloneDeep } = lodash;
 export async function removeUserFromOrg(
   org: OrganizationInterface,
   user: Member,

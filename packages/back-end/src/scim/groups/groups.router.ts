@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { listGroups } from "./listGroups";
-import { createGroup } from "./createGroup";
-import { getGroup } from "./getGroup";
-import { patchGroup } from "./patchGroup";
-import { deleteGroup } from "./deleteGroup";
+import { listGroups } from "./listGroups.js";
+import { createGroup } from "./createGroup.js";
+import { getGroup } from "./getGroup.js";
+import { patchGroup } from "./patchGroup.js";
+import { deleteGroup } from "./deleteGroup.js";
 
 const router = Router();
 

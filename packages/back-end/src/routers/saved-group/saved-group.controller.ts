@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { isEqual } from "lodash";
+import lodash from "lodash";
 import {
   formatByteSizeString,
   SAVED_GROUP_SIZE_LIMIT_BYTES,
@@ -17,6 +17,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 
 // region POST /saved-groups
 
+const { isEqual } = lodash;
 type CreateSavedGroupRequest = AuthRequest<
   CreateSavedGroupProps,
   Record<string, never>,

@@ -21,8 +21,8 @@ import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_USE_STICKY_BUCKETING,
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
-} from "../../constants";
-import { Settings } from "../types";
+} from "../../constants.js";
+import { Settings } from "../types.js";
 
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_ATTRIBUTION_MODEL = "firstExposure";

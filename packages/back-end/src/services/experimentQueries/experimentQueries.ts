@@ -1,3 +1,4 @@
+import lodash from "lodash";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -12,7 +13,6 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
-import cloneDeep from "lodash/cloneDeep";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -30,7 +30,9 @@ import {
   RATIO_METRIC_FLOAT_COLS,
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
-} from "./constants";
+} from "./constants.js";
+
+const { cloneDeep } = lodash;
 
 // Gets all columns besides the speciality quantile columns for all metrics
 export function getNonQuantileFloatColumns({

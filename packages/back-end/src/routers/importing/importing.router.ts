@@ -1,6 +1,6 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
-import * as rawImportingController from "./importing.controller";
+import * as rawImportingController from "./importing.controller.js";
 
 const router = express.Router();
 const importingController = wrapController(rawImportingController);

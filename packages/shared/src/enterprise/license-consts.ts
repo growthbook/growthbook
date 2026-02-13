@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { stringToBoolean } from "../util";
+import { stringToBoolean } from "../util/index.js";
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export const accountPlans: Set<AccountPlan> = new Set([

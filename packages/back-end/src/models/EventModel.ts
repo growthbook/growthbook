@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
+import lodash from "lodash";
 import { z } from "zod";
-import omit from "lodash/omit";
 import mongoose from "mongoose";
-import { isEqual } from "lodash";
 import {
   NotificationEventResource,
   NotificationEvents,
@@ -24,6 +23,7 @@ import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 
+const { omit, isEqual } = lodash;
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
 

@@ -1,1 +1,1 @@
-export * from "./power";
+export * from "./power.js";

@@ -13,7 +13,7 @@ import {
   getPastExperimentsById,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap } from "./QueryRunner.js";
 
 export class PastExperimentsQueryRunner extends QueryRunner<
   PastExperimentsInterface,

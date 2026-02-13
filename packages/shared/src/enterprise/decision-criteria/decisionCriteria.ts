@@ -26,13 +26,16 @@ import {
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
-} from "../../constants";
-import { daysBetween } from "../../dates";
-import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
+} from "../../constants.js";
+import { daysBetween } from "../../dates.js";
+import {
+  getMultipleExposureHealthData,
+  getSRMHealthData,
+} from "../../health/index.js";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
-} from "./constants";
+} from "./constants.js";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined

@@ -1,5 +1,5 @@
+import lodash from "lodash";
 import Agenda, { Job } from "agenda";
-import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ColumnInterface, FactTableInterface } from "shared/types/fact-table";
@@ -14,8 +14,9 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
-import { runColumnsTopValuesQuery } from "./refreshFactTableColumns";
+import { runColumnsTopValuesQuery } from "./refreshFactTableColumns.js";
 
+const { chunk } = lodash;
 const QUEUE_AUTO_SLICE_UPDATES = "queueAutoSliceUpdates";
 const UPDATE_SINGLE_FACT_TABLE_AUTO_SLICES = "updateSingleFactTableAutoSlices";
 

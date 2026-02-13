@@ -1,9 +1,10 @@
+import lodash from "lodash";
 import Handlebars from "handlebars";
-import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 import { z } from "zod";
 
+const { trimEnd } = lodash;
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
 

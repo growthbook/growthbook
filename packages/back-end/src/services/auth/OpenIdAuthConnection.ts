@@ -33,7 +33,7 @@ import {
   VERCEL_CLIENT_ID,
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
-import { AuthConnection, TokensResponse } from "./AuthConnection";
+import { AuthConnection, TokensResponse } from "./AuthConnection.js";
 
 type AuthChecks = {
   connection_id: string;

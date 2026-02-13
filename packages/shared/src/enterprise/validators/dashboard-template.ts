@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { dashboardBlockPartial } from "./dashboard-block";
-import { dashboardEditLevel } from "./dashboard";
+import { dashboardBlockPartial } from "./dashboard-block.js";
+import { dashboardEditLevel } from "./dashboard.js";
 
 export const dashboardTemplateInterface = z
   .object({

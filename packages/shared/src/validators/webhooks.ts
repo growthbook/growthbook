@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { managedByValidator } from "./managed-by";
+import { managedByValidator } from "./managed-by.js";
 
 export const payloadFormatValidator = z.enum([
   "standard",

@@ -6,7 +6,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { validatePostPayload } from "./validations";
+import { validatePostPayload } from "./validations.js";
 
 export const postSdkConnection = createApiRequestHandler(
   postSdkConnectionValidator,

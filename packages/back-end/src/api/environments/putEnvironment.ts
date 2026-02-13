@@ -1,14 +1,15 @@
 import { PutEnvironmentResponse } from "shared/types/openapi";
 import { putEnvironmentValidator } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
-import { isEqual } from "lodash";
+import lodash from "lodash";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { validatePayload } from "./validations";
+import { validatePayload } from "./validations.js";
 
+const { isEqual } = lodash;
 export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
   async (req): Promise<PutEnvironmentResponse> => {
     const id = req.params.id;

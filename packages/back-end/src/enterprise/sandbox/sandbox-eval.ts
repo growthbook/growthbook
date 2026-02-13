@@ -1,4 +1,7 @@
-import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
+import isolatedVm, {
+  Context as ContextType,
+  Reference as ReferenceType,
+} from "isolated-vm";
 import { RequestInit } from "node-fetch";
 import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
@@ -8,6 +11,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 
+const { Isolate, Reference, ExternalCopy } = isolatedVm;
 const parseEnvInt = (value: string | undefined, fallback: number) => {
   if (!value) return fallback;
   const n = parseInt(value, 10);
@@ -180,7 +184,7 @@ export async function sandboxEval(
   const logs: string[] = [];
 
   try {
-    const isolateCtx: Context = await isolate.createContext();
+    const isolateCtx: ContextType = await isolate.createContext();
     const jail = isolateCtx.global;
     await jail.set("global", jail.derefInto());
 
@@ -269,7 +273,7 @@ export async function sandboxEval(
 
     const funcRef = (await jail.get("__user_func", {
       reference: true,
-    })) as Reference;
+    })) as ReferenceType;
 
     if (!funcRef) {
       throw new Error("Compilation error");

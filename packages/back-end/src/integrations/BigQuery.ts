@@ -25,7 +25,7 @@ import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
 } from "back-end/src/services/bigquery";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration.js";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;

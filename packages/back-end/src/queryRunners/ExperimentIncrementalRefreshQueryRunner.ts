@@ -1,9 +1,9 @@
+import lodash from "lodash";
 import {
   ExperimentMetricInterface,
   isFactMetric,
   isRegressionAdjusted,
 } from "shared/experiments";
-import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
 import {
   IncrementalRefreshInterface,
@@ -51,14 +51,16 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
-} from "./ExperimentResultsQueryRunner";
+} from "./ExperimentResultsQueryRunner.js";
 import {
   QueryRunner,
   QueryMap,
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
-} from "./QueryRunner";
+} from "./QueryRunner.js";
+
+const { cloneDeep } = lodash;
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";

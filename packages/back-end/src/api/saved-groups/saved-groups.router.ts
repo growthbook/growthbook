@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getSavedGroup } from "./getSavedGroup";
-import { listSavedGroups } from "./listSavedGroups";
-import { postSavedGroup } from "./postSavedGroup";
-import { updateSavedGroup } from "./updateSavedGroup";
-import { deleteSavedGroup } from "./deleteSavedGroup";
+import { getSavedGroup } from "./getSavedGroup.js";
+import { listSavedGroups } from "./listSavedGroups.js";
+import { postSavedGroup } from "./postSavedGroup.js";
+import { updateSavedGroup } from "./updateSavedGroup.js";
+import { deleteSavedGroup } from "./deleteSavedGroup.js";
 
 const router = Router();
 

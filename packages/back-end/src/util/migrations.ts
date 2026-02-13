@@ -1,12 +1,11 @@
-import isEqual from "lodash/isEqual";
-import cloneDeep from "lodash/cloneDeep";
+import lodash from "lodash";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
   LegacyExperimentReportArgs,
@@ -40,8 +39,9 @@ import { getConfigOrganizationSettings } from "back-end/src/init/config";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets.js";
 
+const { isEqual, cloneDeep } = lodash;
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
@@ -662,7 +662,7 @@ export function upgradeExperimentDoc(
     experiment.shareLevel = "organization";
   }
   if (!("uid" in experiment)) {
-    experiment.uid = uuidv4().replace(/-/g, "");
+    experiment.uid = uuid().replace(/-/g, "");
   }
 
   return experiment as ExperimentInterface;

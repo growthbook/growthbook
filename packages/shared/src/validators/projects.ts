@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { statsEngines } from "shared/constants";
-import { managedByValidator } from "./managed-by";
-import { baseSchema } from "./base-model";
+import { managedByValidator } from "./managed-by.js";
+import { baseSchema } from "./base-model.js";
 
 export const statsEnginesValidator = z.enum(statsEngines);
 

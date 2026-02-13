@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { getFactMetric } from "./getFactMetric";
-import { listFactMetrics } from "./listFactMetrics";
-import { postFactMetric } from "./postFactMetric";
-import { updateFactMetric } from "./updateFactMetric";
-import { deleteFactMetric } from "./deleteFactMetric";
-import { postFactMetricAnalysis } from "./postFactMetricAnalysis";
+import { getFactMetric } from "./getFactMetric.js";
+import { listFactMetrics } from "./listFactMetrics.js";
+import { postFactMetric } from "./postFactMetric.js";
+import { updateFactMetric } from "./updateFactMetric.js";
+import { deleteFactMetric } from "./deleteFactMetric.js";
+import { postFactMetricAnalysis } from "./postFactMetricAnalysis.js";
 
 const router = Router();
 

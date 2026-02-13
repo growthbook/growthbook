@@ -21,11 +21,11 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getQueriesByIds } from "back-end/src/models/QueryModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getSnapshotSettingsFromReportArgs } from "./reports";
+import { getSnapshotSettingsFromReportArgs } from "./reports.js";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
-} from "./stats";
+} from "./stats.js";
 
 async function getQueryData(
   context: ReqContext,

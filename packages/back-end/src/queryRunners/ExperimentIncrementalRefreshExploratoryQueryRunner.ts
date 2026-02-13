@@ -3,7 +3,7 @@ import {
   isFactMetric,
   isRegressionAdjusted,
 } from "shared/experiments";
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import {
   Dimension,
   IncrementalRefreshStatisticsQueryParams,
@@ -39,9 +39,10 @@ import {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
-} from "./QueryRunner";
-import { SnapshotResult } from "./ExperimentResultsQueryRunner";
+} from "./QueryRunner.js";
+import { SnapshotResult } from "./ExperimentResultsQueryRunner.js";
 
+const { cloneDeep } = lodash;
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;

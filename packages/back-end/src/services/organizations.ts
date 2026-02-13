@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { Request } from "express";
 import {
   areProjectRolesValid,
@@ -87,11 +87,16 @@ import {
   encryptParams,
   getSourceIntegrationObject,
   mergeParams,
-} from "./datasource";
-import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { ReqContextClass } from "./context";
+} from "./datasource.js";
+import { createMetric } from "./experiments.js";
+import {
+  isEmailEnabled,
+  sendInviteEmail,
+  sendNewMemberEmail,
+} from "./email.js";
+import { ReqContextClass } from "./context.js";
 
+const { cloneDeep } = lodash;
 export {
   getEnvironments,
   getEnvironmentIdsFromOrg,

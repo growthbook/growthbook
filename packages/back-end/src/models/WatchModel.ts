@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { UpdateResult } from "mongodb";
-import { WatchInterface } from "back-end/types/watch";
+import type { WatchInterface } from "back-end/types/watch";
 import {
   ToInterface,
   getCollection,

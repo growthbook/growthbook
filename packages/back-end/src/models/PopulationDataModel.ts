@@ -1,6 +1,6 @@
 import { PopulationDataInterface } from "shared/types/population-data";
 import { populationDataInterfaceValidator } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: populationDataInterfaceValidator,

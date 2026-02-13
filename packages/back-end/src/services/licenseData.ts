@@ -1,5 +1,8 @@
 import path from "path";
+import { fileURLToPath } from "node:url";
 import fs from "fs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
 import { DefaultMemberRole, OrgMemberInfo } from "shared/types/organization";

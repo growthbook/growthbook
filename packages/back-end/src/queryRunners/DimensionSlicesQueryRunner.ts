@@ -11,7 +11,7 @@ import {
   getDimensionSlicesById,
   updateDimensionSlices,
 } from "back-end/src/models/DimensionSlicesModel";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap } from "./QueryRunner.js";
 export type DimensionSlicesParams = {
   exposureQueryId: string;
   lookbackDays: number;

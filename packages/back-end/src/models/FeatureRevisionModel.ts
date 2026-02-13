@@ -1,5 +1,5 @@
+import lodash from "lodash";
 import mongoose from "mongoose";
-import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
@@ -15,6 +15,7 @@ import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { logger } from "back-end/src/util/logger";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
+const { omit } = lodash;
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
 const featureRevisionSchema = new mongoose.Schema({

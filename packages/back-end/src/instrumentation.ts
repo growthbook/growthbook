@@ -1,6 +1,6 @@
 // Warning: Careful importing other modules, as they and any dependencies they import won't be instrumented.
 import * as Sentry from "@sentry/node";
-import { getBuild } from "./util/build";
+import { getBuild } from "./util/build.js";
 
 const SENTRY_DSN = process.env.SENTRY_DSN;
 if (SENTRY_DSN) {

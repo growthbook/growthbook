@@ -1,5 +1,5 @@
-import { DEFAULT_TARGET_MDE } from "../../constants";
-import { SettingsResolver, Settings, SettingsContext } from "../types";
+import { DEFAULT_TARGET_MDE } from "../../constants.js";
+import { SettingsResolver, Settings, SettingsContext } from "../types.js";
 
 export default function metricTargetMDEResolver(): SettingsResolver<
   Settings[keyof Settings]

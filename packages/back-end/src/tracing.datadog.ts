@@ -1,6 +1,6 @@
 import "./init/aliases";
 import tracer from "dd-trace";
-import { Attributes, setMetrics } from "./util/metrics";
+import { Attributes, setMetrics } from "./util/metrics.js";
 
 tracer.init({
   logInjection: true,

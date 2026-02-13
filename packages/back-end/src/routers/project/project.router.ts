@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawProjectController from "./project.controller";
+import * as rawProjectController from "./project.controller.js";
 
 const router = express.Router();
 

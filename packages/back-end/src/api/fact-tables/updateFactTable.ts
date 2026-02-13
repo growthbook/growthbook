@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import { UpdateFactTableResponse } from "shared/types/openapi";
 import { updateFactTableValidator } from "shared/validators";
 import { UpdateFactTableProps } from "shared/types/fact-table";
@@ -14,6 +14,7 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
+const { omit } = lodash;
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
   columns?: Array<NonNullable<UpdateFactTableProps["columns"]>[0]>;
 };

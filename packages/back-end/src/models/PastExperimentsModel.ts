@@ -1,13 +1,14 @@
+import lodash from "lodash";
 import mongoose from "mongoose";
-import omit from "lodash/omit";
 import uniqid from "uniqid";
 import {
   PastExperiment,
   PastExperimentsInterface,
 } from "shared/types/past-experiments";
 import { Queries } from "shared/types/query";
-import { queriesSchema } from "./QueryModel";
+import { queriesSchema } from "./QueryModel.js";
 
+const { omit } = lodash;
 const pastExperimentsSchema = new mongoose.Schema({
   id: String,
   organization: {

@@ -1,5 +1,5 @@
 import { DEFAULT_POST_STRATIFICATION_ENABLED } from "shared/constants";
-import { SettingsResolver } from "../types";
+import { SettingsResolver } from "../types.js";
 
 /**
  * Resolver for post-stratification enabled setting.

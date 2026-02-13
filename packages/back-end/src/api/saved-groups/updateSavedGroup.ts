@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import lodash from "lodash";
 import { validateCondition } from "shared/util";
 import { UpdateSavedGroupResponse } from "shared/types/openapi";
 import { updateSavedGroupValidator } from "shared/validators";
@@ -6,6 +6,7 @@ import { UpdateSavedGroupProps } from "shared/types/saved-group";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
+const { isEqual } = lodash;
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
 )(async (req): Promise<UpdateSavedGroupResponse> => {

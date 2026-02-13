@@ -1,5 +1,5 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { UpdateMemberRoleResponse } from "shared/types/openapi";
 import { updateMemberRoleValidator } from "shared/validators";
 import { accountFeatures } from "shared/enterprise";
@@ -16,6 +16,7 @@ import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
+const { cloneDeep } = lodash;
 export function validateRoleAndEnvs(
   org: OrganizationInterface,
   role: string,

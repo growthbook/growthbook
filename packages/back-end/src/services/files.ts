@@ -1,5 +1,8 @@
 import path from "path";
+import { fileURLToPath } from "node:url";
 import fs from "fs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import AWS from "aws-sdk";
 import { Storage } from "@google-cloud/storage";
 import {

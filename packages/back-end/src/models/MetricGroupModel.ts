@@ -1,6 +1,6 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { metricGroupValidator } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: metricGroupValidator,

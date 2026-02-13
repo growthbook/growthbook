@@ -1,4 +1,4 @@
-import omit from "lodash/omit";
+import lodash from "lodash";
 import { getFeatureRevisionsValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
@@ -8,6 +8,8 @@ import {
   createApiRequestHandler,
   validatePagination,
 } from "back-end/src/util/handler";
+
+const { omit } = lodash;
 
 export const getFeatureRevisions = createApiRequestHandler(
   getFeatureRevisionsValidator,

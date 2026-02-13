@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { getVisualChangeset } from "./getVisualChangeset";
-import { postVisualChange } from "./postVisualChange";
-import { putVisualChange } from "./putVisualChange";
-import { putVisualChangeset } from "./putVisualChangeset";
+import { getVisualChangeset } from "./getVisualChangeset.js";
+import { postVisualChange } from "./postVisualChange.js";
+import { putVisualChange } from "./putVisualChange.js";
+import { putVisualChangeset } from "./putVisualChangeset.js";
 
 const router = Router();
 

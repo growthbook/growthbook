@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
+import lodash from "lodash";
 import { DimensionSlicesInterface } from "shared/types/dimension";
-import { queriesSchema } from "./QueryModel";
+import { queriesSchema } from "./QueryModel.js";
 
+const { omit } = lodash;
 const dimensionSlicesSchema = new mongoose.Schema({
   id: {
     type: String,

@@ -1,4 +1,5 @@
-import chisquare from "@stdlib/stats/base/dists/chisquare";
+// @ts-expect-error - ESM requires full path to index.js
+import chisquare from "@stdlib/stats/base/dists/chisquare/lib/index.js";
 import { returnZeroIfNotFinite } from "shared/util";
 
 export function checkSrm(users: number[], weights: number[]) {

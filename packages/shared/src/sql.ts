@@ -1,7 +1,7 @@
 import { format as sqlFormat } from "sql-formatter";
-import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect } from "../types/sql";
-import { FormatError } from "../types/error";
+import { SqlResultChunkInterface } from "../types/query.js";
+import { FormatDialect } from "../types/sql.js";
+import { FormatError } from "../types/error.js";
 
 export const SQL_ROW_LIMIT = 1000;
 

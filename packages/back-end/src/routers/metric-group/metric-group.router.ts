@@ -6,8 +6,8 @@ import {
   createMetricGroupPropsValidator,
   updateMetricGroupPropsValidator,
   updateOrderValidator,
-} from "./metric-group.validators";
-import * as rawMetricGroupController from "./metric-group.controller";
+} from "./metric-group.validators.js";
+import * as rawMetricGroupController from "./metric-group.controller.js";
 
 const router = express.Router();
 

@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getSegment } from "./getSegment";
-import { listSegments } from "./listSegments";
-import { deleteSegment } from "./deleteSegment";
-import { postSegment } from "./postSegment";
-import { updateSegment } from "./updateSegment";
+import { getSegment } from "./getSegment.js";
+import { listSegments } from "./listSegments.js";
+import { deleteSegment } from "./deleteSegment.js";
+import { postSegment } from "./postSegment.js";
+import { updateSegment } from "./updateSegment.js";
 
 const router = Router();
 

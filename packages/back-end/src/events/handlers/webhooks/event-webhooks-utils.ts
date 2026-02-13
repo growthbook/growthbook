@@ -1,6 +1,5 @@
 import { createHmac } from "crypto";
-import omit from "lodash/omit";
-import isEqual from "lodash/isEqual";
+import lodash from "lodash";
 import {
   DiffResult,
   HierarchicalModification,
@@ -12,6 +11,8 @@ import {
   HierarchicalValue,
   NestedObjectConfig,
 } from "shared/types/events/diff";
+
+const { omit, isEqual } = lodash;
 
 export type EventWebHookSuccessResult = {
   result: "success";

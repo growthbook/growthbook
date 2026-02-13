@@ -1,9 +1,8 @@
 import { randomUUID } from "crypto";
+import lodash from "lodash";
 import { z } from "zod";
-import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
-import intersection from "lodash/intersection";
 import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
@@ -16,8 +15,9 @@ import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
-import { createEvent } from "./EventModel";
+import { createEvent } from "./EventModel.js";
 
+const { omit, intersection } = lodash;
 const eventWebHookSchema = new mongoose.Schema({
   id: {
     type: String,

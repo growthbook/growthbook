@@ -6,7 +6,7 @@ import {
   userAuthenticationValidator,
   resourceValidator,
 } from "back-end/src/routers/vercel-native-integration/vercel-native-integration.validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const upsertDataValidator = z
   .object({

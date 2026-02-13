@@ -1,41 +1,45 @@
-import uniq from "lodash/uniq";
+import lodash from "lodash";
+const { uniq } = lodash;
 import { paddedVersionString } from "@growthbook/growthbook";
 import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
-import { CapabilityStrategy, SDKCapability } from "./types";
+import { CapabilityStrategy, SDKCapability } from "./types.js";
 
-import * as nocode_json from "./sdk-versions/nocode.json";
-import * as javascript_json from "./sdk-versions/javascript.json";
-import * as nodejs_json from "./sdk-versions/nodejs.json";
-import * as nextjs_json from "./sdk-versions/nextjs.json";
-import * as react_json from "./sdk-versions/react.json";
-import * as php_json from "./sdk-versions/php.json";
-import * as python_json from "./sdk-versions/python.json";
-import * as ruby_json from "./sdk-versions/ruby.json";
-import * as java_json from "./sdk-versions/java.json";
-import * as kotlin_json from "./sdk-versions/kotlin.json";
-import * as swift_json from "./sdk-versions/swift.json";
-import * as go_json from "./sdk-versions/go.json";
-import * as flutter_json from "./sdk-versions/flutter.json";
-import * as csharp_json from "./sdk-versions/csharp.json";
-import * as elixir_json from "./sdk-versions/elixir.json";
-import * as edge_cloudflare_json from "./sdk-versions/edge-cloudflare.json";
-import * as edge_fastly_json from "./sdk-versions/edge-fastly.json";
-import * as edge_lambda_json from "./sdk-versions/edge-lambda.json";
-import * as edge_other_json from "./sdk-versions/edge-other.json";
-import * as rust_json from "./sdk-versions/rust.json";
-import * as roku_json from "./sdk-versions/roku.json";
-import * as other_json from "./sdk-versions/other.json";
+// Generated from sdk-versions/*.json - bundle-friendly (no node:module)
+import {
+  nocode_json,
+  javascript_json,
+  nodejs_json,
+  nextjs_json,
+  react_json,
+  php_json,
+  python_json,
+  ruby_json,
+  java_json,
+  kotlin_json,
+  swift_json,
+  go_json,
+  flutter_json,
+  csharp_json,
+  elixir_json,
+  edge_cloudflare_json,
+  edge_fastly_json,
+  edge_lambda_json,
+  edge_other_json,
+  rust_json,
+  roku_json,
+  other_json,
+} from "./sdk-versions-data.generated.js";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
 type SDKData = {
-  versions: SDKVersionData[];
+  versions: readonly SDKVersionData[];
 };
 type SDKVersionData = {
   version: string;
-  capabilities?: string[];
+  capabilities?: readonly string[];
 };
 
 export const sdks: SDKRecords = {
@@ -266,5 +270,5 @@ export function getMinSupportedSDKVersions(
   return matches;
 }
 
-export * from "./types";
-export * from "./sdk-payload";
+export * from "./types.js";
+export * from "./sdk-payload.js";

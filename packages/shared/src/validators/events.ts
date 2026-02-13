@@ -6,15 +6,15 @@ import {
   ResourceEvents,
   WebhookEntry,
 } from "shared/types/events/base-types";
-import { apiExperimentValidator, apiFeatureValidator } from "./openapi";
+import { apiExperimentValidator, apiFeatureValidator } from "./openapi.js";
 import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
-} from "./safe-rollout-notifications";
-import { experimentWarningNotificationPayload } from "./experiment-warnings";
-import { experimentInfoSignificance } from "./experiment-info";
-import { experimentDecisionNotificationPayload } from "./experiment-decision";
-import { userLoginInterface } from "./users";
+} from "./safe-rollout-notifications.js";
+import { experimentWarningNotificationPayload } from "./experiment-warnings.js";
+import { experimentInfoSignificance } from "./experiment-info.js";
+import { experimentDecisionNotificationPayload } from "./experiment-decision.js";
+import { userLoginInterface } from "./users.js";
 
 const eventUserLoggedIn = z
   .object({

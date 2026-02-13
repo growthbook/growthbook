@@ -1,5 +1,5 @@
-import { isBinomialMetric, isFactMetric } from "../../experiments";
-import { Settings, SettingsContext, SettingsResolver } from "../types";
+import { isBinomialMetric, isFactMetric } from "../../experiments.js";
+import { Settings, SettingsContext, SettingsResolver } from "../types.js";
 
 const regressionAdjustmentResolver = (
   field: "enabled" | "days",

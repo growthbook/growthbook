@@ -10,7 +10,7 @@ import {
 } from "shared/enterprise";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawDashboardsController from "./dashboards.controller";
+import * as rawDashboardsController from "./dashboards.controller.js";
 
 const router = express.Router();
 const dashboardsController = wrapController(rawDashboardsController);

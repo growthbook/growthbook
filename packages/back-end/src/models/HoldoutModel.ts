@@ -1,7 +1,7 @@
 import { HoldoutInterface, holdoutValidator } from "shared/validators";
 import { ExperimentInterface } from "shared/types/experiment";
-import { MakeModelClass } from "./BaseModel";
-import { getExperimentById } from "./ExperimentModel";
+import { MakeModelClass } from "./BaseModel.js";
+import { getExperimentById } from "./ExperimentModel.js";
 
 const BaseClass = MakeModelClass({
   schema: holdoutValidator,

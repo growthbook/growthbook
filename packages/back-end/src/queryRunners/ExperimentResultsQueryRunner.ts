@@ -59,7 +59,7 @@ import {
   ProcessedRowsType,
   RowsType,
   StartQueryParams,
-} from "./QueryRunner";
+} from "./QueryRunner.js";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;

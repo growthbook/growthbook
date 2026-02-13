@@ -1,6 +1,6 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
-import * as rawCustomHooksController from "./custom-hooks.controller";
+import * as rawCustomHooksController from "./custom-hooks.controller.js";
 
 const router = express.Router();
 const customHooksController = wrapController(rawCustomHooksController);

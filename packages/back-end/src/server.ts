@@ -1,9 +1,9 @@
-import "./init/aliases";
-import "./init/dotenv";
-import "./instrumentation";
-import app from "./app";
-import { logger } from "./util/logger";
-import { getAgendaInstance } from "./services/queueing";
+import "./init/aliases.js";
+import "./init/dotenv.js";
+import "./instrumentation.js";
+import app from "./app.js";
+import { logger } from "./util/logger.js";
+import { getAgendaInstance } from "./services/queueing.js";
 
 const server = app.listen(app.get("port"), () => {
   logger.info(

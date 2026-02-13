@@ -3,7 +3,7 @@ import {
   FeatureRevisionLogInterface,
   featureRevisionLogValidator,
 } from "back-end/src/validators/feature-revision-log";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 export const COLLECTION_NAME = "featurerevisionlog";
 

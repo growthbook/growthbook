@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { listFeatures } from "./listFeatures";
-import { toggleFeature } from "./toggleFeature";
-import { revertFeature } from "./revertFeature";
-import { getFeature } from "./getFeature";
-import { postFeature } from "./postFeature";
-import { updateFeature } from "./updateFeature";
-import { deleteFeatureById } from "./deleteFeature";
-import { getFeatureRevisions } from "./getFeatureRevisions";
+import { listFeatures } from "./listFeatures.js";
+import { toggleFeature } from "./toggleFeature.js";
+import { revertFeature } from "./revertFeature.js";
+import { getFeature } from "./getFeature.js";
+import { postFeature } from "./postFeature.js";
+import { updateFeature } from "./updateFeature.js";
+import { deleteFeatureById } from "./deleteFeature.js";
+import { getFeatureRevisions } from "./getFeatureRevisions.js";
 
 const router = Router();
 

@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawTagController from "./tag.controller";
+import * as rawTagController from "./tag.controller.js";
 
 const router = express.Router();
 

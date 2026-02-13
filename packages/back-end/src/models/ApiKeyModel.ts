@@ -16,7 +16,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { findAllOrganizations } from "./OrganizationModel";
+import { findAllOrganizations } from "./OrganizationModel.js";
 
 const apiKeySchema = new mongoose.Schema({
   id: String,

@@ -1,5 +1,8 @@
 import path from "path";
+import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import nunjucks from "nunjucks";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -13,7 +16,7 @@ import {
   APP_ORIGIN,
 } from "back-end/src/util/secrets";
 import { getEmailFromUserId } from "back-end/src/models/UserModel";
-import { getInviteUrl } from "./organizations";
+import { getInviteUrl } from "./organizations.js";
 
 export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);

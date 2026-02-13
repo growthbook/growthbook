@@ -1,6 +1,6 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
-import * as rawHoldoutController from "./holdout.controller";
+import * as rawHoldoutController from "./holdout.controller.js";
 
 const router = express.Router();
 const holdoutController = wrapController(rawHoldoutController);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { postBulkImportFacts } from "./postBulkImportFacts";
+import { postBulkImportFacts } from "./postBulkImportFacts.js";
 
 const router = Router();
 

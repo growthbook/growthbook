@@ -9,7 +9,7 @@ import {
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawEnvironmentController from "./environment.controller";
+import * as rawEnvironmentController from "./environment.controller.js";
 
 const router = express.Router();
 

@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getUser } from "./getUser";
-import { createUser } from "./createUser";
-import { listUsers } from "./listUsers";
-import { patchUser } from "./patchUser";
-import { putUser } from "./putUser";
+import { getUser } from "./getUser.js";
+import { createUser } from "./createUser.js";
+import { listUsers } from "./listUsers.js";
+import { patchUser } from "./patchUser.js";
+import { putUser } from "./putUser.js";
 
 const router = Router();
 

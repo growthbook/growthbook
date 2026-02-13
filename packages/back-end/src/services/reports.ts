@@ -1,3 +1,4 @@
+import lodash from "lodash";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_METRIC_WINDOW,
@@ -22,8 +23,6 @@ import {
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
-import uniq from "lodash/uniq";
-import { pick, omit } from "lodash";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportVariation,
@@ -80,6 +79,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
+const { uniq, pick, omit } = lodash;
 export function getReportVariations(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,

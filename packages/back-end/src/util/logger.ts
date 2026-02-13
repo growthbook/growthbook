@@ -10,7 +10,7 @@ import {
 } from "shared/util";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
+import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets.js";
 
 const redactPaths = [
   "req.headers.authorization",

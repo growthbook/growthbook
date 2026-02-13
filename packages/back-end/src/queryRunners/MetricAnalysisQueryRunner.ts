@@ -19,7 +19,7 @@ import {
 import { FactMetricInterface } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
 import { getMetricWithFiltersApplied } from "back-end/src/services/metric-analysis";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap } from "./QueryRunner.js";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,

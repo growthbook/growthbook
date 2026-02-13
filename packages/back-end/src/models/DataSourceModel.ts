@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { cloneDeep, isEqual } from "lodash";
+import lodash from "lodash";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -27,8 +27,9 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
-import { deleteFactTable, getFactTable } from "./FactTableModel";
+import { deleteFactTable, getFactTable } from "./FactTableModel.js";
 
+const { cloneDeep, isEqual } = lodash;
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
   name: String,

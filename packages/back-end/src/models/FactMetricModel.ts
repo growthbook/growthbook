@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
@@ -20,9 +20,10 @@ import {
 import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { MakeModelClass } from "./BaseModel";
-import { getFactTableMap } from "./FactTableModel";
+import { MakeModelClass } from "./BaseModel.js";
+import { getFactTableMap } from "./FactTableModel.js";
 
+const { omit } = lodash;
 const BaseClass = MakeModelClass({
   schema: factMetricValidator,
   collectionName: "factmetrics",

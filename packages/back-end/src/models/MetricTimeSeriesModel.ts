@@ -10,7 +10,7 @@ import {
   CreateMetricTimeSeriesSingleDataPoint,
 } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: metricTimeSeriesSchema,

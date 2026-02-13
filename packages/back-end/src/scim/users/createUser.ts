@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { getDefaultRole, isRoleValid } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -12,6 +12,8 @@ import {
   createUser as createNewUser,
   getUserByEmail,
 } from "back-end/src/models/UserModel";
+
+const { cloneDeep } = lodash;
 
 export async function createUser(
   req: ScimUserPostRequest,

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
+import lodash from "lodash";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -16,6 +16,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
+const { omit } = lodash;
 const factTableSchema = new mongoose.Schema({
   id: String,
   managedBy: String,

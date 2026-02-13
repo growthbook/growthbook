@@ -1,9 +1,12 @@
 import { ChildProcess, spawn } from "child_process";
 import os from "os";
 import path from "path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { randomUUID } from "crypto";
-import { CloudWatch } from "aws-sdk";
-import { createPool } from "generic-pool";
+import awsSdk, { CloudWatch as CloudWatchType } from "aws-sdk";
+import generic_pool from "generic-pool";
 import { stringToBoolean } from "shared/util";
 import JSON5 from "json5";
 import { MultipleExperimentMetricAnalysis } from "shared/types/stats";
@@ -12,6 +15,8 @@ import { logger } from "back-end/src/util/logger";
 import { ENVIRONMENT, IS_CLOUD } from "back-end/src/util/secrets";
 import { metrics } from "back-end/src/util/metrics";
 
+const { CloudWatch } = awsSdk;
+const { createPool } = generic_pool;
 type PythonServerResponse<T> = {
   id: string;
   time: number;
@@ -58,7 +63,7 @@ const STATS_ENGINE_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "GB_STATS_ENGINE_TIMEOUT_MS" },
 );
 
-let cloudWatch: CloudWatch | null = null;
+let cloudWatch: CloudWatchType | null = null;
 if (IS_CLOUD) {
   cloudWatch = new CloudWatch({
     region: process.env.AWS_REGION || "us-east-1",
@@ -282,7 +287,7 @@ function publishPoolSizeToCloudWatch(value: number) {
           },
         ],
       },
-      (error) => {
+      (error: Error) => {
         if (error && ENVIRONMENT === "production") {
           logger.error(
             "Failed to publish Python stats pool size to CloudWatch (callback): " +

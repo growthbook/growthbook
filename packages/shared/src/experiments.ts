@@ -1,5 +1,7 @@
-import normal from "@stdlib/stats/base/dists/normal";
-import cloneDeep from "lodash/cloneDeep";
+// @ts-expect-error - ESM requires full path to index.js
+import normal from "@stdlib/stats/base/dists/normal/lib/index.js";
+import lodash from "lodash";
+const { cloneDeep } = lodash;
 import uniqid from "uniqid";
 import {
   DEFAULT_GUARDRAIL_ALPHA,
@@ -46,8 +48,8 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { TemplateVariables } from "../types/sql";
-import { stringToBoolean } from "./util";
+import { TemplateVariables } from "../types/sql.js";
+import { stringToBoolean } from "./util/index.js";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 

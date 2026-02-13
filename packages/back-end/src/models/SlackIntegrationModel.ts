@@ -1,8 +1,6 @@
 import { randomUUID } from "crypto";
+import lodash from "lodash";
 import mongoose from "mongoose";
-import omit from "lodash/omit";
-import pick from "lodash/pick";
-import intersection from "lodash/intersection";
 import { z } from "zod";
 import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
@@ -11,6 +9,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 
+const { omit, pick, intersection } = lodash;
 const slackIntegrationSchema = new mongoose.Schema({
   id: {
     type: String,

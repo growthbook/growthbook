@@ -1,11 +1,12 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import {
   WebhookSecretFrontEndInterface,
   webhookSecretSchema,
 } from "shared/validators";
 import { secretsReplacer } from "back-end/src/util/secrets";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
+const { omit } = lodash;
 const BaseClass = MakeModelClass({
   schema: webhookSecretSchema,
   collectionName: "webhooksecrets",

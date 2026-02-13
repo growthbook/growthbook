@@ -7,7 +7,7 @@ import {
   DashboardBlockInterface,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
-import { groupBy } from "lodash";
+import lodash from "lodash";
 import { SavedQuery } from "shared/validators";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
@@ -37,7 +37,12 @@ import {
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
-import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
+import {
+  createDashboardBody,
+  updateDashboardBody,
+} from "./dashboards.router.js";
+
+const { groupBy } = lodash;
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
-import usersRouter from "./users/users.router";
-import groupsRouter from "./groups/groups.router";
-import scimMiddleware from "./middleware/scimMiddleware";
+import usersRouter from "./users/users.router.js";
+import groupsRouter from "./groups/groups.router.js";
+import scimMiddleware from "./middleware/scimMiddleware.js";
 
 const router = Router();
 

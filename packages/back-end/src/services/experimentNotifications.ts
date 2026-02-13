@@ -35,8 +35,8 @@ import {
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
-} from "./organizations";
-import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
+} from "./organizations.js";
+import { isEmailEnabled, sendExperimentChangesEmail } from "./email.js";
 
 // This ensures that the two types remain equal.
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({

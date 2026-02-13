@@ -1,5 +1,5 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { omit } from "lodash";
+import lodash from "lodash";
 import { ExperimentAggregateUnitsQueryResponseRows } from "shared/types/integrations";
 import { Queries, QueryStatus } from "shared/types/query";
 import {
@@ -14,12 +14,12 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { logger } from "back-end/src/util/logger";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { QueryRunner, QueryMap } from "./QueryRunner.js";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
   TRAFFIC_QUERY_NAME,
-} from "./ExperimentResultsQueryRunner";
+} from "./ExperimentResultsQueryRunner.js";
 
 export type SafeRolloutSnapshotResult = {
   unknownVariations: string[];
@@ -160,7 +160,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     if (result?.unknownVariations.length) {
       logger.error(new Error("More than 2 variations on a safe rollout"));
     }
-    const strippedResult = omit(result, ["unknownVariations"]);
+    const strippedResult = lodash.omit(result, ["unknownVariations"]);
     const updates: Partial<SafeRolloutSnapshotInterface> = {
       queries,
       ...(runStarted && { runStarted }),

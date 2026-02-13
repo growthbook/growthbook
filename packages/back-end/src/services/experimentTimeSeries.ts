@@ -1,10 +1,10 @@
+import lodash from "lodash";
 import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
   expandAllSliceMetricsInMap,
 } from "shared/experiments";
-import cloneDeep from "lodash/cloneDeep";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
@@ -31,6 +31,7 @@ import { ReqContext } from "back-end/types/request";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 
+const { cloneDeep } = lodash;
 export async function updateExperimentTimeSeries({
   context,
   previousAnalysisSummary,

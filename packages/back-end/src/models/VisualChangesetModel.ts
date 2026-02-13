@@ -1,5 +1,4 @@
-import { keyBy } from "lodash";
-import omit from "lodash/omit";
+import lodash from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
@@ -18,7 +17,9 @@ import {
   getExperimentById,
   getPayloadKeys,
   updateExperiment,
-} from "./ExperimentModel";
+} from "./ExperimentModel.js";
+
+const { omit, keyBy } = lodash;
 
 const visualChangesetURLPatternSchema =
   new mongoose.Schema<VisualChangesetURLPattern>(

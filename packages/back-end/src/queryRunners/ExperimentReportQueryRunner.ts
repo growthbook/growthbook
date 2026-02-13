@@ -17,8 +17,8 @@ import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
-} from "./ExperimentResultsQueryRunner";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+} from "./ExperimentResultsQueryRunner.js";
+import { QueryRunner, QueryMap } from "./QueryRunner.js";
 
 export type SnapshotResult = {
   unknownVariations: string[];

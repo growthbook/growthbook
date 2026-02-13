@@ -10,6 +10,6 @@
     "baseUrl": "./"
   },
   "module": {
-    "type": "umd"
+    "type": "es6"
   }
 }

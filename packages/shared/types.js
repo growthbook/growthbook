@@ -1,1 +1,1 @@
-module.exports = require("./types");
+export * from "./types.js";

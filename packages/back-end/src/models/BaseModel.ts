@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { v4 as uuidv4 } from "uuid";
+import lodash from "lodash";
+import { v4 as uuid } from "uuid";
 import uniqid from "uniqid";
 import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
-import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { baseSchema } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
@@ -32,6 +31,7 @@ import {
 import { ApiRequest } from "back-end/src/util/handler";
 import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
 
+const { omit, isEqual, pick } = lodash;
 export type Context = ApiReqContext | ReqContext;
 
 export type BaseSchema = typeof baseSchema;
@@ -470,7 +470,7 @@ export abstract class BaseModel<
     return uniqid(this.config.idPrefix);
   }
   protected _generateUid() {
-    return uuidv4().replace(/-/g, "");
+    return uuid().replace(/-/g, "");
   }
 
   /**

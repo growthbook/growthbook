@@ -2,16 +2,88 @@
   "name": "shared",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./ai": {
+      "types": "./src/ai.ts",
+      "default": "./dist/ai.js"
+    },
+    "./constants": {
+      "types": "./src/constants.ts",
+      "default": "./dist/constants.js"
+    },
+    "./dates": {
+      "types": "./src/dates.ts",
+      "default": "./dist/dates.js"
+    },
+    "./demo-datasource": {
+      "types": "./src/demo-datasource/index.ts",
+      "default": "./dist/demo-datasource/index.js"
+    },
+    "./enterprise": {
+      "types": "./src/enterprise/index.ts",
+      "default": "./dist/enterprise/index.js"
+    },
+    "./experiments": {
+      "types": "./src/experiments.ts",
+      "default": "./dist/experiments.js"
+    },
+    "./health": {
+      "types": "./src/health/index.ts",
+      "default": "./dist/health/index.js"
+    },
+    "./permissions": {
+      "types": "./src/permissions/index.ts",
+      "default": "./dist/permissions/index.js"
+    },
+    "./power": {
+      "types": "./src/power/index.ts",
+      "default": "./dist/power/index.js"
+    },
+    "./sdk-versioning": {
+      "types": "./src/sdk-versioning/index.ts",
+      "default": "./dist/sdk-versioning/index.js"
+    },
+    "./settings": {
+      "types": "./src/settings/index.ts",
+      "default": "./dist/settings/index.js"
+    },
+    "./sql": {
+      "types": "./src/sql.ts",
+      "default": "./dist/sql.js"
+    },
+    "./util": {
+      "types": "./src/util/index.ts",
+      "default": "./dist/util/index.js"
+    },
+    "./validators": {
+      "types": "./src/validators/index.ts",
+      "default": "./dist/validators/index.js"
+    },
+    "./types": {
+      "types": "./types.d.ts",
+      "default": "./types.js"
+    },
+    "./types/*": {
+      "types": "./types/*.d.ts",
+      "default": "./types/*.js"
+    }
+  },
   "engines": {
     "node": ">=16"
   },
   "scripts": {
     "build:clean": "rimraf dist",
     "build:typescript": "tsc",
-    "dev": "swc src -w --out-dir dist",
-    "build": "pnpm build:clean && pnpm build:typescript",
+    "build:gen-sdk-data": "node scripts/generate-sdk-versions-data.cjs",
+    "dev": "pnpm build:gen-sdk-data && pnpm build:clean && swc src --out-dir dist && swc src -w --out-dir dist",
+    "build": "pnpm build:gen-sdk-data && pnpm build:clean && pnpm build:typescript",
     "test": "jest --forceExit --verbose --detectOpenHandles",
     "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit",

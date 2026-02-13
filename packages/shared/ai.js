@@ -1,1 +1,1 @@
-module.exports = require("./dist/ai");
+export * from "./dist/ai.js";

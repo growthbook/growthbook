@@ -1,7 +1,7 @@
 import Agenda, { AgendaConfig, DefineOptions, Processor } from "agenda";
 import mongoose from "mongoose";
-import { trackJob } from "./tracing";
-import { addJobLifecycleChecks } from "./jobLifecycle";
+import { trackJob } from "./tracing.js";
+import { addJobLifecycleChecks } from "./jobLifecycle.js";
 
 let agendaInstance: Agenda;
 

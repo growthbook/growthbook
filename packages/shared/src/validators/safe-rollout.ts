@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { experimentAnalysisSummary } from "./experiments";
-import { baseSchema } from "./base-model";
+import { experimentAnalysisSummary } from "./experiments.js";
+import { baseSchema } from "./base-model.js";
 
 export const safeRolloutStatusArray = [
   "running",

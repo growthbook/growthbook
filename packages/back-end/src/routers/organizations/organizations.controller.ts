@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { cloneDeep } from "lodash";
+import lodash from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -152,6 +152,8 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
+
+const { cloneDeep } = lodash;
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);

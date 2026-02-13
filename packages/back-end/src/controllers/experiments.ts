@@ -1,7 +1,7 @@
+import lodash from "lodash";
 import { Response } from "express";
 import uniqid from "uniqid";
-import format from "date-fns/format";
-import cloneDeep from "lodash/cloneDeep";
+import { format } from "date-fns";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
@@ -16,8 +16,7 @@ import {
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
-import { v4 as uuidv4 } from "uuid";
-import uniq from "lodash/uniq";
+import { v4 as uuid } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -138,6 +137,7 @@ import {
 } from "back-end/src/enterprise/services/ai";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 
+const { cloneDeep, uniq } = lodash;
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
 export async function getExperiments(
@@ -1995,7 +1995,7 @@ export async function postExperimentStatus(
         namespace: clonedPhase.namespace,
         reason: "",
         variationWeights: clonedPhase.variationWeights,
-        seed: uuidv4(),
+        seed: uuid(),
       });
 
       // flush the sticky existing buckets
@@ -2452,7 +2452,7 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
-      seed: phases.length && reseed ? uuidv4() : seed,
+      seed: phases.length && reseed ? uuid() : seed,
     });
   }
   changes.phases = phases;

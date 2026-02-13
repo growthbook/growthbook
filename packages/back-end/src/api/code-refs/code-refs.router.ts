@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { postCodeRefs } from "./postCodeRefs";
-import { getCodeRefs } from "./getCodeRefs";
-import { listCodeRefs } from "./listCodeRefs";
+import { postCodeRefs } from "./postCodeRefs.js";
+import { getCodeRefs } from "./getCodeRefs.js";
+import { listCodeRefs } from "./listCodeRefs.js";
 
 const router = Router();
 

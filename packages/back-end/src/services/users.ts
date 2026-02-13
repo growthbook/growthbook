@@ -7,7 +7,7 @@ import { getUserByEmail, updateUser } from "back-end/src/models/UserModel";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { createEventWithPayload } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-import { validatePasswordFormat } from "./auth";
+import { validatePasswordFormat } from "./auth/index.js";
 
 const SALT_LEN = 16;
 const HASH_LEN = 64;

@@ -7,7 +7,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { validatePutPayload } from "./validations";
+import { validatePutPayload } from "./validations.js";
 
 export const putSdkConnection = createApiRequestHandler(
   putSdkConnectionValidator,

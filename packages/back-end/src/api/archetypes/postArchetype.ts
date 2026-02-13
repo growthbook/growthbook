@@ -6,7 +6,7 @@ import {
   toArchetypeApiInterface,
 } from "back-end/src/models/ArchetypeModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { validatePayload } from "./validations";
+import { validatePayload } from "./validations.js";
 
 export const postArchetype = createApiRequestHandler(postArchetypeValidator)(
   async (req): Promise<PostArchetypeResponse> => {

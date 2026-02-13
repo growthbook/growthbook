@@ -1,5 +1,6 @@
+import lodash from "lodash";
 import mongoose from "mongoose";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import uniqid from "uniqid";
 import { UpdateProps } from "shared/types/base-model";
 import { isString } from "shared/util";
@@ -23,7 +24,6 @@ import {
   convertPinnedSlicesToSliceTags,
   isDifferenceType,
 } from "shared/enterprise";
-import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
 import {
   MakeModelClass,
@@ -36,6 +36,7 @@ import {
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 
+const { omit } = lodash;
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 type LegacyDashboardDocument = Omit<
   DashboardDocument,
@@ -413,7 +414,7 @@ export class DashboardModel extends BaseClass {
       ),
     );
     return {
-      uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
+      uid: uuid().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
       isDeleted: false,
       userId: this.context.userId,
@@ -473,7 +474,7 @@ export function generateDashboardBlockIds(
     ...initialValue,
     organization,
     id: uniqid("dshblk_"),
-    uid: uuidv4().replace(/-/g, ""),
+    uid: uuid().replace(/-/g, ""),
   };
 
   return blockToInterface(block);

@@ -1,6 +1,6 @@
 import { fetch } from "back-end/src/util/http.util";
-import { logger } from "./logger";
-import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "./secrets";
+import { logger } from "./logger.js";
+import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "./secrets.js";
 
 export function getSurrogateKeysFromEnvironments(
   orgId: string,

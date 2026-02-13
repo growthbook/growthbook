@@ -3,7 +3,7 @@ import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
   dashboardBlockInterface,
-} from "./dashboard-block";
+} from "./dashboard-block.js";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
 export const dashboardShareLevel = z.enum(["published", "private"]);

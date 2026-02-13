@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import {
   SignedImageUrlResponse,
   SignedUploadUrlResponse,
@@ -77,7 +77,7 @@ export async function putUpload(
 
   const now = new Date();
   const pathPrefix = `${context.org.id}/${now.toISOString().substr(0, 7)}/`;
-  const fileName = "img_" + uuidv4();
+  const fileName = "img_" + uuid();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
   const fileURL = await uploadFile(filePath, contentType, req.body);
 
@@ -181,7 +181,7 @@ export async function getSignedUploadToken(
   const ext = mimetypes[contentType];
   const now = new Date();
   const pathPrefix = `${org.id}/${now.toISOString().substr(0, 7)}/`;
-  const fileName = "img_" + uuidv4();
+  const fileName = "img_" + uuid();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
 
   const { signedUrl, fileUrl, fields } = await getSignedUploadUrl(

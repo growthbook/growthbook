@@ -1,4 +1,4 @@
-import { isEqual, uniqWith } from "lodash";
+import lodash from "lodash";
 import { isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
@@ -38,6 +38,7 @@ import {
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 
 // To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
+const { isEqual, uniqWith } = lodash;
 export async function updateExperimentDashboards({
   context,
   experiment,

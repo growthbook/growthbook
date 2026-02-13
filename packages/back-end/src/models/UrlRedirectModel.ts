@@ -1,4 +1,4 @@
-import { keyBy } from "lodash";
+import lodash from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -13,9 +13,10 @@ import {
   getAllURLRedirectExperiments,
   getPayloadKeys,
   updateExperiment,
-} from "./ExperimentModel";
-import { MakeModelClass } from "./BaseModel";
+} from "./ExperimentModel.js";
+import { MakeModelClass } from "./BaseModel.js";
 
+const { keyBy } = lodash;
 type WriteOptions = {
   checkCircularDependencies?: boolean;
   skipSDKRefresh?: boolean;

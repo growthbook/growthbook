@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { featureEnvironment } from "./features";
+import { featureEnvironment } from "./features.js";
 
 export const holdoutLinkedItemValidator = z.object({
   dateAdded: z.date(),

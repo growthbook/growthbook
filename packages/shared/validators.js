@@ -1,1 +1,1 @@
-module.exports = require("./dist/validators");
+export * from "./dist/validators/index.js";

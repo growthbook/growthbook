@@ -1,9 +1,10 @@
-import { omit } from "lodash";
+import lodash from "lodash";
 import mongoose from "mongoose";
 import { AITokenUsageInterface } from "shared/ai";
 import { OrganizationInterface } from "shared/types/organization";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
+const { omit } = lodash;
 type AITokenUsageDocument = mongoose.Document & AITokenUsageInterface;
 
 const DAILY_TOKEN_LIMIT = process.env.OPENAI_DAILY_TOKEN_LIMIT || 1000000;

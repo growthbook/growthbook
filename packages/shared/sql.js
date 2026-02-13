@@ -1,1 +1,1 @@
-module.exports = require("./dist/sql");
+export * from "./dist/sql.js";

@@ -1,6 +1,6 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
-import * as rawDecisionCriteriaController from "./decision-criteria.controller";
+import * as rawDecisionCriteriaController from "./decision-criteria.controller.js";
 
 const router = express.Router();
 

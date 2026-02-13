@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { omit } from "lodash";
+import lodash from "lodash";
 import {
   MetricTimeSeries,
   CreateSafeRolloutInterface,
@@ -16,6 +16,7 @@ import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 
 // region GET /safe-rollout/:id/snapshot
+const { omit } = lodash;
 /**
  * GET /safe-rollout/:id/snapshot
  * Get the latest snapshot and the latest snapshot with results for a safe rollout

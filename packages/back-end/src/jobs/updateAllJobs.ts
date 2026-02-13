@@ -7,12 +7,12 @@ import {
   purgeCDNCache,
 } from "back-end/src/util/cdn.util";
 import { logger } from "back-end/src/util/logger";
-import { queueProxyUpdate } from "./proxyUpdate";
+import { queueProxyUpdate } from "./proxyUpdate.js";
 import {
   fireGlobalSdkWebhooks,
   queueWebhooksByConnections,
-} from "./sdkWebhooks";
-import { queueLegacySdkWebhooks } from "./webhooks";
+} from "./sdkWebhooks.js";
+import { queueLegacySdkWebhooks } from "./webhooks.js";
 
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,

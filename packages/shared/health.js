@@ -1,1 +1,1 @@
-module.exports = require("./dist/health");
+export * from "./dist/health/index.js";

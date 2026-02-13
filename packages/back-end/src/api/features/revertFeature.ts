@@ -1,5 +1,5 @@
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
-import { isEqual } from "lodash";
+import lodash from "lodash";
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { revertFeatureValidator } from "shared/validators";
 import {
@@ -20,6 +20,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 
+const { isEqual } = lodash;
 export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {
     const context = req.context;

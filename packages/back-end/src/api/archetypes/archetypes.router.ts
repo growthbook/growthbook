@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { listArchetypes } from "./listArchetypes";
-import { postArchetype } from "./postArchetype";
-import { getArchetype } from "./getArchetype";
-import { putArchetype } from "./putArchetype";
-import { deleteArchetype } from "./deleteArchetype";
+import { listArchetypes } from "./listArchetypes.js";
+import { postArchetype } from "./postArchetype.js";
+import { getArchetype } from "./getArchetype.js";
+import { putArchetype } from "./putArchetype.js";
+import { deleteArchetype } from "./deleteArchetype.js";
 
 const router = Router();
 

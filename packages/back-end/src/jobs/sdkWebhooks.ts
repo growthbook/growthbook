@@ -3,7 +3,7 @@ import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
-import { Promise as BluebirdPromise } from "bluebird";
+import bluebird from "bluebird";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { WebhookInterface, WebhookPayloadFormat } from "shared/types/webhook";
 import { getFeatureDefinitions } from "back-end/src/services/features";
@@ -23,6 +23,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
+const { Promise: BluebirdPromise } = bluebird;
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
   webhookId: string;

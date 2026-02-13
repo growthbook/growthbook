@@ -1,5 +1,5 @@
+import lodash from "lodash";
 import { analyticsreporting_v4, google } from "googleapis";
-import cloneDeep from "lodash/cloneDeep";
 import {
   MetricValueParams,
   ExperimentMetricQueryResponse,
@@ -56,6 +56,7 @@ import {
 import { sumSquaresFromStats } from "back-end/src/util/stats";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
+const { cloneDeep } = lodash;
 export function getOauth2Client() {
   return new google.auth.OAuth2(
     GOOGLE_OAUTH_CLIENT_ID,

@@ -1,4 +1,4 @@
-import cloneDeep from "lodash/cloneDeep";
+import lodash from "lodash";
 import {
   BANDIT_SRM_DIMENSION_NAME,
   DEFAULT_P_VALUE_THRESHOLD,
@@ -18,7 +18,6 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
-import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
@@ -62,6 +61,7 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
 
+const { cloneDeep, chunk } = lodash;
 export const MAX_DIMENSIONS = 20;
 
 export function getAnalysisSettingsForStatsEngine(

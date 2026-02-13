@@ -1,4 +1,4 @@
-import { groupBy, values } from "lodash";
+import lodash from "lodash";
 import { PostCodeRefsResponse } from "shared/types/openapi";
 import { postCodeRefsValidator } from "shared/validators";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -8,6 +8,8 @@ import {
   getFeatureKeysForRepoBranch,
   upsertFeatureCodeRefs,
 } from "back-end/src/models/FeatureCodeRefs";
+
+const { groupBy, values } = lodash;
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {

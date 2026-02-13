@@ -1,6 +1,6 @@
 import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
-import * as usersControllerRaw from "./users.controller";
+import * as usersControllerRaw from "./users.controller.js";
 
 const router = express.Router();
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { listMembers } from "./listMembers";
-import { updateMemberRole } from "./updateMemberRole";
-import { deleteMember } from "./deleteMember";
+import { listMembers } from "./listMembers.js";
+import { updateMemberRole } from "./updateMemberRole.js";
+import { deleteMember } from "./deleteMember.js";
 
 const router = Router();
 

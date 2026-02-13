@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { pick, omit } from "lodash";
+import lodash from "lodash";
 import uniqid from "uniqid";
 import { experimentAnalysisSettings } from "shared/validators";
 import {
@@ -47,6 +47,7 @@ import {
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 
+const { pick, omit } = lodash;
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
   res: Response,

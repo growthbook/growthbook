@@ -4,7 +4,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 export const COLLECTION_NAME = "saferollout";
 

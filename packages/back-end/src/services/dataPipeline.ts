@@ -14,7 +14,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
-} from "./experimentTimeSeries";
+} from "./experimentTimeSeries.js";
 
 // If the given settings / experiment is not compatible with incremental refresh, throw an error.
 // Otherwise, return void.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zodNotificationEventNamesEnum } from "./events";
+import { zodNotificationEventNamesEnum } from "./events.js";
 
 export const eventWebHookPayloadTypes = [
   "raw",

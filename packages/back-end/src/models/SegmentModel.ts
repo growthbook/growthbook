@@ -2,7 +2,7 @@ import { SegmentInterface } from "shared/types/segment";
 import { segmentValidator } from "shared/validators";
 import { getConfigSegments, usingFileConfig } from "back-end/src/init/config";
 import { STORE_SEGMENTS_IN_MONGO } from "back-end/src/util/secrets";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 const BaseClass = MakeModelClass({
   schema: segmentValidator,

@@ -7,7 +7,7 @@ import {
   getFilterDataForNotificationEvent,
   filterEventForEnvironments,
 } from "back-end/src/events/handlers/utils";
-import { EventWebHookNotifier } from "./EventWebHookNotifier";
+import { EventWebHookNotifier } from "./EventWebHookNotifier.js";
 
 /**
  * Common handler that looks up the web hooks and makes a post request with the event.

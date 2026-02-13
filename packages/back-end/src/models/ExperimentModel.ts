@@ -1,10 +1,9 @@
-import { each, isEqual, pick, uniqWith } from "lodash";
+import lodash from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
-import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
-import { v4 as uuidv4 } from "uuid";
+import { v4 as uuid } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import {
@@ -48,15 +47,16 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { IdeaDocument } from "./IdeasModel";
-import { addTags } from "./TagModel";
-import { createEvent } from "./EventModel";
+import { IdeaDocument } from "./IdeasModel.js";
+import { addTags } from "./TagModel.js";
+import { createEvent } from "./EventModel.js";
 import {
   findVisualChangesets,
   VisualChangesetModel,
-} from "./VisualChangesetModel";
-import { getFeaturesByIds } from "./FeatureModel";
+} from "./VisualChangesetModel.js";
+import { getFeaturesByIds } from "./FeatureModel.js";
 
+const { cloneDeep, each, isEqual, pick, uniqWith } = lodash;
 const COLLECTION = "experiments";
 
 type FindOrganizationOptions = {
@@ -524,7 +524,7 @@ export async function createExperiment({
 
   const exp = await ExperimentModel.create({
     id: uniqid("exp_"),
-    uid: uuidv4().replace(/-/g, ""),
+    uid: uuid().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
     //set the default phase seed to uuid
@@ -532,7 +532,7 @@ export async function createExperiment({
       ? data.phases.map(({ ...phase }) => {
           return {
             ...phase,
-            seed: phase.seed || uuidv4(),
+            seed: phase.seed || uuid(),
           };
         })
       : [],

@@ -1,7 +1,8 @@
+import lodash from "lodash";
 import mongoose from "mongoose";
-import omit from "lodash/omit";
 import { LicenseInterface } from "shared/enterprise";
 
+const { omit } = lodash;
 const licenseSchema = new mongoose.Schema({
   id: String, // Unique ID for the license key
   companyName: String, // Name of the organization on the license

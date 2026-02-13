@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getMetric } from "./getMetric";
-import { listMetrics } from "./listMetrics";
-import { postMetric } from "./postMetric";
-import { putMetric } from "./putMetric";
-import { deleteMetricHandler as deleteMetric } from "./deleteMetric";
+import { getMetric } from "./getMetric.js";
+import { listMetrics } from "./listMetrics.js";
+import { postMetric } from "./postMetric.js";
+import { putMetric } from "./putMetric.js";
+import { deleteMetricHandler as deleteMetric } from "./deleteMetric.js";
 
 const router = Router();
 

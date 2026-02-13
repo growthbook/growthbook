@@ -1,1 +1,1 @@
-module.exports = require("./dist/power");
+export * from "./dist/power/index.js";

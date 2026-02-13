@@ -5,8 +5,8 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   putDefaultRoleValidator,
   putMemberProjectRoleValidator,
-} from "./organizations.validators";
-import * as organizationsControllerRaw from "./organizations.controller";
+} from "./organizations.validators.js";
+import * as organizationsControllerRaw from "./organizations.controller.js";
 
 const router = express.Router();
 

@@ -1,8 +1,8 @@
 import { ReqContext } from "back-end/types/request";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
 import { ApiReqContext } from "back-end/types/api";
-import { queueSDKPayloadRefresh } from "./features";
-import { getContextForAgendaJobByOrgObject } from "./organizations";
+import { queueSDKPayloadRefresh } from "./features.js";
+import { getContextForAgendaJobByOrgObject } from "./organizations.js";
 
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,

@@ -1,7 +1,7 @@
-import chunk from "lodash/chunk";
+import lodash from "lodash";
 
-// eslint-disable-next-line
-export async function promiseAllChunks<T = any>(
+const { chunk } = lodash;
+export async function promiseAllChunks<T = unknown>(
   callbacks: (() => Promise<T>)[],
   chunkSize: number = 3,
 ): Promise<T[]> {

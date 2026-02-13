@@ -15,14 +15,14 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { isNumber, isString } from "../../util/types";
-import { getSnapshotAnalysis } from "../../util";
+import { isNumber, isString } from "../../util/types.js";
+import { getSnapshotAnalysis } from "../../util/index.js";
 import {
   parseSliceQueryString,
   generateSliceString,
   expandMetricGroups,
-} from "../../experiments";
-import { DataVizConfig } from "../../../validators";
+} from "../../experiments.js";
+import { DataVizConfig } from "../../validators/index.js";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 

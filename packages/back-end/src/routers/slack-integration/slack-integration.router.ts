@@ -3,7 +3,7 @@ import { z } from "zod";
 import { zodNotificationEventNamesEnum } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawSlackIntegrationController from "./slack-integration.controller";
+import * as rawSlackIntegrationController from "./slack-integration.controller.js";
 
 const router = express.Router();
 

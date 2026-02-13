@@ -15,7 +15,7 @@ import {
   crudActions,
   defaultHandlers,
   HttpVerb,
-} from "./apiModelHandlers";
+} from "./apiModelHandlers.js";
 
 export const API_MODELS: ModelClass[] = [DashboardModel, CustomFieldModel];
 

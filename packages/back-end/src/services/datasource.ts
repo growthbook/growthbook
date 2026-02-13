@@ -1,4 +1,4 @@
-import { AES, enc } from "crypto-js";
+import CryptoJS from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
@@ -35,11 +35,16 @@ import { ApiReqContext } from "back-end/types/api";
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
 ): T {
-  return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
+  return JSON.parse(
+    CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8),
+  );
 }
 
 export function encryptParams(params: DataSourceParams): string {
-  return AES.encrypt(JSON.stringify(params), ENCRYPTION_KEY).toString();
+  return CryptoJS.AES.encrypt(
+    JSON.stringify(params),
+    ENCRYPTION_KEY,
+  ).toString();
 }
 
 export function getNonSensitiveParams(integration: SourceIntegrationInterface) {

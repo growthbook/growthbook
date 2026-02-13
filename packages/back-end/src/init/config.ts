@@ -1,5 +1,8 @@
 import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
 import { SegmentInterface } from "shared/types/segment";

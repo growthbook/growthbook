@@ -1,7 +1,7 @@
+import lodash from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { v4 as uuidv4 } from "uuid";
-import omit from "lodash/omit";
+import { v4 as uuid } from "uuid";
 import {
   ExperimentReportInterface,
   ExperimentSnapshotReportInterface,
@@ -11,9 +11,10 @@ import { migrateExperimentReport } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-import { getAllExperiments } from "./ExperimentModel";
-import { queriesSchema } from "./QueryModel";
+import { getAllExperiments } from "./ExperimentModel.js";
+import { queriesSchema } from "./QueryModel.js";
 
+const { omit } = lodash;
 const reportSchema = new mongoose.Schema({
   id: String,
   uid: String,
@@ -81,7 +82,7 @@ export async function createReport(
     ...initialValue,
     organization,
     id: uniqid("rep_"),
-    uid: uuidv4().replace(/-/g, ""),
+    uid: uuid().replace(/-/g, ""),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });

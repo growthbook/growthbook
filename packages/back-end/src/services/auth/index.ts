@@ -38,9 +38,9 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { licenseInit } from "back-end/src/enterprise";
-import { AuthConnection } from "./AuthConnection";
-import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
-import { LocalAuthConnection } from "./LocalAuthConnection";
+import { AuthConnection } from "./AuthConnection.js";
+import { OpenIdAuthConnection } from "./OpenIdAuthConnection.js";
+import { LocalAuthConnection } from "./LocalAuthConnection.js";
 
 type JWTInfo = {
   email: string;

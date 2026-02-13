@@ -1,6 +1,6 @@
 import { execReportValidator } from "shared/validators";
 import { ExecReportInterface } from "shared/types/exec-report";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel.js";
 
 // Define the date range type
 
