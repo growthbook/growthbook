@@ -178,6 +178,24 @@ export type ExperimentDecisionFrameworkSettings = z.infer<
   typeof experimentDecisionFrameworkSettings
 >;
 
+export const lookbackOverrideValueUnit = z.enum(["minutes", "hours", "days"]);
+export type LookbackOverrideValueUnit = z.infer<
+  typeof lookbackOverrideValueUnit
+>;
+
+export const lookbackOverride = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("date"),
+    value: z.coerce.date(),
+  }),
+  z.object({
+    type: z.literal("window"),
+    value: z.number().min(0),
+    valueUnit: lookbackOverrideValueUnit,
+  }),
+]);
+export type LookbackOverride = z.infer<typeof lookbackOverride>;
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
@@ -188,6 +206,7 @@ export const experimentAnalysisSettings = z
     guardrailMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),
     metricOverrides: z.array(metricOverride).optional(),
+    lookbackOverride: lookbackOverride.optional(),
     decisionFrameworkSettings: experimentDecisionFrameworkSettings,
     segment: z.string().optional(),
     queryFilter: z.string().optional(),

@@ -140,6 +140,15 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
+  lookbackOverride: {
+    type: { type: String, enum: ["date", "window"] },
+    value: mongoose.Schema.Types.Mixed, // Date for "date" type, Number for "window" type
+    valueUnit: {
+      type: String,
+      enum: ["minutes", "hours", "days"],
+      default: "hours",
+    },
+  },
   decisionFrameworkSettings: {
     decisionCriteriaId: String,
     decisionFrameworkMetricOverrides: [

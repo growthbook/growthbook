@@ -47,7 +47,7 @@ import {
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
-import { differenceInHours } from "date-fns";
+import { differenceInMinutes } from "date-fns";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -72,7 +72,10 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "shared/types/openapi";
-import { MetricPriorSettings } from "shared/types/fact-table";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+} from "shared/types/fact-table";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -520,6 +523,35 @@ export function getSnapshotSettings({
     });
   }
 
+  const phaseEndDate = phase.dateEnded || currentDate;
+  const lookbackOverride = experiment.lookbackOverride;
+  const phaseLookbackWindow =
+    lookbackOverride?.type === "window"
+      ? {
+          value: lookbackOverride.value,
+          unit: (lookbackOverride.valueUnit ?? "hours") as ConversionWindowUnit,
+        }
+      : lookbackOverride?.type === "date"
+        ? {
+            value: Math.max(
+              0,
+              differenceInMinutes(phaseEndDate, lookbackOverride.value, {
+                roundingMethod: "ceil",
+              }),
+            ),
+            unit: "minutes" as const,
+          }
+        : experiment.type === "holdout" &&
+            phase.lookbackStartDate &&
+            phase.lookbackStartDate < currentDate
+          ? {
+              value: differenceInMinutes(currentDate, phase.lookbackStartDate, {
+                roundingMethod: "ceil",
+              }),
+              unit: "minutes" as const,
+            }
+          : undefined;
+
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: {
       goalMetrics,
@@ -538,17 +570,7 @@ export function getSnapshotSettings({
         settingsForSnapshotMetrics,
         metricOverrides: experiment.metricOverrides,
         decisionFrameworkSettings: experiment.decisionFrameworkSettings,
-        phaseLookbackWindow:
-          experiment.type === "holdout" &&
-          phase.lookbackStartDate &&
-          phase.lookbackStartDate < currentDate
-            ? {
-                value: differenceInHours(currentDate, phase.lookbackStartDate, {
-                  roundingMethod: "ceil",
-                }),
-                unit: "hours",
-              }
-            : undefined,
+        phaseLookbackWindow,
       }),
     )
     .filter(isDefined);

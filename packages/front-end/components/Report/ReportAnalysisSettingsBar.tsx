@@ -66,6 +66,8 @@ export default function ReportAnalysisSettingsBar({
     ? getDatasourceById(report.experimentAnalysisSettings.datasource)?.settings
     : undefined;
 
+  const lookbackOverride = report.experimentAnalysisSettings.lookbackOverride;
+
   const userIdType = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === report.experimentAnalysisSettings.exposureQueryId,
   )?.userIdType;
@@ -184,6 +186,20 @@ export default function ReportAnalysisSettingsBar({
               </div>
             </div>
           </div>
+          {lookbackOverride ? (
+            <div className="col-auto d-flex align-items-end">
+              <div>
+                <div className="uppercase-title text-muted">
+                  Lookback Enforced
+                </div>
+                <div className="relative">
+                  {lookbackOverride.type === "date"
+                    ? `${date(lookbackOverride.value, "UTC")} - ${snapshot.settings.endDate ? date(snapshot.settings.endDate, "UTC") : "now"}`
+                    : `${lookbackOverride.value} ${lookbackOverride.valueUnit}`}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end align-items-center">
           <div className="col-auto mr-2" style={{ fontSize: "12px" }}>

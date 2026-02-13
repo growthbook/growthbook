@@ -120,6 +120,7 @@ export default function ExperimentDimensionBlock({
       isLatestPhase={true}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
+      lookbackOverride={experiment.lookbackOverride}
       baselineRow={baselineRow}
       variationFilter={variationFilter}
     >

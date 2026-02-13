@@ -13,6 +13,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
+import { date } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -168,6 +169,10 @@ export default function ResultsTab({
     }));
   }, [setAnalysisBarSettings, setAnalysisSettings]);
 
+  const endDate =
+    experiment.phases.length > 0
+      ? experiment.phases[experiment.phases.length - 1].dateEnded
+      : null;
   return (
     <div>
       {isBandit && hasResults ? (
@@ -197,7 +202,7 @@ export default function ResultsTab({
                 label="Engine"
                 value={
                   analysis?.settings?.statsEngine === "frequentist"
-                    ? "Frequentist"
+                    ? `Frequentist${analysis?.settings?.sequentialTesting ? " Sequential" : ""}`
                     : "Bayesian"
                 }
               />
@@ -219,16 +224,6 @@ export default function ResultsTab({
                   }
                 />
               ) : null}
-              {analysis?.settings?.statsEngine === "frequentist" ? (
-                <Metadata
-                  label="Sequential"
-                  value={
-                    analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"
-                  }
-                />
-              ) : null}
               {segment ? (
                 <Metadata label="Segment" value={segment.name} />
               ) : null}
@@ -236,6 +231,16 @@ export default function ResultsTab({
                 <Metadata
                   label="Activation Metric"
                   value={activationMetric.name}
+                />
+              ) : null}
+              {experiment.lookbackOverride ? (
+                <Metadata
+                  label="Lookback Enforced"
+                  value={
+                    experiment.lookbackOverride.type === "date"
+                      ? `${date(experiment.lookbackOverride.value, "UTC")} - ${endDate ? date(endDate, "UTC") : "now"}`
+                      : `${experiment.lookbackOverride.value} ${experiment.lookbackOverride.valueUnit}`
+                  }
                 />
               ) : null}
               {isBandit && snapshot ? (
@@ -393,7 +398,6 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
-                  reportDetailsLink={false}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}

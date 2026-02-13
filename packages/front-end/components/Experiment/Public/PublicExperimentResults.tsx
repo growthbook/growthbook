@@ -137,6 +137,7 @@ export default function PublicExperimentResults({
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            lookbackOverride={experiment.lookbackOverride}
             differenceType={analysis?.settings?.differenceType || "relative"}
             ssrPolyfills={ssrPolyfills}
           >

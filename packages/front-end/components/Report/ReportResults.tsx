@@ -187,6 +187,9 @@ export default function ReportResults({
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            lookbackOverride={
+              report.experimentAnalysisSettings.lookbackOverride
+            }
             differenceType={analysis?.settings.differenceType}
             ssrPolyfills={ssrPolyfills}
             isReportContext

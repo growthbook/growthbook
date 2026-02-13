@@ -168,6 +168,7 @@ export default function ExperimentMetricBlock({
       isLatestPhase={true}
       sequentialTestingEnabled={sequentialTestingEnabled}
       differenceType={differenceType}
+      lookbackOverride={experiment.lookbackOverride}
       baselineRow={baselineRow}
       variationFilter={variationFilter}
     >
