@@ -9637,6 +9637,8 @@ export interface operations {
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
+          /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
+          allowDuplicateTrackingKey?: boolean;
           /** @description Name of the experiment */
           name: string;
           /** @enum {string} */
@@ -10167,6 +10169,8 @@ export interface operations {
           datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
+          /** @description If true, allow updating the tracking key even if another experiment with the same tracking key already exists */
+          allowDuplicateTrackingKey?: boolean;
           /** @description Name of the experiment */
           name?: string;
           /** @enum {string} */
